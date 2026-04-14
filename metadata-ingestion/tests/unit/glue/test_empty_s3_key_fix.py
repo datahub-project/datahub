@@ -92,8 +92,8 @@ def test_empty_s3_key_handling():
         # This implicitly tests that we don't crash with the ParamValidationError
 
 
-def test_get_dataflow_graph_with_empty_key_directly():
-    """Test the get_dataflow_graph method directly with empty S3 keys."""
+def test_get_dataflow_script_with_empty_key_directly():
+    """Test the get_dataflow_script method directly with empty S3 keys."""
 
     config = GlueSourceConfig(
         aws_region="us-west-2",
@@ -105,13 +105,13 @@ def test_get_dataflow_graph_with_empty_key_directly():
 
     # Test case 1: S3 URI with trailing slash (empty key)
     flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    result = glue_source_instance.get_dataflow_graph("s3://bucket-only/", flow_urn)
+    result = glue_source_instance.get_dataflow_script("s3://bucket-only/", flow_urn)
 
     assert result is None
     assert glue_source_instance.report.num_job_script_location_invalid == 1
 
     # Test case 2: S3 URI without trailing slash (still empty key)
-    result = glue_source_instance.get_dataflow_graph("s3://bucket-only", flow_urn)
+    result = glue_source_instance.get_dataflow_script("s3://bucket-only", flow_urn)
 
     assert result is None
     assert glue_source_instance.report.num_job_script_location_invalid == 2
@@ -124,7 +124,7 @@ def test_get_dataflow_graph_with_empty_key_directly():
         )
 
         try:
-            glue_source_instance.get_dataflow_graph(
+            glue_source_instance.get_dataflow_script(
                 "s3://valid-bucket/path/to/script.py", flow_urn
             )
         except Exception as e:
@@ -151,7 +151,7 @@ def test_original_error_scenario():
     flow_urn = "urn:li:dataFlow:(glue,problematic-job,PROD)"
 
     # This call should not raise ParamValidationError anymore
-    result = glue_source_instance.get_dataflow_graph("s3://bucket/", flow_urn)
+    result = glue_source_instance.get_dataflow_script("s3://bucket/", flow_urn)
 
     # Should return None instead of crashing
     assert result is None
@@ -184,7 +184,7 @@ def test_param_validation_error_handling():
             glue_source_instance.report.num_job_script_location_invalid
         )
 
-        result = glue_source_instance.get_dataflow_graph(
+        result = glue_source_instance.get_dataflow_script(
             "s3://test-bucket/invalid-key", flow_urn
         )
 
@@ -211,7 +211,7 @@ def test_param_validation_error_handling():
             glue_source_instance.report.num_job_script_location_invalid
         )
 
-        result = glue_source_instance.get_dataflow_graph(
+        result = glue_source_instance.get_dataflow_script(
             "s3://invalid-bucket-name/script.py", flow_urn
         )
 
@@ -232,7 +232,7 @@ def test_param_validation_error_handling():
 
 if __name__ == "__main__":
     test_empty_s3_key_handling()
-    test_get_dataflow_graph_with_empty_key_directly()
+    test_get_dataflow_script_with_empty_key_directly()
     test_original_error_scenario()
     test_param_validation_error_handling()
     print("All tests passed!")
