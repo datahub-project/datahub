@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.plugins;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -33,6 +35,7 @@ import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
+import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
@@ -45,14 +48,17 @@ import com.linkedin.metadata.structuredproperties.validation.StructuredPropertie
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -186,6 +192,26 @@ public class SpringStandardPluginConfiguration {
         DataProductUnsetSideEffect.class.getName(),
         !multipleDataProductsEnabled);
     return new DataProductUnsetSideEffect().setConfig(config);
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
+  @ConditionalOnBean(MeterRegistry.class)
+  public MCPObserver ingestionMetricsEmitter(
+      @Nonnull final MeterRegistry meterRegistry, @Nonnull final ObjectMapper objectMapper) {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .className(IngestionMetricsEmitter.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("UPSERT", "CREATE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                        .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                        .build()))
+            .build();
+    return new IngestionMetricsEmitter(meterRegistry, objectMapper).setConfig(config);
   }
 
   @Bean

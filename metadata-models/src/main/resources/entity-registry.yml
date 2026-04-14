@@ -801,6 +801,13 @@ plugins:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
+  mcpObservers:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPObserver'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
   mutationHooks:
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
       enabled: true

@@ -6,18 +6,18 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.StructuredExecutionReport;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -31,22 +31,36 @@ public class IngestionMetricsEmitterTest {
 
   private IngestionMetricsEmitter emitter;
   private SimpleMeterRegistry meterRegistry;
+  private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
     meterRegistry = new SimpleMeterRegistry();
-    emitter = new IngestionMetricsEmitter(meterRegistry);
+    retrieverContext = mock(RetrieverContext.class);
+
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .className(IngestionMetricsEmitter.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("UPSERT", "CREATE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName("dataHubExecutionRequest")
+                        .aspectName(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    emitter = new IngestionMetricsEmitter(meterRegistry, new ObjectMapper());
+    emitter.setConfig(config);
   }
 
   @Test
   public void testCliIngestProcessed() throws Exception {
-    AspectsBatch batch =
-        toBatch(
-            List.of(
-                createBatchItem(
-                    createCliResult("SUCCEEDED", 1000L, 100, 5, 2, 3), ChangeType.UPSERT)));
+    BatchItem item =
+        createBatchItem(createCliResult("SUCCEEDED", 1000L, 100, 5, 2, 3), ChangeType.UPSERT);
 
-    emitter.processProposals(batch);
+    emitter.observeMCPs(List.of(item), retrieverContext);
 
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertNotNull(runsCounter);
@@ -73,7 +87,7 @@ public class IngestionMetricsEmitterTest {
     assertNotNull(failuresCounter);
     assertEquals(failuresCounter.count(), 3.0);
 
-    // Verify connector tag from CLI format (Source (file) → connector=file)
+    // Verify connector tag from CLI format (source.type=file)
     Counter connectorCounter =
         meterRegistry.find("com.datahub.ingest.runs").tag("connector", "file").counter();
     assertNotNull(connectorCounter);
@@ -88,13 +102,10 @@ public class IngestionMetricsEmitterTest {
 
   @Test
   public void testRunIngestProcessed() throws Exception {
-    AspectsBatch batch =
-        toBatch(
-            List.of(
-                createBatchItem(
-                    createExecutorResult("SUCCEEDED", 2000L, 500, 50, 1, 0), ChangeType.UPSERT)));
+    BatchItem item =
+        createBatchItem(createExecutorResult("SUCCEEDED", 2000L, 500, 50, 1, 0), ChangeType.UPSERT);
 
-    emitter.processProposals(batch);
+    emitter.observeMCPs(List.of(item), retrieverContext);
 
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertNotNull(runsCounter);
@@ -113,7 +124,7 @@ public class IngestionMetricsEmitterTest {
     assertNotNull(recordsCounter);
     assertEquals(recordsCounter.count(), 50.0);
 
-    // Verify connector tag from executor format
+    // Verify connector tag from executor format (source.type=snowflake)
     Counter connectorCounter =
         meterRegistry.find("com.datahub.ingest.runs").tag("connector", "snowflake").counter();
     assertNotNull(connectorCounter);
@@ -125,22 +136,9 @@ public class IngestionMetricsEmitterTest {
     BatchItem item = mock(BatchItem.class);
     when(item.getAspectName()).thenReturn("schemaMetadata");
     when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(item.getAspect(ExecutionRequestResult.class)).thenReturn(null);
 
-    emitter.processProposals(toBatch(List.of(item)));
-
-    Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
-    assertTrue(runsCounter == null || runsCounter.count() == 0.0);
-  }
-
-  @Test
-  public void testRestateIgnored() throws Exception {
-    AspectsBatch batch =
-        toBatch(
-            List.of(
-                createBatchItem(
-                    createCliResult("SUCCEEDED", 1000L, 100, 5, 0, 0), ChangeType.RESTATE)));
-
-    emitter.processProposals(batch);
+    emitter.observeMCPs(List.of(item), retrieverContext);
 
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertTrue(runsCounter == null || runsCounter.count() == 0.0);
@@ -153,12 +151,12 @@ public class IngestionMetricsEmitterTest {
     result.setDurationMs(1000L);
 
     StructuredExecutionReport structuredReport = new StructuredExecutionReport();
-    structuredReport.setType("TEST_CONNECTION"); // Not CLI_INGEST or RUN_INGEST
+    structuredReport.setType("TEST_CONNECTION");
     structuredReport.setSerializedValue("{}");
     structuredReport.setContentType("application/json");
     result.setStructuredReport(structuredReport);
 
-    emitter.processProposals(toBatch(List.of(createBatchItem(result, ChangeType.UPSERT))));
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
 
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertTrue(runsCounter == null || runsCounter.count() == 0.0);
@@ -176,7 +174,7 @@ public class IngestionMetricsEmitterTest {
     result.setStructuredReport(structuredReport);
 
     // Should not throw
-    emitter.processProposals(toBatch(List.of(createBatchItem(result, ChangeType.UPSERT))));
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
 
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertTrue(runsCounter == null || runsCounter.count() == 0.0);
@@ -200,7 +198,10 @@ public class IngestionMetricsEmitterTest {
             + "  \"type\": \"datahub-rest\","
             + "  \"report\": {"
             + "    \"total_records_written\": 90,"
-            + "    \"failures\": [\"write failed\",\"timeout\"]"
+            + "    \"failures\": ["
+            + "      {\"title\":\"write failed\",\"message\":\"timeout\"},"
+            + "      {\"title\":\"write failed\",\"message\":\"connection reset\"}"
+            + "    ]"
             + "  }"
             + "}"
             + "}";
@@ -215,7 +216,7 @@ public class IngestionMetricsEmitterTest {
     structuredReport.setContentType("application/json");
     result.setStructuredReport(structuredReport);
 
-    emitter.processProposals(toBatch(List.of(createBatchItem(result, ChangeType.UPSERT))));
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
 
     Counter sinkFailuresCounter = meterRegistry.find("com.datahub.ingest.sink_failures").counter();
     assertNotNull(sinkFailuresCounter);
@@ -224,83 +225,57 @@ public class IngestionMetricsEmitterTest {
 
   @Test
   public void testMultipleItemsMixed() throws Exception {
-    // One ingestion item
     BatchItem ingestionItem =
         createBatchItem(createCliResult("SUCCEEDED", 1000L, 100, 5, 0, 0), ChangeType.UPSERT);
 
-    // One non-ingestion item (different aspect)
+    // Non-ingestion item returns null from getAspect
     BatchItem nonIngestionItem = mock(BatchItem.class);
     when(nonIngestionItem.getAspectName()).thenReturn("schemaMetadata");
     when(nonIngestionItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(nonIngestionItem.getAspect(ExecutionRequestResult.class)).thenReturn(null);
 
-    emitter.processProposals(toBatch(List.of(ingestionItem, nonIngestionItem)));
+    emitter.observeMCPs(List.of(ingestionItem, nonIngestionItem), retrieverContext);
 
-    // Only the ingestion item should be counted
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertNotNull(runsCounter);
     assertEquals(runsCounter.count(), 1.0);
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testBuildRunEventMapUsesConnectorField() throws Exception {
-    ObjectMapper mapper = new ObjectMapper();
-    String reportJsonStr =
-        "{"
-            + "\"source\": {"
-            + "  \"type\": \"snowflake\","
-            + "  \"report\": {"
-            + "    \"events_produced\": 100,"
-            + "    \"warnings\": [], \"failures\": []"
-            + "  }"
-            + "},"
-            + "\"sink\": {"
-            + "  \"type\": \"datahub-rest\","
-            + "  \"report\": {\"total_records_written\": 90, \"failures\": []}"
-            + "}"
-            + "}";
-    JsonNode reportJson = mapper.readTree(reportJsonStr);
-    JsonNode sourceReport = reportJson.path("source").path("report");
-    JsonNode sinkReport = reportJson.path("sink").path("report");
+    Urn executionRequestUrn = Urn.createFromString(TEST_EXECUTION_REQUEST_URN);
+    IngestionRunReport.Report report = new IngestionRunReport.Report();
+    IngestionRunReport.SourceSection sourceSection = new IngestionRunReport.SourceSection();
+    sourceSection.setType("snowflake");
+    IngestionRunReport.SourceReport sourceReport = new IngestionRunReport.SourceReport();
+    sourceReport.setEventsProduced(100);
+    sourceSection.setReport(sourceReport);
+    report.setSource(sourceSection);
 
-    IngestionMetricsEmitter.RunEvent runEvent =
-        new IngestionMetricsEmitter.RunEvent(
-            Urn.createFromString(TEST_EXECUTION_REQUEST_URN),
-            "snowflake",
-            "SUCCEEDED",
-            1000L,
-            100L,
-            90L,
-            0,
-            0,
-            0,
-            reportJson,
-            sourceReport,
-            sinkReport);
+    IngestionRunReport.SinkSection sinkSection = new IngestionRunReport.SinkSection();
+    IngestionRunReport.SinkReport sinkReport = new IngestionRunReport.SinkReport();
+    sinkReport.setTotalRecordsWritten(90);
+    sinkSection.setReport(sinkReport);
+    report.setSink(sinkSection);
 
-    Map<String, Object> event = emitter.buildRunEventMap(runEvent);
+    Map<String, Object> event =
+        emitter.buildRunEventMap(
+            executionRequestUrn, "snowflake", "SUCCEEDED", 1000L, 100L, 90L, 0, 0, 0, report);
 
-    // Verify "connector" field (not "platform")
     assertEquals(event.get("connector"), "snowflake");
     assertTrue(!event.containsKey("platform"));
-    // Verify no customer field
     assertTrue(!event.containsKey("customer"));
-    // Verify other essential fields
     assertEquals(event.get("status"), "SUCCEEDED");
     assertEquals(event.get("execution_id"), "test-pipeline-12345");
   }
 
   @Test
   public void testThreeLabelsPresent() throws Exception {
-    AspectsBatch batch =
-        toBatch(
-            List.of(
-                createBatchItem(
-                    createExecutorResult("SUCCEEDED", 2000L, 500, 50, 0, 0), ChangeType.UPSERT)));
+    BatchItem item =
+        createBatchItem(createExecutorResult("SUCCEEDED", 2000L, 500, 50, 0, 0), ChangeType.UPSERT);
 
-    emitter.processProposals(batch);
+    emitter.observeMCPs(List.of(item), retrieverContext);
 
-    // All 3 labels should be present on the runs counter
     Counter counter =
         meterRegistry
             .find("com.datahub.ingest.runs")
@@ -314,12 +289,10 @@ public class IngestionMetricsEmitterTest {
 
   @Test
   public void testFailureStatusRecorded() throws Exception {
-    AspectsBatch batch =
-        toBatch(
-            List.of(
-                createBatchItem(createCliResult("FAILURE", 500L, 0, 0, 0, 2), ChangeType.UPSERT)));
+    BatchItem item =
+        createBatchItem(createCliResult("FAILURE", 500L, 0, 0, 0, 2), ChangeType.UPSERT);
 
-    emitter.processProposals(batch);
+    emitter.observeMCPs(List.of(item), retrieverContext);
 
     Counter counter =
         meterRegistry.find("com.datahub.ingest.runs").tag("status", "FAILURE").counter();
@@ -339,7 +312,7 @@ public class IngestionMetricsEmitterTest {
     result.setDurationMs(1000L);
     // No structuredReport set
 
-    emitter.processProposals(toBatch(List.of(createBatchItem(result, ChangeType.UPSERT))));
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
 
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertTrue(runsCounter == null || runsCounter.count() == 0.0);
@@ -357,8 +330,7 @@ public class IngestionMetricsEmitterTest {
     structuredReport.setContentType("application/json");
     result.setStructuredReport(structuredReport);
 
-    // Should not throw — emitter handles missing source/sink gracefully
-    emitter.processProposals(toBatch(List.of(createBatchItem(result, ChangeType.UPSERT))));
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
 
     // Run is still counted (it's a valid ingestion report)
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
@@ -388,7 +360,7 @@ public class IngestionMetricsEmitterTest {
     structuredReport.setContentType("application/json");
     result.setStructuredReport(structuredReport);
 
-    emitter.processProposals(toBatch(List.of(createBatchItem(result, ChangeType.UPSERT))));
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
 
     Counter counter =
         meterRegistry.find("com.datahub.ingest.runs").tag("cli_version", "unknown").counter();
@@ -398,45 +370,28 @@ public class IngestionMetricsEmitterTest {
 
   @Test
   public void testEmptyBatch() {
-    emitter.processProposals(toBatch(Collections.emptyList()));
+    emitter.observeMCPs(Collections.emptyList(), retrieverContext);
 
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertTrue(runsCounter == null || runsCounter.count() == 0.0);
   }
 
-  /**
-   * Simulates the async guard in EntityServiceImpl: emitter is only called when async=false. When
-   * async=true, the proposal goes to Kafka; the MCE consumer calls back with async=false. This test
-   * replicates that logic to verify no double-counting.
-   */
   @Test
-  public void testAsyncGuardPreventsDoubleCounting() throws Exception {
-    AspectsBatch batch =
-        toBatch(
-            List.of(
-                createBatchItem(
-                    createCliResult("SUCCEEDED", 1000L, 100, 5, 0, 0), ChangeType.UPSERT)));
+  public void testNonJsonContentTypeIgnored() throws Exception {
+    ExecutionRequestResult result = new ExecutionRequestResult();
+    result.setStatus("SUCCEEDED");
+    result.setDurationMs(1000L);
 
-    // Replicate EntityServiceImpl logic: if (!async) { emitter.processProposals(batch); }
-    boolean asyncTrue = true;
-    if (!asyncTrue) {
-      emitter.processProposals(batch);
-    }
+    StructuredExecutionReport structuredReport = new StructuredExecutionReport();
+    structuredReport.setType("CLI_INGEST");
+    structuredReport.setSerializedValue("{\"source\":{\"type\":\"file\"}}");
+    structuredReport.setContentType("text/plain");
+    result.setStructuredReport(structuredReport);
 
-    // async=true path: nothing emitted
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
+
     Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
     assertTrue(runsCounter == null || runsCounter.count() == 0.0);
-
-    // Now the MCE consumer calls back with async=false
-    boolean asyncFalse = false;
-    if (!asyncFalse) {
-      emitter.processProposals(batch);
-    }
-
-    // Counted exactly once
-    runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
-    assertNotNull(runsCounter);
-    assertEquals(runsCounter.count(), 1.0);
   }
 
   // Helper methods
@@ -444,17 +399,11 @@ public class IngestionMetricsEmitterTest {
   private BatchItem createBatchItem(ExecutionRequestResult result, ChangeType changeType)
       throws Exception {
     BatchItem item = mock(BatchItem.class);
-    when(item.getAspectName()).thenReturn("dataHubExecutionRequestResult");
+    when(item.getAspectName()).thenReturn(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
     when(item.getChangeType()).thenReturn(changeType);
     when(item.getUrn()).thenReturn(Urn.createFromString(TEST_EXECUTION_REQUEST_URN));
     when(item.getAspect(ExecutionRequestResult.class)).thenReturn(result);
     return item;
-  }
-
-  private AspectsBatch toBatch(List<BatchItem> items) {
-    AspectsBatch batch = mock(AspectsBatch.class);
-    when(batch.getItems()).thenReturn((Collection) items);
-    return batch;
   }
 
   private ExecutionRequestResult createCliResult(
@@ -563,7 +512,6 @@ public class IngestionMetricsEmitterTest {
     }
     warningsJson.append("]");
 
-    // Executor format with gms_version in sink report
     String reportJson =
         String.format(
             "{"

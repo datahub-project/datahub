@@ -1,41 +1,44 @@
 package com.linkedin.metadata.ingestion;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.MissingNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.StructuredExecutionReport;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
+import org.slf4j.MDC;
 
 /**
- * Emits Micrometer metrics and structured log events for ingestion runs, triggered synchronously
- * from {@code EntityServiceImpl.ingestProposal()} before the DB write. This means metrics emit even
- * if the DB transaction fails, giving visibility into runs that were attempted.
+ * MCPObserver that emits Micrometer metrics and structured log events for ingestion runs. Triggered
+ * by the plugin framework before the DB write, so metrics emit even if the DB transaction fails,
+ * giving visibility into runs that were attempted.
  *
  * <p>Design decisions:
  *
  * <ul>
- *   <li>Only UPSERT and CREATE change types are processed — RESTATE is excluded because reindex
- *       operations replay historical MCLs and would double-count all counters.
+ *   <li>Change type filtering (UPSERT/CREATE only, excluding RESTATE) is configured via {@link
+ *       AspectPluginConfig} — RESTATE is excluded because reindex operations replay historical MCLs
+ *       and would double-count all counters.
  *   <li>Metric labels: connector, status, cli_version (3 labels). Per-run identifiers and other
  *       high-cardinality fields are emitted in the {@code [INGESTION_RUN_EVENT]} structured log
  *       only.
@@ -46,62 +49,47 @@ import org.springframework.stereotype.Component;
  * </ul>
  */
 @Slf4j
-@Component
-@ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
-public class IngestionMetricsEmitter {
+@Getter
+@Setter
+@Accessors(chain = true)
+public class IngestionMetricsEmitter extends MCPObserver {
 
-  private static final String ASPECT_NAME = "dataHubExecutionRequestResult";
   // JMX-style prefix intentionally chosen: Micrometer converts dots to underscores in Prometheus,
   // producing com_datahub_ingest_* which matches the Observe Agent allowlist filter regex.
   private static final String METRIC_PREFIX = "com.datahub.ingest.";
   private static final Set<String> SUPPORTED_REPORT_TYPES =
       ImmutableSet.of("CLI_INGEST", "RUN_INGEST");
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  // RESTATE excluded: reindex replays MCLs as RESTATE, which would double-count all metrics.
-  private static final Set<ChangeType> SUPPORTED_CHANGE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE);
 
   private static final String TAG_CONNECTOR = "connector";
   private static final String TAG_STATUS = "status";
   private static final String TAG_CLI_VERSION = "cli_version";
 
-  private final MeterRegistry meterRegistry;
+  @Nonnull private AspectPluginConfig config;
 
-  public IngestionMetricsEmitter(@Nonnull MeterRegistry meterRegistry) {
+  private final MeterRegistry meterRegistry;
+  private final ObjectMapper objectMapper;
+
+  public IngestionMetricsEmitter(
+      @Nonnull MeterRegistry meterRegistry, @Nonnull ObjectMapper objectMapper) {
     this.meterRegistry = meterRegistry;
+    this.objectMapper = objectMapper;
     log.info("IngestionMetricsEmitter initialized");
   }
 
-  public void processProposals(@Nonnull AspectsBatch aspectsBatch) {
-    try {
-      for (BatchItem item : aspectsBatch.getItems()) {
-        try {
-          if (!isEligible(item)) {
-            continue;
-          }
-          ExecutionRequestResult result = item.getAspect(ExecutionRequestResult.class);
-          if (result == null) {
-            continue;
-          }
-          if (!isIngestionReport(result)) {
-            continue;
-          }
-          recordMetrics(result, item.getUrn());
-        } catch (Exception e) {
-          log.error("Failed to process ingestion metrics for item: {}", e.getMessage(), e);
+  @Override
+  protected void observeMCPs(
+      Collection<? extends BatchItem> items, @Nonnull RetrieverContext retrieverContext) {
+    for (BatchItem item : items) {
+      try {
+        ExecutionRequestResult result = item.getAspect(ExecutionRequestResult.class);
+        if (result == null || !isIngestionReport(result)) {
+          continue;
         }
+        recordMetrics(result, item.getUrn());
+      } catch (Exception e) {
+        log.error("Failed to process ingestion metrics for item: {}", e.getMessage(), e);
       }
-    } catch (Exception e) {
-      log.error("Failed to process ingestion metrics batch: {}", e.getMessage(), e);
     }
-  }
-
-  private boolean isEligible(@Nonnull BatchItem item) {
-    if (!ASPECT_NAME.equals(item.getAspectName())) {
-      return false;
-    }
-    return SUPPORTED_CHANGE_TYPES.contains(item.getChangeType());
   }
 
   private boolean isIngestionReport(@Nonnull ExecutionRequestResult result) {
@@ -115,18 +103,22 @@ public class IngestionMetricsEmitter {
   private void recordMetrics(
       @Nonnull ExecutionRequestResult result, @Nonnull Urn executionRequestUrn) {
     try {
-      JsonNode reportJson = parseStructuredReport(result);
-      if (reportJson == null) {
-        log.warn("Could not parse structured report for {}", executionRequestUrn);
+      StructuredExecutionReport structuredReport = result.getStructuredReport();
+      if (!"application/json".equals(structuredReport.getContentType())) {
+        log.warn(
+            "Unsupported content type '{}' for {}",
+            structuredReport.getContentType(),
+            executionRequestUrn);
         return;
       }
 
-      JsonNode sourceReport = findSourceReport(reportJson);
-      JsonNode sinkReport = findSinkReport(reportJson);
+      String serializedValue = structuredReport.getSerializedValue();
+      IngestionRunReport.Report report =
+          objectMapper.readValue(serializedValue, IngestionRunReport.Report.class);
 
-      String connector = extractConnector(reportJson, sourceReport);
+      String connector = extractConnector(report);
       String status = result.getStatus() != null ? result.getStatus() : "unknown";
-      String cliVersion = extractCliVersion(reportJson);
+      String cliVersion = extractCliVersion(report);
 
       Tags tags =
           Tags.of(
@@ -134,16 +126,20 @@ public class IngestionMetricsEmitter {
               TAG_STATUS, sanitizeTagValue(status),
               TAG_CLI_VERSION, sanitizeTagValue(cliVersion));
 
-      long eventsProduced = extractLongField(sourceReport, "events_produced");
-      // NOTE: warnings and failures are counted by array size, but the ingestion framework's
-      // LossyList caps these arrays at 10 entries. A run with 200 failures emits failures_count=10.
+      IngestionRunReport.SourceReport sourceReport =
+          report.getSource() != null ? report.getSource().getReport() : null;
+      IngestionRunReport.SinkReport sinkReport =
+          report.getSink() != null ? report.getSink().getReport() : null;
+
+      long eventsProduced = sourceReport != null ? sourceReport.getEventsProduced() : 0;
+      // NOTE: warnings and failures are counted by list size, but the ingestion framework's
+      // LossyList caps these lists at 10 entries. A run with 200 failures emits failures_count=10.
       // There is no separate total count field in the structured report — this is a known
       // limitation.
-      // LossyList in the ingestion framework always serializes as a JSON array.
-      int warningsCount = extractArraySize(sourceReport, "warnings");
-      int failuresCount = extractArraySize(sourceReport, "failures");
-      long recordsWritten = extractLongField(sinkReport, "total_records_written");
-      int sinkFailuresCount = extractArraySize(sinkReport, "failures");
+      int warningsCount = sourceReport != null ? sourceReport.getWarnings().size() : 0;
+      int failuresCount = sourceReport != null ? sourceReport.getFailures().size() : 0;
+      long recordsWritten = sinkReport != null ? sinkReport.getTotalRecordsWritten() : 0;
+      int sinkFailuresCount = sinkReport != null ? sinkReport.getFailures().size() : 0;
 
       Counter.builder(METRIC_PREFIX + "runs")
           .tags(tags)
@@ -191,283 +187,241 @@ public class IngestionMetricsEmitter {
       // Per-execution detail as structured log (Observe ingests this for drill-down)
       // SQL-specific fields (tables_scanned, view_parse_failures) are in the log only.
       emitRunEvent(
-          new RunEvent(
-              executionRequestUrn,
-              connector,
-              status,
-              result.hasDurationMs() ? result.getDurationMs() : null,
-              eventsProduced,
-              recordsWritten,
-              warningsCount,
-              failuresCount,
-              sinkFailuresCount,
-              reportJson,
-              sourceReport,
-              sinkReport));
+          executionRequestUrn,
+          connector,
+          status,
+          result.hasDurationMs() ? result.getDurationMs() : null,
+          eventsProduced,
+          recordsWritten,
+          warningsCount,
+          failuresCount,
+          sinkFailuresCount,
+          report);
 
     } catch (Exception e) {
       log.error("Error recording metrics for {}: {}", executionRequestUrn, e.getMessage(), e);
     }
   }
 
-  @Nullable
-  private JsonNode parseStructuredReport(@Nonnull ExecutionRequestResult result) {
-    try {
-      if (!result.hasStructuredReport()) {
-        return null;
-      }
-      String serializedValue = result.getStructuredReport().getSerializedValue();
-      return OBJECT_MAPPER.readTree(serializedValue);
-    } catch (Exception e) {
-      log.warn("Failed to parse structured report JSON: {}", e.getMessage());
-      return null;
-    }
-  }
-
   @Nonnull
-  private String extractConnector(@Nonnull JsonNode reportJson, @Nonnull JsonNode sourceReport) {
-    // Try executor format first: source.type
-    JsonNode sourceType = reportJson.path("source").path("type");
-    if (!sourceType.isMissingNode() && sourceType.isTextual()) {
-      return sourceType.asText();
+  private String extractConnector(@Nonnull IngestionRunReport.Report report) {
+    if (report.getSource() != null && report.getSource().getType() != null) {
+      return report.getSource().getType();
     }
-
-    // Fall back to platform field in source report (works for both formats)
-    if (!sourceReport.isMissingNode()) {
-      JsonNode platform = sourceReport.path("platform");
-      if (!platform.isMissingNode() && platform.isTextual()) {
-        return platform.asText();
-      }
+    if (report.getSource() != null
+        && report.getSource().getReport() != null
+        && report.getSource().getReport().getPlatform() != null) {
+      return report.getSource().getReport().getPlatform();
     }
     return "unknown";
   }
 
   @Nonnull
-  private String extractCliVersion(@Nonnull JsonNode reportJson) {
-    JsonNode cli = reportJson.path("cli").path("cli_version");
-    return (!cli.isMissingNode() && cli.isTextual()) ? cli.asText() : "unknown";
-  }
-
-  @Nonnull
-  private JsonNode findSourceReport(@Nonnull JsonNode reportJson) {
-    JsonNode source = reportJson.path("source");
-    if (!source.isMissingNode()) {
-      JsonNode report = source.path("report");
-      if (!report.isMissingNode()) {
-        return report;
-      }
-      // source exists but has no nested report — return missingNode to avoid silently reading
-      // fields from the source parent object (which would return 0 for all numeric lookups)
-      return MissingNode.getInstance();
+  private String extractCliVersion(@Nonnull IngestionRunReport.Report report) {
+    if (report.getCli() != null && report.getCli().getCliVersion() != null) {
+      return report.getCli().getCliVersion();
     }
-    return MissingNode.getInstance();
+    return "unknown";
   }
 
-  @Nonnull
-  private JsonNode findSinkReport(@Nonnull JsonNode reportJson) {
-    JsonNode sink = reportJson.path("sink");
-    if (!sink.isMissingNode()) {
-      JsonNode report = sink.path("report");
-      if (!report.isMissingNode()) {
-        return report;
-      }
-      // sink exists but has no nested report — return missingNode to avoid silently reading
-      // fields from the sink parent object
-      return MissingNode.getInstance();
-    }
-    return MissingNode.getInstance();
-  }
-
-  private long extractLongField(@Nonnull JsonNode parent, @Nonnull String fieldName) {
-    JsonNode value = parent.path(fieldName);
-    return (!value.isMissingNode() && value.isNumber()) ? value.asLong() : 0;
-  }
-
-  private int extractArraySize(@Nonnull JsonNode parent, @Nonnull String fieldName) {
-    JsonNode array = parent.path(fieldName);
-    return (!array.isMissingNode() && array.isArray()) ? array.size() : 0;
-  }
-
-  record RunEvent(
-      Urn executionRequestUrn,
-      String connector,
-      String status,
-      Long durationMs,
+  private void emitRunEvent(
+      @Nonnull Urn executionRequestUrn,
+      @Nonnull String connector,
+      @Nonnull String status,
+      @Nullable Long durationMs,
       long eventsProduced,
       long recordsWritten,
       int warningsCount,
       int failuresCount,
       int sinkFailuresCount,
-      JsonNode reportJson,
-      JsonNode sourceReport,
-      JsonNode sinkReport) {}
-
-  private void emitRunEvent(@Nonnull RunEvent r) {
+      @Nonnull IngestionRunReport.Report report) {
     try {
-      String json = OBJECT_MAPPER.writeValueAsString(buildRunEventMap(r));
-      if (r.failuresCount() > 0 || r.sinkFailuresCount() > 0 || r.warningsCount() > 0) {
-        log.warn("[INGESTION_RUN_EVENT] {}", json);
+      MDC.put("messageType", "ingestionRunReport");
+      String json =
+          objectMapper.writeValueAsString(
+              buildRunEventMap(
+                  executionRequestUrn,
+                  connector,
+                  status,
+                  durationMs,
+                  eventsProduced,
+                  recordsWritten,
+                  warningsCount,
+                  failuresCount,
+                  sinkFailuresCount,
+                  report));
+      if (failuresCount > 0 || sinkFailuresCount > 0 || warningsCount > 0) {
+        log.warn("{}", json);
       } else {
-        log.info("[INGESTION_RUN_EVENT] {}", json);
+        log.info("{}", json);
       }
     } catch (Exception e) {
       log.warn("Failed to emit structured run event: {}", e.getMessage());
+    } finally {
+      MDC.remove("messageType");
     }
   }
 
   @VisibleForTesting
-  Map<String, Object> buildRunEventMap(@Nonnull RunEvent r) {
+  Map<String, Object> buildRunEventMap(
+      @Nonnull Urn executionRequestUrn,
+      @Nonnull String connector,
+      @Nonnull String status,
+      @Nullable Long durationMs,
+      long eventsProduced,
+      long recordsWritten,
+      int warningsCount,
+      int failuresCount,
+      int sinkFailuresCount,
+      @Nonnull IngestionRunReport.Report report) {
     Map<String, Object> event = new LinkedHashMap<>();
 
-    event.put("execution_id", r.executionRequestUrn().getId());
-    event.put("connector", r.connector());
-    event.put("status", r.status());
-    if (r.durationMs() != null) {
-      event.put("duration_ms", r.durationMs());
+    event.put("execution_id", executionRequestUrn.getId());
+    event.put("connector", connector);
+    event.put("status", status);
+    if (durationMs != null) {
+      event.put("duration_ms", durationMs);
     }
 
-    JsonNode cli = r.reportJson().path("cli");
-    if (!cli.isMissingNode()) {
-      putIfPresent(event, "cli_version", cli, "cli_version");
-      putIfPresent(event, "models_version", cli, "models_version");
-      putIfPresent(event, "py_version", cli, "py_version");
-      putIfPresent(event, "mem_info", cli, "mem_info");
-      putIfPresent(event, "peak_memory_usage", cli, "peak_memory_usage");
-      putIfPresent(event, "peak_disk_usage", cli, "peak_disk_usage");
-      if (!cli.path("thread_count").isMissingNode()) {
-        event.put("thread_count", cli.path("thread_count").asLong());
+    IngestionRunReport.CliInfo cli = report.getCli();
+    if (cli != null) {
+      if (cli.getCliVersion() != null) {
+        event.put("cli_version", cli.getCliVersion());
       }
-      if (!cli.path("peak_thread_count").isMissingNode()) {
-        event.put("peak_thread_count", cli.path("peak_thread_count").asLong());
+      if (cli.getModelsVersion() != null) {
+        event.put("models_version", cli.getModelsVersion());
+      }
+      if (cli.getPyVersion() != null) {
+        event.put("py_version", cli.getPyVersion());
+      }
+      if (cli.getMemInfo() != null) {
+        event.put("mem_info", cli.getMemInfo());
+      }
+      if (cli.getPeakMemoryUsage() != null) {
+        event.put("peak_memory_usage", cli.getPeakMemoryUsage());
+      }
+      if (cli.getPeakDiskUsage() != null) {
+        event.put("peak_disk_usage", cli.getPeakDiskUsage());
+      }
+      if (cli.getThreadCount() != null) {
+        event.put("thread_count", cli.getThreadCount());
+      }
+      if (cli.getPeakThreadCount() != null) {
+        event.put("peak_thread_count", cli.getPeakThreadCount());
       }
     }
 
-    event.put("events_produced", r.eventsProduced());
-    putLongIfPresent(event, "tables_scanned", r.sourceReport(), "tables_scanned");
-    putLongIfPresent(event, "views_scanned", r.sourceReport(), "views_scanned");
-    putLongIfPresent(event, "schemas_scanned", r.sourceReport(), "schemas_scanned");
-    putLongIfPresent(event, "databases_scanned", r.sourceReport(), "databases_scanned");
-    putLongIfPresent(event, "entities_profiled", r.sourceReport(), "entities_profiled");
-    putLongIfPresent(
-        event,
-        "num_view_definitions_failed_parsing",
-        r.sourceReport(),
-        "num_view_definitions_failed_parsing");
+    IngestionRunReport.SourceReport sourceReport =
+        report.getSource() != null ? report.getSource().getReport() : null;
+    IngestionRunReport.SinkReport sinkReport =
+        report.getSink() != null ? report.getSink().getReport() : null;
 
-    if (!r.sourceReport().path("ingestion_stage_durations").isMissingNode()) {
-      event.put("ingestion_stage_durations", r.sourceReport().path("ingestion_stage_durations"));
+    event.put("events_produced", eventsProduced);
+
+    if (sourceReport != null) {
+      if (sourceReport.getTablesScanned() > 0) {
+        event.put("tables_scanned", sourceReport.getTablesScanned());
+      }
+      if (sourceReport.getViewsScanned() > 0) {
+        event.put("views_scanned", sourceReport.getViewsScanned());
+      }
+      if (sourceReport.getSchemasScanned() > 0) {
+        event.put("schemas_scanned", sourceReport.getSchemasScanned());
+      }
+      if (sourceReport.getDatabasesScanned() > 0) {
+        event.put("databases_scanned", sourceReport.getDatabasesScanned());
+      }
+      if (sourceReport.getEntitiesProfiled() > 0) {
+        event.put("entities_profiled", sourceReport.getEntitiesProfiled());
+      }
+      if (sourceReport.getNumViewDefinitionsFailedParsing() > 0) {
+        event.put(
+            "num_view_definitions_failed_parsing",
+            sourceReport.getNumViewDefinitionsFailedParsing());
+      }
+
+      if (sourceReport.getIngestionStageDurations() != null) {
+        event.put("ingestion_stage_durations", sourceReport.getIngestionStageDurations());
+      }
+
+      if (sourceReport.getIngestionHighStageSeconds() != null) {
+        // Remap Python enum names to human-readable values.
+        // Source: metadata-ingestion/src/datahub/ingestion/source_report/ingestion_stage.py
+        // IngestionHighStage._UNDEFINED = "Ingestion", IngestionHighStage.PROFILING = "Profiling"
+        // If the Python enum changes, these keys will silently become stale in Observe logs.
+        Map<String, Double> highStageSeconds = new LinkedHashMap<>();
+        for (Map.Entry<String, Double> entry :
+            sourceReport.getIngestionHighStageSeconds().entrySet()) {
+          String key = entry.getKey();
+          if ("_UNDEFINED".equals(key)) {
+            key = "Ingestion";
+          } else if ("PROFILING".equals(key)) {
+            key = "Profiling";
+          }
+          highStageSeconds.put(key, entry.getValue());
+        }
+        event.put("ingestion_high_stage_seconds", highStageSeconds);
+      }
     }
-    if (!r.sourceReport().path("ingestion_high_stage_seconds").isMissingNode()) {
-      // Remap Python enum names to human-readable values.
-      // Source: metadata-ingestion/src/datahub/ingestion/source_report/ingestion_stage.py
-      // IngestionHighStage._UNDEFINED = "Ingestion", IngestionHighStage.PROFILING = "Profiling"
-      // If the Python enum changes, these keys will silently become stale in Observe logs.
-      Map<String, Object> highStageSeconds = new LinkedHashMap<>();
-      r.sourceReport()
-          .path("ingestion_high_stage_seconds")
-          .fields()
-          .forEachRemaining(
-              entry -> {
-                String key =
-                    entry.getKey().equals("_UNDEFINED")
-                        ? "Ingestion"
-                        : entry.getKey().equals("PROFILING") ? "Profiling" : entry.getKey();
-                highStageSeconds.put(key, entry.getValue().asDouble());
-              });
-      event.put("ingestion_high_stage_seconds", highStageSeconds);
+
+    event.put("warnings_count", warningsCount);
+    event.put("failures_count", failuresCount);
+    event.put(
+        "failures", toLogEntryMaps(sourceReport != null ? sourceReport.getFailures() : List.of()));
+    event.put(
+        "warnings", toLogEntryMaps(sourceReport != null ? sourceReport.getWarnings() : List.of()));
+    event.put("infos", toLogEntryMaps(sourceReport != null ? sourceReport.getInfos() : List.of()));
+
+    event.put("records_written", recordsWritten);
+    event.put("sink_failures_count", sinkFailuresCount);
+    event.put(
+        "sink_failures", toLogEntryMaps(sinkReport != null ? sinkReport.getFailures() : List.of()));
+
+    if (sinkReport != null) {
+      if (sinkReport.getRecordsWrittenPerSecond() != null) {
+        event.put("records_written_per_second", sinkReport.getRecordsWrittenPerSecond());
+      }
+      if (sinkReport.getPendingRequests() != null) {
+        event.put("pending_requests", sinkReport.getPendingRequests());
+      }
+      if (sinkReport.getGmsVersion() != null) {
+        event.put("gms_version", sinkReport.getGmsVersion());
+      }
+      if (sinkReport.getMode() != null) {
+        event.put("sink_mode", sinkReport.getMode());
+      }
     }
-
-    event.put("warnings_count", r.warningsCount());
-    event.put("failures_count", r.failuresCount());
-    event.put("failures", extractLogEntries(r.sourceReport(), "failures"));
-    event.put("warnings", extractLogEntries(r.sourceReport(), "warnings"));
-    event.put("infos", extractLogEntries(r.sourceReport(), "infos"));
-
-    event.put("records_written", r.recordsWritten());
-    event.put("sink_failures_count", r.sinkFailuresCount());
-    event.put("sink_failures", extractLogEntries(r.sinkReport(), "failures"));
-    putDoubleIfPresent(
-        event, "records_written_per_second", r.sinkReport(), "records_written_per_second");
-    putLongIfPresent(event, "pending_requests", r.sinkReport(), "pending_requests");
-    putIfPresent(event, "gms_version", r.sinkReport(), "gms_version");
-    putIfPresent(event, "sink_mode", r.sinkReport(), "mode");
 
     return event;
   }
 
-  private void putIfPresent(
-      @Nonnull Map<String, Object> event,
-      @Nonnull String key,
-      @Nonnull JsonNode node,
-      @Nonnull String field) {
-    JsonNode value = node.path(field);
-    if (!value.isMissingNode() && !value.isNull()) {
-      event.put(key, value.asText());
-    }
-  }
-
-  private void putLongIfPresent(
-      @Nonnull Map<String, Object> event,
-      @Nonnull String key,
-      @Nonnull JsonNode node,
-      @Nonnull String field) {
-    JsonNode value = node.path(field);
-    if (!value.isMissingNode() && value.isNumber()) {
-      event.put(key, value.asLong());
-    }
-  }
-
-  private void putDoubleIfPresent(
-      @Nonnull Map<String, Object> event,
-      @Nonnull String key,
-      @Nonnull JsonNode node,
-      @Nonnull String field) {
-    JsonNode value = node.path(field);
-    if (!value.isMissingNode() && value.isNumber()) {
-      event.put(key, value.asDouble());
-    }
-  }
-
   /**
-   * Extracts structured log entries (title, message, context, category) from a JSON array field.
-   * Returns a list of maps for JSON serialization. The ingestion framework caps entries at 10 per
-   * level via LossyDict, so no additional cap is needed here.
+   * Converts structured log entries to a list of maps for JSON serialization. The ingestion
+   * framework caps entries at 10 per level via LossyDict, so no additional cap is needed here.
    */
   @Nonnull
-  private List<Map<String, Object>> extractLogEntries(
-      @Nonnull JsonNode report, @Nonnull String fieldName) {
-    List<Map<String, Object>> entries = new ArrayList<>();
-    JsonNode array = report.path(fieldName);
-    if (array.isMissingNode() || !array.isArray()) {
-      return entries;
-    }
-    for (JsonNode entry : array) {
-      Map<String, Object> entryMap = new LinkedHashMap<>();
-      if (entry.isTextual()) {
-        entryMap.put("message", entry.asText());
-      } else if (entry.isObject()) {
-        if (entry.has("title") && !entry.get("title").isNull()) {
-          entryMap.put("title", entry.get("title").asText());
-        }
-        if (entry.has("message")) {
-          entryMap.put("message", entry.get("message").asText());
-        }
-        if (entry.has("context") && entry.get("context").isArray()) {
-          List<String> context = new ArrayList<>();
-          for (JsonNode c : entry.get("context")) {
-            context.add(c.asText());
-          }
-          entryMap.put("context", context);
-        }
-        if (entry.has("log_category") && !entry.get("log_category").isNull()) {
-          entryMap.put("category", entry.get("log_category").asText());
-        }
+  private List<Map<String, Object>> toLogEntryMaps(
+      @Nonnull List<IngestionRunReport.LogEntry> entries) {
+    List<Map<String, Object>> result = new ArrayList<>();
+    for (IngestionRunReport.LogEntry entry : entries) {
+      Map<String, Object> map = new LinkedHashMap<>();
+      if (entry.getTitle() != null) {
+        map.put("title", entry.getTitle());
       }
-      if (!entryMap.isEmpty()) {
-        entries.add(entryMap);
+      if (entry.getMessage() != null) {
+        map.put("message", entry.getMessage());
+      }
+      if (entry.getContext() != null && !entry.getContext().isEmpty()) {
+        map.put("context", entry.getContext());
+      }
+      if (entry.getLogCategory() != null) {
+        map.put("category", entry.getLogCategory());
+      }
+      if (!map.isEmpty()) {
+        result.add(map);
       }
     }
-    return entries;
+    return result;
   }
 
   /**
