@@ -83,7 +83,8 @@ def test_okta_config():
 
     # Sanity on required configurations
     assert config.okta_domain == "test.okta.com"
-    assert config.okta_api_token == "test-token"
+    assert config.okta_api_token is not None
+    assert config.okta_api_token.get_secret_value() == "test-token"
 
     # Assert on default configurations
     assert config.ingest_users is True

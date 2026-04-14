@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 from unittest import mock
@@ -29,10 +30,13 @@ from great_expectations.execution_engine.sqlalchemy_execution_engine import (
     SqlAlchemyExecutionEngine,
 )
 from great_expectations.validator.validator import Validator
+from pyspark.sql import SparkSession
 
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionNoteClass,
     AssertionResultClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
@@ -40,10 +44,13 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     AssertionTypeClass,
+    AuditStampClass,
     BatchSpecClass,
+    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
+    MetadataChangeProposalClass,
     PartitionSpecClass,
 )
 from datahub_gx_plugin.action import DataHubValidationAction
@@ -54,6 +61,17 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="function")
 def ge_data_context(tmp_path: str) -> FileDataContext:
     return FileDataContext.create(tmp_path)
+
+
+@pytest.fixture(scope="function")
+def spark_session() -> SparkSession:
+    spark = (
+        SparkSession.builder.master("local")
+        .appName("pytest-pyspark-local-testing")
+        .getOrCreate()
+    )
+    yield spark
+    spark.stop()
 
 
 @pytest.fixture(scope="function")
@@ -92,9 +110,110 @@ def ge_validator_sqlalchemy() -> Validator:
 
 
 @pytest.fixture(scope="function")
-def ge_validator_spark() -> Validator:
-    validator = Validator(execution_engine=SparkDFExecutionEngine())
+def ge_validator_spark(
+    spark_session: SparkSession,
+) -> Validator:
+    validator = Validator(
+        execution_engine=SparkDFExecutionEngine(spark=spark_session),
+        batches=[
+            Batch(
+                data=spark_session.createDataFrame(
+                    [{"foo": 10, "bar": 100}, {"foo": 20, "bar": 200}]
+                ),
+                batch_request=BatchRequest(
+                    datasource_name="my_sparkdf_datasource",
+                    data_connector_name="spark_df",
+                    data_asset_name="foobar_spark_df",
+                ),
+                batch_definition=BatchDefinition(
+                    datasource_name="my_sparkdf_datasource",
+                    data_connector_name="spark_df",
+                    data_asset_name="foobar_spark_df",
+                    batch_identifiers=IDDict(),
+                ),
+                batch_spec=RuntimeDataBatchSpec(
+                    {
+                        "data_asset_name": "foobar_spark_df",
+                        "batch_identifiers": {},
+                        "batch_data": {},
+                        "type": "spark_dataframe",
+                    }
+                ),
+            )
+        ],
+    )
     return validator
+
+
+@pytest.fixture(scope="function")
+def ge_validation_result_suite_spark() -> ExpectationSuiteValidationResult:
+    validation_result_suite = ExpectationSuiteValidationResult(
+        results=[
+            {
+                "success": True,
+                "expectation_config": {
+                    "expectation_type": "expect_column_values_to_not_be_null",
+                    "kwargs": {"column": "foo", "batch_id": "hive-default.menu_silver"},
+                    "meta": {},
+                },
+                "result": {
+                    "element_count": 2,
+                    "unexpected_count": 0,
+                    "unexpected_percent": 0.0,
+                    "partial_unexpected_list": [],
+                    "partial_unexpected_counts": [],
+                },
+                "meta": {},
+                "exception_info": {
+                    "raised_exception": False,
+                    "exception_traceback": None,
+                    "exception_message": None,
+                },
+            }
+        ],
+        success=True,
+        statistics={
+            "evaluated_expectations": 1,
+            "successful_expectations": 1,
+            "unsuccessful_expectations": 0,
+            "success_percent": 100.0,
+        },
+        meta={
+            "great_expectations_version": "0.18.21",
+            "expectation_suite_name": "test_suite",
+            "run_id": {
+                "run_name": None,
+                "run_time": "2025-11-20T00:11:40.027152+07:00",
+            },
+            "batch_spec": {"batch_data": "SparkDataFrame"},
+            "batch_markers": {"ge_load_time": "20251119T171140.030260Z"},
+            "active_batch_definition": {
+                "datasource_name": "hive",
+                "data_connector_name": "fluent",
+                "data_asset_name": "default.menu_silver",
+                "batch_identifiers": {},
+            },
+            "validation_time": "20251119T171140.035732Z",
+            "checkpoint_name": "test_checkpoint",
+            "validation_id": None,
+            "checkpoint_id": None,
+        },
+    )
+    return validation_result_suite
+
+
+@pytest.fixture(scope="function")
+def ge_validation_result_suite_id_spark() -> ValidationResultIdentifier:
+    validation_result_suite_id = ValidationResultIdentifier(
+        expectation_suite_identifier=ExpectationSuiteIdentifier("test_suite"),
+        run_id=RunIdentifier(
+            run_name=None,
+            run_time=datetime.fromtimestamp(1731981100.027152, tz=timezone.utc),
+        ),
+        batch_identifier="hive-default.menu_silver",
+    )
+
+    return validation_result_suite_id
 
 
 @pytest.fixture(scope="function")
@@ -230,15 +349,20 @@ def ge_validation_result_suite_id_pandas() -> ValidationResultIdentifier:
     return validation_result_suite_id
 
 
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.to_graph", autospec=True)
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
 def test_DataHubValidationAction_sqlalchemy(
     mock_emitter: mock.MagicMock,
+    mock_to_graph: mock.MagicMock,
     ge_data_context: FileDataContext,
     ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
 ) -> None:
     server_url = "http://localhost:9999"
+    mock_graph = mock.Mock()
+    mock_graph.get_aspect.return_value = None
+    mock_to_graph.return_value = mock_graph
 
     datahub_action = DataHubValidationAction(
         data_context=ge_data_context, server_url=server_url
@@ -334,15 +458,20 @@ def test_DataHubValidationAction_sqlalchemy(
     )
 
 
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.to_graph", autospec=True)
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
 def test_DataHubValidationAction_pandas(
     mock_emitter: mock.MagicMock,
+    mock_to_graph: mock.MagicMock,
     ge_data_context: FileDataContext,
     ge_validator_pandas: Validator,
     ge_validation_result_suite_pandas: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id_pandas: ValidationResultIdentifier,
 ) -> None:
     server_url = "http://localhost:9999"
+    mock_graph = mock.Mock()
+    mock_graph.get_aspect.return_value = None
+    mock_to_graph.return_value = mock_graph
 
     datahub_action = DataHubValidationAction(
         data_context=ge_data_context,
@@ -398,13 +527,130 @@ def test_DataHubValidationAction_pandas(
     )
 
 
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.to_graph", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
+def test_DataHubValidationAction_spark(
+    mock_emitter: mock.MagicMock,
+    mock_to_graph: mock.MagicMock,
+    ge_data_context: FileDataContext,
+    ge_validator_spark: Validator,
+    ge_validation_result_suite_spark: ExpectationSuiteValidationResult,
+    ge_validation_result_suite_id_spark: ValidationResultIdentifier,
+) -> None:
+    server_url = "http://localhost:9999"
+    mock_graph = mock.Mock()
+    mock_graph.get_aspect.return_value = None
+    mock_to_graph.return_value = mock_graph
+
+    datahub_action = DataHubValidationAction(
+        data_context=ge_data_context,
+        server_url=server_url,
+        platform_instance_map={"my_sparkdf_datasource": "custom_platefrom_spark"},
+    )
+
+    assert datahub_action.run(
+        validation_result_suite_identifier=ge_validation_result_suite_id_spark,
+        validation_result_suite=ge_validation_result_suite_spark,
+        data_asset=ge_validator_spark,
+    ) == {"datahub_notification_result": "DataHub notification succeeded"}
+
+    mock_emitter.assert_has_calls(
+        [
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                    aspectName="assertionInfo",
+                    aspect=AssertionInfoClass(
+                        type=AssertionTypeClass.DATASET,
+                        customProperties={"expectation_suite_name": "test_suite"},
+                        datasetAssertion=DatasetAssertionInfoClass(
+                            dataset=(
+                                "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"
+                                "foobar_spark_df,PROD)"
+                            ),
+                            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+                            fields=[
+                                "urn:li:schemaField:("
+                                "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"
+                                "foobar_spark_df,PROD),foo)"
+                            ],
+                            aggregation="IDENTITY",
+                            operator="NOT_NULL",
+                            nativeType="expect_column_values_to_not_be_null",
+                            nativeParameters={"column": "foo"},
+                        ),
+                    ),
+                ),
+            ),
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                    aspectName="dataPlatformInstance",
+                    aspect=DataPlatformInstanceClass(
+                        platform="urn:li:dataPlatform:great-expectations"
+                    ),
+                ),
+            ),
+            mock.call(
+                mock.ANY,
+                MetadataChangeProposalWrapper(
+                    entityType="assertion",
+                    changeType="UPSERT",
+                    entityUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                    aspectName="assertionRunEvent",
+                    aspect=AssertionRunEventClass(
+                        timestampMillis=mock.ANY,
+                        runId=mock.ANY,
+                        assertionUrn="urn:li:assertion:5f0a1761a5e0d1b7acb7ec622f778ebc",
+                        asserteeUrn=(
+                            "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"
+                            "foobar_spark_df,PROD)"
+                        ),
+                        status=AssertionRunStatusClass.COMPLETE,
+                        result=AssertionResultClass(
+                            type=AssertionResultTypeClass.SUCCESS,
+                            rowCount=2,
+                            unexpectedCount=0,
+                            nativeResults={},
+                        ),
+                        batchSpec=BatchSpecClass(
+                            customProperties={
+                                "data_asset_name": "foobar_spark_df",
+                                "datasource_name": "my_sparkdf_datasource",
+                            },
+                            nativeBatchId="hive-default.menu_silver",
+                            query="",
+                        ),
+                        partitionSpec=PartitionSpecClass(
+                            type="FULL_TABLE",
+                            partition="FULL_TABLE_SNAPSHOT",
+                            timePartition=None,
+                        ),
+                    ),
+                ),
+            ),
+        ]
+    )
+
+
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.to_graph", autospec=True)
 def test_DataHubValidationAction_graceful_failure(
+    mock_to_graph: mock.MagicMock,
     ge_data_context: FileDataContext,
     ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
 ) -> None:
     server_url = "http://localhost:9999"
+    mock_graph = mock.Mock()
+    mock_graph.get_aspect.return_value = None
+    mock_to_graph.return_value = mock_graph
 
     datahub_action = DataHubValidationAction(
         data_context=ge_data_context, server_url=server_url
@@ -417,13 +663,26 @@ def test_DataHubValidationAction_graceful_failure(
     ) == {"datahub_notification_result": "DataHub notification failed"}
 
 
-def test_DataHubValidationAction_not_supported(
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.to_graph", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
+def test_DataHubValidationAction_existing_assertion_uses_patch(
+    mock_emitter: mock.MagicMock,
+    mock_to_graph: mock.MagicMock,
     ge_data_context: FileDataContext,
-    ge_validator_spark: Validator,
+    ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
 ) -> None:
-    server_url = "http://localhost:99199"
+    server_url = "http://localhost:9999"
+    mock_graph = mock.Mock()
+    mock_graph.get_aspect.return_value = AssertionInfoClass(
+        type=AssertionTypeClass.DATASET,
+        note=AssertionNoteClass(
+            content="keep me",
+            lastModified=AuditStampClass(time=1, actor="urn:li:corpuser:test-user"),
+        ),
+    )
+    mock_to_graph.return_value = mock_graph
 
     datahub_action = DataHubValidationAction(
         data_context=ge_data_context, server_url=server_url
@@ -432,5 +691,23 @@ def test_DataHubValidationAction_not_supported(
     assert datahub_action.run(
         validation_result_suite_identifier=ge_validation_result_suite_id,
         validation_result_suite=ge_validation_result_suite,
-        data_asset=ge_validator_spark,
-    ) == {"datahub_notification_result": "none required"}
+        data_asset=ge_validator_sqlalchemy,
+    ) == {"datahub_notification_result": "DataHub notification succeeded"}
+
+    first_mcp = mock_emitter.call_args_list[0].args[1]
+    assert isinstance(first_mcp, MetadataChangeProposalClass)
+    assert first_mcp.changeType == ChangeTypeClass.PATCH
+    assert first_mcp.aspectName == "assertionInfo"
+    assert first_mcp.aspect is not None
+    assert first_mcp.aspect.contentType == JSON_PATCH_CONTENT_TYPE
+
+    patch_payload = json.loads(first_mcp.aspect.value.decode())
+    patch_ops = (
+        patch_payload["patch"] if isinstance(patch_payload, dict) else patch_payload
+    )
+    assert {op["path"] for op in patch_ops} == {
+        "/type",
+        "/datasetAssertion",
+        "/customProperties/expectation_suite_name",
+    }
+    assert {op["op"] for op in patch_ops} == {"add"}

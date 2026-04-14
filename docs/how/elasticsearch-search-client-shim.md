@@ -346,4 +346,4 @@ To extend the shim for additional search engines:
 
 **A:** No, DataHub connects to one search cluster at a time. Use the shim to switch between different engine types.
 
-For additional support, please refer to the [DataHub community forums](https://datahubproject.io/docs/community) or file an issue in the [GitHub repository](https://github.com/datahubproject/datahub).
+For additional support, join the conversation in the [DataHub Community Slack](https://datahub.com/slack/) or file an issue in the [GitHub repository](https://github.com/datahub-project/datahub).

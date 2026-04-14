@@ -1,4 +1,5 @@
 import { Icon, colors, typography } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React from 'react';
@@ -41,7 +42,7 @@ export default function BaseActionsColumn({ dropdownItems, extraActions }: Props
         <ActionIcons onClick={(e) => e.stopPropagation()}>
             {extraActions}
             <Dropdown menu={{ items: dropdownItems }} trigger={['click']}>
-                <Icon icon="DotsThreeVertical" source="phosphor" data-testid="ingestion-more-options" />
+                <Icon icon={DotsThreeVertical} data-testid="ingestion-more-options" />
             </Dropdown>
         </ActionIcons>
     );

@@ -36,38 +36,6 @@ describe('Filters utils', () => {
                 value: '',
             });
         });
-
-        it('should apply defaults when provided', () => {
-            const defaults: Partial<Filter> = {
-                rule: 'include',
-                subtype: 'database',
-                value: 'test-value',
-            };
-
-            const result = getEmptyFilter(defaults);
-
-            expect(result).toEqual({
-                key: 'mocked-uuid',
-                rule: 'include',
-                subtype: 'database',
-                value: 'test-value',
-            });
-        });
-
-        it('should merge defaults with existing properties', () => {
-            const defaults: Partial<Filter> = {
-                rule: 'exclude',
-            };
-
-            const result = getEmptyFilter(defaults);
-
-            expect(result).toEqual({
-                key: 'mocked-uuid',
-                rule: 'exclude',
-                subtype: undefined,
-                value: '',
-            });
-        });
     });
 
     describe('getInitialFilters', () => {
@@ -83,6 +51,7 @@ describe('Filters utils', () => {
                 fieldPath: 'source.config.database_pattern.allow',
                 rules: null,
                 section: 'Databases',
+                filteringResource: 'Database',
                 rule: FilterRule.INCLUDE,
                 setValueOnRecipeOverride: vi.fn(),
             },
@@ -97,6 +66,7 @@ describe('Filters utils', () => {
                 fieldPath: 'source.config.database_pattern.deny',
                 rules: null,
                 section: 'Databases',
+                filteringResource: 'Database',
                 rule: FilterRule.EXCLUDE,
                 setValueOnRecipeOverride: vi.fn(),
             },
@@ -117,19 +87,19 @@ source:
             expect(result).toContainEqual({
                 key: 'mocked-uuid',
                 rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
+                subtype: 'Database',
                 value: 'db1',
             });
             expect(result).toContainEqual({
                 key: 'mocked-uuid',
                 rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
+                subtype: 'Database',
                 value: 'db2',
             });
             expect(result).toContainEqual({
                 key: 'mocked-uuid',
                 rule: FilterRule.EXCLUDE,
-                subtype: 'Databases',
+                subtype: 'Database',
                 value: 'db3',
             });
         });
@@ -148,29 +118,6 @@ source:
                 key: 'mocked-uuid',
                 rule: undefined,
                 subtype: undefined,
-                value: '',
-            });
-        });
-
-        it('should return a single empty filter with defaults when no values are found in recipe and defaults are provided', () => {
-            const recipe = `
-source:
-  config:
-    other_config: true
-            `.trim();
-
-            const defaults = {
-                rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
-            };
-
-            const result = getInitialFilters(mockFields, recipe, defaults);
-
-            expect(result).toHaveLength(1);
-            expect(result[0]).toEqual({
-                key: 'mocked-uuid',
-                rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
                 value: '',
             });
         });
@@ -214,6 +161,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -227,6 +175,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -239,7 +188,22 @@ source:
                     type: FieldType.LIST,
                     fieldPath: 'path3',
                     rules: null,
-                    section: 'Database', // Duplicate section
+                    section: 'Schema',
+                    filteringResource: 'Schema',
+                    rule: FilterRule.INCLUDE,
+                    setValueOnRecipeOverride: vi.fn(),
+                },
+                {
+                    name: 'field4',
+                    label: 'Field 4',
+                    helper: 'Helper 4',
+                    tooltip: 'Tooltip 4',
+                    placeholder: 'placeholder4',
+                    type: FieldType.LIST,
+                    fieldPath: 'path4',
+                    rules: null,
+                    section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -273,6 +237,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -286,6 +251,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -313,6 +279,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -326,6 +293,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -358,6 +326,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -371,6 +340,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -406,6 +376,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -419,6 +390,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -446,6 +418,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -459,6 +432,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -492,6 +466,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },

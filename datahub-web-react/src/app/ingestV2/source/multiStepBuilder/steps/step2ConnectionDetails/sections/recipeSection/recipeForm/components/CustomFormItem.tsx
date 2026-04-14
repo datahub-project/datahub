@@ -3,13 +3,9 @@ import { Form, FormItemProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
+import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
-export const StyledFormItem = styled(Form.Item)<{
-    $alignLeft?: boolean;
-    $removeMargin?: boolean;
-    $isSecretField?: boolean;
-}>`
+const StyledFormItem = styled(Form.Item)<{ $showError: boolean }>`
     margin-bottom: 0;
 
     .ant-form-item-label > label {
@@ -23,6 +19,8 @@ export const StyledFormItem = styled(Form.Item)<{
 
     .ant-form-item-explain-error {
         color: ${colors.red[500]}; // Color of error message
+        display: none;
+        ${({ $showError }) => !$showError && 'display: none;'}
     }
 
     .ant-form-item-control {
@@ -34,6 +32,7 @@ export interface CustomLabelFormItemProps extends Omit<FormItemProps, 'label'> {
     label?: string;
     tooltip?: React.ReactNode;
     labelHelper?: React.ReactNode;
+    showError?: boolean;
 }
 
 export const CustomLabelFormItem: React.FC<CustomLabelFormItemProps> = ({
@@ -41,10 +40,12 @@ export const CustomLabelFormItem: React.FC<CustomLabelFormItemProps> = ({
     tooltip,
     required,
     labelHelper,
+    showError = true,
     ...formItemProps
 }) => {
     return (
         <StyledFormItem
+            $showError={showError}
             label={
                 label ? (
                     <FieldLabel label={label} required={required} tooltip={tooltip} labelHelper={labelHelper} />

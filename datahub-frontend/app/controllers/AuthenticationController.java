@@ -15,11 +15,13 @@ import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
+import client.NativeUserCredentialVerifyResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.auth.LoginIdentityMask;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -132,6 +134,14 @@ public class AuthenticationController extends Controller {
       redirectPath = BasePathUtils.addBasePath("/logOut", this.basePath);
     }
     try {
+      // Reject protocol-relative URLs (e.g. ///google.com) which browsers resolve to
+      // https://host; the URI parser may not set scheme/authority for these.
+      if (redirectPath.trim().startsWith("//")) {
+        throw new RedirectException(
+            "Redirect location must be relative to the base url, cannot "
+                + "use protocol-relative URL: "
+                + redirectPath);
+      }
       URI redirectUri = new URI(redirectPath);
       if (redirectUri.getScheme() != null || redirectUri.getAuthority() != null) {
         throw new RedirectException(
@@ -246,12 +256,12 @@ public class AuthenticationController extends Controller {
     boolean loginSucceeded = tryLogin(username, password);
 
     if (!loginSucceeded) {
-      logger.info("Login failed for user: {}", username);
+      logger.info("Login failed for userRef: {}", LoginIdentityMask.mask(username));
       return Results.badRequest(invalidCredsJson);
     }
 
     final Urn actorUrn = new CorpuserUrn(username);
-    logger.info("Login successful for user: {}, urn: {}", username, actorUrn);
+    logger.info("Login successful for userRef: {}", LoginIdentityMask.mask(username));
     final String accessToken =
         authClient.generateSessionTokenForUser(actorUrn.getId(), PASSWORD_LOGIN);
     return createSession(actorUrn.toString(), accessToken);
@@ -276,7 +286,11 @@ public class AuthenticationController extends Controller {
     final JsonNode json = request.body().asJson();
     final String fullName = json.findPath(FULL_NAME).textValue();
     final String email = json.findPath(EMAIL).textValue();
-    final String title = json.findPath(TITLE).textValue();
+    // Title is optional - pass null if blank
+    final String title =
+        StringUtils.isBlank(json.findPath(TITLE).textValue())
+            ? null
+            : json.findPath(TITLE).textValue();
     final String password = json.findPath(PASSWORD).textValue();
     final String inviteToken = json.findPath(INVITE_TOKEN).textValue();
 
@@ -299,11 +313,6 @@ public class AuthenticationController extends Controller {
 
     if (StringUtils.isBlank(password)) {
       JsonNode invalidCredsJson = Json.newObject().put("message", "Password must not be empty.");
-      return Results.badRequest(invalidCredsJson);
-    }
-
-    if (StringUtils.isBlank(title)) {
-      JsonNode invalidCredsJson = Json.newObject().put("message", "Title must not be empty.");
       return Results.badRequest(invalidCredsJson);
     }
 
@@ -463,8 +472,9 @@ public class AuthenticationController extends Controller {
     if (nativeAuthenticationConfigs.isNativeAuthenticationEnabled() && !loginSucceeded) {
       final Urn userUrn = new CorpuserUrn(username);
       final String userUrnString = userUrn.toString();
-      loginSucceeded =
-          loginSucceeded || authClient.verifyNativeUserCredentials(userUrnString, password);
+      final NativeUserCredentialVerifyResult verifyResult =
+          authClient.verifyNativeUserCredentials(userUrnString, password);
+      loginSucceeded = loginSucceeded || verifyResult.allowsSessionCreation();
     }
 
     return loginSucceeded;

@@ -4,34 +4,43 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-**Ask DataHub** is DataHub's conversational AI assistant that brings intelligent, context-aware help directly to where you work. Using Ask DataHub, you can ask questions about your organization's metadata and get instant, accurate answers about your data landscape.
+**Ask DataHub** is DataHub's conversational AI assistant that brings intelligent, context-aware help directly to where you work. Using Ask DataHub, you can ask questions about your organization's data and get instant, accurate answers grounded in both your **metadata graph** and your **organizational knowledge**—like runbooks, policies, and FAQs stored in Context Graph.
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/ask_datahub_chat.png"/>
+</p>
 
 ## What Can Ask DataHub Do?
 
-Ask DataHub empowers your organization to navigate & understand your entire data ecosystem with ease.
-
-Key capabilities include:
-
-### Natural Language Search
-
-Search for data assets using plain English instead of memorizing exact table names or technical identifiers. Ask DataHub understands context and synonyms to help you find what you need.
+Ask DataHub empowers your organization to navigate and understand your entire data ecosystem with ease—combining technical metadata with your team's tribal knowledge for smarter, more reliable answers.
 
 ### Find Trustworthy Data
 
 Discover high-quality, reliable data assets based on usage patterns, documentation quality, ownership information, and data quality metrics. Ask DataHub helps you identify the most authoritative sources for your analysis.
 
-### Impact Analysis
+### Perform Impact Analysis
 
 Quickly assess how changes to a data asset will ripple through your organization. Ask DataHub can trace lineage and identify all downstream dependencies, helping you make informed decisions before making changes.
 
-### Understand Social and Organizational Context
+### Dive Deeper
 
-Get insights into the human side of your data:
+Understand the who, what, when, where, and why about your data ecosystem:
 
-- **Ownership**: Find out who owns and maintains specific assets
-- **Expertise**: Identify domain experts and frequent users
-- **Collaboration**: Understand which teams work with particular datasets
+- **Ownership**: Find out who owns which data specific assets
+- **Popularity**: Understand which data are most popular and who uses it
 - **History**: Learn about past usage patterns and organizational knowledge
+
+### Capture Tribal Knowledge
+
+Ask DataHub can reference your organization's **Context Documents**, **Glossary Terms**, **Domains**, and more to provide consistent, reliable answers grounded in your team's shared knowledge:
+
+- **Best practices**: Follow documented runbooks and quality standards
+- **Runbooks, guides, & FAQs**: Learn the right process for requesting data access
+- **Policies**: Understand compliance requirements and data handling guidelines
+
+:::tip Improve Ask DataHub Responses
+Document your most-asked questions, policies, and definitions in [Context Documents](context/context-documents.md) to help Ask DataHub provide more accurate, consistent answers across your organization.
+:::
 
 ### Assess Data Quality
 
@@ -50,16 +59,14 @@ Generate first-draft SQL queries to answer specific analytical questions, accele
 
 ## Getting Started
 
-To start using Ask DataHub:
+### DataHub UI
 
-1. **In Slack or Teams**: Simply mention @DataHub followed by your question in any channel or chat
-2. **Enable the feature**: As of DataHub Cloud v0.3.13, Ask DataHub is in public beta and can be enabled in Settings → AI
-3. **Start asking questions**: Try queries like:
-   - "What tables contain customer email data?"
-   - "Who owns the sales_facts table?"
-   - "What would break if I change the orders table schema?"
-   - "Find me the most reliable revenue datasets"
-   - "Show me tables with data quality issues"
+Ask DataHub is currently available **Public Beta** within DataHub in multiple places:
+
+- **Chat** tab in the left-hand navigation bar, where you can start new conversations with DataHub
+- **Data Sources** configuration flow, where DataHub can help you troubleshoot ingestion sources
+- **Asset Profile Sidebar** where you can start a chat about a specific DataHub asset.
+- **Chrome Extension** sidebar under the **Ask Tab**.
 
 ### Slack
 
@@ -72,12 +79,6 @@ Learn more: [Ask DataHub in Slack](../../managed-datahub/slack/saas-slack-app.md
 Similarly, you can use Ask DataHub in Microsoft Teams by mentioning @DataHub in channels and chats.
 
 Learn more: [Ask DataHub in Teams](../../managed-datahub/teams/saas-teams-app.md#ask-datahub-in-slack)
-
-### DataHub UI
-
-Ask DataHub is coming soon to the DataHub UI, providing seamless access to AI assistance while browsing your data catalog.
-
-Ask DataHub is currently available in the DataHub UI as part of a private beta. If you're interested in enabling this feature, please reach out to your DataHub representative.
 
 ## Customize Ask DataHub
 
@@ -101,22 +102,34 @@ Custom base prompts can be used to:
 
 - Define response style and tone
 - Define organization specific terminology or terms
-- Guide the model on how to navigate Glossary Terms, Tags, Domains, and properties.
-- Guide the assistant toward specific of recommendations (e.g. helping differentiate production over staging assets)
+- Guide the model on how to navigate Glossary Terms, Tags, Domains, and properties
+- Guide the assistant toward specific recommendations (e.g. helping differentiate production over staging assets)
 
-### Default Organization View
+Once you've changed the custom instructions, it may take up 5 minutes to reflect in Ask DataHub.
 
-By default, Ask DataHub applies your organization's default **Search View** (if one is set). This means the assistant will prioritize finding assets from a narrower set of assets, enabling it to separate the signal from the noise by default.
+:::tip Context Documents + Custom Instructions
+For organization-specific definitions, policies, and procedures, consider documenting them in [Context Documents](context/context-documents.md) instead of (or in addition to) custom instructions. Context Documents are governable, versionable, and can be linked to specific assets—making them easier to maintain as your organization evolves.
+:::
 
-This ensures that Ask DataHub's responses are always relevant to your team's specific data landscape, without requiring additional filtering in your queries.
+### Selecting a View
 
-:::info Note
-After updating custom prompts or organization view settings, it may take up to 5 minutes for changes to take effect.
+As of v0.3.17, you can select a **View** directly from the chat interface to narrow the scope of assets that Ask DataHub searches over for a given conversation. This is useful when you want to focus on a specific subset of your data ecosystem — for example, only datasets owned by your team, a particular domain, or a curated data product collection.
+
+To select a view, click the view select dropdown next to the chat input. You can choose from your personal views or any public views shared across your organization.
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/ask_datahub_view_selector.png"/>
+</p>
+
+When a view is active, Ask DataHub will restrict its search to the datasets, dashboards, data products, domains, documents, and other assets included in that view — helping you get to the most relevant answers faster. If no view is explicitly selected, the organization's default view will be used (if one is set).
+
+:::note Slack & Microsoft Teams
+When using Ask DataHub in Slack or Microsoft Teams, the organization's default view is always applied automatically.
 :::
 
 ## How It Works
 
-Ask DataHub leverages your complete metadata graph to provide intelligent, context-aware responses. The AI assistant considers:
+Ask DataHub leverages your complete metadata graph **and organizational knowledge** to provide intelligent, context-aware responses. The AI assistant considers:
 
 - Asset names, descriptions, and documentation
 - Lineage relationships (upstream and downstream)
@@ -125,3 +138,6 @@ Ask DataHub leverages your complete metadata graph to provide intelligent, conte
 - Data quality and assertion results
 - Tags, glossary terms, and classifications
 - Schema information and sample values
+- Context Documents (published runbooks, policies, FAQs, and definitions)
+
+By combining structured metadata with unstructured organizational knowledge, Ask DataHub can answer both technical questions ("What's in this table?") and contextual questions ("How should I use this table?") with consistent, reliable answers grounded in your team's shared understanding.

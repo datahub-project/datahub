@@ -3,17 +3,51 @@
 import sys
 from unittest import mock
 
+import packaging.version
 import pytest
 
-from datahub_airflow_plugin._extractors import (
-    ExtractorManager,
-    TeradataOperatorExtractor,
-)
+from datahub_airflow_plugin._airflow_shims import AIRFLOW_VERSION
 
-mock_teradata_module = mock.MagicMock()
-sys.modules["airflow.providers.teradata"] = mock_teradata_module
-sys.modules["airflow.providers.teradata.operators"] = mock_teradata_module
-sys.modules["airflow.providers.teradata.operators.teradata"] = mock_teradata_module
+# Skip all tests for Airflow 3.x since airflow2 extractors are not used
+if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+    pytestmark = pytest.mark.skip(
+        reason="TeradataOperatorExtractor is only used in Airflow 2.x, not Airflow 3.x"
+    )
+    # Define dummy classes to avoid import errors
+    ExtractorManager = None
+    TeradataOperatorExtractor = None
+    USE_OPENLINEAGE_PROVIDER = False
+else:
+    try:
+        from datahub_airflow_plugin.airflow2._extractors import (
+            ExtractorManager,
+            TeradataOperatorExtractor,
+        )
+        from datahub_airflow_plugin.airflow2._openlineage_compat import (
+            USE_OPENLINEAGE_PROVIDER,
+        )
+
+        mock_teradata_module = mock.MagicMock()
+        sys.modules["airflow.providers.teradata"] = mock_teradata_module
+        sys.modules["airflow.providers.teradata.operators"] = mock_teradata_module
+        sys.modules["airflow.providers.teradata.operators.teradata"] = (
+            mock_teradata_module
+        )
+
+        # Skip all tests if USE_OPENLINEAGE_PROVIDER is True, since TeradataOperatorExtractor
+        # is only registered and used in Legacy OpenLineage environments
+        pytestmark = pytest.mark.skipif(
+            USE_OPENLINEAGE_PROVIDER,
+            reason="TeradataOperatorExtractor is only used with Legacy OpenLineage, not OpenLineage Provider",
+        )
+    except (ImportError, ModuleNotFoundError):
+        # If imports fail (e.g., openlineage not installed), skip all tests
+        pytestmark = pytest.mark.skip(
+            reason="airflow2 extractors not available (likely missing openlineage dependency)"
+        )
+        ExtractorManager = None
+        TeradataOperatorExtractor = None
+        USE_OPENLINEAGE_PROVIDER = False
 
 
 class TestTeradataOperatorExtractor:
@@ -28,7 +62,7 @@ class TestTeradataOperatorExtractor:
 
         extractor = TeradataOperatorExtractor(operator)
         with mock.patch(
-            "datahub_airflow_plugin._extractors._parse_sql_into_task_metadata"
+            "datahub_airflow_plugin.airflow2._extractors._parse_sql_into_task_metadata"
         ) as mock_parse:
             extractor.extract()
 
@@ -59,7 +93,7 @@ class TestTeradataOperatorExtractor:
         extractor = TeradataOperatorExtractor(operator)
 
         with mock.patch(
-            "datahub_airflow_plugin._extractors._parse_sql_into_task_metadata"
+            "datahub_airflow_plugin.airflow2._extractors._parse_sql_into_task_metadata"
         ) as mock_parse:
             extractor.extract()
 
@@ -80,7 +114,7 @@ class TestTeradataOperatorExtractor:
         extractor = TeradataOperatorExtractor(operator)
 
         with mock.patch(
-            "datahub_airflow_plugin._extractors._parse_sql_into_task_metadata"
+            "datahub_airflow_plugin.airflow2._extractors._parse_sql_into_task_metadata"
         ) as mock_parse:
             extractor.extract()
 
@@ -98,7 +132,7 @@ class TestTeradataOperatorExtractor:
         extractor = TeradataOperatorExtractor(operator)
 
         with mock.patch(
-            "datahub_airflow_plugin._extractors._parse_sql_into_task_metadata"
+            "datahub_airflow_plugin.airflow2._extractors._parse_sql_into_task_metadata"
         ) as mock_parse:
             extractor.extract()
 
@@ -109,7 +143,7 @@ class TestTeradataOperatorExtractor:
         """Test that extractor handles multiline SQL statements."""
         multiline_sql = """
         CREATE TABLE yellow_taxi.staging AS
-        SELECT 
+        SELECT
             pickup_datetime,
             passenger_count,
             trip_distance
@@ -124,7 +158,7 @@ class TestTeradataOperatorExtractor:
         extractor = TeradataOperatorExtractor(operator)
 
         with mock.patch(
-            "datahub_airflow_plugin._extractors._parse_sql_into_task_metadata"
+            "datahub_airflow_plugin.airflow2._extractors._parse_sql_into_task_metadata"
         ) as mock_parse:
             extractor.extract()
 
@@ -165,7 +199,7 @@ class TestTeradataOperatorExtractor:
         extractor = TeradataOperatorExtractor(operator)
 
         with mock.patch(
-            "datahub_airflow_plugin._extractors._parse_sql_into_task_metadata"
+            "datahub_airflow_plugin.airflow2._extractors._parse_sql_into_task_metadata"
         ) as mock_parse:
             mock_parse.return_value = mock.Mock()  # Non-None result
             result = extractor.extract()
@@ -190,7 +224,7 @@ class TestTeradataOperatorExtractor:
         - Athena: catalog.database.table (3-tier but different from schema-based DBs)
         - Teradata: database.table (2-tier, no schema concept)
         """
-        from datahub_airflow_plugin._extractors import AthenaOperatorExtractor
+        from datahub_airflow_plugin.airflow2._extractors import AthenaOperatorExtractor
 
         assert hasattr(TeradataOperatorExtractor, "extract")
         assert hasattr(AthenaOperatorExtractor, "extract")
@@ -203,7 +237,7 @@ class TestTeradataOperatorExtractor:
         teradata_extractor = TeradataOperatorExtractor(teradata_op)
 
         with mock.patch(
-            "datahub_airflow_plugin._extractors._parse_sql_into_task_metadata"
+            "datahub_airflow_plugin.airflow2._extractors._parse_sql_into_task_metadata"
         ) as mock_parse:
             teradata_extractor.extract()
             assert mock_parse.called

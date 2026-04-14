@@ -82,16 +82,13 @@ const meta: Meta<SelectItemPopoverProps> = {
             },
             control: { type: 'object' },
         },
-        entityType: {
-            description: 'Type of entity being selected, e.g., Tag or GlossaryTerm.',
+        entityTypes: {
+            description: 'Types of entities being selected, e.g., [EntityType.Tag] or [EntityType.GlossaryTerm].',
             table: {
-                type: { summary: 'EntityType' },
-                defaultValue: { summary: 'EntityType.Tag' },
+                type: { summary: 'EntityType[]' },
+                defaultValue: { summary: '[EntityType.Tag]' },
             },
-            control: {
-                type: 'select',
-                options: Object.values(EntityType),
-            },
+            control: { type: 'object' },
         },
         renderOption: {
             description: 'Custom renderer function for each option in the select list.',
@@ -130,7 +127,7 @@ export const TagSelector: Story = {
     args: {
         entities: defaultTagEntities as unknown as Entity[],
         selectedItems: mockTagSelectedEntities,
-        entityType: EntityType.Tag,
+        entityTypes: [EntityType.Tag],
         renderOption: (option) => {
             return (
                 <Tag
@@ -157,6 +154,6 @@ export const GlossaryTermSelectorWithoutCustomizeRenderingOptions: Story = {
     args: {
         entities: defaultGlossaryTermEntities as unknown as Entity[],
         selectedItems: mockGlossaryTermSelectedEntities,
-        entityType: EntityType.GlossaryTerm,
+        entityTypes: [EntityType.GlossaryTerm],
     },
 };

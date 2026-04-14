@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from gql import GraphQLRequest
+from gql import gql
 
 from datahub.api.graphql.base import BaseApi
 
@@ -42,6 +42,10 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
   }
 }"""
 
+    # Parsed GraphQL documents for type-safe execution.
+    _REPORT_OPERATION_MUTATION_DOC = gql(REPORT_OPERATION_MUTATION)
+    _QUERY_OPERATIONS_DOC = gql(QUERY_OPERATIONS)
+
     def report_operation(
         self,
         urn: str,
@@ -79,11 +83,9 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         if custom_properties is not None:
             variable_values["customProperties"] = custom_properties
 
-        request = GraphQLRequest(
-            Operation.REPORT_OPERATION_MUTATION, variable_values=variable_values
+        result = self.client.execute(
+            Operation._REPORT_OPERATION_MUTATION_DOC, variable_values=variable_values
         )
-
-        result = self.client.execute(request)
 
         return result["reportOperation"]
 
@@ -111,8 +113,8 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         :param partition: The partition to check the operation.
         """
 
-        request = GraphQLRequest(
-            Operation.QUERY_OPERATIONS,
+        result = self.client.execute(
+            Operation._QUERY_OPERATIONS_DOC,
             variable_values={
                 "urn": urn,
                 "startTimeMillis": start_time_millis,
@@ -127,8 +129,6 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
                 ),
             },
         )
-
-        result = self.client.execute(request)
         if "dataset" in result and "operations" in result["dataset"]:
             operations = []
             if source_type is not None:

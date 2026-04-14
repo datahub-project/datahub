@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,11 +39,21 @@ public class SimpleKafkaConsumerFactory {
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && kafkaConfiguration.getBootstrapServers().length() > 0) {
-      consumerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getConsumer().getBootstrapServers())
+            ? kafkaConfiguration.getConsumer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
+
+    String securityProtocol =
+        StringUtils.isNotBlank(kafkaConfiguration.getConsumer().getSecurityProtocol())
+            ? kafkaConfiguration.getConsumer().getSecurityProtocol()
+            : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      consumerProps.getSecurity().setProtocol(securityProtocol);
+    }
 
     Map<String, Object> customizedProperties = properties.buildConsumerProperties(null);
     customizedProperties.put(

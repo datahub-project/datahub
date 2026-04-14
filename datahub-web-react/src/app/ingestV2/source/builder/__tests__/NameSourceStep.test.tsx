@@ -3,6 +3,9 @@ import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
+import CustomThemeProvider from '@src/CustomThemeProvider';
+
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
 
 describe('NameSourceStep', () => {
     // Mock IntersectionObserver
@@ -27,7 +30,7 @@ describe('NameSourceStep', () => {
             updatedState = newState;
         };
         const state = { name: '' };
-        const { getByTestId } = render(
+        const { getByTestId } = renderWithTheme(
             <MockedProvider mocks={[]} addTypename={false}>
                 <NameSourceStep
                     state={state}

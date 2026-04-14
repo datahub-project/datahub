@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import com.datahub.authentication.group.GroupService;
+import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
+import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
+import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -22,6 +25,8 @@ public class DocumentResolvers {
   private final DocumentService documentService;
   private final java.util.List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes;
   private final DocumentType documentType;
+  private final DataPlatformType dataPlatformType;
+  private final DataPlatformInstanceType dataPlatformInstanceType;
   private final EntityClient entityClient;
   private final EntityService entityService;
   private final com.linkedin.metadata.graph.GraphClient graphClient;
@@ -33,6 +38,8 @@ public class DocumentResolvers {
       @Nonnull DocumentService documentService,
       @Nonnull java.util.List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes,
       @Nonnull DocumentType documentType,
+      @Nonnull DataPlatformType dataPlatformType,
+      @Nonnull DataPlatformInstanceType dataPlatformInstanceType,
       @Nonnull EntityClient entityClient,
       @Nonnull EntityService entityService,
       @Nonnull com.linkedin.metadata.graph.GraphClient graphClient,
@@ -42,6 +49,8 @@ public class DocumentResolvers {
     this.documentService = documentService;
     this.entityTypes = entityTypes;
     this.documentType = documentType;
+    this.dataPlatformType = dataPlatformType;
+    this.dataPlatformInstanceType = dataPlatformInstanceType;
     this.entityClient = entityClient;
     this.entityService = entityService;
     this.graphClient = graphClient;
@@ -101,11 +110,7 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "updateDocumentSettings",
                     new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentSettingsResolver(documentService))
-                .dataFetcher(
-                    "mergeDraft",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.MergeDraftResolver(
-                        documentService, entityService)));
+                        .UpdateDocumentSettingsResolver(documentService)));
 
     // Type wiring for Document root
     builder.type(
@@ -114,6 +119,26 @@ public class DocumentResolvers {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType,
+                        (env) -> {
+                          final Document document = env.getSource();
+                          return document.getPlatform() != null
+                              ? document.getPlatform().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        (env) -> {
+                          final Document document = env.getSource();
+                          return document.getDataPlatformInstance() != null
+                              ? document.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
                     "aspects",
                     new com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver(
                         entityClient, entityRegistry))
@@ -121,10 +146,6 @@ public class DocumentResolvers {
                     "privileges",
                     new com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver(
                         entityClient))
-                .dataFetcher(
-                    "drafts",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.DocumentDraftsResolver(
-                        documentService))
                 .dataFetcher(
                     "changeHistory",
                     new com.linkedin.datahub.graphql.resolvers.knowledge
@@ -172,19 +193,6 @@ public class DocumentResolvers {
                     (env) ->
                         ((com.linkedin.datahub.graphql.generated.DocumentParentDocument)
                                 env.getSource())
-                            .getDocument()
-                            .getUrn())));
-
-    // Resolve DocumentInfo.draftOf.document -> Document (resolved)
-    builder.type(
-        "DocumentDraftOf",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "document",
-                new LoadableTypeResolver<>(
-                    documentType,
-                    (env) ->
-                        ((com.linkedin.datahub.graphql.generated.DocumentDraftOf) env.getSource())
                             .getDocument()
                             .getUrn())));
 

@@ -1,34 +1,68 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination, Select, Tag, message } from 'antd';
+import {
+    Avatar,
+    Button,
+    Menu,
+    Pagination,
+    Pill,
+    SearchBar,
+    SimpleSelect,
+    Table,
+    Text,
+    Tooltip,
+    toast,
+} from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { Pause } from '@phosphor-icons/react/dist/csr/Pause';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Play } from '@phosphor-icons/react/dist/csr/Play';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import * as QueryString from 'query-string';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components';
+
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+import { ItemType } from '@components/components/Menu/types';
+import { AlignmentOptions } from '@components/theme/config';
 
 import analytics, { EventType } from '@app/analytics';
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
-import AvatarsGroup from '@app/permissions/AvatarsGroup';
 import PolicyBuilderModal from '@app/permissions/policy/PolicyBuilderModal';
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { usePolicy } from '@app/permissions/policy/usePolicy';
-import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListPoliciesQuery } from '@graphql/policy.generated';
-import { AndFilterInput, FilterOperator, Policy, PolicyState } from '@types';
+import { AndFilterInput, EntityType, FilterOperator, Policy, PolicyState } from '@types';
 
-const SourceContainer = styled.div`
-    overflow: auto;
+const PageContainer = styled.div`
+    width: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    gap: 16px;
+    padding-top: 16px;
+    overflow: hidden;
+`;
+
+const ToolbarContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const TableScrollContainer = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
 `;
 
 const PaginationContainer = styled.div`
@@ -41,55 +75,44 @@ const PolicyName = styled.span`
     font-weight: 700;
 `;
 
-const PoliciesType = styled(Tag)`
-    && {
-        border-radius: 2px !important;
-        font-weight: 700;
-    }
-`;
-
-const ActorTag = styled(Tag)`
-    && {
-        display: inline-block;
-        text-align: center;
-    }
-`;
-
-const ActionButtonContainer = styled.div`
+const ActorsContainer = styled.div`
     display: flex;
-    justify-content: right;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
 `;
 
-const EditPolicyButton = styled(Button)`
-    margin-right: 16px;
-`;
-
-const PageContainer = styled.span`
-    width: 100%;
+const MenuTriggerContainer = styled.div`
     display: flex;
-    flex-direction: column;
-    overflow: auto;
-`;
-const StyledSelect = styled(Select)`
-    margin-right: 15px;
-    min-width: 90px;
-    margin-left: 20px;
+    justify-content: flex-end;
 `;
 
-const SelectContainer = styled.div`
+const EmptyContainer = styled.div`
     display: flex;
-    align-items: flex-start;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
 `;
 
-export enum StatusType {
-    ALL,
-    ACTIVE,
-    INACTIVE,
+enum StatusType {
+    ALL = 'ALL',
+    ACTIVE = 'ACTIVE',
+    INACTIVE = 'INACTIVE',
 }
 
-// TODO: Cleanup the styling.
-export const ManagePolicies = () => {
+const STATUS_OPTIONS = [
+    { value: StatusType.ALL, label: 'All' },
+    { value: StatusType.ACTIVE, label: 'Active' },
+    { value: StatusType.INACTIVE, label: 'Inactive' },
+];
+
+interface ManagePoliciesProps {
+    onRegisterCreatePolicy?: (fn: () => void) => void;
+}
+
+export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -105,16 +128,13 @@ export const ManagePolicies = () => {
         config: { policiesConfig },
     } = useAppConfig();
 
-    // Policy list paging.
     const [page, setPage] = useState(1);
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    // Controls whether the editing and details view modals are active.
     const [showPolicyBuilderModal, setShowPolicyBuilderModal] = useState(false);
     const [showViewPolicyModal, setShowViewPolicyModal] = useState(false);
 
-    // Focused policy represents a policy being actively viewed, edited, created via a popup modal.
     const [focusPolicyUrn, setFocusPolicyUrn] = useState<undefined | string>(undefined);
     const [focusPolicy, setFocusPolicy] = useState<Omit<Policy, 'urn'>>(EMPTY_POLICY);
 
@@ -143,11 +163,15 @@ export const ManagePolicies = () => {
         setPage(newPage);
     };
 
-    const onClickNewPolicy = () => {
+    const onClickNewPolicy = useCallback(() => {
         setFocusPolicyUrn(undefined);
         setFocusPolicy(EMPTY_POLICY);
         setShowPolicyBuilderModal(true);
-    };
+    }, []);
+
+    useEffect(() => {
+        onRegisterCreatePolicy?.(onClickNewPolicy);
+    }, [onRegisterCreatePolicy, onClickNewPolicy]);
 
     const onClosePolicyBuilder = () => {
         setFocusPolicyUrn(undefined);
@@ -173,20 +197,15 @@ export const ManagePolicies = () => {
         setFocusPolicy({ ...policy });
     };
 
-    const onStatusChange = (newStatusFilter: StatusType) => {
-        setStatusFilter(newStatusFilter);
-        // Reset page to 1 when filter changes
+    const onStatusChange = (selectedValues: string[]) => {
+        const newStatus = (selectedValues[0] as StatusType) || StatusType.ALL;
+        setStatusFilter(newStatus);
         setPage(1);
-        const filtersInput: any = [];
-        let statusValue = '';
-        if (newStatusFilter === StatusType.ACTIVE) {
-            statusValue = 'ACTIVE';
-        } else if (newStatusFilter === StatusType.INACTIVE) {
-            statusValue = 'INACTIVE';
-        }
-        if (statusValue) {
-            const filter = { field: 'state', values: [statusValue], condition: FilterOperator.Equal };
-            filtersInput.push({ and: [filter] });
+        const filtersInput: AndFilterInput[] = [];
+        if (newStatus === StatusType.ACTIVE || newStatus === StatusType.INACTIVE) {
+            filtersInput.push({
+                and: [{ field: 'state', values: [newStatus], condition: FilterOperator.Equal }],
+            });
         }
         setOrFilters(filtersInput);
     };
@@ -214,116 +233,207 @@ export const ManagePolicies = () => {
 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
+    useEffect(() => {
+        if (policiesError) {
+            toast.error('Failed to load policies! An unexpected error occurred.');
+        }
+    }, [policiesError]);
+
+    useEffect(() => {
+        if (updateError) {
+            toast.error('Failed to update policies. An unexpected error occurred.');
+        }
+    }, [updateError]);
+
     const tableColumns = [
         {
             title: 'Name',
-            dataIndex: 'name',
             key: 'name',
-            render: (_, record: any) => {
+            width: '20%',
+            render: (record: any) => (
+                <PolicyName
+                    onClick={() => onViewPolicy(record.policy)}
+                    style={{ color: record?.editable ? theme.colors.text : theme.colors.textSecondary }}
+                >
+                    {record?.name}
+                </PolicyName>
+            ),
+        },
+        {
+            title: 'Type',
+            key: 'type',
+            width: '10%',
+            render: (record: any) => {
+                const policyType = record?.type?.charAt(0)?.toUpperCase() + record?.type?.slice(1)?.toLowerCase();
+                const isPlatform = record?.type?.toUpperCase() === 'PLATFORM';
                 return (
-                    <PolicyName
-                        onClick={() => onViewPolicy(record.policy)}
-                        style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
-                    >
-                        {record?.name}
-                    </PolicyName>
+                    <Pill
+                        label={policyType}
+                        color={isPlatform ? 'blue' : 'violet'}
+                        variant="filled"
+                        size="sm"
+                        clickable={false}
+                    />
                 );
             },
         },
         {
-            title: 'Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (type: string) => {
-                const policyType = type?.charAt(0)?.toUpperCase() + type?.slice(1)?.toLowerCase();
-                return <PoliciesType>{policyType}</PoliciesType>;
-            },
-        },
-        {
             title: 'Description',
-            dataIndex: 'description',
             key: 'description',
-            render: (description: string) => description || '',
+            width: '25%',
+            render: (record: any) => record?.description || '',
         },
         {
             title: 'Actors',
-            dataIndex: 'actors',
             key: 'actors',
-            render: (_, record: any) => {
+            width: '20%',
+            render: (record: any) => {
+                const avatars: AvatarItemProps[] = [
+                    ...(record?.resolvedUsers || []).map((user) => ({
+                        name: entityRegistry.getDisplayName(EntityType.CorpUser, user),
+                        imageUrl: user?.editableProperties?.pictureLink || undefined,
+                        urn: user?.urn,
+                        type: AvatarType.user,
+                    })),
+                    ...(record?.resolvedGroups || []).map((group) => ({
+                        name: entityRegistry.getDisplayName(EntityType.CorpGroup, group),
+                        urn: group?.urn,
+                        type: AvatarType.group,
+                    })),
+                ];
+
                 return (
-                    <>
-                        <AvatarsGroup
-                            users={record?.resolvedUsers}
-                            groups={record?.resolvedGroups}
-                            entityRegistry={entityRegistry}
-                            maxCount={3}
-                            size={28}
-                        />
-                        {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
-                        {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
-                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
-                    </>
+                    <ActorsContainer>
+                        {avatars.length === 1 && (
+                            <Tooltip title={avatars[0].name}>
+                                <Avatar
+                                    name={avatars[0].name}
+                                    imageUrl={avatars[0].imageUrl}
+                                    type={avatars[0].type}
+                                    size="sm"
+                                    showInPill
+                                />
+                            </Tooltip>
+                        )}
+                        {avatars.length > 1 && (
+                            <AvatarStackWithHover
+                                avatars={avatars}
+                                maxToShow={3}
+                                size="sm"
+                                showRemainingNumber
+                                totalCount={avatars.length}
+                                entityRegistry={entityRegistry as any}
+                                title="Actors"
+                            />
+                        )}
+                        {record?.allUsers && (
+                            <Pill label="All Users" variant="outline" color="gray" size="sm" clickable={false} />
+                        )}
+                        {record?.allGroups && (
+                            <Pill label="All Groups" variant="outline" color="gray" size="sm" clickable={false} />
+                        )}
+                        {record?.resourceOwners && (
+                            <Pill label="All Owners" variant="outline" color="gray" size="sm" clickable={false} />
+                        )}
+                    </ActorsContainer>
                 );
             },
         },
         {
             title: 'State',
-            dataIndex: 'state',
             key: 'state',
-            render: (state: string) => {
-                const isActive = state === PolicyState.Active;
-                return <Tag color={isActive ? 'green' : 'red'}>{state}</Tag>;
+            width: '10%',
+            render: (record: any) => {
+                const isActive = record?.state === PolicyState.Active;
+                return (
+                    <Pill
+                        label={record?.state?.charAt(0) + record?.state?.slice(1)?.toLowerCase()}
+                        color={isActive ? 'green' : 'red'}
+                        size="sm"
+                        clickable={false}
+                    />
+                );
             },
         },
         {
             title: '',
-            dataIndex: '',
-            key: 'x',
-            render: (_, record: any) => (
-                <ActionButtonContainer>
-                    <EditPolicyButton disabled={!record?.editable} onClick={() => onEditPolicy(record?.policy)}>
-                        EDIT
-                    </EditPolicyButton>
-                    {record?.state === PolicyState.Active ? (
-                        <Button
-                            disabled={!record?.editable}
-                            onClick={() => {
-                                onToggleActiveDuplicate(record?.policy);
-                                analytics.event({
-                                    type: EventType.DeactivatePolicyEvent,
-                                    policyUrn: record?.policy?.urn,
-                                });
-                            }}
-                            style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
-                        >
-                            DEACTIVATE
-                        </Button>
-                    ) : (
-                        <Button
-                            disabled={!record?.editable}
-                            onClick={() => {
-                                onToggleActiveDuplicate(record?.policy);
-                                analytics.event({
-                                    type: EventType.ActivatePolicyEvent,
-                                    policyUrn: record?.policy?.urn,
-                                });
-                            }}
-                            style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
-                        >
-                            ACTIVATE
-                        </Button>
-                    )}
-                    <Button
-                        disabled={!record?.editable}
-                        onClick={() => onRemovePolicy(record?.policy)}
-                        type="text"
-                        shape="circle"
-                        danger
-                    >
-                        <DeleteOutlined />
-                    </Button>
-                </ActionButtonContainer>
-            ),
+            key: 'actions',
+            width: '60px',
+            alignment: 'right' as AlignmentOptions,
+            render: (record: any) => {
+                const isActive = record?.state === PolicyState.Active;
+                if (!record?.editable) {
+                    return (
+                        <MenuTriggerContainer onClick={(e) => e.stopPropagation()}>
+                            <Tooltip title="This is a system policy and cannot be modified">
+                                <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
+                                    <Button
+                                        variant="text"
+                                        isCircle
+                                        disabled
+                                        style={{ pointerEvents: 'none', opacity: 0.4 }}
+                                        icon={{
+                                            icon: DotsThreeVertical,
+                                            weight: 'bold',
+                                            size: 'xl',
+                                            color: 'gray',
+                                        }}
+                                    />
+                                </span>
+                            </Tooltip>
+                        </MenuTriggerContainer>
+                    );
+                }
+
+                const menuItems: ItemType[] = [
+                    {
+                        type: 'item',
+                        key: 'edit',
+                        title: 'Edit',
+                        icon: PencilSimple,
+                        onClick: () => onEditPolicy(record?.policy),
+                    },
+                    {
+                        type: 'item',
+                        key: 'toggle-active',
+                        title: isActive ? 'Deactivate' : 'Activate',
+                        icon: isActive ? Pause : Play,
+                        onClick: () => {
+                            onToggleActiveDuplicate(record?.policy);
+                            analytics.event({
+                                type: isActive ? EventType.DeactivatePolicyEvent : EventType.ActivatePolicyEvent,
+                                policyUrn: record?.policy?.urn,
+                            });
+                        },
+                    },
+                    { type: 'divider', key: 'divider' },
+                    {
+                        type: 'item',
+                        key: 'delete',
+                        title: 'Delete',
+                        icon: Trash,
+                        danger: true,
+                        onClick: () => onRemovePolicy(record?.policy),
+                    },
+                ];
+
+                return (
+                    <MenuTriggerContainer onClick={(e) => e.stopPropagation()}>
+                        <Menu items={menuItems} placement="bottomRight">
+                            <Button
+                                variant="text"
+                                isCircle
+                                icon={{
+                                    icon: DotsThreeVertical,
+                                    weight: 'bold',
+                                    size: 'xl',
+                                    color: 'gray',
+                                }}
+                            />
+                        </Menu>
+                    </MenuTriggerContainer>
+                );
+            },
         },
     ];
 
@@ -345,85 +455,60 @@ export const ManagePolicies = () => {
     }));
 
     return (
-        <PageContainer>
-            <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
-            {policiesLoading && !policiesData && (
-                <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
-            )}
-            {policiesError && <Message type="error" content="Failed to load policies! An unexpected error occurred." />}
-            {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
-            <SourceContainer>
-                <TabToolbar>
-                    <div>
-                        <Button
-                            id={POLICIES_CREATE_POLICY_ID}
-                            type="text"
-                            onClick={onClickNewPolicy}
-                            data-testid="add-policy-button"
-                        >
-                            <PlusOutlined /> Create new policy
-                        </Button>
-                    </div>
-                    <SelectContainer>
-                        <SearchBar
-                            initialQuery={query || ''}
-                            placeholderText="Search policies..."
-                            suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
-                            onSearch={() => null}
-                            onQueryChange={(q) => {
-                                setPage(1);
-                                setQuery(q);
-                            }}
-                            entityRegistry={entityRegistry}
-                            hideRecommendations
+        <>
+            <PageContainer>
+                <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
+                <ToolbarContainer>
+                    <SearchBar
+                        placeholder="Search policies..."
+                        value={query || ''}
+                        onChange={(value) => {
+                            setPage(1);
+                            setQuery(value);
+                        }}
+                        width="250px"
+                        allowClear
+                    />
+                    <SimpleSelect
+                        options={STATUS_OPTIONS}
+                        values={[statusFilter]}
+                        onUpdate={onStatusChange}
+                        showClear={false}
+                        width={120}
+                        minWidth="120px"
+                        position="start"
+                        size="md"
+                        dataTestId="policy-filter"
+                    />
+                </ToolbarContainer>
+                <TableScrollContainer>
+                    {!policiesLoading && tableData?.length === 0 ? (
+                        <EmptyContainer>
+                            <Text size="md" color="gray">
+                                No Policies!
+                            </Text>
+                        </EmptyContainer>
+                    ) : (
+                        <Table
+                            columns={tableColumns}
+                            data={tableData || []}
+                            rowKey="urn"
+                            isScrollable
+                            isLoading={policiesLoading}
+                            style={{ tableLayout: 'fixed' }}
+                            onRowClick={(record: any) => onViewPolicy(record.policy)}
                         />
-                        <StyledSelect
-                            value={statusFilter}
-                            onChange={(selection) => onStatusChange(selection as StatusType)}
-                            style={{ width: 100 }}
-                            data-testid="policy-filter"
-                        >
-                            <Select.Option value={StatusType.ALL} key="ALL" data-testid="all-policies-option">
-                                All
-                            </Select.Option>
-                            <Select.Option value={StatusType.ACTIVE} key="ACTIVE">
-                                Active
-                            </Select.Option>
-                            <Select.Option value={StatusType.INACTIVE} key="INACTIVE">
-                                Inactive
-                            </Select.Option>
-                        </StyledSelect>
-                    </SelectContainer>
-                </TabToolbar>
-                <StyledTable
-                    columns={tableColumns}
-                    dataSource={tableData}
-                    rowKey="urn"
-                    locale={{
-                        emptyText: <Empty description="No Policies!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
-                    pagination={false}
-                />
-            </SourceContainer>
-            <PaginationContainer>
-                <Pagination
-                    style={{ margin: 40 }}
-                    current={page}
-                    pageSize={pageSize}
-                    total={totalPolicies}
-                    showLessItems
-                    onChange={onChangePage}
-                    showSizeChanger={false}
-                />
-            </PaginationContainer>
+                    )}
+                </TableScrollContainer>
+                <PaginationContainer>
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        total={totalPolicies}
+                        onPageChange={onChangePage}
+                    />
+                </PaginationContainer>
+            </PageContainer>
             {showPolicyBuilderModal && (
                 <PolicyBuilderModal
                     focusPolicyUrn={focusPolicyUrn}
@@ -442,6 +527,6 @@ export const ManagePolicies = () => {
                     privileges={getPrivilegeNames(focusPolicy)}
                 />
             )}
-        </PageContainer>
+        </>
     );
 };

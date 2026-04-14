@@ -7,7 +7,22 @@ on:
     paths:
       - ".github/workflows/airflow-plugin.yml"
       - "metadata-ingestion-modules/airflow-plugin/**"
-      - "metadata-ingestion/**"
+      - "metadata-ingestion/setup.py"
+      - "metadata-ingestion/pyproject.toml"
+      - "metadata-ingestion/constraints.txt"
+      - "metadata-ingestion/src/datahub/api/**"
+      - "metadata-ingestion/src/datahub/cli/**"
+      - "metadata-ingestion/src/datahub/configuration/**"
+      - "metadata-ingestion/src/datahub/emitter/**"
+      - "metadata-ingestion/src/datahub/ingestion/api/**"
+      - "metadata-ingestion/src/datahub/ingestion/graph/**"
+      - "metadata-ingestion/src/datahub/ingestion/sink/**"
+      - "metadata-ingestion/src/datahub/ingestion/source/sql/sqlalchemy_uri_mapper.py"
+      - "metadata-ingestion/src/datahub/metadata/**"
+      - "metadata-ingestion/src/datahub/sql_parsing/**"
+      - "metadata-ingestion/src/datahub/telemetry/**"
+      - "metadata-ingestion/src/datahub/testing/**"
+      - "metadata-ingestion/src/datahub/utilities/**"
       - "metadata-models/**"
   pull_request:
     branches:
@@ -15,7 +30,22 @@ on:
     paths:
       - ".github/workflows/airflow-plugin.yml"
       - "metadata-ingestion-modules/airflow-plugin/**"
-      - "metadata-ingestion/**"
+      - "metadata-ingestion/setup.py"
+      - "metadata-ingestion/pyproject.toml"
+      - "metadata-ingestion/constraints.txt"
+      - "metadata-ingestion/src/datahub/api/**"
+      - "metadata-ingestion/src/datahub/cli/**"
+      - "metadata-ingestion/src/datahub/configuration/**"
+      - "metadata-ingestion/src/datahub/emitter/**"
+      - "metadata-ingestion/src/datahub/ingestion/api/**"
+      - "metadata-ingestion/src/datahub/ingestion/graph/**"
+      - "metadata-ingestion/src/datahub/ingestion/sink/**"
+      - "metadata-ingestion/src/datahub/ingestion/source/sql/sqlalchemy_uri_mapper.py"
+      - "metadata-ingestion/src/datahub/metadata/**"
+      - "metadata-ingestion/src/datahub/sql_parsing/**"
+      - "metadata-ingestion/src/datahub/telemetry/**"
+      - "metadata-ingestion/src/datahub/testing/**"
+      - "metadata-ingestion/src/datahub/utilities/**"
       - "metadata-models/**"
   release:
     types: [published]
@@ -38,28 +68,54 @@ jobs:
       matrix:
         include:
           # Note: this should be kept in sync with tox.ini.
+          # Airflow 2.x versions use standalone openlineage-airflow package (airflow2)
+          # Airflow 3.x versions use native OpenLineage provider (airflow3)
+          #
+          # Known limitation: Airflow constraints pin jaraco.context to older versions
+          # (e.g., 5.3.0 in 2.9.x) which conflicts with acryl-datahub's requirement of
+          # jaraco.context>=6.1.0 (security fix for GHSA-58pv-8j8x-9vj2). This is acceptable
+          # for CI testing; the security constraint is enforced in Docker image builds via
+          # docker/snippets/ingestion/constraints.txt.
+          #
+          # Similarly, Airflow constraints pin aiohttp to older versions (e.g., 3.10.10 in 2.x,
+          # 3.12.15 in 3.x) which conflicts with acryl-datahub's requirement of aiohttp>=3.13.3
+          # (CVE-2025-30304, CVE-2025-32442). This is acceptable for CI testing; the security
+          # constraint is enforced in Docker image builds via docker/snippets/ingestion/constraints.txt.
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.7.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.10.txt"
+            extra_pip_extras: "airflow2"
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.8.1"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.8.1/constraints-3.10.txt"
+            extra_pip_extras: "airflow2"
           - python-version: "3.11"
             extra_pip_requirements: "apache-airflow~=2.9.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+            extra_pip_extras: "airflow2"
           - python-version: "3.11"
             extra_pip_requirements: "apache-airflow~=2.10.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
+            extra_pip_extras: "airflow2"
+          # Test Airflow 2.10 with apache-airflow-providers-openlineage instead of openlineage-airflow
+          - python-version: "3.11"
+            extra_pip_requirements: "apache-airflow~=2.10.3 apache-airflow-providers-openlineage>=1.0.0"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
+            extra_pip_extras: ""
+          - python-version: "3.11"
+            extra_pip_requirements: "apache-airflow~=3.1.0 apache-airflow-providers-openlineage>=2.8.0"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-3.1.0/constraints-3.11.txt"
+            extra_pip_extras: "airflow3"
       fail-fast: false
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-      - uses: acryldata/sane-checkout-action@v4
-      - uses: actions/setup-python@v6
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -69,29 +125,27 @@ jobs:
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && uv pip freeze
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && matrix.python-version == '3.10' && matrix.extra_pip_requirements == 'apache-airflow~=2.7.3' }}
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (Airflow Plugin ${{ matrix.python-version}})
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
-            **/junit.*.xml
-            !**/binary/**
+          artifact-name: ingestion-airflow-plugin-test-results-${{ strategy.job-index }}
+          test-results-paths: "metadata-ingestion-modules/airflow-plugin/test-results/**"
+          junit-file-globs: "metadata-ingestion-modules/airflow-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
-        if: always()
-        uses: codecov/codecov-action@v5
+        if: (!cancelled())
+        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-ingestion-modules/airflow-plugin/
           fail_ci_if_error: false
           flags: ingestion-airflow
-          name: pytest-airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}
+          name: pytest-airflow-${{ strategy.job-index }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           override_branch: ${{ github.head_ref || github.ref_name }}
@@ -100,7 +154,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Event File
           path: ${{ github.event_path }}

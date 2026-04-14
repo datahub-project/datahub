@@ -1,0 +1,45 @@
+query semanticSearch(
+  $query: String!
+  $types: [EntityType!]
+  $orFilters: [AndFilterInput!]
+  $count: Int
+  $start: Int
+  $viewUrn: String
+  $searchFlags: SearchFlags
+) {
+  semanticSearchAcrossEntities(
+    input: {
+      types: $types
+      query: $query
+      orFilters: $orFilters
+      count: $count
+      start: $start
+      viewUrn: $viewUrn
+      searchFlags: $searchFlags
+    }
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        ...SearchEntityInfo
+      }
+      matchedFields {
+        name
+        value
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+  }
+}

@@ -12,6 +12,8 @@ const Wrapper = styled.div`
     flex-direction: column;
 `;
 
+const INGESTION_SECURITY_URL = 'https://docs.datahub.com/docs/metadata-ingestion-security';
+
 export function FormHeader() {
     const { state } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
     const { type } = state;
@@ -22,9 +24,16 @@ export function FormHeader() {
     return (
         <Wrapper>
             <Text weight="semiBold" size="lg">
-                {sourceDisplayName} Details
+                {sourceDisplayName} Connection Details
             </Text>
-            <Text color="gray">Provide detail specific to your source</Text>
+            <Text color="gray" type="span">
+                Configure how DataHub connects to {sourceDisplayName}.{' '}
+                <Text color="gray" type="span" size="sm">
+                    <a href={INGESTION_SECURITY_URL} target="_blank" rel="noreferrer">
+                        Learn more about keeping credentials in your environment.
+                    </a>
+                </Text>
+            </Text>
         </Wrapper>
     );
 }

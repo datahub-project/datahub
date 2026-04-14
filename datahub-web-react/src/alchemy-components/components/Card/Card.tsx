@@ -1,4 +1,6 @@
 import { Tooltip } from '@components';
+import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -37,6 +39,7 @@ export const Card = ({
     noOfSubtitleLines,
     iconStyles,
     pillLabel,
+    pill,
 }: CardProps) => {
     const subtitleRef = useRef<HTMLDivElement>(null);
     const [showSubtitleTooltip, setShowSubtitleTooltip] = useState(false);
@@ -88,13 +91,14 @@ export const Card = ({
                                             label={`${Math.abs(percent)}%`}
                                             size="sm"
                                             color={percent < 0 ? 'red' : 'green'}
-                                            leftIcon={percent < 0 ? 'TrendingDown' : 'TrendingUp'}
+                                            leftIcon={percent < 0 ? TrendDown : TrendUp}
                                             clickable={false}
                                         />
                                     )}
                                     {!!pillLabel && (
                                         <Pill label={pillLabel} size="sm" color="primary" clickable={false} />
                                     )}
+                                    {pill !== null && pill !== undefined && pill}
                                 </Title>
                                 <SubTitleContainer>
                                     {showSubtitleTooltip ? (

@@ -24,6 +24,7 @@ source:
     procedure_pattern:
       allow:
         - ".*"
+    
     profiling:
       enabled: false
 sink:

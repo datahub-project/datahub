@@ -1,15 +1,20 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
+import com.linkedin.gms.factory.common.IndexConventionFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -28,19 +33,44 @@ public class UpdateIndicesStrategyFactory {
       ElasticSearchService elasticSearchService,
       SearchDocumentTransformer searchDocumentTransformer,
       TimeseriesAspectService timeseriesAspectService,
+      ConfigurationProvider configProvider,
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup) {
 
     EntityIndexVersionConfiguration v2Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v2Cleanup).build();
 
-    log.info("Creating UpdateIndicesV2Strategy bean");
+    // Get semantic search configuration for dual-write support
+    SemanticSearchConfiguration semanticSearchConfig =
+        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+
+    // #region agent debug log - H2/H3/H4 instrumentation
+    log.debug(
+        "[DEBUG-DUALWRITE] SemanticSearchConfig null check: isNull={}",
+        semanticSearchConfig == null);
+    if (semanticSearchConfig != null) {
+      log.debug(
+          "[DEBUG-DUALWRITE] SemanticSearchConfig.isEnabled()={}",
+          semanticSearchConfig.isEnabled());
+      log.debug(
+          "[DEBUG-DUALWRITE] SemanticSearchConfig.getEnabledEntities()={}",
+          semanticSearchConfig.getEnabledEntities());
+    }
+    // #endregion
+    log.info(
+        "Creating UpdateIndicesV2Strategy bean with semantic search enabled: {}, entities: {}",
+        semanticSearchConfig != null && semanticSearchConfig.isEnabled(),
+        semanticSearchConfig != null ? semanticSearchConfig.getEnabledEntities() : "none");
+
     return new UpdateIndicesV2Strategy(
         v2Config,
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
-        idHashAlgo);
+        idHashAlgo,
+        semanticSearchConfig,
+        indexConvention);
   }
 
   @Bean("updateIndicesV3Strategy")

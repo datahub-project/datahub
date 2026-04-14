@@ -24,6 +24,7 @@ import org.opensearch.common.settings.Settings;
 @Getter
 @Accessors(fluent = true)
 public class ReindexConfig {
+
   public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
@@ -68,6 +69,13 @@ public class ReindexConfig {
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
 
+  /**
+   * True when the mapping diff contains new or modified fields that are NOT structured properties.
+   * New fields come from new {@code @Searchable} annotations and require backfill because the ES
+   * {@code _reindex} API only copies existing doc fields.
+   */
+  private final boolean requiresDataBackfill;
+
   private void restrictedMethod() throws IllegalAccessException {
     String allowed = "ReindexDebugStep";
     if (!isCalledFromReindexDebugStep(allowed)) {
@@ -100,6 +108,7 @@ public class ReindexConfig {
   }
 
   public static class ReindexConfigBuilder {
+
     // hide calculated fields
     private ReindexConfigBuilder requiresReindex(boolean ignored) {
       return this;
@@ -170,6 +179,43 @@ public class ReindexConfig {
       } else if (item instanceof List) {
         return sortList((List<?>) item);
       } else {
+        return item;
+      }
+    }
+
+    /**
+     * Normalize a map for comparison by recursively converting all primitive values to strings.
+     * This ensures consistent comparison between mappings from different sources (code vs
+     * Elasticsearch).
+     */
+    static TreeMap<String, Object> normalizeMapForComparison(Map<String, Object> input) {
+      if (input == null) {
+        return new TreeMap<>();
+      }
+      return input.entrySet().stream()
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  e -> normalizeObjectForComparison(e.getValue()),
+                  (oldValue, newValue) -> newValue,
+                  TreeMap::new));
+    }
+
+    private static List<Object> normalizeListForComparison(List<?> input) {
+      if (input == null) {
+        return new ArrayList<>();
+      }
+      return input.stream()
+          .map(ReindexConfigBuilder::normalizeObjectForComparison)
+          .collect(Collectors.toList());
+    }
+
+    private static Object normalizeObjectForComparison(Object item) {
+      if (item instanceof Map) {
+        return normalizeMapForComparison((Map<String, Object>) item);
+      } else if (item instanceof List) {
+        return normalizeListForComparison((List<?>) item);
+      } else {
         return String.valueOf(item);
       }
     }
@@ -185,14 +231,15 @@ public class ReindexConfig {
   }
 
   private static class CalculatedBuilder extends ReindexConfigBuilder {
+
     @Override
     public ReindexConfig build() {
       if (super.exists) {
         /* Consider mapping changes */
         MapDifference<String, Object> mappingsDiff =
             calculateMapDifference(
-                getOrDefault(super.currentMappings, List.of(PROPERTIES)),
-                getOrDefault(super.targetMappings, List.of(PROPERTIES)));
+                normalizeMapForComparison(getOrDefault(super.currentMappings, List.of(PROPERTIES))),
+                normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES))));
 
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
@@ -226,6 +273,23 @@ public class ReindexConfig {
                 && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
                         .getFirst()
                     > 0;
+
+        // Detect new or modified non-structured-property fields that require DB backfill.
+        // New fields: _reindex won't populate them (they didn't exist in the source index).
+        // Modified fields: _reindex with conflicts:proceed may skip docs with incompatible values,
+        // and partial doc upserts from MCLs won't fix them unless the owning aspect is
+        // re-processed.
+        Set<String> newNonStructuredPropertyFields =
+            mappingsDiff.entriesOnlyOnRight().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .collect(Collectors.toSet());
+        Set<String> modifiedNonStructuredPropertyFields =
+            mappingsDiff.entriesDiffering().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .collect(Collectors.toSet());
+        super.requiresDataBackfill =
+            !newNonStructuredPropertyFields.isEmpty()
+                || !modifiedNonStructuredPropertyFields.isEmpty();
 
         if (super.requiresApplyMappings && super.isPureMappingsAddition) {
           log.info(
@@ -359,6 +423,10 @@ public class ReindexConfig {
     }
 
     private boolean isAnalysisEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -373,6 +441,10 @@ public class ReindexConfig {
     }
 
     private boolean isSettingsEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -394,6 +466,10 @@ public class ReindexConfig {
     }
 
     private boolean isSettingsReindexRequired() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return false;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return false;
       }
@@ -416,10 +492,10 @@ public class ReindexConfig {
         return true;
       }
 
-      return indexSettings.containsKey("analysis")
+      return (indexSettings.containsKey("analysis")
           && !equalsGroup(
               (Map<String, Object>) indexSettings.get("analysis"),
-              super.currentSettings.getByPrefix("index.analysis."));
+              super.currentSettings.getByPrefix("index.analysis.")));
     }
 
     /**
@@ -433,7 +509,6 @@ public class ReindexConfig {
      */
     private static MapDifference<String, Object> calculateMapDifference(
         Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
-
       // Identify dynamic fields in target (fields with dynamic=true) - recursively search all
       // levels
       Set<String> targetDynamicFields = findDynamicFields(targetMappings, "");

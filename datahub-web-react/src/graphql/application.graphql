@@ -14,9 +14,6 @@ query getApplication($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ...notes
     }
 }

@@ -5,28 +5,27 @@ import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { Input } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
-import { Document, DocumentState } from '@types';
+import { Document, DocumentSourceType, DocumentState } from '@types';
 
 const PopoverContainer = styled.div`
     width: 400px;
     max-height: ${(props: { $maxHeight?: number }) => props.$maxHeight || 300}px;
     display: flex;
     flex-direction: column;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const HeaderContainer = styled.div`
     padding: 6px 6px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SearchContainer = styled.div`
     padding: 8px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const TreeScrollContainer = styled.div`
@@ -45,23 +44,23 @@ const TreeScrollContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[200]};
+        background: ${(props) => props.theme.colors.bgSurface};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[500]};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
 const EmptyState = styled.div`
     padding: 24px;
     text-align: center;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
 `;
 
-export interface DocumentPopoverBaseProps {
+interface DocumentPopoverBaseProps {
     /** Optional header content to render above search */
     headerContent?: React.ReactNode;
     /** Callback when a document is selected from tree */
@@ -84,6 +83,13 @@ export interface DocumentPopoverBaseProps {
     searchDisabled?: boolean;
     /** Filter function for search results */
     filterSearchResults?: (doc: Document) => boolean;
+    /**
+     * Source type filter for document search.
+     * - [DocumentSourceType.Native]: Only search native (DataHub-created) documents
+     * - [DocumentSourceType.External]: Only search external (ingested) documents
+     * - [DocumentSourceType.Native, DocumentSourceType.External]: Search all documents
+     */
+    sourceTypes: DocumentSourceType[];
 }
 
 /**
@@ -102,6 +108,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     maxHeight = 300,
     searchDisabled = false,
     filterSearchResults,
+    sourceTypes,
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -121,6 +128,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
         count: 50,
         fetchPolicy: 'network-only',
         includeParentDocuments: true,
+        sourceTypes,
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;

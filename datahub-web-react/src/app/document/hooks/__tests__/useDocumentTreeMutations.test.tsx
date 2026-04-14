@@ -634,7 +634,6 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(success).toBe(true);
-                expect(message.success).toHaveBeenCalledWith('Document deleted');
                 expect(analytics.event).toHaveBeenCalledWith({
                     type: EventType.DeleteDocumentEvent,
                     documentUrn: mockUrn,
@@ -670,7 +669,6 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(success).toBe(true);
-                expect(message.success).toHaveBeenCalledWith('Document deleted');
             });
         });
 

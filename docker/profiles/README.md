@@ -93,6 +93,7 @@ of docker.
 - JVM Debug Mode Enabled
 - Exposes local jars and scripts to the containers
 - Can run non-default one-off configurations (neo4j, cassandra, elasticsearch)
+- Micrometer Actuator (Prometheus scrape and health) listens on container port **4319** by default (`MANAGEMENT_SERVER_PORT` in `start.sh`), separate from the main HTTP port. Compose **`expose`s 4319** for on-network scraping; **GMS** also publishes **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host, parallel to **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`**. `./gradlew quickstartDebug` uses compose in **this directory**, not `docker/quickstart/` alone.
 
 The docker images used are the `debug` images which are created by building locally. These images are
 created by running the gradle command.

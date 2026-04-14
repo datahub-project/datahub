@@ -1,3 +1,4 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { List } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -22,6 +23,7 @@ import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Tooltip } from '@src/alchemy-components';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -155,41 +157,39 @@ export const RelatedSection: React.FC = () => {
                 <SectionHeader>
                     <SectionTitle>Resources</SectionTitle>
                     {supportsRelatedDocuments && menuItems.length > 0 && (
-                        <>
+                        <Popover
+                            open={showAddContextPopover}
+                            trigger="click"
+                            onOpenChange={(visible) => !visible && setShowAddContextPopover(false)}
+                            content={
+                                urn ? (
+                                    <AddContextDocumentPopover
+                                        entityUrn={urn}
+                                        onDocumentSelected={handleDocumentSelected}
+                                        onClose={() => setShowAddContextPopover(false)}
+                                    />
+                                ) : null
+                            }
+                            placement="bottomRight"
+                            overlayStyle={{ padding: 0 }}
+                            overlayInnerStyle={{
+                                padding: 0,
+                                background: 'transparent',
+                                boxShadow: 'none',
+                            }}
+                        >
                             <Menu items={menuItems} placement="bottomRight">
                                 <Tooltip title="Add related link or context">
                                     <Button
                                         variant="text"
                                         isCircle
-                                        icon={{ icon: 'Plus', source: 'phosphor' }}
+                                        icon={{ icon: Plus }}
                                         aria-label="Add related link or context"
                                         data-testid="add-related-button"
                                     />
                                 </Tooltip>
                             </Menu>
-                            <Popover
-                                open={showAddContextPopover}
-                                onOpenChange={(visible) => !visible && setShowAddContextPopover(false)}
-                                content={
-                                    urn ? (
-                                        <AddContextDocumentPopover
-                                            entityUrn={urn}
-                                            onDocumentSelected={handleDocumentSelected}
-                                            onClose={() => setShowAddContextPopover(false)}
-                                        />
-                                    ) : null
-                                }
-                                placement="rightTop"
-                                overlayStyle={{ padding: 0 }}
-                                overlayInnerStyle={{
-                                    padding: 0,
-                                    background: 'transparent',
-                                    boxShadow: 'none',
-                                }}
-                            >
-                                <span style={{ position: 'absolute', pointerEvents: 'none' }} />
-                            </Popover>
-                        </>
+                        </Popover>
                     )}
                 </SectionHeader>
 

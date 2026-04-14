@@ -34,6 +34,14 @@ pip install --upgrade 'acryl-datahub[mysql]'
 
 Check out the [alternative installation options](../docs/cli.md#alternate-installation-options) for more reference.
 
+:::tip Building a new connector?
+
+If you need a connector that doesn't exist yet, [datahub-skills](./datahub-skills.md) is a
+Claude Code plugin that accelerates connector development — from planning and scaffolding to
+standards review and community testing.
+
+:::
+
 ## Configuring a Recipe
 
 Create a [Recipe](recipe_overview.md) yaml file that defines the source and sink for metadata, as shown below.

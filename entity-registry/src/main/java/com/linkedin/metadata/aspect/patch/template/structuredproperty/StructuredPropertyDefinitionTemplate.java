@@ -5,13 +5,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
+import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
 public class StructuredPropertyDefinitionTemplate
-    extends CompoundKeyTemplate<StructuredPropertyDefinition> {
+    implements ArrayMergingTemplate<StructuredPropertyDefinition> {
 
   private static final String ENTITY_TYPES_FIELD_NAME = "entityTypes";
   private static final String ALLOWED_VALUES_FIELD_NAME = "allowedValues";

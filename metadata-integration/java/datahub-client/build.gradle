@@ -196,6 +196,7 @@ shadowJar {
   relocate 'org.apache.hc', 'datahub.shaded.org.apache.hc'
   relocate 'org.reactivestreams', 'datahub.shaded.org.reactivestreams'
   relocate 'software.amazon.eventstream', 'datahub.shaded.software.amazon.eventstream'
+  relocate 'at.yawk.lz4', 'datahub.shaded.at.yawk.lz4'
   finalizedBy checkShadowJar
 }
 

@@ -89,7 +89,8 @@ the System Update container for topic setup:
 
 #### Topic Setup
 
-- `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have datahub create them.
+- `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have DataHub create them.
+- `DATAHUB_AUTO_INCREASE_PARTITIONS`: Defaults to false, controls whether DataHub automatically increases partition counts for existing topics when configured partition count exceeds current count. Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled. Note that Kafka does not support decreasing partition counts and attempting to do so is treated as an error when this setting is enabled.
 
 ### MCE Consumer (datahub-mce-consumer)
 
@@ -258,7 +259,7 @@ Client.
 
 > **Note** In the logs you might see something like
 > `The configuration 'kafkastore.ssl.truststore.password' was supplied but isn't a known config.` The configuration is
-> not a configuration required for the producer. These WARN message can be safely ignored. Each of Datahub services are
+> not a configuration required for the producer. These WARN message can be safely ignored. Each of DataHub services are
 > passed a full set of configuration but may not require all the configurations that are passed to them. These warn
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
 

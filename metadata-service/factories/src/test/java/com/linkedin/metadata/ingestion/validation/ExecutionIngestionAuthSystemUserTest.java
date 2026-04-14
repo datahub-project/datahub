@@ -49,7 +49,13 @@ import org.testng.annotations.Test;
       SpringStandardPluginConfiguration.class,
       ExecutionIngestionAuthTestConfiguration.class
     })
-@TestPropertySource(properties = {"authentication.enabled=true", "entityClient.impl=java"})
+@TestPropertySource(
+    properties = {
+      "authentication.enabled=true",
+      "entityClient.impl=java",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
+    })
 public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private ExecuteIngestionAuthValidator validator;

@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class NativeUserService {
-  private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
+  private static final long DEFAULT_PASSWORD_RESET_TOKEN_EXPIRATION_MS = TimeUnit.DAYS.toMillis(1);
 
   private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
@@ -40,13 +40,12 @@ public class NativeUserService {
       @Nonnull String userUrnString,
       @Nonnull String fullName,
       @Nonnull String email,
-      @Nonnull String title,
+      String title,
       @Nonnull String password)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
     Objects.requireNonNull(email, "email must not be null!");
-    Objects.requireNonNull(title, "title must not be null!");
     Objects.requireNonNull(password, "password must not be null!");
     Objects.requireNonNull(
         opContext.getSessionAuthentication(), "authentication must not be null!");
@@ -71,14 +70,16 @@ public class NativeUserService {
       @Nonnull Urn userUrn,
       @Nonnull String fullName,
       @Nonnull String email,
-      @Nonnull String title)
+      String title)
       throws Exception {
     // Construct corpUserInfo
     final CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setFullName(fullName);
     corpUserInfo.setDisplayName(fullName);
     corpUserInfo.setEmail(email);
-    corpUserInfo.setTitle(title);
+    if (title != null) {
+      corpUserInfo.setTitle(title);
+    }
     corpUserInfo.setActive(true);
 
     // Ingest corpUserInfo MCP
@@ -150,7 +151,11 @@ public class NativeUserService {
     String passwordResetToken = _secretService.generateUrlSafeToken(PASSWORD_RESET_TOKEN_LENGTH);
     corpUserCredentials.setPasswordResetToken(_secretService.encrypt(passwordResetToken));
 
-    long expirationTime = Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli();
+    long tokenExpirationMs = _authConfig.getPasswordResetTokenExpirationMs();
+    if (tokenExpirationMs <= 0) {
+      tokenExpirationMs = DEFAULT_PASSWORD_RESET_TOKEN_EXPIRATION_MS;
+    }
+    long expirationTime = Instant.now().plusMillis(tokenExpirationMs).toEpochMilli();
     corpUserCredentials.setPasswordResetTokenExpirationTimeMillis(expirationTime);
 
     // Ingest CorpUserCredentials MCP

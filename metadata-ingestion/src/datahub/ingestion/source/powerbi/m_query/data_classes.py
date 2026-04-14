@@ -1,14 +1,12 @@
-import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from lark import Tree
-
+from datahub.configuration.env_vars import get_trace_powerbi_mquery_parser
 from datahub.ingestion.source.powerbi.config import DataPlatformPair
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 
-TRACE_POWERBI_MQUERY_PARSER = os.getenv("DATAHUB_TRACE_POWERBI_MQUERY_PARSER", False)
+TRACE_POWERBI_MQUERY_PARSER: bool = get_trace_powerbi_mquery_parser()
 
 
 @dataclass
@@ -34,9 +32,13 @@ class IdentifierAccessor:
 
 @dataclass
 class DataAccessFunctionDetail:
-    arg_list: Tree
-    data_access_function_name: str
+    arg_list: dict  # InvokeExpression node dict from NodeIdMap
+    data_access_function_name: (
+        str  # matches FunctionName.value (e.g. "Snowflake.Databases")
+    )
     identifier_accessor: Optional[IdentifierAccessor]
+    node_map: Dict[int, dict]  # full NodeIdMap for ast_utils navigation
+    parameters: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -70,8 +72,10 @@ class FunctionName(Enum):
     ORACLE_DATA_ACCESS = "Oracle.Database"
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
+    MSSQL_MULTI_DATABASE_DATA_ACCESS = "Sql.Databases"
     DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
+    AMAZON_ATHENA_DATA_ACCESS = "AmazonAthena.Databases"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
     DATABRICK_MULTI_CLOUD_DATA_ACCESS = "DatabricksMultiCloud.Catalogs"
     MYSQL_DATA_ACCESS = "MySQL.Database"

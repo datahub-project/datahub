@@ -1,0 +1,15 @@
+---
+# see https://docs.datahub.com/docs/generated/ingestion/sources/doris for complete documentation
+source:
+  type: doris
+  config:
+    host_port: localhost:9030
+    database: doris_db
+    username: root
+    password: ""
+
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

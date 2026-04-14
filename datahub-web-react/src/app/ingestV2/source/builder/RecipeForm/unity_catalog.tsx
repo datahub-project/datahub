@@ -8,8 +8,6 @@ import {
     setListValuesOnRecipe,
 } from '@app/ingestV2/source/builder/RecipeForm/common';
 
-export const UNITY_CATALOG = 'unity-catalog';
-
 export const TOKEN: RecipeField = {
     name: 'token',
     label: 'Token',
@@ -31,22 +29,6 @@ export const WORKSPACE_URL: RecipeField = {
     fieldPath: 'source.config.workspace_url',
     placeholder: 'https://abcsales.cloud.databricks.com',
     required: true,
-    rules: null,
-};
-
-export const INCLUDE_TABLE_LINEAGE: RecipeField = {
-    name: 'include_table_lineage',
-    label: 'Include Table Lineage',
-    helper: 'Extract Table Lineage from Unity',
-    tooltip: (
-        <div>
-            Extract Table Lineage from Unity Catalog. Note that this requires that your Databricks accounts meets
-            certain requirements. View them{' '}
-            <a href="https://docs.databricks.com/data-governance/unity-catalog/data-lineage.html#requirements">here</a>
-        </div>
-    ),
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_table_lineage',
     rules: null,
 };
 
@@ -81,6 +63,7 @@ export const UNITY_METASTORE_ID_ALLOW: FilterRecipeField = {
     fieldPath: metastoreIdAllowFieldPath,
     rules: null,
     section: 'Metastores',
+    filteringResource: 'Metastore',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, metastoreIdAllowFieldPath),
 };
@@ -99,6 +82,7 @@ export const UNITY_METASTORE_ID_DENY: FilterRecipeField = {
     fieldPath: metastoreIdDenyFieldPath,
     rules: null,
     section: 'Metastores',
+    filteringResource: 'Metastore',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, metastoreIdDenyFieldPath),
 };
@@ -117,6 +101,7 @@ export const UNITY_CATALOG_ALLOW: FilterRecipeField = {
     fieldPath: catalogAllowFieldPath,
     rules: null,
     section: 'Catalogs',
+    filteringResource: 'Catalog',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, catalogAllowFieldPath),
 };
@@ -135,6 +120,7 @@ export const UNITY_CATALOG_DENY: FilterRecipeField = {
     fieldPath: catalogDenyFieldPath,
     rules: null,
     section: 'Catalogs',
+    filteringResource: 'Catalog',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, catalogDenyFieldPath),
 };
@@ -153,6 +139,7 @@ export const UNITY_TABLE_ALLOW: FilterRecipeField = {
     fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
 };
@@ -171,6 +158,7 @@ export const UNITY_TABLE_DENY: FilterRecipeField = {
     fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
 };

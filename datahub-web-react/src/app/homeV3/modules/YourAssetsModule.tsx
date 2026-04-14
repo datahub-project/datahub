@@ -1,4 +1,5 @@
 import { InfiniteScrollList } from '@components';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 import React, { useCallback } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -42,7 +43,7 @@ export default function YourAssetsModule(props: ModuleProps) {
                     pageSize={DEFAULT_PAGE_SIZE}
                     emptyState={
                         <EmptyContent
-                            icon="User"
+                            icon={User}
                             title="No Owned Assets"
                             description="Select an asset and add yourself as an owner to see the assets in this list"
                             linkText="Discover the assets you want to own"

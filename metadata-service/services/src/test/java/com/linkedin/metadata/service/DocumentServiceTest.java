@@ -60,7 +60,6 @@ public class DocumentServiceTest {
             null, // no parent
             null, // no related assets
             null, // no related documents
-            null, // no draftOfUrn
             null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 
@@ -93,7 +92,6 @@ public class DocumentServiceTest {
             TEST_PARENT_URN,
             Arrays.asList(TEST_ASSET_URN),
             Arrays.asList(TEST_DOCUMENT_URN),
-            null, // no draftOfUrn
             null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 
@@ -126,7 +124,6 @@ public class DocumentServiceTest {
           null,
           null,
           null,
-          null, // no draftOfUrn
           null, // showInGlobalContext
           TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
@@ -644,113 +641,6 @@ public class DocumentServiceTest {
     }
   }
 
-  // Note: Merge draft tests are complex to mock properly due to aspect deserialization
-  // The core functionality is tested through the integration tests and basic CRUD operations
-
-  @Test
-  public void testMergeDraftIntoParentNotADraft() throws Exception {
-    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-
-    final Urn docUrn = UrnUtils.getUrn("urn:li:document:not-a-draft");
-
-    // Create document info WITHOUT draftOf
-    final DocumentInfo docInfo = new DocumentInfo();
-    docInfo.setTitle("Not a Draft");
-    docInfo.setContents(new com.linkedin.knowledge.DocumentContents().setText("Content"));
-    docInfo.setCreated(
-        new com.linkedin.common.AuditStamp()
-            .setTime(System.currentTimeMillis())
-            .setActor(TEST_USER_URN));
-
-    final EnvelopedAspect aspect = new EnvelopedAspect();
-    aspect.setValue(
-        new com.linkedin.entity.Aspect(GenericRecordUtils.serializeAspect(docInfo).data()));
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(Constants.DOCUMENT_INFO_ASPECT_NAME, aspect);
-    final EntityResponse response = new EntityResponse();
-    response.setUrn(docUrn);
-    response.setAspects(aspectMap);
-
-    when(mockClient.getV2(
-            any(OperationContext.class),
-            eq(Constants.DOCUMENT_ENTITY_NAME),
-            eq(docUrn),
-            any(Set.class)))
-        .thenReturn(response);
-
-    final DocumentService service = new DocumentService(mockClient);
-
-    // Test merge on non-draft document
-    try {
-      service.mergeDraftIntoParent(opContext, docUrn, false, TEST_USER_URN);
-      Assert.fail("Expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      Assert.assertTrue(e.getMessage().contains("not a draft"));
-    }
-  }
-
-  @Test
-  public void testGetDraftDocumentsSuccess() throws Exception {
-    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-
-    final Urn publishedUrn = UrnUtils.getUrn("urn:li:document:published-doc");
-
-    // Mock search result
-    final SearchResult searchResult = new SearchResult();
-    searchResult.setFrom(0);
-    searchResult.setPageSize(10);
-    searchResult.setNumEntities(2);
-
-    final SearchEntityArray entities = new SearchEntityArray();
-    entities.add(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:document:draft1")));
-    entities.add(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:document:draft2")));
-    searchResult.setEntities(entities);
-    searchResult.setMetadata(new SearchResultMetadata());
-
-    when(mockClient.search(
-            any(OperationContext.class),
-            eq(Constants.DOCUMENT_ENTITY_NAME),
-            eq("*"),
-            any(),
-            any(),
-            eq(0),
-            eq(10)))
-        .thenReturn(searchResult);
-
-    final DocumentService service = new DocumentService(mockClient);
-
-    // Test getting draft documents
-    final SearchResult result = service.getDraftDocuments(opContext, publishedUrn, 0, 10);
-
-    Assert.assertNotNull(result);
-    Assert.assertEquals(result.getNumEntities(), 2);
-    verify(mockClient, times(1))
-        .search(
-            any(OperationContext.class),
-            eq(Constants.DOCUMENT_ENTITY_NAME),
-            eq("*"),
-            any(),
-            any(),
-            eq(0),
-            eq(10));
-  }
-
-  @Test
-  public void testBuildDraftOfFilter() {
-    final Urn publishedUrn = UrnUtils.getUrn("urn:li:document:published");
-
-    // Test the static filter builder
-    final com.linkedin.metadata.query.filter.Filter filter =
-        DocumentService.buildDraftOfFilter(publishedUrn);
-
-    Assert.assertNotNull(filter);
-    Assert.assertNotNull(filter.getOr());
-    Assert.assertEquals(filter.getOr().size(), 1);
-    Assert.assertEquals(filter.getOr().get(0).getAnd().size(), 1);
-    Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "draftOf");
-    Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getValue(), publishedUrn.toString());
-  }
-
   @Test
   public void testBuildParentDocumentFilter() {
     final Urn parentUrn = UrnUtils.getUrn("urn:li:document:parent");
@@ -777,74 +667,6 @@ public class DocumentServiceTest {
   }
 
   @Test
-  public void testCreateDocumentAsDraft() throws Exception {
-    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
-
-    final DocumentService service = new DocumentService(mockClient);
-
-    final Urn publishedDocUrn = UrnUtils.getUrn("urn:li:document:published");
-
-    // Test creating a draft document
-    final Urn draftUrn =
-        service.createDocument(
-            opContext,
-            null, // auto-generate ID
-            java.util.Collections.singletonList("tutorial"),
-            "Draft Title",
-            null, // source
-            null, // state (will be forced to UNPUBLISHED)
-            "Draft content",
-            null, // no parent
-            null, // no related assets
-            null, // no related documents
-            publishedDocUrn, // draftOf
-            null, // showInGlobalContext
-            TEST_USER_URN);
-
-    // Verify the URN was created
-    Assert.assertNotNull(draftUrn);
-    Assert.assertEquals(draftUrn.getEntityType(), Constants.DOCUMENT_ENTITY_NAME);
-
-    // Verify ingest was called
-    verify(mockClient, times(1))
-        .batchIngestProposals(any(OperationContext.class), any(List.class), eq(false));
-  }
-
-  @Test
-  public void testCreateDraftWithPublishedStateFails() throws Exception {
-    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
-
-    final DocumentService service = new DocumentService(mockClient);
-
-    final Urn publishedDocUrn = UrnUtils.getUrn("urn:li:document:published");
-
-    // Test creating a draft with PUBLISHED state (should fail)
-    try {
-      service.createDocument(
-          opContext,
-          null,
-          java.util.Collections.singletonList("tutorial"),
-          "Draft Title",
-          null,
-          com.linkedin.knowledge.DocumentState.PUBLISHED, // PUBLISHED state with draftOf
-          "Draft content",
-          null,
-          null,
-          null,
-          publishedDocUrn, // draftOf
-          new com.linkedin.knowledge.DocumentSettings()
-              .setShowInGlobalContext(true), // showInGlobalContext
-          TEST_USER_URN);
-      Assert.fail("Expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      Assert.assertTrue(
-          e.getMessage().contains("Cannot create a draft document with PUBLISHED state"));
-    }
-  }
-
-  @Test
   public void testCreateDocumentWithCustomSettings() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
@@ -864,7 +686,6 @@ public class DocumentServiceTest {
             null, // no parent
             null, // no related assets
             null, // no related documents
-            null, // no draftOfUrn
             new com.linkedin.knowledge.DocumentSettings()
                 .setShowInGlobalContext(false), // showInGlobalContext = false
             TEST_USER_URN);
@@ -898,7 +719,6 @@ public class DocumentServiceTest {
             null, // no parent
             null, // no related assets
             null, // no related documents
-            null, // no draftOfUrn
             null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 

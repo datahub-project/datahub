@@ -108,8 +108,7 @@ public class ListIngestionSourcesResolver
   List<SortCriterion> buildSortCriteria(
       com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput) {
     if (sortCriterionInput == null) {
-      // Sort by platform type by default
-      return List.of(new SortCriterion().setField("type").setOrder(SortOrder.ASCENDING));
+      return List.of();
     }
 
     SortOrder order = SortOrder.valueOf(sortCriterionInput.getSortOrder().name());

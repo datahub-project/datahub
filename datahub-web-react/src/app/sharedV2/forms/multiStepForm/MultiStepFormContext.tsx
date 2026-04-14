@@ -1,7 +1,14 @@
+import deepEqual from 'fast-deep-equal';
 import React, { useCallback, useMemo, useState } from 'react';
 import { deepMerge } from 'remirror';
 
-import { MultiStepFormContextType, OnNextHandler, Step, StepKey } from '@app/sharedV2/forms/multiStepForm/types';
+import {
+    MultiStepFormContextType,
+    MultiStepFormProviderProps,
+    OnNextHandler,
+    Step,
+    StepKey,
+} from '@app/sharedV2/forms/multiStepForm/types';
 
 const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>({
     state: {},
@@ -18,6 +25,7 @@ const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>
     isCurrentStepCompleted: () => false,
     setCurrentStepCompleted: () => null,
     setCurrentStepUncompleted: () => null,
+    isDirty: () => false,
 
     getCurrentStep: () => undefined,
     submit: () =>
@@ -35,19 +43,13 @@ export function useMultiStepContext<TState, TStep extends Step, TSubmitOptions =
     return React.useContext<MultiStepFormContextType<TState, TStep, TSubmitOptions>>(MultiStepContext);
 }
 
-export interface MultiStepFormProviderProps<TState, TSubmitOptions = any> {
-    steps: Step[];
-    initialState?: TState;
-    onSubmit?: (state: TState | undefined, options?: TSubmitOptions) => Promise<void>;
-    onCancel?: () => void;
-}
-
 export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     children,
     steps,
     initialState,
     onSubmit,
     onCancel,
+    isDirtyChecker,
 }: React.PropsWithChildren<MultiStepFormProviderProps<TState>>) {
     const [state, setState] = useState<TState | undefined>(initialState);
     const [onNextHandler, setOnNextHandler] = useState<OnNextHandler | undefined>();
@@ -131,6 +133,13 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
         );
     }, [getCurrentStep]);
 
+    const isDirty = useCallback(() => {
+        if (isDirtyChecker) {
+            return isDirtyChecker(initialState, state);
+        }
+        return !deepEqual(initialState ?? {}, state ?? {});
+    }, [state, initialState, isDirtyChecker]);
+
     const submit = useCallback(
         async (options?: TSubmitOptions) => {
             await onSubmit?.(state, options);
@@ -139,8 +148,8 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     );
 
     const cancel = useCallback(() => {
-        onCancel?.();
-    }, [onCancel]);
+        onCancel?.({ isDirty: isDirty() });
+    }, [onCancel, isDirty]);
 
     return (
         <MultiStepContext.Provider
@@ -167,6 +176,7 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
                 isCurrentStepCompleted,
                 setCurrentStepCompleted,
                 setCurrentStepUncompleted,
+                isDirty,
             }}
         >
             {children}

@@ -673,8 +673,12 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
 
-    assert len(difference_dataset_urns) == 35
+    # Phase 3 now emits 5 additional tables in checkpoint1 (37 vs 35):
+    # 2 bigquery + 3 postgres tables (customer, payment, staff)
+    assert len(difference_dataset_urns) == 37
     deleted_dataset_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
@@ -759,7 +763,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_2
+@pytest.mark.integration_batch_5
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_signout_timeout_mces.json"
     golden_file_name: str = "tableau_signout_timeout_mces_golden.json"
@@ -1148,9 +1152,11 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
             mock_sdk.return_value = mock_client
 
             reporter = TableauSourceReport()
+            mock_config = mock.MagicMock()
+            mock_config.max_retries = 3  # Set max_retries for backoff calculation
             tableau_source = TableauSiteSource(
                 platform="tableau",
-                config=mock.MagicMock(),
+                config=mock_config,
                 ctx=mock.MagicMock(),
                 site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
                 server=mock_sdk.return_value,

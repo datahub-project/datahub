@@ -11,6 +11,9 @@ outputs:
   backend-only:
     description: "Backend only change"
     value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'true' }}
+  connector-source-only:
+    description: "Only connector source/test files changed (no ingestion core, no backend, no frontend)"
+    value: ${{ steps.filter.outputs.ingestion == 'true' && steps.filter.outputs.ingestion-core == 'false' && steps.filter.outputs.backend == 'false' && steps.filter.outputs.frontend == 'false' }}
   backend-change:
     description: "Backend code has changed"
     value: ${{ steps.filter.outputs.backend == 'true' ||  steps.trigger.outputs.trigger == 'manual' }}
@@ -29,15 +32,6 @@ outputs:
   kafka-setup-change:
     description: "Kafka setup docker change"
     value: ${{ steps.filter.outputs.kafka-setup == 'true' }}
-  mysql-setup-change:
-    description: "Mysql setup docker change"
-    value: ${{ steps.filter.outputs.mysql-setup == 'true' }}
-  postgres-setup-change:
-    description: "Postgres setup docker change"
-    value: ${{ steps.filter.outputs.postgres-setup == 'true' }}
-  elasticsearch-setup-change:
-    description: "Elasticsearch setup docker change"
-    value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
   smoke-test-change:
     description: "Smoke test change"
     value: ${{ steps.filter.outputs.smoke-test == 'true' }}
@@ -60,7 +54,7 @@ runs:
         else
           echo "trigger=pr" >> $GITHUB_OUTPUT
         fi
-    - uses: dorny/paths-filter@v3
+    - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
       id: filter
       with:
         token: "" # Empty token forces it to use raw git commands.
@@ -72,6 +66,27 @@ runs:
           ingestion:
             - "metadata-ingestion-modules/**"
             - "metadata-ingestion/**"
+            - "metadata-models/**"
+            - "docker/datahub-ingestion-base/**"
+            - "docker/datahub-ingestion/**"
+          ingestion-core:
+            - "metadata-ingestion/setup.py"
+            - "metadata-ingestion/pyproject.toml"
+            - "metadata-ingestion/constraints.txt"
+            - "metadata-ingestion/src/datahub/api/**"
+            - "metadata-ingestion/src/datahub/cli/**"
+            - "metadata-ingestion/src/datahub/configuration/**"
+            - "metadata-ingestion/src/datahub/emitter/**"
+            - "metadata-ingestion/src/datahub/ingestion/api/**"
+            - "metadata-ingestion/src/datahub/ingestion/graph/**"
+            - "metadata-ingestion/src/datahub/ingestion/run/**"
+            - "metadata-ingestion/src/datahub/ingestion/sink/**"
+            - "metadata-ingestion/src/datahub/metadata/**"
+            - "metadata-ingestion/src/datahub/sdk/**"
+            - "metadata-ingestion/src/datahub/sql_parsing/**"
+            - "metadata-ingestion/src/datahub/telemetry/**"
+            - "metadata-ingestion/src/datahub/utilities/**"
+            - "metadata-ingestion-modules/**"
             - "metadata-models/**"
             - "docker/datahub-ingestion-base/**"
             - "docker/datahub-ingestion/**"
@@ -97,12 +112,6 @@ runs:
             - "docker/**"
           kafka-setup:
             - "docker/kafka-setup/**"
-          mysql-setup:
-            - "docker/mysql-setup/**"
-          postgres-setup:
-            - "docker/postgres-setup/**"
-          elasticsearch-setup:
-            - "docker/elasticsearch-setup/**"
           smoke-test:
             - "smoke-test/**"
           actions:

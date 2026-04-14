@@ -150,7 +150,13 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         # Simulate no tables, views, or streams
         no_tables_fn = query_permission_response_override(
             default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [
+                SnowflakeQuery.tables_for_schema(
+                    "TEST_SCHEMA",
+                    "TEST_DB",
+                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                )
+            ],
             [],
         )
         no_views_fn = query_permission_response_override(
@@ -190,7 +196,13 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         # Simulate no tables, views, or streams
         no_tables_fn = query_permission_response_override(
             default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [
+                SnowflakeQuery.tables_for_schema(
+                    "TEST_SCHEMA",
+                    "TEST_DB",
+                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                )
+            ],
             [],
         )
         no_views_fn = query_permission_response_override(
@@ -346,13 +358,13 @@ def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_inf
         pipeline.run()
 
         pipeline.raise_from_status(raise_warnings=True)
-        assert pipeline.source.get_report().infos.as_obj() == [
-            {
-                "title": "Secure view definition not found",
-                "message": "Lineage will be missing for the view.",
-                "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
-            }
-        ]
+        infos = pipeline.source.get_report().infos.as_obj()
+        # Check that the expected info is present (other infos like semantic views may also exist)
+        assert {
+            "title": "Secure view definition not found",
+            "message": "Lineage will be missing for the view.",
+            "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
+        } in infos
 
 
 @freeze_time(FROZEN_TIME)

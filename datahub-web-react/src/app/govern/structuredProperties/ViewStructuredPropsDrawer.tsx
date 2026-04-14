@@ -1,4 +1,5 @@
 import { Text } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import ViewAdvancedOptions from '@app/govern/structuredProperties/ViewAdvancedOptions';
@@ -63,7 +64,7 @@ const ViewStructuredPropsDrawer = ({
                                 {getDisplayName(selectedProperty)}
                             </Text>
 
-                            <StyledIcon icon="Close" color="gray" onClick={handleClose} />
+                            <StyledIcon icon={X} color="gray" onClick={handleClose} />
                         </DrawerHeader>
                     )}
                 </>

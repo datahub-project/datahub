@@ -290,6 +290,7 @@ def default_source_config():
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": True,
+        "extract_column_level_lineage": False,
         "extract_reports": False,
         "admin_apis_only": False,
         "extract_ownership": True,
@@ -301,6 +302,10 @@ def default_source_config():
             "enabled": True,
         },
         "profile_pattern": {"allow": [".*"]},
+        # Explicitly set to True to maintain backward compatibility with golden files
+        "ownership": {
+            "create_corp_user": True,
+        },
     }
 
 

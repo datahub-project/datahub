@@ -6,11 +6,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.form.FormInfo;
-import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
+import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
-public class FormInfoTemplate extends CompoundKeyTemplate<FormInfo> {
+public class FormInfoTemplate implements ArrayMergingTemplate<FormInfo> {
 
   private static final String PROMPTS_FIELD_NAME = "prompts";
   private static final String PROMPT_ID_FIELD_NAME = "id";

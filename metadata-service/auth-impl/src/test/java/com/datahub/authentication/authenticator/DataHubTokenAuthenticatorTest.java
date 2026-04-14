@@ -1,9 +1,6 @@
 package com.datahub.authentication.authenticator;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
-import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SALT_CONFIG_NAME;
-import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_ALG_CONFIG_NAME;
-import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_KEY_CONFIG_NAME;
 import static com.datahub.authentication.token.TokenClaims.ACTOR_ID_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.ACTOR_TYPE_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.TOKEN_TYPE_CLAIM_NAME;
@@ -41,6 +38,9 @@ public class DataHubTokenAuthenticatorTest {
 
   private static final String TEST_SIGNING_KEY = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=";
   private static final String TEST_SALT = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI93=";
+  private static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
+  private static final String SALT_CONFIG_NAME = "salt";
+  private static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
 
   final EntityService mockService = mock(EntityService.class);
   final StatefulTokenService statefulTokenService =
@@ -66,17 +66,6 @@ public class DataHubTokenAuthenticatorTest {
     AuthenticatorContext authenticatorContext =
         new AuthenticatorContext(
             ImmutableMap.of(ENTITY_SERVICE, mockService, TOKEN_SERVICE, statefulTokenService));
-    assertThrows(() -> authenticator.init(null, authenticatorContext));
-    assertThrows(() -> authenticator.init(Collections.emptyMap(), authenticatorContext));
-    assertThrows(
-        () ->
-            authenticator.init(
-                ImmutableMap.of(
-                    SIGNING_KEY_CONFIG_NAME,
-                    TEST_SIGNING_KEY,
-                    SIGNING_ALG_CONFIG_NAME,
-                    "UNSUPPORTED_ALG"),
-                authenticatorContext));
     assertThrows(
         () ->
             authenticator.init(

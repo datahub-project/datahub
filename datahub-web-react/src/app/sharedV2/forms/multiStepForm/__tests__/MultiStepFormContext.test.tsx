@@ -2,12 +2,8 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-    MultiStepFormProvider,
-    MultiStepFormProviderProps,
-    useMultiStepContext,
-} from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
-import { Step } from '@app/sharedV2/forms/multiStepForm/types';
+import { MultiStepFormProvider, useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
+import { MultiStepFormProviderProps, Step } from '@app/sharedV2/forms/multiStepForm/types';
 
 // Define a test state type
 interface TestState {
@@ -255,10 +251,11 @@ describe('MultiStepFormContext', () => {
             expect(result.current.state).toBeUndefined();
         });
 
-        it('should call onCancel when cancel is triggered', () => {
+        it('should call onCancel with isDirty argument when cancel is triggered', () => {
             const mockCancel = vi.fn();
             const { result } = renderMultiStepContextHook<TestState>({
                 steps: [mockStep1],
+                initialState: { name: 'test' },
                 onCancel: mockCancel,
             });
 
@@ -266,7 +263,7 @@ describe('MultiStepFormContext', () => {
                 result.current.cancel();
             });
 
-            expect(mockCancel).toHaveBeenCalled();
+            expect(mockCancel).toHaveBeenCalledWith({ isDirty: false });
         });
 
         it('should handle cancel when no onCancel is provided', () => {
@@ -279,6 +276,93 @@ describe('MultiStepFormContext', () => {
             }).not.toThrow();
 
             // Should not throw an error even without onCancel
+        });
+
+        it('should call onCancel with correct isDirty value', () => {
+            const mockCancel = vi.fn();
+            const initialState: TestState = { name: 'test', count: 1 };
+            const { result } = renderMultiStepContextHook<TestState>({
+                steps: [mockStep1],
+                initialState,
+                onCancel: mockCancel,
+            });
+
+            // State hasn't changed, so should be clean
+            act(() => {
+                result.current.cancel();
+            });
+            expect(mockCancel).toHaveBeenCalledWith({ isDirty: false });
+
+            // Make state dirty
+            act(() => {
+                result.current.updateState({ count: 2 });
+            });
+
+            // Reset the mock to check the next call
+            mockCancel.mockClear();
+
+            // State has changed, so should be dirty
+            act(() => {
+                result.current.cancel();
+            });
+            expect(mockCancel).toHaveBeenCalledWith({ isDirty: true });
+        });
+    });
+
+    describe('isDirty', () => {
+        it('should return false when state matches initialState', () => {
+            const initialState: TestState = { name: 'test', count: 1 };
+            const { result } = renderMultiStepContextHook<TestState>({
+                steps: [mockStep1],
+                initialState,
+            });
+
+            expect(result.current.isDirty()).toBe(false);
+        });
+
+        it('should return true when state differs from initialState', () => {
+            const initialState: TestState = { name: 'test', count: 1 };
+            const { result } = renderMultiStepContextHook<TestState>({
+                steps: [mockStep1],
+                initialState,
+            });
+
+            act(() => {
+                result.current.updateState({ count: 2 });
+            });
+
+            expect(result.current.isDirty()).toBe(true);
+        });
+
+        it('should return false when updated state matches initialState after changes', () => {
+            const initialState: TestState = { name: 'test', count: 1 };
+            const { result } = renderMultiStepContextHook<TestState>({
+                steps: [mockStep1],
+                initialState,
+            });
+
+            act(() => {
+                result.current.updateState({ count: 2 });
+            });
+            expect(result.current.isDirty()).toBe(true);
+
+            act(() => {
+                result.current.updateState({ count: 1 });
+            });
+            expect(result.current.isDirty()).toBe(false);
+        });
+
+        it('should use isDirtyChecker when provided', () => {
+            const isDirtyChecker = vi.fn(() => true);
+            const initialState: TestState = { name: 'test', count: 1 };
+            const { result } = renderMultiStepContextHook<TestState>({
+                steps: [mockStep1],
+                initialState,
+                isDirtyChecker,
+            });
+
+            expect(result.current.isDirty()).toBe(true);
+            expect(isDirtyChecker).toHaveBeenCalledWith(initialState, initialState);
         });
     });
 

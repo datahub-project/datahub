@@ -2,11 +2,13 @@ import { Modal, Text, typography } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-export const StyledModal = styled(Modal)`
+import { ModalButton } from '@components/components/Modal/Modal';
+
+const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
         border-radius: 12px;
     }
 
@@ -28,8 +30,10 @@ interface Props {
     modalTitle?: string;
     modalText?: string | React.ReactNode;
     closeButtonText?: string;
+    closeButtonColor?: ModalButton['color'];
     confirmButtonText?: string;
     isDeleteModal?: boolean;
+    closeOnPrimaryAction?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -39,13 +43,15 @@ export const ConfirmationModal = ({
     modalTitle,
     modalText,
     closeButtonText,
+    closeButtonColor,
     confirmButtonText,
     isDeleteModal,
+    closeOnPrimaryAction,
 }: Props) => {
     return (
         <StyledModal
             open={isOpen}
-            onCancel={handleClose}
+            onCancel={closeOnPrimaryAction ? handleConfirm : handleClose}
             centered
             buttons={[
                 {
@@ -53,6 +59,7 @@ export const ConfirmationModal = ({
                     onClick: handleClose,
                     buttonDataTestId: 'modal-cancel-button',
                     text: closeButtonText || 'Cancel',
+                    color: closeButtonColor,
                 },
                 {
                     variant: 'filled',
@@ -64,7 +71,7 @@ export const ConfirmationModal = ({
             ]}
             title={modalTitle || 'Confirm'}
         >
-            <Text color="gray" size="lg">
+            <Text size="lg" color="gray">
                 {modalText || 'Are you sure?'}
             </Text>
         </StyledModal>

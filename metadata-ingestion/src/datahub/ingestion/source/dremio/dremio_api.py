@@ -183,7 +183,9 @@ class DremioAPIOperations:
                     "Personal Access Token (PAT) is missing for cloud authentication."
                 )
             self.session.headers.update(
-                {"Authorization": f"Bearer {connection_args.password}"}
+                {
+                    "Authorization": f"Bearer {connection_args.password.get_secret_value()}"
+                }
             )
             logger.debug("Configured Dremio cloud API session to use PAT")
             return
@@ -194,7 +196,7 @@ class DremioAPIOperations:
                 if connection_args.authentication_method == "PAT":
                     self.session.headers.update(
                         {
-                            "Authorization": f"Bearer {connection_args.password}",
+                            "Authorization": f"Bearer {connection_args.password.get_secret_value() if connection_args.password else ''}",
                         }
                     )
                     logger.debug("Configured Dremio API session to use PAT")
@@ -212,7 +214,7 @@ class DremioAPIOperations:
                         data=json.dumps(
                             {
                                 "userName": connection_args.username,
-                                "password": connection_args.password,
+                                "password": connection_args.password.get_secret_value(),
                             }
                         ),
                         verify=self._verify,

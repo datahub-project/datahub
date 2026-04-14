@@ -183,6 +183,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/"
             }
@@ -190,7 +195,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -912,6 +917,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/"
             }
@@ -919,7 +929,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1215,7 +1225,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.table_1,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 }
             ],
             "fineGrainedLineages": [
@@ -1230,7 +1240,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_1\" AS \"COL_1\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1243,7 +1253,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_2\" AS \"COL_2\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1256,7 +1266,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_3\" AS \"COL_3\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1269,7 +1279,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_4\" AS \"COL_4\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1282,7 +1292,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_5\" AS \"COL_5\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1295,7 +1305,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_6\" AS \"COL_6\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1308,7 +1318,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_7\" AS \"COL_7\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1321,7 +1331,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_8\" AS \"COL_8\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1334,7 +1344,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_9\" AS \"COL_9\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1347,7 +1357,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_10\" AS \"COL_10\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29"
+                    "query": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc"
                 }
             ]
         }
@@ -1614,6 +1624,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_10/"
             }
@@ -1621,7 +1636,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1880,6 +1895,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_5/"
             }
@@ -1887,7 +1907,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1939,6 +1959,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/TARGET_LAG",
                 "value": "1 HOUR"
             },
@@ -1951,7 +1976,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2533,6 +2558,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_6/"
             }
@@ -2540,7 +2570,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2880,6 +2910,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_7/"
             }
@@ -2887,7 +2922,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2950,6 +2985,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_4/"
             }
@@ -2957,7 +2997,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3475,6 +3515,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_8/"
             }
@@ -3482,7 +3527,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3642,6 +3687,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/RETENTION_TIME",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/externalUrl",
                 "value": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_9/"
             }
@@ -3649,7 +3699,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4585,7 +4635,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -4686,7 +4736,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -5187,7 +5237,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -5216,7 +5266,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -5299,7 +5349,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5315,7 +5365,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5378,7 +5428,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.table_2,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 }
             ],
             "fineGrainedLineages": [
@@ -5393,7 +5443,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_1\" AS \"COL_1\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5406,7 +5456,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_2\" AS \"COL_2\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5419,7 +5469,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_3\" AS \"COL_3\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5432,7 +5482,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_4\" AS \"COL_4\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5445,7 +5495,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_5\" AS \"COL_5\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5458,7 +5508,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_6\" AS \"COL_6\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5471,7 +5521,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_7\" AS \"COL_7\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5484,7 +5534,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_8\" AS \"COL_8\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5497,7 +5547,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_9\" AS \"COL_9\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5510,7 +5560,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_2\".\"COL_10\" AS \"COL_10\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29"
+                    "query": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10"
                 }
             ]
         }
@@ -5552,7 +5602,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -5581,7 +5631,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -5664,7 +5714,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5697,7 +5747,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,instance1.test_db.test_schema.table_1,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "auditStamp": {
@@ -5725,7 +5775,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_1\" AS \"COL_1\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5738,7 +5788,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_2\" AS \"COL_2\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5751,7 +5801,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_3\" AS \"COL_3\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5764,7 +5814,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_4\" AS \"COL_4\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5777,7 +5827,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_5\" AS \"COL_5\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5790,7 +5840,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_6\" AS \"COL_6\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5803,7 +5853,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_7\" AS \"COL_7\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5816,7 +5866,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_8\" AS \"COL_8\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5829,7 +5879,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_9\" AS \"COL_9\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -5842,7 +5892,7 @@
                     ],
                     "transformOperation": "COPY: \"TABLE_1\".\"COL_10\" AS \"COL_10\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29"
+                    "query": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489"
                 }
             ]
         }
@@ -5920,7 +5970,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_3176e2138b02fae28f3a91fdea8259b1cd6a6293c0d9b5f46f9ca86b01c352bc",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5982,7 +6032,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_2a733e00fb8723bdee1ea97ccf825f20376c6fcd04207d24e3a594cd22daed10",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -6846,7 +6896,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.table_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_af1d5faddea8ed1ed1f6f179993842058439f9d38fa8d0f9403fda46cf877489",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

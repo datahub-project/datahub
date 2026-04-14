@@ -1,0 +1,118 @@
+# Generic Dockerfile for running Airflow plugin tests via tox
+# Tox handles all dependency installation including Airflow, constraints, and providers
+#
+# Usage:
+#   docker build -f Dockerfile.test -t airflow-plugin-test .
+#   docker run airflow-plugin-test [TOX_ENV] [-- PYTEST_ARGS]
+#
+# Examples:
+#   # Run all tests with Airflow 3.1 (default)
+#   docker run airflow-plugin-test
+#
+#   # Run tests with Airflow 2.9
+#   docker run airflow-plugin-test py311-airflow29
+#
+#   # Run specific test with Airflow 3.1
+#   docker run airflow-plugin-test py311-airflow31 -- tests/integration/test_plugin.py::test_v2_basic_dag -v
+#
+#   # Update golden files
+#   docker run airflow-plugin-test py311-airflow31 -- --update-golden-files
+#
+#   # Run with different Python version (requires rebuilding image)
+#   docker build -f Dockerfile.test --build-arg PYTHON_VERSION=3.10 -t airflow-plugin-test:py310 .
+#   docker run airflow-plugin-test:py310 py310-airflow28
+
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim
+
+# Install system dependencies required for building Python packages
+# Also install gosu for switching users (Airflow 3.x requirement)
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    libpq-dev \
+    curl \
+    gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set initial working directory
+WORKDIR /app
+
+# Copy the entire repository context (needed for tox to install ../../metadata-ingestion)
+# Note: This expects to be run from the repository root with -f metadata-ingestion-modules/airflow-plugin/Dockerfile.test
+COPY . /app/
+
+# Change to the airflow-plugin directory where tox.ini is located
+WORKDIR /app/metadata-ingestion-modules/airflow-plugin
+
+# Install tox, uv, and mypy (tox uses uv for faster installations)
+# mypy is needed for type checking in tox environments
+RUN pip install --no-cache-dir tox uv mypy==1.17.1
+
+# Set default tox environment
+ENV TOX_ENV=py311-airflow31
+
+# Set UV cache directory to /tmp (writable by all users)
+ENV UV_CACHE_DIR=/tmp/.uv-cache
+
+# Create entrypoint script that handles user creation for Airflow 3.x
+# This script runs as root, creates a user matching the host UID/GID, then switches to that user
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Airflow 3.x requires a real user with username and home directory\n\
+# If USER_ID and GROUP_ID are provided via environment, create that user\n\
+if [ -n "$USER_ID" ] && [ -n "$GROUP_ID" ]; then\n\
+  echo "[Entrypoint] Creating testuser with UID=$USER_ID GID=$GROUP_ID"\n\
+  \n\
+  # Check if a group with this GID already exists\n\
+  EXISTING_GROUP=$(getent group $GROUP_ID | cut -d: -f1)\n\
+  if [ -z "$EXISTING_GROUP" ]; then\n\
+    # No group with this GID exists, create one\n\
+    groupadd -g $GROUP_ID testgroup\n\
+    EXISTING_GROUP=testgroup\n\
+  else\n\
+    echo "[Entrypoint] Using existing group: $EXISTING_GROUP (GID=$GROUP_ID)"\n\
+  fi\n\
+  \n\
+  # Check if a user with this UID already exists\n\
+  EXISTING_USER=$(id -nu $USER_ID 2>/dev/null || true)\n\
+  if [ -z "$EXISTING_USER" ]; then\n\
+    # No user with this UID exists, create one\n\
+    useradd -u $USER_ID -g $GROUP_ID -d /tmp -s /bin/bash testuser\n\
+    EXISTING_USER=testuser\n\
+  fi\n\
+  \n\
+  # Ensure .tox directory will be writable by the user\n\
+  # Instead of fixing permissions on existing .tox (which can be slow),\n\
+  # we'll let tox recreate it if needed, or ensure the parent directory is writable\n\
+  TOX_DIR="/app/metadata-ingestion-modules/airflow-plugin/.tox"\n\
+  TOX_PARENT="/app/metadata-ingestion-modules/airflow-plugin"\n\
+  # Make sure the parent directory is writable so tox can create .tox\n\
+  chown $EXISTING_USER:$EXISTING_GROUP "$TOX_PARENT" 2>/dev/null || true\n\
+  # If .tox exists and is owned by wrong user, remove it to let tox recreate\n\
+  if [ -d "$TOX_DIR" ] && [ "$(stat -c '%U' $TOX_DIR 2>/dev/null)" != "$EXISTING_USER" ]; then\n\
+    rm -rf "$TOX_DIR"\n\
+  fi\n\
+  \n\
+  # Run tox as the created/existing user using gosu\n\
+  if [ $# -eq 0 ]; then\n\
+    exec gosu $EXISTING_USER tox -e "$TOX_ENV"\n\
+  elif [[ "$1" =~ ^py ]]; then\n\
+    exec gosu $EXISTING_USER tox -e "$@"\n\
+  else\n\
+    exec gosu $EXISTING_USER tox -e "$TOX_ENV" -- "$@"\n\
+  fi\n\
+else\n\
+  # No USER_ID/GROUP_ID provided, run as root (or current user)\n\
+  if [ $# -eq 0 ]; then\n\
+    exec tox -e "$TOX_ENV"\n\
+  elif [[ "$1" =~ ^py ]]; then\n\
+    exec tox -e "$@"\n\
+  else\n\
+    exec tox -e "$TOX_ENV" -- "$@"\n\
+  fi\n\
+fi' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Default command: run tox with the default environment
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1,11 +1,11 @@
-import { colors } from '@components';
-import { FileText } from '@phosphor-icons/react';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DocumentProfile } from '@app/entityV2/document/DocumentProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -28,14 +28,6 @@ export class DocumentEntity implements Entity<Document> {
     type: EntityType = EntityType.Document;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <FileText size={fontSize} color={color} weight="duotone" />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FileText size={fontSize || 20} color={color || '#1890ff'} weight="duotone" />;
-        }
-
         if (styleType === IconStyleType.SVG) {
             return (
                 <path
@@ -49,7 +41,14 @@ export class DocumentEntity implements Entity<Document> {
             );
         }
 
-        return <FileText size={fontSize || 20} color={color || colors.gray[1700]} weight="duotone" />;
+        return (
+            <FileText
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+            />
+        );
     };
 
     isSearchEnabled = () => true;
@@ -74,7 +73,7 @@ export class DocumentEntity implements Entity<Document> {
 
     renderPreview = (previewType: PreviewType, data: Document) => {
         const genericProperties = this.getGenericEntityProperties(data);
-        const platform = genericProperties?.platform;
+        const platform = genericProperties?.platform?.urn !== 'urn:li:dataPlatform:datahub' ? data.platform : undefined;
         return (
             <Preview
                 document={data}
@@ -98,7 +97,7 @@ export class DocumentEntity implements Entity<Document> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Document;
         const genericProperties = this.getGenericEntityProperties(data);
-        const platform = genericProperties?.platform;
+        const platform = genericProperties?.platform?.urn !== 'urn:li:dataPlatform:datahub' ? data.platform : undefined;
         return (
             <Preview
                 document={data}
@@ -124,8 +123,14 @@ export class DocumentEntity implements Entity<Document> {
     };
 
     getOverridePropertiesFromEntity = (data: Document) => {
+        const externalUrl = data.info?.source?.externalUrl;
         return {
             name: data.info?.title,
+            externalUrl,
+            properties: {
+                name: data.info?.title,
+                externalUrl,
+            },
         };
     };
 

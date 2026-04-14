@@ -93,7 +93,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> createTableSqlStatements() {
+  public java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
+    // schemaVersionIndex is intentionally not created for MySQL: MySQL's query optimizer typically
+    // uses only one index per table scan, so an additional index on schemaVersion rarely helps and
+    // adds write overhead. This query only helps during the upgrade process during background
+    // migration.
     return java.util.Arrays.asList(
         """
         CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
@@ -110,7 +114,7 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
           INDEX urnIndex (urn),
           INDEX aspectIndex (aspect),
           INDEX versionIndex (version)
-        );
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
         """);
   }
 
@@ -124,8 +128,13 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
       stmt.setString(1, databaseName);
       try (ResultSet result = stmt.executeQuery()) {
         if (!result.next()) {
-          // Create database using PreparedStatement
-          String createDbSql = "CREATE DATABASE `" + databaseName + "`";
+          // Create database with charset/collation matching docker/mysql-setup/init.sql to avoid
+          // case/encoding mismatches (e.g. utf8mb4_ci vs utf8mb4_bin) that can cause NPE in
+          // EbeanAspectDao.getNextVersions when DB-returned URN strings don't match request keys.
+          String createDbSql =
+              "CREATE DATABASE "
+                  + escapeMysqlIdentifier(databaseName)
+                  + " CHARACTER SET utf8mb4 COLLATE utf8mb4_bin";
           try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
             createStmt.executeUpdate();
             log.info("Created MySQL database: {}", databaseName);
@@ -137,8 +146,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
     } catch (Exception e) {
       log.debug("MySQL database check failed, attempting to create: {}", e.getMessage());
       // Fallback: try to create database directly
-      try (PreparedStatement createStmt =
-          connection.prepareStatement("CREATE DATABASE `" + databaseName + "`")) {
+      String createDbSql =
+          "CREATE DATABASE "
+              + escapeMysqlIdentifier(databaseName)
+              + " CHARACTER SET utf8mb4 COLLATE utf8mb4_bin";
+      try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
         createStmt.executeUpdate();
         log.info("Created MySQL database: {}", databaseName);
       }
