@@ -2,7 +2,7 @@ from typing import List
 
 import pydantic
 import pytest
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from datahub.configuration.common import (
     AllowDenyPattern,
@@ -140,6 +140,32 @@ def test_parse_obj_allow_extras_with_aliases():
     assert config.normal_field == "n"
     assert config.aliased == "A"
     assert config.val_aliased == "V"
+
+
+def test_parse_obj_allow_extras_with_alias_choices():
+    """AliasChoices validation aliases must be handled correctly.
+
+    The key-stripping approach failed here because isinstance(AliasChoices, str)
+    is False, so alternate alias names were incorrectly stripped from the dict.
+    """
+
+    class ChoicesConfig(ConfigModel):
+        pattern: str = Field(
+            default="default",
+            validation_alias=AliasChoices("pattern", "dataset_pattern"),
+        )
+
+    # Primary alias
+    config = ChoicesConfig.parse_obj_allow_extras(
+        {"pattern": "primary", "extra": "gone"}
+    )
+    assert config.pattern == "primary"
+
+    # Alternate alias
+    config2 = ChoicesConfig.parse_obj_allow_extras(
+        {"dataset_pattern": "alternate", "extra": "gone"}
+    )
+    assert config2.pattern == "alternate"
 
 
 def test_parse_obj_allow_extras_does_not_corrupt_class():

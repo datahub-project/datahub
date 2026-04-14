@@ -281,18 +281,12 @@ class ConfigModel(BaseModel):
         This is useful when parsing a config dict that may contain fields for a
         broader config class (e.g. a full ingestion recipe) into a narrower one.
         """
-        if isinstance(obj, dict):
-            known_keys: set = set()
-            for field_name, field_info in cls.model_fields.items():
-                known_keys.add(field_name)
-                if field_info.alias and isinstance(field_info.alias, str):
-                    known_keys.add(field_info.alias)
-                if field_info.validation_alias and isinstance(
-                    field_info.validation_alias, str
-                ):
-                    known_keys.add(field_info.validation_alias)
-            obj = {k: v for k, v in obj.items() if k in known_keys}
-        return cls.model_validate(obj)
+        if not isinstance(obj, dict):
+            return cls.model_validate(obj)
+        relaxed_cls = type(
+            cls.__name__, (cls,), {"model_config": ConfigDict(extra="ignore")}
+        )
+        return relaxed_cls.model_validate(obj)  # type: ignore[return-value]
 
 
 class PermissiveConfigModel(ConfigModel):
