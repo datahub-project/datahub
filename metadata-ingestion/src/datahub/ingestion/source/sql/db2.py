@@ -230,6 +230,15 @@ def _db2_get_view_qualifier_quoted(
         logger.debug(f"Got PATHSCHEMAS={repr(result)} view {repr(schema)}.{repr(view)}")
         pathschemas = _split_zos_pathschemas(result.strip())
         if len(pathschemas) > 1:
+            # TODO: test this logic
+            pathschemas = [
+                path
+                for path in pathschemas
+                if path
+                not in ("SYSFUN", "SYSIBM", "SYSPROC")  # TODO: add more system schemas?
+            ]
+
+        if len(pathschemas) > 1:
             raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
 
         # the schema name must be quoted so that case-sensitive names make it through
