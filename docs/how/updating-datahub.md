@@ -142,7 +142,20 @@ Requirements:
 - #16265 (Ingestion) Azure Data Factory: Column lineage extraction for Copy activity.
 - #16235 (Ingestion) Airflow plugin: Multi-statement SQL parsing support for lineage extraction.
 
+## v1.5.0.1
+
+Patch release for the Actions image packaging.
+
+- #16781 (Actions): The `datahub-actions` Docker image bundles dedicated virtualenvs for `datahub-gc` and `datahub-documents`.
+
 ## v1.5.0.2
+
+Patch release focused on dependency and security updates (Java stack, Python ingestion, observability).
+
+- #16829 / #16828: Spring bumped to 6.2.17 and Netty to 4.1.132.Final.
+- #16950: Patched Rhino, Logback, and Commons Lang3 for CVEs.
+- OpenTelemetry API/SDK and instrumentation upgraded (Docker images use `opentelemetry-javaagent` 2.26.1; JMX Prometheus agent unchanged at 0.20.0); addresses CVE-2026-33701.
+- #16822 / #16868 / #16955: Python ingestion dependency fixes (CVE-2024-27459), raised `pyOpenSSL` floor with expanded security constraints, and LiteLLM 1.83.0 for CVE-2026-35030.
 
 ### Bug Fixes
 
