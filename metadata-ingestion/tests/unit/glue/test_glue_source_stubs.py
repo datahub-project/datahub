@@ -799,7 +799,7 @@ get_dataflow_graph_response_2 = {
     ],
 }
 # for job 3
-get_dataflow_graph_response_3 = {
+get_dataflow_graph_response_3: dict[str, Any] = {
     "DagNodes": [],
     "DagEdges": [],
 }
