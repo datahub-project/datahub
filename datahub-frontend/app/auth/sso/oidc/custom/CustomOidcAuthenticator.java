@@ -67,12 +67,8 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
           ClientAuthenticationMethod.PRIVATE_KEY_JWT,
           ClientAuthenticationMethod.NONE);
 
-  /**
-   * RSA signing algorithms accepted for the {@code private_key_jwt} client assertion. Nimbus's
-   * {@link JWSAlgorithm#parse} does <em>not</em> validate unknown algorithm names — it silently
-   * returns a placeholder that later explodes inside the signer — so we validate eagerly against
-   * this allow-list at startup.
-   */
+  // Nimbus's JWSAlgorithm.parse silently accepts unknown names and returns a placeholder that
+  // explodes later inside the signer; we validate eagerly against this allow-list at startup.
   private static final Set<JWSAlgorithm> SUPPORTED_PRIVATE_KEY_JWT_ALGORITHMS =
       Set.of(JWSAlgorithm.RS256, JWSAlgorithm.RS384, JWSAlgorithm.RS512);
 
@@ -81,11 +77,7 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
   private final ClientID clientID;
   private final URI tokenEndpoint;
 
-  /**
-   * Pre-parsed private_key_jwt signing material, populated once at startup so each token request
-   * does not re-read PEM files. {@code null} when {@link #chosenMethod} is not {@code
-   * private_key_jwt}.
-   */
+  /** Pre-parsed signing material; {@code null} unless {@link #chosenMethod} is private_key_jwt. */
   @Nullable private final PrivateKeyJwtMaterial pkjMaterial;
 
   public CustomOidcAuthenticator(final OidcClient client, final OidcConfigs oidcConfigs) {
@@ -102,83 +94,57 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
       throw e;
     }
 
-    this.chosenMethod = resolveChosenMethod(providerMetadata);
-    this.clientID = new ClientID(configuration.getClientId());
-    // Cached at startup: IdP token endpoint rollovers are rare and require operator action
-    // (cert/client re-registration) anyway, so the restart-to-refresh trade-off is acceptable
-    // and avoids a metadata-resolver hit on every login.
-    this.tokenEndpoint = providerMetadata.getTokenEndpointURI();
-
-    if (ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(chosenMethod)) {
-      this.pkjMaterial = loadPrivateKeyJwtMaterial(oidcConfigs);
-      logger.info(
-          "Loaded private_key_jwt signing material (alg={}, kid={}, x5t#S256={}, chainLength={})",
-          pkjMaterial.algorithm(),
-          pkjMaterial.kid(),
-          pkjMaterial.x5tS256(),
-          pkjMaterial.x5c().size());
-    } else if (!SUPPORTED_METHODS.contains(chosenMethod)) {
-      throw new TechnicalException("Unsupported client authentication method: " + chosenMethod);
-    } else {
-      this.pkjMaterial = null;
-    }
-  }
-
-  private ClientAuthenticationMethod resolveChosenMethod(OIDCProviderMetadata providerMetadata) {
-    List<ClientAuthenticationMethod> metadataMethods =
+    final List<ClientAuthenticationMethod> metadataMethods =
         providerMetadata.getTokenEndpointAuthMethods();
     final ClientAuthenticationMethod preferredMethod =
         getPreferredAuthenticationMethod(configuration);
 
     if (CommonHelper.isNotEmpty(metadataMethods)) {
       if (preferredMethod != null) {
-        if (ClientAuthenticationMethod.NONE.equals(preferredMethod)
-            || metadataMethods.contains(preferredMethod)) {
-          return preferredMethod;
+        if (!ClientAuthenticationMethod.NONE.equals(preferredMethod)
+            && !metadataMethods.contains(preferredMethod)) {
+          throw new TechnicalException(
+              "Preferred authentication method ("
+                  + preferredMethod
+                  + ") not supported by provider according to provider metadata ("
+                  + metadataMethods
+                  + ").");
         }
-        throw new TechnicalException(
-            "Preferred authentication method ("
-                + preferredMethod
-                + ") not supported by provider according to provider metadata ("
-                + metadataMethods
-                + ").");
+        this.chosenMethod = preferredMethod;
+      } else {
+        this.chosenMethod = firstSupportedMethod(metadataMethods);
       }
-      return firstSupportedMethod(metadataMethods);
+    } else {
+      this.chosenMethod =
+          preferredMethod != null ? preferredMethod : ClientAuthenticationMethod.getDefault();
+      logger.info(
+          "Provider metadata does not provide Token endpoint authentication methods. Using: {}",
+          chosenMethod);
     }
 
-    ClientAuthenticationMethod fallback =
-        preferredMethod != null ? preferredMethod : ClientAuthenticationMethod.getDefault();
-    logger.info(
-        "Provider metadata does not provide Token endpoint authentication methods. Using: {}",
-        fallback);
-    return fallback;
+    this.clientID = new ClientID(configuration.getClientId());
+    // Cached at startup: token endpoint rollovers are rare and require operator action anyway,
+    // so the restart-to-refresh trade-off avoids a metadata-resolver hit per login.
+    this.tokenEndpoint = providerMetadata.getTokenEndpointURI();
+    this.pkjMaterial =
+        ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(chosenMethod)
+            ? loadPrivateKeyJwtMaterial(oidcConfigs)
+            : null;
   }
 
-  /**
-   * The preferred {@link ClientAuthenticationMethod} specified in the given {@link
-   * OidcConfiguration}, or {@code null} meaning that a provider-supported method should be chosen.
-   */
   private static ClientAuthenticationMethod getPreferredAuthenticationMethod(
       OidcConfiguration config) {
     final ClientAuthenticationMethod configurationMethod = config.getClientAuthenticationMethod();
     if (configurationMethod == null) {
       return null;
     }
-
     if (!SUPPORTED_METHODS.contains(configurationMethod)) {
       throw new TechnicalException(
           "Configured authentication method (" + configurationMethod + ") is not supported.");
     }
-
     return configurationMethod;
   }
 
-  /**
-   * The first {@link ClientAuthenticationMethod} from the given list of methods that is supported
-   * by this implementation.
-   *
-   * @throws TechnicalException if none of the provider-supported methods is supported.
-   */
   private static ClientAuthenticationMethod firstSupportedMethod(
       final List<ClientAuthenticationMethod> metadataMethods) {
     return metadataMethods.stream()
@@ -192,30 +158,23 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
   }
 
   /**
-   * Builds a fresh {@link TokenRequest} for the given grant. Called by {@link
-   * #executeTokenRequestWithRetry} (and by pac4j's parent flow). A new {@link ClientAuthentication}
-   * is constructed on every call so that the {@code private_key_jwt} assertion has a future {@code
-   * exp} claim — caching it in a field would produce a stale JWT after ~5 minutes of uptime.
+   * Builds a fresh {@link TokenRequest} per call. A new {@link ClientAuthentication} is constructed
+   * every time so that {@code private_key_jwt} assertions always have a future {@code exp} claim —
+   * caching would let them go stale within minutes of uptime.
    */
   @Override
   protected TokenRequest createTokenRequest(AuthorizationGrant grant) {
     final Scope scope = Scope.parse(configuration.getScope());
     try {
       final ClientAuthentication clientAuth = buildClientAuthentication();
-      if (clientAuth == null) {
-        // NONE: unauthenticated token request (e.g. public client with PKCE).
-        return new TokenRequest(tokenEndpoint, clientID, grant, scope);
-      }
-      return new TokenRequest(tokenEndpoint, clientAuth, grant, scope);
+      return clientAuth == null
+          ? new TokenRequest(tokenEndpoint, clientID, grant, scope)
+          : new TokenRequest(tokenEndpoint, clientAuth, grant, scope);
     } catch (JOSEException e) {
       throw new TechnicalException("Failed to sign private_key_jwt client assertion", e);
     }
   }
 
-  /**
-   * Constructs a {@link ClientAuthentication} for the chosen method. Returns {@code null} for the
-   * {@code none} method.
-   */
   @Nullable
   private ClientAuthentication buildClientAuthentication() throws JOSEException {
     if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(chosenMethod)) {
@@ -234,34 +193,26 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
   }
 
   /**
-   * Signs a brand-new {@code private_key_jwt} client assertion per RFC 7523. The JWT header carries
+   * Signs a brand-new {@code private_key_jwt} client assertion (RFC 7523). The header carries
    * {@code kid}, {@code x5t#S256} and {@code x5c} so any OIDC-compliant IdP can match on whichever
-   * key-identification field it prefers. {@link JWTAuthenticationClaimsSet} generates a fresh
+   * key-identification field it prefers; {@link JWTAuthenticationClaimsSet} generates a fresh
    * {@code jti}, {@code iat} and {@code exp} on every invocation.
    */
   private ClientAuthentication signFreshPrivateKeyJwt() throws JOSEException {
-    Objects.requireNonNull(pkjMaterial, "private_key_jwt material was not loaded");
-
     JWSHeader header =
         new JWSHeader.Builder(pkjMaterial.algorithm())
             .keyID(pkjMaterial.kid())
             .x509CertSHA256Thumbprint(pkjMaterial.x5tS256())
             .x509CertChain(pkjMaterial.x5c())
             .build();
-
     JWTAuthenticationClaimsSet claims =
         new JWTAuthenticationClaimsSet(clientID, new Audience(tokenEndpoint.toString()));
-
     SignedJWT jwt = new SignedJWT(header, claims.toJWTClaimsSet());
     jwt.sign(new RSASSASigner(pkjMaterial.privateKey()));
-
     return new PrivateKeyJWT(jwt);
   }
 
-  /**
-   * Loads and caches the private_key_jwt signing material (PEM private key + X.509 chain + derived
-   * header fields) once at startup.
-   */
+  /** Loads the PEM key + cert chain once at startup and pre-computes header fields. */
   private static PrivateKeyJwtMaterial loadPrivateKeyJwtMaterial(OidcConfigs oidcConfigs) {
     try {
       String privateKeyPath =
@@ -271,11 +222,6 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
                   () ->
                       new IllegalArgumentException(
                           "privateKeyFilePath is required for private_key_jwt authentication"));
-
-      PrivateKey privateKey =
-          PrivateKeyJwtUtils.loadPrivateKey(
-              privateKeyPath, oidcConfigs.getPrivateKeyPassword().orElse(null));
-
       String certificatePath =
           oidcConfigs
               .getCertificateFilePath()
@@ -284,9 +230,11 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
                       new IllegalArgumentException(
                           "certificateFilePath is required for private_key_jwt authentication"));
 
+      PrivateKey privateKey =
+          PrivateKeyJwtUtils.loadPrivateKey(
+              privateKeyPath, oidcConfigs.getPrivateKeyPassword().orElse(null));
       List<X509Certificate> chain = PrivateKeyJwtUtils.loadCertificateChain(certificatePath);
-      X509Certificate leaf = chain.get(0);
-      String thumbprintSha256 = PrivateKeyJwtUtils.computeSha256Thumbprint(leaf);
+      String thumbprintSha256 = PrivateKeyJwtUtils.computeSha256Thumbprint(chain.get(0));
       String kid = oidcConfigs.getPrivateKeyJwtKid().orElse(thumbprintSha256);
 
       JWSAlgorithm algorithm = JWSAlgorithm.parse(oidcConfigs.getPrivateKeyJwtAlgorithm());
@@ -303,6 +251,12 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
         x5c.add(com.nimbusds.jose.util.Base64.encode(c.getEncoded()));
       }
 
+      logger.info(
+          "Loaded private_key_jwt signing material (alg={}, kid={}, x5t#S256={}, chainLength={})",
+          algorithm,
+          kid,
+          thumbprintSha256,
+          chain.size());
       return new PrivateKeyJwtMaterial(
           privateKey, algorithm, kid, new Base64URL(thumbprintSha256), List.copyOf(x5c));
     } catch (IOException | CertificateException | IllegalArgumentException e) {
@@ -332,15 +286,12 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
 
         final OIDCTokens oidcTokens = tokenSuccessResponse.getOIDCTokens();
         credentials.setAccessTokenObject(oidcTokens.getAccessToken());
-
         if (oidcTokens.getRefreshToken() != null) {
           credentials.setRefreshTokenObject(oidcTokens.getRefreshToken());
         }
-
         if (oidcTokens.getIDToken() != null) {
           credentials.setIdToken(oidcTokens.getIDToken().getParsedString());
         }
-
       } catch (final URISyntaxException | IOException | ParseException e) {
         throw new TechnicalException(e);
       }
@@ -424,7 +375,7 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
         "Failed to execute token request after " + maxAttempts + " attempts");
   }
 
-  /** Immutable pre-parsed signing material for private_key_jwt, loaded once at startup. */
+  /** Pre-parsed signing material for {@code private_key_jwt}, immutable after startup. */
   private record PrivateKeyJwtMaterial(
       PrivateKey privateKey,
       JWSAlgorithm algorithm,
