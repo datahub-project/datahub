@@ -5,7 +5,15 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple, cast
+from itertools import islice
+from typing import (
+    TYPE_CHECKING,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    cast,
+)
 
 from google.cloud import dataplex_v1
 
@@ -189,22 +197,29 @@ class DataplexEntriesProcessor:
                     entry_stubs.append((name, location))
 
         # Phase 1b: fetch entry details in parallel and build entities.
+        # Stubs are submitted in batches (config.batch_size) so that peak
+        # memory is bounded when there are thousands of entries.  Setting
+        # batch_size to None submits all stubs at once (no batching).
+        # islice(it, None) consumes the whole iterator in one shot, matching
+        # the no-batching case without special-casing.
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(self._fetch_and_build_entry, name, loc): (name, loc)
-                for name, loc in entry_stubs
-            }
-            for future in as_completed(futures):
-                entry_name, _ = futures[future]
-                try:
-                    yield from future.result()
-                except Exception as exc:
-                    self.source_report.warning(
-                        title="Dataplex entry processing failed",
-                        message="Failed to fetch or build entity for entry. Skipping.",
-                        context=f"entry_name={entry_name}",
-                        exc=exc,
-                    )
+            it = iter(entry_stubs)
+            while batch := list(islice(it, self.config.batch_size)):
+                futures = {
+                    executor.submit(self._fetch_and_build_entry, name, loc): (name, loc)
+                    for name, loc in batch
+                }
+                for future in as_completed(futures):
+                    entry_name, _ = futures[future]
+                    try:
+                        yield from future.result()
+                    except Exception as exc:
+                        self.source_report.warning(
+                            title="Dataplex entry processing failed",
+                            message="Failed to fetch or build entity for entry. Skipping.",
+                            context=f"entry_name={entry_name}",
+                            exc=exc,
+                        )
 
         # Phase 1c: Spanner entries (sequential — already fully-fetched from search_entries).
         for project_id in project_ids:
@@ -293,7 +308,9 @@ class DataplexEntriesProcessor:
 
     def _fetch_and_build_entry(self, entry_name: str, location: str) -> List["Entity"]:
         """Fetch entry details and build entities. Called from thread pool."""
-        return self._build_entities_for_entry(self._fetch_entry_detail(entry_name), location)
+        return self._build_entities_for_entry(
+            self._fetch_entry_detail(entry_name), location
+        )
 
     def _process_spanner_entries(
         self, project_id: str, location: str

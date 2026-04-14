@@ -7,6 +7,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from itertools import islice
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
 
 from google.api_core import exceptions as google_exceptions
@@ -666,42 +667,49 @@ class DataplexLineageExtractor:
 
         logger.info("Extracting lineage (parallel, max_workers=%d)", max_workers)
 
-        entries = list(entry_data)
-        if not entries:
-            logger.info("No entries found for lineage extraction")
-            return
-
+        # Entries are submitted in batches (config.batch_size) so that the
+        # entry_data iterable is consumed incrementally and peak memory is
+        # bounded when there are thousands of entries.  Setting batch_size to
+        # None submits all entries in a single batch (no batching).
+        # islice(it, None) consumes the whole iterator in one shot, matching
+        # the no-batching case without special-casing.
         entries_with_lineage = 0
+        found_any = False
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(
-                    self._process_entry_lineage,
-                    entry,
-                    active_lineage_project_location_pairs,
-                ): entry
-                for entry in entries
-            }
-            for future in as_completed(futures):
-                entry = futures[future]
-                try:
-                    workunits = future.result()
-                    if workunits:
-                        entries_with_lineage += 1
-                    yield from workunits
-                except Exception as exc:
-                    self.report.report_lineage_entry_failed(
-                        entry_name=entry.dataplex_entry_name,
-                        stage="parallel_gen_lineage",
-                    )
-                    self.source_report.warning(
-                        "Failed to generate lineage for entry in parallel worker.",
-                        context=(
-                            f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                            f"datahub_dataset_name={entry.datahub_dataset_name}, "
-                            "stage=parallel_gen_lineage"
-                        ),
-                        exc=exc,
-                    )
+            it = iter(entry_data)
+            while batch := list(islice(it, self.config.batch_size)):
+                found_any = True
+                futures = {
+                    executor.submit(
+                        self._process_entry_lineage,
+                        entry,
+                        active_lineage_project_location_pairs,
+                    ): entry
+                    for entry in batch
+                }
+                for future in as_completed(futures):
+                    entry = futures[future]
+                    try:
+                        workunits = future.result()
+                        if workunits:
+                            entries_with_lineage += 1
+                        yield from workunits
+                    except Exception as exc:
+                        self.report.report_lineage_entry_failed(
+                            entry_name=entry.dataplex_entry_name,
+                            stage="parallel_gen_lineage",
+                        )
+                        self.source_report.warning(
+                            "Failed to generate lineage for entry in parallel worker.",
+                            context=(
+                                f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                                f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                                "stage=parallel_gen_lineage"
+                            ),
+                            exc=exc,
+                        )
+        if not found_any:
+            logger.info("No entries found for lineage extraction")
 
         logger.info(
             "Parallel lineage complete: entries_with_lineage=%s, processed=%s, "
@@ -714,4 +722,3 @@ class DataplexLineageExtractor:
             self.report.num_lineage_upstream_links_found,
             self.report.num_lineage_edges_added,
         )
-
