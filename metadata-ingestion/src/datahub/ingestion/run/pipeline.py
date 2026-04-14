@@ -253,11 +253,22 @@ class Pipeline:
                     )
                     logger.info("Source configured successfully.")
 
-                    # Apply recipe-level report sample sizes.
+                    # Retain enough entries for whichever is larger: the
+                    # final report size or the interim display cap.
+                    flags = self.config.flags
                     self.source.get_report()._structured_logs.set_sample_sizes(
-                        failure_size=self.config.flags.report_failure_sample_size,
-                        warning_size=self.config.flags.report_warning_sample_size,
-                        info_size=self.config.flags.report_info_sample_size,
+                        failure_size=max(
+                            flags.report_failure_sample_size,
+                            flags.progress_report_max_failures,
+                        ),
+                        warning_size=max(
+                            flags.report_warning_sample_size,
+                            flags.progress_report_max_warnings,
+                        ),
+                        info_size=max(
+                            flags.report_info_sample_size,
+                            flags.progress_report_max_infos,
+                        ),
                     )
 
                 extractor_type = self.config.source.extractor

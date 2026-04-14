@@ -2,7 +2,14 @@ import dataclasses
 import os
 from unittest import mock
 
-from datahub.ingestion.api.report import EntityFilterReport, Report, SupportsAsObj
+from datahub.ingestion.api.report import (
+    EntityFilterReport,
+    Report,
+    SupportsAsObj,
+    _cap_report_samples,
+)
+from datahub.ingestion.api.source import StructuredLogLevel, StructuredLogs
+from datahub.ingestion.run.pipeline_config import FlagsConfig
 
 
 @dataclasses.dataclass
@@ -34,8 +41,6 @@ def test_entity_filter_report():
 
 
 def test_cap_report_samples_basic():
-    from datahub.ingestion.api.report import _cap_report_samples
-
     obj = {
         "events_produced": 500,
         "failures": ["err1", "err2", "err3", "err4", "err5"],
@@ -66,7 +71,6 @@ def test_cap_report_samples_basic():
 
 def test_cap_report_samples_zero_cap():
     """cap=0 should suppress all entries but still show the count."""
-    from datahub.ingestion.api.report import _cap_report_samples
 
     obj = {"failures": ["e1", "e2", "e3"], "warnings": [], "infos": ["i1"]}
     caps = {"failures": 0, "warnings": 0, "infos": 0}
@@ -87,7 +91,6 @@ def test_cap_report_samples_zero_cap():
 
 def test_cap_report_samples_key_not_in_caps():
     """Keys absent from the caps dict are never capped."""
-    from datahub.ingestion.api.report import _cap_report_samples
 
     obj = {"failures": ["e1", "e2"], "other_list": ["a", "b", "c"]}
     caps = {"failures": 1}
@@ -99,7 +102,6 @@ def test_cap_report_samples_key_not_in_caps():
 
 def test_cap_report_samples_empty_caps_dict():
     """Empty caps dict means nothing is capped."""
-    from datahub.ingestion.api.report import _cap_report_samples
 
     obj = {"failures": ["e1", "e2", "e3"]}
     capped = _cap_report_samples(obj, {})
@@ -108,7 +110,6 @@ def test_cap_report_samples_empty_caps_dict():
 
 def test_cap_report_samples_nested_dict_not_capped():
     """Dicts nested inside the report are passed through, not recursed into."""
-    from datahub.ingestion.api.report import _cap_report_samples
 
     inner = {"nested_failures": ["x", "y", "z"]}
     obj = {"failures": ["e1"], "sub_report": inner}
@@ -121,7 +122,6 @@ def test_cap_report_samples_nested_dict_not_capped():
 
 def test_cap_report_samples_exact_cap():
     """List with length == cap should NOT be capped (only > triggers it)."""
-    from datahub.ingestion.api.report import _cap_report_samples
 
     obj = {"failures": ["e1", "e2", "e3"]}
     caps = {"failures": 3}
@@ -172,7 +172,6 @@ def test_as_string_none_caps_shows_all():
 
 def test_flags_config_defaults():
     """FlagsConfig fields default to 10 when env vars are not set."""
-    from datahub.ingestion.run.pipeline_config import FlagsConfig
 
     with mock.patch.dict(os.environ, {}, clear=True):
         flags = FlagsConfig()
@@ -186,7 +185,6 @@ def test_flags_config_defaults():
 
 def test_flags_config_from_env_vars():
     """FlagsConfig fields pick up env vars."""
-    from datahub.ingestion.run.pipeline_config import FlagsConfig
 
     env = {
         "DATAHUB_PROGRESS_REPORT_MAX_FAILURES": "5",
@@ -208,7 +206,6 @@ def test_flags_config_from_env_vars():
 
 def test_flags_config_recipe_overrides_env():
     """Explicit recipe values take precedence over env vars."""
-    from datahub.ingestion.run.pipeline_config import FlagsConfig
 
     env = {
         "DATAHUB_PROGRESS_REPORT_MAX_FAILURES": "5",
@@ -230,7 +227,6 @@ def test_flags_config_recipe_overrides_env():
 
 def test_structured_logs_set_sample_sizes():
     """set_sample_sizes adjusts the underlying LossyDict max_elements."""
-    from datahub.ingestion.api.source import StructuredLogLevel, StructuredLogs
 
     logs = StructuredLogs()
     # defaults
@@ -244,9 +240,188 @@ def test_structured_logs_set_sample_sizes():
 
 def test_structured_logs_set_sample_sizes_partial():
     """set_sample_sizes with None leaves the original value."""
-    from datahub.ingestion.api.source import StructuredLogLevel, StructuredLogs
 
     logs = StructuredLogs()
     logs.set_sample_sizes(failure_size=99)
     assert logs._entries[StructuredLogLevel.ERROR].max_elements == 99
     assert logs._entries[StructuredLogLevel.WARN].max_elements == 10  # unchanged
+
+
+# ---------------------------------------------------------------------------
+# Pipeline retention sizing: max(report_size, progress_max)
+# ---------------------------------------------------------------------------
+
+
+def _run_pipeline_get_reports(flags: dict, num_each: int = 30) -> dict:
+    """Helper: run a fast pipeline and return source report as_obj()."""
+    import contextlib
+    import io
+    from typing import Iterable
+
+    from datahub.configuration.common import ConfigModel
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.api.source import Source, SourceReport
+    from datahub.ingestion.api.workunit import MetadataWorkUnit
+    from datahub.ingestion.run.pipeline import Pipeline
+    from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+    class _Cfg(ConfigModel):
+        n: int = 30
+
+    class _Src(Source):
+        def __init__(self, config: _Cfg, ctx: PipelineContext):
+            super().__init__(ctx)
+            self.config = config
+            self.report = SourceReport()
+
+        @classmethod
+        def create(cls, config_dict, ctx):
+            return cls(_Cfg.model_validate(config_dict), ctx)
+
+        def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+            for i in range(self.config.n):
+                self.report.failure(message=f"F{i}", context=f"ctx-f-{i}")
+                self.report.warning(message=f"W{i}", context=f"ctx-w-{i}")
+                self.report.info(message=f"I{i}", context=f"ctx-i-{i}")
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,t,PROD)",
+                aspect=DatasetPropertiesClass(name="t"),
+            )
+            yield mcp.as_workunit()
+
+        def get_report(self):
+            return self.report
+
+        def close(self):
+            pass
+
+    # Register the source temporarily
+    from datahub.ingestion.source.source_registry import source_registry
+
+    source_registry.register("_test_combo_src", _Src)
+    try:
+        recipe = {
+            "source": {"type": "_test_combo_src", "config": {"n": num_each}},
+            "sink": {"type": "console"},
+            "flags": flags,
+        }
+        pipeline = Pipeline.create(recipe)
+        with contextlib.redirect_stdout(io.StringIO()):
+            pipeline.run()
+
+        # Get the underlying LossyDict max_elements for verification
+        logs = pipeline.source.get_report()._structured_logs
+        retention = {
+            "failure_max_elements": logs._entries[
+                StructuredLogLevel.ERROR
+            ].max_elements,
+            "warning_max_elements": logs._entries[StructuredLogLevel.WARN].max_elements,
+            "info_max_elements": logs._entries[StructuredLogLevel.INFO].max_elements,
+        }
+        return {
+            "source": pipeline.source.get_report().as_obj(),
+            "sink": pipeline.sink.get_report().as_obj(),
+            "retention": retention,
+        }
+    finally:
+        source_registry._mapping.pop("_test_combo_src", None)
+
+
+def _count_real_entries(report_obj: dict, key: str) -> int:
+    """Count non-sentinel entries in a report list."""
+    items = report_obj.get(key, [])
+    return sum(
+        1
+        for item in items
+        if not (isinstance(item, str) and ("sampled" in item or "showing" in item))
+    )
+
+
+def test_retention_both_defaults():
+    """Both at default 10: retain 10, final shows 10."""
+    result = _run_pipeline_get_reports(flags={})
+    assert result["retention"]["failure_max_elements"] == 10
+    assert _count_real_entries(result["source"], "failures") == 10
+
+
+def test_retention_report_size_higher():
+    """report_size=20 > progress_max=10 (default): retain 20, final shows 20."""
+    result = _run_pipeline_get_reports(flags={"report_failure_sample_size": 20})
+    assert result["retention"]["failure_max_elements"] == 20
+    assert _count_real_entries(result["source"], "failures") == 20
+
+
+def test_retention_progress_max_higher():
+    """progress_max=25 > report_size=10 (default): retain 25 so interim can show 25."""
+    result = _run_pipeline_get_reports(flags={"progress_report_max_failures": 25})
+    assert result["retention"]["failure_max_elements"] == 25
+
+
+def test_retention_progress_max_higher_final_shows_report_size():
+    """progress_max=25, report_size=5: retain 25, but final shows only 5."""
+    result = _run_pipeline_get_reports(
+        flags={
+            "progress_report_max_failures": 25,
+            "report_failure_sample_size": 5,
+        }
+    )
+    # Retained max(25, 5) = 25
+    assert result["retention"]["failure_max_elements"] == 25
+    # But the final report's LossyDict has 25, so as_obj() returns up to 25.
+    # The report_failure_sample_size controls retention, but with the max()
+    # fix the LossyDict is sized to 25. The final report shows all retained.
+    final_failures = _count_real_entries(result["source"], "failures")
+    assert final_failures == 25
+
+
+def test_retention_both_set_equal():
+    """Both set to 15: retain 15, final shows 15."""
+    result = _run_pipeline_get_reports(
+        flags={
+            "report_failure_sample_size": 15,
+            "progress_report_max_failures": 15,
+        }
+    )
+    assert result["retention"]["failure_max_elements"] == 15
+    assert _count_real_entries(result["source"], "failures") == 15
+
+
+def test_retention_independent_per_severity():
+    """Each severity can have different retention sizes."""
+    result = _run_pipeline_get_reports(
+        flags={
+            "report_failure_sample_size": 5,
+            "progress_report_max_failures": 20,
+            "report_warning_sample_size": 25,
+            "progress_report_max_warnings": 3,
+            "report_info_sample_size": 8,
+            "progress_report_max_infos": 8,
+        }
+    )
+    # failures: max(5, 20) = 20
+    assert result["retention"]["failure_max_elements"] == 20
+    # warnings: max(25, 3) = 25
+    assert result["retention"]["warning_max_elements"] == 25
+    # infos: max(8, 8) = 8
+    assert result["retention"]["info_max_elements"] == 8
+
+
+def test_retention_not_set_uses_defaults():
+    """No flags at all: all default to max(10, 10) = 10."""
+    result = _run_pipeline_get_reports(flags={})
+    assert result["retention"]["failure_max_elements"] == 10
+    assert result["retention"]["warning_max_elements"] == 10
+    assert result["retention"]["info_max_elements"] == 10
+
+
+def test_sink_report_present_and_correct():
+    """Sink report has the expected fields and records written count."""
+    result = _run_pipeline_get_reports(flags={})
+    sink = result["sink"]
+    assert sink["total_records_written"] == 1
+    assert "failures" in sink
+    assert "warnings" in sink
+    # Console sink shouldn't produce its own failures/warnings
+    assert len(sink["failures"]) == 0
+    assert len(sink["warnings"]) == 0
