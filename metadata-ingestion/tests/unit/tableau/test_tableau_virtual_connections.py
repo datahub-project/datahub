@@ -137,10 +137,10 @@ class TestVirtualConnectionProcessor:
                     "field_name": "test_field",
                     "column_name": "test_column",
                     "vc_table_name": "test_table",
+                    "vc_id": "vc-123",  # vc_id must be in the ref (from virtualConnection.id)
                 }
             ]
         }
-        self.vc_processor.vc_table_id_to_vc_id = {"vc-table-1": "vc-123"}
 
         valid_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-123,PROD)"
         result = self.vc_processor.create_datasource_vc_lineage(valid_urn)
@@ -161,12 +161,19 @@ class TestVirtualConnectionProcessor:
         result = self.vc_processor.create_datasource_vc_lineage(no_rel_urn)
         assert result.upstream_tables == []
 
+        # Ref missing vc_id is skipped (vc_id comes from virtualConnection.id in API response)
         self.vc_processor.datasource_vc_relationships["ds-456"] = [
-            {"incomplete": "data"}  # Missing required fields
+            {
+                "vc_table_id": "vc-table-1",
+                "field_name": "f",
+                "column_name": "c",
+                "vc_table_name": "t",
+            }
         ]
         incomplete_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-456,PROD)"
         result = self.vc_processor.create_datasource_vc_lineage(incomplete_urn)
         assert result.upstream_tables == []
+        assert result.fine_grained_lineages == []
 
     def test_comprehensive_table_upstream_lineage_scenarios(self):
         """Test table upstream lineage creation with various scenarios"""

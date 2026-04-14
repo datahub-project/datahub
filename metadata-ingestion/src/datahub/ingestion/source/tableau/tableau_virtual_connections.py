@@ -596,30 +596,37 @@ class VirtualConnectionProcessor:
 
         vc_table_urns_seen = set()
 
-        # Build mapping of VC table names to IDs for disambiguation when field names
-        # reference specific tables (e.g., "column_name (schema.table_name)")
+        # Build disambiguation maps from the collected refs so they're available immediately,
+        # without waiting for the Step 2 lookup (which runs after datasource emission).
         vc_table_name_to_id: Dict[str, str] = {}
-        for table_id, _vc_id in self.vc_table_id_to_vc_id.items():
-            if table_id in self.vc_table_id_to_name:
-                table_name = self.vc_table_id_to_name[table_id]
-                vc_table_name_to_id[table_name.lower()] = table_id
+        vc_table_id_to_name_from_refs: Dict[str, str] = {}
+        vc_table_id_to_vc_id_from_refs: Dict[str, str] = {}
+        for r in vc_references:
+            r_table_id = r.get("vc_table_id")
+            r_table_name = r.get("vc_table_name")
+            r_vc_id = r.get("vc_id")
+            if r_table_id and r_table_name:
+                vc_table_name_to_id[r_table_name.lower()] = r_table_id
+                vc_table_id_to_name_from_refs[r_table_id] = r_table_name
+            if r_table_id and r_vc_id:
+                vc_table_id_to_vc_id_from_refs[r_table_id] = r_vc_id
 
         for ref in vc_references:
             vc_table_id = ref.get("vc_table_id")
             field_name = str(ref.get("field_name"))
             vc_table_name = ref.get("vc_table_name")
             column_name = ref.get("column_name")
+            vc_id = ref.get("vc_id")
 
-            if not all([vc_table_id, field_name, column_name, vc_table_name]):
+            if not all([vc_table_id, field_name, column_name, vc_table_name, vc_id]):
                 continue
 
-            # Extract table reference from field names like "column_name (schema.table_name)"
-            # Helps disambiguate which VC table a field comes from when VCs have multiple tables
-            # Note: Uses rightmost parenthetical to avoid matching nested parens like "Amount (USD) (table)"
+            # Extract table reference from field names like "column_name (schema.table_name)".
+            # Disambiguates which VC table a field comes from when a VC has multiple tables.
+            # Uses the rightmost parenthetical to handle nested parens like "Amount (USD) (table)".
             referenced_table = None
             clean_field_name = field_name
 
-            # Find the last occurrence of parentheses (handles nested parens)
             last_open_paren = field_name.rfind("(")
             last_close_paren = field_name.rfind(")")
 
@@ -632,76 +639,49 @@ class VirtualConnectionProcessor:
                 referenced_table = (
                     field_name[last_open_paren + 1 : last_close_paren].strip().lower()
                 )
-                logger.debug(
-                    f"Extracted referenced table '{referenced_table}' from field '{field_name}'"
-                )
 
                 if referenced_table in vc_table_name_to_id:
                     ref_table_id = vc_table_name_to_id[referenced_table]
                     if ref_table_id != vc_table_id:
-                        original_vc_table_id = vc_table_id
-                        original_vc_table_name = vc_table_name
-                        vc_table_id = ref_table_id
-                        if ref_table_id in self.vc_table_id_to_name:
-                            vc_table_name = self.vc_table_id_to_name[ref_table_id]
                         logger.info(
-                            f"Field '{field_name}': Overriding VC table from '{original_vc_table_name}' "
-                            f"(ID: {original_vc_table_id}) to '{vc_table_name}' (ID: {ref_table_id}) "
-                            f"based on table reference in field name"
+                            f"Field '{field_name}': Overriding VC table from '{vc_table_name}' "
+                            f"(ID: {vc_table_id}) to '{vc_table_id_to_name_from_refs.get(ref_table_id, ref_table_id)}' "
+                            f"(ID: {ref_table_id}) based on table reference in field name"
                         )
-                else:
-                    logger.debug(
-                        f"Referenced table '{referenced_table}' from field '{field_name}' "
-                        f"not found in VC table name mapping. Available tables: {list(vc_table_name_to_id.keys())}"
+                        vc_table_id = ref_table_id
+                        vc_table_name = vc_table_id_to_name_from_refs.get(
+                            ref_table_id, vc_table_name
+                        )
+                        vc_id = vc_table_id_to_vc_id_from_refs.get(ref_table_id, vc_id)
+
+            vc_table_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=f"{vc_id}.{vc_table_name}",
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            vc_table_urns_seen.add(vc_table_urn)
+
+            if self.config.extract_column_level_lineage:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            builder.make_schema_field_urn(datasource_urn, field_name)
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            builder.make_schema_field_urn(
+                                vc_table_urn, str(column_name)
+                            )
+                        ],
+                        transformOperation=f"Source: {clean_field_name} from {vc_table_name}"
+                        if referenced_table
+                        else None,
                     )
-
-            if vc_table_id in self.vc_table_id_to_vc_id:
-                vc_id = self.vc_table_id_to_vc_id[vc_table_id]
-
-                # URN format: {vc_id}.{table_name}
-                vc_table_urn = builder.make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=f"{vc_id}.{vc_table_name}",
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
                 )
-
-                # Table-level lineage handled elsewhere; just track URNs here
-                if vc_table_urn not in vc_table_urns_seen:
-                    vc_table_urns_seen.add(vc_table_urn)
-
-                if self.config.extract_column_level_lineage:
-                    column_type = self.vc_table_column_types.get(
-                        f"{vc_table_id}.{column_name}", c.UNKNOWN
-                    )
-                    logger.debug(
-                        f"VC column type for {vc_table_id}.{column_name}: {column_type}"
-                    )
-
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                builder.make_schema_field_urn(
-                                    datasource_urn, field_name
-                                )
-                            ],
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                builder.make_schema_field_urn(
-                                    vc_table_urn, str(column_name)
-                                )
-                            ],
-                            transformOperation=f"Source: {clean_field_name} from {vc_table_name}"
-                            if referenced_table
-                            else None,
-                        )
-                    )
-                    self.report.num_vc_lineages_created += 1
-
-                    logger.debug(
-                        f"Created VC lineage: {field_name} ← {column_name} (in {vc_table_name})"
-                    )
+                self.report.num_vc_lineages_created += 1
 
         logger.debug(
             f"Created {len(upstream_tables)} table lineages and {len(fine_grained_lineages)} column lineages for datasource {datasource_id}"
