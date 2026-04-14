@@ -10,6 +10,7 @@ from botocore.stub import Stubber
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
@@ -33,6 +34,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.urn_encoder import UrnEncoder
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -1434,3 +1436,26 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
 )
 def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
     assert _sanitize_jdbc_url(raw_url) == expected_safe
+
+
+def test_glue_database_name_encoding_in_urn() -> None:
+    """Database names with '(', ')', '/' are percent-encoded in dataset URNs."""
+    database_name = "data__team-owned_(read/write)_warehouse"
+    table_name = "my_table"
+
+    urn_dataset_name = (
+        f"{UrnEncoder.encode_string(database_name).replace('/', '%2F')}"
+        f".{UrnEncoder.encode_string(table_name).replace('/', '%2F')}"
+    )
+    urn = make_dataset_urn_with_platform_instance(
+        platform="glue",
+        name=urn_dataset_name,
+        platform_instance=None,
+        env="PROD",
+    )
+
+    name_part = urn.split("glue,")[1].rstrip(",PROD)")
+    assert "(" not in name_part
+    assert ")" not in name_part
+    assert "/" not in name_part
+    assert "data__team-owned_%28read%2Fwrite%29_warehouse.my_table" in urn

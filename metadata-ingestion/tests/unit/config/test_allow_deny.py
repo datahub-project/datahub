@@ -49,3 +49,37 @@ def test_case_sensitivity():
     pattern = AllowDenyPattern(allow=["Foo.myTable"], ignoreCase=False)
     assert not pattern.allowed("foo.mytable")
     assert pattern.allowed("Foo.myTable")
+
+
+def test_allow_literal_with_regex_metacharacters() -> None:
+    # Database names like 'sales_(jan/feb)_data' contain '(' and ')' which are regex
+    # metacharacters. When a user puts the exact name in the allow list, it should
+    # be treated as a literal and match correctly.
+    pattern = AllowDenyPattern(allow=["sales_(jan/feb)_data"])
+    assert pattern.allowed("sales_(jan/feb)_data")
+    assert not pattern.allowed("sales_other_data")
+
+
+def test_allow_literal_case_insensitive_with_special_chars() -> None:
+    pattern = AllowDenyPattern(allow=["PROD_(READ/WRITE)_DB"])
+    assert pattern.allowed("prod_(read/write)_db")
+    assert pattern.allowed("PROD_(READ/WRITE)_DB")
+
+
+def test_allow_literal_case_sensitive_with_special_chars() -> None:
+    pattern = AllowDenyPattern(allow=["Prod_(Read/Write)_Db"], ignoreCase=False)
+    assert pattern.allowed("Prod_(Read/Write)_Db")
+    assert not pattern.allowed("prod_(read/write)_db")
+
+
+def test_deny_literal_with_regex_metacharacters() -> None:
+    pattern = AllowDenyPattern(deny=["staging_(raw/agg)_db"])
+    assert not pattern.allowed("staging_(raw/agg)_db")
+    assert pattern.allowed("staging_other_db")
+
+
+def test_regex_patterns_still_work_with_literal_fallback() -> None:
+    pattern = AllowDenyPattern(allow=["flights.*"])
+    assert pattern.allowed("flights-database")
+    assert pattern.allowed("flights_other")
+    assert not pattern.allowed("test-database")

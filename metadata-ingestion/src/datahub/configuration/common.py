@@ -14,6 +14,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Set,
     Type,
     TypeVar,
     Union,
@@ -441,6 +442,18 @@ class AllowDenyPattern(ConfigModel):
         """Evaluating compiled deny patterns is 1000x faster and this is in the hot path, so we cache them here for the life of this object."""
         return [re.compile(pattern, self.regex_flags) for pattern in self.deny]
 
+    @functools_cached_property
+    def _allow_literal_set(self) -> "Set[str]":
+        if self.ignoreCase:
+            return {p.lower() for p in self.allow}
+        return set(self.allow)
+
+    @functools_cached_property
+    def _deny_literal_set(self) -> "Set[str]":
+        if self.ignoreCase:
+            return {p.lower() for p in self.deny}
+        return set(self.deny)
+
     @classmethod
     def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
@@ -449,10 +462,20 @@ class AllowDenyPattern(ConfigModel):
         if self.denied(string):
             return False
 
-        return any(pattern.match(string) for pattern in self._compiled_allow)
+        if any(pattern.match(string) for pattern in self._compiled_allow):
+            return True
+
+        # Literal fallback: names with regex metacharacters (e.g. 'sales_(jan/feb)_data')
+        # fail pattern.match() even when listed exactly. Try plain string comparison.
+        compare = string.lower() if self.ignoreCase else string
+        return compare in self._allow_literal_set
 
     def denied(self, string: str) -> bool:
-        return any(pattern.match(string) for pattern in self._compiled_deny)
+        if any(pattern.match(string) for pattern in self._compiled_deny):
+            return True
+
+        compare = string.lower() if self.ignoreCase else string
+        return compare in self._deny_literal_set
 
     def is_fully_specified_allow_list(self) -> bool:
         """
