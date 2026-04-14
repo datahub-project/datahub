@@ -53,12 +53,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -196,9 +195,15 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
-  @ConditionalOnBean(MeterRegistry.class)
   public MCPObserver ingestionMetricsEmitter(
-      @Nonnull final MeterRegistry meterRegistry, @Nonnull final ObjectMapper objectMapper) {
+      ObjectProvider<MeterRegistry> meterRegistryProvider,
+      ObjectProvider<ObjectMapper> objectMapperProvider) {
+    MeterRegistry meterRegistry = meterRegistryProvider.getIfAvailable();
+    ObjectMapper objectMapper = objectMapperProvider.getIfAvailable();
+    if (meterRegistry == null || objectMapper == null) {
+      log.info("Required beans not available, skipping IngestionMetricsEmitter");
+      return null;
+    }
     AspectPluginConfig config =
         AspectPluginConfig.builder()
             .className(IngestionMetricsEmitter.class.getName())
