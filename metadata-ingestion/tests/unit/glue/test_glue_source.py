@@ -41,6 +41,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 from tests.unit.glue.test_glue_source_stubs import (
+    SPECIAL_CHAR_DB_NAME,
     empty_database,
     flights_database,
     get_bucket_tagging,
@@ -48,6 +49,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response,
     get_databases_response_for_lineage,
     get_databases_response_profiling,
+    get_databases_response_special_chars,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
@@ -65,6 +67,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_tables_response_2,
     get_tables_response_for_target_database,
     get_tables_response_profiling_1,
+    get_tables_response_special_chars,
     resource_link_database,
     tables_1,
     tables_2,
@@ -1459,3 +1462,41 @@ def test_glue_database_name_encoding_in_urn() -> None:
     assert ")" not in name_part
     assert "/" not in name_part
     assert "data__team-owned_%28read%2Fwrite%29_warehouse.my_table" in urn
+
+
+def test_glue_special_char_database_name_encoded_in_workunits() -> None:
+    """_gen_table_wu encodes '(', ')', '/' in dataset URNs emitted by get_workunits()."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import MetadataChangeEventClass
+
+    glue_source_instance = glue_source(
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        extract_transforms=False,
+    )
+
+    with Stubber(glue_source_instance.glue_client) as stubber:
+        stubber.add_response("get_databases", get_databases_response_special_chars, {})
+        stubber.add_response(
+            "get_tables",
+            get_tables_response_special_chars,
+            {"DatabaseName": SPECIAL_CHAR_DB_NAME},
+        )
+
+        workunits = list(glue_source_instance.get_workunits())
+        stubber.assert_no_pending_responses()
+
+    dataset_urns = set()
+    for wu in workunits:
+        obj = wu.metadata
+        if isinstance(obj, MetadataChangeEventClass):
+            dataset_urns.add(obj.proposedSnapshot.urn)
+        elif isinstance(obj, MetadataChangeProposalWrapper) and obj.entityUrn:
+            dataset_urns.add(obj.entityUrn)
+
+    encoded_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,data_%28read%2Fwrite%29_warehouse.metrics,PROD)"
+    unencoded_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:glue,{SPECIAL_CHAR_DB_NAME}.metrics,PROD)"
+    )
+    assert encoded_urn in dataset_urns
+    assert unencoded_urn not in dataset_urns

@@ -98,6 +98,59 @@ flights_database = {"Name": "flights-database", "CatalogId": "123412341234"}
 test_database = {"Name": "test-database", "CatalogId": "123412341234"}
 empty_database = {"Name": "empty-database", "CatalogId": "000000000000"}
 
+SPECIAL_CHAR_DB_NAME = "data_(read/write)_warehouse"
+
+get_databases_response_special_chars = {
+    "DatabaseList": [
+        {
+            "Name": SPECIAL_CHAR_DB_NAME,
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "CreateTableDefaultPermissions": [],
+            "CatalogId": "123412341234",
+        }
+    ]
+}
+
+tables_special_chars = [
+    {
+        "Name": "metrics",
+        "DatabaseName": SPECIAL_CHAR_DB_NAME,
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 2, 12, 6, 59, tzinfo=datetime.timezone.utc
+        ),
+        "LastAccessTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "id", "Type": "int"},
+                {"Name": "value", "Type": "double"},
+            ],
+            "Location": "s3://test-bucket/metrics/",
+            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+            "Compressed": False,
+            "NumberOfBuckets": -1,
+            "SerdeInfo": {
+                "SerializationLibrary": "org.openx.data.jsonserde.JsonSerDe",
+                "Parameters": {"paths": "id,value"},
+            },
+            "BucketColumns": [],
+            "SortColumns": [],
+            "Parameters": {"classification": "json"},
+            "StoredAsSubDirectories": False,
+        },
+        "PartitionKeys": [],
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {"classification": "json"},
+        "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole/Crawler",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "123412341234",
+    }
+]
+get_tables_response_special_chars = {"TableList": tables_special_chars}
+
 tables_1 = [
     {
         "Name": "avro",
