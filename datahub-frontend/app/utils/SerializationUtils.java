@@ -12,12 +12,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Encodes/decodes the redirect URL for the OIDC post-login redirect cookie.
  *
- * <p>SECURITY: This class intentionally avoids Java object serialization. The cookie value is a
- * Base64-encoded URL string, never a serialized Java object. Deserializing attacker-controlled Java
- * objects from a cookie is a remote-code-execution risk (CWE-502).
- *
  * <p>The decoded URL is validated to be a relative path (no scheme, no authority, no
- * protocol-relative prefix) to prevent open-redirect attacks via cookie tampering.
+ * protocol-relative prefix) to prevent open-redirect attacks via cookie tampering and avoids direct
+ * object serialization.
  */
 public class SerializationUtils {
 
