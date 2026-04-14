@@ -8,6 +8,7 @@ queries from fixed-width character segments (200 bytes provisioned, 4000 bytes s
 from datetime import datetime
 
 from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
     RedshiftProvisionedQuery,
     RedshiftServerlessQuery,
 )
@@ -33,6 +34,41 @@ SERVERLESS_LISTAGG_PATTERN_QUERYTXT = (
     "RTRIM(LISTAGG(RTRIM(querytxt) "
     "|| CASE WHEN LEN(RTRIM(querytxt)) < 4000 THEN ' ' ELSE '' END, '')"
 )
+
+
+class TestCommonQueries:
+    def test_list_schemas_without_ownership_uses_null_owner(self):
+        sql = RedshiftCommonQuery.list_schemas("mydb", extract_ownership=False)
+        assert "NULL as schema_owner_name" in sql
+        assert "pg_user" not in sql
+
+    def test_list_schemas_with_ownership_joins_pg_user(self):
+        sql = RedshiftCommonQuery.list_schemas("mydb", extract_ownership=True)
+        assert "u.usename as schema_owner_name" in sql
+        assert "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = s.schema_owner" in sql
+
+    def test_list_tables_without_ownership_uses_null_owner(self):
+        sql = RedshiftCommonQuery.list_tables("mydb", extract_ownership=False)
+        assert 'NULL as "owner_name"' in sql
+        assert "pg_user" not in sql
+
+    def test_list_tables_with_ownership_joins_pg_user(self):
+        sql = RedshiftCommonQuery.list_tables("mydb", extract_ownership=True)
+        assert 'u.usename as "owner_name"' in sql
+        assert "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner" in sql
+
+    def test_list_tables_shared_db_without_ownership_uses_null_owner(self):
+        sql = RedshiftCommonQuery.list_tables(
+            "mydb", is_shared_database=True, extract_ownership=False
+        )
+        assert 'NULL AS "owner_name"' in sql
+
+    def test_list_tables_shared_db_with_ownership_uses_table_owner(self):
+        sql = RedshiftCommonQuery.list_tables(
+            "mydb", is_shared_database=True, extract_ownership=True
+        )
+        assert 'table_owner AS "owner_name"' in sql
+        assert "pg_user" not in sql
 
 
 class TestProvisionedQueries:

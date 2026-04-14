@@ -4,22 +4,9 @@ The `dataplex` module ingests metadata from Dataplex into DataHub. It is intende
 
 The Dataplex connector extracts metadata from Google Dataplex using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
 
-#### Supported services
+#### Spanner entry collection behavior
 
-- **BigQuery**: datasets, tables, models, routines, connections, and linked datasets
-- **Cloud SQL**: instances
-- **AlloyDB**: instances, databases, schemas, tables, and views
-- **Spanner**: instances, databases, and tables
-- **Pub/Sub**: topics and subscriptions
-- **Cloud Storage**: buckets
-- **Bigtable**: instances, clusters, and tables
-- **Vertex AI**: models, datasets, and feature stores
-- **Dataform**: repositories and workflows
-- **Dataproc Metastore**: services and databases
-
-:::note
-Only **BigQuery** and **Cloud Storage (GCS)** have been thoroughly tested with this connector. Other services may work but have not been validated.
-:::
+Spanner entries are collected through an additional `search_entries` workaround after the entry-group traversal phase. Because those entries are not discovered through `list_entry_groups`, `filter_config.entry_groups.pattern` does not apply to them. Use entry-level filters (`filter_config.entries.pattern` and `filter_config.entries.fqn_pattern`) to control Spanner inclusion.
 
 ### Prerequisites
 
@@ -77,25 +64,14 @@ For service account authentication, follow these instructions:
 
 #### Permissions
 
-Grant the following permissions to the service account on all target projects.
+Grant the following roles to the service account on all target projects.
 
-**Universal Catalog Entries API:**
+| Feature                                        | Required Role                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Universal Catalog Entries API (core ingestion) | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer) |
+| Lineage extraction (`include_lineage: true`)   | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)         |
 
-**Default GCP Role:** [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+:::tip "Lineage requires the role on multiple projects"
 
-| Permission                  | Description                           |
-| --------------------------- | ------------------------------------- |
-| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
-| `dataplex.entryGroups.list` | View all entry groups in a location   |
-| `dataplex.entries.get`      | Access entry metadata and details     |
-| `dataplex.entries.getData`  | View data aspects within entries      |
-| `dataplex.entries.list`     | Enumerate entries within groups       |
-
-**Lineage extraction** (optional, `include_lineage: true`):
-
-**Default GCP Role:** [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
-
-| Permission                 | Description                               |
-| -------------------------- | ----------------------------------------- |
-| `datalineage.links.get`    | Allows a user to view lineage links       |
-| `datalineage.links.search` | Allows a user to search for lineage links |
+Grant `roles/datalineage.viewer` on all projects where the corresponding process is actually executed. Note it may differ from the project containing the asset.
+:::

@@ -362,8 +362,10 @@ class AbstractLineage(ABC):
             )
         )
 
-        query = native_sql_parser.remove_drop_statement(query)
+        # remove_special_characters must run first to expand #(lf) → \n before
+        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
+        query = native_sql_parser.remove_drop_statement(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
@@ -1214,6 +1216,9 @@ class NativeQueryLineage(AbstractLineage):
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
+        FunctionName.MSSQL_DATA_ACCESS.value: SupportedDataPlatform.MS_SQL,
+        FunctionName.POSTGRESQL_DATA_ACCESS.value: SupportedDataPlatform.POSTGRES_SQL,
+        FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value: SupportedDataPlatform.GOOGLE_BIGQUERY,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
 
@@ -1264,25 +1269,28 @@ class NativeQueryLineage(AbstractLineage):
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
         if (
             data_access_tokens[0]
-            != FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
+            == FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
         ):
-            return None
+            database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
-        database: Optional[str] = get_next_item(data_access_tokens, "Database")
+            if (
+                database and database != Constant.M_QUERY_NULL
+            ):  # database name is explicitly set
+                return database
 
-        if (
-            database and database != Constant.M_QUERY_NULL
-        ):  # database name is explicitly set
-            return database
-
-        return (
-            get_next_item(  # database name is set in Name argument
-                data_access_tokens, "Name"
+            return (
+                get_next_item(  # database name is set in Name argument
+                    data_access_tokens, "Name"
+                )
+                or get_next_item(  # If both above arguments are not available, then try Catalog
+                    data_access_tokens, "Catalog"
+                )
             )
-            or get_next_item(  # If both above arguments are not available, then try Catalog
-                data_access_tokens, "Catalog"
-            )
-        )
+
+        if data_access_tokens[0] == FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value:
+            return get_next_item(data_access_tokens, "BillingProject")
+
+        return None
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail

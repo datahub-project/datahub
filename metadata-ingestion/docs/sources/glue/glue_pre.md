@@ -8,6 +8,7 @@ This plugin extracts the following:
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks
+- Upstream lineage from JDBC sources (e.g. PostgreSQL, MySQL, Redshift) referenced by Glue jobs
 
 ### Prerequisites
 
@@ -40,11 +41,14 @@ For ingesting jobs (extract_transforms: True), the following additional permissi
     "Action": [
         "glue:GetDataflowGraph",
         "glue:GetJobs",
+        "glue:GetConnection",
         "s3:GetObject",
     ],
     "Resource": "*"
 }
 ```
+
+The `glue:GetConnection` permission is required when Glue jobs reference named connections (e.g. JDBC connections configured in the Glue console). If your jobs only use inline connection parameters, this permission is not needed.
 
 For profiling datasets, the following additional permissions are required:
 
@@ -70,7 +74,7 @@ Ingestion without platform instance parameter
 - DataHub will create single entity for table tableA
 - It should show lineage between Glue and S3. You have to ingest S3 as separate source (https://docs.datahub.com/docs/generated/ingestion/sources/s3)
 
-- Ingestion with platform instance parameter
+Ingestion with platform instance parameter
 
 - It will create separate entities for tableA as it will have different URN path
 - It should show lineage between Glue and S3

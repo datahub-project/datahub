@@ -4,11 +4,17 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import jakarta.json.Json;
+import jakarta.json.JsonArrayBuilder;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.json.JsonPatch;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,10 +101,30 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
                     .set(VALUE_KEY, triple.right)));
 
     GenericAspect genericAspect = new GenericAspect();
-    genericAspect.setContentType("application/json");
+    genericAspect.setContentType("application/json-patch+json");
     genericAspect.setValue(ByteString.copyString(patches.toString(), StandardCharsets.UTF_8));
 
     return genericAspect;
+  }
+
+  @VisibleForTesting
+  public JsonPatch getJsonPatch() {
+    JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
+    List<ImmutableTriple<String, String, JsonNode>> triples = getPathValues();
+    triples.forEach(
+        triple -> {
+          JsonObjectBuilder opBuilder =
+              Json.createObjectBuilder().add(OP_KEY, triple.left).add(PATH_KEY, triple.middle);
+          if (triple.right != null) {
+            opBuilder.add(
+                VALUE_KEY,
+                Json.createReader(new StringReader(triple.right.toString())).readValue());
+          } else {
+            opBuilder.addNull(VALUE_KEY);
+          }
+          arrayBuilder.add(opBuilder);
+        });
+    return Json.createPatch(arrayBuilder.build());
   }
 
   /**

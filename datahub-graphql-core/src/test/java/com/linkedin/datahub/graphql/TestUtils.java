@@ -145,6 +145,7 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
                   return m.getSystemMetadata().setLastObserved(0);
                 })
             .collect(Collectors.toList()),
@@ -153,6 +154,7 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
                   return m.getSystemMetadata().setLastObserved(0);
                 })
             .collect(Collectors.toList()));
@@ -173,7 +175,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 
@@ -209,7 +213,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 

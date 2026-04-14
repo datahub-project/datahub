@@ -22,19 +22,48 @@ import javax.annotation.Nullable;
 
 public class GlossaryTermInfoChangeEventGenerator
     extends EntityChangeEventGenerator<GlossaryTermInfo> {
+  private static final String NAME_ADDED_FORMAT = "Name for '%s' has been set: '%s'.";
+  private static final String NAME_CHANGED_FORMAT =
+      "Name of '%s' has been changed from '%s' to '%s'.";
+
   private static List<ChangeEvent> computeDiffs(
-      GlossaryTermInfo baseDatasetProperties,
-      @Nonnull GlossaryTermInfo targetDatasetProperties,
+      GlossaryTermInfo baseTermInfo,
+      @Nonnull GlossaryTermInfo targetTermInfo,
       @Nonnull String entityUrn,
       AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    String baseDescription =
-        (baseDatasetProperties != null) ? baseDatasetProperties.getDefinition() : null;
-    String targetDescription =
-        (targetDatasetProperties != null) ? targetDatasetProperties.getDefinition() : null;
+
+    // Diff name (optional field)
+    String baseName = (baseTermInfo != null) ? baseTermInfo.getName() : null;
+    String targetName = targetTermInfo.getName();
+
+    if (baseName == null && targetName != null) {
+      changeEvents.add(
+          ChangeEvent.builder()
+              .entityUrn(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .operation(ChangeOperation.ADD)
+              .semVerChange(SemanticChangeType.MINOR)
+              .description(String.format(NAME_ADDED_FORMAT, entityUrn, targetName))
+              .auditStamp(auditStamp)
+              .build());
+    } else if (baseName != null && targetName != null && !baseName.equals(targetName)) {
+      changeEvents.add(
+          ChangeEvent.builder()
+              .entityUrn(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .operation(ChangeOperation.MODIFY)
+              .semVerChange(SemanticChangeType.MINOR)
+              .description(String.format(NAME_CHANGED_FORMAT, entityUrn, baseName, targetName))
+              .auditStamp(auditStamp)
+              .build());
+    }
+
+    // Diff description (definition field)
+    String baseDescription = (baseTermInfo != null) ? baseTermInfo.getDefinition() : null;
+    String targetDescription = (targetTermInfo != null) ? targetTermInfo.getDefinition() : null;
 
     if (baseDescription == null && targetDescription != null) {
-      // Description added
       changeEvents.add(
           ChangeEvent.builder()
               .entityUrn(entityUrn)
@@ -45,7 +74,6 @@ public class GlossaryTermInfoChangeEventGenerator
               .auditStamp(auditStamp)
               .build());
     } else if (baseDescription != null && targetDescription == null) {
-      // Description removed.
       changeEvents.add(
           ChangeEvent.builder()
               .entityUrn(entityUrn)
@@ -58,7 +86,6 @@ public class GlossaryTermInfoChangeEventGenerator
     } else if (baseDescription != null
         && targetDescription != null
         && !baseDescription.equals(targetDescription)) {
-      // Description has been modified.
       changeEvents.add(
           ChangeEvent.builder()
               .entityUrn(entityUrn)

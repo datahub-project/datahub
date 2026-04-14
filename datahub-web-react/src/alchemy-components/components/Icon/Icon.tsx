@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import React from 'react';
 
 import { IconWrapper } from '@components/components/Icon/components';
