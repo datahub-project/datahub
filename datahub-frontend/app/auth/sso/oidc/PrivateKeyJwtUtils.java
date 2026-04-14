@@ -35,27 +35,15 @@ import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
 import org.bouncycastle.pkcs.PKCSException;
 
 /**
- * Utility class for loading PEM-encoded private keys and X.509 certificates for private_key_jwt
- * client authentication (RFC 7523).
- *
- * <p>PEM is the canonical format. The following PEM variants are supported:
- *
- * <ul>
- *   <li>Private keys: {@code BEGIN PRIVATE KEY} (PKCS#8), {@code BEGIN ENCRYPTED PRIVATE KEY}
- *       (encrypted PKCS#8), {@code BEGIN RSA PRIVATE KEY} (traditional OpenSSL), and its encrypted
- *       variant.
- *   <li>Certificates: {@code BEGIN CERTIFICATE} (X.509). Files containing multiple consecutive
- *       {@code CERTIFICATE} blocks are treated as a chain (leaf first).
- * </ul>
- *
- * <p>DER-encoded X.509 certificates are also accepted because {@link CertificateFactory}
- * transparently handles them. Non-PEM private key formats (PKCS#12, JKS) are not supported here;
- * convert them with {@code openssl pkcs12 -in keystore.p12 -nodes -out key.pem}.
+ * PEM key/certificate loaders for {@code private_key_jwt} client authentication (RFC 7523).
+ * Supports PKCS#8 ({@code BEGIN [ENCRYPTED] PRIVATE KEY}) and traditional OpenSSL ({@code BEGIN RSA
+ * PRIVATE KEY}, encrypted or not) for keys, and PEM or DER X.509 for certificates (multi-cert PEMs
+ * are treated as a chain, leaf first). For PKCS#12 / JKS sources, convert first with {@code openssl
+ * pkcs12 -in keystore.p12 -nodes -out key.pem}.
  */
 public final class PrivateKeyJwtUtils {
 
   static {
-    // Register BouncyCastle as a JCA security provider for encrypted key support.
     if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
       Security.addProvider(new BouncyCastleProvider());
     }
@@ -64,14 +52,9 @@ public final class PrivateKeyJwtUtils {
   private PrivateKeyJwtUtils() {}
 
   /**
-   * Loads an RSA private key from a PEM file.
-   *
-   * @param filePath Path to the PEM file containing the private key.
-   * @param password Password for encrypted keys, or {@code null} for unencrypted keys.
-   * @return The RSA private key.
-   * @throws IOException If the file cannot be read.
-   * @throws IllegalArgumentException If the PEM contents are missing, malformed, or encrypted
-   *     without a password.
+   * @param password password for encrypted keys, or {@code null} for unencrypted keys
+   * @throws IllegalArgumentException if the PEM is missing, malformed, or encrypted without a
+   *     password
    */
   public static RSAPrivateKey loadPrivateKey(@Nonnull String filePath, @Nullable String password)
       throws IOException {
@@ -86,36 +69,24 @@ public final class PrivateKeyJwtUtils {
       JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
       PrivateKeyInfo privateKeyInfo;
 
-      if (pemObject instanceof PEMEncryptedKeyPair) {
-        // Encrypted traditional OpenSSL format (BEGIN RSA PRIVATE KEY with DEK-Info header).
-        if (password == null || password.isEmpty()) {
-          throw new IllegalArgumentException(
-              "Private key is encrypted but no password was provided");
-        }
+      if (pemObject instanceof PEMEncryptedKeyPair encrypted) {
+        // BEGIN RSA PRIVATE KEY with DEK-Info header
+        requirePassword(password);
         PEMDecryptorProvider decryptor =
             new JcePEMDecryptorProviderBuilder().build(password.toCharArray());
-        PEMKeyPair keyPair = ((PEMEncryptedKeyPair) pemObject).decryptKeyPair(decryptor);
+        privateKeyInfo = encrypted.decryptKeyPair(decryptor).getPrivateKeyInfo();
+      } else if (pemObject instanceof PEMKeyPair keyPair) {
+        // BEGIN RSA PRIVATE KEY
         privateKeyInfo = keyPair.getPrivateKeyInfo();
-
-      } else if (pemObject instanceof PEMKeyPair) {
-        // Unencrypted traditional OpenSSL format (BEGIN RSA PRIVATE KEY).
-        privateKeyInfo = ((PEMKeyPair) pemObject).getPrivateKeyInfo();
-
-      } else if (pemObject instanceof PrivateKeyInfo) {
-        // Unencrypted PKCS#8 (BEGIN PRIVATE KEY).
-        privateKeyInfo = (PrivateKeyInfo) pemObject;
-
-      } else if (pemObject instanceof PKCS8EncryptedPrivateKeyInfo) {
-        // Encrypted PKCS#8 (BEGIN ENCRYPTED PRIVATE KEY).
-        if (password == null || password.isEmpty()) {
-          throw new IllegalArgumentException(
-              "Private key is encrypted but no password was provided");
-        }
-        InputDecryptorProvider decryptorProvider =
+      } else if (pemObject instanceof PrivateKeyInfo info) {
+        // BEGIN PRIVATE KEY (PKCS#8)
+        privateKeyInfo = info;
+      } else if (pemObject instanceof PKCS8EncryptedPrivateKeyInfo encrypted) {
+        // BEGIN ENCRYPTED PRIVATE KEY (PKCS#8)
+        requirePassword(password);
+        InputDecryptorProvider decryptor =
             new JceOpenSSLPKCS8DecryptorProviderBuilder().build(password.toCharArray());
-        privateKeyInfo =
-            ((PKCS8EncryptedPrivateKeyInfo) pemObject).decryptPrivateKeyInfo(decryptorProvider);
-
+        privateKeyInfo = encrypted.decryptPrivateKeyInfo(decryptor);
       } else {
         throw new IllegalArgumentException(
             "Unsupported PEM object type: " + pemObject.getClass().getName());
@@ -128,16 +99,13 @@ public final class PrivateKeyJwtUtils {
     }
   }
 
-  /**
-   * Loads an X.509 certificate chain from a file. If the file contains multiple concatenated PEM
-   * {@code CERTIFICATE} blocks, they are returned in file order (leaf first, then intermediates).
-   * DER-encoded single certificates are also accepted.
-   *
-   * @param filePath Path to the certificate file.
-   * @return The certificate chain — never empty.
-   * @throws IOException If the file cannot be read.
-   * @throws CertificateException If no certificates are present or any entry cannot be parsed.
-   */
+  private static void requirePassword(@Nullable String password) {
+    if (password == null || password.isEmpty()) {
+      throw new IllegalArgumentException("Private key is encrypted but no password was provided");
+    }
+  }
+
+  /** Returns the cert chain in file order (leaf first). Never empty. */
   public static List<X509Certificate> loadCertificateChain(@Nonnull String filePath)
       throws IOException, CertificateException {
     CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
@@ -154,24 +122,14 @@ public final class PrivateKeyJwtUtils {
     }
   }
 
-  /**
-   * Computes the SHA-256 thumbprint of an X.509 certificate, Base64URL encoded without padding.
-   * This is the canonical form of the JWT {@code x5t#S256} header parameter (RFC 7515 §4.1.8) and
-   * is also a reasonable default for {@code kid} when none is configured.
-   *
-   * @param certificate The X.509 certificate.
-   * @return Base64URL-encoded SHA-256 thumbprint (43 characters, no padding).
-   * @throws CertificateEncodingException If the certificate cannot be encoded.
-   */
+  /** Base64URL-encoded SHA-256 thumbprint (RFC 7515 §4.1.8 {@code x5t#S256}). */
   public static String computeSha256Thumbprint(@Nonnull X509Certificate certificate)
       throws CertificateEncodingException {
     try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(certificate.getEncoded());
+      byte[] hash = MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded());
       return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
     } catch (NoSuchAlgorithmException e) {
-      // SHA-256 is a JRE-required algorithm.
-      throw new AssertionError("SHA-256 algorithm not available", e);
+      throw new AssertionError("SHA-256 algorithm not available", e); // JRE-required algorithm
     }
   }
 }
