@@ -159,6 +159,11 @@ def get_report_warning_sample_size() -> int:
     return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
 
 
+def get_report_info_sample_size() -> int:
+    """Maximum number of info entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_INFO_SAMPLE_SIZE", "10"))
+
+
 def get_progress_report_max_failures() -> int:
     """Maximum number of failure entries in intermediate progress reports."""
     return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_FAILURES", "10"))

@@ -515,8 +515,9 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
 - `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
 - `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
-- `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` (default `10`) - Maximum number of failure entries to include in the ingestion report. Increase to capture more failure samples when debugging.
-- `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` (default `10`) - Maximum number of warning entries to include in the ingestion report. Increase to capture more warning samples when debugging.
+- `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` (default `10`) - Maximum number of failure entries stored and shown in ingestion reports. Applies to both intermediate progress reports and the final report unless `DATAHUB_PROGRESS_REPORT_MAX_FAILURES` is set separately. Also settable via the `report_failure_sample_size` recipe flag under `flags:`.
+- `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` (default `10`) - Maximum number of warning entries stored and shown in ingestion reports. Applies to both intermediate progress reports and the final report unless `DATAHUB_PROGRESS_REPORT_MAX_WARNINGS` is set separately. Also settable via the `report_warning_sample_size` recipe flag under `flags:`.
+- `DATAHUB_REPORT_INFO_SAMPLE_SIZE` (default `10`) - Maximum number of info entries stored and shown in ingestion reports. Applies to both intermediate progress reports and the final report unless `DATAHUB_PROGRESS_REPORT_MAX_INFOS` is set separately. Also settable via the `report_info_sample_size` recipe flag under `flags:`.
 - `DATAHUB_PROGRESS_REPORT_MAX_FAILURES` (default `10`) - Maximum failure entries shown in intermediate progress reports (printed every 60 s). The final report always shows the full sample size.
 - `DATAHUB_PROGRESS_REPORT_MAX_WARNINGS` (default `10`) - Maximum warning entries shown in intermediate progress reports.
 - `DATAHUB_PROGRESS_REPORT_MAX_INFOS` (default `10`) - Maximum info entries shown in intermediate progress reports.

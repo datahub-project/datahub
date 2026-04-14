@@ -26,6 +26,7 @@ from typing_extensions import LiteralString, Self
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
     get_report_failure_sample_size,
+    get_report_info_sample_size,
     get_report_warning_sample_size,
 )
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
@@ -121,7 +122,7 @@ class StructuredLogs(Report):
         default_factory=lambda: {
             StructuredLogLevel.ERROR: LossyDict(get_report_failure_sample_size()),
             StructuredLogLevel.WARN: LossyDict(get_report_warning_sample_size()),
-            StructuredLogLevel.INFO: LossyDict(10),
+            StructuredLogLevel.INFO: LossyDict(get_report_info_sample_size()),
         }
     )
 
@@ -195,6 +196,24 @@ class StructuredLogs(Report):
         else:
             if context is not None:
                 entries[log_key].context.append(context)
+
+    def set_sample_sizes(
+        self,
+        failure_size: Optional[int] = None,
+        warning_size: Optional[int] = None,
+        info_size: Optional[int] = None,
+    ) -> None:
+        """Override the max_elements on the underlying LossyDicts.
+
+        Must be called before any entries are added (i.e. right after source
+        construction) — resizing a non-empty LossyDict is not supported.
+        """
+        if failure_size is not None:
+            self._entries[StructuredLogLevel.ERROR].max_elements = failure_size
+        if warning_size is not None:
+            self._entries[StructuredLogLevel.WARN].max_elements = warning_size
+        if info_size is not None:
+            self._entries[StructuredLogLevel.INFO].max_elements = info_size
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]

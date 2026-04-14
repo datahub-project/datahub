@@ -179,6 +179,9 @@ def test_flags_config_defaults():
     assert flags.progress_report_max_failures == 10
     assert flags.progress_report_max_warnings == 10
     assert flags.progress_report_max_infos == 10
+    assert flags.report_failure_sample_size == 10
+    assert flags.report_warning_sample_size == 10
+    assert flags.report_info_sample_size == 10
 
 
 def test_flags_config_from_env_vars():
@@ -189,19 +192,61 @@ def test_flags_config_from_env_vars():
         "DATAHUB_PROGRESS_REPORT_MAX_FAILURES": "5",
         "DATAHUB_PROGRESS_REPORT_MAX_WARNINGS": "20",
         "DATAHUB_PROGRESS_REPORT_MAX_INFOS": "0",
+        "DATAHUB_REPORT_FAILURE_SAMPLE_SIZE": "50",
+        "DATAHUB_REPORT_WARNING_SAMPLE_SIZE": "25",
+        "DATAHUB_REPORT_INFO_SAMPLE_SIZE": "15",
     }
     with mock.patch.dict(os.environ, env, clear=True):
         flags = FlagsConfig()
     assert flags.progress_report_max_failures == 5
     assert flags.progress_report_max_warnings == 20
     assert flags.progress_report_max_infos == 0
+    assert flags.report_failure_sample_size == 50
+    assert flags.report_warning_sample_size == 25
+    assert flags.report_info_sample_size == 15
 
 
 def test_flags_config_recipe_overrides_env():
     """Explicit recipe values take precedence over env vars."""
     from datahub.ingestion.run.pipeline_config import FlagsConfig
 
-    env = {"DATAHUB_PROGRESS_REPORT_MAX_FAILURES": "5"}
+    env = {
+        "DATAHUB_PROGRESS_REPORT_MAX_FAILURES": "5",
+        "DATAHUB_REPORT_FAILURE_SAMPLE_SIZE": "50",
+    }
     with mock.patch.dict(os.environ, env, clear=True):
-        flags = FlagsConfig(progress_report_max_failures=99)
+        flags = FlagsConfig(
+            progress_report_max_failures=99,
+            report_failure_sample_size=200,
+        )
     assert flags.progress_report_max_failures == 99
+    assert flags.report_failure_sample_size == 200
+
+
+# ---------------------------------------------------------------------------
+# StructuredLogs.set_sample_sizes
+# ---------------------------------------------------------------------------
+
+
+def test_structured_logs_set_sample_sizes():
+    """set_sample_sizes adjusts the underlying LossyDict max_elements."""
+    from datahub.ingestion.api.source import StructuredLogLevel, StructuredLogs
+
+    logs = StructuredLogs()
+    # defaults
+    assert logs._entries[StructuredLogLevel.ERROR].max_elements == 10
+    assert logs._entries[StructuredLogLevel.WARN].max_elements == 10
+
+    logs.set_sample_sizes(failure_size=50, warning_size=25)
+    assert logs._entries[StructuredLogLevel.ERROR].max_elements == 50
+    assert logs._entries[StructuredLogLevel.WARN].max_elements == 25
+
+
+def test_structured_logs_set_sample_sizes_partial():
+    """set_sample_sizes with None leaves the original value."""
+    from datahub.ingestion.api.source import StructuredLogLevel, StructuredLogs
+
+    logs = StructuredLogs()
+    logs.set_sample_sizes(failure_size=99)
+    assert logs._entries[StructuredLogLevel.ERROR].max_elements == 99
+    assert logs._entries[StructuredLogLevel.WARN].max_elements == 10  # unchanged

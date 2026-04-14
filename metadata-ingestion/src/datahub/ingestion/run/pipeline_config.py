@@ -13,6 +13,9 @@ from datahub.configuration.env_vars import (
     get_progress_report_max_failures,
     get_progress_report_max_infos,
     get_progress_report_max_warnings,
+    get_report_failure_sample_size,
+    get_report_info_sample_size,
+    get_report_warning_sample_size,
 )
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.recording.config import RecordingConfig
@@ -90,6 +93,28 @@ class FlagsConfig(ConfigModel):
         description=(
             "Maximum info entries in intermediate progress reports. "
             "Also settable via DATAHUB_PROGRESS_REPORT_MAX_INFOS env var."
+        ),
+    )
+
+    report_failure_sample_size: int = Field(
+        default_factory=get_report_failure_sample_size,
+        description=(
+            "Maximum failure entries in the final report. "
+            "Also settable via DATAHUB_REPORT_FAILURE_SAMPLE_SIZE env var."
+        ),
+    )
+    report_warning_sample_size: int = Field(
+        default_factory=get_report_warning_sample_size,
+        description=(
+            "Maximum warning entries in the final report. "
+            "Also settable via DATAHUB_REPORT_WARNING_SAMPLE_SIZE env var."
+        ),
+    )
+    report_info_sample_size: int = Field(
+        default_factory=get_report_info_sample_size,
+        description=(
+            "Maximum info entries in the final report. "
+            "Also settable via DATAHUB_REPORT_INFO_SAMPLE_SIZE env var."
         ),
     )
 

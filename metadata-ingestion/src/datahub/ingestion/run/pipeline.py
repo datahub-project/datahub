@@ -253,6 +253,13 @@ class Pipeline:
                     )
                     logger.info("Source configured successfully.")
 
+                    # Apply recipe-level report sample sizes.
+                    self.source.get_report()._structured_logs.set_sample_sizes(
+                        failure_size=self.config.flags.report_failure_sample_size,
+                        warning_size=self.config.flags.report_warning_sample_size,
+                        info_size=self.config.flags.report_info_sample_size,
+                    )
+
                 extractor_type = self.config.source.extractor
                 with _add_init_error_context(
                     f"configure the extractor ({extractor_type})"
