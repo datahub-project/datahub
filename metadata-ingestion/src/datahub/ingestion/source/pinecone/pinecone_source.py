@@ -28,6 +28,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.pinecone.config import PineconeConfig
 from datahub.ingestion.source.pinecone.pinecone_client import (
+    DEFAULT_NAMESPACE,
     IndexInfo,
     NamespaceStats,
     PineconeClient,
@@ -52,6 +53,29 @@ logger = logging.getLogger(__name__)
 
 PLATFORM_NAME = "pinecone"
 PLATFORM_URN = make_data_platform_urn(PLATFORM_NAME)
+
+
+class PineconeIndexKey(ContainerKey):
+    index_name: str
+
+
+class PineconeNamespaceKey(ContainerKey):
+    index_name: str
+    namespace: str
+
+
+def _namespace_display_name(namespace: str) -> str:
+    """Human-readable name for a namespace, handling the default namespace."""
+    if not namespace or namespace == DEFAULT_NAMESPACE:
+        return "(default)"
+    return namespace
+
+
+def _namespace_for_urn(namespace: str) -> str:
+    """Stable namespace identifier for URNs, avoiding empty strings and trailing dots."""
+    if not namespace or namespace == DEFAULT_NAMESPACE:
+        return DEFAULT_NAMESPACE
+    return namespace
 
 
 @platform_name("Pinecone")
@@ -123,14 +147,27 @@ class PineconeSource(StatefulIngestionSourceBase):
             logger.error(f"Failed to list indexes: {e}", exc_info=True)
             raise
 
+    def _make_index_key(self, index_name: str) -> PineconeIndexKey:
+        return PineconeIndexKey(
+            platform=PLATFORM_NAME,
+            instance=self.config.platform_instance,
+            index_name=index_name,
+        )
+
+    def _make_namespace_key(
+        self, index_name: str, namespace: str
+    ) -> PineconeNamespaceKey:
+        return PineconeNamespaceKey(
+            platform=PLATFORM_NAME,
+            instance=self.config.platform_instance,
+            index_name=index_name,
+            namespace=_namespace_for_urn(namespace),
+        )
+
     def _generate_index_container(
         self, index_info: IndexInfo
     ) -> Iterable[MetadataWorkUnit]:
-        container_key = ContainerKey(
-            platform=PLATFORM_NAME,
-            instance=self.config.platform_instance,
-            container_name=index_info.name,
-        )
+        container_key = self._make_index_key(index_info.name)
 
         spec = index_info.spec
         index_type = "unknown"
@@ -173,15 +210,13 @@ class PineconeSource(StatefulIngestionSourceBase):
             namespaces = self.client.list_namespaces(index_info.name)
 
             for namespace_stats in namespaces:
-                namespace_name = namespace_stats.name or "(default)"
+                display_name = _namespace_display_name(namespace_stats.name)
 
                 if not self.config.namespace_pattern.allowed(namespace_stats.name):
-                    self.report.report_namespace_filtered(
-                        index_info.name, namespace_name
-                    )
+                    self.report.report_namespace_filtered(index_info.name, display_name)
                     continue
 
-                self.report.report_namespace_scanned(index_info.name, namespace_name)
+                self.report.report_namespace_scanned(index_info.name, display_name)
 
                 try:
                     yield from self._generate_namespace_container(
@@ -192,11 +227,11 @@ class PineconeSource(StatefulIngestionSourceBase):
                     )
                 except Exception as e:
                     logger.error(
-                        f"Failed to process namespace {index_info.name}/{namespace_name}: {e}",
+                        f"Failed to process namespace {index_info.name}/{display_name}: {e}",
                         exc_info=True,
                     )
                     self.report.report_namespace_failed(
-                        index_info.name, namespace_name, str(e)
+                        index_info.name, display_name, str(e)
                     )
 
         except Exception as e:
@@ -209,23 +244,14 @@ class PineconeSource(StatefulIngestionSourceBase):
     def _generate_namespace_container(
         self, index_info: IndexInfo, namespace_stats: NamespaceStats
     ) -> Iterable[MetadataWorkUnit]:
-        namespace_display_name = namespace_stats.name or "(default)"
-        namespace_container_name = f"{index_info.name}.{namespace_stats.name}"
-
-        namespace_container_key = ContainerKey(
-            platform=PLATFORM_NAME,
-            instance=self.config.platform_instance,
-            container_name=namespace_container_name,
+        namespace_container_key = self._make_namespace_key(
+            index_info.name, namespace_stats.name
         )
-        parent_container_key = ContainerKey(
-            platform=PLATFORM_NAME,
-            instance=self.config.platform_instance,
-            container_name=index_info.name,
-        )
+        parent_container_key = self._make_index_key(index_info.name)
 
         yield from gen_containers(
             container_key=namespace_container_key,
-            name=namespace_display_name,
+            name=_namespace_display_name(namespace_stats.name),
             sub_types=[DatasetContainerSubTypes.PINECONE_NAMESPACE],
             parent_container_key=parent_container_key,
             description=(
@@ -241,26 +267,25 @@ class PineconeSource(StatefulIngestionSourceBase):
     def _generate_namespace_dataset(
         self, index_info: IndexInfo, namespace_stats: NamespaceStats
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_name = f"{index_info.name}.{namespace_stats.name}"
+        ns_urn_part = _namespace_for_urn(namespace_stats.name)
+        dataset_name = f"{index_info.name}.{ns_urn_part}"
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=PLATFORM_NAME,
             name=dataset_name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
-        namespace_container_key = ContainerKey(
-            platform=PLATFORM_NAME,
-            instance=self.config.platform_instance,
-            container_name=dataset_name,
+        namespace_container_key = self._make_namespace_key(
+            index_info.name, namespace_stats.name
         )
 
-        namespace_display_name = namespace_stats.name or "(default)"
+        display_name = _namespace_display_name(namespace_stats.name)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetPropertiesClass(
-                name=namespace_display_name,
+                name=display_name,
                 description=(
-                    f"Vector collection in namespace '{namespace_display_name}' "
+                    f"Vector collection in namespace '{display_name}' "
                     f"of index '{index_info.name}'"
                 ),
                 customProperties={
