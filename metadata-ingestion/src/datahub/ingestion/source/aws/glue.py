@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
@@ -1060,13 +1061,14 @@ class GlueSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
         if script:
+            redacted_script = _redact_secret_fields_in_dataflow_script(script)
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=DataTransformLogicClass(
                     transforms=[
                         DataTransformClass(
                             queryStatement=QueryStatementClass(
-                                value=script,
+                                value=redacted_script,
                                 # The language field uses a pretty limited enum.
                                 # The "UNKNOWN" enum value is pretty new, so we don't want to
                                 # emit it until it has broader server-side support. As a
@@ -2026,3 +2028,14 @@ class GlueSource(StatefulIngestionSourceBase):
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
         self.report.report_warning(key, reason)
+
+
+def _redact_secret_fields_in_dataflow_script(script: str) -> str:
+    # It's possible for Glue Job nodes to contain sensitive values in their connection_info
+    # arguments. Redact all string values that are preceded by a key containing "password" or
+    # "secret".
+    return re.sub(
+        r'(?i)("(\\"|[^"])*(?:password|secret)(\\"|[^"])*"\s*:\s*)"(\\"|[^"])*"',
+        r'\1"*****"',
+        script,
+    )
