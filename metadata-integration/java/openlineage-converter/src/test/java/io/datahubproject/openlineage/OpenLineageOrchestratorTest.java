@@ -1,105 +1,105 @@
-package io.datahubproject.openlineage.converter;
+package io.datahubproject.openlineage;
 
 import static org.testng.Assert.assertEquals;
 
+import com.linkedin.common.FabricType;
+import com.linkedin.common.urn.DataFlowUrn;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
+import java.net.URI;
 import org.testng.annotations.Test;
 
+/**
+ * Tests for custom OpenLineage producer support.
+ *
+ * <p>Regression tests for https://github.com/datahub-project/datahub/issues/16961
+ */
 public class OpenLineageOrchestratorTest {
 
   private static DatahubOpenlineageConfig defaultConfig() {
-    return DatahubOpenlineageConfig.builder().build();
+    return DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
   }
 
-  /**
-   * Tests that the getFlowUrn method (which calls getOrchestrator internally) works with custom
-   * producer URIs that don't match the hardcoded OpenLineage/Airflow/Trino patterns.
-   *
-   * <p>Regression test for https://github.com/datahub-project/datahub/issues/16961
-   */
   @Test
   public void testCustomProducerExtractsOrchestratorFromPath() {
-    var flowUrn =
+    DataFlowUrn flowUrn =
         OpenLineageToDataHub.getFlowUrn(
             "my_namespace",
             "my_job",
             null,
-            java.net.URI.create(
-                "https://github.com/myorganization/myproducer/blob/v1-0-0/client"),
+            URI.create("https://github.com/myorganization/myproducer/blob/v1-0-0/client"),
             defaultConfig());
     assertEquals(flowUrn.getOrchestratorEntity(), "client");
   }
 
   @Test
   public void testCustomProducerWithSimplePath() {
-    var flowUrn =
+    DataFlowUrn flowUrn =
         OpenLineageToDataHub.getFlowUrn(
             "my_namespace",
             "my_job",
             null,
-            java.net.URI.create("https://example.com/my-custom-producer"),
+            URI.create("https://example.com/my-custom-producer"),
             defaultConfig());
     assertEquals(flowUrn.getOrchestratorEntity(), "my-custom-producer");
   }
 
   @Test
   public void testCustomProducerWithTrailingSlash() {
-    var flowUrn =
+    DataFlowUrn flowUrn =
         OpenLineageToDataHub.getFlowUrn(
             "my_namespace",
             "my_job",
             null,
-            java.net.URI.create("https://example.com/my-producer/"),
+            URI.create("https://example.com/my-producer/"),
             defaultConfig());
     assertEquals(flowUrn.getOrchestratorEntity(), "my-producer");
   }
 
   @Test
   public void testKnownOpenLineageProducerStillWorks() {
-    var flowUrn =
+    DataFlowUrn flowUrn =
         OpenLineageToDataHub.getFlowUrn(
             "my_namespace",
             "my_job",
             null,
-            java.net.URI.create(
-                "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"),
+            URI.create("https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"),
             defaultConfig());
     assertEquals(flowUrn.getOrchestratorEntity(), "client");
   }
 
   @Test
   public void testAirflowProducerStillWorks() {
-    var flowUrn =
+    DataFlowUrn flowUrn =
         OpenLineageToDataHub.getFlowUrn(
             "my_namespace",
             "my_job",
             null,
-            java.net.URI.create(
-                "https://github.com/apache/airflow/tree/providers-openlineage/1.0.0"),
+            URI.create("https://github.com/apache/airflow/tree/providers-openlineage/1.0.0"),
             defaultConfig());
     assertEquals(flowUrn.getOrchestratorEntity(), "airflow");
   }
 
   @Test
   public void testTrinoProducerStillWorks() {
-    var flowUrn =
+    DataFlowUrn flowUrn =
         OpenLineageToDataHub.getFlowUrn(
             "my_namespace",
             "my_job",
             null,
-            java.net.URI.create("https://github.com/trinodb/trino/blob/v435/core"),
+            URI.create("https://github.com/trinodb/trino/blob/v435/core"),
             defaultConfig());
     assertEquals(flowUrn.getOrchestratorEntity(), "trino");
   }
 
   @Test
   public void testProcessingEngineOverridesProducer() {
-    var flowUrn =
+    DataFlowUrn flowUrn =
         OpenLineageToDataHub.getFlowUrn(
             "my_namespace",
             "my_job",
             "spark",
-            java.net.URI.create("https://example.com/whatever"),
+            URI.create("https://example.com/whatever"),
             defaultConfig());
     assertEquals(flowUrn.getOrchestratorEntity(), "spark");
   }
