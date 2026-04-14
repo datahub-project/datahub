@@ -1833,13 +1833,10 @@ class TableauSiteSource:
 
         # Check if this datasource uses Virtual Connection tables first
         datasource_id = datasource.get(c.ID)
-        vc_upstreams, vc_id_to_urn = [], {}
+        vc_upstreams: List[Upstream] = []
         if datasource_id and self.config.ingest_virtual_connections:
             vc_result = self.get_upstream_vc_tables(datasource_id)
-            vc_upstreams, vc_id_to_urn = (
-                vc_result.upstream_tables,
-                vc_result.table_id_to_urn,
-            )
+            vc_upstreams = vc_result.upstream_tables
 
         # When tableau workbook connects to published datasource, it creates an embedded
         # datasource inside workbook that connects to published datasource. Both embedded
@@ -1853,14 +1850,16 @@ class TableauSiteSource:
             )
         else:
             if vc_upstreams:
-                # If VC tables are present, use only VC tables as upstreams (not regular database tables)
+                # If VC tables are present, use only VC tables as upstreams (not regular database tables).
+                # Note: VC table IDs are intentionally NOT added to table_id_to_urn here.
+                # Column-level lineage for VC→datasource is handled exclusively by create_datasource_vc_lineage
+                # to avoid duplicate CLL entries.
                 logger.debug(
                     f"Datasource {datasource.get(c.ID)} uses Virtual Connection tables. "
                     f"Skipping regular upstreamTables processing to avoid duplicate lineage. "
-                    f"Found {len(vc_upstreams)} VC upstreams and {len(vc_id_to_urn)} VC table mappings."
+                    f"Found {len(vc_upstreams)} VC upstreams."
                 )
                 upstream_tables.extend(vc_upstreams)
-                table_id_to_urn.update(vc_id_to_urn)
             else:
                 # No VC tables, process regular database tables
                 upstreams, id_to_urn = self.get_upstream_tables(

@@ -1202,7 +1202,8 @@ def test_tableau_virtual_connections(pytestconfig, tmp_path, mock_datahub_graph)
             read_response("dashboardsConnection_all.json"),
             read_response("embeddedDatasourcesConnection_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
-            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            # VC test uses modified fixture with VirtualConnectionTable reference for Customer Payment Query
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_vc_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
@@ -1213,12 +1214,16 @@ def test_tableau_virtual_connections(pytestconfig, tmp_path, mock_datahub_graph)
             read_response("publishedDatasourcesConnection_all.json"),
             read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
             read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
-            read_response("customSQLTablesConnection_all.json"),
-            read_response("databaseTablesConnection_all.json"),
-            # Virtual connections specific responses
+            # VC lookup (consumed by lookup_vc_ids_from_table_ids)
             read_response("virtualConnectionsConnection_all.json"),
+            # DB table lookup for VC column lineage (consumed by _build_database_tables_lookup)
+            read_response("databaseTablesConnection_all.json"),
+            # VC details for vc-123 (consumed by emit_virtual_connections)
             read_response("virtualConnectionsDetailed_vc1_all.json"),
-            read_response("virtualConnectionsDetailed_vc2_all.json"),
+            # Custom SQL (consumed by emit_custom_sql_datasources)
+            read_response("customSQLTablesConnection_all.json"),
+            # DB tables for emit_upstream_tables (second query - for actual table emission)
+            read_response("databaseTablesConnection_all.json"),
         ],
         golden_file_name=golden_file_name,
         output_file_name=output_file_name,
@@ -1280,7 +1285,8 @@ def test_tableau_virtual_connections_no_column_lineage(
             read_response("dashboardsConnection_all.json"),
             read_response("embeddedDatasourcesConnection_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
-            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            # VC test uses modified fixture with VirtualConnectionTable reference for Customer Payment Query
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_vc_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
             read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
@@ -1291,12 +1297,16 @@ def test_tableau_virtual_connections_no_column_lineage(
             read_response("publishedDatasourcesConnection_all.json"),
             read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
             read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
-            read_response("customSQLTablesConnection_all.json"),
-            read_response("databaseTablesConnection_all.json"),
-            # Virtual connections specific responses
+            # VC lookup (consumed by lookup_vc_ids_from_table_ids)
             read_response("virtualConnectionsConnection_all.json"),
+            # DB table lookup for VC column lineage (consumed by _build_database_tables_lookup)
+            read_response("databaseTablesConnection_all.json"),
+            # VC details for vc-123 (consumed by emit_virtual_connections)
             read_response("virtualConnectionsDetailed_vc1_all.json"),
-            read_response("virtualConnectionsDetailed_vc2_all.json"),
+            # Custom SQL (consumed by emit_custom_sql_datasources)
+            read_response("customSQLTablesConnection_all.json"),
+            # DB tables for emit_upstream_tables (second query - for actual table emission)
+            read_response("databaseTablesConnection_all.json"),
         ],
         golden_file_name=golden_file_name,
         output_file_name=output_file_name,

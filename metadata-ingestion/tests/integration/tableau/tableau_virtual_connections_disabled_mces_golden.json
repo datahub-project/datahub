@@ -276,7 +276,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "Custom SQL Query",
+            "name": "test publish datasource",
             "tags": []
         }
     },
@@ -7244,7 +7244,15 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
                     "type": "TRANSFORMED"
                 },
                 {
@@ -7253,6 +7261,14 @@
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],
@@ -11813,7 +11829,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "Custom SQL Query",
+            "name": "Customer Payment Query",
             "tags": []
         }
     },
@@ -28208,7 +28224,8 @@
         "json": {
             "paths": [
                 "/prod/tableau/default/Customer Payment Query",
-                "/prod/tableau/default/test publish datasource"
+                "/prod/tableau/default/test publish datasource",
+                "/prod/tableau/default/Dvdrental Workbook/Customer Payment Query"
             ]
         }
     },
@@ -38685,6 +38702,30 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.staff,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
                     "type": "TRANSFORMED"
                 }
@@ -40255,7 +40296,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "Custom SQL Query",
+            "name": "AbcJoinWorkbook",
             "tags": []
         }
     },
@@ -40737,6 +40778,25 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "demo-custom-323403.bigquery_demo.order_items",
+            "origin": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_virtual_connections_disabled"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -40750,6 +40810,25 @@
                     "id": "Superstore Datasource"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_virtual_connections_disabled"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "demo-custom-323403.bigquery_demo.sellers",
+            "origin": "PROD"
         }
     },
     "systemMetadata": {
@@ -40845,7 +40924,8 @@
         "json": {
             "paths": [
                 "/prod/tableau/default/Customer Payment Query",
-                "/prod/tableau/default/test publish datasource"
+                "/prod/tableau/default/test publish datasource",
+                "/prod/tableau/default/Dvdrental Workbook/Customer Payment Query"
             ]
         }
     },
@@ -42668,6 +42748,23 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_virtual_connections_disabled"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:BINFIELD",
     "changeType": "UPSERT",
@@ -42694,6 +42791,23 @@
             "paths": [
                 "/prod/tableau/default/Executive Dashboard/Requests"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_virtual_connections_disabled"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
