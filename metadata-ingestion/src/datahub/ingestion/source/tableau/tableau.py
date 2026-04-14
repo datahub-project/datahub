@@ -2046,7 +2046,10 @@ class TableauSiteSource:
         for vc_ref in vc_refs:
             vc_table_id = vc_ref.get("vc_table_id")
             vc_id = vc_ref.get("vc_id")
-            vc_table_name = vc_ref.get("vc_table_name")
+            # Fall back to vc_table_id_to_name if name was null in field upstream data
+            vc_table_name = vc_ref.get(
+                "vc_table_name"
+            ) or self.vc_processor.vc_table_id_to_name.get(vc_table_id, "")
 
             if vc_id and vc_table_name and vc_table_id:
                 # Create VC table URN - datasource should point to VC table, not underlying DB table
@@ -4367,12 +4370,11 @@ class TableauSiteSource:
             if self.config.ingest_virtual_connections:
                 try:
                     if self.vc_processor.vc_table_ids_for_lookup:
+                        self.vc_processor.lookup_vc_ids_from_table_ids()
                         try:
                             self._build_database_tables_lookup()
                         except Exception as e:
                             logger.debug(f"Database tables lookup not available: {e}")
-
-                        self.vc_processor.lookup_vc_ids_from_table_ids()
                     else:
                         logger.debug("No VC references found, skipping VC processing")
                 except Exception as e:

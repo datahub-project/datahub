@@ -119,19 +119,26 @@ class VirtualConnectionProcessor:
                         f"VC table missing required 'id' field in field '{field_name}'. Skipping."
                     )
                     continue
+
+                # Always add to lookup set so name can be resolved from VC detail query
+                # even when Tableau's Metadata API returns null for table.name here
+                self.vc_table_ids_for_lookup.add(vc_table_id)
+
                 if not vc_table_name:
-                    logger.warning(
-                        f"VC table missing required 'name' field (id={vc_table_id}) in field '{field_name}'. Skipping."
+                    logger.debug(
+                        f"VC table has no 'name' field (id={vc_table_id}) in field '{field_name}'. "
+                        f"Name will be resolved from VC detail data after lookup."
                     )
-                    continue
 
                 vc_info = table.get("virtualConnection", {})
                 vc_id = (
                     vc_info.get(c.ID) if vc_info and isinstance(vc_info, dict) else None
                 )
 
-                # Validate that this is a proper column mapping, not a table-level reference
-                if not column_name or column_name == vc_table_name:
+                # Validate that this is a proper column mapping, not a table-level reference.
+                # Skip if column_name equals vc_table_name (both non-null), indicating
+                # a table-level reference rather than a field-level reference.
+                if not column_name or (vc_table_name and column_name == vc_table_name):
                     logger.debug(
                         f"Skipping invalid Virtual Connection reference: field={field_name}, column={column_name}, table={vc_table_name}"
                     )
@@ -153,9 +160,6 @@ class VirtualConnectionProcessor:
                         "vc_id": vc_id,
                     }
                 )
-
-                if vc_table_id:
-                    self.vc_table_ids_for_lookup.add(vc_table_id)
 
         return vc_references
 
@@ -596,15 +600,18 @@ class VirtualConnectionProcessor:
 
         vc_table_urns_seen = set()
 
-        # Build disambiguation maps from the collected refs so they're available immediately,
-        # without waiting for the Step 2 lookup (which runs after datasource emission).
+        # Build disambiguation maps from the collected refs.
+        # Fall back to vc_table_id_to_name for entries where Tableau's Metadata API
+        # returned null for table.name in the field upstream path (a known API quirk).
         vc_table_name_to_id: Dict[str, str] = {}
         vc_table_id_to_name_from_refs: Dict[str, str] = {}
         vc_table_id_to_vc_id_from_refs: Dict[str, str] = {}
         for r in vc_references:
             r_table_id = r.get("vc_table_id")
-            r_table_name = r.get("vc_table_name")
-            r_vc_id = r.get("vc_id")
+            r_table_name = r.get("vc_table_name") or self.vc_table_id_to_name.get(
+                r_table_id, ""
+            )
+            r_vc_id = r.get("vc_id") or self.vc_table_id_to_vc_id.get(r_table_id, "")
             if r_table_id and r_table_name:
                 vc_table_name_to_id[r_table_name.lower()] = r_table_id
                 vc_table_id_to_name_from_refs[r_table_id] = r_table_name
@@ -614,9 +621,13 @@ class VirtualConnectionProcessor:
         for ref in vc_references:
             vc_table_id = ref.get("vc_table_id")
             field_name = str(ref.get("field_name"))
-            vc_table_name = ref.get("vc_table_name")
+            # Resolve name and vc_id from lookup data if not in ref
+            # (Tableau's Metadata API sometimes returns null for these in the field upstream path)
+            vc_table_name = ref.get("vc_table_name") or self.vc_table_id_to_name.get(
+                vc_table_id, ""
+            )
             column_name = ref.get("column_name")
-            vc_id = ref.get("vc_id")
+            vc_id = ref.get("vc_id") or self.vc_table_id_to_vc_id.get(vc_table_id, "")
 
             if not all([vc_table_id, field_name, column_name, vc_table_name, vc_id]):
                 continue
