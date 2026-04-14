@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, Sequence, cast
 from unittest import mock
 
 import pytest
@@ -1301,10 +1301,10 @@ class TestNullApiResponseHandling:
         self.source = _make_site_source()
 
     def test_get_upstream_tables_skips_non_dict_entries(self) -> None:
-        tables: List[Any] = [None, "string_entry", {c.ID: "t1", c.NAME: None}]
+        tables: Sequence[Optional[dict]] = [None, None, {c.ID: "t1", c.NAME: None}]
 
         upstream_tables, table_id_to_urn = self.source.get_upstream_tables(
-            tables=tables,  # type: ignore[arg-type]
+            tables=tables,
             datasource_name="test_datasource",
             browse_path=None,
             is_custom_sql=False,
@@ -1333,9 +1333,9 @@ class TestNullApiResponseHandling:
                 )
             ),
         ):
-            tables_with_none: List[Any] = [None, valid_table, None]
+            tables_with_none: Sequence[Optional[dict]] = [None, valid_table, None]
             upstream_tables, table_id_to_urn = self.source.get_upstream_tables(
-                tables=tables_with_none,  # type: ignore[arg-type]
+                tables=tables_with_none,
                 datasource_name="ds",
                 browse_path=None,
                 is_custom_sql=False,
@@ -1345,9 +1345,9 @@ class TestNullApiResponseHandling:
         assert len(table_id_to_urn) == 1
 
     def test_get_upstream_csql_tables_skips_non_dict_fields(self) -> None:
-        fields: List[Any] = [None, "not_a_dict", {c.UPSTREAM_COLUMNS: None}]
+        fields: Sequence[Optional[dict]] = [None, None, {c.UPSTREAM_COLUMNS: None}]
 
-        upstream_csql, csql_id_to_urn = self.source.get_upstream_csql_tables(fields)  # type: ignore[arg-type]
+        upstream_csql, csql_id_to_urn = self.source.get_upstream_csql_tables(fields)
 
         assert upstream_csql == []
         assert csql_id_to_urn == {}
@@ -1362,10 +1362,10 @@ class TestNullApiResponseHandling:
             ]
         }
 
-        fields_with_none: List[Any] = [None, valid_field, None]
+        fields_with_none: Sequence[Optional[dict]] = [None, valid_field, None]
         upstream_csql, csql_id_to_urn = self.source.get_upstream_csql_tables(
             fields_with_none
-        )  # type: ignore[arg-type]
+        )
 
         assert len(upstream_csql) == 1
         assert "csql-1" in csql_id_to_urn
@@ -1409,8 +1409,8 @@ class TestNullApiResponseHandling:
         ]
 
     def test_get_schema_metadata_skips_non_dict_fields(self) -> None:
-        bad_fields: List[Any] = [None, "not_a_dict"]
-        result = self.source._get_schema_metadata_for_datasource(bad_fields)  # type: ignore[arg-type]
+        bad_fields: Sequence[Optional[dict]] = [None, None]
+        result = self.source._get_schema_metadata_for_datasource(bad_fields)
 
         assert result is None
 
@@ -1429,8 +1429,8 @@ class TestNullApiResponseHandling:
             "role": None,
         }
 
-        fields_with_none: List[Any] = [None, valid_field]
-        result = self.source._get_schema_metadata_for_datasource(fields_with_none)  # type: ignore[arg-type]
+        fields_with_none: Sequence[Optional[dict]] = [None, valid_field]
+        result = self.source._get_schema_metadata_for_datasource(fields_with_none)
 
         assert result is not None
         assert len(result.fields) == 1

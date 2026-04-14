@@ -15,6 +15,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -1983,7 +1984,7 @@ class TableauSiteSource:
         return upstream_tables
 
     def get_upstream_csql_tables(
-        self, fields: List[dict]
+        self, fields: Sequence[Optional[dict]]
     ) -> Tuple[List[Upstream], Dict[str, str]]:
         upstream_csql_urns = set()
         csql_id_to_urn = {}
@@ -2062,7 +2063,7 @@ class TableauSiteSource:
 
     def get_upstream_tables(
         self,
-        tables: List[dict],
+        tables: Sequence[Optional[dict]],
         datasource_name: Optional[str],
         browse_path: Optional[str],
         is_custom_sql: bool,
@@ -2833,7 +2834,7 @@ class TableauSiteSource:
         self.report.num_upstream_fine_grained_lineage += len(fine_grained_lineages)
 
     def _get_schema_metadata_for_datasource(
-        self, datasource_fields: List[dict]
+        self, datasource_fields: Sequence[Optional[dict]]
     ) -> Optional[SchemaMetadata]:
         fields = []
         for field in datasource_fields:
