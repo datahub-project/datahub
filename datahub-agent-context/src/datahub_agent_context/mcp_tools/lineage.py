@@ -564,6 +564,46 @@ def _find_lineage_path(
         )
 
 
+def _build_no_path_found_message(
+    source_urn: str,
+    target_urn: str,
+    source_column: Optional[str] = None,
+    target_column: Optional[str] = None,
+) -> dict:
+    """Build a friendly response when no lineage path is found.
+
+    Returns a dict instead of raising an exception so that agent/ADK
+    consumers get a usable message rather than an unhandled error.
+
+    Args:
+        source_urn: Source entity URN
+        target_urn: Target entity URN
+        source_column: Optional source column name
+        target_column: Optional target column name
+
+    Returns:
+        Dictionary with a message and metadata about the failed lookup
+    """
+    source_display = source_urn + (f".{source_column}" if source_column else "")
+    target_display = target_urn + (f".{target_column}" if target_column else "")
+    return {
+        "message": (
+            f"No lineage path found between {source_display} and {target_display} "
+            f"in either upstream or downstream direction."
+        ),
+        "source": {
+            "urn": source_urn,
+            **({"column": source_column} if source_column else {}),
+        },
+        "target": {
+            "urn": target_urn,
+            **({"column": target_column} if target_column else {}),
+        },
+        "pathCount": 0,
+        "paths": [],
+    }
+
+
 def get_lineage_paths_between(
     source_urn: str,
     target_urn: str,
@@ -595,6 +635,11 @@ def get_lineage_paths_between(
         - paths: Array of path objects from GraphQL (with QUERY URNs)
         - pathCount: Number of paths found
         - metadata: Query metadata including direction and path type
+        OR when no path is found:
+        - message: Human-readable explanation
+        - source/target: Entity info
+        - pathCount: 0
+        - paths: []
 
     Examples:
         # Column-level paths
@@ -633,7 +678,6 @@ def get_lineage_paths_between(
 
     Raises:
         ValueError: If column parameters are mismatched or invalid
-        ItemNotFoundError: If no lineage path found
     """
     # Normalize column parameters
     if source_column == "null" or source_column == "":
@@ -688,22 +732,24 @@ def get_lineage_paths_between(
                 )
                 return result
             except ItemNotFoundError:
-                # Not found in either direction
-                raise ItemNotFoundError(
-                    f"No lineage path found between {source_urn}"
-                    + (f".{source_column}" if source_column else "")
-                    + f" and {target_urn}"
-                    + (f".{target_column}" if target_column else "")
-                    + " in either upstream or downstream direction"
-                ) from None
+                # Not found in either direction: return a message
+                # instead of raising (see #16882)
+                return _build_no_path_found_message(
+                    source_urn, target_urn, source_column, target_column
+                )
     else:
         # User specified direction explicitly
-        return _find_lineage_path(
-            query_urn=query_urn,
-            target_full_urn=target_full_urn,
-            source_urn=source_urn,
-            target_urn=target_urn,
-            source_column=source_column,
-            target_column=target_column,
-            direction=direction,
-        )
+        try:
+            return _find_lineage_path(
+                query_urn=query_urn,
+                target_full_urn=target_full_urn,
+                source_urn=source_urn,
+                target_urn=target_urn,
+                source_column=source_column,
+                target_column=target_column,
+                direction=direction,
+            )
+        except ItemNotFoundError:
+            return _build_no_path_found_message(
+                source_urn, target_urn, source_column, target_column
+            )

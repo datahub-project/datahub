@@ -358,19 +358,49 @@ class TestGetLineagePathsBetween:
         assert "direction" in result["metadata"]
         assert "auto-discovered" in result["metadata"]["direction"]
 
-    def test_path_not_found_raises_error(self, mock_client):
-        """Test that no path found raises ItemNotFoundError."""
+    def test_path_not_found_returns_message(self, mock_client):
+        """Test that no path found returns a message dict instead of raising.
+
+        Regression test for #16882: get_lineage_paths_between should return a
+        friendly message when no lineage path exists, not raise ItemNotFoundError.
+        """
         mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {"searchResults": []}
         }
 
-        with pytest.raises(ItemNotFoundError, match="No lineage"):
-            with DataHubContext(mock_client):
-                get_lineage_paths_between(
-                    source_urn="urn:li:dataset:source",
-                    target_urn="urn:li:dataset:target",
-                    direction="downstream",
-                )
+        with DataHubContext(mock_client):
+            result = get_lineage_paths_between(
+                source_urn="urn:li:dataset:source",
+                target_urn="urn:li:dataset:target",
+                direction="downstream",
+            )
+
+        assert "message" in result
+        assert "No lineage path found" in result["message"]
+        assert result["pathCount"] == 0
+        assert result["paths"] == []
+        assert result["source"]["urn"] == "urn:li:dataset:source"
+        assert result["target"]["urn"] == "urn:li:dataset:target"
+
+    def test_path_not_found_auto_discover_returns_message(self, mock_client):
+        """Test that auto-discover with no path in either direction returns a message.
+
+        Regression test for #16882.
+        """
+        mock_client._graph.execute_graphql.return_value = {
+            "searchAcrossLineage": {"searchResults": []}
+        }
+
+        with DataHubContext(mock_client):
+            result = get_lineage_paths_between(
+                source_urn="urn:li:dataset:source",
+                target_urn="urn:li:dataset:target",
+                direction=None,  # Auto-discover
+            )
+
+        assert "message" in result
+        assert "No lineage path found" in result["message"]
+        assert result["pathCount"] == 0
 
     def test_column_mismatch_raises_error(self, mock_client):
         """Test that mismatched column parameters raise ValueError."""
