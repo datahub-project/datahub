@@ -218,15 +218,9 @@ class VirtualConnectionProcessor:
     def lookup_vc_ids_from_table_ids(self) -> None:
         """Step 2: Lookup VC IDs from VC table IDs and store mappings"""
         if not self.vc_table_ids_for_lookup:
-            logger.debug(
-                "No VC table IDs to lookup - no Virtual Connection references found"
-            )
             return
 
-        logger.info(
-            f"Looking up {len(self.vc_table_ids_for_lookup)} VC table IDs for Virtual Connection processing"
-        )
-        logger.debug(f"VC table IDs: {self.vc_table_ids_for_lookup}")
+        logger.debug(f"Looking up {len(self.vc_table_ids_for_lookup)} VC table IDs")
 
         # Query all VCs to find matches
         for vc in self.tableau_source.get_connection_objects(
@@ -294,20 +288,9 @@ class VirtualConnectionProcessor:
             self.virtual_connection_ids_being_used
         )
         logger.info(
-            f"VC Lookup Results: Found {len(self.vc_table_id_to_vc_id)} VC table mappings, "
-            f"will process {len(self.virtual_connection_ids_being_used)} Virtual Connections"
+            f"VC lookup: found {len(self.vc_table_id_to_vc_id)} table mappings across "
+            f"{len(self.virtual_connection_ids_being_used)} Virtual Connections"
         )
-
-        for table_id, vc_id in self.vc_table_id_to_vc_id.items():
-            table_name = self.vc_table_id_to_name.get(table_id, "Unknown")
-            logger.debug(
-                f"  VC Table Mapping: {table_name} (ID: {table_id}) -> VC: {vc_id}"
-            )
-
-        if not self.vc_table_id_to_vc_id:
-            logger.info(
-                "No VC table mappings found - no Virtual Connection tables are being used by datasources."
-            )
 
     def emit_virtual_connections(self):
         """Emit Virtual Connection datasets with schema fields"""
@@ -424,8 +407,6 @@ class VirtualConnectionProcessor:
                 logger.warning("VC table has no name, skipping")
                 continue
 
-            logger.debug(f"Processing VC table: {vc_table_name}")
-
             matched_db_table = self.tableau_source._find_matching_database_table(
                 vc_table_name
             )
@@ -435,8 +416,6 @@ class VirtualConnectionProcessor:
                 )
                 continue
 
-            logger.debug(f"Found matching database table for {vc_table_name}")
-
             db_table_urn = self.tableau_source._create_database_table_urn(
                 matched_db_table
             )
@@ -445,8 +424,6 @@ class VirtualConnectionProcessor:
                     f"Failed to create URN for matched database table: {matched_db_table.get('name', 'Unknown')}"
                 )
                 continue
-
-            logger.debug(f"Created database table URN: {db_table_urn}")
 
             upstream_tables.append(
                 UpstreamClass(
@@ -458,74 +435,38 @@ class VirtualConnectionProcessor:
                 vc_columns = vc_table.get(c.COLUMNS, [])
                 db_columns = matched_db_table.get(c.COLUMNS, [])
 
-                logger.debug(
-                    f"Creating column lineage for VC table '{vc_table_name}': "
-                    f"{len(vc_columns)} VC columns, {len(db_columns)} DB columns"
-                )
-
                 if vc_columns and db_columns:
-                    # Case-insensitive mapping for column matching
                     db_column_map = self._build_column_name_map(db_columns)
 
                     for vc_column in vc_columns:
                         vc_col_name = vc_column.get(c.NAME)
-                        if not vc_col_name:
+                        if not vc_col_name or vc_col_name.lower() not in db_column_map:
                             continue
 
-                        vc_col_type = vc_column.get(c.REMOTE_TYPE, c.UNKNOWN)
-                        logger.debug(
-                            f"Processing VC column '{vc_col_name}' with type '{vc_col_type}'"
+                        db_col_name = db_column_map[vc_col_name.lower()]
+                        final_db_col_name = db_col_name
+                        if (
+                            self.tableau_source.is_snowflake_urn(db_table_urn)
+                            and not self.config.ingest_tables_external
+                        ):
+                            # Snowflake normalizes field names - match that behavior for lineage
+                            final_db_col_name = db_col_name.lower().replace(" ", "_")
+
+                        fine_grained_lineages.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[
+                                    builder.make_schema_field_urn(vc_urn, vc_col_name)
+                                ],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[
+                                    builder.make_schema_field_urn(
+                                        db_table_urn, final_db_col_name
+                                    )
+                                ],
+                            )
                         )
 
-                        if vc_col_name.lower() in db_column_map:
-                            db_col_name = db_column_map[vc_col_name.lower()]
-
-                            logger.debug(
-                                f"Creating column lineage: VC column '{vc_col_name}' -> DB column '{db_col_name}'"
-                            )
-
-                            final_db_col_name = db_col_name
-                            if (
-                                self.tableau_source.is_snowflake_urn(db_table_urn)
-                                and not self.config.ingest_tables_external
-                            ):
-                                # Snowflake normalizes field names - match that behavior for lineage
-                                final_db_col_name = self.tableau_source._normalize_snowflake_column_name(
-                                    db_col_name
-                                )
-                                logger.debug(
-                                    f"Applied Snowflake normalization: '{db_col_name}' -> '{final_db_col_name}'"
-                                )
-
-                            fine_grained_lineages.append(
-                                FineGrainedLineageClass(
-                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                    downstreams=[
-                                        builder.make_schema_field_urn(
-                                            vc_urn, vc_col_name
-                                        )
-                                    ],
-                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                    upstreams=[
-                                        builder.make_schema_field_urn(
-                                            db_table_urn, final_db_col_name
-                                        )
-                                    ],
-                                )
-                            )
-                        else:
-                            logger.debug(
-                                f"No matching DB column found for VC column '{vc_col_name}'"
-                            )
-                else:
-                    logger.debug(
-                        f"Skipping column lineage for VC table '{vc_table_name}': "
-                        f"VC columns={len(vc_columns)}, DB columns={len(db_columns)}"
-                    )
-
-        logger.debug(
-            f"Created {len(upstream_tables)} upstream table relationships for VC"
-        )
         return LineageResult(
             upstream_tables=upstream_tables, fine_grained_lineages=fine_grained_lineages
         )
@@ -551,11 +492,6 @@ class VirtualConnectionProcessor:
         """
         upstream_tables: List[UpstreamClass] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
-
-        logger.debug(f"Creating VC lineage for datasource URN: {datasource_urn}")
-        logger.debug(
-            f"Available datasource VC relationships: {list(self.datasource_vc_relationships.keys())}"
-        )
 
         try:
             # URN format: urn:li:dataset:(urn:li:dataPlatform:tableau,datasource_id,PROD)
@@ -659,10 +595,10 @@ class VirtualConnectionProcessor:
                 if referenced_table in vc_table_name_to_id:
                     ref_table_id = vc_table_name_to_id[referenced_table]
                     if ref_table_id != vc_table_id:
-                        logger.info(
-                            f"Field '{field_name}': Overriding VC table from '{vc_table_name}' "
-                            f"(ID: {vc_table_id}) to '{vc_table_id_to_name_from_refs.get(ref_table_id, ref_table_id)}' "
-                            f"(ID: {ref_table_id}) based on table reference in field name"
+                        logger.debug(
+                            f"Field '{field_name}': resolved VC table from '{vc_table_name}' "
+                            f"to '{vc_table_id_to_name_from_refs.get(ref_table_id, ref_table_id)}' "
+                            f"based on parenthetical table reference"
                         )
                         vc_table_id = ref_table_id
                         vc_table_name = vc_table_id_to_name_from_refs.get(
@@ -833,17 +769,12 @@ class VirtualConnectionProcessor:
         if not table_name:
             return LineageResult(upstream_tables=[], fine_grained_lineages=[])
 
-        logger.debug(f"Creating upstream lineage for VC table: {table_name}")
         matched_db_table = self.tableau_source._find_matching_database_table(table_name)
         if not matched_db_table:
             logger.warning(
                 f"No matching database table found for VC table: {table_name}"
             )
             return LineageResult(upstream_tables=[], fine_grained_lineages=[])
-
-        logger.debug(
-            f"Found matching database table for VC table '{table_name}': {matched_db_table.get('name', 'Unknown')}"
-        )
 
         db_table_urn = self.tableau_source._create_database_table_urn(matched_db_table)
         if not db_table_urn:
@@ -880,11 +811,7 @@ class VirtualConnectionProcessor:
                             and not self.config.ingest_tables_external
                         ):
                             # Snowflake normalizes field names - match that behavior for lineage
-                            final_db_col_name = (
-                                self.tableau_source._normalize_snowflake_column_name(
-                                    db_col_name
-                                )
-                            )
+                            final_db_col_name = db_col_name.lower().replace(" ", "_")
 
                         fine_grained_lineages.append(
                             FineGrainedLineageClass(
