@@ -2,13 +2,12 @@ import json
 import time
 from typing import Any, Dict
 
+import aerospike
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
-
-aerospike = pytest.importorskip("aerospike")
 
 
 @pytest.mark.integration
