@@ -2158,6 +2158,62 @@
       "platform_name": "Metabase",
       "support_status": "CERTIFIED"
     },
+    "microstrategy": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level lineage via SqlParsingAggregator when `include_column_lineage` is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Not supported \u2014 no domain config field or domain aspect emission",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `include_ownership`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Dashboard/report to cube lineage via `include_lineage`; warehouse table lineage via `include_warehouse_lineage` using sqlView SQL parsing",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.microstrategy.source.MicroStrategySource",
+      "platform_id": "microstrategy",
+      "platform_name": "MicroStrategy",
+      "support_status": "INCUBATING"
+    },
     "mlflow": {
       "capabilities": [
         {

@@ -93,6 +93,10 @@ class BIContainerSubTypes(StrEnum):
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
 
+    # MicroStrategy
+    MICROSTRATEGY_PROJECT = "Project"
+    MICROSTRATEGY_FOLDER = "Folder"
+
 
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"

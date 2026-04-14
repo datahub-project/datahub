@@ -1,0 +1,22 @@
+source:
+  type: microstrategy
+  config:
+    connection:
+      base_url: https://your-instance.microstrategy.com/MicroStrategyLibrary
+      username: ${MSTR_USERNAME}
+      password: ${MSTR_PASSWORD}
+    project_pattern:
+      allow:
+        - "^Production.*"
+    include_lineage: true
+    include_ownership: true
+    include_cube_schema: true
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "${DATAHUB_GMS_URL}"
+    token: "${DATAHUB_GMS_TOKEN}"

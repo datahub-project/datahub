@@ -803,6 +803,12 @@ metabase = [
     "sqlglot[c]==30.0.3",
 ]
 
+microstrategy = [
+    "patchy==2.8.0",
+    "sqlglot[c]==30.0.3",
+    "sqlparse<0.6.0",
+]
+
 mlflow = [
     "mlflow-skinny>=2.3.0,<2.21.0",
     "setuptools<82",
@@ -2115,6 +2121,7 @@ preset = "datahub.ingestion.source.preset:PresetSource"
 tableau = "datahub.ingestion.source.tableau.tableau:TableauSource"
 openapi = "datahub.ingestion.source.openapi:OpenApiSource"
 metabase = "datahub.ingestion.source.metabase:MetabaseSource"
+microstrategy = "datahub.ingestion.source.microstrategy.source:MicroStrategySource"
 teradata = "datahub.ingestion.source.sql.teradata:TeradataSource"
 starrocks = "datahub.ingestion.source.sql.starrocks:StarRocksSource"
 trino = "datahub.ingestion.source.sql.trino:TrinoSource"

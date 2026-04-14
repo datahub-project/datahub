@@ -1,0 +1,428 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "microstrategy",
+                "env": "PROD",
+                "project": "AABBCCDD1234567890AABBCCDD123456"
+            },
+            "name": "Mock Project",
+            "description": "A mock project for testing.",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400749,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400749,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400750,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400750,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400750,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,RR001122334455667788990011223344)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400766,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "project_id": "AABBCCDD1234567890AABBCCDD123456",
+                "project_name": "Mock Project",
+                "date_created": "2023-01-15T00:00:00.000+0000",
+                "date_modified": "2024-01-10T00:00:00.000+0000",
+                "cube_id": "CC001122334455667788990011223344",
+                "cube_type": "intelligent_cube"
+            },
+            "name": "Revenue Cube",
+            "description": "Intelligent cube for revenue analysis.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400756,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,RR001122334455667788990011223344)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400766,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,RR001122334455667788990011223344)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400253,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Intelligent Cube"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400757,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,RR001122334455667788990011223344)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:Admin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400766,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,RR001122334455667788990011223344)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "project_id": "AABBCCDD1234567890AABBCCDD123456",
+                "project_name": "Mock Project",
+                "date_created": "2023-02-01T00:00:00.000+0000",
+                "date_modified": "2024-01-15T00:00:00.000+0000",
+                "report_id": "RR001122334455667788990011223344",
+                "report_type": "768",
+                "report_type_name": "Grid Report"
+            },
+            "title": "Revenue by Region",
+            "description": "Monthly revenue breakdown.",
+            "lastModified": {
+                "created": {
+                    "time": 1675209600000,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1705276800000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "chartUrl": "http://mstr-mock.example.com/MicroStrategyLibrary/app/AABBCCDD1234567890AABBCCDD123456/RR001122334455667788990011223344",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400766,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400757,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,RR001122334455667788990011223344)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Grid Report"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400766,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(microstrategy,RR001122334455667788990011223344)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0",
+                    "urn": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400254,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400757,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT region_id, revenue FROM \"analytics\".\"fact_revenue\"",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400758,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400336,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:Admin",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400758,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod_db.analytics.fact_revenue,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400796,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:microstrategy,AABBCCDD1234567890AABBCCDD123456.CC001122334455667788990011223344,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0",
+                    "urn": "urn:li:container:cd80a14f68954b355e7511ec1d4ee7e0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1710266400337,
+        "runId": "microstrategy-mock-lineage-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

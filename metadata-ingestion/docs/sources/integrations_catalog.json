@@ -729,7 +729,6 @@
     "img_path": "img/logos/platforms/lightdash.svg"
   },
   "microstrategy": {
-    "api_connector": true,
     "platform_type": "BI Tool",
     "title": "MicroStrategy",
     "description": "Enterprise analytics and mobility platform for business intelligence, dashboards, and reporting.",

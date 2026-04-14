@@ -1,0 +1,91 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2981221a206a064af84faf8e0df3fd96",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "microstrategy",
+                "env": "PROD",
+                "project": "B7CA92F04B9FAE8D941C3E9B7E0CD754"
+            },
+            "name": "MicroStrategy Tutorial",
+            "description": "MicroStrategy Tutorial project and application set designed to illustrate the platform's rich functionality. The theme is an Electronics, Books, Movies and Music store. Employees, Inventory, Finance, Product Sales and Suppliers are analyzed.",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773373930543,
+        "runId": "microstrategy-2026_03_12-23_52_08-ivd35n",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2981221a206a064af84faf8e0df3fd96",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773373930544,
+        "runId": "microstrategy-2026_03_12-23_52_08-ivd35n",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2981221a206a064af84faf8e0df3fd96",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:microstrategy"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773373930545,
+        "runId": "microstrategy-2026_03_12-23_52_08-ivd35n",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2981221a206a064af84faf8e0df3fd96",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773373930545,
+        "runId": "microstrategy-2026_03_12-23_52_08-ivd35n",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2981221a206a064af84faf8e0df3fd96",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773373930546,
+        "runId": "microstrategy-2026_03_12-23_52_08-ivd35n",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
