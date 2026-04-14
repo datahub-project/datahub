@@ -2,14 +2,13 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 import { QueryEntity } from '@types';
 
 const ContentWrapper = styled.div`
     font-size: 12px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export default function SidebarQueryDescriptionSection() {

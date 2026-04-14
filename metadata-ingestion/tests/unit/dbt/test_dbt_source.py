@@ -155,9 +155,7 @@ def test_dbt_source_patching_with_conflict():
         )
 
 
-def test_dbt_source_patching_with_conflict_null_source_type_in_existing_owner():
-    # verifying when existing owners have null source_type and new owners are present.
-    # So the existing owners will null type will be removed.
+def test_dbt_source_patching_with_null_source_type_in_existing_owner_preserves_them():
     source = create_mocked_dbt_source()
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
@@ -169,14 +167,50 @@ def test_dbt_source_patching_with_conflict_null_source_type_in_existing_owner():
     transformed_owner_list = source.get_transformed_owners_by_source_type(
         new_owners_list, "urn:li:dataset:dummy", "AUDIT"
     )
-    assert len(transformed_owner_list) == 2
-    expected_owner_set = {"urn:li:corpuser:new_test", "urn:li:corpuser:new_test2"}
-    for single_owner in transformed_owner_list:
-        assert single_owner.owner in expected_owner_set
-        assert (
-            single_owner.source
-            and single_owner.source.type == OwnershipSourceTypeClass.AUDIT
+    assert len(transformed_owner_list) == 3
+    transformed_urns = {o.owner for o in transformed_owner_list}
+    assert "urn:li:corpuser:existing_test_user" in transformed_urns
+    assert "urn:li:corpuser:new_test" in transformed_urns
+    assert "urn:li:corpuser:new_test2" in transformed_urns
+
+
+def test_dbt_source_patching_preserves_manually_added_owners_without_source():
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    dbt_owner = OwnerClass(
+        owner="urn:li:corpuser:dbt_defined_owner",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+    api_added_owner = OwnerClass(
+        owner="urn:li:corpGroup:team_data_infra",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=None,
+    )
+    graph.get_ownership.return_value = OwnershipClass(
+        owners=[dbt_owner, api_added_owner]
+    )
+    source.ctx.graph = graph
+
+    new_owners = [
+        OwnerClass(
+            owner="urn:li:corpuser:dbt_defined_owner",
+            type=OwnershipTypeClass.DATAOWNER,
+            source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
         )
+    ]
+
+    transformed = source.get_transformed_owners_by_source_type(
+        new_owners,
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    transformed_urns = {o.owner for o in transformed}
+    assert "urn:li:corpGroup:team_data_infra" in transformed_urns
+    assert "urn:li:corpuser:dbt_defined_owner" in transformed_urns
+    assert len(transformed) == 2
 
 
 def test_dbt_source_patching_tags():

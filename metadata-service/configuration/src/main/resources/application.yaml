@@ -508,12 +508,43 @@ elasticsearch:
     reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
     reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
     reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    # Parallel reindexing configuration
+    enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
+    taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
+    maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
+    # Cost-based reindexing configuration (P=2 enhancements)
+    normalIndexCostThreshold: ${ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD:1000000} # Cost = (docs * shards) / nodes. Example: 1M docs * 5 shards / 3 nodes = 1.67M
+    maxConcurrentNormalReindex: ${ELASTICSEARCH_MAX_CONCURRENT_NORMAL_REINDEX:4}
+    maxConcurrentLargeReindex: ${ELASTICSEARCH_MAX_CONCURRENT_LARGE_REINDEX:2}
+    # Cluster health monitoring for auto-throttling
+    clusterHealthCheckIntervalSeconds: ${ELASTICSEARCH_CLUSTER_HEALTH_CHECK_INTERVAL_SECONDS:30}
+    clusterHeapThresholdPercent: ${ELASTICSEARCH_CLUSTER_HEAP_THRESHOLD_PERCENT:85}
+    # Replica protection and finalization configuration
+    maxConcurrentFinalizations: ${ELASTICSEARCH_MAX_CONCURRENT_FINALIZATIONS:2} # Maximum concurrent index finalizations (limits replica sync operations to prevent cluster overload)
+    replicaSyncTimeoutMinutes: ${ELASTICSEARCH_REPLICA_SYNC_TIMEOUT_MINUTES:20} # Timeout for waiting on replica synchronization before promoting index to active use (minimum 5 minutes)
     slowOperationTimeoutSeconds: ${ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS:180} # socket timeout for count, refresh, createIndex, reindex, listTasks
     countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
     countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
     createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
-    incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:false} # non-blocking incremental reindex with dual-write
-    rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:false} # dual-write to old backing index for rollback safety during incremental reindex
+    taskPollIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_POLL_INTERVAL_SECONDS:5} # seconds between listTasks polls for timeseries catch-up reindex
+    # Adaptive throttling configuration
+    clusterHeapYellowThresholdPercent: ${ELASTICSEARCH_BUILD_INDICES_CLUSTER_HEAP_YELLOW_THRESHOLD_PERCENT:75} # Heap threshold for YELLOW tier (triggers throttling before RED)
+    docCountValidationRetryCount: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_COUNT:10} # Number of retries for doc count validation
+    docCountValidationRetrySleepMs: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_SLEEP_MS:2000} # Sleep time between doc count validation retries (milliseconds)
+    normalTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REQUESTS_PER_SECOND:500} # Requests per second during NORMAL cluster health tier
+    throttledTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REQUESTS_PER_SECOND:100} # Requests per second during THROTTLED (RED) cluster health tier
+    normalTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REFRESH_INTERVAL:60s} # Refresh interval during NORMAL cluster health tier (allows periodic flushes to reduce heap pressure)
+    throttledTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REFRESH_INTERVAL:30s} # Refresh interval during THROTTLED (RED) cluster health tier (aggressive flush for heap relief)
+    writeRejectionRedThreshold: ${ELASTICSEARCH_BUILD_INDICES_WRITE_REJECTION_RED_THRESHOLD:50} # Delta threshold for write/bulk thread pool rejections to trigger immediate RED state
+    # Circuit breaker stability window configuration (time-based hysteresis)
+    yellowStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_YELLOW_STABILITY_SECONDS:30} # Time (seconds) for GREEN -> YELLOW transition to be stable before accepting
+    greenStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_GREEN_STABILITY_SECONDS:30} # Time (seconds) for YELLOW -> GREEN transition to be stable before accepting
+    redRecoverySeconds: ${ELASTICSEARCH_BUILD_INDICES_RED_RECOVERY_SECONDS:30} # Time (seconds) for RED -> YELLOW transition to be stable before accepting
+    # Parallel reindex execution and monitoring parameters
+    rethrottleExecutorPoolSize: ${ELASTICSEARCH_BUILD_INDICES_RETHROTTLE_EXECUTOR_POOL_SIZE:8} # Thread pool size for concurrent rethrottle operations
+    minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
+    incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
+    rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -946,6 +977,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
+  migrateAspects:
+    enabled: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED:${ZDU_STAGE_20:false}}
+    batchSize: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS:1000}
+    limit: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_LIMIT:0}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
@@ -1010,6 +1046,8 @@ systemUpdate:
     rolloutPollSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS:5}
     # Max wait for each deployment rollout (scale down or rolling restart). Default 30m; increase for many pods or slow strategies.
     rolloutMaxWaitSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS:1800}
+    # Minimum interval between rollout progress INFO logs while waiting. Default 60s; unset or 0 uses default.
+    rolloutProgressLogIntervalSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_PROGRESS_LOG_INTERVAL_SECONDS:60}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
@@ -1091,8 +1129,8 @@ featureFlags:
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
-  zduStage10: ${ZDU_STAGE_10:false} # // ZDU rollout stage — numbered by 10s to allow future stages to be inserted between existing ones. ZDU pre-enablement stage
-  zduStage20: ${ZDU_STAGE_20:false} # // ZDU rollout stage: First ZDU release
+  createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
+  aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

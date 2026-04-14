@@ -937,6 +937,16 @@
     displayName: Streamlit
     type: OTHERS
     logoUrl: "assets/platforms/streamlitlogo.png"
+- entityUrn: urn:li:dataPlatform:omni
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: omni
+    displayName: Omni
+    type: OTHERS
+    logoUrl: "assets/platforms/omnilogo.svg"
 - entityUrn: urn:li:dataPlatform:notion
   entityType: dataPlatform
   aspectName: dataPlatformInfo

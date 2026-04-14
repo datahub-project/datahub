@@ -3,14 +3,13 @@ import { Button, Empty, Pagination } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { DomainsPaginationContainer } from '@app/domain/DomainsList';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -33,7 +32,7 @@ const ResultsWrapper = styled.div`
     flex-direction: column;
     padding: 16px;
     gap: 12px;
-    background: ${REDESIGN_COLORS.BACKGROUND};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const StyledLoading = styled(LoadingOutlined)`
@@ -49,6 +48,7 @@ const LoadingWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsTab() {
+    const theme = useTheme();
     const { refetch } = useEntityContext();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -137,7 +137,7 @@ export default function DataProductsTab() {
                     <Empty
                         description="No Data Products"
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ color: ANTD_GRAY[7] }}
+                        style={{ color: theme.colors.textTertiary }}
                     />
                 )}
                 {loading && (
