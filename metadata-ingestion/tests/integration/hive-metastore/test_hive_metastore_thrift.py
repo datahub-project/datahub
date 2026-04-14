@@ -29,8 +29,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
-FROZEN_TIME = "2021-09-23 12:00:00"  # Match SQL tests
-FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
+FROZEN_TIME = datetime(2021, 9, 23, 12, 0, 0, tzinfo=timezone.utc)  # Match SQL tests
 
 # Set RUN_KERBEROS_TESTS=1 to run Kerberos tests manually
 SKIP_KERBEROS = os.environ.get("RUN_KERBEROS_TESTS", "0") != "1"
@@ -76,7 +75,7 @@ def loaded_hive_metastore(hive_metastore_runner):
 # =============================================================================
 
 
-@time_machine.travel(FROZEN_TIME_DT, tick=False)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "include_catalog_name_in_ids,simplify_nested_field_paths,use_dataset_pascalcase_subtype,test_suffix",
     [
@@ -151,7 +150,7 @@ def test_hive_thrift_ingest(
 # =============================================================================
 
 
-@time_machine.travel(FROZEN_TIME_DT, tick=False)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_hive_thrift_instance_ingest(
     loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path
 ):

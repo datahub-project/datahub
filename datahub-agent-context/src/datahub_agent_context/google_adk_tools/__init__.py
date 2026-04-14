@@ -3,6 +3,9 @@
 This module provides utilities for building Google ADK tools from DataHub MCP tools.
 """
 
-from datahub_agent_context.google_adk_tools.builder import build_google_adk_tools
+from datahub_agent_context.google_adk_tools.builder import (
+    build_google_adk_cloud_tools,
+    build_google_adk_tools,
+)
 
-__all__ = ["build_google_adk_tools"]
+__all__ = ["build_google_adk_tools", "build_google_adk_cloud_tools"]

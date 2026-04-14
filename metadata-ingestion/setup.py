@@ -368,7 +368,7 @@ iceberg_common = {
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
     "sqlalchemy-pytds>=0.3,<2.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
 }
 
 postgres_common = {
@@ -483,8 +483,8 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
-    "litellm==1.80.5",
+    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.0 for CVE-2026-35030
+    "litellm==1.83.0",
     # AWS SDK for Bedrock embedding support
     *aws_common,
 }
@@ -633,6 +633,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
+    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
     "glue": aws_common | cachetools_lib | sqlglot_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -698,7 +699,13 @@ plugins: Dict[str, Set[str]] = {
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
     | pyhive_common
-    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
+    | {
+        "psycopg2-binary<3.0.0",
+        "pymysql>=1.0.2,<2.0.0",
+        "pymetastore>=0.4.2,<1.0.0",
+        "tenacity>=8.0.1,<9.0.0",
+        "kerberos>=1.3.0,<2.0.0",
+    },
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
@@ -708,6 +715,13 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
+    | cachetools_lib,
+    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
+    "redshift-slim": redshift_common
+    | usage_common
+    | sqlglot_lib
+    | classification_lib
+    | {"db-dtypes"}
     | cachetools_lib,
     # S3 includes PySpark by default for profiling support (backward compatible)
     # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
@@ -744,6 +758,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
+    "starrocks": sql_common | {"starrocks>=1.3.3,<2.0", "lark>=1.3.1,<2.0"},
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
@@ -830,7 +845,7 @@ mypy_stubs = {
     "types-tabulate<0.10.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
-    "types-pyOpenSSL<26.0.0",
+    "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
     "types-click-spinner>=0.1.13.1,<=0.1.13.20250809",
     "types-ujson>=5.2.0,<6.0.0",
     "types-Deprecated<2.0.0",
@@ -945,6 +960,7 @@ base_dev_requirements = {
             "neo4j",
             "vertexai",
             "mssql-odbc",
+            "omni",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -993,6 +1009,7 @@ full_test_dev_requirements = {
             "mariadb",
             "rdf",
             "redash",
+            "starrocks",
             "vertica",
             "vertexai",
         ]
@@ -1079,6 +1096,7 @@ entry_points = {
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
+        "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
@@ -1105,6 +1123,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "omni = datahub.ingestion.source.omni.omni:OmniSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

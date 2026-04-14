@@ -391,7 +391,7 @@ See this [example PR](https://github.com/datahub-project/datahub/pull/10452) whi
 
 ## Cleanup obsolete pipelines and tasks from DataHub
 
-There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the DataHub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
+There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the DataHub, let's call such pipelines and tasks, `obsolete pipelines and tasks`
 
 Following are the steps to cleanup them from the datahub:
 

@@ -1,6 +1,5 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { CloseOutlined } from '@ant-design/icons';
-import { Icon, Input, Table, Text, colors } from '@components';
+import { Icon, Input, Table, Text } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
@@ -8,7 +7,7 @@ import { ItemType } from 'antd/es/menu/hooks/useItems';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
@@ -68,13 +67,13 @@ const Title = styled(Text)`
 `;
 
 const CloseIcon = styled.div`
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
 `;
 
 const MenuIcon = styled(Icon)`
     border-radius: 200px;
-    border: ${colors.gray[100]} 1px solid;
+    border: ${(props) => props.theme.colors.border} 1px solid;
     cursor: pointer;
     transition: border 0.3s ease;
 
@@ -83,7 +82,7 @@ const MenuIcon = styled(Icon)`
     }
 
     :hover {
-        border: ${(props) => props.theme.styles['primary-color']} 1px solid;
+        border: ${(props) => props.theme.colors.borderBrand} 1px solid;
     }
 `;
 
@@ -104,6 +103,7 @@ interface Props {
 
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const { setDrawer } = useEntityContext();
 
     const [searchInput, setSearchInput] = useState<string>('');
@@ -185,7 +185,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
             ),
             menu: (
                 <StyledDropdown
-                    menu={{ items, style: { borderRadius: '12px', boxShadow: '0px 0px 14px 0px rgba(0, 0, 0, 0.15)' } }}
+                    menu={{ items, style: { borderRadius: '12px', boxShadow: theme.colors.shadowLg } }}
                     trigger={['click']}
                     overlayStyle={{ borderRadius: '100px' }}
                 >

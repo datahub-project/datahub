@@ -15,7 +15,7 @@ const DateWithTooltip = styled.span`
     &:hover {
         text-decoration: underline;
         text-decoration-style: dotted;
-        text-decoration-color: #d9d9d9;
+        text-decoration-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -36,7 +36,7 @@ export default function CreatedProperty(props: PropertyComponentProps) {
         return (
             <Popover content={formatTimestamp(timestamp, 'll LTS')} placement="top">
                 <DateWithTooltip>
-                    <Text color="gray">{formatTimestamp(timestamp, 'll')}</Text>
+                    <Text>{formatTimestamp(timestamp, 'll')}</Text>
                 </DateWithTooltip>
             </Popover>
         );

@@ -13,8 +13,7 @@ from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_4
-FROZEN_TIME = "2021-09-23 12:00:00"
-FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
+FROZEN_TIME = datetime(2021, 9, 23, 12, 0, 0, tzinfo=timezone.utc)
 
 data_platform = "hive-metastore"
 
@@ -54,7 +53,7 @@ def loaded_hive_metastore(hive_metastore_runner):
     subprocess.run(command, shell=True, check=True)
 
 
-@time_machine.travel(FROZEN_TIME_DT, tick=False)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,simplify_nested_field_paths,"
     "test_suffix",
@@ -147,7 +146,7 @@ def test_hive_metastore_ingest(
         )
 
 
-@time_machine.travel(FROZEN_TIME_DT, tick=False)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_hive_metastore_instance_ingest(
     loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path
 ):

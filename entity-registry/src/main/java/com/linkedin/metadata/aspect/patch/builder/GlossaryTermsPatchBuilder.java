@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.GlossaryTermUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -34,7 +35,7 @@ public class GlossaryTermsPatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn), value));
+            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn) + "/", value));
     return this;
   }
 
@@ -42,6 +43,17 @@ public class GlossaryTermsPatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(urn), null));
+    return this;
+  }
+
+  /** Removes only the entry for this term URN attributed to a specific source. */
+  public GlossaryTermsPatchBuilder removeTerm(
+      @Nonnull GlossaryTermUrn urn, @Nonnull Urn attributionSource) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            BASE_PATH + encodeValueUrn(urn) + "/" + encodeValue(attributionSource.toString()),
+            null));
     return this;
   }
 

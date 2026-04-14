@@ -8,6 +8,7 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.Template;
 import com.linkedin.metadata.aspect.patch.template.chart.ChartInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.DocumentationTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.DomainsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
@@ -104,6 +105,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(OWNERSHIP_ASPECT_NAME, new OwnershipTemplate());
     aspectSpecTemplateMap.put(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesTemplate());
     aspectSpecTemplateMap.put(UPSTREAM_LINEAGE_ASPECT_NAME, new UpstreamLineageTemplate());
+    aspectSpecTemplateMap.put(DOCUMENTATION_ASPECT_NAME, new DocumentationTemplate());
     aspectSpecTemplateMap.put(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsTemplate());
     aspectSpecTemplateMap.put(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());

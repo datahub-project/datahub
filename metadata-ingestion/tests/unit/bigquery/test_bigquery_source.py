@@ -1111,7 +1111,7 @@ def test_get_views_for_dataset(
         dict(
             table_name=bigquery_view_1.name,
             created=bigquery_view_1.created,
-            last_altered=bigquery_view_1.last_altered,
+            last_altered=bigquery_view_1.last_altered.timestamp() * 1000,
             comment=bigquery_view_1.comment,
             view_definition=bigquery_view_1.view_definition,
             table_type="VIEW",
@@ -1220,7 +1220,7 @@ def test_get_snapshots_for_dataset(
         dict(
             table_name=bigquery_snapshot.name,
             created=bigquery_snapshot.created,
-            last_altered=bigquery_snapshot.last_altered,
+            last_altered=bigquery_snapshot.last_altered.timestamp() * 1000,
             comment=bigquery_snapshot.comment,
             ddl=bigquery_snapshot.ddl,
             snapshot_time=bigquery_snapshot.snapshot_time,

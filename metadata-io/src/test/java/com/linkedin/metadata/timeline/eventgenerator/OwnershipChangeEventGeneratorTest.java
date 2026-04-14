@@ -72,7 +72,7 @@ public class OwnershipChangeEventGeneratorTest extends AbstractTestNGSpringConte
     assertEquals(changeEvent.getClass(), OwnerChangeEvent.class);
     assertEquals(changeEvent.getOperation(), expectedOperation);
     assertEquals(changeEvent.getEntityUrn(), TEST_ENTITY_URN);
-    assertEquals(changeEvent.getCategory(), ChangeCategory.OWNER);
+    assertEquals(changeEvent.getCategory(), ChangeCategory.OWNERSHIP);
 
     assertNotNull(changeEvent.getParameters());
     assertEquals(changeEvent.getParameters().get("ownerUrn"), expectedOwnerUrn);

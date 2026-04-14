@@ -672,9 +672,17 @@ if __name__ == "__main__":
         changed = get_changed_files(args.base_ref)
         decisions = classify(changed, repo_root)
 
+    decisions_dict = asdict(decisions)
+
+    # Always write the full JSON to a file for artifact upload / debugging
+    json_path = Path("ci-decisions.json")
+    json_path.write_text(json.dumps(decisions_dict, indent=2) + "\n")
+    print(f"Wrote decisions to {json_path.resolve()}", file=sys.stderr)
+
     if args.dry_run or args.output == "json":
-        print(json.dumps(asdict(decisions), indent=2))
+        print(json.dumps(decisions_dict, indent=2))
     else:
+        # Write key=value pairs to GITHUB_OUTPUT
         output_file = os.environ.get("GITHUB_OUTPUT")
         fh: typing.IO[str]
         if output_file:
@@ -689,7 +697,7 @@ if __name__ == "__main__":
         else:
             fh = sys.stdout
         try:
-            for key, value in asdict(decisions).items():
+            for key, value in decisions_dict.items():
                 if isinstance(value, list):
                     fh.write(f"{key}={json.dumps(value)}\n")
                 else:
@@ -697,3 +705,34 @@ if __name__ == "__main__":
         finally:
             if fh is not sys.stdout:
                 fh.close()
+
+        # Write a human-readable summary to GITHUB_STEP_SUMMARY
+        summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary_file:
+            try:
+                with open(summary_file, "a") as sf:
+                    sf.write("## Selective CI Decisions\n\n")
+                    if decisions.run_all_integration:
+                        sf.write("**Mode:** Run all integration tests\n\n")
+                    elif decisions.test_matrix:
+                        sf.write(
+                            f"**Mode:** Selective — {len(decisions.test_matrix)} connector(s)\n\n"
+                        )
+                        sf.write("| Connector | Test Path |\n")
+                        sf.write("|-----------|----------|\n")
+                        for entry in decisions.test_matrix:
+                            sf.write(
+                                f"| `{entry['connector']}` | `{entry['test_path']}` |\n"
+                            )
+                    else:
+                        sf.write("**Mode:** No integration tests needed\n\n")
+                    sf.write(
+                        "\n<details><summary>Full JSON</summary>\n\n"
+                        f"```json\n{json.dumps(decisions_dict, indent=2)}\n```\n\n"
+                        "</details>\n"
+                    )
+            except OSError as e:
+                print(
+                    f"WARNING: Cannot write to GITHUB_STEP_SUMMARY: {e}",
+                    file=sys.stderr,
+                )
