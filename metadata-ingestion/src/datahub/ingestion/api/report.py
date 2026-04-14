@@ -106,9 +106,7 @@ class Report(SupportsAsObj):
             if value is not None and not str(key).startswith("_")
         }
 
-    def as_string(
-        self, progress_sample_caps: Optional[Dict[str, int]] = None
-    ) -> str:
+    def as_string(self, progress_sample_caps: Optional[Dict[str, int]] = None) -> str:
         self_obj = self.as_obj()
         if progress_sample_caps is not None:
             self_obj = _cap_report_samples(self_obj, progress_sample_caps)
@@ -541,9 +539,7 @@ def _cap_report_samples(obj: dict, caps: Dict[str, int]) -> dict:
     for k, v in obj.items():
         cap = caps.get(k)
         if cap is not None and isinstance(v, list) and len(v) > cap:
-            result[k] = v[:cap] + [
-                f"... showing {cap} of {len(v)} (interim report)"
-            ]
+            result[k] = v[:cap] + [f"... showing {cap} of {len(v)} (interim report)"]
         else:
             result[k] = v
     return result
