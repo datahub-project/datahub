@@ -16,6 +16,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
     runtime_checkable,
 )
 
@@ -283,10 +284,11 @@ class ConfigModel(BaseModel):
         """
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
-        relaxed_cls = type(
-            cls.__name__, (cls,), {"model_config": ConfigDict(extra="ignore")}
+        relaxed_cls = cast(
+            Type[Self],
+            type(cls.__name__, (cls,), {"model_config": ConfigDict(extra="ignore")}),
         )
-        return relaxed_cls.model_validate(obj)  # type: ignore[return-value]
+        return relaxed_cls.model_validate(obj)
 
 
 class PermissiveConfigModel(ConfigModel):
