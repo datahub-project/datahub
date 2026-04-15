@@ -42,6 +42,10 @@ base_requirements = {
     "setuptools<82.0.0",
 }
 
+gcp_sm_common = {
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
+}
+
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -804,7 +808,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Cloud secret store plugins.
     "aws-secret-manager": aws_common | cachetools_lib,
-    "gcp-secret-manager": {"google-cloud-secret-manager>=2.0.0,<3.0.0"} | cachetools_lib,
+    "gcp-secret-manager": gcp_sm_common | cachetools_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
