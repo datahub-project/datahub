@@ -37,6 +37,32 @@
       "platform_name": "ABS Data Lake",
       "support_status": "INCUBATING"
     },
+    "aerospike": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aerospike.AerospikeSource",
+      "platform_id": "aerospike",
+      "platform_name": "Aerospike",
+      "support_status": "TESTING"
+    },
     "athena": {
       "capabilities": [
         {
