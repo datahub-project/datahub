@@ -150,7 +150,7 @@ If you want to:
   - `/q -_exists_:name` [Sample results](https://demo.datahub.com/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
   - the `-` is negating the existence of the field name.
 
-- Find whether a dataset has upstream lineage as per the last emission of the relvant aspect.
+- Find whether a dataset has upstream lineage as per the last emission of the relevant aspect.
 
   - `/q hasUpstreams:true`
   - `/q hasFineGrainedUpstreams:true`
@@ -159,7 +159,7 @@ If you want to:
   - There is no corresponding filter for downstream lineage currently.
   - This only works for `dataset` entity.
 
-- Find whether a dataset has usage as per the last emission of the relvant aspect.
+- Find whether a dataset has usage as per the last emission of the relevant aspect.
 
   - `/q hasUniqueUserCount:true`
   - `/q hasTotalSqlQueriesCount:true`

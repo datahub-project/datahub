@@ -7,7 +7,7 @@ import { FilterScenarioType } from '@app/search/filters/render/types';
 
 import { FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
 
-export interface Props {
+interface Props {
     scenario: FilterScenarioType;
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];

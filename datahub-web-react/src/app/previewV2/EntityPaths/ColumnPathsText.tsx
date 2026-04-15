@@ -9,7 +9,7 @@ import DisplayedColumns from '@app/previewV2/EntityPaths/DisplayedColumns';
 
 import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '@types';
 
-export const ResultText = styled.span`
+const ResultText = styled.span`
     white-space: nowrap;
     &:hover {
         border-bottom: 1px solid black;

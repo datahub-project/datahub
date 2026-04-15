@@ -43,11 +43,6 @@ export const DATAHUB_ENTITY_COLORS: Record<string, string> = {
 };
 
 /**
- * Default color for unknown entities
- */
-export const DEFAULT_ENTITY_COLOR = '#9CA3AF';
-
-/**
  * High-contrast qualitative palette based on ColorBrewer Set3
  * Provides reliable visual distinction for up to 12 series
  */
@@ -67,24 +62,9 @@ export const QUALITATIVE_COLORS = [
 ];
 
 /**
- * Okabe-Ito colorblind-safe palette
- * Backup palette optimized for deuteranopia/protanopia
- */
-export const COLORBLIND_SAFE_COLORS = [
-    '#E69F00',
-    '#56B4E9',
-    '#009E73',
-    '#F0E442',
-    '#0072B2',
-    '#D55E00',
-    '#CC79A7',
-    '#999999',
-];
-
-/**
  * Options for dynamic color generation
  */
-export interface ColorGenerationOptions {
+interface ColorGenerationOptions {
     count: number;
     startHue?: number;
     saturationRange?: [number, number];

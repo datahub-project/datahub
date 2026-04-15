@@ -221,6 +221,7 @@ query listGroups($input: ListGroupsInput!) {
                 email
             }
             editableProperties {
+                description
                 pictureLink
             }
             memberCount: relationships(

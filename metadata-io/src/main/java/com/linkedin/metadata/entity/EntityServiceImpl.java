@@ -70,6 +70,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -310,6 +311,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setLastObserved(
             changeSystemMetadata.getLastObserved(), SetMode.IGNORE_NULL);
         latestSystemMetadata.setRunId(changeSystemMetadata.getRunId(), SetMode.REMOVE_IF_NULL);
+        latestSystemMetadata.setSchemaVersion(
+            changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
         if (!DataTemplateUtil.areEqual(
             latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate())) {
@@ -1013,25 +1016,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
             .collect(Collectors.toList());
 
-    Iterable<List<MCPItem>> iterable =
-        () ->
-            Iterators.partition(
-                AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())
-                    .iterator(),
-                MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-    StreamSupport.stream(iterable.spliterator(), false)
-        .forEach(
-            sideEffects -> {
-              long count =
-                  ingestProposalAsync(
-                          opContext,
-                          AspectsBatchImpl.builder()
-                              .items(sideEffects)
-                              .retrieverContext(opContext.getRetrieverContext())
-                              .build(opContext))
-                      .count();
-              log.info("Generated {} MCP SideEffects for async processing", count);
-            });
+    try (Stream<MCPItem> sideEffectStream =
+        AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())) {
+      Iterable<List<MCPItem>> iterable =
+          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+      StreamSupport.stream(iterable.spliterator(), false)
+          .forEach(
+              sideEffects -> {
+                long count =
+                    ingestProposalAsync(
+                            opContext,
+                            AspectsBatchImpl.builder()
+                                .items(sideEffects)
+                                .retrieverContext(opContext.getRetrieverContext())
+                                .build(opContext))
+                        .count();
+                log.debug("Generated {} MCP SideEffects for async processing", count);
+              });
+    }
   }
 
   /**
@@ -1231,7 +1233,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           }
 
                           // Database Upsert successfully validated results
-                          log.info(
+                          log.debug(
                               "Ingesting aspects batch to database: {}",
                               AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
 
@@ -1567,7 +1569,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             log.error(
                 "Failed to produce MCLs: {}",
                 failedMCLs.stream()
-                    .map(result -> result.getMetadataChangeLog().getEntityUrn())
+                    .map(
+                        result -> {
+                          MetadataChangeLog mcl = result.getMetadataChangeLog();
+                          return mcl.getEntityUrn() + "/" + mcl.getAspectName();
+                        })
                     .collect(Collectors.toList()));
             // TODO restoreIndices?
             throw new RuntimeException("Failed to produce MCLs");
@@ -2488,7 +2494,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           .emitted(emissionStatus.getFirst() != null)
           .build();
     } else {
-      log.info(
+      log.debug(
           "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
           aspectSpec.getName(),
           entityUrn);
@@ -2511,7 +2517,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
             : null;
     return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
-        || Objects.equals(newAspect, oldAspect);
+        || ValidationApiUtils.normalizedEqual(oldAspect, newAspect);
   }
 
   public void produceFailedMCPs(
@@ -2637,7 +2643,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.info("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
+    log.debug("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()

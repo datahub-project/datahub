@@ -97,6 +97,7 @@ class WorkflowMetrics:
     head_branch: str | None
     head_sha: str | None
     conclusion: str | None
+    created_at: str | None
     started_at: str | None
     completed_at: str | None
     duration_seconds: int | None
@@ -128,6 +129,7 @@ class WorkflowMetrics:
             head_branch=data.get("head_branch"),
             head_sha=data.get("head_sha"),
             conclusion=data.get("conclusion"),
+            created_at=data.get("created_at"),
             started_at=data.get("run_started_at"),
             completed_at=data.get("updated_at"),
             duration_seconds=duration_seconds(run_started, run_completed),

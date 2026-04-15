@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
 
 const FieldTypeWrapper = styled.div`
@@ -14,7 +13,7 @@ const FieldTypeWrapper = styled.div`
 const FieldTypeContainer = styled.div`
     vertical-align: top;
     display: flex;
-    color: ${REDESIGN_COLORS.GREY_500};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type InteriorTypeProps = {

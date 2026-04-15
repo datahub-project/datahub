@@ -26,7 +26,7 @@ try {
     }
 
     const raw = execSync(
-        `git diff --diff-filter=d --name-only ${baseBranch} -- "datahub-web-react/src/**/*.ts" "datahub-web-react/src/**/*.tsx"`,
+        `git diff --diff-filter=d --name-only ${baseBranch}...HEAD -- "datahub-web-react/src/**/*.ts" "datahub-web-react/src/**/*.tsx"`,
         { encoding: 'utf-8', cwd: repoRoot, stdio: 'pipe' },
     );
     changedTsFiles = raw
@@ -49,10 +49,13 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    group: [
-                        '@components/theme/foundations/colors',
-                        '**/alchemy-components/theme/foundations/colors',
-                    ],
+                    group: ['**/alchemy-components/theme/foundations/colors'],
+                    message:
+                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    group: ['@components', '@components/*'],
+                    importNames: ['colors'],
                     message:
                         'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
@@ -105,6 +108,31 @@ module.exports = {
         tsconfigRootDir: __dirname,
     },
     rules: {
+        'no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: 'moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'moment-timezone',
+                        message:
+                            'moment-timezone was removed for bundle size. Use dayjs with timezone plugin instead.',
+                    },
+                    {
+                        name: 'moment/moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'dayjs',
+                        message:
+                            "Import dayjs from '@utils/dayjs' instead. The utils wrapper registers all required plugins (utc, isoWeek, timezone, etc.) — importing bare 'dayjs' silently skips plugin registration.",
+                    },
+                ],
+            },
+        ],
         '@typescript-eslint/no-explicit-any': 'off',
         '@stylistic/js/comma-dangle': ['error', 'always-multiline'],
         'arrow-body-style': 'off',
@@ -112,6 +140,24 @@ module.exports = {
         'import/no-extraneous-dependencies': 'off',
         'import/no-relative-packages': 'error',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
+        '@typescript-eslint/no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: '@phosphor-icons/react',
+                        message:
+                            'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
+                        allowTypeImports: true,
+                    },
+                    {
+                        name: '@monaco-editor/react',
+                        importNames: ['loader'],
+                        message: "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
+                    },
+                ],
+            },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -166,6 +212,11 @@ module.exports = {
         {
             files: ['src/app/searchV2/**/*.tsx', 'src/app/entityV2/**/*.tsx'],
             rules: { 'import/no-cycle': 'off' },
+        },
+        {
+            // The dayjs utils wrapper itself must import bare 'dayjs' to extend plugins.
+            files: ['src/utils/dayjs.ts'],
+            rules: { 'no-restricted-imports': 'off' },
         },
         {
             files: ['src/alchemy-components/theme/**/*.ts'],

@@ -107,6 +107,11 @@
                 "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
                 "optional" : true
               }, {
+                "name" : "schemaVersion",
+                "type" : "long",
+                "doc" : "Schema version of the aspect data model. Used to determine aspects that need migrations.\nDefaults to 1 when not present as a baseline. Incremented when an aspect is modified.",
+                "optional" : true
+              }, {
                 "name" : "aspectCreated",
                 "type" : {
                   "type" : "record",
@@ -454,7 +459,13 @@
           "optional" : true
         } ]
       },
-      "doc" : "Captures information about who created/last modified/deleted this chart and when"
+      "doc" : "Captures information about who created/last modified/deleted this chart and when",
+      "Searchable" : {
+        "/lastModified/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
     }, {
       "name" : "chartUrl",
       "type" : "com.linkedin.common.Url",
@@ -1484,6 +1495,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -1644,6 +1656,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -1721,6 +1734,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -2165,6 +2179,7 @@
       "Searchable" : {
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
         "searchTier" : 2
       }
     }, {
@@ -2214,7 +2229,7 @@
     "type" : "typeref",
     "name" : "SchemaFieldPath",
     "namespace" : "com.linkedin.dataset",
-    "doc" : "Schema field path. TODO: Add formal documentation on normalization rules.",
+    "doc" : "Schema field path.\n\nFor formal documentation on normalization rules, see docs/advanced/field-path-spec-v2.md\nor https://github.com/datahub-project/datahub/blob/master/docs/advanced/field-path-spec-v2.md",
     "ref" : "string"
   }, {
     "type" : "record",
@@ -3151,7 +3166,8 @@
               "Searchable" : {
                 "boostScore" : 0.1,
                 "fieldName" : "fieldDescriptions",
-                "fieldType" : "TEXT"
+                "fieldType" : "TEXT",
+                "sanitizeRichText" : true
               }
             }, {
               "name" : "label",
@@ -3503,6 +3519,7 @@
                 "boostScore" : 0.1,
                 "fieldName" : "editedFieldDescriptions",
                 "fieldType" : "TEXT",
+                "sanitizeRichText" : true,
                 "searchTier" : 2
               }
             }, {
@@ -3701,6 +3718,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
+          "fieldName" : "id",
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
           "searchLabel" : "entityName",
@@ -4035,6 +4053,7 @@
         "Searchable" : {
           "fieldType" : "TEXT",
           "hasValuesFieldName" : "hasDescription",
+          "sanitizeRichText" : true,
           "searchTier" : 2
         }
       }, {

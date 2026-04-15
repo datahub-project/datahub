@@ -1,5 +1,4 @@
 import { Typography } from 'antd';
-import moment from 'moment';
 import React from 'react';
 
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
@@ -8,6 +7,7 @@ import { getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils'
 import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value/utils';
 import { UNIT_SEPARATOR } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 function getTextFieldName(field: FilterField, value: FilterValue) {
     let textFieldName = value.displayName || value.value;
@@ -56,7 +56,7 @@ export default function ValueName({ field, value }: Props) {
         }
         case FieldType.BUCKETED_TIMESTAMP:
             // Note: Currently unused, as SelectedFilter.tsx renders DatePicker instead
-            return <>{moment(value.value).format('YYYY-MM-DD')}</>;
+            return <>{dayjs(value.value).format('YYYY-MM-DD')}</>;
         default:
             console.error(`Unknown field type: ${field}`);
             return <>n/a</>;

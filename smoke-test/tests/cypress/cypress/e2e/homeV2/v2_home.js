@@ -1,6 +1,6 @@
 describe("home", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
     });
     cy.skipIntroducePage();

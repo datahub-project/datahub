@@ -2,8 +2,9 @@
 """
 Pillar 4 — Query: agent eval suite for DataHub Common Operations CLI.
 
-Tests that agents correctly use `datahub init` and `datahub graphql` rather
-than ad-hoc alternatives (raw curl, manual config files, source-grepping).
+Tests that agents correctly use `datahub init`, `datahub graphql`, and
+`datahub search` rather than ad-hoc alternatives (raw curl, manual config
+files, source-grepping).
 
 Usage:
     python3 scripts/dev/tests/test_evals_query.py              # all evals
@@ -66,6 +67,25 @@ def _grade_graphql_discovery(s: SessionOutput) -> Tuple[bool, float, Dict[str, b
     return passed, score, checks, _fmt(checks)
 
 
+def _grade_search_agent_context(
+    s: SessionOutput,
+) -> Tuple[bool, float, Dict[str, bool], str]:
+    checks: Dict[str, bool] = {
+        "discovered agent context (--agent-context, --help, or read file)": (
+            _bash(
+                s, r"datahub\s+search\s+--agent-context", r"datahub\s+search\s+--help"
+            )
+            or _read(s, "SEARCH_AGENT_CONTEXT.md")
+        ),
+        "used --dry-run before executing": _bash(s, r"--dry-run"),
+        "used --filter for platform": _bash(s, r"--filter\s+platform=snowflake"),
+        "used --urns-only or --format urns": _bash(s, r"--urns-only|--format\s+urns"),
+        "set --limit explicitly": _bash(s, r"--limit\s+\d+"),
+    }
+    score = sum(checks.values()) / len(checks)
+    return score >= 0.8, score, checks, _fmt(checks)
+
+
 def _grade_graphql_mutation_dry_run(
     s: SessionOutput,
 ) -> Tuple[bool, float, Dict[str, bool], str]:
@@ -120,6 +140,17 @@ DEFINED_EVALS = [
             "Verify the request before executing it."
         ),
         grade=_grade_graphql_mutation_dry_run,
+    ),
+    Eval(
+        id=14,
+        name="search CLI: discover --agent-context, then use best practices",
+        prompt=(
+            "Use the DataHub CLI to find all Snowflake datasets in the PROD "
+            "environment. I only need the URNs. "
+            "Start by reading the search command's agent context, then verify "
+            "your query with a dry run before executing."
+        ),
+        grade=_grade_search_agent_context,
     ),
 ]
 

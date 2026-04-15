@@ -1391,8 +1391,13 @@ class SQLAlchemyProfiler:
             if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
                 continue
 
-            # Schedule numeric stats for numeric columns
-            if col_type in (ProfilerDataType.INT, ProfilerDataType.FLOAT):
+            # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
+            # This matches GE profiler which computes stats for all three types
+            if col_type in (
+                ProfilerDataType.INT,
+                ProfilerDataType.FLOAT,
+                ProfilerDataType.NUMERIC,
+            ):
                 numeric_stats_futures[col_name] = {}
                 if self.config.include_field_min_value:
                     numeric_stats_futures[col_name]["min"] = runner.get_column_min(
@@ -1486,7 +1491,12 @@ class SQLAlchemyProfiler:
                 )
 
             # Process column stats by type
-            if col_type in (ProfilerDataType.INT, ProfilerDataType.FLOAT):
+            # INT, FLOAT, and NUMERIC all get the same numeric statistics (matches GE profiler)
+            if col_type in (
+                ProfilerDataType.INT,
+                ProfilerDataType.FLOAT,
+                ProfilerDataType.NUMERIC,
+            ):
                 self._process_numeric_column_stats(
                     runner=runner,
                     sql_table=sql_table,
@@ -1665,14 +1675,25 @@ class SQLAlchemyProfiler:
                         platform=platform,
                     )
 
-                    # If row count failed and we got None, skip profiling entirely.
-                    # Emitting a profile without row count creates incomplete/misleading data.
-                    # This matches GE profiler behavior
-                    if row_count is None:
-                        logger.info(
-                            f"Skipping profile for {pretty_name}: row count unavailable"
+                    # If row count is 0 or None, skip column profiling.
+                    # This matches GE profiler behavior:
+                    # - row_count == 0: Empty table optimization (avoids wasted queries)
+                    # - row_count is None: Permission error or query failure
+                    #
+                    # Unlike the old behavior which skipped the entire table when row_count was None,
+                    # we now return a basic profile with table-level metadata. This matches GE profiler
+                    # which logs a warning but still generates a profile when rowCount fails.
+                    if row_count == 0 or row_count is None:
+                        reason = (
+                            "empty table (rowCount=0)"
+                            if row_count == 0
+                            else "row count unavailable (permission error or query failure)"
                         )
-                        return None
+                        logger.info(
+                            f"Skipping column profiling for {pretty_name}: {reason}"
+                        )
+                        # Return profile with basic table-level metadata but no field profiles
+                        return profile
 
                     # ----------------------------------------------------------------
                     # SETUP: Get columns to profile and sampling configuration

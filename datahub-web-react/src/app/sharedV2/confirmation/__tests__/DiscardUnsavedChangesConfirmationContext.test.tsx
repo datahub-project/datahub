@@ -8,12 +8,15 @@ import {
     DiscardUnsavedChangesConfirmationProvider,
     useDiscardUnsavedChangesConfirmationContext,
 } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 // Wrapper component for the provider with Router context
 const wrapper: React.FC<React.PropsWithChildren<Record<string, never>>> = ({ children }) => (
-    <BrowserRouter>
-        <DiscardUnsavedChangesConfirmationProvider>{children}</DiscardUnsavedChangesConfirmationProvider>
-    </BrowserRouter>
+    <CustomThemeProvider>
+        <BrowserRouter>
+            <DiscardUnsavedChangesConfirmationProvider>{children}</DiscardUnsavedChangesConfirmationProvider>
+        </BrowserRouter>
+    </CustomThemeProvider>
 );
 
 describe('DiscardUnsavedChangesConfirmationContext', () => {
@@ -77,11 +80,13 @@ describe('DiscardUnsavedChangesConfirmationContext', () => {
             };
 
             const { getByText } = render(
-                <BrowserRouter>
-                    <DiscardUnsavedChangesConfirmationProvider>
-                        <TestComponent />
-                    </DiscardUnsavedChangesConfirmationProvider>
-                </BrowserRouter>,
+                <CustomThemeProvider>
+                    <BrowserRouter>
+                        <DiscardUnsavedChangesConfirmationProvider>
+                            <TestComponent />
+                        </DiscardUnsavedChangesConfirmationProvider>
+                    </BrowserRouter>
+                </CustomThemeProvider>,
             );
 
             expect(getByText('Set Dirty')).toBeInTheDocument();
@@ -96,11 +101,13 @@ describe('DiscardUnsavedChangesConfirmationContext', () => {
 
             const { unmount } = renderHook(() => useDiscardUnsavedChangesConfirmationContext(), {
                 wrapper: ({ children }) => (
-                    <BrowserRouter>
-                        <DiscardUnsavedChangesConfirmationProvider>
-                            {children}
-                        </DiscardUnsavedChangesConfirmationProvider>
-                    </BrowserRouter>
+                    <CustomThemeProvider>
+                        <BrowserRouter>
+                            <DiscardUnsavedChangesConfirmationProvider>
+                                {children}
+                            </DiscardUnsavedChangesConfirmationProvider>
+                        </BrowserRouter>
+                    </CustomThemeProvider>
                 ),
             });
 
@@ -139,11 +146,13 @@ describe('DiscardUnsavedChangesConfirmationContext', () => {
 
             const { result } = renderHook(() => useDiscardUnsavedChangesConfirmationContext(), {
                 wrapper: ({ children }) => (
-                    <BrowserRouter>
-                        <DiscardUnsavedChangesConfirmationProvider>
-                            {children}
-                        </DiscardUnsavedChangesConfirmationProvider>
-                    </BrowserRouter>
+                    <CustomThemeProvider>
+                        <BrowserRouter>
+                            <DiscardUnsavedChangesConfirmationProvider>
+                                {children}
+                            </DiscardUnsavedChangesConfirmationProvider>
+                        </BrowserRouter>
+                    </CustomThemeProvider>
                 ),
             });
 
@@ -180,16 +189,18 @@ describe('DiscardUnsavedChangesConfirmationContext', () => {
     describe('Provider props', () => {
         it('should accept all expected props', () => {
             render(
-                <BrowserRouter>
-                    <DiscardUnsavedChangesConfirmationProvider
-                        enableTabClosingHandling
-                        enableRedirectHandling
-                        confirmationModalTitle="Custom Title"
-                        confirmationModalContent="Custom Text"
-                    >
-                        <div>Test Child</div>
-                    </DiscardUnsavedChangesConfirmationProvider>
-                </BrowserRouter>,
+                <CustomThemeProvider>
+                    <BrowserRouter>
+                        <DiscardUnsavedChangesConfirmationProvider
+                            enableTabClosingHandling
+                            enableRedirectHandling
+                            confirmationModalTitle="Custom Title"
+                            confirmationModalContent="Custom Text"
+                        >
+                            <div>Test Child</div>
+                        </DiscardUnsavedChangesConfirmationProvider>
+                    </BrowserRouter>
+                </CustomThemeProvider>,
             );
 
             // Just check that the component renders without crashing
@@ -198,11 +209,13 @@ describe('DiscardUnsavedChangesConfirmationContext', () => {
 
         it('should work with default props', () => {
             render(
-                <BrowserRouter>
-                    <DiscardUnsavedChangesConfirmationProvider enableTabClosingHandling enableRedirectHandling>
-                        <div>Test Child</div>
-                    </DiscardUnsavedChangesConfirmationProvider>
-                </BrowserRouter>,
+                <CustomThemeProvider>
+                    <BrowserRouter>
+                        <DiscardUnsavedChangesConfirmationProvider enableTabClosingHandling enableRedirectHandling>
+                            <div>Test Child</div>
+                        </DiscardUnsavedChangesConfirmationProvider>
+                    </BrowserRouter>
+                </CustomThemeProvider>,
             );
 
             // Just check that the component renders without crashing

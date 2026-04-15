@@ -62,7 +62,7 @@ _original_deepcopy = sqlglot.expressions.Expression.__deepcopy__
 
 def _deepcopy_wrapper(
     self: sqlglot.expressions.Expression, memo: t.Any
-) -> sqlglot.expressions.ExpressionCore:
+) -> sqlglot.expressions.Expr:
     """Wrapper for __deepcopy__ with cooperative timeout support.
 
     Cannot use patchy because expression_core.py is mypyc-compiled to .so in sqlglot[c].
@@ -77,27 +77,41 @@ def _patch_scope_traverse() -> None:
     # Circular scope dependencies can happen in somewhat specific circumstances
     # due to our usage of sqlglot.
     # See https://github.com/tobymao/sqlglot/pull/4244
-    patchy.patch(
-        sqlglot.optimizer.scope.Scope.traverse,
-        """\
-@@ -7,9 +7,16 @@
-     \"""
-     stack = [self]
-+    seen_scopes = set()
-     result = []
-     while stack:
-         scope = stack.pop()
-+
-+        # Scopes aren't hashable, so we use id(scope) instead.
-+        if id(scope) in seen_scopes:
-+            raise OptimizeError(f"Scope {scope} has a circular scope dependency")
-+        seen_scopes.add(id(scope))
-+
-         result.append(scope)
-         stack.extend(
-             itertools.chain(
-""",
-    )
+    #
+    # In sqlglot[c] v30+, Scope.traverse is mypyc-compiled and cannot be patched
+    # with patchy. We reimplement it entirely in pure Python with cycle detection.
+    import itertools
+
+    from sqlglot.errors import OptimizeError
+    from sqlglot.optimizer.scope import Scope
+
+    def _traverse_with_cycle_detection(
+        self: Scope,
+    ) -> t.Iterator[Scope]:
+        stack = [self]
+        seen_scopes: t.Set[int] = set()
+        result = []
+        while stack:
+            scope = stack.pop()
+
+            # Scopes aren't hashable, so we use id(scope) instead.
+            if id(scope) in seen_scopes:
+                raise OptimizeError(f"Scope {scope} has a circular scope dependency")
+            seen_scopes.add(id(scope))
+
+            result.append(scope)
+            stack.extend(
+                itertools.chain(
+                    scope.cte_scopes,
+                    scope.union_scopes,
+                    scope.table_scopes,
+                    scope.subquery_scopes,
+                )
+            )
+
+        yield from reversed(result)
+
+    sqlglot.optimizer.scope.Scope.traverse = _traverse_with_cycle_detection  # type: ignore
 
 
 def _patch_unnest_subqueries() -> None:
@@ -163,20 +177,17 @@ def _patch_lineage() -> None:
     patchy.patch(
         sqlglot.lineage.to_node,
         """\
-@@ -242,11 +242,12 @@
+@@ -133,9 +133,9 @@
 
      # Find all columns that went into creating this one to list their lineage nodes.
 -    source_columns = set(find_all_in_scope(select, exp.Column))
 +    source_columns = list(find_all_in_scope(select, exp.Column))
 
      # If the source is a UDTF find columns used in the UDTF to generate the table
-+    source = scope.expression
      if isinstance(source, exp.UDTF):
 -        source_columns |= set(source.find_all(exp.Column))
 +        source_columns += list(source.find_all(exp.Column))
-         derived_tables = [
-             source.expression.parent
-             for source in scope.sources.values()
+         derived_tables: t.Sequence[exp.Expr] = [
 """,
     )
 
@@ -184,10 +195,10 @@ def _patch_lineage() -> None:
     patchy.patch(
         sqlglot.lineage.to_node,
         """\
-@@ -345,8 +346,21 @@
+@@ -236,8 +236,21 @@
              # is unknown. This can happen if the definition of a source used in a query is not
              # passed into the `sources` map.
-             source = source or exp.Placeholder()
+             col_expr = col_source or exp.Placeholder()
 +
 +            subfields = []
 +            field: exp.Expression = c
@@ -197,21 +208,26 @@ def _patch_lineage() -> None:
 +            subfield = ".".join(subfields)
 +
              node.downstream.append(
--                Node(name=c.sql(comments=False), source=source, expression=source)
+-                Node(name=c.sql(comments=False), source=col_expr, expression=col_expr)
 +                Node(
 +                    name=c.sql(comments=False),
-+                    source=source,
-+                    expression=source,
++                    source=col_expr,
++                    expression=col_expr,
 +                    subfield=subfield,
 +                )
              )
 
-     return node
+     if _cache is not None:
 """,
     )
 
 
 # Apply patches
+
+# sqlglot.Expression was removed as a top-level re-export in v30; restore it for
+# backward compatibility with existing DataHub type annotations.
+sqlglot.Expression = sqlglot.expressions.Expression  # type: ignore
+
 sqlglot.expressions.Expression.__deepcopy__ = _deepcopy_wrapper  # type: ignore
 _patch_scope_traverse()
 _patch_unnest_subqueries()

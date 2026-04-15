@@ -1,24 +1,24 @@
-import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import React from 'react';
-import { Link } from 'react-router-dom';
+import { Button, Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import React, { useContext } from 'react';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import {
     getDirectDownstreamSummary,
     getDirectUpstreamSummary,
     getRelatedEntitySummary,
 } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
-import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
+import CompactContext from '@src/app/shared/CompactContext';
 
 import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
 
@@ -27,7 +27,7 @@ const Section = styled.div`
     align-items: start;
     justify-content: start;
     margin-bottom: 6px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const DirectionText = styled.div`
@@ -35,7 +35,7 @@ const DirectionText = styled.div`
     font-weight: 700;
     line-height: 20px;
     letter-spacing: 0.48px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const SummaryText = styled.div`
@@ -45,12 +45,10 @@ const SummaryText = styled.div`
     line-height: 20px;
 `;
 
-const StyledUpOutlined = styled(ArrowUpOutlined)`
+const DirectionIcon = styled.span`
     margin-right: 4px;
-`;
-
-const StyledDownOutlined = styled(ArrowDownOutlined)`
-    margin-right: 4px;
+    display: flex;
+    align-items: center;
 `;
 
 const DirectionHeader = styled.div`
@@ -61,22 +59,16 @@ const DirectionHeader = styled.div`
     font-size: 12px;
     letter-spacing: 1px;
     height: 20px;
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textTertiary};
     min-width: 100px;
     margin-right: 6px;
-`;
-
-const StyledPartitionOutlined = styled(PartitionOutlined)`
-    color: ${(p) => p.theme.styles['primary-color']};
-    &:hover {
-        color: white;
-    }
 `;
 
 const SidebarLineageSection = () => {
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const linkProps = useEmbeddedProfileLinkProps();
+    const history = useHistory();
+    const isCompact = useContext(CompactContext);
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const separateSiblings = useIsSeparateSiblingsMode();
@@ -115,7 +107,9 @@ const SidebarLineageSection = () => {
                                 showArrow={false}
                             >
                                 <DirectionHeader>
-                                    <StyledUpOutlined />
+                                    <DirectionIcon>
+                                        <Icon icon={ArrowUp} size="md" />
+                                    </DirectionIcon>
                                     <DirectionText>UPSTREAM</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
@@ -132,7 +126,9 @@ const SidebarLineageSection = () => {
                                 showArrow={false}
                             >
                                 <DirectionHeader>
-                                    <StyledDownOutlined />
+                                    <DirectionIcon>
+                                        <Icon icon={ArrowDown} size="md" />
+                                    </DirectionIcon>
                                     <DirectionText>DOWNSTREAM</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
@@ -144,20 +140,23 @@ const SidebarLineageSection = () => {
                 </>
             }
             extra={
-                <SectionActionButton
-                    button={
-                        <Tooltip
-                            title="Explore related entities using the lineage graph"
-                            placement="left"
-                            showArrow={false}
-                        >
-                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
-                                <StyledPartitionOutlined />
-                            </Link>
-                        </Tooltip>
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                />
+                <Tooltip title="Explore related entities using the lineage graph" placement="left" showArrow={false}>
+                    <Button
+                        variant="text"
+                        color="violet"
+                        size="md"
+                        icon={{ icon: TreeStructure }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
+                            if (isCompact) {
+                                window.open(lineagePath, '_blank');
+                            } else {
+                                history.push(lineagePath);
+                            }
+                        }}
+                    />
+                </Tooltip>
             }
         />
     );

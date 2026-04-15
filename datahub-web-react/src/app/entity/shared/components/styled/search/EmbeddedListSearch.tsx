@@ -50,7 +50,7 @@ function useWrappedSearchResults(params: GetSearchResultsParams) {
 }
 
 // the addFixedQuery checks and generate the query as per params pass to embeddedListSearch
-export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
+const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
     let finalQuery = ``;
     if (baseQuery && fixedQuery) {
         finalQuery = baseQuery.includes(fixedQuery) ? `${baseQuery}` : `(*${baseQuery}*) AND (${fixedQuery})`;
@@ -66,7 +66,7 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
 
 // Simply remove the fields that were marked as fixed from the facets that the server
 // responds.
-export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
+const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
     const fixedFields = fixedFilters.filters.map((filter) => filter.field);
     return facets.filter((facet) => !fixedFields.includes(facet.field));
 };

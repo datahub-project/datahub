@@ -126,7 +126,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> createTableSqlStatements() {
+  public java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
     return java.util.Arrays.asList(
         """
         CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
@@ -145,6 +145,47 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
         "CREATE INDEX IF NOT EXISTS urnIndex ON metadata_aspect_v2 (urn);",
         "CREATE INDEX IF NOT EXISTS aspectIndex ON metadata_aspect_v2 (aspect);",
         "CREATE INDEX IF NOT EXISTS versionIndex ON metadata_aspect_v2 (version);");
+  }
+
+  @Override
+  public void postSetup(Connection connection) throws SQLException {
+    // Drop the index if it exists but is invalid (e.g. a previous CONCURRENTLY run was
+    // interrupted). IF NOT EXISTS on the CREATE below would otherwise leave the invalid index
+    // in place and skip re-creation on retries.
+
+    // Unquoted index names are awlays stored in lower case by postgres.
+    String checkSql =
+        """
+        SELECT i.relname
+        FROM pg_index ix
+        JOIN pg_class i ON i.oid = ix.indexrelid
+        JOIN pg_class t ON t.oid = ix.indrelid
+        WHERE t.relname = 'metadata_aspect_v2'
+          AND i.relname = 'schemaversionindex'
+          AND NOT ix.indisvalid
+        """;
+    try (PreparedStatement stmt = connection.prepareStatement(checkSql);
+        ResultSet rs = stmt.executeQuery()) {
+      if (rs.next()) {
+        log.info("Dropping invalid schemaVersionIndex to allow re-creation");
+        boolean prevAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(true);
+        try (java.sql.Statement dropStmt = connection.createStatement()) {
+          dropStmt.execute("DROP INDEX CONCURRENTLY schemaversionindex");
+        } finally {
+          connection.setAutoCommit(prevAutoCommit);
+        }
+      }
+    }
+    // CREATE INDEX CONCURRENTLY cannot run inside a transaction block; autoCommit must be true.
+    boolean prevAutoCommit = connection.getAutoCommit();
+    connection.setAutoCommit(true);
+    try (java.sql.Statement stmt = connection.createStatement()) {
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
+    } finally {
+      connection.setAutoCommit(prevAutoCommit);
+    }
   }
 
   @Override

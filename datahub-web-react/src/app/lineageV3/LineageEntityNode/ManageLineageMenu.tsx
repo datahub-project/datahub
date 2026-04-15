@@ -1,10 +1,15 @@
-import { Icon, Popover, colors } from '@components';
+import { Icon, Popover } from '@components';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { House } from '@phosphor-icons/react/dist/csr/House';
 import { Button, Dropdown } from 'antd';
 import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import * as QueryString from 'query-string';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
 import { LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
@@ -25,7 +30,7 @@ const Wrapper = styled.div`
     margin: 0 -4px;
 
     :hover {
-        color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.textHover};
     }
 `;
 
@@ -68,6 +73,7 @@ interface Props {
 }
 
 export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, isOpen, setDisplayedMenuNode }: Props) {
+    const theme = useTheme();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(LineageDirection.Upstream);
     const location = useLocation();
@@ -135,7 +141,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
             onClick: () => history.push(getLineageUrl(node.urn, node.type, location, entityRegistry)),
             label: (
                 <MenuItemContent data-testid="change-home-node">
-                    <Icon icon="House" source="phosphor" size="inherit" />
+                    <Icon icon={House} size="inherit" />
                     Change to Home
                 </MenuItemContent>
             ),
@@ -154,7 +160,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                         overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                     >
                         <MenuItemContent data-testid="edit-upstream-lineage">
-                            <Icon icon="ArrowLeft" source="phosphor" size="inherit" />
+                            <Icon icon={ArrowLeft} size="inherit" />
                             Edit Upstream
                         </MenuItemContent>
                     </Popover>
@@ -171,7 +177,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                         overlayStyle={!isDownstreamDisabled ? { display: 'none' } : undefined}
                     >
                         <MenuItemContent data-testid="edit-downstream-lineage">
-                            <Icon icon="ArrowRight" source="phosphor" size="inherit" />
+                            <Icon icon={ArrowRight} size="inherit" />
                             Edit Downstream
                         </MenuItemContent>
                     </Popover>
@@ -185,7 +191,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
         onClick: () => navigator.clipboard.writeText(node.urn),
         label: (
             <MenuItemContent data-testid="change-home-node">
-                <Icon icon="Copy" source="phosphor" size="inherit" />
+                <Icon icon={Copy} size="inherit" />
                 Copy Urn
             </MenuItemContent>
         ),
@@ -199,9 +205,9 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     open={isOpen}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
                     placement="topRight"
-                    menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${colors.gray[100]}` } }}
+                    menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${theme.colors.border}` } }}
                 >
-                    <Icon icon="DotsThreeVertical" source="phosphor" color="gray" />
+                    <Icon icon={DotsThreeVertical} color="gray" />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (

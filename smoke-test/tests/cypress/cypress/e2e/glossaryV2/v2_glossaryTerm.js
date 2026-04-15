@@ -54,7 +54,6 @@ const enterKeyInSearchBox = (text) => {
 
 describe("glossaryTerm", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
     cy.skipIntroducePage();
     nevigateGlossaryPage();

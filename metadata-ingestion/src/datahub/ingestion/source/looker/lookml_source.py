@@ -283,14 +283,14 @@ class LookerManifest:
 )
 class LookMLSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
-    - LookML views from model files in a project
-    - Name, upstream table names, metadata for dimensions, measures, and dimension groups attached as tags
-    - If API integration is enabled (recommended), resolves table and view names by calling the Looker API, otherwise supports offline resolution of these names.
+    Source that parses LookML files to extract view and model metadata.
 
-    :::note
-    To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the `looker` source module.
-    :::
+    Implementation notes:
+    - Uses lkml parser library to parse LookML syntax
+    - Optional integration with Looker API for enhanced name resolution
+    - Supports both git-based ingestion (clones repo) and local file ingestion
+    - Implements stateful ingestion with StaleEntityRemovalHandler
+    - Uses SQL parsing for extracting upstream table names from derived tables
     """
 
     platform = "lookml"

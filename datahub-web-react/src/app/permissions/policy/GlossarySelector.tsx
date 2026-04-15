@@ -9,7 +9,7 @@ import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
-import { Entity, EntityType, ResourceFilter } from '@types';
+import { Entity, EntityType, PolicyMatchCriterionValue, ResourceFilter } from '@types';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -55,10 +55,19 @@ export default function GlossarySelector({ resources, setResources }: Props) {
             glossaryEntity ||
             glossarySearchResults?.find((result) => result.entity.urn === glossaryUrn)?.entity ||
             null;
-        const updatedFilter = setFieldValues(filter, 'GLOSSARY', [
-            ...glossaryEntities,
-            createCriterionValueWithEntity(glossaryUrn, entity),
-        ]);
+
+        const isGlossaryEntityAlreadyAdded = glossaryEntities.some((item) => item.value === glossaryUrn);
+
+        let updatedGlossaryEntities: PolicyMatchCriterionValue[] = [];
+
+        // Toggle selected glossary
+        if (isGlossaryEntityAlreadyAdded) {
+            updatedGlossaryEntities = glossaryEntities.filter((item) => item.value !== glossaryUrn);
+        } else {
+            updatedGlossaryEntities = [...glossaryEntities, createCriterionValueWithEntity(glossaryUrn, entity)];
+        }
+
+        const updatedFilter = setFieldValues(filter, 'GLOSSARY', updatedGlossaryEntities);
         setResources({
             ...resources,
             filter: updatedFilter,
@@ -171,6 +180,7 @@ export default function GlossarySelector({ resources, setResources }: Props) {
                         isSelecting
                         selectTerm={selectGlossaryTermFromBrowser}
                         selectNode={selectGlossaryNodeFromBrowser}
+                        selectedUrns={glossarySelectValue}
                     />
                 </StyledBrowserWrapper>
             </ClickOutside>

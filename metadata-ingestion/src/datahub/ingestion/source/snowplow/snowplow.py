@@ -1,15 +1,11 @@
 """
-Snowplow source for DataHub.
+Source that extracts metadata from Snowplow BDP Console API or Iglu Registry.
 
-Extracts metadata from Snowplow:
-- Event and entity schemas from BDP Console API or Iglu Registry
-- Event specifications (BDP only)
-- Tracking scenarios (BDP only)
-- Lineage from warehouse atomic events table (optional)
-
-Supports both:
-- Snowplow BDP (managed) deployments
-- Open-source Snowplow with Iglu registry
+Implementation notes:
+- Uses dedicated processor classes for each entity type (schemas, event specs, tracking plans)
+- Supports both BDP API and open-source Iglu registry via mode selection
+- Optional warehouse lineage extraction via SQL query parsing against atomic events table
+- Implements caching for schema resolution and API responses
 """
 
 import logging

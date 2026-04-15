@@ -269,18 +269,13 @@ def construct_schema_pymongo(
 @dataclass
 class MongoDBSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
+    Source that extracts databases and collections from MongoDB with inferred schemas.
 
-    - Databases and associated metadata
-    - Collections in each database and schemas for each collection (via schema inference)
-
-    By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
-    Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
-
-    Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
-
-    Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
-
+    Implementation notes:
+    - Uses PyMongo for MongoDB connections
+    - Schema inference samples documents to derive field types
+    - Supports multiple auth mechanisms (SCRAM, AWS IAM, X.509)
+    - Configurable sampling size, random sampling, and schema truncation
     """
 
     config: MongoDBConfig

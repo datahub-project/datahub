@@ -1,4 +1,5 @@
 import { FileIcon, Icon } from '@components';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -37,8 +38,7 @@ export function LinkIcon({ url, className, usePrimaryColor = true, style }: Prop
 
         return (
             <Icon
-                icon="LinkSimple"
-                source="phosphor"
+                icon={LinkSimple}
                 color={usePrimaryColor ? 'primary' : 'gray'}
                 colorLevel={usePrimaryColor ? undefined : 600}
                 size="lg"

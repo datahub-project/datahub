@@ -1,4 +1,4 @@
-import { Tag as TagIcon } from '@phosphor-icons/react';
+import { Tag as TagIcon } from '@phosphor-icons/react/dist/csr/Tag';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';

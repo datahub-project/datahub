@@ -1,10 +1,6 @@
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-
 import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
 import { TimeRange } from '@src/types.generated';
-
-dayjs.extend(utc);
+import dayjs from '@utils/dayjs';
 
 export default function useGetCalendarRangeByTimeRange(range: TimeRange | undefined) {
     const currentDay = dayjs().utc(true).startOf('day');

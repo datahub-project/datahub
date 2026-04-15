@@ -20,6 +20,10 @@ module.exports = defineConfig({
     // We've imported your old cypress plugins here.
     // You may want to clean this up later by importing these.
     setupNodeEvents(on, config) {
+      // Must be registered first so it can attach after:spec / after:run hooks before
+      // other plugins consume the same events.
+      // eslint-disable-next-line global-require
+      require("cypress-mochawesome-reporter/plugin")(on);
       // eslint-disable-next-line global-require
       return require("./cypress/plugins/index")(on, config);
     },
@@ -29,12 +33,28 @@ module.exports = defineConfig({
     experimentalMemoryManagement: true,
     numTestsKeptInMemory: 0,
   },
-  reporter: "cypress-junit-reporter",
+  reporter: "cypress-multi-reporters",
   reporterOptions: {
-    mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
-    toConsole: true,
-    testCaseSwitchClassnameAndName: true,
-    suiteNameTemplate: "{dirpath}",
-    classNameTemplate: "{filepath}",
+    reporterEnabled: "cypress-mochawesome-reporter, cypress-junit-reporter",
+    cypressMochawesomeReporterReporterOptions: {
+      // The mocha reporter writes one JSON per spec to {reportDir}/.jsons/ during the run.
+      // The Cypress after:run hook then merges them into index.html and by default deletes
+      // .jsons/. We set removeJsonsFolderAfterMerge:false so the per-spec JSONs survive
+      // and are picked up by the post-matrix cypress_html_report job (which merges all
+      // batches into one unified report). saveHtml:false skips the per-batch index.html
+      // since the unified one is generated post-matrix.
+      reportDir: "build/mochawesome-report",
+      overwrite: false,
+      saveHtml: false,
+      removeJsonsFolderAfterMerge: false,
+      embeddedScreenshots: true,
+    },
+    cypressJunitReporterReporterOptions: {
+      mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
+      toConsole: true,
+      testCaseSwitchClassnameAndName: true,
+      suiteNameTemplate: "{dirpath}",
+      classNameTemplate: "{filepath}",
+    },
   },
 });
