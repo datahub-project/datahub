@@ -25,11 +25,4 @@ record IncidentNote {
    * The source of this note. Absent if the note was created natively in DataHub.
    */
   source: optional IncidentNoteSource
-
-  /**
-   * Optional reference to a parent note's external ID, enabling threaded replies.
-   * Set when this note is a reply to another note (e.g., a Jira comment reply or
-   * a Linear thread response).
-   */
-  parentNoteId: optional string
 }
