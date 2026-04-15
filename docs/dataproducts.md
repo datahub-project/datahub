@@ -112,7 +112,7 @@ Here is an example of a Data Product named "Pet of the Week" which belongs to th
 
 :::note
 
-When bare domain names like `Marketing` is used, `datahub` will first check if a domain like `urn:li:domain:Marketing` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then yaml-based ingestion will refuse to proceeed until the domain is provisioned on DataHub.
+When bare domain names like `Marketing` is used, `datahub` will first check if a domain like `urn:li:domain:Marketing` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then yaml-based ingestion will refuse to proceed until the domain is provisioned on DataHub.
 
 This applies to other fields as well, such as owners, ownership types, tags, and terms.
 

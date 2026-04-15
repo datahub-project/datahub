@@ -1,4 +1,4 @@
-import { Button, Dropdown, Icon, colors } from '@components';
+import { Button, Dropdown, Icon } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -40,10 +40,10 @@ const StyledButton = styled(Button)<{ $orientation: AddModuleButtonOrientation; 
             `}
 
     justify-content: center;
-    background: ${colors.gray[1600]};
+    background: ${(props) => props.theme.colors.bgSurfaceNewNav};
 
     :hover {
-        background: ${colors.gray[1600]};
+        background: ${(props) => props.theme.colors.bgSurfaceNewNav};
     }
 `;
 

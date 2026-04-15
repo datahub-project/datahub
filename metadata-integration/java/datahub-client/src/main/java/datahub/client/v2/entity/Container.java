@@ -90,7 +90,8 @@ public class Container extends Entity
         HasOwners<Container>,
         HasDomains<Container>,
         HasSubTypes<Container>,
-        HasStructuredProperties<Container> {
+        HasStructuredProperties<Container>,
+        HasDocumentation<Container> {
 
   private static final String ENTITY_TYPE = "container";
 

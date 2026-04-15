@@ -197,7 +197,10 @@ def add_domain_to_entity_wu(
 
 
 def add_owner_to_entity_wu(
-    entity_type: str, entity_urn: str, owner_urn: str
+    entity_type: str,
+    entity_urn: str,
+    owner_urn: str,
+    ownership_type: str = OwnershipTypeClass.DATAOWNER,
 ) -> Iterable[MetadataWorkUnit]:
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
@@ -205,7 +208,7 @@ def add_owner_to_entity_wu(
             owners=[
                 OwnerClass(
                     owner=owner_urn,
-                    type=OwnershipTypeClass.DATAOWNER,
+                    type=ownership_type,
                 )
             ]
         ),
@@ -252,6 +255,7 @@ def gen_containers(
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
+    ownership_type: Optional[str] = None,
     external_url: Optional[str] = None,
     tags: Optional[List[str]] = None,
     qualified_name: Optional[str] = None,
@@ -329,6 +333,7 @@ def gen_containers(
             entity_type="container",
             entity_urn=container_urn,
             owner_urn=owner_urn,
+            ownership_type=ownership_type or OwnershipTypeClass.DATAOWNER,
         )
 
     if tags:

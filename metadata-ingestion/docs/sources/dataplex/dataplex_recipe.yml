@@ -7,7 +7,7 @@ source:
 
     # Optional: GCP location(s) for entries (Universal Catalog)
     # Use multi-region locations (us, eu, asia) to access system entry groups like @bigquery
-    # Default: "us"
+    # Default: ["us", "eu", "asia", "global"]
     entries_locations:
       - "us"
 

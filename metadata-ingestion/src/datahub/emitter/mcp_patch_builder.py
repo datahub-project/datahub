@@ -59,6 +59,10 @@ class _Patch(SupportsToObj):
     op: PatchOp
     path: PatchPath
     value: Any
+    # When set, this patch is emitted inside a GenericJsonPatch envelope rather
+    # than as a plain JSON array element.  All patches for the same aspect that
+    # share the same array_primary_keys are grouped into one MCP.
+    array_primary_keys: Optional[Dict[str, List[str]]] = None
 
     @classmethod
     def quote_path_component(cls, value: Union[str, Urn]) -> str:
@@ -84,6 +88,8 @@ class MetadataPatchProposal:
     entity_type: str
 
     # mapping: aspectName -> list of patches
+    # Patches with array_primary_keys set are grouped separately in build()
+    # and emitted as GenericJsonPatch envelopes.
     patches: Dict[str, List[_Patch]]
 
     def __init__(
@@ -108,28 +114,49 @@ class MetadataPatchProposal:
         op: PatchOp,
         path: PatchPath,
         value: Any,
+        array_primary_keys: Optional[Dict[str, List[str]]] = None,
     ) -> None:
         # TODO: Validate that aspectName is a valid aspect for this entityType
-        self.patches[aspect_name].append(_Patch(op, path, value))
+        self.patches[aspect_name].append(_Patch(op, path, value, array_primary_keys))
 
     def build(self) -> List[MetadataChangeProposalClass]:
-        return [
-            MetadataChangeProposalClass(
-                entityUrn=self.urn,
-                entityType=self.entity_type,
-                changeType=ChangeTypeClass.PATCH,
-                aspectName=aspect_name,
-                aspect=GenericAspectClass(
-                    value=json.dumps(
-                        pre_json_transform(_recursive_to_obj(patches))
-                    ).encode(),
-                    contentType=JSON_PATCH_CONTENT_TYPE,
-                ),
-                auditHeader=self.audit_header,
-                systemMetadata=self.system_metadata,
-            )
-            for aspect_name, patches in self.patches.items()
-        ]
+        mcps = []
+        for aspect_name, patches in self.patches.items():
+            # Group patches by array_primary_keys.  None = plain JSON array;
+            # anything else = GenericJsonPatch envelope.
+            groups: Dict[
+                Optional[str], Tuple[Optional[Dict[str, List[str]]], List[_Patch]]
+            ] = {}
+            for patch in patches:
+                apk = patch.array_primary_keys
+                apk_key = json.dumps(apk) if apk is not None else None
+                if apk_key not in groups:
+                    groups[apk_key] = (apk, [])
+                groups[apk_key][1].append(patch)
+
+            for apk, group in groups.values():
+                if apk is None:
+                    payload: Any = _recursive_to_obj(group)
+                else:
+                    payload = {
+                        "arrayPrimaryKeys": apk,
+                        "patch": _recursive_to_obj(group),
+                    }
+                mcps.append(
+                    MetadataChangeProposalClass(
+                        entityUrn=self.urn,
+                        entityType=self.entity_type,
+                        changeType=ChangeTypeClass.PATCH,
+                        aspectName=aspect_name,
+                        aspect=GenericAspectClass(
+                            value=json.dumps(pre_json_transform(payload)).encode(),
+                            contentType=JSON_PATCH_CONTENT_TYPE,
+                        ),
+                        auditHeader=self.audit_header,
+                        systemMetadata=self.system_metadata,
+                    )
+                )
+        return mcps
 
     @classmethod
     def _mint_auditstamp(cls, message: Optional[str] = None) -> AuditStampClass:
@@ -169,6 +196,46 @@ class MetadataPatchProposal:
                 raise ValueError(
                     f"{context}: {e.destinationUrn} is not of type {entity_type}"
                 )
+
+
+def determine_array_primary_keys(
+    *, field_name: str, path: List[Optional[str]], default_key_fields: List[str]
+) -> Tuple[List[str], Optional[Dict[str, List[str]]]]:
+    """Determines the array primary keys for a given list of path values.
+
+    Allows us to efficiently bulk delete multiple entries.
+    Our patch backend supports the following mechanism:
+      For primary keys (A, B, C), we can delete all entries with A=a and B=b regardless of C by passing path (a, b).
+
+    However, if we want to delete all entries with C=c regardless of A and B,
+    we need to change the order of the primary keys.
+
+    This method determines if we need to change the order of the primary keys
+    based on the presence of None values in the path values.
+
+    Args:
+        field_name: The name of the aspect field being patched, e.g. `tags`.
+        default_key_fields: The default key fields for this aspect in the backend's Template class
+        path: A list of path values in the order of the default primary keys.
+              Does _not_ include the field name of the aspect being patched, e.g. `tags`.
+    Returns:
+        A tuple containing:
+          - path: The path values ordered according to the determined array primary keys
+          - array_primary_keys: the key fields to be sent in the patch, or None if the default order can be used
+    """
+    is_none = [v is None for v in path]
+    if sorted(is_none) == is_none:
+        # All None values are at the end, we can use the default primary key order
+        remove_nones = [v for v in path if v is not None]
+        return list(remove_nones), None
+    else:
+        # Reorder the primary keys so that None values are at the end, and specify the new order in arrayPrimaryKeys
+        path_with_fields = list(zip(path, default_key_fields, strict=False))
+        path_with_fields.sort(key=lambda x: x[0] is None)
+        new_path, new_key_fields = zip(*path_with_fields, strict=False)
+        # Strip trailing Nones — backend treats truncated paths as prefix matches.
+        new_path_list = [v for v in new_path if v is not None]
+        return new_path_list, {field_name: list(new_key_fields)}
 
 
 def parse_patch_path(path_str: str) -> PatchPath:

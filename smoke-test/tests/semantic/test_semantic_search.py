@@ -1,27 +1,32 @@
 """
 Smoke tests for Semantic Search functionality.
 
-These tests validate end-to-end semantic search using the complete ingestion pipeline:
-1. Create documents using the Document SDK
-2. Run the datahub-documents ingestion source with chunking and embedding
-3. Verify semanticContent aspect was created with chunks and embeddings
-4. Execute semantic search via GraphQL
-5. Verify documents appear in semantic search results
+These tests validate end-to-end semantic search in two embedding modes:
 
-These tests are DISABLED by default. To enable, set:
-    ENABLE_SEMANTIC_SEARCH_TESTS=true
+**Client-side embedding (default)**
+  The test runner executes the ``datahub-documents`` ingestion source in-process,
+  generating embeddings via Bedrock and writing ``semanticContent`` aspects to the
+  target DataHub instance.  Requires AWS credentials on the machine running the tests.
 
-Prerequisites:
-- DataHub running with semantic search enabled
-- ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
-- SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
-- AWS credentials configured for embedding generation (AWS_PROFILE or AWS_ACCESS_KEY_ID)
+**Server-side embedding (pre-provisioned)**
+  Set ``DOCS_INGESTION_SERVER_SIDE=true`` when the target DataHub instance already has
+  a ``datahub-documents`` ingestion source pre-provisioned (as in production DataHub
+  Cloud).  The test skips the in-process ingestion and instead polls until
+  ``semanticContent`` appears on each document — emitted automatically by the server.
+  No AWS credentials needed on the test runner in this mode.
 
-Usage:
-    # Run with semantic search tests enabled
-    AWS_PROFILE=your-profile ENABLE_SEMANTIC_SEARCH_TESTS=true pytest tests/semantic/test_semantic_search.py -v
+Gate: ENABLE_SEMANTIC_SEARCH_TESTS=true
 
-For implementation details, see docs/dev-guides/semantic-search/.
+Usage — local instance (client-side embedding):
+    AWS_PROFILE=acryl-read-write ENABLE_SEMANTIC_SEARCH_TESTS=true \\
+        pytest tests/semantic/test_semantic_search.py -v
+
+Usage — remote pre-provisioned instance (server-side embedding):
+    ENABLE_SEMANTIC_SEARCH_TESTS=true DOCS_INGESTION_SERVER_SIDE=true \\
+        DATAHUB_GMS_URL=https://your-instance.acryl.io/gms \\
+        DATAHUB_FRONTEND_URL=https://your-instance.acryl.io \\
+        ADMIN_USERNAME=you@company.com ADMIN_PASSWORD=<pat-token> \\
+        pytest tests/semantic/test_semantic_search.py -v
 """
 
 import json
@@ -45,7 +50,16 @@ SEMANTIC_SEARCH_ENABLED = (
     os.environ.get("ENABLE_SEMANTIC_SEARCH_TESTS", "false").lower() == "true"
 )
 
-# Hardcoded wait time for indexing
+# When True, skip the in-process ingestion and poll for server-generated semanticContent.
+# Use when the target instance has datahub-documents pre-provisioned (e.g. DataHub Cloud).
+DOCS_INGESTION_SERVER_SIDE = (
+    os.environ.get("DOCS_INGESTION_SERVER_SIDE", "false").lower() == "true"
+)
+
+# How long to poll for server-side embedding generation before giving up (seconds).
+SERVER_SIDE_EMBEDDING_TIMEOUT = int(os.environ.get("EMBEDDING_WAIT_TIMEOUT", "300"))
+
+# How long to wait for ES to index after embedding is confirmed
 INDEXING_WAIT_SECONDS = 20
 
 # Sample documents for testing semantic search
@@ -217,6 +231,127 @@ def create_ingestion_recipe(auth_session, doc_ids: list[str], tmp_dir: Path) -> 
     return recipe_path
 
 
+DOCS_INGESTION_SOURCE_URN = "urn:li:dataHubIngestionSource:datahub-documents"
+
+TRIGGER_INGESTION_MUTATION = """
+    mutation TriggerIngestion($urn: String!) {
+        createIngestionExecutionRequest(input: { ingestionSourceUrn: $urn })
+    }
+"""
+
+GET_EXECUTION_REQUEST_QUERY = """
+    query GetExecutionRequest($urn: String!) {
+        executionRequest(urn: $urn) {
+            result { status durationMs }
+        }
+    }
+"""
+
+
+def trigger_and_wait_for_ingestion(
+    auth_session, timeout: int = SERVER_SIDE_EMBEDDING_TIMEOUT
+) -> None:
+    """Trigger the datahub-documents ingestion source and wait for it to complete.
+
+    This is faster and more deterministic than passively polling for semanticContent —
+    we fire the run immediately and monitor the execution request until SUCCESS/FAILURE.
+    """
+    import time as _time
+
+    # 1. Trigger the ingestion source
+    trigger_result = execute_graphql(
+        auth_session,
+        TRIGGER_INGESTION_MUTATION,
+        {"urn": DOCS_INGESTION_SOURCE_URN},
+    )
+    if "errors" in trigger_result:
+        raise RuntimeError(f"Failed to trigger ingestion: {trigger_result['errors']}")
+    execution_urn = trigger_result["data"]["createIngestionExecutionRequest"]
+    logger.info(f"Triggered ingestion — execution request: {execution_urn}")
+
+    # 2. Poll execution request until terminal state
+    deadline = _time.time() + timeout
+    while _time.time() < deadline:
+        status_result = execute_graphql(
+            auth_session, GET_EXECUTION_REQUEST_QUERY, {"urn": execution_urn}
+        )
+        result = (
+            status_result.get("data", {}).get("executionRequest", {}).get("result")
+            or {}
+        )
+        status = result.get("status", "PENDING")
+        if status == "SUCCESS":
+            duration_ms = result.get("durationMs", 0)
+            logger.info(f"  ✓ Ingestion completed in {duration_ms}ms")
+            return
+        if status in ("FAILURE", "FAILED", "CANCELLED"):
+            raise RuntimeError(f"Ingestion execution ended with status: {status}")
+        logger.debug(f"  … ingestion status={status}, waiting…")
+        _time.sleep(5)
+
+    raise TimeoutError(
+        f"Timed out after {timeout}s waiting for ingestion execution {execution_urn}"
+    )
+
+
+def wait_for_server_side_embeddings(
+    auth_session, urns: list[str], timeout: int = SERVER_SIDE_EMBEDDING_TIMEOUT
+) -> None:
+    """Trigger the datahub-documents ingestion source and wait for semanticContent.
+
+    In server-side mode we:
+    1. Fire the ingestion source immediately (no waiting for a schedule)
+    2. Poll the execution request until it completes
+    3. Then verify semanticContent appeared on each document
+    """
+    import time as _time
+
+    # Trigger the ingestion and wait for the run to finish
+    trigger_and_wait_for_ingestion(auth_session, timeout=timeout)
+
+    # Verify semanticContent is now present on each document
+    for urn in urns:
+        deadline = _time.time() + 60  # short timeout after ingestion just ran
+        while _time.time() < deadline:
+            try:
+                verify_semantic_content(auth_session, urn)
+                logger.info(f"  ✓ {urn}: semanticContent verified")
+                break
+            except Exception:
+                _time.sleep(5)
+        else:
+            raise TimeoutError(
+                f"semanticContent not found on {urn} after ingestion completed. "
+                "The document may not have been processed by this run."
+            )
+
+
+def ensure_embeddings(
+    auth_session, doc_ids: list[str], tmp_path: Path | None = None
+) -> None:
+    """Generate (or wait for) embeddings depending on the current mode.
+
+    - Client-side mode: runs the datahub-documents ingestion source in-process.
+    - Server-side mode: triggers the pre-provisioned source, waits for completion.
+    """
+    urns = [f"urn:li:document:{doc_id}" for doc_id in doc_ids]
+    if DOCS_INGESTION_SERVER_SIDE:
+        logger.info("Server-side embedding mode: triggering datahub-documents source…")
+        wait_for_server_side_embeddings(auth_session, urns)
+    else:
+        if tmp_path is None:
+            raise ValueError("tmp_path required for client-side embedding mode")
+        logger.info("Client-side embedding mode: running datahub-documents ingestion…")
+        recipe_path = create_ingestion_recipe(auth_session, doc_ids, tmp_path)
+        run_ingestion(auth_session, recipe_path)
+        wait_for_writes_to_sync(mcp_only=True)
+
+    # Wait for Kafka consumers to catch up, then sleep for ES semantic index refresh.
+    wait_for_writes_to_sync(mcp_only=True)
+    logger.info(f"Waiting {INDEXING_WAIT_SECONDS}s for ES semantic index refresh…")
+    time.sleep(INDEXING_WAIT_SECONDS)
+
+
 def run_ingestion(auth_session, recipe_path: Path) -> None:
     """Run the datahub-documents ingestion source."""
     logger.info(f"Running ingestion with recipe: {recipe_path}")
@@ -312,7 +447,7 @@ def verify_semantic_content(auth_session, urn: str) -> dict[str, Any]:
     return semantic_content
 
 
-def search_documents_semantic(auth_session, query: str, count: int = 10) -> dict:
+def search_documents_semantic(auth_session, query: str, count: int = 50) -> dict:
     """Search documents using semantic search."""
     graphql_query = """
         query SemanticSearchDocuments($input: SearchAcrossEntitiesInput!) {
@@ -387,22 +522,19 @@ class TestSemanticSearchWithIngestion:
 
     def test_end_to_end_ingestion_and_semantic_search(self, auth_session):
         """
-        End-to-end test: Create documents with SDK, run ingestion, verify semantic search.
+        End-to-end test: create documents, ensure embeddings exist, verify semantic search.
 
-        Steps:
-        1. Create documents using Document SDK
-        2. Create recipe for datahub-documents source
-        3. Run ingestion to generate chunks and embeddings
-        4. Verify semanticContent aspect was created
-        5. Execute semantic search
-        6. Verify documents appear in results
+        Embedding mode is selected by DOCS_INGESTION_SERVER_SIDE env var:
+          - false (default): runs datahub-documents ingestion in-process (requires AWS creds)
+          - true: polls until the server generates semanticContent automatically
         """
-        logger.info("Starting end-to-end semantic search test with ingestion pipeline")
+        mode = "server-side" if DOCS_INGESTION_SERVER_SIDE else "client-side"
+        logger.info(f"Starting semantic search test [{mode} embedding mode]")
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
 
-            # Step 1: Create documents using SDK
+            # Step 1: Create documents
             logger.info(f"Creating {len(SAMPLE_DOCUMENTS)} documents with SDK...")
             created_docs = create_documents_with_sdk(auth_session, SAMPLE_DOCUMENTS)
 
@@ -414,30 +546,18 @@ class TestSemanticSearchWithIngestion:
                 f"but created {len(created_docs)}"
             )
 
-            # Step 2: Create ingestion recipe
+            # Step 2: Ensure embeddings are generated (client-side or server-side)
             doc_ids = [doc_id for doc_id, _ in created_docs]
-            recipe_path = create_ingestion_recipe(auth_session, doc_ids, tmp_path)
+            ensure_embeddings(auth_session, doc_ids, tmp_path)
 
-            # Step 3: Run ingestion
-            logger.info("Running datahub-documents ingestion source...")
-            run_ingestion(auth_session, recipe_path)
-
-            # Wait for writes to sync
-            wait_for_writes_to_sync(mcp_only=True)
-
-            # Step 4: Verify semanticContent aspect was created for each document
-            logger.info("Verifying semanticContent aspects were created...")
+            # Step 3: Verify semanticContent aspect is present for each document
+            logger.info("Verifying semanticContent aspects...")
             for _doc_id, urn in created_docs:
                 try:
                     verify_semantic_content(auth_session, urn)
                     logger.info(f"  ✓ {urn}: semanticContent verified")
                 except Exception as e:
                     pytest.fail(f"Failed to verify semanticContent for {urn}: {e}")
-
-            # Step 5: Wait for indexing
-            logger.info(f"Waiting {INDEXING_WAIT_SECONDS} seconds for indexing...")
-            time.sleep(INDEXING_WAIT_SECONDS)
-            wait_for_writes_to_sync(mcp_only=True)
 
             # Step 6: Execute semantic search
             test_query = "how to request data access permissions"
@@ -469,17 +589,55 @@ class TestSemanticSearchWithIngestion:
                 is_ours = "✓" if urn in self.created_urns else " "
                 logger.info(f"  {i}. [{is_ours}] {title} ({urn})")
 
-            # Verify at least one of our test documents appears in results
-            result_urns = {item.get("entity", {}).get("urn") for item in search_results}
+            result_urns = [item.get("entity", {}).get("urn") for item in search_results]
 
-            matching_urns = result_urns.intersection(set(self.created_urns))
-            logger.info(f"Found {len(matching_urns)} of our test documents in results")
+            # Map each of our 3 documents to its rank in the result list.
+            # inf = not in results at all.
+            our_doc_urns = [f"urn:li:document:{doc_id}" for doc_id in doc_ids]
+            access_doc_urn = our_doc_urns[1]  # "Data Access Request Process"
+            getting_started_urn = our_doc_urns[0]  # "Getting Started with DataHub"
+            churn_doc_urn = our_doc_urns[
+                2
+            ]  # "Machine Learning Model: Churn Prediction"
 
-            # Assert that at least one of our documents appears in results
-            assert len(matching_urns) > 0, (
-                f"None of our test documents appeared in semantic search results. "
-                f"Created URNs: {self.created_urns}, "
-                f"Result URNs: {result_urns}"
+            ranks = {
+                urn: result_urns.index(urn) if urn in result_urns else float("inf")
+                for urn in our_doc_urns
+            }
+
+            for urn, rank in ranks.items():
+                title = next(
+                    d["title"]
+                    for d, uid in zip(SAMPLE_DOCUMENTS, doc_ids, strict=False)
+                    if f"urn:li:document:{uid}" == urn
+                )
+                logger.info(
+                    f"  Rank {rank + 1 if rank != float('inf') else 'N/A'}: {title}"
+                )
+
+            # All 3 docs must appear somewhere in results (count=50 to leave headroom)
+            for urn in our_doc_urns:
+                assert urn in result_urns, (
+                    f"Document {urn} not found in top-{len(result_urns)} semantic search "
+                    f"results — embeddings may not have been indexed yet or count is too low"
+                )
+
+            # Relative ranking: "Data Access Request Process" must rank higher than
+            # both other docs for the query "how to request data access permissions".
+            # This validates semantic relevance ordering, not absolute position —
+            # it is robust to stale documents from prior test runs ranking above ours.
+            assert ranks[access_doc_urn] < ranks[getting_started_urn], (
+                f"'Data Access Request Process' (rank {ranks[access_doc_urn] + 1}) should "
+                f"rank above 'Getting Started' (rank {ranks[getting_started_urn] + 1})"
+            )
+            assert ranks[access_doc_urn] < ranks[churn_doc_urn], (
+                f"'Data Access Request Process' (rank {ranks[access_doc_urn] + 1}) should "
+                f"rank above 'Churn Prediction' (rank {ranks[churn_doc_urn] + 1})"
             )
 
+            logger.info(
+                f"✓ Relative ranking correct — 'Data Access Request Process' ranked "
+                f"#{ranks[access_doc_urn] + 1} (above Getting Started #{ranks[getting_started_urn] + 1} "
+                f"and Churn Prediction #{ranks[churn_doc_urn] + 1})"
+            )
             logger.info("✓ End-to-end semantic search test passed!")

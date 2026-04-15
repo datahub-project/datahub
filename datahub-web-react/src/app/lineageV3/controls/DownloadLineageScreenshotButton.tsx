@@ -2,6 +2,7 @@ import { CameraOutlined } from '@ant-design/icons';
 import { toPng } from 'html-to-image';
 import React, { useContext } from 'react';
 import { getRectOfNodes, getTransformForBounds, useReactFlow } from 'reactflow';
+import { useTheme } from 'styled-components';
 
 import { LineageNodesContext } from '@app/lineageV3/common';
 import { StyledPanelButton } from '@app/lineageV3/controls/StyledPanelButton';
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function DownloadLineageScreenshotButton({ showExpandedText }: Props) {
+    const themeConfig = useTheme();
     const { getNodes } = useReactFlow();
     const { rootUrn, nodes } = useContext(LineageNodesContext);
 
@@ -28,7 +30,7 @@ export default function DownloadLineageScreenshotButton({ showExpandedText }: Pr
         const cleanEntityName = entityName.replace(/[^a-zA-Z0-9_-]/g, '_');
 
         toPng(document.querySelector('.react-flow__viewport') as HTMLElement, {
-            backgroundColor: '#f8f8f8',
+            backgroundColor: themeConfig.colors.bgSurface,
             width: imageWidth,
             height: imageHeight,
             style: {

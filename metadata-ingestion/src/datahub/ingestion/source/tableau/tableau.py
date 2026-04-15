@@ -652,6 +652,8 @@ class TableauConfig(
 
     _fetch_size = pydantic_removed_field(
         "fetch_size",
+        month="December",
+        year=2024,
     )
 
     # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values
