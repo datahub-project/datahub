@@ -1047,7 +1047,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 flow_urn, job_id=job_name
             ),
             aspect=DataJobInfoClass(
-                name=f"{job_name}",
+                name=job_name,
                 type="GLUE",
                 externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
                 customProperties={},
