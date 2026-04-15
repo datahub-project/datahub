@@ -1,5 +1,3 @@
-"""Tests for Kafka source handling of Protobuf schemas during profiling."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
