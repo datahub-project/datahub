@@ -106,9 +106,13 @@ public class TestAuthenticator implements Authenticator {
   public void accessLowerSocket() {
     try {
       new Socket("localhost", 50);
-      throw new RuntimeException("Plugin is able to access lower port");
+      // If we reach here, the security check failed — plugin can access lower ports
+      throw new AssertionError("SECURITY VIOLATION: Plugin is able to access lower port");
+    } catch (AssertionError e) {
+      // Re-throw assertion errors (test failures) so they propagate
+      throw e;
     } catch (RuntimeException e) {
-      // Java 21+: SecurityManager removed, caught as RuntimeException
+      // Java 21+: SecurityManager removed, caught as RuntimeException (expected)
       log.info("Expected: Don't have permission to open socket on lower port");
     } catch (UnknownHostException e) {
       throw new RuntimeException(e);

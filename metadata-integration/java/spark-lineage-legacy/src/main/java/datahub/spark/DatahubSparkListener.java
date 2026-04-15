@@ -63,9 +63,10 @@ public class DatahubSparkListener extends SparkListener {
       new ConcurrentHashMap<>();
   private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
   private final Map<String, Config> appConfig = new ConcurrentHashMap<>();
-  // Tracks the execution ID of the most recent create-table-as-select command per app,
+  // Tracks execution IDs of recent create-table-as-select commands per app,
   // so we can suppress the follow-up insert that Spark 3.5+ generates as a separate SQL execution.
-  private final Map<String, Long> lastCreateTableAsSelectExecId = new ConcurrentHashMap<>();
+  // Uses a sliding window (Set) instead of single ID to handle parallel queries correctly.
+  private final Map<String, Set<Long>> pendingCtasExecIds = new ConcurrentHashMap<>();
 
   public DatahubSparkListener() {
     log.info("DatahubSparkListener initialised.");
@@ -75,6 +76,11 @@ public class DatahubSparkListener extends SparkListener {
    * Serialize SparkListenerSQLExecutionStart to JSON string. Handles both Spark 3.4+ (Jackson API)
    * and older versions. Uses reflection for Spark 3.4+ since we compile against Spark 3.3.4 but
    * need to support runtime versions up to 3.5+.
+   *
+   * <p>NOTE: Spark < 3.4 fallback returns Scala case class toString() representation, not JSON.
+   * This produces a human-readable but non-JSON output. For JSON serialization on all Spark
+   * versions, consider using json4s library. Current approach prioritizes compatibility with older
+   * Spark versions where Jackson API is unavailable.
    */
   private static String serializeSqlStartEvent(SparkListenerSQLExecutionStart event) {
     try {
@@ -84,14 +90,15 @@ public class DatahubSparkListener extends SparkListener {
       int major = Integer.parseInt(versionParts[0]);
       int minor = Integer.parseInt(versionParts[1]);
 
-      // Spark 3.4+: Use Jackson API
+      // Spark 3.4+: Use Jackson API (returns valid JSON)
       if (major > 3 || (major == 3 && minor >= 4)) {
         java.lang.reflect.Method method =
             JsonProtocol.class.getMethod("sparkEventToJsonString", SparkListenerEvent.class);
         return (String) method.invoke(null, event);
       } else {
-        // Spark < 3.4: Use toString() fallback
-        log.debug("Spark {} < 3.4, using toString() fallback", sparkVersion);
+        // Spark < 3.4: Use toString() fallback (returns Scala case class string, not JSON)
+        log.debug(
+            "Spark {} < 3.4, using toString() fallback (note: output is not JSON)", sparkVersion);
         return event.toString();
       }
     } catch (Exception e) {
@@ -176,22 +183,35 @@ public class DatahubSparkListener extends SparkListener {
 
       // In Spark 3.5+, CreateDataSourceTableAsSelectCommand and CreateHiveTableAsSelectCommand
       // generate a follow-up InsertIntoHadoopFsRelationCommand or InsertIntoHiveTable as a
-      // separate SQL execution with the next sequential executionId. Skip these duplicate
-      // inserts to avoid redundant lineage entries.
-      Long lastCtasExecId = lastCreateTableAsSelectExecId.remove(ctx.applicationId());
-      if (DatasetExtractor.isFollowUpInsertCommand(plan)
-          && lastCtasExecId != null
-          && sqlStart.executionId() == lastCtasExecId + 1) {
-        log.debug(
-            "Skipping follow-up insert for create-table-as-select (execution {}:{}, prev CTAS: {})",
-            ctx.applicationId(),
-            sqlStart.executionId(),
-            lastCtasExecId);
-        return;
+      // separate SQL execution. Skip these duplicate inserts to avoid redundant lineage entries.
+      // Uses a tolerance window instead of exact +1 to handle parallel query execution correctly.
+      Set<Long> pendingCtas = pendingCtasExecIds.get(ctx.applicationId());
+      if (DatasetExtractor.isFollowUpInsertCommand(plan) && pendingCtas != null) {
+        for (Iterator<Long> it = pendingCtas.iterator(); it.hasNext(); ) {
+          Long ctasExecId = it.next();
+          // Check if this follow-up is for a recent CTAS (within 50 execution IDs).
+          // Tolerance window handles parallel execution where follow-up may not be exactly +1.
+          if (sqlStart.executionId() > ctasExecId && sqlStart.executionId() - ctasExecId <= 50) {
+            log.debug(
+                "Skipping follow-up insert for create-table-as-select (execution {}:{}, CTAS: {})",
+                ctx.applicationId(),
+                sqlStart.executionId(),
+                ctasExecId);
+            it.remove();
+            return;
+          }
+        }
+        // Cleanup if set is empty
+        if (pendingCtas.isEmpty()) {
+          pendingCtasExecIds.remove(ctx.applicationId());
+        }
       }
 
       if (DatasetExtractor.isCreateTableAsSelectCommand(plan)) {
-        lastCreateTableAsSelectExecId.put(ctx.applicationId(), sqlStart.executionId());
+        Set<Long> ctas =
+            pendingCtasExecIds.computeIfAbsent(
+                ctx.applicationId(), k -> ConcurrentHashMap.newKeySet());
+        ctas.add(sqlStart.executionId());
       }
 
       // Here assumption is that there will be only single target for single sql query

@@ -293,9 +293,11 @@ public class DatasetExtractor {
         InMemoryRelation.class,
         (plan, ctx, datahubConfig) -> {
           SparkPlan cachedPlan = ((InMemoryRelation) plan).cachedPlan();
-          // In Spark 3.5, AQE (Adaptive Query Execution) may wrap cachedPlan in AdaptiveSparkPlanExec.
+          // In Spark 3.5, AQE (Adaptive Query Execution) may wrap cachedPlan in
+          // AdaptiveSparkPlanExec.
           // When isFinalPlan=false, collectLeaves() on the wrapper returns empty, so we must unwrap
-          // to access the underlying inputPlan that contains the actual leaf operators (FileSourceScan,
+          // to access the underlying inputPlan that contains the actual leaf operators
+          // (FileSourceScan,
           // HiveTableScan, etc.) needed for lineage extraction.
           SparkPlan effectivePlan = unwrapAdaptiveSparkPlan(cachedPlan);
           ArrayList<SparkDataset> datasets = new ArrayList<>();
@@ -336,7 +338,10 @@ public class DatasetExtractor {
    * exist in older Spark versions.
    */
   private static SparkPlan unwrapAdaptiveSparkPlan(SparkPlan plan) {
-    if (plan.getClass().getName().contains("AdaptiveSparkPlanExec")) {
+    // Use exact class name match instead of contains() to avoid false positives
+    if (plan.getClass()
+        .getName()
+        .equals("org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec")) {
       try {
         java.lang.reflect.Method inputPlanMethod = plan.getClass().getMethod("inputPlan");
         SparkPlan inputPlan = (SparkPlan) inputPlanMethod.invoke(plan);
