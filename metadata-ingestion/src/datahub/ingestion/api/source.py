@@ -205,20 +205,16 @@ class StructuredLogs(Report):
     ) -> None:
         """Override the max_elements on the underlying LossyDicts.
 
-        Must be called before any entries are added (i.e. right after source
-        construction) — resizing a non-empty LossyDict is not supported.
+        Should be called early (right after source construction). Sources may
+        log warnings/errors during __init__, so existing entries are pruned
+        if they exceed the new limit.
         """
-        for level, entries in self._entries.items():
-            assert not entries, (
-                f"set_sample_sizes must be called before any entries are added; "
-                f"{level.name} already has {len(entries)} entries"
-            )
         if failure_size is not None:
-            self._entries[StructuredLogLevel.ERROR].max_elements = failure_size
+            self._entries[StructuredLogLevel.ERROR].resize(failure_size)
         if warning_size is not None:
-            self._entries[StructuredLogLevel.WARN].max_elements = warning_size
+            self._entries[StructuredLogLevel.WARN].resize(warning_size)
         if info_size is not None:
-            self._entries[StructuredLogLevel.INFO].max_elements = info_size
+            self._entries[StructuredLogLevel.INFO].resize(info_size)
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]

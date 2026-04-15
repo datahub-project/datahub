@@ -195,6 +195,18 @@ class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
             )
         return base_dict
 
+    def resize(self, max_elements: int) -> None:
+        """Change max_elements, pruning excess entries if needed."""
+        self.max_elements = max_elements
+        excess = super().__len__() - max_elements
+        if excess > 0:
+            keys_to_drop = random.sample(list(super().__iter__()), excess)
+            for k in keys_to_drop:
+                super().pop(k)
+                self._items_removed += 1
+            self._overflow += excess
+            self.sampled = True
+
     def total_key_count(self) -> int:
         """Returns the total number of keys that have been added to this dictionary."""
         return super().__len__() + self._overflow

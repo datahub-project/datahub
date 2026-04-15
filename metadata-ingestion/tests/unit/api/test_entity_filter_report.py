@@ -235,13 +235,22 @@ def test_structured_logs_set_sample_sizes_partial():
     assert logs._entries[StructuredLogLevel.WARN].max_elements == 10  # unchanged
 
 
-def test_set_sample_sizes_after_entries_added_raises():
-    import pytest
-
+def test_set_sample_sizes_after_entries_added_prunes():
+    """set_sample_sizes resizes even when entries already exist."""
     logs = StructuredLogs()
-    logs.report_log(StructuredLogLevel.ERROR, "something broke", context="table_x")
-    with pytest.raises(AssertionError, match="must be called before"):
-        logs.set_sample_sizes(failure_size=50)
+    for i in range(5):
+        logs.report_log(StructuredLogLevel.ERROR, f"err_{i}", context=f"ctx_{i}")
+    assert len(logs._entries[StructuredLogLevel.ERROR]) == 5
+
+    # Grow: all entries kept
+    logs.set_sample_sizes(failure_size=50)
+    assert logs._entries[StructuredLogLevel.ERROR].max_elements == 50
+    assert len(logs._entries[StructuredLogLevel.ERROR]) == 5
+
+    # Shrink: excess entries pruned
+    logs.set_sample_sizes(failure_size=2)
+    assert logs._entries[StructuredLogLevel.ERROR].max_elements == 2
+    assert len(logs._entries[StructuredLogLevel.ERROR]) == 2
 
 
 def test_cap_ignores_lossy_list_sentinel():
