@@ -13,7 +13,9 @@ The ingestion user must have the `read` role on each database to be ingested, or
 // Grant read access to a specific database
 db.grantRolesToUser("datahub_ingest", [{ role: "read", db: "your_database" }]);
 // Or grant read access to all databases
-db.grantRolesToUser("datahub_ingest", [{ role: "readAnyDatabase", db: "admin" }]);
+db.grantRolesToUser("datahub_ingest", [
+  { role: "readAnyDatabase", db: "admin" },
+]);
 ```
 
 > **Note on system collections:** MongoDB `system.*` collections (such as `system.profile` and
