@@ -1239,7 +1239,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
-        "datahub": ["py.typed"],
+        "datahub": ["py.typed", "constraints.txt"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],
