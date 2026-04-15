@@ -129,7 +129,6 @@ from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
@@ -1615,15 +1614,9 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.report_table_dropped(full_table_name)
             return
 
-        # Encode components for the URN; '/' must also be encoded to avoid conflicts
-        # with URL path separators when URNs appear in REST API calls.
-        urn_dataset_name = (
-            f"{UrnEncoder.encode_string(database_name).replace('/', '%2F')}"
-            f".{UrnEncoder.encode_string(table_name).replace('/', '%2F')}"
-        )
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            name=urn_dataset_name,
+            name=full_table_name,
             env=self.env,
             platform_instance=self.source_config.platform_instance,
         )
