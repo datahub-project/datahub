@@ -105,6 +105,20 @@ class ConnectorEntry:
 
 
 @dataclass(frozen=True)
+class EntryPointMapping:
+    """Result of resolving setup.py entry points to test directories."""
+
+    # source_dir -> set of test dirs derived from entry points
+    source_to_tests: dict[str, set[str]] = field(default_factory=dict)
+    # ep module -> test dir (or None for known connectors without integration tests).
+    # Keys include ALL entry-point modules from setup.py. A module mapping to None
+    # means it's a known connector that just has no integration test directory —
+    # distinct from a shared utility (not in this dict at all). This distinction
+    # prevents narrowing failures from cascading through the import graph.
+    ep_module_to_test: dict[str, str | None] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class CIDecisions:
     test_matrix: list[TestMatrixEntry] = field(default_factory=list)
     run_all_integration: bool = False
@@ -317,10 +331,10 @@ def build_import_graph(
 
 def build_source_to_test_dirs(
     repo_root: Path, registry: list[ConnectorEntry]
-) -> tuple[dict[str, set[str]], dict[str, str]]:
+) -> EntryPointMapping:
     """
     Use setup.py entry points to map each integration test dir to its source dir,
-    then return the reverse: source_dir -> set of test dirs.
+    then return an EntryPointMapping with the results.
 
     This covers thin-wrapper connectors whose source lives inside a shared base
     directory (e.g. clickhouse inside source/sql/) and thus can't be found by
@@ -345,7 +359,7 @@ def build_source_to_test_dirs(
             f"Entry-point-derived test narrowing will be disabled.",
             file=sys.stderr,
         )
-        return {}, {}
+        return EntryPointMapping()
 
     # Store both the original name and hyphen<->underscore variants for lookup.
     # Also strip the "datahub-" prefix (e.g. "datahub-business-glossary" -> "business-glossary")
@@ -357,10 +371,13 @@ def build_source_to_test_dirs(
     # Build module-prefix -> source_dir lookup; longest match wins
     sorted_registry = sorted(registry, key=lambda c: len(c.source_dir), reverse=True)
 
-    # For each test dir, resolve to a source dir and build the reverse map.
-    # Also keep ep_module -> test_dir for fine-grained per-file narrowing.
+    # Start with all EP modules mapped to None (no tests).
+    # Modules with matching test dirs get updated below.
+    ep_module_to_test: dict[str, str | None] = {
+        module: None for module in set(plugin_to_module.values())
+    }
+
     source_to_tests: dict[str, set[str]] = {}
-    ep_module_to_test: dict[str, str] = {}
     tests_dir = mi / "tests" / "integration"
 
     if not tests_dir.is_dir():
@@ -369,7 +386,7 @@ def build_source_to_test_dirs(
             f"Entry-point-derived test mapping will be empty.",
             file=sys.stderr,
         )
-        return source_to_tests, ep_module_to_test
+        return EntryPointMapping(ep_module_to_test=ep_module_to_test)
 
     for test_dir in sorted(tests_dir.iterdir()):
         if not test_dir.is_dir() or test_dir.name.startswith("_"):
@@ -385,24 +402,32 @@ def build_source_to_test_dirs(
         if src_dir:
             source_to_tests.setdefault(src_dir, set()).add(test_rel)
 
-    return source_to_tests, ep_module_to_test
+    return EntryPointMapping(
+        source_to_tests=source_to_tests,
+        ep_module_to_test=ep_module_to_test,
+    )
 
 
 def _narrow_ep_tests(
     source_dir: str,
     source_files: list[str],
-    ep_module_to_test: dict[str, str],
+    ep_module_to_test: dict[str, str | None],
 ) -> set[str] | None:
     """For files changed inside a shared-base source dir, return only the entry-point
     test dirs that map to those specific sub-modules.
 
     Returns None if any changed file has no entry-point match (shared utility) — the
-    caller should fall back to the full source_to_test_dirs set in that case.
+    caller should fall back to the full ep_mapping.source_to_tests set in that case.
     Returns None also if no files in this dir are in source_files (nothing to narrow).
+
+    ep_module_to_test maps ALL known entry-point modules to their test dir (str) or
+    None for connectors without integration tests. A file matching a None-valued EP
+    is a known connector that just lacks tests — safe to skip without cascading.
 
     Example: sql/clickhouse.py -> module datahub.ingestion.source.sql.clickhouse
              -> ep module datahub.ingestion.source.sql.clickhouse -> clickhouse tests only
              sql/sql_common.py -> no ep match -> returns None -> caller runs all SQL tests
+             aws/glue.py -> matches ep module (value=None) -> narrowed to empty set
     """
     mi_prefix = f"{MI_PREFIX}{source_dir}/"
     files_in_dir = [f for f in source_files if f.startswith(mi_prefix)]
@@ -413,6 +438,7 @@ def _narrow_ep_tests(
     for f in files_in_dir:
         module = _source_path_to_module(f.removeprefix(MI_PREFIX))
         matched: set[str] = set()
+        is_known_ep = False
         for ep_module, test_dir in ep_module_to_test.items():
             # File is the ep module itself, or a sub-module, or a parent package of it
             if (
@@ -420,8 +446,12 @@ def _narrow_ep_tests(
                 or module.startswith(ep_module + ".")
                 or ep_module.startswith(module + ".")
             ):
-                matched.add(test_dir)
+                is_known_ep = True
+                if test_dir is not None:
+                    matched.add(test_dir)
         if not matched:
+            if is_known_ep:
+                continue  # known connector without tests — skip, don't cascade
             return None  # shared utility file — can't narrow
         narrowed.update(matched)
 
@@ -475,9 +505,7 @@ def classify(changed_files: list[str], repo_root: Path) -> CIDecisions:
     # Load connector registry, import graph, and entry-point-derived test dir map
     registry = load_connector_registry(repo_root)
     import_graph = build_import_graph(repo_root, registry)
-    source_to_test_dirs, ep_module_to_test = build_source_to_test_dirs(
-        repo_root, registry
-    )
+    ep_mapping = build_source_to_test_dirs(repo_root, registry)
 
     # Find which connector source directories were directly changed.
     # Any file in a connector source dir should trigger tests, except
@@ -510,9 +538,11 @@ def classify(changed_files: list[str], repo_root: Path) -> CIDecisions:
     #   changed_source_dirs, import graph propagates to all sql dependents correctly.
     pre_resolved_tests: set[str] = set()
     # Any source dir with entry-point-derived tests is a candidate for narrowing.
-    narrowable = set(source_to_test_dirs.keys())
+    narrowable = set(ep_mapping.source_to_tests.keys())
     for source_dir in list(changed_source_dirs & narrowable):
-        narrowed = _narrow_ep_tests(source_dir, source_files, ep_module_to_test)
+        narrowed = _narrow_ep_tests(
+            source_dir, source_files, ep_mapping.ep_module_to_test
+        )
         if narrowed is not None:
             pre_resolved_tests.update(narrowed)
             changed_source_dirs.discard(source_dir)
@@ -540,7 +570,7 @@ def classify(changed_files: list[str], repo_root: Path) -> CIDecisions:
             if connector.test_path:
                 test_paths.add(connector.test_path)
             test_paths.update(connector.extra_test_paths)
-            test_paths.update(source_to_test_dirs.get(source_dir, set()))
+            test_paths.update(ep_mapping.source_to_tests.get(source_dir, set()))
 
     # Safety net: if we found changed source dirs but produced no tests,
     # something is wrong — fall back to running everything.
@@ -568,7 +598,7 @@ def validate(repo_root: Path) -> list[str]:
     errors: list[str] = []
     warnings: list[str] = []
     registry = load_connector_registry(repo_root)
-    source_to_test_dirs, _ = build_source_to_test_dirs(repo_root, registry)
+    ep_mapping = build_source_to_test_dirs(repo_root, registry)
 
     # 1. Every test_path declared must exist on disk
     mi = repo_root / "metadata-ingestion"
@@ -582,7 +612,7 @@ def validate(repo_root: Path) -> list[str]:
     # A test dir is covered if: listed in registry test_path/extra_test_paths/test_paths,
     # or matches a source dir by convention, or is in entry-point-derived mapping.
     ep_covered_tests: set[str] = set()
-    for test_dirs in source_to_test_dirs.values():
+    for test_dirs in ep_mapping.source_to_tests.values():
         ep_covered_tests.update(test_dirs)
 
     tests_dir = mi / "tests" / "integration"

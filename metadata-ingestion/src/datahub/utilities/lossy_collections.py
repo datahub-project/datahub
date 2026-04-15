@@ -18,6 +18,16 @@ _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 
 
+class LossySentinel(str):
+    """Marks a lossy-collection truncation summary.
+
+    ``str`` subclass so it renders naturally in pprint/JSON but can be
+    distinguished from real entries via ``isinstance``.
+    """
+
+    pass
+
+
 class LossyList(List[T], Generic[T]):
     """A list that performs reservoir sampling of a much larger list"""
 
@@ -91,7 +101,9 @@ class LossyList(List[T], Generic[T]):
             Report.to_pure_python_obj(value) for value in list(self.__iter__())
         ]
         if self.sampled:
-            base_list.append(f"... sampled of {self.total_elements} total elements")
+            base_list.append(
+                LossySentinel(f"... sampled of {self.total_elements} total elements")
+            )
         return base_list
 
     def set_total(self, total: int) -> None:
@@ -182,6 +194,18 @@ class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
                 f"{len(self.keys())} sampled of at most {self.total_key_count()} entries."
             )
         return base_dict
+
+    def resize(self, max_elements: int) -> None:
+        """Change max_elements, pruning excess entries if needed."""
+        self.max_elements = max_elements
+        excess = super().__len__() - max_elements
+        if excess > 0:
+            keys_to_drop = random.sample(list(super().__iter__()), excess)
+            for k in keys_to_drop:
+                super().pop(k)
+                self._items_removed += 1
+            self._overflow += excess
+            self.sampled = True
 
     def total_key_count(self) -> int:
         """Returns the total number of keys that have been added to this dictionary."""
