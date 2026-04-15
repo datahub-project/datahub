@@ -331,7 +331,9 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes, additional_metadata = source.load_nodes()
 
-        assert len(nodes) == 1
+        # mock_graphql_response fixture returns 1 model + 1 semantic model per job
+        assert len(nodes) == 2
+        assert {n.node_type for n in nodes} == {"model", "semantic_model"}
         assert additional_metadata["account_id"] == "123456"
 
         job_ids_queried = {
