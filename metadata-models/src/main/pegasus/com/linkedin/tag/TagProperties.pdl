@@ -24,7 +24,14 @@ record TagProperties {
   /**
    * Documentation of the tag
    */
-  @Searchable = {}
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 1.0,
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
+  }
   description: optional string
 
   /**
