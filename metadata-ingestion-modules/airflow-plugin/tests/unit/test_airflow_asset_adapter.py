@@ -387,7 +387,7 @@ class TestRealAirflowDataset:
 
     def test_translate_real_airflow_dataset_s3(self) -> None:
         """Test translating real Airflow Dataset with S3 URI."""
-        dataset = _create_airflow_dataset("s3://my-bucket%2Fpath%2Fto%2Fdata")
+        dataset = _create_airflow_dataset("s3://my-bucket/path/to/data")
         if dataset is None:
             import pytest
 

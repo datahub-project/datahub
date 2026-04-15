@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -18,7 +18,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -42,7 +42,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -448,7 +448,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -922,7 +922,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -938,7 +938,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -975,7 +975,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -992,7 +992,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1016,7 +1016,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -1110,7 +1110,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1132,7 +1132,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1148,7 +1148,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1185,7 +1185,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1202,7 +1202,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1226,7 +1226,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -1320,7 +1320,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1342,7 +1342,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1358,7 +1358,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1395,7 +1395,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1412,7 +1412,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1436,7 +1436,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -1506,7 +1506,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1528,7 +1528,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1544,7 +1544,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1581,7 +1581,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1598,7 +1598,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1622,7 +1622,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -1716,7 +1716,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1738,7 +1738,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1754,7 +1754,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1791,7 +1791,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1808,7 +1808,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1832,7 +1832,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -1926,7 +1926,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1948,7 +1948,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1964,7 +1964,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2001,7 +2001,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2018,7 +2018,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2042,7 +2042,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -2448,7 +2448,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -2470,7 +2470,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2486,7 +2486,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2523,7 +2523,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2539,7 +2539,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2555,7 +2555,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2571,7 +2571,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2587,7 +2587,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2603,7 +2603,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2619,7 +2619,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2635,7 +2635,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2FNPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2657,7 +2657,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_avro.avro,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2679,7 +2679,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fchord_progressions_csv.csv,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2701,7 +2701,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fcountries_json.json,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2723,7 +2723,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet.parquet,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2745,7 +2745,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fsmall.csv,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2767,7 +2767,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fwa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {

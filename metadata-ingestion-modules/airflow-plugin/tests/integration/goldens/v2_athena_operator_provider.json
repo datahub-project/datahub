@@ -149,7 +149,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,%2F,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -249,14 +249,14 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,%2F,PROD)"
             ]
         }
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,%2F,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -286,7 +286,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,%2F,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -352,7 +352,7 @@
         "json": {
             "inputDatasets": [],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,%2F,PROD)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": []
@@ -361,7 +361,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,%2F,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {

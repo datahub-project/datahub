@@ -85,7 +85,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:kafka,my-topic,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/topics/my-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftopics%2Fmy-topic,PROD)"
             ]
         }
     },

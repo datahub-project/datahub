@@ -98,7 +98,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bw,BW.QUERY/QUERY_TECHNICAL_NAME,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bw,BW.QUERY%2FQUERY_TECHNICAL_NAME,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -418,13 +418,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bw,BW.QUERY/QUERY_TECHNICAL_NAME,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bw,BW.QUERY%2FQUERY_TECHNICAL_NAME,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:bw",
-            "name": "BW.QUERY/QUERY_TECHNICAL_NAME",
+            "name": "BW.QUERY%2FQUERY_TECHNICAL_NAME",
             "origin": "PROD"
         }
     },
@@ -490,6 +490,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.K73U3VELDXGWZKANL8Q577BA2F:K73U3VELDXGWZKANL8Q577BA2F,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.DXGWZKANLK73U3VEL8Q577BA2F:DXGWZKANLK73U3VEL8Q577BA2F,PROD)"
             ],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 1667544309783,
@@ -582,6 +583,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.K73U3VELDXGWZKANL8Q577BA2F:K73U3VELDXGWZKANL8Q577BA2F,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:sac,t.4.DXGWZKANLK73U3VEL8Q577BA2F:DXGWZKANLK73U3VEL8Q577BA2F,PROD)"
             ],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 1673279404272,

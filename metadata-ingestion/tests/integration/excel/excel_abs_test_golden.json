@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs%2Fexcel%2Ftest%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -95,7 +95,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs%2Fexcel%2Ftest%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -432,7 +432,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs%2Fexcel%2Ftest%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -448,7 +448,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs%2Fexcel%2Ftest%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -552,7 +552,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs%2Fexcel%2Ftest%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -568,7 +568,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs%2Fexcel%2Ftest%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {

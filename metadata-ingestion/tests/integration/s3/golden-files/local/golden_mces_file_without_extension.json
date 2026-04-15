@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -18,7 +18,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -41,7 +41,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -135,7 +135,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1284,7 +1284,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1300,7 +1300,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1316,7 +1316,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1373,7 +1373,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Fno_extension%2Fsmall,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {

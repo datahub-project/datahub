@@ -362,20 +362,20 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,source/data.csv,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,source%2Fdata.csv,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,dest%2Foutput.csv,DEV)"
             ],
             "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,source/data.csv,DEV),col_a)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,source%2Fdata.csv,DEV),col_a)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV),column_x)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest%2Foutput.csv,DEV),column_x)"
                     ],
                     "transformOperation": "COPY",
                     "confidenceScore": 1.0
@@ -383,11 +383,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,source/data.csv,DEV),col_b)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,source%2Fdata.csv,DEV),col_b)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV),column_y)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest%2Foutput.csv,DEV),column_y)"
                     ],
                     "transformOperation": "COPY",
                     "confidenceScore": 1.0

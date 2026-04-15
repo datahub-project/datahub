@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket%2Fdelta_tables%2Fsales,DEV)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -327,7 +327,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket%2Fdelta_tables%2Fsales,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -343,7 +343,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket%2Fdelta_tables%2Fsales,DEV)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -372,7 +372,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket%2Fdelta_tables%2Fsales,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -397,7 +397,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket%2Fdelta_tables%2Fsales,DEV)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {

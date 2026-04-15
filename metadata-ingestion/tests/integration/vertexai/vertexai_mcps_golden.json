@@ -959,7 +959,7 @@
             "outputs": [],
             "outputEdges": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/training-output/model,PROD)"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket%2Ftraining-output%2Fmodel,PROD)"
                 }
             ]
         }

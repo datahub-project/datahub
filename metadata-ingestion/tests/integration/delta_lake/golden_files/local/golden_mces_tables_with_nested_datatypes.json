@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_1,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_1,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -708,7 +708,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_1,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_1,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -724,7 +724,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_1,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_1,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -759,7 +759,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_1,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_1,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -801,7 +801,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -928,7 +928,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -944,7 +944,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -979,7 +979,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1021,7 +1021,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1104,7 +1104,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1120,7 +1120,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1155,7 +1155,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1197,7 +1197,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array_of_struct,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1304,7 +1304,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array_of_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1320,7 +1320,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array_of_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1355,7 +1355,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array_of_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1397,7 +1397,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_2,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_2,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1548,7 +1548,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_2,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_2,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1564,7 +1564,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_2,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_2,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1599,7 +1599,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_2,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_2,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1641,7 +1641,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_nested_array_of_numbers,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_nested_array_of_numbers,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1724,7 +1724,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_nested_array_of_numbers,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_nested_array_of_numbers,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1740,7 +1740,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_nested_array_of_numbers,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_nested_array_of_numbers,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1775,7 +1775,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_nested_array_of_numbers,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_nested_array_of_numbers,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1816,7 +1816,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_1,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_1,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1838,7 +1838,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1860,7 +1860,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1882,7 +1882,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_array_of_struct,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1904,7 +1904,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_nested_struct_2,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_nested_struct_2,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1926,7 +1926,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_nested_array_of_numbers,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests%2Fintegration%2Fdelta_lake%2Ftest_data%2Fdelta_tables_nested_datatype%2Ftable_with_string_and_nested_array_of_numbers,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {

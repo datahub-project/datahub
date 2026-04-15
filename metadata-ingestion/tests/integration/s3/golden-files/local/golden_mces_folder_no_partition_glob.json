@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -24,7 +24,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -118,7 +118,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1075,7 +1075,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1091,7 +1091,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -1396,7 +1396,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1412,7 +1412,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1461,7 +1461,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests%2Fintegration%2Fs3%2Ftest_data%2Flocal_system%2Ffolder_a%2Ffolder_aa%2Ffolder_aaa%2Ffood_parquet,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {

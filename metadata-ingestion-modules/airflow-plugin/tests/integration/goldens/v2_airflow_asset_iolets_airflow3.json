@@ -355,7 +355,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket%2Fraw%2Fevents.json,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -368,7 +368,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fschema%2Fsource_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -381,7 +381,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -394,7 +394,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project%2Fdataset%2Fresult_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -407,7 +407,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -516,9 +516,9 @@
         "json": {
             "inputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket%2Fraw%2Fevents.json,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fschema%2Fsource_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)"
             ]
         }
     }
@@ -531,8 +531,8 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project%2Fdataset%2Fresult_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)"
             ]
         }
     }
@@ -552,7 +552,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket%2Fraw%2Fevents.json,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -565,7 +565,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fschema%2Fsource_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -578,7 +578,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -591,7 +591,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project%2Fdataset%2Fresult_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -604,7 +604,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -634,7 +634,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project%2Fdataset%2Fresult_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -652,7 +652,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -728,13 +728,13 @@
         "json": {
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket%2Fraw%2Fevents.json,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fschema%2Fsource_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project%2Fdataset%2Fresult_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": []
@@ -756,7 +756,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket%2Fraw%2Fevents.json,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -769,7 +769,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fschema%2Fsource_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -782,7 +782,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -795,7 +795,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project%2Fdataset%2Fresult_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -808,7 +808,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -883,9 +883,9 @@
         "json": {
             "inputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket%2Fraw%2Fevents.json,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fschema%2Fsource_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)"
             ]
         }
     }
@@ -898,8 +898,8 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project%2Fdataset%2Fresult_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)"
             ]
         }
     }
@@ -1102,7 +1102,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -1128,7 +1128,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -1249,7 +1249,7 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.source,PROD)"
             ]
         }
@@ -1263,7 +1263,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.target,PROD)"
             ]
         }
@@ -1271,7 +1271,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -1297,7 +1297,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -1340,7 +1340,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -1433,11 +1433,11 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.source,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.target,PROD)"
             ],
             "inputDatajobs": [
@@ -1449,7 +1449,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -1475,7 +1475,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -1562,7 +1562,7 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Finput%2Fdata.parquet,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.source,PROD)"
             ]
         }
@@ -1576,7 +1576,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Foutput%2Fprocessed.parquet,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.target,PROD)"
             ]
         }

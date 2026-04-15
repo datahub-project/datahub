@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -182,7 +182,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -198,7 +198,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -228,7 +228,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -258,7 +258,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -288,7 +288,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -318,7 +318,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -347,7 +347,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -368,7 +368,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables%2Fmy_table_basic,UAT)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {

@@ -1421,7 +1421,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore/,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore%2F,PROD)"
             ],
             "primary": false
         }
@@ -1445,7 +1445,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore/,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore%2F,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1658,7 +1658,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore/,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore%2F,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -2371,7 +2371,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket%2Fmetastore%2F2c983545-d403-4f87-9063-5b7e3b6d3736%2Ftables%2Fcff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
             ],
             "primary": false
         }
@@ -2384,7 +2384,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket%2Fmetastore%2F2c983545-d403-4f87-9063-5b7e3b6d3736%2Ftables%2Fcff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -2650,7 +2650,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket%2Fmetastore%2F2c983545-d403-4f87-9063-5b7e3b6d3736%2Ftables%2Fcff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
                     "type": "VIEW"
                 }
             ]

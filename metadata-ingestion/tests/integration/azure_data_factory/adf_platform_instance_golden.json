@@ -238,7 +238,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,config/settings.json,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,config%2Fsettings.json,DEV)"
             ],
             "outputDatasets": []
         }
@@ -282,7 +282,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,raw-data/input/data.csv,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,raw-data%2Finput%2Fdata.csv,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,ProcessedData,DEV)"

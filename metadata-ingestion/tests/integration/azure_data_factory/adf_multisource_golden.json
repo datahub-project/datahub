@@ -226,7 +226,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/orders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging%2Forders,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,FactOrders,DEV)"
@@ -271,7 +271,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging%2Fcustomers,DEV)"
             ]
         }
     },
@@ -433,7 +433,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,Orders,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/orders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging%2Forders,DEV)"
             ]
         }
     },
@@ -626,7 +626,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging%2Fcustomers,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:abs,sales,DEV)"
@@ -647,7 +647,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging%2Fcustomers,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,DimCustomers,DEV)"

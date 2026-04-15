@@ -515,7 +515,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging%2Fcustomers,DEV)"
             ]
         }
     },

@@ -3769,7 +3769,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2F%2Fwarehouse,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -6363,7 +6363,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -6701,7 +6701,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -6935,7 +6935,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Foracle-departments.xlsx,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -7229,7 +7229,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -7754,7 +7754,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2F%2Fwarehouse,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -7762,7 +7762,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2F%2Fwarehouse,PROD),id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7773,7 +7773,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2F%2Fwarehouse,PROD),name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7784,7 +7784,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2F%2Fwarehouse,PROD),age)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7795,7 +7795,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD),salary)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2F%2Fwarehouse,PROD),salary)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7829,7 +7829,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -7837,7 +7837,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),E)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),E)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7848,7 +7848,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),M)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),M)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7859,7 +7859,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),L)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),L)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7870,7 +7870,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),K)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),K)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7881,7 +7881,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),J)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),J)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7892,7 +7892,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),I)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),I)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7903,7 +7903,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),H)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),H)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7914,7 +7914,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),G)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),G)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7925,7 +7925,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),F)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),F)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7936,7 +7936,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),A)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),A)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7947,7 +7947,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),B)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),B)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7958,7 +7958,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),C)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),C)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -7969,7 +7969,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD),D)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Fgoogleplaystore.csv,PROD),D)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8003,7 +8003,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Foracle-departments.xlsx,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -8011,7 +8011,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD),LOCATION_ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Foracle-departments.xlsx,PROD),LOCATION_ID)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8022,7 +8022,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD),DEPARTMENT_ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Foracle-departments.xlsx,PROD),DEPARTMENT_ID)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8033,7 +8033,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD),DEPARTMENT_NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Foracle-departments.xlsx,PROD),DEPARTMENT_NAME)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8044,7 +8044,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD),MANAGER_ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FDremio University%2Foracle-departments.xlsx,PROD),MANAGER_ID)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8078,7 +8078,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -8086,7 +8086,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),A)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),A)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8097,7 +8097,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),B)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),B)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8108,7 +8108,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),C)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),C)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8119,7 +8119,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),D)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),D)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8130,7 +8130,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),E)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),E)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8141,7 +8141,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),F)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),F)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8152,7 +8152,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),G)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),G)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8163,7 +8163,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),H)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),H)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8174,7 +8174,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD),I)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2FNYC-weather.csv,PROD),I)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8208,7 +8208,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -8216,7 +8216,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_catalog_number)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_catalog_number)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8227,7 +8227,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_department)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_department)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8238,7 +8238,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_end_date_sk)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_end_date_sk)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8249,7 +8249,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_start_date_sk)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_start_date_sk)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8260,7 +8260,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_catalog_page_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_catalog_page_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8271,7 +8271,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_catalog_page_sk)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_catalog_page_sk)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8282,7 +8282,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_type)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_type)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8293,7 +8293,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_description)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_description)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -8304,7 +8304,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD),cp_catalog_page_number)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet,PROD),cp_catalog_page_number)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [

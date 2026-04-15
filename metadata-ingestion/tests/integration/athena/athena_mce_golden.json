@@ -100,7 +100,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -108,7 +108,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),employee_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -119,7 +119,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),annual_salary)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),annual_salary)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -130,7 +130,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),employee_name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -141,7 +141,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),job_history)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -152,7 +152,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.year)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),job_history.year)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -163,7 +163,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.company)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),job_history.company)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -174,7 +174,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.role)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),job_history.role)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -185,7 +185,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),department_budgets)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),department_budgets)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -196,7 +196,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),skills)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),skills)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -992,7 +992,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -1000,7 +1000,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),employee_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1011,7 +1011,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),annual_salary)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),annual_salary)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1022,7 +1022,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),employee_name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1033,7 +1033,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),job_history)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1044,7 +1044,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),department_budgets)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),department_budgets)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1055,7 +1055,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),skills)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket%2Ftest_table,PROD),skills)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [

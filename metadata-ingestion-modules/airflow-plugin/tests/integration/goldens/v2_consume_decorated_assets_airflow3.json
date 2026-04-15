@@ -333,7 +333,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/final-output/result.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Ffinal-output%2Fresult.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -454,7 +454,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/final-output/result.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Ffinal-output%2Fresult.parquet,PROD)"
             ]
         }
     }
@@ -474,7 +474,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/final-output/result.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Ffinal-output%2Fresult.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -504,7 +504,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/final-output/result.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Ffinal-output%2Fresult.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -582,7 +582,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,decorated_asset_producer,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/final-output/result.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Ffinal-output%2Fresult.parquet,PROD)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": []
@@ -604,7 +604,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/final-output/result.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Ffinal-output%2Fresult.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
@@ -691,7 +691,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/final-output/result.parquet,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Ffinal-output%2Fresult.parquet,PROD)"
             ]
         }
     }

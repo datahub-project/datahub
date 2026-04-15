@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests%2Fintegration%2Fexcel%2Fdata%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -95,7 +95,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests%2Fintegration%2Fexcel%2Fdata%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -319,7 +319,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests%2Fintegration%2Fexcel%2Fdata%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -423,7 +423,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests%2Fintegration%2Fexcel%2Fdata%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -439,7 +439,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests%2Fintegration%2Fexcel%2Fdata%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -455,7 +455,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,tests%2Fintegration%2Fexcel%2Fdata%2F[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
