@@ -339,7 +339,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/final-output/result.parquet",
+            "name": "my-bucket%2Ffinal-output%2Fresult.parquet",
             "origin": "PROD"
         }
     }
@@ -480,7 +480,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/final-output/result.parquet",
+            "name": "my-bucket%2Ffinal-output%2Fresult.parquet",
             "origin": "PROD"
         }
     }
@@ -610,7 +610,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/final-output/result.parquet",
+            "name": "my-bucket%2Ffinal-output%2Fresult.parquet",
             "origin": "PROD"
         }
     }

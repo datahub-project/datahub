@@ -219,7 +219,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:gcs",
-            "name": "analytics-bucket/raw/events.json",
+            "name": "analytics-bucket%2Fraw%2Fevents.json",
             "origin": "PROD"
         }
     }
@@ -232,7 +232,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "myhost%2Fmydb%2Fschema%2Fsource_table",
             "origin": "PROD"
         }
     }
@@ -245,7 +245,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/input/data.parquet",
+            "name": "my-bucket%2Finput%2Fdata.parquet",
             "origin": "PROD"
         }
     }
@@ -258,7 +258,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:bigquery",
-            "name": "my-project/dataset/result_table",
+            "name": "my-project%2Fdataset%2Fresult_table",
             "origin": "PROD"
         }
     }
@@ -271,7 +271,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/output/processed.parquet",
+            "name": "my-bucket%2Foutput%2Fprocessed.parquet",
             "origin": "PROD"
         }
     }
@@ -420,7 +420,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:gcs",
-            "name": "analytics-bucket/raw/events.json",
+            "name": "analytics-bucket%2Fraw%2Fevents.json",
             "origin": "PROD"
         }
     }
@@ -433,7 +433,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "myhost%2Fmydb%2Fschema%2Fsource_table",
             "origin": "PROD"
         }
     }
@@ -446,7 +446,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/input/data.parquet",
+            "name": "my-bucket%2Finput%2Fdata.parquet",
             "origin": "PROD"
         }
     }
@@ -459,7 +459,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:bigquery",
-            "name": "my-project/dataset/result_table",
+            "name": "my-project%2Fdataset%2Fresult_table",
             "origin": "PROD"
         }
     }
@@ -472,7 +472,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/output/processed.parquet",
+            "name": "my-bucket%2Foutput%2Fprocessed.parquet",
             "origin": "PROD"
         }
     }
@@ -626,7 +626,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:gcs",
-            "name": "analytics-bucket/raw/events.json",
+            "name": "analytics-bucket%2Fraw%2Fevents.json",
             "origin": "PROD"
         }
     }
@@ -639,7 +639,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "myhost%2Fmydb%2Fschema%2Fsource_table",
             "origin": "PROD"
         }
     }
@@ -652,7 +652,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/input/data.parquet",
+            "name": "my-bucket%2Finput%2Fdata.parquet",
             "origin": "PROD"
         }
     }
@@ -665,7 +665,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:bigquery",
-            "name": "my-project/dataset/result_table",
+            "name": "my-project%2Fdataset%2Fresult_table",
             "origin": "PROD"
         }
     }
@@ -678,7 +678,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/output/processed.parquet",
+            "name": "my-bucket%2Foutput%2Fprocessed.parquet",
             "origin": "PROD"
         }
     }
@@ -865,7 +865,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/input/data.parquet",
+            "name": "my-bucket%2Finput%2Fdata.parquet",
             "origin": "PROD"
         }
     }
@@ -891,7 +891,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/output/processed.parquet",
+            "name": "my-bucket%2Foutput%2Fprocessed.parquet",
             "origin": "PROD"
         }
     }
@@ -1038,7 +1038,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/input/data.parquet",
+            "name": "my-bucket%2Finput%2Fdata.parquet",
             "origin": "PROD"
         }
     }
@@ -1064,7 +1064,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/output/processed.parquet",
+            "name": "my-bucket%2Foutput%2Fprocessed.parquet",
             "origin": "PROD"
         }
     }
@@ -1218,7 +1218,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/input/data.parquet",
+            "name": "my-bucket%2Finput%2Fdata.parquet",
             "origin": "PROD"
         }
     }
@@ -1244,7 +1244,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "my-bucket/output/processed.parquet",
+            "name": "my-bucket%2Foutput%2Fprocessed.parquet",
             "origin": "PROD"
         }
     }

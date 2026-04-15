@@ -493,7 +493,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "/",
+            "name": "%2F",
             "origin": "DEV"
         }
     }

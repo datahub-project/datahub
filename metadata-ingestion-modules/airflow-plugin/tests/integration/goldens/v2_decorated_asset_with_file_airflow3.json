@@ -326,7 +326,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:file",
-            "name": "tmp/decorated_asset_output.txt",
+            "name": "tmp%2Fdecorated_asset_output.txt",
             "origin": "PROD"
         }
     }
@@ -441,7 +441,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:file",
-            "name": "tmp/decorated_asset_output.txt",
+            "name": "tmp%2Fdecorated_asset_output.txt",
             "origin": "PROD"
         }
     }
@@ -556,7 +556,7 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:file",
-            "name": "tmp/decorated_asset_output.txt",
+            "name": "tmp%2Fdecorated_asset_output.txt",
             "origin": "PROD"
         }
     }
