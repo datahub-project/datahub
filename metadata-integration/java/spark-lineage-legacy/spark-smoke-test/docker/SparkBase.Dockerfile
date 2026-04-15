@@ -28,7 +28,7 @@ RUN apt-get update -y && \
     rm -rf /var/tmp/* /tmp/* /var/lib/apt/lists/*
 
 # JPype1 builds from source: CMake FindJNI needs JAVA_HOME (unset by Zulu deb); its build also invokes ant.
-ENV JAVA_HOME=/usr/lib/jvm/zulu17-ca-amd64
+ENV JAVA_HOME=/usr/lib/jvm/zulu21-ca-amd64
 
 RUN set -e; \
     pip install JPype1
