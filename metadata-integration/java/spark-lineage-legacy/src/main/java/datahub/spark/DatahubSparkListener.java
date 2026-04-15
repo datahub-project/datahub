@@ -70,21 +70,26 @@ public class DatahubSparkListener extends SparkListener {
 
   /**
    * Serialize SparkListenerSQLExecutionStart to JSON string. Handles both Spark 3.4+ (Jackson API)
-   * and older versions (json4s API). Uses reflection for Spark 3.4+ since we compile against Spark
-   * 3.3.4 but need to support runtime versions up to 3.5+.
+   * and older versions. Uses reflection for Spark 3.4+ since we compile against Spark 3.3.4 but
+   * need to support runtime versions up to 3.5+.
    */
   private static String serializeSqlStartEvent(SparkListenerSQLExecutionStart event) {
     try {
-      if ("3.4".compareTo(package$.MODULE$.SPARK_VERSION()) <= 0) {
-        // Spark 3.4+: Use new Jackson-based API via reflection
-        // Method signature: public static String sparkEventToJsonString(SparkListenerEvent event)
+      String sparkVersion = package$.MODULE$.SPARK_VERSION();
+      // Parse version: "3.5.0" -> major=3, minor=5
+      String[] versionParts = sparkVersion.split("\\.");
+      int major = Integer.parseInt(versionParts[0]);
+      int minor = Integer.parseInt(versionParts[1]);
+
+      // Spark 3.4+: Use Jackson API
+      if (major > 3 || (major == 3 && minor >= 4)) {
         java.lang.reflect.Method method =
             JsonProtocol.class.getMethod("sparkEventToJsonString", SparkListenerEvent.class);
         return (String) method.invoke(null, event);
       } else {
-        // Spark < 3.4: Direct call to json4s-based API
-        return org.json4s.jackson.JsonMethods$.MODULE$.compact(
-            JsonProtocol.sparkEventToJson(event));
+        // Spark < 3.4: Use toString() fallback
+        log.debug("Spark {} < 3.4, using toString() fallback", sparkVersion);
+        return event.toString();
       }
     } catch (Exception e) {
       log.warn("Failed to serialize SQL execution event to JSON, using toString() fallback", e);
