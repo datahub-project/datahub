@@ -158,7 +158,11 @@ class Db2Source(SQLAlchemySource):
         # Db2 views on LUW and z/OS look up unqualified names in the schema from the session
         # when the view was created. Not the schema that the view itself lives in!
         database, schema, view = dataset_identifier.split(".")
-        implicit_schema_name = _db2_get_view_qualifier_quoted(inspector, schema, view)
+        implicit_schema_name = _db2_get_view_qualifier(inspector, schema, view)
+        if implicit_schema_name:
+            # the schema name must be quoted so that case-sensitive names make it through
+            # to the sqlglot lineage parser without being normalized.
+            implicit_schema_name = _quote_identifier(implicit_schema_name)
         return database, implicit_schema_name
 
     def get_procedures_for_schema(
@@ -188,7 +192,7 @@ class Db2Source(SQLAlchemySource):
             )
 
 
-def _db2_get_view_qualifier_quoted(
+def _db2_get_view_qualifier(
     inspector: Inspector, schema: str, view: str
 ) -> Optional[str]:
     if inspector.has_table("VIEWS", schema="SYSCAT"):
@@ -208,9 +212,7 @@ def _db2_get_view_qualifier_quoted(
         if not result:
             return None
 
-        # the schema name must be quoted so that case-sensitive names make it through
-        # to the sqlglot lineage parser without being normalized.
-        return _quote_identifier(result.rstrip())
+        return result.rstrip()
 
     elif inspector.has_table("SYSVIEWS", schema="SYSIBM"):
         # Db2 z/OS
@@ -252,9 +254,7 @@ def _db2_get_view_qualifier_quoted(
         if len(pathschemas) > 1:
             raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
 
-        # the schema name must be quoted so that case-sensitive names make it through
-        # to the sqlglot lineage parser without being normalized.
-        return _quote_identifier(pathschemas[0])
+        return pathschemas[0]
 
     elif inspector.has_table("SYSVIEWS", schema="QSYS2"):
         # Db2 i/AS400 doesn't have this concept.
