@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
 )
+from datahub.utilities.urn_encoder import UrnEncoder
 
 if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
@@ -209,8 +210,9 @@ class FeatureGroupProcessor:
                     )
                 )
 
+                encoded_name = UrnEncoder.encode_string(full_table_name)
                 feature_sources.append(
-                    f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+                    f"urn:li:dataset:(urn:li:dataPlatform:glue,{encoded_name},{self.env})"
                 )
 
         # note that there's also an OnlineStoreConfig field, but this
