@@ -341,7 +341,10 @@ class KafkaProfiler:
         # Handle key schema if present
         if schema_metadata.platformSchema.keySchema:
             try:
-                key_schema = avro.schema.parse(schema_metadata.platformSchema.keySchema)
+                key_schema = avro.schema.parse(
+                    schema_metadata.platformSchema.keySchema,
+                    validate_names=False,
+                )
                 if hasattr(key_schema, "fields"):
                     for schema_field in key_schema.fields:
                         clean_name = clean_field_path(

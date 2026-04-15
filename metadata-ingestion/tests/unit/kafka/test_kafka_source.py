@@ -55,7 +55,6 @@ def test_kafka_source_configuration(mock_kafka):
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_profiling_enabled_check(mock_kafka):
-    """Test is_profiling_enabled method in KafkaSource"""
     ctx = PipelineContext(run_id="test")
 
     # Test with profiling disabled
@@ -77,7 +76,6 @@ def test_kafka_source_profiling_enabled_check(mock_kafka):
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_profiling_config_inheritance(mock_kafka):
-    """Test that Kafka source properly uses GEProfilingConfig inheritance"""
     ctx = PipelineContext(run_id="test")
 
     config = KafkaSourceConfig.parse_obj(
@@ -115,7 +113,6 @@ def test_kafka_source_profiling_config_inheritance(mock_kafka):
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 @patch("datahub.ingestion.source.kafka.kafka.KafkaProfiler.profile_topic")
 def test_kafka_source_create_profiling_wu(mock_profile_topic, mock_kafka):
-    """Test create_profiling_wu method uses static profiler method"""
     from datahub.metadata.schema_classes import (
         DatasetProfileClass,
         PartitionSpecClass,
@@ -172,7 +169,6 @@ def test_kafka_source_create_profiling_wu(mock_profile_topic, mock_kafka):
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_uses_is_profiling_enabled(mock_kafka):
-    """Test that KafkaSource uses is_profiling_enabled method"""
     ctx = PipelineContext(run_id="test")
 
     # Test with profiling disabled

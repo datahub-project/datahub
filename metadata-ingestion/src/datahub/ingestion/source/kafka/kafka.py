@@ -99,6 +99,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
+    DatasetProfileClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
     SchemaMetadataClass,
@@ -481,8 +482,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     f"Schema resolution complete: {value_schemas_resolved} value schemas and {key_schemas_resolved} key schemas resolved for {len(topics_needing_resolution)} topics"
                 )
 
-        # Process topics sequentially (fast since schemas are pre-fetched) and collect profiling tasks
-        profiling_tasks = []
+        # Process topics sequentially (schemas are pre-fetched) and collect profiling tasks
+        collection_tasks: List[Tuple[str, str, Optional[SchemaMetadataClass]]] = []
 
         for topic, topic_detail in allowed_topics:
             try:
@@ -506,7 +507,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     self.source_config.profiling.enabled
                     and self.source_config.is_profiling_enabled()
                 ):
-                    # Check if we have any schema information (from registry or inference)
                     has_schema_info = (
                         value_schema is not None
                         or key_schema is not None
@@ -521,7 +521,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         )
                         continue
 
-                    # Build dataset URN
                     dataset_urn = make_dataset_urn_with_platform_instance(
                         platform=self.platform,
                         name=topic,
@@ -529,7 +528,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         env=self.source_config.env,
                     )
 
-                    # Build schema metadata (we know we have schema info at this point)
                     schema_metadata = (
                         self.schema_registry_client.build_schema_metadata_with_key(
                             topic,
@@ -541,19 +539,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         )
                     )
 
-                    # Collect samples for profiling (we have schema context for better profiling)
-                    samples = self.get_sample_messages(topic)
-                    if samples:
-                        profiling_tasks.append(
-                            (dataset_urn, topic, samples, schema_metadata)
-                        )
-                        logger.debug(
-                            f"Added profiling task for topic {topic} with {len(samples)} samples"
-                        )
-                    else:
-                        logger.debug(
-                            f"No samples collected for topic {topic}, skipping profiling"
-                        )
+                    collection_tasks.append((dataset_urn, topic, schema_metadata))
+                    logger.debug(f"Queued profiling task for topic {topic}")
 
             except Exception as e:
                 logger.warning(f"Failed to extract topic {topic}", exc_info=True)
@@ -561,12 +548,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     "topic", f"Exception while extracting topic {topic}: {e}"
                 )
 
-        # Process all profiling tasks in parallel
-        if profiling_tasks:
-            logger.info(
-                f"Processing {len(profiling_tasks)} profiling tasks in parallel"
-            )
-            yield from self.generate_profiles_in_parallel(profiling_tasks)
+        # Collect samples and compute profiles in parallel — each worker owns its consumer
+        if collection_tasks:
+            yield from self.generate_profiles_in_parallel(collection_tasks)
 
         if self.source_config.ingest_schemas_as_entities:
             # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
@@ -583,22 +567,30 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         "subject", f"Exception while extracting topic {subject}: {e}"
                     )
 
-    def get_sample_messages(self, topic: str) -> Optional[List[Dict[str, Any]]]:
+    def get_sample_messages(
+        self,
+        topic: str,
+        consumer: Optional[confluent_kafka.Consumer] = None,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
+    ) -> Optional[List[Dict[str, Any]]]:
         """Get sample messages from Kafka topic using configured strategy and optimizations."""
+
+        _consumer = consumer if consumer is not None else self.consumer
 
         logger.info(
             f"Collecting samples from topic {topic} using {self.source_config.profiling.sampling_strategy} strategy"
         )
         samples: List[Dict[str, Any]] = []
 
-        # Pre-fetch and cache schema metadata to avoid repeated parsing
-        schema_metadata = self.schema_registry_client.get_schema_metadata(
-            topic, make_data_platform_urn(self.platform), False
-        )
+        # Use provided schema_metadata or fetch it
+        if schema_metadata is None:
+            schema_metadata = self.schema_registry_client.get_schema_metadata(
+                topic, make_data_platform_urn(self.platform), False
+            )
 
         try:
             # Get metadata for all partitions
-            topic_metadata = self.consumer.list_topics(
+            topic_metadata = _consumer.list_topics(
                 topic, timeout=self.source_config.connection.client_timeout_seconds
             ).topics[topic]
             partitions = [
@@ -616,15 +608,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             total_sample_size = self.source_config.profiling.sample_size
             partition_sample_size = max(
                 total_sample_size // len(partitions),
-                min(
-                    50, total_sample_size
-                ),  # Minimum 50 messages per partition or total if smaller
+                min(50, total_sample_size),
             )
 
             # Get watermark offsets for all partitions
             watermarks = {}
             for partition in partitions:
-                low, high = self.consumer.get_watermark_offsets(partition)
+                low, high = _consumer.get_watermark_offsets(partition)
                 watermarks[partition.partition] = (low, high)
 
             # Different sampling approaches based on strategy
@@ -638,6 +628,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     samples,
                     topic,
                     schema_metadata,
+                    consumer=_consumer,
                 )
             elif strategy == "random":
                 self._get_random_samples(
@@ -647,6 +638,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     samples,
                     topic,
                     schema_metadata,
+                    consumer=_consumer,
                 )
             elif strategy == "stratified":
                 self._get_stratified_samples(
@@ -656,6 +648,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     samples,
                     topic,
                     schema_metadata,
+                    consumer=_consumer,
                 )
             elif strategy == "full":
                 self._get_full_samples(
@@ -665,6 +658,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     samples,
                     topic,
                     schema_metadata,
+                    consumer=_consumer,
                 )
             else:
                 logger.warning(
@@ -677,11 +671,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     samples,
                     topic,
                     schema_metadata,
+                    consumer=_consumer,
                 )
 
             logger.info(f"Collected {len(samples)} samples from topic {topic}")
-
-            # Return samples directly (no caching needed)
 
         except (
             confluent_kafka.KafkaException,
@@ -690,14 +683,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             KeyError,
             json.JSONDecodeError,
         ) as e:
-            # Catch expected errors: Kafka connection issues, data parsing errors
             self.report.report_warning(
                 "profiling", f"Failed to collect samples from {topic}: {str(e)}"
             )
-            # Let critical errors propagate: MemoryError, AuthenticationError, etc.
         finally:
             try:
-                self.consumer.unassign()
+                _consumer.unassign()
             except Exception as e:
                 self.report.report_warning(
                     "profiling", f"Failed to unassign consumer: {str(e)}"
@@ -713,19 +704,25 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         samples: List[Dict[str, Any]],
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
+        consumer: Optional[confluent_kafka.Consumer] = None,
     ) -> None:
-        """Optimized version that uses batch processing and pre-cached schema."""
-        # Set offsets to read from end of partitions
+        total_available = 0
         for partition in partitions:
             low, high = watermarks[partition.partition]
-            if high <= low:  # Empty partition
+            if high <= low:
                 continue
-
-            # Start from calculated position at the end
             start_offset = max(low, high - partition_sample_size)
             partition.offset = start_offset
+            total_available += high - start_offset
 
-        self._read_messages_in_batches(partitions, samples, topic, schema_metadata)
+        self._read_messages_in_batches(
+            partitions,
+            samples,
+            topic,
+            schema_metadata,
+            consumer=consumer,
+            max_available=total_available,
+        )
 
     def _get_random_samples(
         self,
@@ -735,25 +732,32 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         samples: List[Dict[str, Any]],
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
+        consumer: Optional[confluent_kafka.Consumer] = None,
     ) -> None:
-        """Optimized random sampling with batch processing."""
+        total_available = 0
         for partition in partitions:
             low, high = watermarks[partition.partition]
-            if high <= low:  # Empty partition
+            if high <= low:
                 continue
-
             range_size = high - low
             if range_size <= partition_sample_size:
-                # If range is smaller than sample size, read everything
                 partition.offset = low
+                total_available += range_size
             else:
-                # Pick a random starting point
                 random_start = low + random.randint(
                     0, range_size - partition_sample_size
                 )
                 partition.offset = random_start
+                total_available += partition_sample_size
 
-        self._read_messages_in_batches(partitions, samples, topic, schema_metadata)
+        self._read_messages_in_batches(
+            partitions,
+            samples,
+            topic,
+            schema_metadata,
+            consumer=consumer,
+            max_available=total_available,
+        )
 
     def _get_stratified_samples(
         self,
@@ -763,38 +767,45 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         samples: List[Dict[str, Any]],
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
+        consumer: Optional[confluent_kafka.Consumer] = None,
     ) -> None:
-        """Optimized stratified sampling using batch processing where possible."""
+        _consumer = consumer or self.consumer
         for partition in partitions:
             low, high = watermarks[partition.partition]
-            if high <= low:  # Empty partition
+            if high <= low:
                 continue
 
             range_size = high - low
             if range_size <= partition_sample_size:
-                # If range is smaller than sample size, read everything in batch
                 partition.offset = low
-                self.consumer.assign([partition])
                 self._read_messages_in_batches(
-                    [partition], samples, topic, schema_metadata
+                    [partition],
+                    samples,
+                    topic,
+                    schema_metadata,
+                    consumer=_consumer,
+                    max_available=range_size,
                 )
             else:
-                # For stratified sampling, we still need to read individual messages at specific offsets
-                # But we can optimize by reducing the number of seeks
                 num_samples = min(partition_sample_size, range_size)
                 stride = range_size / num_samples
 
-                # Read multiple messages in smaller batches to reduce seeks
-                for i in range(0, num_samples, 10):  # Process in batches of 10
+                # Single assign for the partition; seek to each stratum start to avoid
+                # the cost of N/10 redundant assign() round-trips to the broker.
+                first_tp = confluent_kafka.TopicPartition(
+                    partition.topic, partition.partition, low
+                )
+                _consumer.assign([first_tp])
+
+                for i in range(0, num_samples, 10):
                     batch_end = min(i + 10, num_samples)
                     start_offset = low + int(i * stride)
-
-                    partition.offset = start_offset
-                    self.consumer.assign([partition])
-
-                    # Read a small batch from this position
+                    seek_tp = confluent_kafka.TopicPartition(
+                        partition.topic, partition.partition, start_offset
+                    )
+                    _consumer.seek(seek_tp)
                     for _ in range(batch_end - i):
-                        msg = self.consumer.poll(timeout=1.0)
+                        msg = _consumer.poll(timeout=1.0)
                         if msg and not msg.error():
                             self._process_message_to_sample(
                                 msg, samples, topic, schema_metadata
@@ -808,17 +819,24 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         samples: List[Dict[str, Any]],
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
+        consumer: Optional[confluent_kafka.Consumer] = None,
     ) -> None:
-        """Optimized full sampling with batch processing."""
-        # Start from beginning for all partitions
+        total_available = 0
         for partition in partitions:
             low, high = watermarks[partition.partition]
-            if high <= low:  # Empty partition
+            if high <= low:
                 continue
-
             partition.offset = low
+            total_available += high - low
 
-        self._read_messages_in_batches(partitions, samples, topic, schema_metadata)
+        self._read_messages_in_batches(
+            partitions,
+            samples,
+            topic,
+            schema_metadata,
+            consumer=consumer,
+            max_available=total_available,
+        )
 
     def _read_messages_in_batches(
         self,
@@ -826,24 +844,27 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         samples: List[Dict[str, Any]],
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
+        consumer: Optional[confluent_kafka.Consumer] = None,
+        max_available: Optional[int] = None,
     ) -> None:
-        """Optimized batch processing with pre-cached schema metadata."""
-        self.consumer.assign(partitions)
+        _consumer = consumer or self.consumer
+        _consumer.assign(partitions)
 
-        # Read until we have enough samples or time out
         end_time = datetime.now() + timedelta(
             seconds=float(self.source_config.profiling.max_sample_time_seconds)
         )
         batch_size = self.source_config.profiling.batch_size
+        # Clamp to the number of messages actually available so we don't block
+        # on consume() waiting for messages that will never arrive.
         total_needed = self.source_config.profiling.sample_size
+        if max_available is not None:
+            total_needed = min(total_needed, max_available)
         samples_attempted = 0
         samples_failed = 0
 
-        # Process messages in larger batches for better performance
         while len(samples) < total_needed and datetime.now() < end_time:
-            # Use consume() method for better batch processing
             batch_count = min(batch_size, total_needed - len(samples))
-            messages = self.consumer.consume(
+            messages = _consumer.consume(
                 num_messages=batch_count, timeout=DEFAULT_CONSUMER_TIMEOUT_SECONDS
             )
 
@@ -1130,45 +1151,68 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=dataset_profile,
             ).as_workunit()
 
+    def _collect_and_profile_topic(
+        self,
+        entity_urn: str,
+        topic: str,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Optional[Tuple[str, DatasetProfileClass]]:
+        """Thread-safe: creates its own consumer, collects samples, runs profiling."""
+        consumer = get_kafka_consumer(self.source_config.connection)
+        try:
+            samples = self.get_sample_messages(
+                topic, consumer=consumer, schema_metadata=schema_metadata
+            )
+        finally:
+            try:
+                consumer.close()
+            except Exception:
+                pass
+
+        if not samples:
+            logger.debug(f"No samples collected for topic {topic}, skipping profiling")
+            return None
+
+        profile = KafkaProfiler.profile_topic(
+            topic, samples, schema_metadata, self.source_config.profiling
+        )
+        return (entity_urn, profile) if profile else None
+
     def generate_profiles_in_parallel(
         self,
-        profiling_tasks: List[
-            Tuple[str, str, List[Dict[str, Any]], Optional[SchemaMetadataClass]]
-        ],
+        collection_tasks: List[Tuple[str, str, Optional[SchemaMetadataClass]]],
     ) -> Iterable[MetadataWorkUnit]:
-        if not profiling_tasks:
+        if not collection_tasks:
             return
 
         max_workers = min(
-            self.source_config.profiling.max_workers or 1, len(profiling_tasks)
+            self.source_config.profiling.max_workers or 1, len(collection_tasks)
         )
 
         logger.info(
-            f"Profiling {len(profiling_tasks)} topics with {max_workers} workers"
+            f"Collecting and profiling {len(collection_tasks)} topics with {max_workers} workers"
         )
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all profiling tasks
             future_to_task: Dict[Future, Tuple[str, str]] = {}
 
-            for entity_urn, topic_name, samples, schema_metadata in profiling_tasks:
+            for entity_urn, topic_name, schema_metadata in collection_tasks:
                 future = executor.submit(
-                    KafkaProfiler.profile_topic,
+                    self._collect_and_profile_topic,
+                    entity_urn,
                     topic_name,
-                    samples,
                     schema_metadata,
-                    self.source_config.profiling,
                 )
                 future_to_task[future] = (entity_urn, topic_name)
 
-            # Collect results as they complete
             for future in concurrent.futures.as_completed(future_to_task):
                 entity_urn, topic_name = future_to_task[future]
                 try:
-                    dataset_profile = future.result()
-                    if dataset_profile:
+                    result = future.result()
+                    if result:
+                        urn, dataset_profile = result
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=entity_urn,
+                            entityUrn=urn,
                             aspect=dataset_profile,
                         ).as_workunit()
                         logger.debug(f"Successfully profiled topic: {topic_name}")
@@ -1268,7 +1312,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             and schema_metadata.platformSchema.documentSchemaType == SCHEMA_TYPE_AVRO
         ):
             avro_schema = avro.schema.parse(
-                schema_metadata.platformSchema.documentSchema
+                schema_metadata.platformSchema.documentSchema,
+                validate_names=False,
             )
             description = getattr(avro_schema, "doc", None)
 
