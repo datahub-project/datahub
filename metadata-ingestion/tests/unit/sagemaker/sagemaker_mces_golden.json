@@ -383,7 +383,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket%2Ffile_txt,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -407,7 +407,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket%2Ffile_txt,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -430,7 +430,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket%2Finput-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -455,7 +455,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket%2Foutput-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -480,7 +480,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Fdata-source.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -503,7 +503,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Fcategory-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -526,7 +526,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Foutput-dataset.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -549,7 +549,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Foutput-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -572,7 +572,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job%2Finput-data.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -600,7 +600,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Finput-dataset.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -627,7 +627,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Foutput-data.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -650,7 +650,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fcheckpoint-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -673,7 +673,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fdebug-hook-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -696,7 +696,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Ftensorboard-output-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -719,7 +719,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fprofiler-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -742,7 +742,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fdebug-rule-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -765,7 +765,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fprofiler-rule-config.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -788,7 +788,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job%2Finput-data-source.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -814,7 +814,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job%2Foutput.tar_gz,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -857,7 +857,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job%2Fan-auto-ml-job)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -900,10 +900,10 @@
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
                         "inputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket%2Ffile_txt,PROD)"
                         ],
                         "outputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket%2Ffile_txt,PROD)"
                         ],
                         "inputDatajobs": []
                     }
@@ -919,7 +919,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job%2Fan-auto-ml-job)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -960,7 +960,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job%2Fa-compilation-job)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1001,10 +1001,10 @@
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
                         "inputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket%2Finput-config.tar_gz,PROD)"
                         ],
                         "outputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket%2Foutput-config.tar_gz,PROD)"
                         ],
                         "inputDatajobs": []
                     }
@@ -1020,7 +1020,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job%2Fa-compilation-job)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1061,7 +1061,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job%2Fa-hyper-parameter-tuning-job)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1116,7 +1116,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job%2Fa-hyper-parameter-tuning-job)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1157,7 +1157,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job%2Fa-labeling-job)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1200,12 +1200,12 @@
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
                         "inputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Fcategory-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Fdata-source.tar_gz,PROD)"
                         ],
                         "outputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Foutput-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Foutput-dataset.tar_gz,PROD)"
                         ],
                         "inputDatajobs": []
                     }
@@ -1221,7 +1221,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job%2Fa-labeling-job)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1262,7 +1262,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job%2Fa-processing-job)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1308,12 +1308,12 @@
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
                         "inputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job%2Finput-data.tar_gz,PROD)"
                         ],
                         "outputDatasets": [],
                         "inputDatajobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job%2Fan-auto-ml-job)",
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job%2Fa-training-job)"
                         ]
                     }
                 }
@@ -1328,7 +1328,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job%2Fa-processing-job)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1369,7 +1369,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job%2Fa-training-job)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1434,16 +1434,16 @@
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
                         "inputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Finput-dataset.tar_gz,PROD)"
                         ],
                         "outputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fcheckpoint-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fdebug-hook-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fdebug-rule-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Foutput-data.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fprofiler-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fprofiler-rule-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Ftensorboard-output-config.tar_gz,PROD)"
                         ],
                         "inputDatajobs": []
                     }
@@ -1459,7 +1459,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job%2Fa-training-job)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1500,7 +1500,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job%2Fa-transform-job)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1545,14 +1545,14 @@
                 {
                     "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
                         "inputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job%2Finput-data-source.tar_gz,PROD)"
                         ],
                         "outputDatasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)"
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job%2Foutput.tar_gz,PROD)"
                         ],
                         "inputDatajobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job%2Fan-auto-ml-job)",
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job%2Fa-labeling-job)"
                         ]
                     }
                 }
@@ -1567,7 +1567,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job%2Fa-transform-job)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1729,7 +1729,7 @@
                         },
                         "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
                         "trainingJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job%2Fa-training-job)"
                         ],
                         "downstreamJobs": [],
                         "date": 1420070400000,
@@ -1816,10 +1816,10 @@
                         },
                         "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-second-model",
                         "trainingJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job%2Fa-training-job)"
                         ],
                         "downstreamJobs": [
-                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job%2Fa-transform-job)"
                         ],
                         "date": 1420070400000,
                         "hyperParams": [
@@ -2001,7 +2001,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job%2Fan-auto-ml-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2017,7 +2017,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job%2Fa-compilation-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2033,7 +2033,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job%2Fa-hyper-parameter-tuning-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2049,7 +2049,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job%2Fa-labeling-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2065,7 +2065,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job%2Fa-processing-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2081,7 +2081,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job%2Fa-training-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2097,7 +2097,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job%2Fa-transform-job)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2113,7 +2113,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket%2Ffile_txt,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2129,7 +2129,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket%2Ffile_txt,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2145,7 +2145,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket%2Finput-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2161,7 +2161,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket%2Foutput-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2177,7 +2177,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Fcategory-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2193,7 +2193,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Fdata-source.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2209,7 +2209,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Foutput-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2225,7 +2225,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job%2Foutput-dataset.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2241,7 +2241,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job%2Finput-data.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2257,7 +2257,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fcheckpoint-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2273,7 +2273,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fdebug-hook-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2289,7 +2289,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fdebug-rule-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2305,7 +2305,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Finput-dataset.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2321,7 +2321,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Foutput-data.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2337,7 +2337,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fprofiler-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2353,7 +2353,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Fprofiler-rule-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2369,7 +2369,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job%2Ftensorboard-output-config.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2385,7 +2385,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job%2Finput-data-source.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2401,7 +2401,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job%2Foutput.tar_gz,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

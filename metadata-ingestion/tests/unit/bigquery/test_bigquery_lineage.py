@@ -207,23 +207,23 @@ def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
     upstream_lineage = extractor.get_lineage_for_external_table(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)",
         source_uris=[
-            "gs://bigquery_data/customer1/*.parquet",
-            "gs://bigquery_data/customer2/*.parquet",
-            "gs://bigquery_data/customer3/my_table/*.parquet",
+            "gs://bigquery_data%2Fcustomer1/*.parquet",
+            "gs://bigquery_data%2Fcustomer2/*.parquet",
+            "gs://bigquery_data%2Fcustomer3%2Fmy_table/*.parquet",
         ],
         graph=pipeline_context.graph,
     )
 
     expected_schema_field_urns = [
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD),age)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD),firstname)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD),lastname)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD),age)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD),firstname)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD),lastname)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD),age)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD),firstname)",
-        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD),lastname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer1,PROD),age)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer1,PROD),firstname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer1,PROD),lastname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer2,PROD),age)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer2,PROD),firstname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer2,PROD),lastname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer3%2Fmy_table,PROD),age)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer3%2Fmy_table,PROD),firstname)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer3%2Fmy_table,PROD),lastname)",
     ]
     assert upstream_lineage
     assert len(upstream_lineage.upstreams) == 3
@@ -277,17 +277,17 @@ def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_inst
     upstream_lineage = extractor.get_lineage_for_external_table(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)",
         source_uris=[
-            "gs://bigquery_data/customer1/*.parquet",
-            "gs://bigquery_data/customer2/*.parquet",
-            "gs://bigquery_data/customer3/my_table/*.parquet",
+            "gs://bigquery_data%2Fcustomer1/*.parquet",
+            "gs://bigquery_data%2Fcustomer2/*.parquet",
+            "gs://bigquery_data%2Fcustomer3%2Fmy_table/*.parquet",
         ],
         graph=pipeline_context.graph,
     )
 
     expected_dataset_urns = [
-        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer1,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer2,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data/customer3/my_table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,bigquery_data%2Fcustomer3%2Fmy_table,PROD)",
     ]
     assert upstream_lineage
     assert len(upstream_lineage.upstreams) == 3
@@ -358,8 +358,8 @@ def test_lineage_for_external_table_path_not_matching_specs(
     upstream_lineage = extractor.get_lineage_for_external_table(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)",
         source_uris=[
-            "gs://bigquery_data/customer1/*.parquet",
-            "gs://bigquery_data/customer2/*.parquet",
+            "gs://bigquery_data%2Fcustomer1/*.parquet",
+            "gs://bigquery_data%2Fcustomer2/*.parquet",
         ],
         graph=pipeline_context.graph,
     )

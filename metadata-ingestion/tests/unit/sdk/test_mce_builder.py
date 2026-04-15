@@ -35,7 +35,7 @@ def test_create_urns_with_reserved_chars() -> None:
             name=f"table{_RESERVED_CHARS_STRING}",
             env=builder.DEFAULT_ENV,
         )
-        == "urn:li:dataset:(urn:li:dataPlatform:platform%29%%28%29%2C%E2%90%9F,table%%28%29%2C%E2%90%9F,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:platform%29%%28%29%2C%2F%E2%90%9F,table%%28%29%2C%2F%E2%90%9F,PROD)"
     )
     assert (
         builder.make_dataset_urn_with_platform_instance(
@@ -44,13 +44,13 @@ def test_create_urns_with_reserved_chars() -> None:
             platform_instance=f"platform-instance{_RESERVED_CHARS_STRING}",
             env=builder.DEFAULT_ENV,
         )
-        == "urn:li:dataset:(urn:li:dataPlatform:platform%29%%28%29%2C%E2%90%9F,platform-instance%%28%29%2C%E2%90%9F.table%%28%29%2C%E2%90%9F,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:platform%29%%28%29%2C%2F%E2%90%9F,platform-instance%%28%29%2C%2F%E2%90%9F.table%%28%29%2C%2F%E2%90%9F,PROD)"
     )
     assert (
         builder.make_data_platform_urn(
             f"platform{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:dataPlatform:platform%%28%29%2C%E2%90%9F"
+        == "urn:li:dataPlatform:platform%%28%29%2C%2F%E2%90%9F"
     )
     assert (
         builder.make_data_flow_urn(
@@ -59,7 +59,7 @@ def test_create_urns_with_reserved_chars() -> None:
             cluster=f"cluster{_RESERVED_CHARS_STRING}",
             platform_instance=f"platform{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:dataFlow:(orchestrator%%28%29%2C%E2%90%9F,platform%%28%29%2C%E2%90%9F.flowid%%28%29%2C%E2%90%9F,cluster%%28%29%2C%E2%90%9F)"
+        == "urn:li:dataFlow:(orchestrator%%28%29%2C%2F%E2%90%9F,platform%%28%29%2C%2F%E2%90%9F.flowid%%28%29%2C%2F%E2%90%9F,cluster%%28%29%2C%2F%E2%90%9F)"
     )
     assert (
         builder.make_data_job_urn(
@@ -69,19 +69,19 @@ def test_create_urns_with_reserved_chars() -> None:
             platform_instance=f"platform{_RESERVED_CHARS_STRING}",
             job_id=f"job_name{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:dataJob:(urn:li:dataFlow:(orchestrator%%28%29%2C%E2%90%9F,platform%%28%29%2C%E2%90%9F.flowid%%28%29%2C%E2%90%9F,cluster%%28%29%2C%E2%90%9F),job_name%%28%29%2C%E2%90%9F)"
+        == "urn:li:dataJob:(urn:li:dataFlow:(orchestrator%%28%29%2C%2F%E2%90%9F,platform%%28%29%2C%2F%E2%90%9F.flowid%%28%29%2C%2F%E2%90%9F,cluster%%28%29%2C%2F%E2%90%9F),job_name%%28%29%2C%2F%E2%90%9F)"
     )
     assert (
         builder.make_user_urn(
             username=f"user{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:corpuser:user%%28%29%2C%E2%90%9F"
+        == "urn:li:corpuser:user%%28%29%2C%2F%E2%90%9F"
     )
     assert (
         builder.make_group_urn(
             groupname=f"group{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:corpGroup:group%%28%29%2C%E2%90%9F"
+        == "urn:li:corpGroup:group%%28%29%2C%2F%E2%90%9F"
     )
     assert (
         builder.make_dashboard_urn(
@@ -89,14 +89,14 @@ def test_create_urns_with_reserved_chars() -> None:
             name=f"dashboard{_RESERVED_CHARS_STRING}",
             platform_instance=f"platform-instance{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:dashboard:(platform%%28%29%2C%E2%90%9F,platform-instance%%28%29%2C%E2%90%9F.dashboard%%28%29%2C%E2%90%9F)"
+        == "urn:li:dashboard:(platform%%28%29%2C%2F%E2%90%9F,platform-instance%%28%29%2C%2F%E2%90%9F.dashboard%%28%29%2C%2F%E2%90%9F)"
     )
     assert (
         builder.make_dashboard_urn(
             platform=f"platform{_RESERVED_CHARS_STRING}",
             name=f"dashboard{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:dashboard:(platform%%28%29%2C%E2%90%9F,dashboard%%28%29%2C%E2%90%9F)"
+        == "urn:li:dashboard:(platform%%28%29%2C%2F%E2%90%9F,dashboard%%28%29%2C%2F%E2%90%9F)"
     )
     assert (
         builder.make_chart_urn(
@@ -104,14 +104,14 @@ def test_create_urns_with_reserved_chars() -> None:
             name=f"dashboard{_RESERVED_CHARS_STRING}",
             platform_instance=f"platform-instance{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:chart:(platform%%28%29%2C%E2%90%9F,platform-instance%%28%29%2C%E2%90%9F.dashboard%%28%29%2C%E2%90%9F)"
+        == "urn:li:chart:(platform%%28%29%2C%2F%E2%90%9F,platform-instance%%28%29%2C%2F%E2%90%9F.dashboard%%28%29%2C%2F%E2%90%9F)"
     )
     assert (
         builder.make_chart_urn(
             platform=f"platform{_RESERVED_CHARS_STRING}",
             name=f"dashboard{_RESERVED_CHARS_STRING}",
         )
-        == "urn:li:chart:(platform%%28%29%2C%E2%90%9F,dashboard%%28%29%2C%E2%90%9F)"
+        == "urn:li:chart:(platform%%28%29%2C%2F%E2%90%9F,dashboard%%28%29%2C%2F%E2%90%9F)"
     )
 
 

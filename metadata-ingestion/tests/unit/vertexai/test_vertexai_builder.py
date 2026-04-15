@@ -81,7 +81,7 @@ class TestVertexAIURIParser:
         urns = parser.dataset_urns_from_artifact_uri("gs://my-bucket/path/to/data")
         assert len(urns) == 1
         assert "urn:li:dataset:(urn:li:dataPlatform:gcs," in urns[0]
-        assert "my-bucket/path/to/data" in urns[0]
+        assert "my-bucket%2Fpath%2Fto%2Fdata" in urns[0]
 
     def test_bigquery_bq_protocol_parsing(self, parser: VertexAIURIParser) -> None:
         urns = parser.dataset_urns_from_artifact_uri("bq://project.dataset.table")
@@ -111,7 +111,7 @@ class TestVertexAIURIParser:
             urns = parser.dataset_urns_from_artifact_uri(uri)
             assert len(urns) == 1
             assert "urn:li:dataset:(urn:li:dataPlatform:abs," in urns[0]
-            assert "container/path/to/data" in urns[0]
+            assert "container%2Fpath%2Fto%2Fdata" in urns[0]
 
     def test_snowflake_uri_parsing(self, parser: VertexAIURIParser) -> None:
         urns = parser.dataset_urns_from_artifact_uri(
@@ -143,7 +143,7 @@ class TestVertexAIURIParser:
             "gs://bucket/data/year=2024/month=01/day=15/file.parquet"
         )
         assert len(urns) == 1
-        assert "bucket/data/" in urns[0]
+        assert "bucket%2Fdata%2F" in urns[0]
         assert "year=" not in urns[0]
         assert "month=" not in urns[0]
         assert "day=" not in urns[0]
@@ -155,7 +155,7 @@ class TestVertexAIURIParser:
             "gs://bucket/data/regular-folder/file.parquet"
         )
         assert len(urns) == 1
-        assert "bucket/data/regular-folder" in urns[0]
+        assert "bucket%2Fdata%2Fregular-folder" in urns[0]
 
     def test_model_urn_from_artifact_uri(self, parser: VertexAIURIParser) -> None:
         valid_uri = "projects/my-proj/locations/us-central1/models/12345"
@@ -181,8 +181,8 @@ class TestVertexAIURIParser:
         assert isinstance(result, ArtifactURNs)
         assert len(result.input_urns) > 0
         assert len(result.output_urns) > 0
-        assert any("bucket/input/data" in urn for urn in result.input_urns)
-        assert any("bucket/output" in urn for urn in result.output_urns)
+        assert any("bucket%2Finput%2Fdata" in urn for urn in result.input_urns)
+        assert any("bucket%2Foutput" in urn for urn in result.output_urns)
 
     def test_extract_external_uris_handles_jobs_without_uris(
         self, parser: VertexAIURIParser

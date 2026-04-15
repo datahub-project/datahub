@@ -6,7 +6,7 @@ urn:li:abc:(urn:li:dataPlatform:abc,def,prod)
 # A bunch of pretty normal urns
 urn:li:corpuser:foo
 urn:li:corpGroup:bar
-urn:li:dataset:(urn:li:dataPlatform:abc,def/ghi,PROD)
+urn:li:dataset:(urn:li:dataPlatform:abc,def%2Fghi,PROD)
 urn:li:dataFlow:(airflow,def,PROD)
 urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)
 urn:li:tag:abc
@@ -25,9 +25,9 @@ urn:li:corpuser:foo:bar@example.com
 
 # From java test cases
 urn:li:corpuser:foo:bar
-urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)
+urn:li:dataset:(urn:li:dataPlatform:hdfs,%2Fpath%2Fto%2Fdata,PROD)
 urn:li:dataPlatform:abc:def
-urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29,PROD)
+urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts%2Fprog_maintenance%2CPROD%29,PROD)
 urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.dataset.table,PROD)
 urn:li:assertion:123=-%28__% weekly__%29
 urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts%prog_maintenance%2CPROD%29,PROD)

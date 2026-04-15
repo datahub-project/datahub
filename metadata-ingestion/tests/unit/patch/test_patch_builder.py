@@ -266,15 +266,15 @@ def test_datajob_patch_builder(created_on, last_modified, expected_actor):
     patcher = DataJobPatchBuilder(job_urn)
     patcher.add_output_dataset(
         make_edge_or_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder1,DEV)"
         )
     ).add_output_dataset(
         make_edge_or_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder3,DEV)"
         )
     ).add_output_dataset(
         make_edge_or_urn(
-            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder2,DEV)"
         )
     ).add_fine_grained_lineage(
         fine_grained_lineage=FineGrainedLineageClass(
@@ -374,23 +374,23 @@ def test_datajob_patch_builder(created_on, last_modified, expected_actor):
                     [
                         {
                             "op": "add",
-                            "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder1,DEV)",
+                            "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder1,DEV)",
                             "value": get_edge_expectation(
-                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder1,DEV)"
                             ),
                         },
                         {
                             "op": "add",
-                            "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder3,DEV)",
+                            "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder3,DEV)",
                             "value": get_edge_expectation(
-                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder3,DEV)"
                             ),
                         },
                         {
                             "op": "add",
-                            "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder2,DEV)",
+                            "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder2,DEV)",
                             "value": get_edge_expectation(
-                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket%2Ffolder2,DEV)"
                             ),
                         },
                         {
@@ -400,7 +400,7 @@ def test_datajob_patch_builder(created_on, last_modified, expected_actor):
                         },
                         {
                             "op": "add",
-                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket~1my-folder~1my-file.txt,PROD),foo)",
+                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Fmy-folder%2Fmy-file.txt,PROD),foo)",
                             "value": {"confidenceScore": 1.0},
                         },
                         {

@@ -3368,7 +3368,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,project/root/events/logging_events_bckp,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,project%2Froot%2Fevents%2Flogging_events_bckp,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {

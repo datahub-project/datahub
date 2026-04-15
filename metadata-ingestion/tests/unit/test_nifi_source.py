@@ -92,7 +92,7 @@ def test_nifi_s3_provenance_event():
 
         ioAspect = workunits[5].metadata.aspect
         assert ioAspect.outputDatasets == [
-            "urn:li:dataset:(urn:li:dataPlatform:s3,foo-nifi/tropical_data,PROD)"
+            "urn:li:dataset:(urn:li:dataPlatform:s3,foo-nifi%2Ftropical_data,PROD)"
         ]
         assert ioAspect.inputDatasets == []
 

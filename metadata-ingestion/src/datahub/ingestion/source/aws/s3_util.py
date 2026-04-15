@@ -2,6 +2,8 @@ import logging
 import os
 from typing import Optional
 
+from datahub.utilities.urn_encoder import UrnEncoder
+
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -43,9 +45,11 @@ def make_s3_urn(s3_uri: str, env: str, remove_extension: bool = True) -> str:
     name, extension = os.path.splitext(s3_name)
     if remove_extension and extension != "":
         extension = extension[1:]  # remove the dot
-        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{name}_{extension},{env})"
+        encoded = UrnEncoder.encode_string(f"{name}_{extension}")
+        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{encoded},{env})"
 
-    return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
+    encoded = UrnEncoder.encode_string(s3_name)
+    return f"urn:li:dataset:(urn:li:dataPlatform:s3,{encoded},{env})"
 
 
 def make_s3_urn_for_lineage(s3_uri: str, env: str) -> str:

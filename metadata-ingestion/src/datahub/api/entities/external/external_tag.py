@@ -16,6 +16,7 @@ Example Usage:
 
 from __future__ import annotations
 
+import urllib.parse
 from typing import Any, Optional, Tuple, Union
 
 from pydantic import BaseModel
@@ -116,7 +117,8 @@ class ExternalTag(BaseModel):
         """
         if isinstance(tag_urn, str):
             tag_urn = TagUrn.from_string(tag_urn)
-        key, value = cls._parse_tag_name(tag_urn.name)
+        decoded_name = urllib.parse.unquote(tag_urn.name)
+        key, value = cls._parse_tag_name(decoded_name)
         return cls(key=key, value=value)
 
     @classmethod

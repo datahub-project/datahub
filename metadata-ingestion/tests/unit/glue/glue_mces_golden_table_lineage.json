@@ -489,7 +489,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -734,7 +734,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons/markers,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons%2Fmarkers,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -979,7 +979,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/parquet,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Fparquet,PROD)",
                     "type": "COPY"
                 }
             ]

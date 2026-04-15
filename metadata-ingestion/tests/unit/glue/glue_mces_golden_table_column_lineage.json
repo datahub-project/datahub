@@ -297,7 +297,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD)",
                     "type": "COPY"
                 }
             ],
@@ -305,7 +305,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD),yr)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD),yr)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -316,7 +316,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD),flightdate)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD),flightdate)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -327,7 +327,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD),uniquecarrier)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD),uniquecarrier)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -338,7 +338,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD),airlineid)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD),airlineid)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -349,7 +349,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD),carrier)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD),carrier)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -360,7 +360,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD),flightnum)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD),flightnum)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -371,7 +371,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD),origin)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2%2Fflight%2Favro,PROD),origin)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
