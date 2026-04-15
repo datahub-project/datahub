@@ -35,7 +35,8 @@ buildscript {
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   ext.jacksonVersion = '2.18.6'
-  ext.jettyVersion = '12.0.32'
+  // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
+  ext.jettyVersion = '12.0.34'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
@@ -50,7 +51,8 @@ buildscript {
   ext.sparkLineageDnsjavaVersion = '3.6.0'           // CVE-2024-25638
   ext.sparkLineageJettisonVersion = '1.5.2'          // CVE-2022-40150, CVE-2022-45685, CVE-2022-45693, CVE-2023-1436, CVE-2022-40149
   ext.sparkLineageNimbusJoseJwtVersion = '10.0.2'    // CVE-2023-52428; min 9.37.2, use 10.x to avoid downgrading
-  ext.sparkLineageJetty94Version = '9.4.57.v20241219' // CVE-2024-13009 (Jetty 9.4 EOL line)
+  // Spark-lineage only; Jetty 9.4 EOL. CVE-2026-5795 fixed in 9.4.61+; latest on Maven Central when pinned was 9.4.58.
+  ext.sparkLineageJetty94Version = '9.4.58.v20250814'
   ext.sparkLineageCommonsConfiguration2Version = '2.10.1' // CVE-2024-29131, CVE-2024-29133
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
@@ -64,9 +66,9 @@ buildscript {
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
-  ext.nettyVersion = '4.1.132.Final' // align all io.netty modules
+  ext.nettyVersion = '4.1.132.Final' // align all io.netty modules; CVE-2026-33870
   // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
-  // 1.80.0 -> shaded netty-common 4.1.130.Final; 1.77.0 -> 4.1.127.Final.
+  // 1.80.0 -> shaded netty-common 4.1.130.Final (CVE-2026-33870: fixed in Netty 4.1.132+; upgrade grpc when a release bundles patched Netty).
   ext.grpcVersion = '1.80.0'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')

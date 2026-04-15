@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -41,6 +42,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.tasks.TaskInfo;
 
 /**
  * Phase 2 non-blocking upgrade step that closes the T0 gap created during Phase 1. Queries aspects
@@ -69,7 +71,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   private final List<ElasticSearchIndexed> indexedServices;
   private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
   private final String upgradeVersion;
-  private final boolean rollbackDualWriteEnabled;
+  private final BuildIndicesConfiguration buildIndicesConfig;
   private final Urn upgradeIdUrn;
   private final Urn phase1UpgradeIdUrn;
   private final int batchSize;
@@ -81,7 +83,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       List<ElasticSearchIndexed> indexedServices,
       Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       String upgradeVersion,
-      boolean rollbackDualWriteEnabled,
+      BuildIndicesConfiguration buildIndicesConfig,
       int batchSize) {
     this.opContext = opContext;
     this.entityService = entityService;
@@ -89,7 +91,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
     this.indexedServices = indexedServices;
     this.structuredProperties = structuredProperties;
     this.upgradeVersion = upgradeVersion;
-    this.rollbackDualWriteEnabled = rollbackDualWriteEnabled;
+    this.buildIndicesConfig = buildIndicesConfig;
     this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
     this.phase1UpgradeIdUrn =
         BootstrapStep.getUpgradeUrn(
@@ -104,7 +106,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       List<ElasticSearchIndexed> indexedServices,
       Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       String upgradeVersion,
-      boolean rollbackDualWriteEnabled) {
+      @Nullable BuildIndicesConfiguration buildIndicesConfig) {
     this(
         opContext,
         entityService,
@@ -112,7 +114,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
         indexedServices,
         structuredProperties,
         upgradeVersion,
-        rollbackDualWriteEnabled,
+        buildIndicesConfig,
         DEFAULT_BATCH_SIZE);
   }
 
@@ -189,13 +191,28 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
                 dualWriteStartTime);
           } else if (indexConvention.getEntityAndAspectName(indexName).isPresent()
               && nextIndexName != null) {
-            // Timeseries index — filtered _reindex from current to next for the gap window
+            // Timeseries index — filtered _reindex from OLD backing index to next for the gap
+            // window. The old backing index continued receiving writes during Phase 1; after alias
+            // swap the alias points to next, so we must use the physical old index name.
+            String oldBackingIndexName =
+                indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
+            if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
+              log.warn(
+                  "Timeseries index {} has no oldBackingIndexName, skipping catch-up", indexName);
+              continue;
+            }
             log.info(
-                "Catch-up for timeseries index {}: _reindex window [{}, {}]",
+                "Catch-up for timeseries index {} (old: {}): _reindex window [{}, {}]",
                 indexName,
+                oldBackingIndexName,
                 reindexStartTime,
                 dualWriteStartTime);
-            reindexTimeseriesGap(indexName, nextIndexName, reindexStartTime, dualWriteStartTime);
+            reindexTimeseriesGap(
+                indexName,
+                oldBackingIndexName,
+                nextIndexName,
+                reindexStartTime,
+                dualWriteStartTime);
           } else if (isGlobalIndex(indexName)) {
             // Graph or system metadata index — emit MCLs for ALL entities in the gap window.
             // These indices are not entity-scoped, so we need to cover all entity types.
@@ -217,7 +234,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
         // If rollback dual-write is not enabled, mark all completed indices as
         // DUAL_WRITE_DISABLED to prevent a later enable of the flag from writing to stale or
         // deleted old indices.
-        if (!rollbackDualWriteEnabled) {
+        if (!buildIndicesConfig.isRollbackDualWriteEnabled()) {
           for (Map.Entry<String, Map<String, String>> entry : allIndexStates.entrySet()) {
             String indexName = entry.getKey();
             String status = entry.getValue().get(IncrementalReindexState.STATUS);
@@ -358,15 +375,20 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   }
 
   /**
-   * Copies timeseries documents from the current index to the next index for the T0 gap window
+   * Copies timeseries documents from the old backing index to the next index for the T0 gap window
    * using a filtered ES _reindex. Timeseries data is not in SQL so MCL-based catch-up doesn't work.
    * Polls until the reindex completes and throws on failure.
+   *
+   * @param aliasName the index alias name (for looking up the index builder and config)
+   * @param oldBackingIndex the physical old backing index that received writes during Phase 1
+   * @param nextIndex the physical next index created by Phase 1
    */
   private void reindexTimeseriesGap(
-      String currentIndex, String nextIndex, long fromEpochMs, long toEpochMs) throws Throwable {
-    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = findIndexBuilderAndConfig(currentIndex);
+      String aliasName, String oldBackingIndex, String nextIndex, long fromEpochMs, long toEpochMs)
+      throws Throwable {
+    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = findIndexBuilderAndConfig(aliasName);
     if (builderAndConfig == null) {
-      log.warn("No index builder found for timeseries index {}, skipping catch-up", currentIndex);
+      log.warn("No index builder found for timeseries index {}, skipping catch-up", aliasName);
       return;
     }
 
@@ -378,22 +400,34 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
         QueryBuilders.rangeQuery(TIMESERIES_TIMESTAMP_FIELD).gte(fromEpochMs).lt(toEpochMs);
 
     String taskId =
-        indexBuilder.submitFilteredReindex(currentIndex, nextIndex, timeRangeFilter, targetShards);
+        indexBuilder.submitFilteredReindex(
+            oldBackingIndex, nextIndex, timeRangeFilter, targetShards);
     log.info(
         "Submitted timeseries catch-up _reindex for {} -> {} (task {}, shards {})",
-        currentIndex,
+        oldBackingIndex,
         nextIndex,
         taskId,
         targetShards);
 
-    ESIndexBuilder.PollReindexResult pollResult =
-        indexBuilder.pollReindexCompletion(
-            currentIndex, nextIndex, targetShards, new HashMap<>(), taskId);
-    if (!pollResult.completed()) {
-      throw new RuntimeException(
-          "Timeseries catch-up _reindex did not complete for " + currentIndex + " -> " + nextIndex);
+    // Poll using listTasks until the reindex task is no longer running. Once the task drops off
+    // the active task list, it has completed. Doc count comparison is not used here because the
+    // next index is also receiving live writes via the alias.
+    long timeoutAt = indexBuilder.computeTimeoutAt();
+    long pollIntervalMs = buildIndicesConfig.getTaskPollIntervalSeconds() * 1000;
+
+    while (System.currentTimeMillis() < timeoutAt) {
+      Optional<TaskInfo> runningTask = indexBuilder.getTaskInfoByHeader(oldBackingIndex);
+      if (runningTask.isEmpty()) {
+        log.info("Timeseries catch-up _reindex completed for {} -> {}", oldBackingIndex, nextIndex);
+        return;
+      }
+      log.info(
+          "Timeseries catch-up _reindex still running for {} -> {}", oldBackingIndex, nextIndex);
+      Thread.sleep(pollIntervalMs);
     }
-    log.info("Timeseries catch-up _reindex completed for {} -> {}", currentIndex, nextIndex);
+
+    throw new RuntimeException(
+        "Timeseries catch-up _reindex timed out for " + oldBackingIndex + " -> " + nextIndex);
   }
 
   /**

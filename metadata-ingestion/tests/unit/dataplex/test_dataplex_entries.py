@@ -1,6 +1,5 @@
 """Unit tests for Dataplex entry processing."""
 
-from threading import Lock
 from typing import cast
 from unittest.mock import Mock, patch
 
@@ -31,8 +30,7 @@ class TestDataplexEntriesProcessorDesign:
             config=config,
             catalog_client=catalog_client,
             report=report,
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=source_report,
         )
 
@@ -142,8 +140,7 @@ class TestDataplexEntriesProcessorDesign:
             config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -185,8 +182,7 @@ class TestDataplexEntriesProcessorDesign:
             config=DataplexConfig(project_ids=["test-project"], env="PROD"),
             catalog_client=catalog_client,
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -264,7 +260,6 @@ class TestDataplexEntriesProcessorDesign:
         assert entities == [entity]
         assert report.entries_seen == 0
         track_lineage_mock.assert_called_once_with(
-            project_id="project-1",
             dataplex_location="us",
             entry=accepted,
         )
@@ -275,8 +270,7 @@ class TestDataplexEntriesProcessorDesign:
             config=DataplexConfig(project_ids=["test-project"], env="PROD"),
             catalog_client=catalog_client,
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -336,8 +330,7 @@ class TestDataplexEntriesProcessorDesign:
             config=DataplexConfig(project_ids=["test-project"], env="PROD"),
             catalog_client=catalog_client,
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -712,11 +705,11 @@ class TestDataplexEntriesProcessorDesign:
         entry.entry_type = "invalid-entry-type"
         entry.fully_qualified_name = "bigquery:p.ds.table"
 
-        processor._track_entry_for_lineage("project-1", "us", entry)
+        processor._track_entry_for_lineage("us", entry)
 
         source_report = cast(Mock, processor.source_report)
         source_report.warning.assert_called_once()
-        assert "project-1" not in processor.entry_data_by_project
+        assert len(processor.entry_data) == 0
 
     def test_build_entry_container_key_and_lineage_tracking(
         self, processor: DataplexEntriesProcessor
@@ -745,9 +738,9 @@ class TestDataplexEntriesProcessorDesign:
             "projects/123/locations/global/entryTypes/bigquery-table"
         )
         dataset_entry.fully_qualified_name = "bigquery:p.ds.table1"
-        processor._track_entry_for_lineage("project-1", "us", dataset_entry)
-        assert "project-1" in processor.entry_data_by_project
-        tracked = next(iter(processor.entry_data_by_project["project-1"]))
+        processor._track_entry_for_lineage("us", dataset_entry)
+        assert len(processor.entry_data) == 1
+        tracked = processor.entry_data[0]
         assert tracked.datahub_dataset_name == "p.ds.table1"
         assert tracked.datahub_platform == "bigquery"
         assert tracked.dataplex_entry_fqn == "bigquery:p.ds.table1"
@@ -758,5 +751,5 @@ class TestDataplexEntriesProcessorDesign:
             "projects/123/locations/global/entryTypes/bigquery-dataset"
         )
         non_dataset_entry.fully_qualified_name = "bigquery:p.ds"
-        processor._track_entry_for_lineage("project-2", "us", non_dataset_entry)
-        assert "project-2" not in processor.entry_data_by_project
+        processor._track_entry_for_lineage("us", non_dataset_entry)
+        assert len(processor.entry_data) == 1
