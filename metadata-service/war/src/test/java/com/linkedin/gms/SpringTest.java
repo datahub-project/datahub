@@ -14,6 +14,8 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Answers;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -30,6 +32,8 @@ import org.testng.annotations.Test;
     properties = {
       "telemetry.enabledServer=true",
       "spring.main.allow-bean-definition-overriding=true",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
     })
 @ContextConfiguration(classes = {CommonApplicationConfig.class, SpringTest.TestBeans.class})
 public class SpringTest extends AbstractTestNGSpringContextTests {
@@ -72,6 +76,12 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
     @Bean
     public EntityRegistry entityRegistry(OperationContext systemOperationContext) {
       return systemOperationContext.getEntityRegistry();
+    }
+
+    @Primary
+    @Bean
+    public MeterRegistry meterRegistry() {
+      return new SimpleMeterRegistry();
     }
   }
 }

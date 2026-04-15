@@ -116,6 +116,7 @@ def generate_all_sql_scripts(
     agent_color: str,
     enable_mutations: bool,
     execute_mode: bool,
+    enable_cloud: bool = False,
 ) -> list[tuple[str, str]]:
     """Generate all SQL scripts for Snowflake agent setup.
 
@@ -133,6 +134,7 @@ def generate_all_sql_scripts(
         agent_color: Agent color in Snowflake UI
         enable_mutations: Include mutation/write tools
         execute_mode: Whether to include actual tokens in SQL (for execution)
+        enable_cloud: Include Cloud-only tools like Ask DataHub (default: False)
 
     Returns:
         List of (script_name, script_content) tuples in execution order
@@ -155,7 +157,9 @@ def generate_all_sql_scripts(
     datahub_domain = extract_domain_from_url(datahub_url)
     network_rules_sql = generate_network_rules_sql(datahub_domain)
 
-    datahub_udfs_sql = generate_datahub_udfs_sql(include_mutations=enable_mutations)
+    datahub_udfs_sql = generate_datahub_udfs_sql(
+        include_mutations=enable_mutations, include_cloud=enable_cloud
+    )
 
     stored_proc_sql = generate_stored_procedure_sql()
 
@@ -167,6 +171,7 @@ def generate_all_sql_scripts(
         sf_database=sf_database,
         sf_schema=sf_schema,
         include_mutations=enable_mutations,
+        include_cloud=enable_cloud,
     )
 
     return [
@@ -182,6 +187,7 @@ def write_sql_files_to_disk(
     output_path: Path,
     scripts: list[tuple[str, str]],
     enable_mutations: bool,
+    enable_cloud: bool = False,
 ) -> None:
     """Write generated SQL scripts to disk.
 
@@ -189,15 +195,25 @@ def write_sql_files_to_disk(
         output_path: Directory to write SQL files to
         scripts: List of (script_name, script_content) tuples
         enable_mutations: Whether mutations are enabled (for messaging)
+        enable_cloud: Whether cloud tools are enabled (for messaging)
     """
     for script_name, script_content in scripts:
         file_path = output_path / script_name
         file_path.write_text(script_content)
 
         if script_name == "02_datahub_udfs.sql":
-            udf_count = len(generate_all_udfs(include_mutations=enable_mutations))
-            mutation_note = " (read + write)" if enable_mutations else " (read-only)"
-            click.echo(f"✓ Generated {file_path} - {udf_count} UDFs{mutation_note}")
+            udf_count = len(
+                generate_all_udfs(
+                    include_mutations=enable_mutations, include_cloud=enable_cloud
+                )
+            )
+            parts = ["read"]
+            if enable_mutations:
+                parts.append("write")
+            if enable_cloud:
+                parts.append("cloud")
+            mode_note = f" ({' + '.join(parts)})"
+            click.echo(f"✓ Generated {file_path} - {udf_count} UDFs{mode_note}")
         else:
             click.echo(f"✓ Generated {file_path}")
 
@@ -435,6 +451,11 @@ def auto_detect_snowflake_params(
     default=True,
     help="Include mutation/write tools (tags, descriptions, owners, etc.). Default: enabled",
 )
+@click.option(
+    "--enable-cloud/--no-enable-cloud",
+    default=False,
+    help="Include Cloud-only tools (Ask DataHub AI chat). Requires DataHub Cloud. Default: disabled",
+)
 def create_snowflake_agent(
     sf_account: str | None,
     sf_user: str | None,
@@ -452,6 +473,7 @@ def create_snowflake_agent(
     sf_password: str | None,
     sf_authenticator: str,
     enable_mutations: bool,
+    enable_cloud: bool,
 ) -> None:
     """Create a Snowflake agent on DataHub by generating SQL setup scripts.
 
@@ -481,10 +503,11 @@ def create_snowflake_agent(
         agent_color=agent_color,
         enable_mutations=enable_mutations,
         execute_mode=False,
+        enable_cloud=enable_cloud,
     )
 
     # Write scripts to disk
-    write_sql_files_to_disk(output_path, scripts, enable_mutations)
+    write_sql_files_to_disk(output_path, scripts, enable_mutations, enable_cloud)
     click.echo(f"\n✅ Snowflake agent setup files generated in: {output_path}")
 
     # Execute SQL scripts if --execute flag is set
@@ -504,6 +527,7 @@ def create_snowflake_agent(
             sf_password=sf_password,
             sf_authenticator=sf_authenticator,
             enable_mutations=enable_mutations,
+            enable_cloud=enable_cloud,
         )
     else:
         _show_manual_instructions()
@@ -526,6 +550,7 @@ def _execute_mode(
     sf_password: str | None,
     sf_authenticator: str,
     enable_mutations: bool,
+    enable_cloud: bool = False,
 ) -> None:
     """Execute SQL scripts directly in Snowflake."""
     if sf_authenticator == "snowflake" and not sf_password:
@@ -612,6 +637,7 @@ def _execute_mode(
             agent_color=agent_color,
             enable_mutations=enable_mutations,
             execute_mode=True,
+            enable_cloud=enable_cloud,
         )
 
         # Execute scripts in order

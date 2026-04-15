@@ -247,8 +247,14 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_parse_attempts: int = 0
     m_query_parse_successes: int = 0
     m_query_parse_timeouts: int = 0
+    m_query_native_query_skipped: int = 0
+    # Expressions that reached the parser but are not M-Query at all
+    # (e.g. DAX computed-table expressions, empty strings, label rows).
+    # These fail with MQueryParseError but are expected and logged at INFO.
+    m_query_non_mquery_expressions: int = 0
     m_query_parse_validation_errors: int = 0
     m_query_parse_unexpected_character_errors: int = 0
+    # Genuine M-Query expressions that the parser could not handle.
     m_query_parse_unknown_errors: int = 0
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
@@ -289,7 +295,7 @@ class DataBricksPlatformDetail(PlatformDetail):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=False,
+        default=True,
         description=(
             "Whether to create user entities from PowerBI data. "
             "When False (RECOMMENDED): PowerBI emits ownership URNs only (soft references). "
@@ -356,6 +362,17 @@ class AthenaPlatformOverride(ConfigModel):
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
+
+    @property
+    def web_app_base_url(self) -> str:
+        if self == PowerBiEnvironment.GOVERNMENT:
+            return "https://app.powerbigov.us"
+        return "https://app.powerbi.com"
+
+
+class PowerBiAppUrlPattern(ConfigEnum):
+    WORKSPACE_BASED = "WORKSPACE_BASED"
+    REDIRECT_BASED = "REDIRECT_BASED"
 
 
 class PowerBiDashboardSourceConfig(
@@ -577,10 +594,10 @@ class PowerBiDashboardSourceConfig(
 
     # Enable CLL extraction
     extract_column_level_lineage: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to extract column level lineage. "
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
-        "enabled."
+        "enabled. "
         "Works for M-Query where native SQL is used for transformation.",
     )
 
@@ -616,6 +633,13 @@ class PowerBiDashboardSourceConfig(
     extract_app: bool = pydantic.Field(
         default=False,
         description="Whether to ingest workspace app. Requires DataHub server 0.14.2+.",
+    )
+
+    app_url_pattern: PowerBiAppUrlPattern = pydantic.Field(
+        default=PowerBiAppUrlPattern.WORKSPACE_BASED,
+        description="URL pattern for Power BI App external links. "
+        "'workspace_based' uses /groups/{workspace-id}/apps/{app-id} (default). "
+        "'redirect_based' uses /Redirect?action=OpenApp&appId={app-id}.",
     )
 
     m_query_parse_timeout: int = pydantic.Field(

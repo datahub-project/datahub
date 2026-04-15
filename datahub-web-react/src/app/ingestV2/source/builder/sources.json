@@ -20,6 +20,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:omni",
+        "name": "omni",
+        "displayName": "Omni",
+        "description": "Import Dashboards, Charts, and lineage from Omni.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/omni",
+        "recipe": "source:\n  type: omni\n  config:\n    base_url: https://your-org.omniapp.co/api\n    api_key: ${OMNI_API_KEY}\n    connection_to_platform:\n      conn_abc123: snowflake\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true\n",
+        "category": "BI Tool",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:snaplogic",
         "name": "snaplogic",
         "displayName": "SnapLogic",
@@ -140,6 +150,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:flink",
+        "name": "flink",
+        "displayName": "Flink",
+        "description": "Import jobs, lineage, and run history from Flink.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/flink/",
+        "recipe": "source:\n    type: flink\n    config:\n        connection:\n            rest_api_url: \"http://localhost:8081\"\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:hive",
         "name": "hive",
         "displayName": "Hive",
@@ -185,7 +205,7 @@
         "displayName": "Microsoft SQL Server",
         "description": "Import Tables, Views, Databases, Schemas, and statistics from SQL Server.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mssql/",
-        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        convert_urns_to_lowercase: true\n        convert_column_urns_to_lowercase: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": true
     },
@@ -434,7 +454,7 @@
         "displayName": "Iceberg",
         "description": "Ingest databases and tables from any Iceberg catalog implementation",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/iceberg",
-        "recipe": "source:\n type: \"iceberg\"\n config:\n   env: dev\n   # each thread will open internet connections to fetch manifest files independently, \n   # this value needs to be adjusted with ulimit\n   processing_threads: 1 \n   # a single catalog definition with a form of a dictionary\n   catalog: \n     demo: # name of the catalog\n       type: \"rest\" # other types are available\n       uri: \"uri\"\n       s3.access-key-id: \"access-key\"\n       s3.secret-access-key: \"secret-access-key\"\n       s3.region: \"aws-region\"\n   profiling:\n     enabled: false\n",
+        "recipe": "source:\n type: \"iceberg\"\n config:\n   # each thread will open internet connections to fetch manifest files independently, \n   # this value needs to be adjusted with ulimit\n   processing_threads: 1 \n   # a single catalog definition with a form of a dictionary\n   catalog: \n     demo: # name of the catalog\n       type: \"rest\" # other types are available\n       uri: \"uri\"\n       s3.access-key-id: \"access-key\"\n       s3.secret-access-key: \"secret-access-key\"\n       s3.region: \"aws-region\"\n   profiling:\n     enabled: false\n",
         "category": "Data Lake",
         "isPopular": false
     },
@@ -572,5 +592,13 @@
         "recipe": "source:\n  type: feast\n  config:\n    # Coordinates\n    path: \"/path/to/repository/\"\n    # Options\n    environment: \"PROD\"",
         "category": "ML Platforms",
         "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:rdf",
+        "name": "rdf",
+        "displayName": "RDF",
+        "description": "Import glossary terms, term groups, and relationships from RDF/OWL ontologies (SKOS, Turtle, RDF/XML).",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/rdf",
+        "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary"
     }
 ]

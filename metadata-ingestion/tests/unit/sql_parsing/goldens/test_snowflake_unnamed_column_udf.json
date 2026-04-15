@@ -47,6 +47,24 @@
         {
             "downstream": {
                 "table": null,
+                "column": "userinfo",
+                "column_type": null,
+                "native_column_type": "JSON"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)",
+                    "column": "my_json"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "PARSE_JSON(\"B\".\"MY_JSON\") AS :userInfo"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
                 "column": "address",
                 "column_type": null,
                 "native_column_type": null

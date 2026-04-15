@@ -1,3 +1,5 @@
+pytest_plugins = ["tests.utilities.agent_reporter"]
+
 import json
 import logging
 import os
@@ -35,6 +37,20 @@ os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
+    """Build an auth session.
+
+    Token-based (preferred for remote instances — no login round-trip):
+        Set DATAHUB_GMS_TOKEN=<pat> and DATAHUB_GMS_URL=<gms-url>.
+        Frontend URL is not required; GraphQL routes through the GMS directly.
+
+    Login-based (default for local dev):
+        Set ADMIN_USERNAME / ADMIN_PASSWORD (or CYPRESS_ADMIN_* equivalents).
+    """
+    prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
+    if prebuilt_token:
+        logger.info("Token-based auth: using DATAHUB_GMS_TOKEN (skipping login)")
+        return TestSessionWrapper(requests.Session(), prebuilt_token=prebuilt_token)
+
     wait_for_healthcheck_util(requests)
     return TestSessionWrapper(get_frontend_session())
 
@@ -42,6 +58,7 @@ def build_auth_session():
 @pytest.fixture(scope="session")
 def auth_session():
     auth_session = build_auth_session()
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     yield auth_session
     auth_session.destroy()
 
@@ -104,17 +121,16 @@ def _ingest_cleanup_data_impl(
                 "tags_and_terms"
             )
     """
-    print(f"deleting {test_name} test data for idempotency")
+    logger.info(f"deleting {test_name} test data for idempotency")
     delete_urns_from_file(graph_client, data_file)
-    print(f"ingesting {test_name} test data")
+    logger.info(f"ingesting {test_name} test data")
     ingest_file_via_rest(auth_session, data_file)
-    wait_for_writes_to_sync()
     yield
-    print(f"removing {test_name} test data")
+    logger.info(f"removing {test_name} test data")
     delete_urns_from_file(graph_client, data_file)
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
-    wait_for_writes_to_sync()
+        wait_for_writes_to_sync()
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -259,14 +275,21 @@ def pytest_collection_modifyitems(
 
                 # Check if this item's module is in the filtered list
                 # Need to handle both absolute and relative paths
-                if any(module_path.endswith(filtered_mod) for filtered_mod in filtered_modules):
+                if any(
+                    module_path.endswith(filtered_mod)
+                    for filtered_mod in filtered_modules
+                ):
                     filtered_items.append(item)
 
-            logger.info(f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)")
+            logger.info(
+                f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)"
+            )
             items[:] = filtered_items
             return
         except Exception as e:
-            logger.warning(f"Failed to read filtered tests file: {e}. Running all tests.")
+            logger.warning(
+                f"Failed to read filtered tests file: {e}. Running all tests."
+            )
             # Fall through to normal batching logic
 
     # Get batch configuration

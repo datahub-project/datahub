@@ -1,5 +1,4 @@
-import * as PhosphorIcons from '@phosphor-icons/react';
-import { AppWindow } from '@phosphor-icons/react';
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
 import React from 'react';
 
 import {
@@ -9,11 +8,10 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import { MFESchema } from '@app/mfeframework/mfeConfigLoader';
 
-/* Converts any phosphor icon string into a phosphor JSX.Element, if iconString is undefined or not a valid icon, default is <AppWindow/>.
-  eg: Tag wil become <Tag /> */
-function getPhosphorIconElement(iconString?: string): JSX.Element {
-    const Component = iconString && PhosphorIcons[iconString];
-    return Component ? <Component /> : <AppWindow />;
+// TODO: Replace with React.lazy icon resolution so MFE nav icons can use any Phosphor icon.
+// For now all MFE nav items show the default AppWindow icon.
+function getPhosphorIconElement(): JSX.Element {
+    return <AppWindow />;
 }
 
 /**
@@ -29,7 +27,7 @@ export function getMfeMenuItems(mfeConfig: MFESchema): NavBarMenuLinkItem[] {
             type: NavBarMenuItemTypes.Item,
             title: mfe.label,
             key: mfe.id,
-            icon: getPhosphorIconElement(mfe.navIcon),
+            icon: getPhosphorIconElement(),
             link: `/mfe${mfe.path}`,
             onClick: () => {
                 console.log(`[MFE Nav] Clicked MFE nav item: ${mfe.label}, path: ${mfe.path}`);
@@ -50,7 +48,7 @@ export function getMfeMenuDropdownItems(mfeConfig: MFESchema): NavBarMenuDropdow
             type: NavBarMenuItemTypes.DropdownElement,
             title: mfe.label,
             key: mfe.id,
-            icon: getPhosphorIconElement(mfe.navIcon),
+            icon: getPhosphorIconElement(),
             link: `/mfe${mfe.path}`,
             onClick: () => {
                 console.log(`[MFE Nav] Clicked MFE nav item: ${mfe.label}, path: ${mfe.path}`);

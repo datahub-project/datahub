@@ -1,4 +1,5 @@
 import { Text, Tooltip } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -59,7 +60,7 @@ const PlatformsModule = (props: ModuleProps) => {
         <LargeModule {...props} loading={loading} dataTestId="platforms-module">
             {platforms.length === 0 ? (
                 <EmptyContent
-                    icon="Database"
+                    icon={Database}
                     title="No Platforms Yet"
                     description="You have not ingested any data."
                     linkText={hasPermissionsToManageIngestion ? 'Add data sources' : undefined}

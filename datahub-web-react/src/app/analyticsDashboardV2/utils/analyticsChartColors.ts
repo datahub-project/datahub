@@ -7,6 +7,8 @@
  * 3. Qualitative palette (high-contrast colors)
  * 4. Generated colors (unlimited series via HSL)
  */
+import { DefaultTheme } from 'styled-components';
+
 import { QUALITATIVE_COLORS, generateDistinctColors } from '@app/analyticsDashboardV2/utils/chartColorConstants';
 import { findDataHubEntityColor } from '@app/analyticsDashboardV2/utils/chartColorMatcher';
 
@@ -53,6 +55,7 @@ export interface ColorAssignmentResult {
  */
 export function assignAnalyticsChartColors(
     seriesKeys: string[],
+    theme: DefaultTheme,
     existingOverrides: Record<string, string> = {},
 ): ColorAssignmentResult {
     const assignments: Record<string, SeriesColorConfig> = {};
@@ -77,7 +80,7 @@ export function assignAnalyticsChartColors(
     const remainingKeys = seriesKeys.filter((key) => !assignments[key]);
 
     remainingKeys.forEach((key) => {
-        const entityColor = findDataHubEntityColor(key);
+        const entityColor = findDataHubEntityColor(key, theme);
         if (entityColor && !usedColors.has(entityColor)) {
             assignments[key] = {
                 key,

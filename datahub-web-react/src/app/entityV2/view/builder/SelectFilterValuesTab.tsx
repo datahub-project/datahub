@@ -1,4 +1,4 @@
-import { Checkbox, Loader, SearchBar, Text, colors } from '@components';
+import { Checkbox, Loader, SearchBar, Text } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -14,7 +14,7 @@ import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { Entity } from '@types';
+import { Entity, FacetMetadata } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -34,7 +34,7 @@ const RightSection = styled.div`
 
 const VerticalDivider = styled.div`
     width: 1px;
-    background-color: ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
 `;
 
 const SearchHeader = styled(Text)`
@@ -109,6 +109,11 @@ export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Pr
             data?.searchAcrossEntities?.searchResults
                 ?.map((res) => res.entity)
                 .filter((entity): entity is Entity => !!entity) || [],
+        [data],
+    );
+
+    const facets = useMemo(
+        () => (data?.searchAcrossEntities?.facets as FacetMetadata[] | undefined) ?? undefined,
         [data],
     );
 
@@ -201,6 +206,7 @@ export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Pr
                     searchQuery={searchQuery}
                     appliedFilters={appliedFilters}
                     updateFieldFilters={updateFieldFilters}
+                    facets={facets}
                 />
                 <ResultsContainer>
                     <ScrollableResultsContainer data-testid="select-filter-values-search-results">

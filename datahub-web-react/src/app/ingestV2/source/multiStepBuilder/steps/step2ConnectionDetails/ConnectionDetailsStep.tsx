@@ -16,6 +16,7 @@ import {
 import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
+import { ScheduleSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/ScheduleSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -24,11 +25,13 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 12px;
+    position: relative;
 `;
 
 export function ConnectionDetailsStep() {
     const { state, updateState, setCurrentStepCompleted, setCurrentStepUncompleted, setOnNextHandler } =
         useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
+    const [isRecipeStateInitialized, setIsRecipeStateInitialized] = useState<boolean>(false);
 
     const { ingestionSources } = useIngestionSources();
 
@@ -156,6 +159,14 @@ export function ConnectionDetailsStep() {
         return () => setOnNextHandler(undefined);
     }, [onNextHandler, setOnNextHandler]);
 
+    // Save placeholder recipe to state if there are no any recipe in the state
+    useEffect(() => {
+        if (!initialRecipeYml && !isRecipeStateInitialized) {
+            updateRecipe(placeholderRecipe, true);
+            setIsRecipeStateInitialized(true);
+        }
+    }, [placeholderRecipe, initialRecipeYml, updateRecipe, isRecipeStateInitialized]);
+
     return (
         <>
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
@@ -176,6 +187,8 @@ export function ConnectionDetailsStep() {
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
                 />
+
+                <ScheduleSection />
 
                 <AdvancedSection state={state} updateState={updateState} />
             </Container>

@@ -1,4 +1,5 @@
 import { InfiniteScrollList } from '@components';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import React from 'react';
 import { useHistory } from 'react-router';
 
@@ -40,7 +41,7 @@ export default function DataProductsModule(props: ModuleProps) {
                 pageSize={DEFAULT_PAGE_SIZE}
                 emptyState={
                     <EmptyContent
-                        icon="FileText"
+                        icon={FileText}
                         title="No Data Products"
                         description="Create a data product underneath this domain to see it in this list"
                         linkText="Create data products for this domain"

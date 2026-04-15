@@ -58,6 +58,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
@@ -2688,8 +2689,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         UrnUtils.getUrn(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchWithTrailingNoOp,PROD)");
     TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
-    Urn tag2 = UrnUtils.getUrn("urn:li:tag:tag2");
-    Urn tagOther = UrnUtils.getUrn("urn:li:tag:other");
+    TagUrn tag2 = TagUrn.createFromString("urn:li:tag:tag2");
+    TagUrn tagOther = TagUrn.createFromString("urn:li:tag:other");
 
     SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
 
@@ -2713,12 +2714,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().addTag(tag2, "test-context").getJsonPatch())
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
 
@@ -2731,12 +2727,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tagOther)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().removeTag(tagOther).getJsonPatch())
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
 
@@ -2812,12 +2803,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag3)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().addTag(tag3, "test-context").getJsonPatch())
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
 
@@ -2830,12 +2816,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().addTag(tag2, "test-context").getJsonPatch())
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
 
@@ -2848,12 +2829,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().addTag(tag1, "test-context").getJsonPatch())
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
 
@@ -2936,12 +2912,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().addTag(tag2, "test-context").getJsonPatch())
             .systemMetadata(patchSystemMetadata)
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
@@ -3002,12 +2973,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tag1)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().removeTag(tag1).getJsonPatch())
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
 
@@ -3059,12 +3025,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 _testEntityRegistry
                     .getEntitySpec(DATASET_ENTITY_NAME)
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
-            .patch(
-                GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
-                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
-                    .build()
-                    .getJsonPatch())
+            .patch(new GlobalTagsPatchBuilder().addTag(tag1, "test-context").getJsonPatch())
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(_testEntityRegistry);
 

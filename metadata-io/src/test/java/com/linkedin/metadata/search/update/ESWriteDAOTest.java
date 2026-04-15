@@ -25,6 +25,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -155,6 +156,33 @@ public class ESWriteDAOTest {
     // Verify upsert content
     Map<String, Object> upsertMap = capturedRequest.upsertRequest().sourceAsMap();
     assertEquals("initialValue", upsertMap.get("field"));
+  }
+
+  @Test
+  public void testApplyScriptUpdateBySearchGroup() {
+    String searchGroup = "dataset";
+    String scriptSource = "ctx._source.runId.add(params.runId)";
+    Map<String, Object> scriptParams = new HashMap<>();
+    scriptParams.put("runId", "run-1");
+    scriptParams.put("maxRunIds", 25);
+    Map<String, Object> upsert = new HashMap<>();
+    upsert.put("urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,Sample,PROD)");
+    upsert.put("runId", Collections.singletonList("run-1"));
+
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext, searchGroup, TEST_DOC_ID, scriptSource, scriptParams, upsert);
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(requestCaptor.capture());
+
+    UpdateRequest capturedRequest = requestCaptor.getValue();
+    assertEquals("datasetindex_v3", capturedRequest.index());
+    assertEquals(TEST_DOC_ID, capturedRequest.id());
+    assertFalse(capturedRequest.detectNoop());
+    assertTrue(capturedRequest.scriptedUpsert());
+    Script script = capturedRequest.script();
+    assertEquals(scriptSource, script.getIdOrCode());
+    assertEquals(scriptParams, script.getParams());
   }
 
   @Test

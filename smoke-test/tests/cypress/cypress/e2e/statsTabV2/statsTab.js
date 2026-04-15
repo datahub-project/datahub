@@ -12,7 +12,6 @@ const openSampleEntity = () => {
 
 describe("Stats tab on entity", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

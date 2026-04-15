@@ -25,7 +25,8 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
             new DataPlatformInstanceFieldResolverProvider(entityClient),
             new GroupMembershipFieldResolverProvider(entityClient),
             new TagFieldResolverProvider(entityClient),
-            new ContainerFieldResolverProvider(entityClient));
+            new ContainerFieldResolverProvider(entityClient),
+            new GlossaryFieldResolverProvider(entityClient));
     this.systemOperationContext = systemOperationContext;
   }
 

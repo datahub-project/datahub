@@ -289,7 +289,7 @@ Then use the settings below.
         secretKey: elasticsearch-password
 ```
 
-If you have access control enabled with IAM auth, enable AWS auth signing in Datahub
+If you have access control enabled with IAM auth, enable AWS auth signing in DataHub
 
 ```
  OPENSEARCH_USE_AWS_IAM_AUTH=true
@@ -305,20 +305,7 @@ Then use the settings below.
     region: <<AWS region of Opensearch>>
 ```
 
-Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch
-service uses OpenDistro version of Elasticsearch, which does not support the "datastream" functionality. As such, we use
-a different way of creating time based indices.
-
-```
-  elasticsearchSetupJob:
-    enabled: true
-    image:
-      repository: acryldata/datahub-elasticsearch-setup
-      tag: "***"
-    extraEnvs:
-      - name: USE_AWS_ELASTICSEARCH
-        value: "true"
-```
+For AWS Elasticsearch/OpenSearch, set `USE_AWS_ELASTICSEARCH: "true"` on the system-update job (e.g. via `datahubSystemUpdate.extraEnvs` or `datahub.upgrade.env`). The system-update job performs index setup; standalone setup jobs are disabled by default.
 
 Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to apply the changes.
 
@@ -458,7 +445,7 @@ the code has not been released yet. We will update version once a new release is
 ### IAM policies for UI-based ingestion
 
 This section details how to attach policies to the acryl-datahub-actions pod that powers UI-based ingestion. For some of
-the ingestion recipes, you sepecify login creds in the recipe itself, making it easy to set up auth to grab metadata
+the ingestion recipes, you specify login creds in the recipe itself, making it easy to set up auth to grab metadata
 from the data source. However, for AWS resources, the recommendation is to use IAM roles and policies to gate requests
 to access metadata on these resources.
 

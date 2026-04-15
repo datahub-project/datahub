@@ -1,3 +1,4 @@
+import importlib.resources
 import logging
 import multiprocessing
 import os
@@ -18,6 +19,7 @@ from datahub.cli.cli_utils import (
 )
 from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
 from datahub.cli.container_cli import container
+from datahub.cli.datapack.datapack_cli import datapack
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -25,9 +27,11 @@ from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
 from datahub.cli.graphql_cli import graphql
 from datahub.cli.ingest_cli import ingest
+from datahub.cli.lineage_cli import lineage
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
+from datahub.cli.search_cli import search
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -37,7 +41,6 @@ from datahub.cli.specific.group_cli import group
 from datahub.cli.specific.structuredproperties_cli import properties
 from datahub.cli.specific.user_cli import user
 from datahub.cli.state_cli import state
-from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.configuration.env_vars import get_password, get_username
@@ -80,15 +83,34 @@ if sys.version_info >= (3, 12):
     default=None,
     help="Write debug-level logs to a file.",
 )
+@click.option(
+    "--context",
+    "-C",
+    "context_pairs",
+    multiple=True,
+    metavar="KEY=VALUE",
+    help="Additional context as key=value pairs (can be repeated).",
+)
 @click.version_option(
     version=datahub_version.nice_version_name(),
     prog_name=datahub_version.__package_name__,
 )
+@click.pass_context
 def datahub(
+    ctx: click.Context,
     debug: bool,
     log_file: Optional[str],
+    context_pairs: tuple,
 ) -> None:
     debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
+
+    # Parse --context key=value pairs and store on Click context for telemetry.
+    ctx.ensure_object(dict)
+    ctx.obj["context"] = {}
+    for pair in context_pairs:
+        if "=" in pair:
+            k, v = pair.split("=", 1)
+            ctx.obj["context"][k] = v
 
     # Note that we're purposely leaking the context manager here.
     # Technically we should wrap this with ctx.with_resource(). However, we have
@@ -126,12 +148,33 @@ def version(include_server: bool = False) -> None:
         click.echo(f"Server config: {server_config}")
 
 
+def _make_agent_aware_command(resource_name: str) -> type:
+    """Return a click.Command subclass that appends an agent context file to --help on non-TTY."""
+
+    class _AgentAwareCommand(click.Command):
+        def format_help(
+            self, ctx: click.Context, formatter: click.HelpFormatter
+        ) -> None:
+            super().format_help(ctx, formatter)
+            if not sys.stdout.isatty():
+                agent_text: str = (
+                    importlib.resources.files("datahub.cli.resources")
+                    .joinpath(resource_name)
+                    .read_text(encoding="utf-8")
+                )
+                formatter.write("\n")
+                formatter.write(agent_text)
+
+    return _AgentAwareCommand
+
+
 def _validate_init_inputs(
     use_password: bool,
     token: Optional[str],
     username: Optional[str],
     password: Optional[str],
-    token_duration: str,
+    token_duration: Optional[str],
+    sso: bool = False,
 ) -> None:
     """Validate init command inputs for consistency.
 
@@ -141,10 +184,25 @@ def _validate_init_inputs(
         username: Username value (if provided)
         password: Password value (if provided)
         token_duration: Token expiration duration (if provided)
+        sso: Whether SSO browser login is requested
 
     Raises:
         click.UsageError: If inputs are invalid or inconsistent
     """
+    # SSO is mutually exclusive with other auth methods
+    if sso:
+        if token or os.environ.get("DATAHUB_GMS_TOKEN"):
+            raise click.UsageError(
+                "--sso cannot be used with --token. "
+                "Use --sso alone to authenticate via browser SSO."
+            )
+        if username or password or get_username() or get_password():
+            raise click.UsageError(
+                "--sso cannot be used with --username/--password. "
+                "Use --sso alone to authenticate via browser SSO."
+            )
+        return
+
     # Check if credentials will come from CLI args or env vars
     username_provided = username or get_username()
     password_provided = password or get_password()
@@ -169,13 +227,13 @@ def _validate_init_inputs(
         )
 
     # Validate: token duration only applies when generating token
-    if not should_generate_token and not use_password and token_duration != "ONE_HOUR":
+    if not should_generate_token and not use_password and token_duration is not None:
         raise click.UsageError(
             "--token-duration only applies when generating token from username/password"
         )
 
 
-@datahub.command()
+@datahub.command(cls=_make_agent_aware_command("INIT_AGENT_CONTEXT.md"))
 @click.option(
     "--use-password",
     is_flag=True,
@@ -226,8 +284,8 @@ def _validate_init_inputs(
         ],
         case_sensitive=False,
     ),
-    default="ONE_HOUR",
-    help="Token expiration duration (when generating from username/password)",
+    default=None,
+    help="Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise)",
 )
 @click.option(
     "--force",
@@ -236,14 +294,35 @@ def _validate_init_inputs(
     default=False,
     help="Overwrite existing config without confirmation",
 )
+@click.option(
+    "--sso",
+    is_flag=True,
+    default=False,
+    help="Open browser for SSO login (requires: pip install 'acryl-datahub[sso]' && playwright install chromium)",
+)
+@click.option(
+    "--support",
+    is_flag=True,
+    default=False,
+    help="Use support login path for DataHub Cloud customer debugging (use with --sso)",
+)
+@click.option(
+    "--agent-context",
+    is_flag=True,
+    default=False,
+    help="Print agent best-practices guide and exit",
+)
 def init(
     use_password: bool = False,
     host: Optional[str] = None,
     token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
-    token_duration: str = "ONE_HOUR",
+    token_duration: Optional[str] = None,
     force: bool = False,
+    sso: bool = False,
+    support: bool = False,
+    agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
 
@@ -261,18 +340,26 @@ def init(
 
     \b
     Mode 1: Auto-Generate Token from Username/Password
-        # Default duration (1 hour)
         datahub init --username alice --password secret
-
-        # Custom duration (for long-running jobs)
-        datahub init --username alice --password secret --token-duration ONE_MONTH
-
-        # Non-expiring token (for CI/CD)
-        datahub init --username alice --password secret --token-duration NO_EXPIRY
+        datahub init --username alice --password secret \\
+            --token-duration ONE_MONTH
+        datahub init --username alice --password secret \\
+            --token-duration NO_EXPIRY
 
     \b
     Mode 2: Use Existing Token
         datahub init --token <your-existing-token>
+
+    \b
+    Mode 3: SSO Browser Login (OIDC/SAML)
+        datahub init --sso --host https://example.com/gms
+        datahub init --sso --host https://example.com/gms \\
+            --token-duration ONE_MONTH
+
+    \b
+    Support Login (DataHub Cloud — customer debugging):
+        datahub init --sso --support \\
+            --host https://customer.acryl.io/gms
 
     \b
     Environment Variables (for automation):
@@ -283,13 +370,28 @@ def init(
 
     \b
     Available Token Durations:
-        ONE_HOUR (default), ONE_DAY, ONE_WEEK, ONE_MONTH,
+        ONE_HOUR, ONE_DAY, ONE_WEEK, ONE_MONTH,
         THREE_MONTHS, SIX_MONTHS, ONE_YEAR, NO_EXPIRY
+        (Default: ONE_MONTH for localhost, ONE_HOUR for remote instances)
 
     \b
     DataHub Cloud (Acryl-hosted instances):
-        datahub init --host https://your-instance.acryl.io/gms --token <your-token>
+        datahub init --token <token> \\
+            --host https://your-instance.acryl.io/gms
     """
+    if agent_context:
+        text: str = (
+            importlib.resources.files("datahub.cli.resources")
+            .joinpath("INIT_AGENT_CONTEXT.md")
+            .read_text(encoding="utf-8")
+        )
+        click.echo(text)
+        return
+
+    # Validate: --support requires --sso
+    if support and not sso:
+        raise click.UsageError("--support requires --sso")
+
     # Show deprecation warning if --use-password used
     if use_password:
         click.echo(
@@ -299,27 +401,63 @@ def init(
         )
 
     # Validate input combinations
-    _validate_init_inputs(use_password, token, username, password, token_duration)
+    _validate_init_inputs(
+        use_password, token, username, password, token_duration, sso=sso
+    )
 
-    # Handle overwrite confirmation
-    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force:
+    # Handle overwrite confirmation: prompt only on interactive TTYs.
+    # Non-TTY environments (agents, CI) silently overwrite — same as --force.
+    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force and sys.stdin.isatty():
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    # Get host (CLI arg > Env var > Prompt)
-    host_value = get_init_config_value(
-        arg_value=host,
-        env_var="DATAHUB_GMS_URL",
-        prompt_text="Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for DataHub Cloud)\nEnter your DataHub host",
-        default="http://localhost:8080",
+    # Get host (CLI arg > Env var > silent default if credentials provided > prompt)
+    # When credentials are supplied non-interactively, skip the prompt and default to
+    # localhost:8080 — users connecting to a different host will pass --host explicitly.
+    _credentials_non_interactive = (
+        bool((username or get_username()) and (password or get_password()))
+        or bool(token or os.environ.get("DATAHUB_GMS_TOKEN"))
+        or sso
     )
+    if (
+        host is None
+        and not os.environ.get("DATAHUB_GMS_URL")
+        and _credentials_non_interactive
+    ):
+        host_value = "http://localhost:8080"
+    else:
+        host_value = get_init_config_value(
+            arg_value=host,
+            env_var="DATAHUB_GMS_URL",
+            prompt_text="Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for DataHub Cloud)\nEnter your DataHub host",
+            default="http://localhost:8080",
+        )
     host_value = fixup_gms_url(host_value)
+
+    # Resolve effective token duration: explicit > host-based default
+    # Local dev gets a generous default so tokens don't expire mid-session.
+    _is_localhost = "localhost" in host_value or "127.0.0.1" in host_value
+    effective_duration = (
+        token_duration.upper()
+        if token_duration
+        else ("ONE_MONTH" if _is_localhost else "ONE_HOUR")
+    )
 
     # Determine token acquisition mode (check both CLI args and env vars)
     username_provided = username or get_username()
     password_provided = password or get_password()
     should_generate_token = bool(username_provided and password_provided)
 
-    if should_generate_token or use_password:
+    if sso:
+        # SSO browser login flow
+        from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
+        from datahub.cli.sso_cli import browser_sso_login
+
+        frontend_url = guess_frontend_url_from_gms_url(host_value)
+        _, token_value = browser_sso_login(
+            frontend_url, effective_duration, support=support
+        )
+        click.echo(f"✓ Generated token (expires: {effective_duration})")
+    elif should_generate_token or use_password:
         # Generate token from credentials
         username_value = get_init_config_value(
             arg_value=username,
@@ -339,10 +477,10 @@ def init(
             username=username_value,
             password=password_value,
             gms_url=host_value,
-            validity=token_duration.upper(),
+            validity=effective_duration,
         )
 
-        click.echo(f"✓ Generated token (expires: {token_duration.upper()})")
+        click.echo(f"✓ Generated token (expires: {effective_duration})")
     else:
         # Get token directly
         token_value = get_init_config_value(
@@ -365,9 +503,10 @@ datahub.add_command(delete)
 datahub.add_command(exists)
 datahub.add_command(get)
 datahub.add_command(graphql)
+datahub.add_command(lineage)
 datahub.add_command(put)
+datahub.add_command(search)
 datahub.add_command(state)
-datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
 datahub.add_command(user)
@@ -380,6 +519,7 @@ datahub.add_command(datacontract)
 datahub.add_command(assertions)
 datahub.add_command(container)
 datahub.add_command(recording)
+datahub.add_command(datapack)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
@@ -444,7 +584,7 @@ def main(**kwargs):
         sys.exit(1)
     except click.ClickException as error:
         error.show()
-        sys.exit(1)
+        sys.exit(error.exit_code)
     except Exception as exc:
         if not should_show_stack_trace(exc):
             # Don't print the full stack trace for simple config errors.

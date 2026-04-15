@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 
-export interface DocumentPermissions {
+interface DocumentPermissions {
     canCreate: boolean;
     canEditContents: boolean;
     canEditTitle: boolean;

@@ -1,3 +1,4 @@
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -28,7 +29,7 @@ export default function ChildHierarchyModule(props: ModuleProps) {
         return (
             <LargeModule {...props} module={module} dataTestId="hierarchy-module">
                 <EmptyContent
-                    icon="Stack"
+                    icon={Stack}
                     title="No Domains"
                     description="This domain has no children domains. Add domains to see them in this module."
                 />

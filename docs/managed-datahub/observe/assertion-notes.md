@@ -16,7 +16,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 The Assertion notes feature aims to solve two key use cases:
 
 1. Surfacing useful tips for engineers to troubleshoot and resolve data quality failures
-2. Documenting the purpose of a given check, and implications of its failiure; for instance, some checks may circuit-break pipelines.
+2. Documenting the purpose of a given check, and implications of its failure; for instance, some checks may circuit-break pipelines.
 
 ### For Troubleshooting
 

@@ -47,6 +47,14 @@ public class SimpleKafkaConsumerFactory {
       consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
+    String securityProtocol =
+        StringUtils.isNotBlank(kafkaConfiguration.getConsumer().getSecurityProtocol())
+            ? kafkaConfiguration.getConsumer().getSecurityProtocol()
+            : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      consumerProps.getSecurity().setProtocol(securityProtocol);
+    }
+
     Map<String, Object> customizedProperties = properties.buildConsumerProperties(null);
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,

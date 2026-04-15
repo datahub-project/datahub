@@ -34,6 +34,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,6 +70,29 @@ public class EbeanAspectDaoTest {
       {true, "Writable"}, // canWrite = true, description
       {false, "ReadOnly"} // canWrite = false, description
     };
+  }
+
+  @Test
+  public void testGetNextVersionsThrowsIllegalStateWhenDbKeyNotInRequest() {
+    Map<String, Map<String, Long>> result = new HashMap<>();
+    result.put("urn:li:corpuser:requested", new HashMap<>(Map.of("status", 0L)));
+    List<EbeanAspectV2.PrimaryKey> dbResults =
+        List.of(
+            new EbeanAspectV2.PrimaryKey("urn:li:corpuser:from-db-not-in-request", "status", 0));
+
+    try {
+      EbeanAspectDao.mergeNextVersionsFromDb(result, dbResults);
+      throw new AssertionError("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertTrue(
+          e.getMessage().contains("urn:li:corpuser:from-db-not-in-request"),
+          "Message should include failing URN");
+      assertTrue(e.getMessage().contains("status"), "Message should include failing aspect");
+      assertTrue(
+          e.getMessage().contains("utf8mb4_bin"), "Message should hint at charset/collation fix");
+      assertNotNull(e.getCause(), "Cause should be set");
+      assertTrue(e.getCause() instanceof NullPointerException);
+    }
   }
 
   @Test(dataProvider = "writabilityConfig")

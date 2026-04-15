@@ -66,6 +66,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             title="Create Data Product"
             onCancel={onClose}
             open
+            width={725}
             buttons={[
                 {
                     text: 'Cancel',

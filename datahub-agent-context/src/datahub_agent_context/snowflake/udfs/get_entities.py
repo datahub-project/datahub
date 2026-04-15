@@ -28,7 +28,8 @@ try:
     client = DataHubClient(server=datahub_url, token=datahub_token)
 
     with DataHubContext(client):
-        return get_entities([entity_urn])
+        results = get_entities([entity_urn])
+        return results[0]
 
 except Exception as e:
     return {

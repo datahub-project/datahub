@@ -3,16 +3,28 @@ import { hasOperationName } from "../utils";
 const readyToTypeEditor = () =>
   cy.get(".monaco-scrollable-element").first().click().focused();
 
-export const setThemeV2AndIngestionRedesignFlags = (isOn) => {
+export const setIngestionRedesignFlags = (isOn) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
         res.body.data.appConfig.featureFlags.showIngestionPageRedesign = isOn;
         res.body.data.appConfig.featureFlags.ingestionOnboardingRedesignV1 =
           isOn;
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
-        res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
+      });
+    }
+    if (isOn && hasOperationName(req, "batchGetStepStates")) {
+      // Override the response to mark all requested step IDs as already seen,
+      // preventing education modals (e.g. CreateSourceEducationModal) from
+      // appearing during ingestion tests. These tests don't exercise the
+      // onboarding flow.
+      const ids = req.body?.variables?.input?.ids || [];
+      req.reply((res) => {
+        res.body.data = {
+          batchGetStepStates: {
+            results: ids.map((id) => ({ id, properties: [] })),
+          },
+        };
       });
     }
   });
@@ -26,6 +38,8 @@ const clickIfTestIdPresent = (dataTestId) => {
   cy.get("body", { timeout: 2000 }).then(($body) => {
     if ($body.find(`[data-testid="${dataTestId}"]`).length) {
       cy.get(`[data-testid="${dataTestId}"]`).click();
+      // Wait for the element (and its modal) to fully close before proceeding
+      cy.get(`[data-testid="${dataTestId}"]`).should("not.exist");
     }
   });
 };
@@ -141,9 +155,9 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   cy.get('[data-testid="data-source-name"]').type(sourceName);
 
   // Finish creating source
-  cy.clickOptionWithTestId("next-button");
-  cy.waitTextVisible("Sync Schedule");
+  cy.contains("Sync Schedule").scrollIntoView().should("be.visible");
   if (options?.schedule) {
+    cy.get('[data-testid="schedule-enabled-switch"]').click();
     changeSchedule(options?.schedule);
   }
 
@@ -170,9 +184,9 @@ export const updateIngestionSource = (
   cy.get('[data-testid="data-source-name"]')
     .focus()
     .type(`{selectall}{backspace}${updatedSourceName}`);
-  cy.get('[data-testid="next-button"]').scrollIntoView().click();
-  cy.waitTextVisible("Sync Schedule");
+  cy.contains("Sync Schedule").scrollIntoView().should("be.visible");
   if (options?.schedule) {
+    cy.get('[data-testid="schedule-enabled-switch"]').click();
     changeSchedule(options?.schedule);
   }
 
@@ -180,7 +194,61 @@ export const updateIngestionSource = (
   cy.waitTextVisible("Successfully updated ingestion source!");
 };
 
+// Cancel any running execution for an ingestion source before deleting it.
+// Without this, the executor keeps processing the run after the source is
+// deleted, consuming memory and causing OOM crashes when runs pile up.
+const cancelRunningExecution = (sourceName) => {
+  cy.request({
+    method: "POST",
+    url: "/api/v2/graphql",
+    body: {
+      query: `query listIngestionSources($input: ListIngestionSourcesInput!) {
+        listIngestionSources(input: $input) {
+          ingestionSources {
+            urn
+            name
+            executions(start: 0, count: 1) {
+              executionRequests {
+                urn
+                result { status }
+              }
+            }
+          }
+        }
+      }`,
+      variables: { input: { start: 0, count: 100, query: sourceName } },
+    },
+    failOnStatusCode: false,
+  }).then((resp) => {
+    if (resp.status !== 200 || !resp.body?.data) return;
+    const sources = resp.body.data.listIngestionSources?.ingestionSources || [];
+    const source = sources.find((s) => s.name === sourceName);
+    if (!source) return;
+    const lastExec = source.executions?.executionRequests?.[0];
+    if (!lastExec) return;
+    const status = lastExec.result?.status;
+    if (status && status !== "RUNNING" && status !== "PENDING") return;
+    cy.request({
+      method: "POST",
+      url: "/api/v2/graphql",
+      body: {
+        query: `mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequestInput!) {
+          cancelIngestionExecutionRequest(input: $input)
+        }`,
+        variables: {
+          input: {
+            ingestionSourceUrn: source.urn,
+            executionRequestUrn: lastExec.urn,
+          },
+        },
+      },
+      failOnStatusCode: false,
+    });
+  });
+};
+
 export const deleteIngestionSource = (sourceName) => {
+  cancelRunningExecution(sourceName);
   cy.contains("td", sourceName)
     .siblings("td")
     .find('[data-testid="ingestion-more-options"]')
@@ -198,7 +266,6 @@ export const createAndRunIngestionSource = (sourceName) => {
 
   // Wait for the source selection modal to appear and any loading to finish
   // Multi-step builder uses "Search..." while old builder uses "Search data sources..."
-  cy.wait(1000); // Wait for modal animations to complete
   cy.get('[placeholder="Search..."], [placeholder="Search data sources..."]', {
     timeout: 10000,
   })
@@ -218,7 +285,6 @@ export const createAndRunIngestionSource = (sourceName) => {
 
   cy.clickOptionWithTestId("expand-collapse-button");
   cy.enterTextInTestId("cli-version-input", cli_version);
-  cy.clickOptionWithText("Next");
 
   cy.clickOptionWithTestId("save-and-run-button");
   cy.waitTextVisible(sourceName);

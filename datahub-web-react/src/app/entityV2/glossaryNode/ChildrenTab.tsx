@@ -1,4 +1,4 @@
-import { Plus } from 'phosphor-react';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

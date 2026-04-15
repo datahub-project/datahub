@@ -1,3 +1,4 @@
+import { VIEW_ENTITY_TYPES } from '@app/entityV2/view/builder/constants';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
@@ -16,25 +17,7 @@ export const viewBuilderProperties: Property[] = [
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
-            options: [
-                { id: 'dataset', displayName: 'Dataset' },
-                { id: 'dataProduct', displayName: 'Data Product' },
-                { id: 'document', displayName: 'Document' },
-                { id: 'dashboard', displayName: 'Dashboard' },
-                { id: 'domain', displayName: 'Domain' },
-                { id: 'glossaryTerm', displayName: 'Glossary Term' },
-                { id: 'glossaryNode', displayName: 'Term Group' },
-                { id: 'chart', displayName: 'Chart' },
-                { id: 'dataJob', displayName: 'Data Job (Task)' },
-                { id: 'dataFlow', displayName: 'Data Flow (Pipeline)' },
-                { id: 'container', displayName: 'Container' },
-                { id: 'application', displayName: 'Application' },
-                { id: 'mlModel', displayName: 'ML Model' },
-                { id: 'mlModelGroup', displayName: 'ML Model Group' },
-                { id: 'mlFeature', displayName: 'ML Feature' },
-                { id: 'mlFeatureTable', displayName: 'ML Feature Table' },
-                { id: 'mlPrimaryKey', displayName: 'ML Primary Key' },
-            ],
+            options: VIEW_ENTITY_TYPES.map((e) => ({ id: e.id, displayName: e.displayName })),
         },
     },
     {

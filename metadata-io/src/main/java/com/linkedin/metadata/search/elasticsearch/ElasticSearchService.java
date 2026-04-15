@@ -3,6 +3,8 @@ package com.linkedin.metadata.search.elasticsearch;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -29,6 +31,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,6 +61,15 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           .setIncludeRestricted(false);
 
   private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
+  private static final long SEMANTIC_INDEX_CACHE_TTL_MINUTES = 5;
+
+  // Cache for semantic index existence checks to avoid repeated HEAD requests to OpenSearch
+  private final Cache<String, Boolean> semanticIndexExistsCache =
+      CacheBuilder.newBuilder()
+          .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
+          .maximumSize(150)
+          .build();
+
   public static final String SCRIPT_SOURCE =
       "if (ctx._source.containsKey('runId')) { "
           + "if (!ctx._source.runId.contains(params.runId)) { "
@@ -267,7 +279,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     final String entityName = urn.getEntityType();
     final String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
 
-    log.info("Appending run id for entity '{}', docId='{}', runId='{}'", entityName, docId, runId);
+    log.debug("Appending run id for entity '{}', docId='{}', runId='{}'", entityName, docId, runId);
 
     // Create an upsert document that will be used if the document doesn't exist
     Map<String, Object> upsert = new HashMap<>();
@@ -292,11 +304,16 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         scriptParams,
         upsert);
 
-    // Dual-write to semantic index if it exists
+    // Dual-write to semantic index if it exists (with caching to avoid repeated HEAD requests)
     String semanticIndexName =
         opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
-    if (indexExists(semanticIndexName)) {
-      log.info(
+    Boolean semanticExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
+    if (semanticExists == null) {
+      semanticExists = indexExists(semanticIndexName);
+      semanticIndexExistsCache.put(semanticIndexName, semanticExists);
+    }
+    if (semanticExists) {
+      log.debug(
           "Semantic dual-write: APPEND_RUNID to '{}' for entity '{}', docId='{}', runId='{}'",
           semanticIndexName,
           entityName,
@@ -304,10 +321,36 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           runId);
       applyScriptUpdateByIndexName(semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
     } else {
-      log.info(
+      log.debug(
           "Semantic dual-write: SKIP - index '{}' does not exist for runId update",
           semanticIndexName);
     }
+  }
+
+  /**
+   * Appends a run ID to the runId list on a document in a V3 search group index. Used by
+   * MAE-consumer when updating the search index so runId is written in the same bulk batch as the
+   * document.
+   */
+  public void appendRunIdBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull Urn urn,
+      @Nullable String runId) {
+    log.debug(
+        "Appending run id for searchGroup '{}', docId='{}', runId='{}'", searchGroup, docId, runId);
+
+    Map<String, Object> upsert = new HashMap<>();
+    upsert.put("urn", urn.toString());
+    upsert.put("runId", Collections.singletonList(runId));
+
+    Map<String, Object> scriptParams = new HashMap<>();
+    scriptParams.put("runId", runId);
+    scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
+
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext, searchGroup, docId, SCRIPT_SOURCE, scriptParams, upsert);
   }
 
   @Nonnull
@@ -611,6 +654,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         keepAlive,
         size,
         facets);
+  }
+
+  @Override
+  public boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+      throws Exception {
+    return indexBuilder.validateAndSwapAlias(aliasName, newBackingIndex);
   }
 
   @Override

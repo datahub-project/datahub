@@ -13,7 +13,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.testing import mce_helpers
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_5
 
 
 @freeze_time(FROZEN_TIME)

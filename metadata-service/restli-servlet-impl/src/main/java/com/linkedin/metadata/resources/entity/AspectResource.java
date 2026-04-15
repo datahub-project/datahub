@@ -143,7 +143,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version)
       throws URISyntaxException {
-    log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
+    log.debug("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(systemOperationContext,
         () -> {
@@ -187,7 +187,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sort)
       throws URISyntaxException {
-    log.info(
+    log.debug(
         "Get Timeseries Aspect values for aspect {} for entity {} with startTimeMillis {}, endTimeMillis {} and limit {}.",
         aspectName,
         entityName,
@@ -314,7 +314,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 .build(opContext);
 
         batch.getMCPItems().forEach(item ->
-            log.info(
+            log.debug(
                     "INGEST PROPOSAL content: urn: {}, async: {}, value: {}",
                     item.getUrn(),
                     asyncBool,
@@ -325,7 +325,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
-        entitySearchService.appendRunId(opContext, results);
 
             // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
             return RESTLI_SUCCESS;

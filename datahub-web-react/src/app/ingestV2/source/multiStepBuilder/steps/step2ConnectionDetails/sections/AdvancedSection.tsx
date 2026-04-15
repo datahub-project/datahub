@@ -96,8 +96,8 @@ export function AdvancedSection({ state, updateState }: Props) {
             <Container ref={sectionRef}>
                 <SectionName
                     name="Advanced Settings"
-                    topRowRightItems={<ExpandCollapseButton expanded={isExpanded} />}
-                    onClick={toggleIsExpanded}
+                    topRowLeftItems={<ExpandCollapseButton expanded={isExpanded} />}
+                    onHeaderClick={toggleIsExpanded}
                 />
 
                 <FormContainer $expanded={isExpanded}>

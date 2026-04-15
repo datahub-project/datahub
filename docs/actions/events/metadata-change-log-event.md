@@ -2,7 +2,7 @@
 
 ## Event Type
 
-`MetadataChangeLog_v1`
+`MetadataChangeLogEvent_v1`
 
 ## Overview
 

@@ -38,6 +38,7 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    SEMANTIC_MODEL = "Semantic Model"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -52,6 +53,7 @@ class GenericContainerSubTypes(StrEnum):
 
 class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
+    INSTANCE = "Instance"
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
@@ -71,6 +73,9 @@ class DatasetContainerSubTypes(StrEnum):
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
     FABRIC_SCHEMA = "Fabric Schema"
+    # Pinecone
+    PINECONE_INDEX = "Pinecone Index"
+    PINECONE_NAMESPACE = "Pinecone Namespace"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -147,13 +152,16 @@ class MLAssetSubTypes(StrEnum):
 
     VERTEX_MODEL = "ML Model"
     VERTEX_MODEL_GROUP = "ML Model Group"
+    VERTEX_MODEL_EVALUATION = "Model Evaluation"
     VERTEX_TRAINING_JOB = "Training Job"
     VERTEX_ENDPOINT = "Endpoint"
     VERTEX_DATASET = "Dataset"
     VERTEX_PROJECT = "Project"
-    VERTEX_PIPELINE = "Pipeline Job"
-    VERTEX_PIPELINE_TASK = "Pipeline Task"
-    VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"
+    VERTEX_PIPELINE = "Pipeline"
+    VERTEX_PIPELINE_TASK = "Task"
+    VERTEX_PIPELINE_TASK_RUN = "Task Run"
+
+    FOLDER = "Folder"
 
 
 class DataJobSubTypes(StrEnum):
@@ -195,6 +203,21 @@ class DataJobSubTypes(StrEnum):
     ADF_SYNAPSE_SPARK_JOB = "Synapse Spark Job"
     ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
     ADF_FAIL_ACTIVITY = "Fail Activity"
+
+    # Fabric Data Factory Activity Types (Fabric-specific, not in ADF)
+    FABRIC_SPARK_JOB_DEFINITION = "Spark Job Definition"
+    FABRIC_INVOKE_COPY_JOB = "Invoke Copy Job"
+    FABRIC_EXECUTE_SSIS_PACKAGE = "Execute SSIS Package"
+    FABRIC_KQL_ACTIVITY = "KQL Activity"
+    FABRIC_TRIDENT_NOTEBOOK = "Trident Notebook"
+    FABRIC_OFFICE365_EMAIL = "Office 365 Email"
+    FABRIC_EMAIL_ACTIVITY = "Email Activity"
+    FABRIC_TEAMS_ACTIVITY = "Teams Activity"
+    FABRIC_PBI_SEMANTIC_MODEL_REFRESH = "PBI Semantic Model Refresh"
+    FABRIC_REFRESH_DATAFLOW = "Refresh Data Flow"
+    FABRIC_HDINSIGHT_ACTIVITY = "HDInsight Activity"
+    FABRIC_DATA_LAKE_ANALYTICS = "Data Lake Analytics"
+    FABRIC_AZURE_ML_EXECUTE_PIPELINE = "Azure ML Execute Pipeline"
 
 
 def create_source_capability_modifier_enum():

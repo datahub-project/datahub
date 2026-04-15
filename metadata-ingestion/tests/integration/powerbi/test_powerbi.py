@@ -30,7 +30,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 from datahub.testing import mce_helpers
 from tests.test_helpers import test_connection_helpers
 
-pytestmark = pytest.mark.integration_batch_3
+pytestmark = pytest.mark.integration_batch_4
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
@@ -134,6 +134,7 @@ def default_source_config():
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": False,
+        "extract_column_level_lineage": False,
         "extract_reports": False,
         "extract_ownership": True,
         "convert_lineage_urns_to_lowercase": False,
@@ -1592,6 +1593,37 @@ def test_powerbi_app_ingest_info_message(
 
     assert is_entry_present, (
         "The extract_app flag should be set to false by default. We need to keep this flag as false until all GMS instances are updated to the latest release."
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_app_redirect_url_pattern(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    common_app_ingest(
+        pytestconfig=pytestconfig,
+        requests_mock=requests_mock,
+        output_mcp_path=f"{tmp_path}/powerbi_mces.json",
+        override_config={
+            "extract_app": True,
+            "app_url_pattern": "redirect_based",
+        },
+    )
+
+    golden_file = "golden_test_app_redirect_url_ingest.json"
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
 
