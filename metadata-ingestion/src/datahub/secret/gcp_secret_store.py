@@ -38,6 +38,14 @@ class GcpSecretManagerStore(SecretStore):
         self._cache: TTLCache = TTLCache(maxsize=1000, ttl=config.cache_ttl)
         self._cache_lock = threading.Lock()
 
+        # Retry config created once — the first gRPC call to establish the
+        # channel can take 10-30s ("cold channel" problem).
+        from google.api_core.retry import Retry
+
+        self._default_retry = Retry(
+            initial=1.0, maximum=10.0, multiplier=2.0, deadline=30.0
+        )
+
     def _get_client(self):
         # Double-checked locking: multiple workload threads share this store
         # instance, so we prevent duplicate client creation on first access.
@@ -57,12 +65,6 @@ class GcpSecretManagerStore(SecretStore):
         return self._client
 
     def _fetch_from_gcp(self, secret_names: List[str]) -> Dict[str, Optional[str]]:
-        from google.api_core.retry import Retry
-
-        # Retry config for GCP Secret Manager.
-        # The first gRPC call to establish the channel can take 10-30s ("cold channel" problem).
-        default_retry = Retry(initial=1.0, maximum=10.0, multiplier=2.0, deadline=30.0)
-
         client = self._get_client()
         results: Dict[str, Optional[str]] = {}
         for name in secret_names:
@@ -72,13 +74,16 @@ class GcpSecretManagerStore(SecretStore):
             )
             try:
                 resp = client.access_secret_version(
-                    request={"name": resource}, retry=default_retry
+                    request={"name": resource}, retry=self._default_retry
                 )
                 results[name] = resp.payload.data.decode("UTF-8")
-            except Exception:
-                logger.exception(
-                    f"Failed to fetch secret '{name}' from GCP Secret Manager"
-                )
+            except Exception as e:
+                if "NotFound" in type(e).__name__ or "404" in str(e):
+                    logger.warning(f"Secret '{name}' not found in GCP Secret Manager")
+                else:
+                    logger.error(
+                        f"Failed to fetch secret '{name}' from GCP Secret Manager: {e}"
+                    )
                 results[name] = None
         return results
 
@@ -101,8 +106,7 @@ class GcpSecretManagerStore(SecretStore):
 
             with self._cache_lock:
                 for k, v in fresh.items():
-                    if v is not None:
-                        self._cache[k] = v
+                    self._cache[k] = v
 
             cached.update(fresh)
 
@@ -112,7 +116,9 @@ class GcpSecretManagerStore(SecretStore):
         return "gcp-sm"
 
     def close(self) -> None:
-        pass
+        if self._client is not None:
+            self._client.transport.close()
+            self._client = None
 
     @classmethod
     def create(cls, configs: dict) -> "GcpSecretManagerStore":

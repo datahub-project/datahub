@@ -972,6 +972,8 @@ base_dev_requirements = {
             "pinecone",
             "mssql-odbc",
             "omni",
+            "aws-secret-manager",
+            "gcp-secret-manager",
         ]
         if plugin
         for dependency in plugins[plugin]

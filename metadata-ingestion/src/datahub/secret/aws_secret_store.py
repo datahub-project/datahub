@@ -80,14 +80,19 @@ class AwsSecretsManagerStore(SecretStore):
                     results[name] = found.get(prefixed_id)
 
                 for error in response.get("Errors", []):
-                    logger.warning(
-                        f"AWS Secrets Manager error for '{error['SecretId']}': "
-                        f"{error['ErrorCode']} - {error['Message']}"
-                    )
+                    if error["ErrorCode"] == "ResourceNotFoundException":
+                        logger.warning(
+                            f"Secret '{error['SecretId']}' not found in AWS Secrets Manager"
+                        )
+                    else:
+                        logger.warning(
+                            f"AWS Secrets Manager error for '{error['SecretId']}': "
+                            f"{error['ErrorCode']} - {error['Message']}"
+                        )
 
-            except Exception:
-                logger.exception(
-                    "Failed to batch fetch secrets from AWS Secrets Manager"
+            except Exception as e:
+                logger.error(
+                    f"Failed to batch fetch secrets from AWS Secrets Manager: {e}"
                 )
                 for name in batch_names:
                     results[name] = None
@@ -113,8 +118,7 @@ class AwsSecretsManagerStore(SecretStore):
 
             with self._cache_lock:
                 for k, v in fresh.items():
-                    if v is not None:
-                        self._cache[k] = v
+                    self._cache[k] = v
 
             cached.update(fresh)
 
