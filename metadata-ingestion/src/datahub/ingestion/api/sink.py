@@ -10,6 +10,8 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
     get_report_failure_sample_size,
     get_report_warning_sample_size,
+    get_sink_error_log_level,
+    get_sink_warning_log_level,
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -39,9 +41,19 @@ class SinkReport(Report):
 
     def report_warning(self, info: Any) -> None:
         self.warnings.append(info)
+        logger.log(
+            get_sink_warning_log_level(),
+            "[INGEST SINK WARNING] warning=%s",
+            info,
+        )
 
     def report_failure(self, info: Any) -> None:
         self.failures.append(info)
+        logger.log(
+            get_sink_error_log_level(),
+            "[INGEST SINK ERROR] error=%s",
+            info,
+        )
 
     def compute_stats(self) -> None:
         super().compute_stats()
