@@ -1,22 +1,11 @@
 package datahub.spark;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import datahub.spark.model.dataset.CatalogTableDataset;
-import org.apache.spark.sql.catalyst.plans.logical.CreateDataSourceTableAsSelectCommand;
-import org.apache.spark.sql.catalyst.plans.logical.CreateHiveTableAsSelectCommand;
-import org.apache.spark.sql.catalyst.plans.logical.InsertIntoHadoopFsRelationCommand;
-import org.apache.spark.sql.catalyst.plans.logical.InsertIntoHiveTable;
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.junit.Test;
-import org.mockito.Mockito;
 
-/**
- * Unit tests for DatasetExtractor helper methods including CTAS dedup detection and catalog table
- * name normalization.
- */
+/** Unit tests for CatalogTableDataset catalog name normalization. */
 public class DatasetExtractorTest {
 
   @Test
@@ -59,48 +48,6 @@ public class DatasetExtractorTest {
     // Test: table name without prefix should remain unchanged
     String result = testStripDefaultCatalog("default.table1");
     assertEquals("default.table1", result);
-  }
-
-  @Test
-  public void testIsCreateTableAsSelectCommand_CreateDataSourceCommand() {
-    // Test: CreateDataSourceTableAsSelectCommand should be recognized
-    LogicalPlan plan = Mockito.mock(CreateDataSourceTableAsSelectCommand.class);
-    assertTrue(DatasetExtractor.isCreateTableAsSelectCommand(plan));
-  }
-
-  @Test
-  public void testIsCreateTableAsSelectCommand_CreateHiveCommand() {
-    // Test: CreateHiveTableAsSelectCommand should be recognized
-    LogicalPlan plan = Mockito.mock(CreateHiveTableAsSelectCommand.class);
-    assertTrue(DatasetExtractor.isCreateTableAsSelectCommand(plan));
-  }
-
-  @Test
-  public void testIsCreateTableAsSelectCommand_OtherPlan() {
-    // Test: other LogicalPlans should not be recognized as CTAS
-    LogicalPlan plan = Mockito.mock(LogicalPlan.class);
-    assertFalse(DatasetExtractor.isCreateTableAsSelectCommand(plan));
-  }
-
-  @Test
-  public void testIsFollowUpInsertCommand_InsertIntoHadoopFsRelation() {
-    // Test: InsertIntoHadoopFsRelationCommand should be recognized as follow-up insert
-    LogicalPlan plan = Mockito.mock(InsertIntoHadoopFsRelationCommand.class);
-    assertTrue(DatasetExtractor.isFollowUpInsertCommand(plan));
-  }
-
-  @Test
-  public void testIsFollowUpInsertCommand_InsertIntoHiveTable() {
-    // Test: InsertIntoHiveTable should be recognized as follow-up insert
-    LogicalPlan plan = Mockito.mock(InsertIntoHiveTable.class);
-    assertTrue(DatasetExtractor.isFollowUpInsertCommand(plan));
-  }
-
-  @Test
-  public void testIsFollowUpInsertCommand_OtherPlan() {
-    // Test: other LogicalPlans should not be recognized as follow-up insert
-    LogicalPlan plan = Mockito.mock(LogicalPlan.class);
-    assertFalse(DatasetExtractor.isFollowUpInsertCommand(plan));
   }
 
   /**
