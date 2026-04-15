@@ -667,9 +667,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 if not passes_docs_check:
                     skip_reasons.append("generate_docs is not enabled")
                 reason_str = " and ".join(skip_reasons)
+                # generate_docs is only relevant when require_generate_docs filters on it
+                req_docs = self.config.auto_discovery.require_generate_docs
                 logger.debug(
-                    f"Skipping job {job.id}: generate_docs={job.generate_docs}, "
-                    f"matches_pattern={passes_pattern_check}, reason={reason_str}"
+                    "Skipping job %s: reason=%s, matches_pattern=%s%s",
+                    job.id,
+                    reason_str,
+                    passes_pattern_check,
+                    f", generate_docs={job.generate_docs}" if req_docs else "",
                 )
                 self.report.warning(
                     title="DBT Cloud Jobs Skipped Processing",
