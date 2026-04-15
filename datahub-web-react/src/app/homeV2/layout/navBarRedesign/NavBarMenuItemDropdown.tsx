@@ -49,11 +49,12 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
     const shouldScroll = item.key === 'mfe-dropdown' && dropdownItems && dropdownItems.length > 5; // 5 can be changed depending on requirement
 
     const onItemClick = (key) => {
-        analytics.event({ type: EventType.NavBarItemClick, label: item.title });
         const clickedItem = item.items?.filter((dropdownItem) => dropdownItem.key === key)?.[0];
         if (!clickedItem) return null;
 
         if (clickedItem.disabled) return null;
+
+        analytics.event({ type: EventType.NavBarItemClick, label: item.title, subLabel: clickedItem.title });
 
         if (item.key === 'mfe-dropdown' && clickedItem.link) {
             return history.push(clickedItem.link);
