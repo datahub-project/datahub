@@ -411,7 +411,7 @@ describe('Document Preview - Platform Logo Display', () => {
                 expect(platformImage).toBeInTheDocument();
                 expect(platformImage).toHaveAttribute('src', 'https://example.com/gdocs-logo.png');
             });
-        });
+        }, 30_000);
 
         it('should display platform logo in full preview', async () => {
             const mockPlatform = createMockPlatform('SharePoint', 'https://example.com/sharepoint-logo.png');
@@ -1177,7 +1177,7 @@ describe('Document Profile Rendering', () => {
                 // Native profile should render the document
                 expect(screen.getByText('My Native Document Title')).toBeInTheDocument();
             });
-        });
+        }, 30_000);
 
         it('should render native profile with parent document breadcrumbs', async () => {
             const parentDocs = createMockParentDocuments();

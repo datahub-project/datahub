@@ -1,5 +1,4 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Button, colors } from '@components';
+import { Button } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Divider, Typography } from 'antd';
@@ -44,13 +43,10 @@ const StyledEntitySidebarContainer = styled.div<{
         max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
         min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
 `;
 
 const StyledSidebar = styled.div`
@@ -78,7 +74,7 @@ const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
         font-size: 14px;
         line-height: 20px;
         font-weight: bold;
-        color: ${colors.gray[1700]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

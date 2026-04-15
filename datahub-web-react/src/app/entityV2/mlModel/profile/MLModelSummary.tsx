@@ -11,7 +11,6 @@ import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
 import { notEmpty } from '@app/entityV2/shared/utils';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components/theme';
 
 import { GetMlModelQuery } from '@graphql/mlModel.generated';
 import { EntityType, MlHyperParam, MlMetric } from '@types';
@@ -36,7 +35,7 @@ const InfoItemContent = styled.div`
 `;
 
 const JobLink = styled(Link)`
-    color: ${colors.blue[700]};
+    color: ${(props) => props.theme.colors.textInformation};
     &:hover {
         text-decoration: underline;
     }
@@ -45,7 +44,7 @@ const JobLink = styled(Link)`
 const FormattedJson = styled.pre`
     margin: 0;
     padding: 8px;
-    background-color: #f5f5f5;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     white-space: pre-wrap;

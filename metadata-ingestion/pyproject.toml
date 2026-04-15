@@ -47,7 +47,6 @@ dependencies = [
     "Deprecated<2.0.0",
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
-    "graphql-core>=3.0.0,<4.0.0",
     "humanfriendly<11.0.0",
     "ijson<4.0.0",
     "jsonref<2.0.0",
@@ -113,6 +112,10 @@ abs-slim = [
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.0,<6.0.0",
     "wcmatch<11.0.0",
+]
+
+aerospike = [
+    "aerospike>=15.0.0,<20.0.0",
 ]
 
 athena = [
@@ -287,7 +290,7 @@ confluence = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -348,7 +351,7 @@ datahub-documents = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -370,6 +373,7 @@ datahub-lite = [
 ]
 
 datahub-rest = [
+    "graphql-core>=3.0.0,<4.0.0",
     "requests<3.0.0",
 ]
 
@@ -551,7 +555,7 @@ fabric-data-factory = [
 
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
-    "pyodbc>=4.0,<5.0",
+    "pyodbc>=4.0,<6.0.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
 ]
@@ -631,6 +635,8 @@ glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
+    "patchy==2.8.0",
+    "sqlglot[c]==30.0.3",
     "urllib3>=1.26,<3.0",
 ]
 
@@ -829,7 +835,7 @@ mssql = [
     "numpy<2",
     "patchy==2.8.0",
     "pip",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
@@ -850,7 +856,7 @@ mssql-odbc = [
     "patchy==2.8.0",
     "pip",
     "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
@@ -896,7 +902,7 @@ notion = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -906,6 +912,11 @@ okta = [
     "flatdict!=4.0.1",
     "nest-asyncio<2.0.0",
     "okta~=1.7.0,<2.0.0",
+]
+
+omni = [
+    "PyYAML>=5.4",
+    "requests<3.0.0",
 ]
 
 oracle = [
@@ -925,6 +936,10 @@ oracle = [
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
+]
+
+pinecone = [
+    "pinecone-client>=3.0.0,<6.0.0",
 ]
 
 postgres = [
@@ -1000,16 +1015,19 @@ presto-on-hive = [
     "greenlet<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
+    "kerberos>=1.3.0,<2.0.0",
     "numpy<2",
     "patchy==2.8.0",
     "pip",
     "psycopg2-binary<3.0.0",
+    "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
+    "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
 
@@ -1058,6 +1076,23 @@ redshift = [
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
+    "wcmatch<11.0.0",
+]
+
+redshift-slim = [
+    "acryl-datahub-classify==0.0.11",
+    "cachetools<6.0.0",
+    "db-dtypes",
+    "GeoAlchemy2<0.19.0",
+    "numpy<2",
+    "parse>=1.19.0,<2.0.0",
+    "patchy==2.8.0",
+    "pip",
+    "redshift-connector>=2.1.5,<3.0.0",
+    "schwifty<2026.0.0",
+    "sqlalchemy-redshift>=0.8.3,<=0.8.14",
+    "sqlglot[c]==30.0.3",
+    "sqlparse<0.6.0",
     "wcmatch<11.0.0",
 ]
 
@@ -1265,6 +1300,26 @@ starburst-trino-usage = [
     "trino[sqlalchemy]>=0.308,<=0.336.0",
 ]
 
+starrocks = [
+    "acryl-datahub-classify==0.0.11",
+    "acryl-great-expectations==0.15.50.1",
+    "cachetools<6.0.0",
+    "greenlet<4.0.0",
+    "IPython!=8.22.0,<9.0.0",
+    "jupyter_server>=2.14.1,<3.0.0",
+    "lark>=1.3.1,<2.0",
+    "numpy<2",
+    "patchy==2.8.0",
+    "pip",
+    "schwifty<2026.0.0",
+    "scipy>=1.7.2,<2.0.0",
+    "sqlalchemy>=1.4.39,<2",
+    "sqlglot[c]==30.0.3",
+    "sqlparse<0.6.0",
+    "starrocks>=1.3.3,<2.0",
+    "traitlets!=5.2.2,<6.0.0",
+]
+
 superset = [
     "patchy==2.8.0",
     "requests<3.0.0",
@@ -1346,7 +1401,7 @@ unstructured = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -1380,6 +1435,7 @@ all = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
+    "aerospike>=15.0.0,<20.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.7,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
@@ -1416,6 +1472,7 @@ all = [
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "gql[requests]>=4.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
@@ -1427,7 +1484,8 @@ all = [
     "jsonpath-ng==1.7.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.80.5",
+    "lark>=1.3.1,<2.0",
+    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1445,6 +1503,7 @@ all = [
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "protobuf>=5.0.0,<7.0.0",
     "psycopg2-binary<3.0.0",
@@ -1458,11 +1517,12 @@ all = [
     "pymongo[aws]>=4.8.0,<5.0.0",
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "pyodbc>=4.0,<5.0",
-    "pyOpenSSL<26.0.0",
+    "pyodbc>=4.0,<6.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
+    "PyYAML>=5.4",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
@@ -1487,6 +1547,7 @@ all = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
+    "starrocks>=1.3.3,<2.0",
     "stopit==1.1.2",
     "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
@@ -1510,6 +1571,7 @@ dev = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
+    "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.7,<2.0.0",
@@ -1578,7 +1640,7 @@ dev = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1599,6 +1661,7 @@ dev = [
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
@@ -1615,7 +1678,7 @@ dev = [
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
@@ -1628,7 +1691,7 @@ dev = [
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "PyYAML<7.0.0",
+    "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
@@ -1675,7 +1738,7 @@ dev = [
     "types-Deprecated<2.0.0",
     "types-protobuf>=4.21.0.1,<7.0.0",
     "types-PyMySQL<2.0.0",
-    "types-pyOpenSSL<26.0.0",
+    "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
     "types-python-dateutil<3.0.0",
     "types-pytz<2026.0.0",
     "types-PyYAML<7.0.0",
@@ -1701,6 +1764,7 @@ docs = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
+    "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.7,<2.0.0",
@@ -1769,7 +1833,7 @@ docs = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.80.5",
+    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1790,6 +1854,7 @@ docs = [
     "pandas<2.2.0",
     "parse>=1.19.0,<2.0.0",
     "patchy==2.8.0",
+    "pinecone-client>=3.0.0,<6.0.0",
     "pip",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
@@ -1806,7 +1871,7 @@ docs = [
     "pymysql>=1.0.2,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "pyodbc<6.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
@@ -1819,7 +1884,7 @@ docs = [
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "PyYAML<7.0.0",
+    "PyYAML>=5.4,<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.5,<3.0.0",
@@ -1866,7 +1931,7 @@ docs = [
     "types-Deprecated<2.0.0",
     "types-protobuf>=4.21.0.1,<7.0.0",
     "types-PyMySQL<2.0.0",
-    "types-pyOpenSSL<26.0.0",
+    "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
     "types-python-dateutil<3.0.0",
     "types-pytz<2026.0.0",
     "types-PyYAML<7.0.0",
@@ -1931,6 +1996,7 @@ integration-tests = [
     "JPype1<2.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
+    "lark>=1.3.1,<2.0",
     "more-itertools>=8.12.0,<11.0.0",
     "moto[s3]>=5.0.0,<6.0.0",
     "numpy<2",
@@ -1948,8 +2014,8 @@ integration-tests = [
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql>=1.0.2,<2.0.0",
-    "pyodbc>=4.0,<5.0",
-    "pyOpenSSL<26.0.0",
+    "pyodbc>=4.0,<6.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "pyzipper>=0.3.6,<1.0",
@@ -1969,6 +2035,7 @@ integration-tests = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.0.3",
     "sqlparse<0.6.0",
+    "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -1992,6 +2059,7 @@ datahub = "datahub.entrypoints:main"
 
 [project.entry-points."datahub.ingestion.source.plugins"]
 abs = "datahub.ingestion.source.abs.source:ABSSource"
+aerospike = "datahub.ingestion.source.aerospike:AerospikeSource"
 csv-enricher = "datahub.ingestion.source.csv_enricher:CSVEnricherSource"
 file = "datahub.ingestion.source.file:GenericFileSource"
 datahub = "datahub.ingestion.source.datahub.datahub_source:DataHubSource"
@@ -2063,6 +2131,7 @@ tableau = "datahub.ingestion.source.tableau.tableau:TableauSource"
 openapi = "datahub.ingestion.source.openapi:OpenApiSource"
 metabase = "datahub.ingestion.source.metabase:MetabaseSource"
 teradata = "datahub.ingestion.source.sql.teradata:TeradataSource"
+starrocks = "datahub.ingestion.source.sql.starrocks:StarRocksSource"
 trino = "datahub.ingestion.source.sql.trino:TrinoSource"
 starburst-trino-usage = "datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource"
 nifi = "datahub.ingestion.source.nifi:NifiSource"
@@ -2088,6 +2157,8 @@ cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+omni = "datahub.ingestion.source.omni.omni:OmniSource"
+pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
 
 [project.entry-points."datahub.ingestion.transformer.plugins"]
 pattern_cleanup_ownership = "datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership"
@@ -2098,9 +2169,15 @@ set_browse_path = "datahub.ingestion.transformer.set_browse_path:SetBrowsePathTr
 add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership"
 simple_add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership"
 pattern_add_dataset_ownership = "datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership"
+add_ownership = "datahub.ingestion.transformer.add_ownership:AddOwnership"
+simple_add_ownership = "datahub.ingestion.transformer.add_ownership:SimpleAddOwnership"
+pattern_add_ownership = "datahub.ingestion.transformer.add_ownership:PatternAddOwnership"
 add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:AddDatasetDomain"
 simple_add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:SimpleAddDatasetDomain"
 pattern_add_dataset_domain = "datahub.ingestion.transformer.dataset_domain:PatternAddDatasetDomain"
+add_domain = "datahub.ingestion.transformer.add_domain:AddDomain"
+simple_add_domain = "datahub.ingestion.transformer.add_domain:SimpleAddDomain"
+pattern_add_domain = "datahub.ingestion.transformer.add_domain:PatternAddDomain"
 add_dataset_tags = "datahub.ingestion.transformer.add_dataset_tags:AddDatasetTags"
 simple_add_dataset_tags = "datahub.ingestion.transformer.add_dataset_tags:SimpleAddDatasetTags"
 pattern_add_dataset_tags = "datahub.ingestion.transformer.add_dataset_tags:PatternAddDatasetTags"

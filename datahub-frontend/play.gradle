@@ -55,6 +55,8 @@ dependencies {
   implementation project(":metadata-service:configuration")
   implementation project(":metadata-utils")
 
+  implementation externalDependency.micrometerPrometheus
+
   implementation externalDependency.springCore
   implementation externalDependency.springBeans
   implementation externalDependency.springContext

@@ -125,11 +125,19 @@ class TestModelEvaluationIngestion:
 
         mock_evals = [gen_mock_model_evaluation(i) for i in range(5)]
 
-        mock_model = gen_mock_model(list_model_evaluations_return=mock_evals)
+        mock_model = gen_mock_model()
 
-        with patch("google.cloud.aiplatform.Model.list") as mock_list:
-            mock_list.return_value = [mock_model]
+        from google.cloud.aiplatform import ModelEvaluation
 
+        def _gapic_list_side_effect(cls, *args, **kwargs):
+            if cls is ModelEvaluation:
+                return mock_evals
+            return [mock_model]
+
+        with patch(
+            "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+            side_effect=_gapic_list_side_effect,
+        ):
             mcps = list(source.model_extractor.get_evaluation_workunits())
 
             deployment_mcps = [

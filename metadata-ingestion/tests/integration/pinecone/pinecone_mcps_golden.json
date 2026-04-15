@@ -1,0 +1,1115 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "pinecone",
+                "instance": "test-instance",
+                "index_name": "product-embeddings",
+                "dimension": "384",
+                "metric": "cosine",
+                "index_type": "serverless",
+                "host": "product-embeddings-abc123.svc.pinecone.io",
+                "status": "Ready",
+                "cloud": "aws",
+                "region": "us-east-1"
+            },
+            "name": "product-embeddings",
+            "description": "Pinecone serverless index with 384 dimensions using cosine metric"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529325,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529326,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529326,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Pinecone Index"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529326,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529326,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:452dee30df9fba5a0c8843a93526c098"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529326,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "pinecone",
+                "instance": "test-instance",
+                "index_name": "product-embeddings",
+                "namespace": "electronics",
+                "vector_count": "5000"
+            },
+            "name": "electronics",
+            "description": "Namespace in Pinecone index product-embeddings containing 5000 vectors"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529327,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529327,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529327,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Pinecone Namespace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529327,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                },
+                {
+                    "id": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+                    "urn": "urn:li:container:452dee30df9fba5a0c8843a93526c098"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529327,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.electronics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "vector_count": "5000",
+                "dimension": "384",
+                "metric": "cosine",
+                "index_name": "product-embeddings",
+                "namespace": "electronics"
+            },
+            "name": "electronics",
+            "description": "Vector collection in namespace 'electronics' of index 'product-embeddings'",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529328,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.electronics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "product-embeddings.electronics",
+            "platform": "urn:li:dataPlatform:pinecone",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].category",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: electronics, electronics, electronics",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].price",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: 99.99, 99.99, 99.99",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].in_stock",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: True, True, True",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529329,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.electronics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529330,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.electronics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529330,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.electronics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529330,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.electronics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Vector Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529330,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.electronics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                },
+                {
+                    "id": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+                    "urn": "urn:li:container:452dee30df9fba5a0c8843a93526c098"
+                },
+                {
+                    "id": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0",
+                    "urn": "urn:li:container:4ac3cd26329a7d6c99485146360e04c0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529330,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:452dee30df9fba5a0c8843a93526c098"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529331,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "pinecone",
+                "instance": "test-instance",
+                "index_name": "product-embeddings",
+                "namespace": "clothing",
+                "vector_count": "3000"
+            },
+            "name": "clothing",
+            "description": "Namespace in Pinecone index product-embeddings containing 3000 vectors"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529331,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529331,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529331,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Pinecone Namespace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529331,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                },
+                {
+                    "id": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+                    "urn": "urn:li:container:452dee30df9fba5a0c8843a93526c098"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529332,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.clothing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "vector_count": "3000",
+                "dimension": "384",
+                "metric": "cosine",
+                "index_name": "product-embeddings",
+                "namespace": "clothing"
+            },
+            "name": "clothing",
+            "description": "Vector collection in namespace 'clothing' of index 'product-embeddings'",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529332,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.clothing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "product-embeddings.clothing",
+            "platform": "urn:li:dataPlatform:pinecone",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].category",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: electronics, electronics, electronics",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].price",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: 99.99, 99.99, 99.99",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].in_stock",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: True, True, True",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529333,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.clothing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529333,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.clothing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529333,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.clothing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529334,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.clothing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Vector Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529334,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.product-embeddings.clothing,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                },
+                {
+                    "id": "urn:li:container:452dee30df9fba5a0c8843a93526c098",
+                    "urn": "urn:li:container:452dee30df9fba5a0c8843a93526c098"
+                },
+                {
+                    "id": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668",
+                    "urn": "urn:li:container:f1ef555bed07ca10b4ae9a6b2db27668"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529334,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "pinecone",
+                "instance": "test-instance",
+                "index_name": "document-search",
+                "dimension": "768",
+                "metric": "dotproduct",
+                "index_type": "serverless",
+                "host": "document-search-abc123.svc.pinecone.io",
+                "status": "Ready",
+                "cloud": "aws",
+                "region": "us-east-1"
+            },
+            "name": "document-search",
+            "description": "Pinecone serverless index with 768 dimensions using dotproduct metric"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529334,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529335,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529335,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Pinecone Index"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529335,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529335,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529336,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "pinecone",
+                "instance": "test-instance",
+                "index_name": "document-search",
+                "namespace": "__default__",
+                "vector_count": "10000"
+            },
+            "name": "(default)",
+            "description": "Namespace in Pinecone index document-search containing 10000 vectors"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529336,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529336,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529336,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Pinecone Namespace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529336,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                },
+                {
+                    "id": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356",
+                    "urn": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529337,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.document-search.__default__,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "vector_count": "10000",
+                "dimension": "768",
+                "metric": "dotproduct",
+                "index_name": "document-search",
+                "namespace": ""
+            },
+            "name": "(default)",
+            "description": "Vector collection in namespace '(default)' of index 'document-search'",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529337,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.document-search.__default__,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "document-search.__default__",
+            "platform": "urn:li:dataPlatform:pinecone",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].title",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: Document, Document, Document",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].source",
+                    "nullable": true,
+                    "description": "Appears in 100.0% of vectors. Examples: wiki, wiki, wiki",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529338,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.document-search.__default__,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529338,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.document-search.__default__,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:pinecone",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529338,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.document-search.__default__,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529338,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.document-search.__default__,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Vector Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529339,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:pinecone,test-instance.document-search.__default__,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:pinecone,test-instance)"
+                },
+                {
+                    "id": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356",
+                    "urn": "urn:li:container:f45c730cc513c18111d48b0bdb0aa356"
+                },
+                {
+                    "id": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0",
+                    "urn": "urn:li:container:c8589b880906d2ffa68fa60ef0bcc8a0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776162529339,
+        "runId": "pinecone-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

@@ -1,4 +1,3 @@
-import { blue } from '@ant-design/colors';
 import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Select } from 'antd';
@@ -26,9 +25,9 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        color: ${blue[5]};
+        color: ${props.theme.colors.textBrand};
         &:focus, &:hover {
-            color: ${blue[5]};
+            color: ${props.theme.colors.textBrand};
         }
     `};
 `;

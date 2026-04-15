@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React from 'react';
 import styled from 'styled-components';

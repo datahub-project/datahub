@@ -95,6 +95,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "permission": "edit",
                         "path": "Acryl Data",
                         "badge": "Warning",
+                        "ownerId": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdAt": "2024-04-15T13:44:51.477Z",
@@ -168,6 +169,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                     {
                         "workbookId": "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b",
                         "workbookUrlId": "4JRFW1HThPI1K3YTjouXI7",
+                        "ownerId": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdAt": "2024-04-15T13:44:51.477Z",
@@ -521,6 +523,7 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
                     {
                         "workbookId": "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b",
                         "workbookUrlId": "4JRFW1HThPI1K3YTjouXI7",
+                        "ownerId": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdAt": "2024-04-15T13:44:51.477Z",
@@ -552,6 +555,7 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
                         "permission": "edit",
                         "path": "New Acryl Data",
                         "badge": "Warning",
+                        "ownerId": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
                         "createdAt": "2024-04-15T13:44:51.477Z",
