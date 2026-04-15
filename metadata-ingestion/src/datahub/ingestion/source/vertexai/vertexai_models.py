@@ -533,5 +533,6 @@ class ModelUsageTracker(BaseModel):
             and (
                 self.relationships[urn].downstream_jobs
                 or self.relationships[urn].training_jobs
+                or self.relationships[urn].training_data_urns
             )
         ]

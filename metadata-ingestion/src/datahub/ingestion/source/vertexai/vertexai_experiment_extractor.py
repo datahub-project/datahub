@@ -3,6 +3,7 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
+from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.cloud.aiplatform import ExperimentRun, initializer as vertex_initializer
 from google.cloud.aiplatform.metadata import (
     constants as metadata_constants,
@@ -331,8 +332,13 @@ class VertexAIExperimentExtractor:
             for job in custom_jobs:
                 job_id = self.name_formatter.format_job_name(entity_id=job.name)
                 urns.append(builder.make_data_process_instance_urn(job_id))
-        except Exception as e:
-            logger.debug(f"Could not fetch logged custom jobs for run {run.name}: {e}")
+        except NotFound:
+            logger.debug(f"No logged custom jobs found for run {run.name}")
+        except GoogleAPICallError as e:
+            logger.warning(
+                f"API error fetching logged custom jobs for run {run.name}: {e}",
+                exc_info=True,
+            )
         return urns
 
     def _get_run_timestamps(self, run: ExperimentRun) -> RunTimestamps:

@@ -277,6 +277,9 @@ class VertexAIModelExtractor:
             else:
                 training_job = self.model_usage_tracker.get_model_training_job(urn)
                 downstream_jobs = self.model_usage_tracker.get_model_usage(urn)
+                training_data_urns = self.model_usage_tracker.get_model_training_data(
+                    urn
+                )
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
@@ -285,6 +288,9 @@ class VertexAIModelExtractor:
                         downstreamJobs=downstream_jobs if downstream_jobs else None,
                     ),
                 ).as_workunit()
+
+                if training_data_urns:
+                    yield self._create_training_data_aspect(urn, training_data_urns)
 
             self.model_usage_tracker.mark_emitted(urn)
 
@@ -698,6 +704,8 @@ class VertexAIModelExtractor:
             or self.model_usage_tracker.get_model_training_data(model_urn)
         )
         if training_data_urns:
+            for ds_urn in training_data_urns:
+                self.model_usage_tracker.track_model_training_data(model_urn, ds_urn)
             yield self._create_training_data_aspect(model_urn, training_data_urns)
 
         self.model_usage_tracker.mark_emitted(model_urn)
