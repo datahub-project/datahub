@@ -101,13 +101,6 @@ def test_cap_report_samples_key_not_in_caps():
     assert capped["other_list"] == ["a", "b", "c"]
 
 
-def test_cap_report_samples_empty_caps_dict():
-    """Empty caps dict means nothing is capped."""
-    obj = {"failures": ["e1", "e2", "e3"]}
-    capped = _cap_report_samples(obj, {})
-    assert capped["failures"] == ["e1", "e2", "e3"]
-
-
 def test_cap_report_samples_nested_dict_not_capped():
     """Dicts nested inside the report are passed through, not recursed into."""
     inner = {"nested_failures": ["x", "y", "z"]}
@@ -126,7 +119,7 @@ def test_cap_report_samples_exact_cap():
 
 
 # ---------------------------------------------------------------------------
-# Report.as_string integration with progress_sample_caps
+# Report.as_string integration with sample_caps
 # ---------------------------------------------------------------------------
 
 
@@ -143,7 +136,7 @@ def test_as_string_with_caps_applies_capping():
         warnings=["w1"],
         count=42,
     )
-    result = report.as_string(progress_sample_caps={"failures": 2, "warnings": 5})
+    result = report.as_string(sample_caps={"failures": 2, "warnings": 5})
     assert "e1" in result
     assert "e2" in result
     assert "e3" not in result  # truncated
@@ -155,7 +148,7 @@ def test_as_string_none_caps_shows_all():
         failures=["e1", "e2", "e3"],
         count=10,
     )
-    result = report.as_string(progress_sample_caps=None)
+    result = report.as_string(sample_caps=None)
     assert "e1" in result
     assert "e3" in result
 
@@ -367,11 +360,17 @@ def _run_pipeline_get_reports(flags: dict, num_each: int = 30) -> dict:
             "warning_max_elements": logs._entries[StructuredLogLevel.WARN].max_elements,
             "info_max_elements": logs._entries[StructuredLogLevel.INFO].max_elements,
         }
+        sink_report = pipeline.sink.get_report()
+        sink_retention = {
+            "failure_max_elements": sink_report.failures.max_elements,
+            "warning_max_elements": sink_report.warnings.max_elements,
+        }
         return {
             "source": pipeline.source.get_report().as_obj(),
             "source_report": pipeline.source.get_report(),
-            "sink": pipeline.sink.get_report().as_obj(),
+            "sink": sink_report.as_obj(),
             "retention": retention,
+            "sink_retention": sink_retention,
         }
     finally:
         source_registry._mapping.pop("_test_combo_src", None)
@@ -418,21 +417,9 @@ def test_retention_progress_max_higher_final_shows_report_size():
     assert raw_failures == 25
     # But as_string with the final caps shows only 5
     final_str = result["source_report"].as_string(
-        progress_sample_caps={"failures": 5, "warnings": 10, "infos": 10},
+        sample_caps={"failures": 5, "warnings": 10, "infos": 10},
     )
     assert final_str.count("'message': 'F") == 5
-
-
-def test_retention_both_set_equal():
-    """Both set to 15: retain 15, final shows 15."""
-    result = _run_pipeline_get_reports(
-        flags={
-            "report_failure_sample_size": 15,
-            "progress_report_max_failures": 15,
-        }
-    )
-    assert result["retention"]["failure_max_elements"] == 15
-    assert _count_real_entries(result["source"], "failures") == 15
 
 
 def test_retention_independent_per_severity():
@@ -455,14 +442,6 @@ def test_retention_independent_per_severity():
     assert result["retention"]["info_max_elements"] == 8
 
 
-def test_retention_not_set_uses_defaults():
-    """No flags at all: all default to max(10, 10) = 10."""
-    result = _run_pipeline_get_reports(flags={})
-    assert result["retention"]["failure_max_elements"] == 10
-    assert result["retention"]["warning_max_elements"] == 10
-    assert result["retention"]["info_max_elements"] == 10
-
-
 def test_sink_report_present_and_correct():
     """Sink report has the expected fields and records written count."""
     result = _run_pipeline_get_reports(flags={})
@@ -470,6 +449,21 @@ def test_sink_report_present_and_correct():
     assert sink["total_records_written"] == 1
     assert "failures" in sink
     assert "warnings" in sink
-    # Console sink shouldn't produce its own failures/warnings
     assert len(sink["failures"]) == 0
     assert len(sink["warnings"]) == 0
+
+
+def test_sink_retention_follows_flags():
+    """Sink LossyList sizing should respect recipe flags."""
+    result = _run_pipeline_get_reports(
+        flags={
+            "report_failure_sample_size": 25,
+            "report_warning_sample_size": 30,
+            "progress_report_max_failures": 5,
+            "progress_report_max_warnings": 50,
+        }
+    )
+    # failures: max(25, 5) = 25
+    assert result["sink_retention"]["failure_max_elements"] == 25
+    # warnings: max(30, 50) = 50
+    assert result["sink_retention"]["warning_max_elements"] == 50

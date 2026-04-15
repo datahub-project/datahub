@@ -108,11 +108,11 @@ class Report(SupportsAsObj):
 
     def as_string(
         self,
-        progress_sample_caps: Optional[Dict[str, int]] = None,
+        sample_caps: Optional[Dict[str, int]] = None,
     ) -> str:
         self_obj = self.as_obj()
-        if progress_sample_caps is not None:
-            self_obj = _cap_report_samples(self_obj, progress_sample_caps)
+        if sample_caps is not None:
+            self_obj = _cap_report_samples(self_obj, sample_caps)
         _aspects_by_subtypes = self_obj.pop("aspects_by_subtypes", None)
 
         # Format the main report data

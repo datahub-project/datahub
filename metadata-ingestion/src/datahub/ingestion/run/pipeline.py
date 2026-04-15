@@ -224,6 +224,18 @@ class Pipeline:
                     )
             logger.info(f"Sink configured successfully. {self.sink.configured()}")
 
+            # Apply recipe-level sample sizes to the sink report.
+            flags = self.config.flags
+            sink_report = self.sink.get_report()
+            sink_report.failures.max_elements = max(
+                flags.report_failure_sample_size,
+                flags.progress_report_max_failures,
+            )
+            sink_report.warnings.max_elements = max(
+                flags.report_warning_sample_size,
+                flags.progress_report_max_warnings,
+            )
+
             if self.graph is None and isinstance(self.sink, DatahubRestSink):
                 with _add_init_error_context("setup default datahub client"):
                     self.graph = self.sink.emitter.to_graph()
