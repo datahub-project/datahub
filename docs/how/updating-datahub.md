@@ -33,6 +33,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- **(Ingestion) BigQuery `extract_policy_tags_from_catalog`:** The policy tag extraction feature has been rewritten to use `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` combined with batch Data Catalog API calls instead of per-column `get_table()` and `get_policy_tag()` calls. This eliminates millions of redundant API calls (e.g. 434k → ~10 for a 29k-table warehouse), reducing extraction time from hours to seconds. The old code path has been removed with no fallback. Action required if you use `extract_policy_tags_from_catalog: true`: (1) Verify BigQuery API v2 is available in your environment (available since ~2020). (2) If the Data Catalog API is blocked by VPC Service Controls, policy tag resource names will be stored instead of display names — this is graceful degradation, not a failure. (3) Review ingestion logs for any new warnings about missing `policy_tags` column in INFORMATION_SCHEMA results.
+
 - **Docker / Prometheus (Micrometer):** When using the stock DataHub Docker `start.sh` entrypoints, GMS, MAE consumer, MCE consumer, and the frontend expose Micrometer Actuator (including `GET /actuator/prometheus` and `/actuator/health`) on container port **4319** by default (`MANAGEMENT_SERVER_PORT`), separate from the main API/UI port. Profile compose ([docker/profiles/docker-compose.gms.yml](../../docker/profiles/docker-compose.gms.yml)) **`expose`s 4319** for on-network scraping and maps **`${DATAHUB_MAPPED_GMS_MANAGEMENT_PORT:-4319}:4319`** on the host for GMS (same pattern as **`${DATAHUB_MAPPED_GMS_PORT:-8080}:8080`** for HTTP). Override `DATAHUB_GMS_MANAGEMENT_URL` in smoke tests if needed, or change the host port via `DATAHUB_MAPPED_GMS_MANAGEMENT_PORT`. Scrape from another container on the same compose network (e.g. `http://datahub-gms:4319/actuator/prometheus` as in [docker/monitoring/prometheus.yaml](../../docker/monitoring/prometheus.yaml)). MAE and MCE image **HEALTHCHECK** probes the management port first, then falls back to the main consumer port for older layouts. The JMX Prometheus Java agent remains on **4318**. If you previously scraped Micrometer from the GMS HTTP port (e.g. `8080`), update scrapes to the management listener. To keep Actuator on the main port, unset `MANAGEMENT_SERVER_PORT` in the container or set it equal to the main server port.
 - (Operations / monitoring) Docker images that bundle the **JMX Prometheus Java agent** (`datahub-gms`, `datahub-frontend-react`, `datahub-mae-consumer`, `datahub-mce-consumer`, `datahub-upgrade`) now ship **`jmx_prometheus_javaagent` 1.0.1** (previously 0.20.0). The agent uses **Prometheus client_java 1.x**; upgrade scrapers and dashboards accordingly.
   - **HTTP scrape path:** Metrics are exposed at **`/metrics`**, not at **`/`**. If you scrape the JMX port directly (often **4318** when Prometheus export is enabled), set your Prometheus `metrics_path` (or Kubernetes `ServiceMonitor` / `PodMonitor` `path`) to **`/metrics`**. Anything still requesting **`/`** will receive the default HTML page, not the metrics exposition.
@@ -164,7 +166,6 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 - #15748 (Ingestion) PowerBI: Reverted `create_corp_user` default back to `True` (was changed to `False` in v1.5.0). Customers on v1.5.0 or v1.5.0.1 with stateful ingestion enabled and without explicitly setting `ownership.create_corp_user: true` in their recipe may have had PowerBI-discovered users soft-deleted.
 
   **Remediation** — if users were already soft-deleted, restore them using one of:
-
   - Re-ingest from your authoritative source (LDAP/Okta/SCIM) — recommended.
   - CLI: `datahub delete --urn "urn:li:corpuser:<email>" --soft --undelete` for each affected user.
   - Python SDK: emit `StatusClass(removed=False)` for each affected user URN.
@@ -174,7 +175,6 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 
   **If you want `create_corp_user: false`** (to avoid overwriting LDAP/Okta profiles):
   Do **not** switch directly to `false` — this will cause the same soft-deletion bug. Instead:
-
   1. Upgrade to this version and run **at least one ingestion** with `create_corp_user: true` (the default). This updates the stateful ingestion checkpoint to mark user URNs as non-primary.
   2. After that run completes, set `ownership.create_corp_user: false` in your recipe.
   3. On subsequent runs, users will no longer be emitted, but stateful ingestion will safely skip them (they were already marked non-primary in the checkpoint).
@@ -1001,7 +1001,6 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 - Closing an authorization hole in creating tags adding a Platform Privilege called `Create Tags` for creating tags. This is assigned to `datahub` root user, along
   with default All Users policy. Notice: You may need to add this privilege (or `Manage Tags`) to existing users that need the ability to create tags on the platform.
 - #5329 Below profiling config parameters are now supported in `BigQuery`:
-
   - profiling.profile_if_updated_since_days (default=1)
   - profiling.profile_table_size_limit (default=1GB)
   - profiling.profile_table_row_limit (default=50000)
