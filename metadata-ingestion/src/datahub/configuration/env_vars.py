@@ -82,6 +82,16 @@ def get_rest_emitter_429_retry_multiplier() -> int:
     return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
 
 
+def get_rest_emitter_default_pool_connections() -> int:
+    """Max number of different hosts to cache connection pools for."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_CONNECTIONS", "100"))
+
+
+def get_rest_emitter_default_pool_maxsize() -> int:
+    """Max connections per host in each connection pool."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_MAXSIZE", "100"))
+
+
 def get_rest_emitter_batch_max_payload_bytes() -> int:
     """Maximum payload size in bytes for batch operations."""
     return int(

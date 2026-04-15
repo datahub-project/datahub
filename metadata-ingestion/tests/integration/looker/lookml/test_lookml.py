@@ -83,7 +83,7 @@ def get_default_recipe(output_file_path, base_folder_path):
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with a previous form of config with new flags turned off"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "expected_output.json"
 
     # Note this config below is known to create "bad" lineage since the config author has not provided enough
@@ -111,7 +111,7 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with previous form of config with new flags turned off"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "refinement_mces_output.json"
 
     # Note this config below is known to create "bad" lineage since the config author has not provided enough information
@@ -147,7 +147,7 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "refinement_include_order_mces_output.json"
 
     new_recipe = get_default_recipe(
@@ -324,7 +324,7 @@ def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
     """New form of config with offline specification of connection defaults"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out = "lookml_mces_offline.json"
     pipeline = Pipeline.create(
         {
@@ -379,7 +379,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time):
     """New form of config with offline specification of connection defaults"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out = "lookml_mces_offline_deny_pattern.json"
     pipeline = Pipeline.create(
         {
@@ -426,7 +426,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_time):
     """New form of config with offline specification of connection defaults"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out = "lookml_mces_offline_platform_instance.json"
     pipeline = Pipeline.create(
         {
@@ -513,7 +513,7 @@ def ingestion_test(
     mock_time: int,
     mock_connection: DBConnection,
 ) -> None:
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = f"lookml_mces_api_{mock_connection.dialect_name}.json"
     mocked_client = mock.MagicMock()
     mock_model = mock.MagicMock(project_name="lkml_samples")
@@ -576,7 +576,7 @@ def ingestion_test(
 @freeze_time(FROZEN_TIME)
 def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
     """Add github info to config"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out = "lookml_mces_with_external_urls.json"
     pipeline = Pipeline.create(
         {
@@ -632,7 +632,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_reachable_views(pytestconfig, tmp_path, mock_time):
     """Test for reachable views"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out = "lookml_reachable_views.json"
     pipeline = Pipeline.create(
         {
@@ -709,7 +709,7 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
     """Test omit db name from hive ids"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out = "lookml_mces_with_db_name_omitted.json"
     pipeline = Pipeline.create(
         {
@@ -767,7 +767,7 @@ def test_lookml_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     state_file_name: str = "lookml_state_mces.json"
     golden_file_name: str = "golden_test_state.json"
 
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
 
     base_pipeline_config = {
         "run_id": "lookml-test",
@@ -853,7 +853,7 @@ def test_lookml_base_folder():
 @freeze_time(FROZEN_TIME)
 def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
     """Test for reachable views"""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out = "lookml_same_name_views_different_file_path.json"
     pipeline = Pipeline.create(
         {
@@ -904,7 +904,7 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
     # This mainly tests that we're permissive enough that we don't crash when parsing the manifest file.
     # We need the test because we monkeypatch the lkml library.
 
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     manifest_file = test_resources_dir / "lkml_manifest_samples/complex-manifest.lkml"
 
     manifest = load_and_preprocess_file(
@@ -916,7 +916,7 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
 
 @freeze_time(FROZEN_TIME)
 def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "duplicate_ingest_mces_output.json"
 
     new_recipe = get_default_recipe(
@@ -939,7 +939,7 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "vv_lineage_liquid_template_golden.json"
 
     new_recipe = get_default_recipe(
@@ -974,7 +974,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
 
 @freeze_time(FROZEN_TIME)
 def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "vv_lineage_lookml_constant_golden.json"
 
     new_recipe = get_default_recipe(
@@ -1220,7 +1220,7 @@ def test_lookml_constant_transformer(view, expected_result, warning_expected):
 
 @freeze_time(FROZEN_TIME)
 def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "field_tag_mces_output.json"
 
     new_recipe = get_default_recipe(
@@ -1245,7 +1245,7 @@ def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 def test_drop_hive(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "drop_hive_dot.json"
 
     new_recipe = get_default_recipe(
@@ -1272,7 +1272,7 @@ def test_drop_hive(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "drop_hive_dot.json"
 
     new_recipe = get_default_recipe(
@@ -1309,7 +1309,7 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 def test_unreachable_views(pytestconfig):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
 
     config = {
         "base_folder": f"{test_resources_dir}/lkml_unreachable_views",
@@ -1356,7 +1356,7 @@ def test_unreachable_views(pytestconfig):
 
 @freeze_time(FROZEN_TIME)
 def test_col_lineage_looker_api_based(pytestconfig, tmp_path):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     golden_path = test_resources_dir / "lkml_col_lineage_looker_api_based_golden.json"
     mce_out_file = "lkml_col_lineage_looker_api_based.json"
     recipe = {

@@ -23,7 +23,7 @@ MSSQL_PORT = 1433
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
-    return pytestconfig.rootpath / "tests/integration/sql_server"
+    return pytestconfig.rootpath / "tests/integration/mssql"
 
 
 def is_mssql_up(container_name: str) -> bool:

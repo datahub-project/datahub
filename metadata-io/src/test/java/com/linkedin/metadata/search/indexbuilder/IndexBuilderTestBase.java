@@ -1322,6 +1322,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         changedShardBuilder.pollReindexCompletion(
             TEST_INDEX_NAME,
             incrementalResult.nextIndexName(),
+            () -> (long) incrementalResult.sourceDocCount(),
             incrementalResult.targetShards(),
             incrementalResult.reindexInfo(),
             incrementalResult.taskId());

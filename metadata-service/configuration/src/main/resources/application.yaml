@@ -500,7 +500,7 @@ elasticsearch:
       schemaField:
         hashIdEnabled: ${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:false}
   buildIndices:
-    allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:false} # when cloneIndices is also enabled
+    allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:${ZDU_STAGE_20:false}} # when cloneIndices is also enabled
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
@@ -526,6 +526,7 @@ elasticsearch:
     countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
     countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
     createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
+    taskPollIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_POLL_INTERVAL_SECONDS:5} # seconds between listTasks polls for timeseries catch-up reindex
     # Adaptive throttling configuration
     clusterHeapYellowThresholdPercent: ${ELASTICSEARCH_BUILD_INDICES_CLUSTER_HEAP_YELLOW_THRESHOLD_PERCENT:75} # Heap threshold for YELLOW tier (triggers throttling before RED)
     docCountValidationRetryCount: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_COUNT:10} # Number of retries for doc count validation
