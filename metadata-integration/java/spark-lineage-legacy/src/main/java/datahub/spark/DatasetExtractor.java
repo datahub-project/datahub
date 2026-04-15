@@ -283,7 +283,8 @@ public class DatasetExtractor {
     PLAN_TO_DATASET.put(
         GlobalLimit.class,
         (plan, ctx, datahubConfig) -> {
-          // GlobalLimit wraps a child plan, extract the child
+          // Some Spark 3.5 query shapes surface GlobalLimit as a wrapper around the child plan
+          // that contains the actual dataset information. Unwrap and recurse to extract lineage.
           LogicalPlan child = ((GlobalLimit) plan).child();
           return asDataset(child, ctx, false);
         });
@@ -292,10 +293,10 @@ public class DatasetExtractor {
         InMemoryRelation.class,
         (plan, ctx, datahubConfig) -> {
           SparkPlan cachedPlan = ((InMemoryRelation) plan).cachedPlan();
-          // In Spark 3.5+, cachedPlan may be AdaptiveSparkPlanExec which wraps
-          // the actual plan. Extract the underlying inputPlan via reflection
-          // since AdaptiveSparkPlanExec.collectLeaves() returns empty when
-          // isFinalPlan=false.
+          // In Spark 3.5, AQE (Adaptive Query Execution) may wrap cachedPlan in AdaptiveSparkPlanExec.
+          // When isFinalPlan=false, collectLeaves() on the wrapper returns empty, so we must unwrap
+          // to access the underlying inputPlan that contains the actual leaf operators (FileSourceScan,
+          // HiveTableScan, etc.) needed for lineage extraction.
           SparkPlan effectivePlan = unwrapAdaptiveSparkPlan(cachedPlan);
           ArrayList<SparkDataset> datasets = new ArrayList<>();
           effectivePlan
@@ -326,10 +327,12 @@ public class DatasetExtractor {
   }
 
   /**
-   * Unwrap AdaptiveSparkPlanExec to get the underlying inputPlan. In Spark 3.5+,
-   * InMemoryRelation.cachedPlan() returns AdaptiveSparkPlanExec whose collectLeaves() returns empty
-   * when isFinalPlan=false. We need to extract the inputPlan to traverse the actual physical plan
-   * tree. Uses reflection to avoid compile-time dependency on AdaptiveSparkPlanExec which may not
+   * Unwrap AdaptiveSparkPlanExec to get the underlying inputPlan. In Spark 3.5, AQE/cached-plan
+   * paths can surface AdaptiveSparkPlanExec wrappers; when isFinalPlan=false, collectLeaves() on
+   * the wrapper returns empty. We extract the underlying inputPlan to access the actual leaf
+   * operators (FileSourceScan, HiveTableScan, etc.) needed for lineage extraction.
+   *
+   * <p>Uses reflection to avoid compile-time dependency on AdaptiveSparkPlanExec, which may not
    * exist in older Spark versions.
    */
   private static SparkPlan unwrapAdaptiveSparkPlan(SparkPlan plan) {
