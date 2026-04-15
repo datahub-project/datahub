@@ -1,3 +1,4 @@
+import logging
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -7,6 +8,8 @@ from pydantic import Field
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import (
@@ -86,6 +89,11 @@ class DatahubLineageConfig(ConfigModel):
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
     render_templates: bool
+
+    # If true, use multi-statement SQL parsing that resolves temporary tables
+    # and merges lineage across multiple SQL statements in a single execution.
+    # When false (default), only the first SQL statement is parsed.
+    enable_multi_statement_sql_parsing: bool
 
     # Only if true, lineage will be emitted for the DataJobs.
     enable_datajob_lineage: bool
@@ -186,6 +194,9 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "disable_openlineage_plugin", fallback=default_disable_openlineage
     )
     render_templates = conf.get("datahub", "render_templates", fallback=True)
+    enable_multi_statement_sql_parsing = conf.get(
+        "datahub", "enable_multi_statement_sql_parsing", fallback=False
+    )
 
     # Use new task URL format for Airflow 3.x, old taskinstance format for Airflow 2.x
     # Airflow 3 changed URL structure: /dags/{dag_id}/tasks/{task_id} instead of /taskinstance/list/...
@@ -226,4 +237,57 @@ def get_lineage_config() -> DatahubLineageConfig:
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
         enable_datajob_lineage=enable_lineage,
+        enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
     )
+
+
+def get_configured_env() -> str:
+    """
+    Get the configured DataHub cluster/environment name.
+
+    Uses cached config from the listener when available, otherwise reads
+    directly from config.
+
+    Returns:
+        The configured cluster name
+    """
+    from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+    listener = get_airflow_plugin_listener()
+    if listener and listener.config:
+        return listener.config.cluster
+
+    # Fallback: listener disabled or failed to initialize
+    logger.debug(
+        "Listener or config not available, falling back to get_lineage_config()"
+    )
+    return get_lineage_config().cluster
+
+
+def get_enable_multi_statement() -> bool:
+    """
+    Get the enable_multi_statement_sql_parsing flag from config.
+
+    Uses cached config from the listener when available, otherwise reads
+    directly from config. Returns False if config loading fails.
+
+    Returns:
+        True if multi-statement SQL parsing is enabled, False otherwise
+    """
+    try:
+        from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+        listener = get_airflow_plugin_listener()
+        if listener and listener.config:
+            return listener.config.enable_multi_statement_sql_parsing
+
+        # Fallback: listener disabled or failed to initialize
+        logger.debug(
+            "Listener or config not available, falling back to get_lineage_config()"
+        )
+        return get_lineage_config().enable_multi_statement_sql_parsing
+    except Exception as e:
+        logger.warning(
+            f"Could not load config to check enable_multi_statement_sql_parsing: {e}"
+        )
+        return False

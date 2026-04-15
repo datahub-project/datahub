@@ -181,6 +181,20 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
+# Alias for clearer naming in new code
+# GEProfilerRequest is misleadingly named - it's actually a generic profiling request
+# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
+# more appropriate name without breaking existing code.
+#
+# Migration strategy:
+# 1. New code should use ProfilerRequest instead of GEProfilerRequest
+# 2. Once GE profiler is removed, deprecate GEProfilerRequest with a warning
+# 3. Eventually rename the class itself to ProfilerRequest
+# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
+#    generic profiling infrastructure, not source-specific
+ProfilerRequest = GEProfilerRequest
+
+
 def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
     if self.engine.dialect.name.lower() == REDSHIFT:
         element_values = self.engine.execute(

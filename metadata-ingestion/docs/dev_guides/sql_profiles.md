@@ -27,3 +27,30 @@ Extracts:
 ## Supported Sources
 
 SQL profiling is supported for all SQL sources. Check the individual source page to verify if it supports profiling.
+
+## Profiler Implementation
+
+DataHub is transitioning from Great Expectations (GE) based profiling to a custom SQLAlchemy profiler.
+
+### Current State
+
+Two profiler implementations are available:
+
+1. **GE Profiler** (default): Uses Great Expectations library
+2. **SQLAlchemy Profiler** (opt-in): Custom implementation with no external GE dependency
+
+The SQLAlchemy profiler can be enabled via `profile.method = "sqlalchemy"`:
+
+```yaml
+source:
+  config:
+    profiling:
+      enabled: true
+      method: sqlalchemy
+```
+
+### Rollout Plan
+
+- **Phase 1 (Current):** SQLAlchemy profiler available as opt-in. Users can test and validate.
+- **Phase 2 (Future):** SQLAlchemy profiler becomes the default. GE profiler still available for compatibility.
+- **Phase 3 (Future):** GE profiler removed from codebase to reduce maintenance and dependencies.

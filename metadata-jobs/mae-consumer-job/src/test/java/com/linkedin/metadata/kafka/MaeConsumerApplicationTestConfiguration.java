@@ -9,6 +9,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -44,6 +45,8 @@ public class MaeConsumerApplicationTestConfiguration {
   @MockBean private ConfigEntityRegistry _configEntityRegistry;
 
   @MockBean public ElasticSearchService elasticSearchService;
+
+  @MockBean public EntitySearchService entitySearchService;
 
   @MockBean public MetricUtils metricUtils;
 

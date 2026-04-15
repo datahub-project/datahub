@@ -63,7 +63,7 @@ public class SemanticEntitySearchIT {
           client.performLowLevelRequest(
               new Request(
                   "GET",
-                  "/datasetindex_v2_semantic/_mapping/field/embeddings.cohere_embed_v3.chunks.vector"));
+                  "/datasetindex_v2_semantic/_mapping/field/embeddings.text_embedding_3_large.chunks.vector"));
       int mapStatus = mapping.getStatusLine().getStatusCode();
       if (mapStatus < 200 || mapStatus >= 300) {
         throw new SkipException("Vector field mapping not found; skipping semantic IT");

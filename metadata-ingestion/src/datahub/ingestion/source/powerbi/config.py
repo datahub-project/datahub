@@ -7,7 +7,13 @@ import pydantic
 from pydantic import field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigEnum,
+    ConfigModel,
+    HiddenFromDocs,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -241,8 +247,14 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_parse_attempts: int = 0
     m_query_parse_successes: int = 0
     m_query_parse_timeouts: int = 0
+    m_query_native_query_skipped: int = 0
+    # Expressions that reached the parser but are not M-Query at all
+    # (e.g. DAX computed-table expressions, empty strings, label rows).
+    # These fail with MQueryParseError but are expected and logged at INFO.
+    m_query_non_mquery_expressions: int = 0
     m_query_parse_validation_errors: int = 0
     m_query_parse_unexpected_character_errors: int = 0
+    # Genuine M-Query expressions that the parser could not handle.
     m_query_parse_unknown_errors: int = 0
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
@@ -283,7 +295,15 @@ class DataBricksPlatformDetail(PlatformDetail):
 
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
+        default=True,
+        description=(
+            "Whether to create user entities from PowerBI data. "
+            "When False (RECOMMENDED): PowerBI emits ownership URNs only (soft references). "
+            "User profiles must come from LDAP/SCIM/Okta. "
+            "When True (OPT-IN): PowerBI creates users with displayName and email from PowerBI. "
+            "WARNING: May overwrite existing user profiles from other sources. Use only if "
+            "PowerBI is your authoritative user source."
+        ),
     )
     use_powerbi_email: bool = pydantic.Field(
         # TODO: Deprecate and remove this config, since the non-email format
@@ -339,10 +359,31 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+class PowerBiEnvironment(ConfigEnum):
+    COMMERCIAL = "COMMERCIAL"
+    GOVERNMENT = "GOVERNMENT"
+
+    @property
+    def web_app_base_url(self) -> str:
+        if self == PowerBiEnvironment.GOVERNMENT:
+            return "https://app.powerbigov.us"
+        return "https://app.powerbi.com"
+
+
+class PowerBiAppUrlPattern(ConfigEnum):
+    WORKSPACE_BASED = "WORKSPACE_BASED"
+    REDIRECT_BASED = "REDIRECT_BASED"
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
+
+    environment: PowerBiEnvironment = pydantic.Field(
+        default=PowerBiEnvironment.COMMERCIAL,
+        description="PowerBI environment to connect to. Options: 'commercial' (default) for commercial PowerBI, 'government' for PowerBI Government Community Cloud (GCC)",
+    )
 
     platform_urn: HiddenFromDocs[str] = pydantic.Field(
         default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
@@ -431,7 +472,9 @@ class PowerBiDashboardSourceConfig(
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: str = pydantic.Field(description="Azure app client secret")
+    client_secret: TransparentSecretStr = pydantic.Field(
+        description="Azure app client secret"
+    )
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
         default=60, description="timeout for PowerBI metadata scanning"
@@ -551,10 +594,10 @@ class PowerBiDashboardSourceConfig(
 
     # Enable CLL extraction
     extract_column_level_lineage: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to extract column level lineage. "
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
-        "enabled."
+        "enabled. "
         "Works for M-Query where native SQL is used for transformation.",
     )
 
@@ -590,6 +633,13 @@ class PowerBiDashboardSourceConfig(
     extract_app: bool = pydantic.Field(
         default=False,
         description="Whether to ingest workspace app. Requires DataHub server 0.14.2+.",
+    )
+
+    app_url_pattern: PowerBiAppUrlPattern = pydantic.Field(
+        default=PowerBiAppUrlPattern.WORKSPACE_BASED,
+        description="URL pattern for Power BI App external links. "
+        "'workspace_based' uses /groups/{workspace-id}/apps/{app-id} (default). "
+        "'redirect_based' uses /Redirect?action=OpenApp&appId={app-id}.",
     )
 
     m_query_parse_timeout: int = pydantic.Field(

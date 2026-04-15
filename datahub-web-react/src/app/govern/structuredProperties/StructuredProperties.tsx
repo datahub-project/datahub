@@ -1,4 +1,5 @@
 import { Button, PageTitle, SearchBar, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
@@ -143,7 +144,7 @@ const StructuredProperties = () => {
                     <ButtonContainer>
                         <Button
                             disabled={!canEditProps}
-                            icon={{ icon: 'Add', source: 'material' }}
+                            icon={{ icon: Plus }}
                             data-testid="structured-props-create-button"
                             onClick={() => {
                                 setIsDrawerOpen(true);

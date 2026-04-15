@@ -386,10 +386,12 @@ class DataHubListener:
 
         # Translate task_metadata.inputs/outputs to DataHub URNs.
         input_urns.extend(
-            translate_ol_to_datahub_urn(dataset) for dataset in task_metadata.inputs
+            translate_ol_to_datahub_urn(dataset, env=self.config.cluster)
+            for dataset in task_metadata.inputs
         )
         output_urns.extend(
-            translate_ol_to_datahub_urn(dataset) for dataset in task_metadata.outputs
+            translate_ol_to_datahub_urn(dataset, env=self.config.cluster)
+            for dataset in task_metadata.outputs
         )
 
         # Extract and remove DataHub's custom SQL parsing result from run_facets.

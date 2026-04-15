@@ -9,6 +9,16 @@ from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
 class TestUnityCatalogSource:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        """Prevent real WorkspaceClient connections in all tests.
+
+        On CI, the Databricks SDK attempts network calls to the fake
+        workspace URL which time out after ~5 minutes per test.
+        """
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
     @pytest.mark.parametrize(
         "azure_auth_partial",
         [
@@ -456,7 +466,7 @@ class TestUnityCatalogSource:
 
         assert len(source.report.ml_models.processed_entities) == 1
         assert (
-            source.report.ml_models.processed_entities[0][1]
+            source.report.ml_models.processed_entities[0]
             == "test_catalog.test_schema.test_model"
         )
 
@@ -472,7 +482,7 @@ class TestUnityCatalogSource:
         # Verify the report was updated
         assert len(source.report.ml_model_versions.processed_entities) == 1
         assert (
-            source.report.ml_model_versions.processed_entities[0][1]
+            source.report.ml_model_versions.processed_entities[0]
             == "test_catalog.test_schema.test_model_1"
         )
 

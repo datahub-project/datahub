@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import styled from 'styled-components';
@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import LineageAnnotationNode, {
     LINEAGE_ANNOTATION_NODE,
 } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
-import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
@@ -32,7 +31,6 @@ import SearchControl from '@app/lineageV3/controls/SearchControl';
 import ZoomControls from '@app/lineageV3/controls/ZoomControls';
 import LineageSVGs from '@app/lineageV3/lineageSVGs';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
-import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 
 const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
     ${({ isDraggingBoundingBox }) =>
@@ -68,15 +66,13 @@ const edgeTypes: EdgeTypes = {
 interface Props {
     initialNodes: LineageVisualizationNode[];
     initialEdges: Edge[];
-    levelsInfo: LevelsInfo;
-    levelsMap: Map<string, number>;
 }
 
 // React flow doesn't always emit events if it re-renders at the same time
 const MemoizedLineageVisualization = React.memo(LineageVisualization);
 export default MemoizedLineageVisualization;
 
-function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMap }: Props) {
+function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [isDraggingBoundingBox, setIsDraggingBoundingBox] = useState(false);
@@ -85,18 +81,6 @@ function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMa
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
     const { isModuleView } = useContext(LineageGraphContext);
-    const addAnnotationNodes = useAddAnnotationNodes();
-
-    const { nodes, edges } = useMemo(() => {
-        if (!isModuleView) {
-            return {
-                nodes: initialNodes,
-                edges: initialEdges,
-            };
-        }
-
-        return addAnnotationNodes(initialNodes, initialEdges, levelsInfo, levelsMap);
-    }, [isModuleView, initialNodes, initialEdges, levelsInfo, levelsMap, addAnnotationNodes]);
 
     return (
         <LineageVisualizationContext.Provider
@@ -113,8 +97,8 @@ function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMa
             <LineageSVGs />
             <StyledReactFlow
                 isDraggingBoundingBox={isDraggingBoundingBox}
-                defaultNodes={nodes}
-                defaultEdges={edges}
+                defaultNodes={initialNodes}
+                defaultEdges={initialEdges}
                 // Selection change event does not get emitted without timeout
                 onPaneClick={() => setTimeout(() => setSelectedColumn(null), 0)}
                 onClick={() => setDisplayedMenuNode(null)}

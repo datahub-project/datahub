@@ -273,7 +273,7 @@ For standalone MCE/MAE consumer deployment and Kafka configuration, see [Configu
 
 Metadata Tests are evaluated in two scenarios:
 
-1. **Real-time evaluation**: When an individual asset changes in DataHub, all tests that include it in scope are evaluated. This feature is typically disabled by default. It can be enabled on demand, subject to disussion.
+1. **Real-time evaluation**: When an individual asset changes in DataHub, all tests that include it in scope are evaluated. This feature is typically disabled by default. It can be enabled on demand, subject to discussion.
 
 2. **Scheduled evaluation**: A dedicated Metadata Test evaluator runs on a recurring schedule (typically every 24 hours) and evaluates all tests against the entire Metadata Graph. The cadence can be adjusted. It can be made more frequent in limited cases where metadata is small, subject to discussion.
 

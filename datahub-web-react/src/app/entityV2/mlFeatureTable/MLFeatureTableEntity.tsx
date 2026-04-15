@@ -1,4 +1,8 @@
-import { ChartScatter, Database, FileText, ListBullets, Table } from '@phosphor-icons/react';
+import { ChartScatter } from '@phosphor-icons/react/dist/csr/ChartScatter';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -38,25 +42,12 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
     type: EntityType = EntityType.MlfeatureTable;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ChartScatter className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} weight="regular" />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ChartScatter
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#9633b9' }}
-                    weight="regular"
-                />
-            );
-        }
-
         return (
             <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
-                weight="regular"
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -239,6 +230,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

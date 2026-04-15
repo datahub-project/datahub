@@ -64,33 +64,19 @@ services:
       context: ../
       dockerfile: docker/datahub-upgrade/Dockerfile
     env_file: datahub-upgrade/env/docker-without-neo4j.env
+    environment:
+      - DATAHUB_SQL_SETUP_ENABLED=true
     labels:
       datahub_setup_job: true
     depends_on:
-      mysql-setup:
-        condition: service_completed_successfully
-      elasticsearch-setup:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
       kafka-setup:
         condition: service_completed_successfully
       neo4j:
         condition: service_healthy
-  # This "container" is a workaround to pre-create search indices
-  elasticsearch-setup:
-    hostname: elasticsearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-acryldata/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
-    build:
-      context: ../
-      dockerfile: docker/elasticsearch-setup/Dockerfile
-    env_file: elasticsearch-setup/env/docker.env
-    environment:
-      - ELASTICSEARCH_USE_SSL=${ELASTICSEARCH_USE_SSL:-false}
-      - USE_AWS_ELASTICSEARCH=${USE_AWS_ELASTICSEARCH:-false}
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    labels:
-      datahub_setup_job: true
   # This "container" is a workaround to pre-create topics.
   # This is not required in most cases, kept here for backwards compatibility with older clients that
   # explicitly wait for this container

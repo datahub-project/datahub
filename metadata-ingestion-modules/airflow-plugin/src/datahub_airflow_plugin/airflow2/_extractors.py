@@ -2,7 +2,7 @@ import contextlib
 import logging
 import sys
 import unittest.mock
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from openlineage.client.facet import (
     ExtractionError,
@@ -14,12 +14,17 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    create_lineage_sql_parsed_result,
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub_airflow_plugin._config import (
+    get_configured_env,
+    get_enable_multi_statement,
 )
 from datahub_airflow_plugin._constants import SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
+from datahub_airflow_plugin._sql_parsing_common import (
+    format_sql_for_job_facet,
+    parse_sql_with_datahub,
+)
 from datahub_airflow_plugin.airflow2._openlineage_compat import (
     USE_OPENLINEAGE_PROVIDER,
     BaseExtractor,
@@ -256,18 +261,12 @@ def _sql_extractor_extract(self: "SqlExtractor") -> Optional[ExtractResult]:
     #    require us to convert those urns to OL uris, just for them to get converted
     #    back to urns later on in our processing.
 
-    task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
     sql = self.operator.sql
 
     default_database = getattr(self.operator, "database", None)
     if not default_database:
         default_database = self.database
     default_schema = self.default_schema
-
-    # TODO: Add better handling for sql being a list of statements.
-    if isinstance(sql, list):
-        logger.info(f"Got list of SQL statements for {task_name}. Using first one.")
-        sql = sql[0]
 
     # Run the SQL parser.
     scheme = self.scheme
@@ -317,37 +316,51 @@ def _create_lineage_metadata(
 
 def _parse_sql_into_task_metadata(
     self: "BaseExtractor",
-    sql: str,
+    sql: Union[str, List[str]],
     platform: str,
     default_database: Optional[str],
     default_schema: Optional[str],
 ) -> Optional[ExtractResult]:
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
 
+    enable_multi_statement = get_enable_multi_statement()
+
     run_facets = {}
-    job_facets = {"sql": SqlJobFacet(query=_normalize_sql(sql))}
+    # Format SQL for job facet (handles both string and list, with multi-statement support)
+    sql_str = format_sql_for_job_facet(sql, enable_multi_statement)
+    job_facets = {"sql": SqlJobFacet(query=_normalize_sql(sql_str))}
 
     # Get graph from context (Legacy OpenLineage only)
     graph = None
     if hasattr(self, "context"):
         graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)  # type: ignore[attr-defined]
 
+    env = get_configured_env()
+
+    sql_preview = (
+        str(sql)[:200]
+        if isinstance(sql, str)
+        else f"[{len(sql)} statements]"
+        if sql
+        else "None"
+    )
     self.log.debug(
-        "Running the SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
+        "Running the SQL parser %s (platform=%s, default db=%s, schema=%s, multi_statement=%s): %s",
         "with graph client" if graph else "in offline mode",
         platform,
         default_database,
         default_schema,
-        sql,
+        enable_multi_statement,
+        sql_preview,
     )
-    sql_parsing_result: SqlParsingResult = create_lineage_sql_parsed_result(
-        query=sql,
-        graph=graph,
+    sql_parsing_result: SqlParsingResult = parse_sql_with_datahub(
+        sql=sql,
+        default_database=default_database,
         platform=platform,
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
-        default_db=default_database,
+        env=env,
         default_schema=default_schema,
+        graph=graph,
+        enable_multi_statement=enable_multi_statement,
     )
     self.log.debug(f"Got sql lineage {sql_parsing_result}")
 
@@ -395,10 +408,12 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
             table_id = destination_table.get("tableId")
 
             if project_id and dataset_id and table_id:
+                env = get_configured_env()
+
                 destination_table_urn = builder.make_dataset_urn(
                     platform="bigquery",
                     name=f"{project_id}.{dataset_id}.{table_id}",
-                    env=builder.DEFAULT_ENV,
+                    env=env,
                 )
 
         task_metadata = _parse_sql_into_task_metadata(

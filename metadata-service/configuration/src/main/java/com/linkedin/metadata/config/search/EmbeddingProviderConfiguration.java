@@ -21,23 +21,10 @@ import lombok.NoArgsConstructor;
 public class EmbeddingProviderConfiguration {
 
   /**
-   * Type of embedding provider. Supported values: "aws-bedrock", "openai", "cohere". Defaults to
-   * "aws-bedrock".
+   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere". Defaults to
+   * "openai".
    */
-  private String type = "aws-bedrock";
-
-  /**
-   * AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1"). Required for
-   * aws-bedrock provider.
-   */
-  private String awsRegion = "us-west-2";
-
-  /**
-   * Bedrock model ID for embeddings. Defaults to "cohere.embed-english-v3" (1024 dimensions). Other
-   * options: - "cohere.embed-multilingual-v3" (1024 dimensions) - "amazon.titan-embed-text-v1"
-   * (1536 dimensions) - "amazon.titan-embed-text-v2:0" (1024 dimensions default)
-   */
-  private String modelId = "cohere.embed-english-v3";
+  private String type = "openai";
 
   /**
    * Maximum text length in characters before truncation. Cohere Embed v3 enforces a 2048-character
@@ -45,11 +32,53 @@ public class EmbeddingProviderConfiguration {
    */
   private int maxCharacterLength = 2048;
 
+  /** Configuration for AWS Bedrock embedding provider. */
+  private BedrockConfig bedrock = new BedrockConfig();
+
   /** Configuration for OpenAI embedding provider. */
   private OpenAIConfig openai = new OpenAIConfig();
 
   /** Configuration for Cohere embedding provider. */
   private CohereConfig cohere = new CohereConfig();
+
+  /**
+   * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
+   */
+  public String getModelId() {
+    if (type == null) {
+      return null;
+    }
+    switch (type.toLowerCase()) {
+      case "openai":
+        return openai != null ? openai.getModel() : null;
+      case "cohere":
+        return cohere != null ? cohere.getModel() : null;
+      case "aws-bedrock":
+        return bedrock != null ? bedrock.getModel() : null;
+      default:
+        return null;
+    }
+  }
+
+  /** AWS Bedrock-specific configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class BedrockConfig {
+    /**
+     * AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1"). Required for
+     * aws-bedrock provider.
+     */
+    private String awsRegion = "us-west-2";
+
+    /**
+     * Bedrock model ID for embeddings. Defaults to "cohere.embed-english-v3" (1024 dimensions).
+     * Other options: - "cohere.embed-multilingual-v3" (1024 dimensions) -
+     * "amazon.titan-embed-text-v1" (1536 dimensions) - "amazon.titan-embed-text-v2:0" (1024
+     * dimensions default)
+     */
+    private String model = "cohere.embed-english-v3";
+  }
 
   /** OpenAI-specific configuration. */
   @Data
@@ -66,14 +95,14 @@ public class EmbeddingProviderConfiguration {
      * OpenAI embedding model. Supported models:
      *
      * <ul>
-     *   <li><b>text-embedding-3-small</b> (default): 1536 dimensions, optimized for speed and cost
-     *   <li><b>text-embedding-3-large</b>: 3072 dimensions, highest quality
+     *   <li><b>text-embedding-3-large</b> (default): 3072 dimensions, highest quality
+     *   <li><b>text-embedding-3-small</b>: 1536 dimensions, optimized for speed and cost
      *   <li><b>text-embedding-ada-002</b>: 1536 dimensions, legacy model
      * </ul>
      *
-     * Defaults to "text-embedding-3-small".
+     * Defaults to "text-embedding-3-large".
      */
-    private String model = "text-embedding-3-small";
+    private String model = "text-embedding-3-large";
 
     /**
      * OpenAI API endpoint. Defaults to "https://api.openai.com/v1/embeddings". For Azure OpenAI,

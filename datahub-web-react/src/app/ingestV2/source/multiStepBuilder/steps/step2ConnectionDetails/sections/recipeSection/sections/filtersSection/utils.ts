@@ -31,7 +31,7 @@ export function getInitialFilters(fields: FilterRecipeField[], recipe: string) {
             filters.push({
                 key: uuidv4(),
                 rule: field.rule,
-                subtype: field.section,
+                subtype: field.filteringResource,
                 value,
             });
         });
@@ -58,12 +58,10 @@ export function getOptionsForTypeSelect(): SelectOption[] {
 }
 
 export function getSubtypeOptions(fields: FilterRecipeField[]): SelectOption[] {
-    return [...new Set(fields.map((field) => field.section))]
-        .map((section) => ({
-            label: section,
-            value: section,
-        }))
-        .sort((optionA, optionB) => optionA.label.localeCompare(optionB.label));
+    return [...new Set(fields.map((field) => field.filteringResource))].map((filteringResource) => ({
+        label: filteringResource,
+        value: filteringResource,
+    }));
 }
 
 export function filterOutUnsupportedFields(fields: FilterRecipeField[]) {
@@ -83,7 +81,7 @@ export function filterOutUnsupportedFields(fields: FilterRecipeField[]) {
 export function convertFiltersToFieldValues(filters: Filter[], fields: FilterRecipeField[]) {
     return fields.reduce((acc, field) => {
         acc[field.name] = filters
-            .filter((filter) => filter.rule === field.rule && filter.subtype === field.section)
+            .filter((filter) => filter.rule === field.rule && filter.subtype === field.filteringResource)
             .map((filter) => filter.value);
         return acc;
     }, {});

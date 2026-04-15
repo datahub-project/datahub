@@ -1,4 +1,4 @@
-import { Airplane } from '@phosphor-icons/react';
+import { Airplane } from '@phosphor-icons/react/dist/csr/Airplane';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 

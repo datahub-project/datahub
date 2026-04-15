@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
       "elasticsearch.port=9200",
       "elasticsearch.threadCount=1",
       "elasticsearch.connectionRequestTimeout=5000",
+      "elasticsearch.socketTimeout=30000",
       "elasticsearch.username=",
       "elasticsearch.password=",
       "elasticsearch.useSSL=false",

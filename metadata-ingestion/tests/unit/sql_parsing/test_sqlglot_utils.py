@@ -6,10 +6,15 @@ import pytest
 import sqlglot
 
 from datahub.sql_parsing.query_types import get_query_type_of_sql
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
+from datahub.sql_parsing.sqlglot_lineage import (
+    _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
+    sqlglot_lineage,
+)
 from datahub.sql_parsing.sqlglot_utils import (
     PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION,
+    _sanitize_snowflake_ddl,
     generalize_query,
     generalize_query_fast,
     get_dialect,
@@ -229,3 +234,135 @@ def test_query_fingerprint_with_secondary_id():
     assert fingerprint3 == fingerprint4, (
         "Fingerprints are deterministic for the same secondary_id"
     )
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        # --- Governance syntax that must be stripped ---
+        # WITH TAG in column definition list (CREATE TABLE / DYNAMIC TABLE)
+        (
+            "CREATE TABLE db.s.t (id INT, col VARCHAR WITH TAG (schema.tag='pii'))",
+            "CREATE TABLE db.s.t (id INT, col VARCHAR)",
+        ),
+        # WITH TAG in SELECT body (CREATE VIEW) — breaks sqlglot without this fix
+        (
+            "CREATE VIEW db.s.v AS SELECT id WITH TAG (schema.tag='pii'), name FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT id, name FROM db.s.src",
+        ),
+        # Three-part tag reference
+        (
+            "CREATE VIEW db.s.v AS SELECT col WITH TAG (MGMT.GOV.PII_TAG='mask') FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT col FROM db.s.src",
+        ),
+        # WITH MASKING POLICY without USING
+        (
+            "CREATE VIEW db.s.v AS SELECT id WITH MASKING POLICY db.s.mp, name FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT id, name FROM db.s.src",
+        ),
+        # WITH MASKING POLICY with USING clause
+        (
+            "CREATE VIEW db.s.v AS SELECT id WITH MASKING POLICY db.s.mp USING (id, name), name FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT id, name FROM db.s.src",
+        ),
+        # WITH PROJECTION POLICY
+        (
+            "CREATE VIEW db.s.v AS SELECT id WITH PROJECTION POLICY db.s.pp, name FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT id, name FROM db.s.src",
+        ),
+        # WITH ROW ACCESS POLICY — table-level
+        (
+            "CREATE TABLE db.s.t (id INT, name VARCHAR) WITH ROW ACCESS POLICY db.s.rap ON (id)",
+            "CREATE TABLE db.s.t (id INT, name VARCHAR)",
+        ),
+        # WITH ROW ACCESS POLICY — multi-column ON list
+        (
+            "CREATE VIEW db.s.v WITH ROW ACCESS POLICY db.s.rap ON (id, region) AS SELECT id, region FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT id, region FROM db.s.src",
+        ),
+        # Multiple governance constructs in one statement
+        (
+            "CREATE VIEW db.s.v AS SELECT col1 WITH TAG (s.t='v'), col2 WITH MASKING POLICY db.s.mp FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT col1, col2 FROM db.s.src",
+        ),
+        # Case-insensitive matching
+        (
+            "CREATE VIEW db.s.v AS SELECT id with tag (s.t='v') FROM db.s.src",
+            "CREATE VIEW db.s.v AS SELECT id FROM db.s.src",
+        ),
+        # --- SQL that must NOT be modified (false-positive checks) ---
+        # Plain DML
+        (
+            "SELECT id, name FROM db.s.src WHERE id > 0",
+            "SELECT id, name FROM db.s.src WHERE id > 0",
+        ),
+        # CTE named TAG — WITH TAG AS (...) is a CTE, not a governance clause
+        (
+            "WITH TAG AS (SELECT id FROM t) SELECT * FROM TAG",
+            "WITH TAG AS (SELECT id FROM t) SELECT * FROM TAG",
+        ),
+        # JOIN USING clause must not be touched
+        (
+            "SELECT a.id FROM a JOIN b USING (id)",
+            "SELECT a.id FROM a JOIN b USING (id)",
+        ),
+        # String literal containing governance keywords must not be touched
+        (
+            "SELECT id, 'WITH TAG (test)' AS note FROM t",
+            "SELECT id, 'WITH TAG (test)' AS note FROM t",
+        ),
+    ],
+)
+def test_sanitize_snowflake_ddl(sql: str, expected: str) -> None:
+    assert _sanitize_snowflake_ddl(sql) == expected
+
+
+@pytest.mark.parametrize(
+    "sql, expected_in_tables",
+    [
+        # WITH TAG in SELECT body — parse failure without sanitization
+        (
+            "CREATE VIEW db.s.v AS SELECT id WITH TAG (schema.tag='pii'), name FROM db.s.src",
+            ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"],
+        ),
+        # WITH MASKING POLICY in SELECT body
+        (
+            "CREATE VIEW db.s.v AS SELECT id WITH MASKING POLICY db.s.mp, name FROM db.s.src",
+            ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"],
+        ),
+        # WITH PROJECTION POLICY in SELECT body
+        (
+            "CREATE VIEW db.s.v AS SELECT id WITH PROJECTION POLICY db.s.pp FROM db.s.src",
+            ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"],
+        ),
+        # WITH ROW ACCESS POLICY at table level
+        (
+            "CREATE VIEW db.s.v WITH ROW ACCESS POLICY db.s.rap ON (id) AS SELECT id FROM db.s.src",
+            ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"],
+        ),
+        # Dynamic table with column-list WITH TAG — lineage must still be extracted
+        (
+            "CREATE OR REPLACE DYNAMIC TABLE db.s.t (id, col WITH TAG (MGMT.GOV.TAG='mask')) "
+            "target_lag='1 hour' warehouse=wh AS SELECT id, col FROM db.s.src",
+            ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"],
+        ),
+        # Multiple governance constructs on one statement
+        (
+            "CREATE VIEW db.s.v WITH ROW ACCESS POLICY db.s.rap ON (id) AS "
+            "SELECT id WITH MASKING POLICY db.s.mp, name WITH TAG (t='v') FROM db.s.src",
+            ["urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"],
+        ),
+    ],
+)
+def test_snowflake_governance_ddl_lineage(sql: str, expected_in_tables: list) -> None:
+    """Snowflake governance DDL must not prevent lineage extraction."""
+    resolver = SchemaResolver(platform="snowflake")
+    result = sqlglot_lineage(
+        sql,
+        schema_resolver=resolver,
+        default_db="db",
+        default_schema="s",
+        override_dialect="snowflake",
+    )
+    assert result.debug_info.table_error is None, result.debug_info.table_error
+    assert sorted(result.in_tables) == sorted(expected_in_tables)

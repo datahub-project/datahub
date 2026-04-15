@@ -87,7 +87,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private static final String VECTOR_SUFFIX = ".vector";
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
-  private static final String DEFAULT_MODEL_EMBEDDING_KEY = "cohere_embed_v3";
+  private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
 
   private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;

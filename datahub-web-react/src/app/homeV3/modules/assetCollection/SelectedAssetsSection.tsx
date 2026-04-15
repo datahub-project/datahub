@@ -1,4 +1,5 @@
 import { Text } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { isEqual } from 'lodash';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -64,8 +65,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     const renderRemoveAsset = (entity: Entity) => {
         return (
             <StyledIcon
-                icon="X"
-                source="phosphor"
+                icon={X}
                 color="gray"
                 size="md"
                 onClick={(e) => {

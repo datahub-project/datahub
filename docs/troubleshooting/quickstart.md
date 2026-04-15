@@ -220,7 +220,7 @@ More discussions on the same issue https://github.com/docker/hub-feedback/issues
 
 ## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
 
-This means the database wasn't properly initialized as part of the quickstart processs (see [#1816](https://github.com/datahub-project/datahub/issues/1816)). Please run the following command to manually initialize it.
+This means the database wasn't properly initialized as part of the quickstart process (see [#1816](https://github.com/datahub-project/datahub/issues/1816)). Please run the following command to manually initialize it.
 
 ```
 docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql

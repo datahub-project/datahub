@@ -16,12 +16,12 @@ const ScrollWrapper = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 5px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 
@@ -52,7 +52,7 @@ const PaginationInfoContainer = styled.span`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;

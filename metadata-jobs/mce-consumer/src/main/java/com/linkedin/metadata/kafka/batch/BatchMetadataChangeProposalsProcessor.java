@@ -168,7 +168,7 @@ public class BatchMetadataChangeProposalsProcessor {
               > provider.getMetadataChangeProposal().getConsumer().getBatch().getSize()) {
         processBatch(currentBatch, currentBatchSize);
         totalProcessed += currentBatch.size();
-        log.info(
+        log.debug(
             "Processed batch of {} MCPs, total processed so far: {}/{}",
             currentBatch.size(),
             totalProcessed,
@@ -188,7 +188,7 @@ public class BatchMetadataChangeProposalsProcessor {
     if (!currentBatch.isEmpty()) {
       processBatch(currentBatch, currentBatchSize);
       totalProcessed += currentBatch.size();
-      log.info(
+      log.debug(
           "Processed final batch of {} MCPs, total processed: {}/{}",
           currentBatch.size(),
           totalProcessed,
@@ -206,7 +206,7 @@ public class BatchMetadataChangeProposalsProcessor {
       return;
     }
 
-    log.info(
+    log.debug(
         "Processing batch of {} records, total size approximately {} bytes",
         batch.size(),
         batchBytes);
@@ -214,7 +214,7 @@ public class BatchMetadataChangeProposalsProcessor {
     try {
       List<String> urns = entityClient.batchIngestProposals(systemOperationContext, batch, false);
 
-      log.info(
+      log.debug(
           "Successfully processed MCP event batch of size {} with urns: {}",
           batch.size(),
           urns.stream().filter(Objects::nonNull).toList());

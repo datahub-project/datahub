@@ -151,6 +151,7 @@ export const DREMIO_PROFILE_ALLOW: FilterRecipeField = {
     fieldPath: dremioProfileAllowFieldPath,
     rules: null,
     section: 'Profiles',
+    filteringResource: 'Profile',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dremioProfileAllowFieldPath),
 };
@@ -168,6 +169,7 @@ export const DREMIO_PROFILE_DENY: FilterRecipeField = {
     fieldPath: dremioProfileDenyFieldPath,
     rules: null,
     section: 'Profiles',
+    filteringResource: 'Profile',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dremioProfileDenyFieldPath),
 };

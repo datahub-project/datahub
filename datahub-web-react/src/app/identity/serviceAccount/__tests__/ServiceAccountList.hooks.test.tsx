@@ -1,4 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
+import { waitFor } from '@testing-library/react';
 import { act, renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -245,11 +246,11 @@ describe('useServiceAccountListData', () => {
     });
 
     it('should load service accounts and roles', async () => {
-        const { result, waitForNextUpdate } = renderHook(() => useServiceAccountListData(1, 10, ''), { wrapper });
+        const { result } = renderHook(() => useServiceAccountListData(1, 10, ''), { wrapper });
 
-        await waitForNextUpdate({ timeout: 2000 });
+        // Wait until both queries complete (loading becomes false)
+        await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 5000 });
 
-        expect(result.current.loading).toBe(false);
         expect(result.current.serviceAccounts).toHaveLength(1);
         expect(result.current.serviceAccounts[0].name).toBe('test-account');
         expect(result.current.selectRoleOptions).toHaveLength(2);

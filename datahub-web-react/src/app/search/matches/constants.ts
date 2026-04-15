@@ -110,7 +110,7 @@ const DEFAULT_MATCHED_FIELD_CONFIG: Array<MatchedFieldConfig> = [
     },
 ];
 
-export const CHART_DASHBOARD_FIELD_CONFIG: Array<MatchedFieldConfig> = DEFAULT_MATCHED_FIELD_CONFIG.map((config) => {
+const CHART_DASHBOARD_FIELD_CONFIG: Array<MatchedFieldConfig> = DEFAULT_MATCHED_FIELD_CONFIG.map((config) => {
     if (config.name === 'title') return { ...config, groupInto: 'name' };
     return config;
 });
@@ -125,5 +125,3 @@ export type MatchesGroupedByFieldName = {
     fieldName: string;
     matchedFields: Array<MatchedField>;
 };
-
-export const HIGHLIGHTABLE_ENTITY_TYPES = [EntityType.Tag, EntityType.GlossaryTerm];

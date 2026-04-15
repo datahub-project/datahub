@@ -43,9 +43,7 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
     keyword_list = None
     if keywords:
@@ -54,7 +52,7 @@ try:
         except json.JSONDecodeError:
             keyword_list = [keywords]
 
-    with DataHubContext(graph):
+    with DataHubContext(client):
         return list_schema_fields(
             urn=dataset_urn,
             keywords=keyword_list,

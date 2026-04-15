@@ -3,7 +3,7 @@
     "query_type_props": {
         "kind": "TABLE"
     },
-    "query_fingerprint": "f8435b6e7e56561b8bdea4ebb819853c4798889b53ddb0a55ac6fbcbfcf9ce6d",
+    "query_fingerprint": "a66a0e76820c33ccc4c7ace060942be5d8d959ac15ec31dd17a46a810abb612c",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.source_table,PROD)"
     ],
@@ -51,6 +51,6 @@
     "joins": [],
     "debug_info": {
         "confidence": 0.2,
-        "generalized_statement": "CREATE OR REPLACE TABLE my_db.my_schema.target_table TAG (cost_center=?) AS SELECT id, name FROM my_db.my_schema.source_table"
+        "generalized_statement": "CREATE OR REPLACE TABLE my_db.my_schema.target_table AS SELECT id, name FROM my_db.my_schema.source_table"
     }
 }

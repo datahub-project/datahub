@@ -72,9 +72,13 @@ def parse_freshness_criteria(data: Optional[Dict]) -> Optional[DBTFreshnessCrite
     """Parse warn_after or error_after criteria dict into DBTFreshnessCriteria."""
     if not data:
         return None
+    count = data.get("count")
+    period = data.get("period")
+    if count is None or period is None:
+        return None
     return DBTFreshnessCriteria(
-        count=data.get("count", 0),
-        period=data.get("period", "hour"),
+        count=count,
+        period=period,
     )
 
 
@@ -323,7 +327,9 @@ def make_assertion_from_freshness(
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=custom_props,
-        customAssertion=CustomAssertionInfoClass(type="Freshness", entity=upstream_urn),
+        customAssertion=CustomAssertionInfoClass(
+            type="dbt Freshness", entity=upstream_urn
+        ),
     )
 
     return MetadataChangeProposalWrapper(

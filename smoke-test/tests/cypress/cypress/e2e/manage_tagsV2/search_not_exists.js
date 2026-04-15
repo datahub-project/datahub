@@ -1,6 +1,5 @@
 describe("tags - search not exists", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

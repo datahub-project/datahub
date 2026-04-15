@@ -1,4 +1,6 @@
-import { Button, Tooltip, colors } from '@components';
+import { Button, Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -51,10 +53,10 @@ const TopRightButton = styled(Button)`
     display: flex;
     align-items: center;
     justify-content: center;
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.icon};
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -72,13 +74,13 @@ const ActionsMenuWrapper = styled.div`
         display: flex;
         align-items: center;
         justify-content: center;
-        color: ${colors.gray[400]};
+        color: ${(props) => props.theme.colors.icon};
         min-width: auto;
         width: auto;
         height: auto;
 
         &:hover {
-            background-color: ${colors.gray[100]};
+            background-color: ${(props) => props.theme.colors.bgSurface};
         }
     }
 `;
@@ -88,12 +90,12 @@ const Breadcrumb = styled.div`
     align-items: center;
     gap: 8px;
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: 0px;
 `;
 
 const BreadcrumbLink = styled.a`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-decoration: none;
     cursor: pointer;
 
@@ -103,7 +105,7 @@ const BreadcrumbLink = styled.a`
 `;
 
 const BreadcrumbSeparator = styled.span`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin: 0 4px;
 `;
 
@@ -170,7 +172,7 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
                                 variant="text"
                                 onClick={() => setIsHistoryDrawerOpen(true)}
                                 aria-label="View change history"
-                                icon={{ icon: 'Clock', source: 'phosphor', size: '2xl' }}
+                                icon={{ icon: Clock, size: '2xl' }}
                             />
                         </Tooltip>
                         {isInsideModal && (
@@ -179,7 +181,7 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
                                     variant="text"
                                     onClick={handleGoToDocument}
                                     data-testid="expand-go-to-document-button"
-                                    icon={{ icon: 'ArrowSquareOut', source: 'phosphor', size: '2xl' }}
+                                    icon={{ icon: ArrowSquareOut, size: '2xl' }}
                                 />
                             </Tooltip>
                         )}

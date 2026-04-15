@@ -19,6 +19,7 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BigQuerySinkConnector,
+    ClickHouseSinkConnector,
     ConfluentS3SinkConnector,
     SnowflakeSinkConnector,
 )
@@ -428,6 +429,163 @@ class TestSnowflakeSinkConnector:
         assert lineage.target_platform == "snowflake"
 
 
+class TestClickHouseSinkConnector:
+    """Test ClickHouse sink connector lineage extraction."""
+
+    def create_mock_manifest(self, config: Dict[str, str]) -> ConnectorManifest:
+        """Helper to create a mock connector manifest."""
+        return ConnectorManifest(
+            name="test-clickhouse-connector",
+            type="sink",
+            config=config,
+            tasks=[],
+            topic_names=["events"],
+        )
+
+    def test_default_topic_to_table_mapping(self) -> None:
+        """Test that topics map to same-named tables by default."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "database": "analytics",
+            "topics": "events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_dataset == "events"
+        assert lineage.source_platform == "kafka"
+        assert lineage.target_dataset == "analytics.events"
+        assert lineage.target_platform == "clickhouse"
+
+    def test_default_database(self) -> None:
+        """Test that database defaults to 'default' when not specified."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "topics": "events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_dataset == "default.events"
+
+    def test_explicit_topic2table_map(self) -> None:
+        """Test explicit topic-to-table mapping via topic2TableMap."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "database": "analytics",
+            "topics": "events",
+            "topic2TableMap": "events=click_events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_dataset == "analytics.click_events"
+
+    def test_regex_router_transform(self) -> None:
+        """Test ClickHouse connector with RegexRouter transformation."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "database": "analytics",
+            "transforms": "RenameTable",
+            "transforms.RenameTable.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.RenameTable.regex": ".*",
+            "transforms.RenameTable.replacement": "processed_events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_dataset == "events"
+        assert lineage.target_dataset == "analytics.processed_events"
+        assert lineage.target_platform == "clickhouse"
+
+    def test_multiple_topics(self) -> None:
+        """Test multiple topics with mixed explicit and default mapping."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "database": "db",
+            "topics": "orders,users",
+            "topic2TableMap": "orders=order_events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        manifest.topic_names = ["orders", "users"]
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        lineage_map = {lg.source_dataset: lg for lg in lineages}
+        assert lineage_map["orders"].target_dataset == "db.order_events"
+        assert lineage_map["users"].target_dataset == "db.users"
+
+    def test_flow_property_bag_filters_password(self) -> None:
+        """Test that password is filtered from flow properties."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "hostname": "clickhouse.example.com",
+            "password": "secret123",
+            "database": "analytics",
+            "topics": "events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        props = connector.extract_flow_property_bag()
+
+        assert "password" not in props
+        assert "hostname" in props
+
+    def test_get_platform(self) -> None:
+        """Test that platform returns 'clickhouse'."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "topics": "events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        assert connector.get_platform() == "clickhouse"
+
+
 class TestJDBCSourceConnector:
     """Test JDBC source connector with RegexRouter support."""
 
@@ -603,6 +761,65 @@ class TestMongoSourceConnector:
         assert len(lineages) == 2
         assert lineages[0].source_dataset == "my-new-database.users"
         assert lineages[1].source_dataset == "-leading-hyphen._leading-underscore"
+
+    def test_mongo_source_fine_grained_lineage(self) -> None:
+        """Test MongoDB connector produces column-level lineage when schema resolver is available."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config={
+                "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                "topic.prefix": "prod.mongo",
+            },
+            tasks=[],
+            topic_names=["prod.mongo.mydb.users"],
+        )
+
+        mock_resolver = Mock()
+        mock_resolver.resolve_table.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)",
+            {"_id": "string", "name": "string", "email": "string"},
+        )
+
+        connector = MongoSourceConnector(
+            connector_manifest=manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.users"
+        assert lineages[0].target_dataset == "prod.mongo.mydb.users"
+        assert lineages[0].fine_grained_lineages is not None
+        assert len(lineages[0].fine_grained_lineages) == 3
+
+    def test_mongo_source_no_fine_grained_without_schema_resolver(self) -> None:
+        """Test MongoDB connector skips column-level lineage when schema resolver is disabled."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+            "topic.prefix": "prod.mongo.avro",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = MongoSourceConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        assert all(lin.fine_grained_lineages is None for lin in lineages)
 
 
 class TestConfluentCloudConnectors:
@@ -2801,6 +3018,68 @@ class TestJdbcSinkConnector:
         # MySQL doesn't use schema, so should be database.table
         assert lineages[0].target_dataset == "myapp.events"
 
+    def test_jdbc_sink_lineage_empty_runtime_topics_falls_back_to_config(
+        self,
+    ) -> None:
+        """When the runtime /topics API returns nothing, lineage is built from the
+        connector's own `topics` config rather than producing an empty result."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="debezium-jdbc-sink",
+            type="sink",
+            config={
+                "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+                "topics": "server.public.users,server.public.orders",
+            },
+            tasks=[],
+            topic_names=[],  # runtime API returned nothing
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "server.public.users" in source_datasets
+        assert "server.public.orders" in source_datasets
+
+    def test_jdbc_sink_lineage_stale_topic_filter_still_applies(self) -> None:
+        """When the runtime /topics API returns topics, stale topics not in the
+        connector config are excluded via intersection."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="postgres-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+                "topics": "users,orders",
+            },
+            tasks=[],
+            topic_names=["users", "orders", "old_stale_topic"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "users" in source_datasets
+        assert "orders" in source_datasets
+        assert "old_stale_topic" not in source_datasets
+
     def test_jdbc_sink_flow_property_bag_sanitization(self) -> None:
         """Test that sensitive credentials are removed from flow property bag."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
@@ -2847,6 +3126,58 @@ class TestJdbcSinkConnector:
         assert "connection.url" in property_bag
         assert "admin" not in property_bag["connection.url"]
         assert "secret123" not in property_bag["connection.url"]
+
+    @pytest.mark.parametrize(
+        "connection_url,expected_platform",
+        [
+            ("jdbc:postgresql://localhost:5432/mydb", "postgres"),
+            ("jdbc:mysql://localhost:3306/mydb", "mysql"),
+            ("jdbc:oracle:thin:@localhost:1521/orcl", "oracle"),
+            ("jdbc:sqlserver://localhost:1433;databaseName=mydb", "mssql"),
+        ],
+    )
+    def test_jdbc_sink_platform_auto_detection(
+        self, connection_url: str, expected_platform: str
+    ) -> None:
+        """Test that platform is auto-detected from connection.url when not explicitly provided."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+                "connection.url": connection_url,
+            },
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        assert connector.get_platform() == expected_platform
+
+    def test_jdbc_sink_platform_auto_detection_no_url(self) -> None:
+        """Test that platform falls back to 'unknown' when connection.url is absent."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={"connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector"},
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report)
+        assert connector.get_platform() == "unknown"
 
 
 class TestConfluentCloudConnectorManifest:
@@ -4054,6 +4385,56 @@ class TestPlatformDetection:
 
         platform = connector._extract_platform_from_jdbc_url("")
         assert platform == "unknown"
+
+    def test_debezium_get_platform_returns_mssql_for_sqlserver(self) -> None:
+        """Test that Debezium SQL Server connector returns 'mssql' (DataHub canonical name)."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        assert connector.get_platform() == "mssql"
+
+    def test_debezium_get_platform_other_connectors(self) -> None:
+        """Test get_platform for other Debezium connector types."""
+        test_cases = {
+            "io.debezium.connector.postgresql.PostgresConnector": "postgres",
+            "io.debezium.connector.mysql.MySqlConnector": "mysql",
+            "io.debezium.connector.oracle.OracleConnector": "oracle",
+            "io.debezium.connector.db2.Db2Connector": "db2",
+            "io.debezium.connector.mongodb.MongoDbConnector": "mongodb",
+            "io.debezium.connector.vitess.VitessConnector": "vitess",
+            "com.unknown.SomeConnector": "unknown",
+        }
+
+        for connector_class, expected_platform in test_cases.items():
+            manifest = ConnectorManifest(
+                name="test",
+                type="source",
+                config={"connector.class": connector_class},
+                tasks=[],
+                topic_names=[],
+            )
+
+            config = create_mock_kafka_connect_config()
+            report = Mock(spec=KafkaConnectSourceReport)
+            connector = DebeziumSourceConnector(manifest, config, report)
+
+            assert connector.get_platform() == expected_platform, (
+                f"Expected '{expected_platform}' for {connector_class}, "
+                f"got '{connector.get_platform()}'"
+            )
 
 
 class TestTransformPluginAdditionalCoverage:

@@ -1,6 +1,7 @@
 """Tests for NotionSource."""
 
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import SecretStr
@@ -742,6 +743,77 @@ def test_update_document_state():
     assert "last_processed" in state
     assert "page_id" in state
     assert state["page_id"] == page_id
+
+
+def test_max_documents_default():
+    """Test that max_documents defaults to 10000."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    ctx = PipelineContext(run_id="test")
+    source = NotionSource(config=config, ctx=ctx)
+    assert source.chunking_source.config.max_documents == 10000
+
+
+def test_max_documents_limit_raises_error():
+    """Test that RuntimeError propagates from chunking_source when max_documents is hit."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    ctx = PipelineContext(run_id="test")
+    source = NotionSource(config=config, ctx=ctx)
+    source.chunking_source.config.max_documents = 2
+
+    def make_data(page_id: str) -> dict:
+        return {
+            "elements": [{"text": "Some content", "type": "NarrativeText"}],
+            "metadata": {
+                "data_source": {"record_locator": {"page_id": page_id}},
+                "filetype": "text/plain",
+            },
+        }
+
+    mock_doc = MagicMock()
+    mock_doc.urn = "urn:li:document:notion.page-1"
+    mock_doc.as_workunits.return_value = iter([])
+
+    # Disable embedding and stub chunking to avoid needing `unstructured` installed
+    source.chunking_source.embedding_model = None
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+    with (
+        patch.object(
+            source.document_builder, "build_document_entity", return_value=mock_doc
+        ),
+        patch.object(
+            source.chunking_source, "_chunk_elements", return_value=dummy_chunk
+        ),
+    ):
+        # First document — should succeed
+        list(source._create_document_entity(make_data("page-1")))
+        assert source.report.num_documents_created == 1
+        assert source.report.num_documents_limit_reached is False
+
+        # Second document — hits the limit
+        with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
+            list(source._create_document_entity(make_data("page-2")))
+
+    assert source.report.num_documents_limit_reached is True
+    assert source.report.num_documents_created == 1
 
 
 def test_embedding_stats_aggregation(notion_source):

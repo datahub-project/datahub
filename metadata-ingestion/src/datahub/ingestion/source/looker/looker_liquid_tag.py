@@ -1,15 +1,15 @@
 from functools import lru_cache
-from typing import ClassVar, Optional, TextIO, Type
+from typing import ClassVar, TextIO, Type
 
 from liquid import Environment
 from liquid.ast import Node
-from liquid.context import Context
+from liquid.context import RenderContext
 from liquid.filter import string_filter
-from liquid.parse import expect, get_parser
+from liquid.parser import get_parser
 from liquid.stream import TokenStream
 from liquid.tag import Tag
 from liquid.template import BoundTemplate
-from liquid.token import TOKEN_EXPRESSION, TOKEN_LITERAL, TOKEN_TAG, Token
+from liquid.token import TOKEN_CONTENT, TOKEN_EXPRESSION, TOKEN_TAG, Token
 
 
 class CustomTagException(Exception):
@@ -19,29 +19,35 @@ class CustomTagException(Exception):
 
 class ConditionNode(Node):
     def __init__(self, tok: Token, sql_or_lookml_reference: str, filter_name: str):
-        self.tok = tok
+        super().__init__(tok)
+        # v2 defaults Node.blank = True. When all nodes in a BlockNode are "blank",
+        # v2 renders to NullIO (discards output). Our tag produces real SQL, so we
+        # must opt out of blank-block suppression.
+        self.blank = False
         self.sql_or_lookml_reference = sql_or_lookml_reference
         self.filter_name = filter_name
 
-    def render_to_output(self, context: Context, buffer: TextIO) -> Optional[bool]:
+    def render_to_output(self, context: RenderContext, buffer: TextIO) -> int:
         # This implementation will make sure that sql parse work correctly if looker condition tag
         # is used in lookml sql field
-        buffer.write(f"{self.sql_or_lookml_reference}='dummy_value'")
-        return True
+        return buffer.write(f"{self.sql_or_lookml_reference}='dummy_value'")
 
 
 class IncrementConditionNode(Node):
     def __init__(self, tok: Token, sql_or_lookml_reference: str):
-        self.tok = tok
+        super().__init__(tok)
+        # v2 defaults Node.blank = True. When all nodes in a BlockNode are "blank",
+        # v2 renders to NullIO (discards output). Our tag produces real SQL, so we
+        # must opt out of blank-block suppression.
+        self.blank = False
         self.sql_or_lookml_reference = sql_or_lookml_reference
 
-    def render_to_output(self, context: Context, buffer: TextIO) -> Optional[bool]:
+    def render_to_output(self, context: RenderContext, buffer: TextIO) -> int:
         # For incrementcondition, we need to generate a condition that would be used
         # in incremental PDT updates. This typically involves date/time comparisons.
         # We'll render it as a date comparison with a placeholder value
         # See details in Looker documentation for incrementcondition tag -> cloud.google.com/looker/docs/reference/param-view-increment-key
-        buffer.write(f"{self.sql_or_lookml_reference} > '2023-01-01'")
-        return True
+        return buffer.write(f"{self.sql_or_lookml_reference} > '2023-01-01'")
 
 
 # Define the custom tag
@@ -66,21 +72,21 @@ class ConditionTag(Tag):
         self.parser = get_parser(self.env)
 
     def parse(self, stream: TokenStream) -> Node:
-        expect(stream, TOKEN_TAG, value=ConditionTag.TAG_START)
+        stream.expect(TOKEN_TAG, value=ConditionTag.TAG_START)
 
         start_token = stream.current
 
         stream.next_token()
-        expect(stream, TOKEN_EXPRESSION)
+        stream.expect(TOKEN_EXPRESSION)
         filter_name: str = stream.current.value.strip()
 
         stream.next_token()
-        expect(stream, TOKEN_LITERAL)
+        stream.expect(TOKEN_CONTENT)
 
         sql_or_lookml_reference: str = stream.current.value.strip()
 
         stream.next_token()
-        expect(stream, TOKEN_TAG, value=ConditionTag.TAG_END)
+        stream.expect(TOKEN_TAG, value=ConditionTag.TAG_END)
 
         return ConditionNode(
             tok=start_token,
@@ -112,16 +118,16 @@ class IncrementConditionTag(Tag):
         self.parser = get_parser(self.env)
 
     def parse(self, stream: TokenStream) -> Node:
-        expect(stream, TOKEN_TAG, value=IncrementConditionTag.TAG_START)
+        stream.expect(TOKEN_TAG, value=IncrementConditionTag.TAG_START)
 
         start_token = stream.current
 
         stream.next_token()
-        expect(stream, TOKEN_LITERAL)
+        stream.expect(TOKEN_CONTENT)
         sql_or_lookml_reference: str = stream.current.value.strip()
 
         stream.next_token()
-        expect(stream, TOKEN_TAG, value=IncrementConditionTag.TAG_END)
+        stream.expect(TOKEN_TAG, value=IncrementConditionTag.TAG_END)
 
         return IncrementConditionNode(
             tok=start_token,

@@ -1,24 +1,16 @@
-import { Button, Typography } from 'antd';
+import { Button } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
-const HeaderInfoBody = styled(Typography.Text)`
+const HeaderInfoBody = styled.span`
     font-size: 16px;
-    color: ${ANTD_GRAY[9]};
-`;
-
-const StatsButton = styled(Button)`
-    && {
-        margin: 0px;
-        padding: 0px;
-    }
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const InfoRow = styled.div`
@@ -49,9 +41,9 @@ export const SidebarViewDefinitionSection = () => {
                             <HeaderInfoBody>{language.toUpperCase()}</HeaderInfoBody>
                         </InfoItem>
                     </InfoRow>
-                    <StatsButton onClick={() => routeToTab({ tabName: 'View Definition' })} type="link">
+                    <Button variant="link" color="violet" onClick={() => routeToTab({ tabName: 'View Definition' })}>
                         View full definition &gt;
-                    </StatsButton>
+                    </Button>
                 </>
             }
         />

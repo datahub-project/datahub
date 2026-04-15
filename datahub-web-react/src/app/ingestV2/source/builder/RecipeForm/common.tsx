@@ -1,6 +1,8 @@
 import { get, omit, set } from 'lodash';
-import moment, { Moment } from 'moment-timezone';
 import React from 'react';
+
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 export enum FieldType {
     TEXT,
@@ -52,6 +54,7 @@ export enum FilterRule {
 export interface FilterRecipeField extends RecipeField {
     rule: FilterRule;
     section: string;
+    filteringResource: string;
 }
 
 function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
@@ -95,7 +98,7 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
 
 const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
 
-export function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
+function setDateValueOnRecipe(recipe: any, value: Dayjs | undefined, fieldPath: string) {
     const updatedRecipe = { ...recipe };
     if (value !== undefined) {
         if (!value) {
@@ -124,6 +127,7 @@ export const DATABASE_ALLOW: FilterRecipeField = {
     fieldPath: databaseAllowFieldPath,
     rules: null,
     section: 'Databases',
+    filteringResource: 'Database',
     rule: FilterRule.INCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, databaseAllowFieldPath),
@@ -142,45 +146,10 @@ export const DATABASE_DENY: FilterRecipeField = {
     fieldPath: databaseDenyFieldPath,
     rules: null,
     section: 'Databases',
+    filteringResource: 'Database',
     rule: FilterRule.EXCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, databaseDenyFieldPath),
-};
-
-const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
-export const DASHBOARD_ALLOW: FilterRecipeField = {
-    name: 'dashboard_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include specific Dashboards',
-    tooltip:
-        'Only include specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included.',
-    type: FieldType.LIST,
-    rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
-    fieldPath: dashboardAllowFieldPath,
-    rules: null,
-    section: 'Dashboards',
-    placeholder: 'my_dashboard',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
-};
-
-const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
-export const DASHBOARD_DENY: FilterRecipeField = {
-    name: 'dashboard_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude specific Dashboards',
-    tooltip:
-        'Exclude specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
-    type: FieldType.LIST,
-    rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
-    fieldPath: dashboardDenyFieldPath,
-    rules: null,
-    section: 'Dashboards',
-    placeholder: 'my_dashboard',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),
 };
 
 const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
@@ -198,6 +167,7 @@ export const SCHEMA_ALLOW: FilterRecipeField = {
     fieldPath: schemaAllowFieldPath,
     rules: null,
     section: 'Schemas',
+    filteringResource: 'Schema',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
 };
@@ -216,6 +186,7 @@ export const SCHEMA_DENY: FilterRecipeField = {
     fieldPath: schemaDenyFieldPath,
     rules: null,
     section: 'Schemas',
+    filteringResource: 'Schema',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
@@ -234,6 +205,7 @@ export const TABLE_ALLOW: FilterRecipeField = {
     fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
 };
@@ -252,6 +224,7 @@ export const TABLE_DENY: FilterRecipeField = {
     fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
 };
@@ -270,6 +243,7 @@ export const VIEW_ALLOW: FilterRecipeField = {
     fieldPath: viewAllowFieldPath,
     rules: null,
     section: 'Views',
+    filteringResource: 'View',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, viewAllowFieldPath),
 };
@@ -288,6 +262,7 @@ export const VIEW_DENY: FilterRecipeField = {
     fieldPath: viewDenyFieldPath,
     rules: null,
     section: 'Views',
+    filteringResource: 'View',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, viewDenyFieldPath),
 };
@@ -358,16 +333,6 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     tooltip: 'Remove stale assets from DataHub once they have been deleted in the ingestion source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
-    rules: null,
-};
-
-export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
-    name: 'upstream_lineage_in_report',
-    label: 'Include Upstream Lineage In Report.',
-    helper: 'Debug lineage information',
-    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.upstream_lineage_in_report',
     rules: null,
 };
 
@@ -526,11 +491,11 @@ export const START_TIME: RecipeField = {
     getValueFromRecipeOverride: (recipe: any) => {
         const isoDateString = get(recipe, startTimeFieldPath);
         if (isoDateString) {
-            return moment(isoDateString);
+            return dayjs(isoDateString);
         }
         return isoDateString;
     },
-    setValueOnRecipeOverride: (recipe: any, value?: Moment) => setDateValueOnRecipe(recipe, value, startTimeFieldPath),
+    setValueOnRecipeOverride: (recipe: any, value?: Dayjs) => setDateValueOnRecipe(recipe, value, startTimeFieldPath),
 };
 
 const envFieldPath = 'source.config.env';

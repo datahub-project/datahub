@@ -9,6 +9,7 @@ def generate_cortex_agent_sql(
     sf_database: str | None,
     sf_schema: str | None,
     include_mutations: bool = True,
+    include_cloud: bool = False,
 ) -> str:
     """Generate Cortex Agent SQL that uses configuration variables with DataHub tools.
 
@@ -20,6 +21,7 @@ def generate_cortex_agent_sql(
         sf_database: Snowflake database name (uses placeholder if None)
         sf_schema: Snowflake schema name (uses placeholder if None)
         include_mutations: Whether to include mutation/write tools (default: True)
+        include_cloud: Whether to include Cloud-only tools like Ask DataHub (default: False)
     """
     # Use placeholders for None values - these will be set via SQL variables at runtime
     warehouse = sf_warehouse or "MY_WAREHOUSE"
@@ -28,59 +30,108 @@ def generate_cortex_agent_sql(
 
     # Build instructions based on whether mutations are enabled
     if include_mutations:
-        capabilities = """1. Find and query data (search, schema exploration, SQL generation)
-      2. Understand data lineage and relationships
-      3. Manage metadata (tags, descriptions, owners, domains, glossary terms)
-      4. Search documentation and runbooks"""
-
         system_capabilities = """- Search and discovery (search_datahub, search_documents)
       - Schema exploration (get_entities, list_schema_fields)
       - Lineage analysis (get_lineage, get_lineage_paths_between)
       - Query patterns (get_dataset_queries)
+      - Data quality (get_dataset_assertions)
       - Metadata management (tags, descriptions, owners, domains, glossary terms)
       - User information (get_me)"""
 
-        orchestration_guidance = """For data queries:
-      1. Use search_datahub to find relevant datasets
-      2. Use get_entities or list_schema_fields for schema details
-      3. Generate SQL based on actual schema
-      4. Execute using SqlExecutor
+        orchestration_guidance = """You are an assistant for business analytics and operational data questions for analysts, data engineers, and decision makers.
+
+      You have access to:
+
+      1) Snowflake data and SQL execution
+      2) Enterprise metadata and knowledge via DataHub
+
+      DataHub stores a map of the data supply chain across data tools, along with enterprise knowledge via indexed documents that may help clarify business definitions, processes, past decisions & more.
+
+      Your goal is to combine both sources to correctly interpret user intent, identify the right datasets, generate reliable SQL, and provide clear answers.
+
+      General rules:
+
+      - Do not invent tables, columns, or business definitions.
+      - Base SQL only on verified schema/context from available tools.
+      - If requirements are ambiguous or key fields are missing, ask a concise clarifying question before executing SQL.
+      - Prefer concise, practical responses with assumptions explicitly stated.
+      - For SQL execution, use read-only queries unless the user explicitly requests otherwise.
+
+      For data or analytics questions:
+      1. Use DataHub tools first to find relevant documents or datasets. Start by using documents (using search_documents) & glossary terms (using search_datahub) to understand business definitions before looking at datasets or executing queries.
+      2. Use get_entities and/or list_schema_fields to validate schema details.
+      3. Use get_dataset_queries when helpful to infer common query patterns.
+      4. Generate Snowflake SQL based on verified schema.
+      5. Execute the SQL, then summarize findings and caveats.
 
       For lineage questions:
-      1. Use get_lineage to explore upstream/downstream dependencies
-      2. Use get_lineage_paths_between for detailed transformation chains
+      1. Use get_lineage for upstream/downstream exploration.
+      2. Use get_lineage_paths_between for detailed end-to-end transformations.
+      3. Explain lineage in plain business terms plus technical dependencies.
+
+      For data quality questions:
+      1. Use search_datahub to find the dataset and get its URN.
+      2. Use get_dataset_assertions to fetch assertions and their run results.
+      3. Summarize which checks are passing, failing, or erroring.
+      4. Explain what each assertion checks in plain terms.
 
       For metadata management:
-      1. Search for entities first to get URNs
-      2. Use appropriate tools (add_tags, update_description, etc.)
-      3. Confirm changes were successful"""
+      1. Search entities first and collect exact URNs.
+      2. Propose the intended changes clearly.
+      3. Ask for explicit confirmation before any write action (tags, descriptions, owners, domains, glossary, structured properties).
+      4. Execute only after confirmation and report what changed.
 
-        metadata_note = """Always use DataHub tools before generating SQL to ensure accuracy.
-      When managing metadata, confirm changes with the user first."""
+      If DataHub search returns no useful results:
+      - Say so explicitly.
+      - Ask for alternate names/business terms, or fallback to user-provided Snowflake table names."""
     else:
-        capabilities = """1. Find and query data (search, schema exploration, SQL generation)
-      2. Understand data lineage and relationships
-      3. Search documentation and runbooks"""
-
         system_capabilities = """- Search and discovery (search_datahub, search_documents)
       - Schema exploration (get_entities, list_schema_fields)
       - Lineage analysis (get_lineage, get_lineage_paths_between)
       - Query patterns (get_dataset_queries)
+      - Data quality (get_dataset_assertions)
       - User information (get_me)"""
 
-        orchestration_guidance = """For data queries:
-      1. Use search_datahub to find relevant datasets
-      2. Use get_entities or list_schema_fields for schema details
-      3. Generate SQL based on actual schema
-      4. Execute using SqlExecutor
+        orchestration_guidance = """You are an assistant for business analytics and operational data questions for analysts, data engineers, and decision makers.
+
+      You have access to:
+
+      1) Snowflake data and SQL execution
+      2) Enterprise metadata and knowledge via DataHub
+
+      DataHub stores a map of the data supply chain across data tools, along with enterprise knowledge via indexed documents that may help clarify business definitions, processes, past decisions & more.
+
+      Your goal is to combine both sources to correctly interpret user intent, identify the right datasets, generate reliable SQL, and provide clear answers.
+
+      General rules:
+
+      - Do not invent tables, columns, or business definitions.
+      - Base SQL only on verified schema/context from available tools.
+      - If requirements are ambiguous or key fields are missing, ask a concise clarifying question before executing SQL.
+      - Prefer concise, practical responses with assumptions explicitly stated.
+      - For SQL execution, use read-only queries unless the user explicitly requests otherwise.
+
+      For data or analytics questions:
+      1. Use DataHub tools first to find relevant documents or datasets. Start by using documents & glossary terms to understand business definitions before looking at datasets or executing queries.
+      2. Use get_entities and/or list_schema_fields to validate schema details.
+      3. Use get_dataset_queries when helpful to infer common query patterns.
+      4. Generate Snowflake SQL based on verified schema.
+      5. Execute the SQL, then summarize findings and caveats.
 
       For lineage questions:
-      1. Use get_lineage to explore upstream/downstream dependencies
-      2. Use get_lineage_paths_between for detailed transformation chains"""
+      1. Use get_lineage for upstream/downstream exploration.
+      2. Use get_lineage_paths_between for detailed end-to-end transformations.
+      3. Explain lineage in plain business terms plus technical dependencies.
 
-        metadata_note = (
-            "Always use DataHub tools before generating SQL to ensure accuracy."
-        )
+      For data quality questions:
+      1. Use search_datahub to find the dataset and get its URN.
+      2. Use get_dataset_assertions to fetch assertions and their run results.
+      3. Summarize which checks are passing, failing, or erroring.
+      4. Explain what each assertion checks in plain terms.
+
+      If DataHub search returns no useful results:
+      - Say so explicitly.
+      - Ask for alternate names/business terms, or fallback to user-provided Snowflake table names."""
 
     # Build mutation tools section if enabled
     mutation_tools = (
@@ -287,6 +338,44 @@ def generate_cortex_agent_sql(
         else ""
     )
 
+    # Build cloud-only tools section (Ask DataHub)
+    cloud_tools = (
+        """
+    # Ask DataHub AI (Cloud-only)
+    - tool_spec:
+        type: "generic"
+        name: "ask_datahub_chat"
+        description: "Ask the DataHub AI assistant a question about your data catalog. Blocks until the agent responds. Returns the assistant's answer. Cloud-only."
+        input_schema:
+          type: "object"
+          properties:
+            message:
+              type: "string"
+              description: "The question to ask the AI agent"
+          required: [message]
+
+    - tool_spec:
+        type: "generic"
+        name: "get_datahub_chat"
+        description: "Retrieve messages and status from an Ask DataHub conversation. Use to read back conversation history."
+        input_schema:
+          type: "object"
+          properties:
+            conversation_urn:
+              type: "string"
+              description: "URN of the conversation (from ask_datahub_chat response)"
+            message_limit:
+              type: "number"
+              description: "Max messages to return. Default: 10"
+            offset:
+              type: "number"
+              description: "Messages to skip. Default: 0"
+          required: [conversation_urn, message_limit, offset]
+"""
+        if include_cloud
+        else ""
+    )
+
     # Build mutation tool resources section if enabled
     mutation_tool_resources = (
         f"""
@@ -377,9 +466,40 @@ def generate_cortex_agent_sql(
         else ""
     )
 
-    tool_count_note = (
-        "20 tools (read + write)" if include_mutations else "9 tools (read-only)"
+    # Build cloud tool resources section
+    cloud_tool_resources = (
+        f"""
+    # Ask DataHub AI (Cloud-only)
+    ask_datahub_chat:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.ASK_DATAHUB_CHAT
+
+    get_datahub_chat:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_DATAHUB_CHAT
+"""
+        if include_cloud
+        else ""
     )
+
+    # Calculate tool counts
+    base_count = 10
+    mutation_count = 11 if include_mutations else 0
+    cloud_count = 2 if include_cloud else 0
+    total_tool_count = base_count + mutation_count + cloud_count
+
+    tool_parts = ["read"]
+    if include_mutations:
+        tool_parts.append("write")
+    if include_cloud:
+        tool_parts.append("cloud")
+    tool_count_note = f"{total_tool_count} tools ({' + '.join(tool_parts)})"
     query_description = " and manage metadata" if include_mutations else ""
     comment_suffix = " and metadata management" if include_mutations else ""
 
@@ -396,7 +516,9 @@ def generate_cortex_agent_sql(
       - question: "Add a description to the revenue column"
         answer: "I'll update the description for the revenue column."
       - question: "Who owns the analytics datasets?"
-        answer: "I'll search for analytics datasets and show their ownership information."'''
+        answer: "I'll search for analytics datasets and show their ownership information."
+      - question: "Are there any failing data quality checks on the orders table?"
+        answer: "I'll fetch the assertions for the orders table and check their status."'''
 
     sample_questions_readonly = '''
       - question: "What tables contain customer data?"
@@ -406,7 +528,9 @@ def generate_cortex_agent_sql(
       - question: "What queries use the users table?"
         answer: "I'll retrieve the SQL queries that reference the users table."
       - question: "Who owns the analytics datasets?"
-        answer: "I'll search for analytics datasets and show their ownership information."'''
+        answer: "I'll search for analytics datasets and show their ownership information."
+      - question: "Are there any failing data quality checks on the orders table?"
+        answer: "I'll fetch the assertions for the orders table and check their status."'''
 
     sample_questions = (
         sample_questions_with_mutations
@@ -445,11 +569,23 @@ CREATE OR REPLACE AGENT {agent_name}
 
   instructions:
     response: |
-      You are a comprehensive data assistant with access to DataHub metadata.
-      You can help users:
-      {capabilities}
+      You are a business data assistant. Respond clearly and concisely for analysts, engineers, and decision makers.
 
-      {metadata_note}
+      Response format:
+      - Start with a direct answer in 1-3 sentences.
+      - Then provide supporting details (key metrics, assumptions, caveats).
+      - Include SQL only when it helps validate or reproduce the answer.
+      - Use bullets/tables when comparing values or options.
+
+      Tone and quality:
+      - Be factual, practical, and concise.
+      - State uncertainty explicitly and explain what is missing.
+      - Never invent tables, columns, definitions, or lineage.
+      - If the request is ambiguous, ask one focused clarifying question.
+
+      Safety for metadata updates:
+      - For any metadata mutation (tags, owners, descriptions, domains, glossary, structured properties), summarize the proposed change and request explicit confirmation before execution.
+      - After execution, report exactly what changed.
 
     orchestration: |
       {orchestration_guidance}
@@ -575,11 +711,39 @@ CREATE OR REPLACE AGENT {agent_name}
               description: "Number of queries. Default: 10"
           required: [urn, column_name, source, count]
 
+    # Data Quality Tools
+    - tool_spec:
+        type: "generic"
+        name: "get_dataset_assertions"
+        description: "Get data quality assertions for a dataset with their latest run results (pass/fail). Filter by column, type, or status. Use search_datahub first to find the dataset URN."
+        input_schema:
+          type: "object"
+          properties:
+            urn:
+              type: "string"
+              description: "Dataset URN (from search_datahub results)"
+            column_name:
+              type: "string"
+              description: "Column/field path to filter assertions. Default: null (all assertions)"
+            assertion_type:
+              type: "string"
+              description: "'FRESHNESS', 'VOLUME', 'FIELD', 'SQL', 'DATASET', 'DATA_SCHEMA', 'CUSTOM', or null for all"
+            status:
+              type: "string"
+              description: "'PASSING', 'FAILING', 'ERROR', 'INIT', or null for all"
+            count:
+              type: "number"
+              description: "Number of assertions to return. Default: 5"
+            run_events_count:
+              type: "number"
+              description: "Recent run events per assertion (1-10). Default: 1"
+          required: [urn, column_name, assertion_type, status, count, run_events_count]
+
     # Document Search Tools
     - tool_spec:
         type: "generic"
         name: "search_documents"
-        description: "Search organization documents (runbooks, FAQs, knowledge articles from Notion, Confluence, etc.)."
+        description: "Search organization documents (runbooks, FAQs, knowledge articles from Notion, Confluence, etc.). Use /q prefix for structured queries with normal OR / AND syntax support. Always use /q syntax when using this to prevent from missing related documentation from the enterprise's knowledge bases. Use to understand abstract business definitions."
         input_schema:
           type: "object"
           properties:
@@ -611,7 +775,7 @@ CREATE OR REPLACE AGENT {agent_name}
               type: "number"
               description: "Max matches per document. Default: 5"
           required: [urns, pattern, context_chars, max_matches_per_doc]
-{mutation_tools}
+{mutation_tools}{cloud_tools}
     # User Info
     - tool_spec:
         type: "generic"
@@ -680,6 +844,14 @@ CREATE OR REPLACE AGENT {agent_name}
         warehouse: {warehouse}
       identifier: {database}.{schema}.GET_DATASET_QUERIES
 
+    # Data Quality
+    get_dataset_assertions:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_DATASET_ASSERTIONS
+
     # Documents
     search_documents:
       type: "function"
@@ -694,7 +866,7 @@ CREATE OR REPLACE AGENT {agent_name}
         type: "warehouse"
         warehouse: {warehouse}
       identifier: {database}.{schema}.GREP_DOCUMENTS
-{mutation_tool_resources}
+{mutation_tool_resources}{cloud_tool_resources}
     # User Info
     get_me:
       type: "function"
@@ -719,7 +891,7 @@ GRANT USAGE ON AGENT {agent_name} TO ROLE IDENTIFIER($SF_ROLE);
 DESCRIBE AGENT {agent_name};
 
 SELECT
-    'Agent created successfully with {"20 DataHub tools (read + write)" if include_mutations else "9 DataHub tools (read-only)"}!' AS status,
+    'Agent created successfully with {total_tool_count} DataHub tools ({" + ".join(tool_parts)})!' AS status,
     '{agent_name}' AS agent_name,
     'You can now use this agent in Snowflake Intelligence UI for {"SQL generation and metadata management" if include_mutations else "SQL generation and metadata exploration"}' AS next_steps;
 """

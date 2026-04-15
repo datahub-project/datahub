@@ -4271,7 +4271,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.actor,PROD)"
             }
         }
@@ -4354,7 +4354,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.address,PROD)"
             }
         }
@@ -4437,7 +4437,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.category,PROD)"
             }
         }
@@ -4518,7 +4518,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.city,PROD)"
             }
         }
@@ -4599,7 +4599,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.country,PROD)"
             }
         }
@@ -4682,7 +4682,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.customer,PROD)"
             }
         }
@@ -4765,7 +4765,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_01,PROD)"
             }
         }
@@ -4848,7 +4848,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_02,PROD)"
             }
         }
@@ -4931,7 +4931,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_03,PROD)"
             }
         }
@@ -5014,7 +5014,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_04,PROD)"
             }
         }
@@ -5097,7 +5097,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_05,PROD)"
             }
         }
@@ -5180,7 +5180,7 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Freshness",
+                "type": "dbt Freshness",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_06,PROD)"
             }
         }
@@ -5216,6 +5216,288 @@
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.customer_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.customer_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "exposure.sample_dbt.customer_dashboard",
+                "exposure_type": "dashboard",
+                "maturity": "high",
+                "dbt_package_name": "sample_dbt",
+                "dbt_file_path": "models/exposures.yml",
+                "team": "analytics"
+            },
+            "externalUrl": "https://bi.example.com/dashboards/customer",
+            "title": "customer_dashboard",
+            "description": "Dashboard showing customer details and billing",
+            "charts": [],
+            "datasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.customer_details,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)"
+            ],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:dbt_ingestion"
+                },
+                "lastModified": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:dbt_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.customer_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.customer_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dashboard"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.customer_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:analytics@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.customer_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:dbt:executive"
+                },
+                {
+                    "tag": "urn:li:tag:dbt:customer"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.payments_ml_model)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.payments_ml_model)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "exposure.sample_dbt.payments_ml_model",
+                "exposure_type": "ml",
+                "maturity": "medium",
+                "dbt_package_name": "sample_dbt",
+                "dbt_file_path": "models/exposures.yml"
+            },
+            "externalUrl": "https://mlflow.example.com/models/payments",
+            "title": "payments_ml_model",
+            "description": "ML model for payment predictions",
+            "charts": [],
+            "datasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.payments_by_customer_by_month,PROD)"
+            ],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:dbt_ingestion"
+                },
+                "lastModified": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:dbt_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.payments_ml_model)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.payments_ml_model)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.payments_ml_model)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:ds@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(dbt,dbt-instance-1.exposure.sample_dbt.payments_ml_model)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:dbt:ml"
+                },
+                {
+                    "tag": "urn:li:tag:dbt:payments"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -5424,6 +5706,70 @@
     "aspect": {
         "json": {
             "name": "dbt:column_tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:customer",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:customer"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:executive",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:executive"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:ml",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:ml"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-data-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:payments",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:payments"
         }
     },
     "systemMetadata": {

@@ -1,6 +1,8 @@
 package com.datahub.authorization;
 
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.Conjunctive;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.util.Pair;
 import io.datahubproject.test.metadata.context.TestAuthSession;
 import java.util.List;
@@ -60,6 +63,7 @@ public class AuthUtilTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,2,PROD)");
   private static final Urn TEST_ENTITY_3 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,3,PROD)");
+  private static final Urn TEST_GLOBAL_SETTINGS_URN = UrnUtils.getUrn("urn:li:globalSettings:0");
 
   @Test
   public void testSimplePrivilegeGroupBuilder() {
@@ -209,6 +213,130 @@ public class AuthUtilTest {
                 Conjunctive.of(
                     API_ENTITY_PRIVILEGE_MAP.get("dataHubPolicy").get(UPDATE).get(0).get(0))),
         "Expected MANAGE permission directly on dataHubPolicy entity");
+
+    assertEquals(
+        AuthUtil.buildDisjunctivePrivilegeGroup(
+            AuthUtil.lookupEntityAPIPrivilege(UPDATE, "globalSettings")),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(
+                    List.of(PoliciesConfig.MANAGE_GLOBAL_SETTINGS.getType())))),
+        "Expected UPDATE on globalSettings to require MANAGE_GLOBAL_SETTINGS");
+
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(READ, "globalSettings")
+            .contains(Conjunctive.of(PoliciesConfig.MANAGE_GLOBAL_SETTINGS)),
+        "Expected READ on globalSettings to allow MANAGE_GLOBAL_SETTINGS as an alternative");
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(ApiOperation.EXISTS, "globalSettings")
+            .contains(Conjunctive.of(PoliciesConfig.MANAGE_GLOBAL_SETTINGS)),
+        "Expected EXISTS on globalSettings to allow MANAGE_GLOBAL_SETTINGS as an alternative");
+
+    assertEquals(
+        AuthUtil.buildDisjunctivePrivilegeGroup(
+            AuthUtil.lookupEntityAPIPrivilege(CREATE, "globalSettings")),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(
+                    List.of(PoliciesConfig.MANAGE_GLOBAL_SETTINGS.getType())))),
+        "Expected CREATE on globalSettings to require MANAGE_GLOBAL_SETTINGS");
+
+    assertEquals(
+        AuthUtil.buildDisjunctivePrivilegeGroup(
+            AuthUtil.lookupEntityAPIPrivilege(DELETE, "globalSettings")),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(
+                    List.of(PoliciesConfig.MANAGE_GLOBAL_SETTINGS.getType())))),
+        "Expected DELETE on globalSettings to require MANAGE_GLOBAL_SETTINGS");
+
+    assertEquals(
+        AuthUtil.buildDisjunctivePrivilegeGroup(
+            AuthUtil.lookupEntityAPIPrivilege(MANAGE, "globalSettings")),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(
+                    List.of(PoliciesConfig.MANAGE_GLOBAL_SETTINGS.getType())))),
+        "Expected MANAGE on globalSettings to require MANAGE_GLOBAL_SETTINGS for update and delete");
+
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(READ, "globalSettings")
+            .contains(Conjunctive.of(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE)),
+        "Expected READ on globalSettings to retain standard entity read privileges");
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(ApiOperation.EXISTS, "globalSettings")
+            .contains(
+                Conjunctive.of(
+                    API_PRIVILEGE_MAP.get(ENTITY).get(ApiOperation.EXISTS).get(0).get(0))),
+        "Expected EXISTS on globalSettings to retain standard entity exists privileges");
+  }
+
+  @Test
+  public void testGlobalSettingsRestApiAuthorization() {
+    final String actorEditOnly = "urn:li:corpuser:globalSettingsEdit";
+    final String actorManage = "urn:li:corpuser:globalSettingsManage";
+    final String actorView = "urn:li:corpuser:globalSettingsView";
+
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                actorEditOnly, Map.of("EDIT_ENTITY", Set.of(TEST_GLOBAL_SETTINGS_URN)),
+                actorManage,
+                    Map.of(
+                        PoliciesConfig.MANAGE_GLOBAL_SETTINGS.getType(),
+                        Set.of(TEST_GLOBAL_SETTINGS_URN)),
+                actorView, Map.of("VIEW_ENTITY_PAGE", Set.of(TEST_GLOBAL_SETTINGS_URN))));
+
+    Authentication authEditOnly =
+        new Authentication(new Actor(ActorType.USER, "globalSettingsEdit"), "");
+    Authentication authManage =
+        new Authentication(new Actor(ActorType.USER, "globalSettingsManage"), "");
+    Authentication authView =
+        new Authentication(new Actor(ActorType.USER, "globalSettingsView"), "");
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(authEditOnly, mockAuthorizer),
+            ENTITY,
+            List.of(Pair.of(ChangeType.UPSERT, TEST_GLOBAL_SETTINGS_URN))),
+        Map.of(Pair.of(ChangeType.UPSERT, TEST_GLOBAL_SETTINGS_URN), 403),
+        "EDIT_ENTITY alone must not authorize globalSettings mutation");
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(authEditOnly, mockAuthorizer),
+            ENTITY,
+            List.of(Pair.of(ChangeType.CREATE_ENTITY, TEST_GLOBAL_SETTINGS_URN))),
+        Map.of(Pair.of(ChangeType.CREATE_ENTITY, TEST_GLOBAL_SETTINGS_URN), 403),
+        "EDIT_ENTITY alone must not authorize globalSettings create");
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(authManage, mockAuthorizer),
+            ENTITY,
+            List.of(
+                Pair.of(ChangeType.UPSERT, TEST_GLOBAL_SETTINGS_URN),
+                Pair.of(ChangeType.DELETE, TEST_GLOBAL_SETTINGS_URN),
+                Pair.of(ChangeType.CREATE_ENTITY, TEST_GLOBAL_SETTINGS_URN))),
+        Map.of(
+            Pair.of(ChangeType.UPSERT, TEST_GLOBAL_SETTINGS_URN), 200,
+            Pair.of(ChangeType.DELETE, TEST_GLOBAL_SETTINGS_URN), 200,
+            Pair.of(ChangeType.CREATE_ENTITY, TEST_GLOBAL_SETTINGS_URN), 200),
+        "MANAGE_GLOBAL_SETTINGS should authorize globalSettings mutations");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authView, mockAuthorizer),
+            READ,
+            List.of(TEST_GLOBAL_SETTINGS_URN)),
+        "VIEW_ENTITY_PAGE should authorize globalSettings read");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedEntityUrns(
+            TestAuthSession.from(authManage, mockAuthorizer),
+            READ,
+            List.of(TEST_GLOBAL_SETTINGS_URN)),
+        "MANAGE_GLOBAL_SETTINGS should authorize globalSettings read as an alternative");
   }
 
   @Test

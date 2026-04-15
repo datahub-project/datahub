@@ -10,8 +10,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ModelEmbeddingConfig {
 
-  /** Dimensionality of the embedding vectors for this model. */
-  private int vectorDimension = 1024;
+  /**
+   * Dimensionality of the embedding vectors for this model. Defaults to 3072 (OpenAI
+   * text-embedding-3-large).
+   */
+  private int vectorDimension = 3072;
 
   /**
    * k-NN engine to use. Options: "faiss", "nmslib", "lucene". Defaults to "faiss" for best

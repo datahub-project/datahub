@@ -9,7 +9,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 pytestmark = [
-    pytest.mark.integration_batch_2,
+    pytest.mark.integration_batch_3,
     pytest.mark.skip(
         reason="Skipping Vertica tests due to https://github.com/vertica/vertica-containers/issues/64"
     ),

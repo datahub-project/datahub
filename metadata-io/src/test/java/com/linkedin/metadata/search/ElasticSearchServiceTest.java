@@ -303,6 +303,31 @@ public class ElasticSearchServiceTest {
   }
 
   @Test
+  public void testAppendRunIdBySearchGroup() {
+    String searchGroup = "dataset";
+    String runId = "run-v3-123";
+
+    testInstance.appendRunIdBySearchGroup(opContext, searchGroup, TEST_DOC_ID, TEST_URN, runId);
+
+    ArgumentCaptor<Map<String, Object>> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map<String, Object>> upsertCaptor = ArgumentCaptor.forClass(Map.class);
+
+    verify(mockEsWriteDAO)
+        .applyScriptUpdateBySearchGroup(
+            eq(opContext),
+            eq(searchGroup),
+            eq(TEST_DOC_ID),
+            eq(ElasticSearchService.SCRIPT_SOURCE),
+            scriptParamsCaptor.capture(),
+            upsertCaptor.capture());
+
+    assertEquals(runId, scriptParamsCaptor.getValue().get("runId"));
+    assertEquals(MAX_RUN_IDS_INDEXED, scriptParamsCaptor.getValue().get("maxRunIds"));
+    assertEquals(Collections.singletonList(runId), upsertCaptor.getValue().get("runId"));
+    assertEquals(TEST_URN.toString(), upsertCaptor.getValue().get("urn"));
+  }
+
+  @Test
   public void testRaw_WithValidUrns() {
     ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
     testInstance =

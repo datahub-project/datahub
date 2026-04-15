@@ -1213,32 +1213,25 @@ public class GraphQueryElasticsearch7DAOTest {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
       Assert.fail("Should throw exception when timeout occurs with partialResults=false");
     } catch (RuntimeException e) {
-      // The exception may be wrapped, so check both the exception and its cause
+      // Slice timeouts wrap java.util.concurrent.TimeoutException, which often has a null
+      // message; the wrapper message is "Slice N timed out after … seconds".
       Throwable cause = e.getCause();
-      String message = cause.getMessage();
-      boolean isTimeoutException = false;
-
-      // Check if the cause is an RuntimeException with timeout message
-      if (cause instanceof RuntimeException) {
-        String causeMessage = cause.getMessage();
-        isTimeoutException =
-            (causeMessage != null
-                && (causeMessage.contains("timed out") || causeMessage.contains("timeout")));
-      }
-
-      // Also check if the wrapper message indicates a timeout
-      if (!isTimeoutException
-          && message != null
-          && (message.contains("timed out") || message.contains("timeout"))) {
-        isTimeoutException = true;
-      }
+      String top = e.getMessage();
+      String causeMsg = cause != null ? cause.getMessage() : null;
+      boolean isTimeoutException =
+          cause instanceof java.util.concurrent.TimeoutException
+              || (top != null
+                  && (top.contains("timed out") || top.toLowerCase().contains("timeout")))
+              || (causeMsg != null
+                  && (causeMsg.contains("timed out")
+                      || causeMsg.toLowerCase().contains("timeout")));
 
       Assert.assertTrue(
           isTimeoutException,
           "Exception should indicate timeout. Got: "
               + e.getClass().getSimpleName()
               + " - "
-              + message
+              + top
               + (cause != null
                   ? " (cause: "
                       + cause.getClass().getSimpleName()
@@ -1631,8 +1624,9 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test(timeOut = 10000)
   public void testProcessSliceFuturesExceptionWithPartialResultsAndCollectedRelationships()
       throws Exception {
-    // Test that when an exception occurs during slice processing, allowPartialResults=true,
-    // and some relationships have been collected, we log a warning and return partial results
+    // With allowPartialResults=true, a slice that fails during scroll yields a skipped slice and
+    // LineageResponse.partial=true. Use a single slice so Mockito stubs are deterministic (parallel
+    // slices consume search/scroll stubs in arbitrary order, so a late thenThrow may never run).
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -1643,19 +1637,18 @@ public class GraphQueryElasticsearch7DAOTest {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
-    // Create a configuration with multiple slices and partialResults=true
     ElasticSearchConfiguration testConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
                         TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
-                            .timeoutSeconds(10) // Reasonable timeout
+                            .timeoutSeconds(10)
                             .impact(
                                 TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
-                                    .maxRelations(1000) // High limit so we don't hit it
+                                    .maxRelations(1000)
                                     .partialResults(true)
-                                    .slices(3) // Use 3 slices
+                                    .slices(1)
                                     .searchQueryTimeReservation(0.2)
                                     .build())
                             .build())
@@ -1665,7 +1658,6 @@ public class GraphQueryElasticsearch7DAOTest {
     GraphQueryElasticsearch7DAO dao =
         new GraphQueryElasticsearch7DAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
 
-    // Create hits for the first slice that will succeed
     SearchHit[] hits1 =
         createFakeLineageHits(
             2,
@@ -1674,50 +1666,21 @@ public class GraphQueryElasticsearch7DAOTest {
             "DownstreamOf");
 
     SearchResponse searchResponse1 = createFakeSearchResponse(hits1, 2);
-    SearchResponse emptyResponse = createEmptySearchResponse(2);
 
-    // Mock scroll for slice processing
-    SearchResponse scrollResponse1 = createFakeSearchResponse(hits1, 2, "scroll_id_1");
-
-    // Since slices execute in parallel, we need to ensure relationships are collected
-    // before any exception occurs. We'll make initial searches succeed for all slices,
-    // then throw on scroll operations after relationships are collected.
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(searchResponse1) // First slice search succeeds
-        .thenReturn(searchResponse1) // Second slice search succeeds (if needed)
-        .thenReturn(emptyResponse); // Any additional searches return empty
+        .thenReturn(searchResponse1);
 
-    // Mock scroll - first scroll succeeds to collect relationships, then throw
-    // This ensures relationships are collected before exception
     when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(emptyResponse) // First scroll succeeds - relationships collected
-        .thenReturn(emptyResponse) // Second scroll succeeds - more relationships
-        .thenThrow(new RuntimeException("Scroll operation failed after collecting relationships"));
+        .thenThrow(new RuntimeException("Scroll operation failed after initial page"));
 
-    // Mock clearScroll
     when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mock(ClearScrollResponse.class));
 
-    // When partialResults=true and an exception occurs but some relationships were collected,
-    // should return partial results
-    // Note: Due to async execution, the exact behavior may vary, but we verify
-    // that either partial results are returned OR an exception is thrown
-    try {
-      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.assertNotNull(response, "Response should not be null");
-      // If we get here, partial results were returned (exception handling worked)
-      Assert.assertTrue(
-          response.getTotal() >= 0,
-          "Should return partial results from slices that completed successfully");
-    } catch (RuntimeException e) {
-      // Exception might be thrown if relationships weren't collected yet due to async timing
-      // This is acceptable - the test verifies the code path exists
-      // Just verify it's the expected type of exception
-      Assert.assertTrue(
-          e.getMessage() != null
-              && (e.getMessage().contains("slice") || e.getMessage().contains("Failed to execute")),
-          "Exception should mention slice failure or execution failure. Got: " + e.getMessage());
-    }
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+    Assert.assertNotNull(response, "Response should not be null");
+    Assert.assertTrue(
+        response.isPartial(),
+        "Response should be marked partial when the slice fails under allowPartialResults=true");
   }
 
   @Test(timeOut = 10000)
@@ -2101,8 +2064,8 @@ public class GraphQueryElasticsearch7DAOTest {
       // The exception should be wrapped in our new exception handling
       // Check the entire exception chain for the expected messages
       Assert.assertTrue(
-          hasMessageInChain(e, "Failed to execute slice-based search"),
-          "Expected slice-related error message in exception chain, got: " + e.getMessage());
+          hasMessageInChain(e, "Search operation failed") || hasMessageInChain(e, "Slice 0 failed"),
+          "Expected search or slice failure in exception chain, got: " + e.getMessage());
     }
   }
 

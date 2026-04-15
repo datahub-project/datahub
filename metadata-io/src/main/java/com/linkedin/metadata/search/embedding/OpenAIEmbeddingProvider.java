@@ -38,10 +38,11 @@ public class OpenAIEmbeddingProvider implements EmbeddingProvider {
   private static final String DEFAULT_MODEL = "text-embedding-3-small";
   private static final String DEFAULT_ENDPOINT = "https://api.openai.com/v1/embeddings";
   private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
+  private static final int MAX_ATTEMPTS = 2;
 
   private final String apiKey;
   private final String endpoint;
-  private final String defaultModel;
+  @Nonnull private final String defaultModel;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
 
@@ -67,7 +68,10 @@ public class OpenAIEmbeddingProvider implements EmbeddingProvider {
         apiKey,
         endpoint,
         defaultModel,
-        HttpClient.newBuilder().connectTimeout(DEFAULT_TIMEOUT).build());
+        HttpClient.newBuilder()
+            .connectTimeout(DEFAULT_TIMEOUT)
+            .version(HttpClient.Version.HTTP_1_1)
+            .build());
   }
 
   /**
@@ -98,97 +102,105 @@ public class OpenAIEmbeddingProvider implements EmbeddingProvider {
   public float[] embed(@Nonnull String text, @Nullable String model) {
     Objects.requireNonNull(text, "text cannot be null");
 
-    String modelToUse = model != null ? model : defaultModel;
+    @Nonnull String modelToUse = model != null ? model : defaultModel;
+    Exception lastException = null;
 
-    try {
-      // Build request JSON for OpenAI Embeddings API
-      // Format: {"input": "text", "model": "text-embedding-3-small", "encoding_format": "float"}
-      ObjectNode requestBody = objectMapper.createObjectNode();
-      requestBody.put("input", text);
-      requestBody.put("model", modelToUse);
-      requestBody.put("encoding_format", "float");
-
-      String requestJson = objectMapper.writeValueAsString(requestBody);
-      log.debug("OpenAI request for model {}: {}", modelToUse, requestJson);
-
-      // Build HTTP request
-      HttpRequest request =
-          HttpRequest.newBuilder()
-              .uri(URI.create(endpoint))
-              .timeout(DEFAULT_TIMEOUT)
-              .header("Content-Type", "application/json")
-              .header("Authorization", "Bearer " + apiKey)
-              .POST(HttpRequest.BodyPublishers.ofString(requestJson))
-              .build();
-
-      // Send request
-      HttpResponse<String> response =
-          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-      // Check response status
-      if (response.statusCode() != 200) {
-        String errorMsg =
-            String.format(
-                "OpenAI API returned status %d for model %s: %s",
-                response.statusCode(), modelToUse, response.body());
-        log.error(errorMsg);
-        throw new RuntimeException(errorMsg);
-      }
-
-      // Parse response
-      // Format: {"object": "list", "data": [{"object": "embedding", "embedding": [0.123, ...],
-      // "index": 0}], "model": "...", "usage": {...}}
-      String responseJson = response.body();
-      log.debug("OpenAI response: {}", responseJson);
-
-      JsonNode responseNode = objectMapper.readTree(responseJson);
-      JsonNode dataNode = responseNode.get("data");
-
-      if (dataNode == null || !dataNode.isArray() || dataNode.size() == 0) {
-        throw new RuntimeException("Invalid response from OpenAI: missing or empty data array");
-      }
-
-      // Extract first (and only) embedding
-      JsonNode embeddingObject = dataNode.get(0);
-      JsonNode embeddingArray = embeddingObject.get("embedding");
-
-      if (embeddingArray == null || !embeddingArray.isArray()) {
-        throw new RuntimeException("Invalid response from OpenAI: embedding is not an array");
-      }
-
-      // Convert to float[]
-      int dimensions = embeddingArray.size();
-      float[] embedding = new float[dimensions];
-      for (int i = 0; i < dimensions; i++) {
-        JsonNode value = embeddingArray.get(i);
-        if (value.isNumber()) {
-          embedding[i] = (float) value.asDouble();
-        } else {
-          throw new RuntimeException(
-              "Invalid response from OpenAI: embedding contains non-numeric value");
+    for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        return embedInternal(text, modelToUse);
+      } catch (RuntimeException e) {
+        // Non-retryable: bad API key, malformed response, 4xx errors, etc.
+        lastException = e;
+        break;
+      } catch (Exception e) {
+        lastException = e;
+        if (attempt < MAX_ATTEMPTS) {
+          log.warn(
+              "OpenAI embedding attempt {}/{} failed for model {}, retrying: {}",
+              attempt,
+              MAX_ATTEMPTS,
+              modelToUse,
+              e.getMessage());
         }
       }
+    }
 
-      log.debug("Generated embedding with {} dimensions for model {}", dimensions, modelToUse);
-      return embedding;
+    log.error(
+        "All {} attempts failed for OpenAI embedding with model {}", MAX_ATTEMPTS, modelToUse);
+    Exception cause = Objects.requireNonNull(lastException);
+    throw new RuntimeException(
+        String.format(
+            "OpenAI API call failed for model %s after %d attempts: %s",
+            modelToUse, MAX_ATTEMPTS, cause.getMessage()),
+        cause);
+  }
 
-    } catch (IOException e) {
+  @Nonnull
+  private float[] embedInternal(@Nonnull String text, @Nonnull String modelToUse)
+      throws IOException, InterruptedException {
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("input", text);
+    requestBody.put("model", modelToUse);
+    requestBody.put("encoding_format", "float");
+
+    String requestJson = objectMapper.writeValueAsString(requestBody);
+    log.debug("OpenAI request for model {}: {}", modelToUse, requestJson);
+
+    HttpRequest request =
+        HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .timeout(DEFAULT_TIMEOUT)
+            .header("Content-Type", "application/json")
+            .header("Authorization", "Bearer " + apiKey)
+            .POST(HttpRequest.BodyPublishers.ofString(requestJson))
+            .build();
+
+    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+    if (response.statusCode() != 200) {
       String errorMsg =
           String.format(
-              "Failed to generate embedding with model %s: %s", modelToUse, e.getMessage());
-      log.error(errorMsg, e);
-      throw new RuntimeException(errorMsg, e);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      String errorMsg =
-          String.format("Request interrupted for model %s: %s", modelToUse, e.getMessage());
-      log.error(errorMsg, e);
-      throw new RuntimeException(errorMsg, e);
-    } catch (Exception e) {
-      String errorMsg =
-          String.format("OpenAI API call failed for model %s: %s", modelToUse, e.getMessage());
-      log.error(errorMsg, e);
-      throw new RuntimeException(errorMsg, e);
+              "OpenAI API returned status %d for model %s: %s",
+              response.statusCode(), modelToUse, response.body());
+      if (response.statusCode() >= 500) {
+        // 5xx errors are transient server-side failures — throw checked so the retry loop retries
+        throw new IOException(errorMsg);
+      }
+      throw new RuntimeException(errorMsg);
     }
+
+    // Format: {"object": "list", "data": [{"object": "embedding", "embedding": [0.123, ...],
+    // "index": 0}], "model": "...", "usage": {...}}
+    String responseJson = response.body();
+    log.debug("OpenAI response: {}", responseJson);
+
+    JsonNode responseNode = objectMapper.readTree(responseJson);
+    JsonNode dataNode = responseNode.get("data");
+
+    if (dataNode == null || !dataNode.isArray() || dataNode.size() == 0) {
+      throw new RuntimeException("Invalid response from OpenAI: missing or empty data array");
+    }
+
+    JsonNode embeddingObject = dataNode.get(0);
+    JsonNode embeddingArray = embeddingObject.get("embedding");
+
+    if (embeddingArray == null || !embeddingArray.isArray()) {
+      throw new RuntimeException("Invalid response from OpenAI: embedding is not an array");
+    }
+
+    int dimensions = embeddingArray.size();
+    float[] embedding = new float[dimensions];
+    for (int i = 0; i < dimensions; i++) {
+      JsonNode value = embeddingArray.get(i);
+      if (value.isNumber()) {
+        embedding[i] = (float) value.asDouble();
+      } else {
+        throw new RuntimeException(
+            "Invalid response from OpenAI: embedding contains non-numeric value");
+      }
+    }
+
+    log.debug("Generated embedding with {} dimensions for model {}", dimensions, modelToUse);
+    return embedding;
   }
 }

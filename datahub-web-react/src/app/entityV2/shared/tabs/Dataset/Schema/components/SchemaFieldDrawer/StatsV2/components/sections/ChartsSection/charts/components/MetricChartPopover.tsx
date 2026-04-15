@@ -1,8 +1,8 @@
-import dayjs from 'dayjs';
 import React from 'react';
 
 import { Text } from '@src/alchemy-components';
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
+import dayjs from '@utils/dayjs';
 
 interface MetricChartPopoverProps {
     datum: Datum;

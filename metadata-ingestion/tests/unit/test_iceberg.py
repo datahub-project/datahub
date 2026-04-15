@@ -2063,3 +2063,160 @@ class TestGlueCatalogRoleAssumption:
             == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY2"
         )
         assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH2..."
+
+
+class TestDomainAssignment:
+    """Tests for ingestion-time domain assignment via the `domain` config field."""
+
+    def _make_table(self, namespace: str, name: str) -> Callable:
+        def factory(catalog: Catalog) -> Table:
+            return Table(
+                identifier=(namespace, name),
+                metadata=TableMetadataV2(
+                    partition_specs=[PartitionSpec(spec_id=0)],
+                    location=f"s3://bucket/{namespace}/{name}",
+                    last_column_id=0,
+                    schemas=[Schema(schema_id=0)],
+                    current_schema_id=0,
+                ),
+                metadata_location=f"s3://bucket/{namespace}/{name}",
+                io=PyArrowFileIO(),
+                catalog=catalog,
+            )
+
+        return factory
+
+    def _run_ingestion(
+        self, source: IcebergSource, tables: dict
+    ) -> List[MetadataWorkUnit]:
+        mock_catalog = MockCatalog(tables)
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+        ) as get_catalog:
+            get_catalog.return_value = mock_catalog
+            return [*source.get_workunits_internal()]
+
+    def _get_aspects(self, wus: List[MetadataWorkUnit]) -> Dict[str, Dict[str, Any]]:
+        aspects: Dict[str, Dict[str, Any]] = defaultdict(dict)
+        for unit in wus:
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            mcpw: MetadataChangeProposalWrapper = unit.metadata
+            assert mcpw.entityUrn
+            assert mcpw.aspectName
+            aspects[mcpw.entityUrn][mcpw.aspectName] = mcpw.aspect
+        return aspects
+
+    def test_domain_assigned_to_table_and_namespace(self) -> None:
+        """Domain config assigns domains to both matching tables and namespaces."""
+        source = with_iceberg_source(
+            domain={"Engineering": AllowDenyPattern(allow=[".*"])},
+        )
+        wus = self._run_ingestion(
+            source,
+            {
+                "my_ns": {"my_table": self._make_table("my_ns", "my_table")},
+            },
+        )
+        aspects = self._get_aspects(wus)
+
+        # Table should get domain
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,my_ns.my_table,PROD)"
+        assert "domains" in aspects[dataset_urn]
+        assert aspects[dataset_urn]["domains"].domains == ["urn:li:domain:Engineering"]
+
+        # Namespace container should also get domain
+        container_urns = [urn for urn in aspects if urn.startswith("urn:li:container:")]
+        assert len(container_urns) == 1
+        assert "domains" in aspects[container_urns[0]]
+        assert aspects[container_urns[0]]["domains"].domains == [
+            "urn:li:domain:Engineering"
+        ]
+
+    def test_no_domain_when_config_empty(self) -> None:
+        """When no domain config is provided (default), no domains aspect should be emitted."""
+        source = with_iceberg_source()  # no domain kwarg
+        wus = self._run_ingestion(
+            source,
+            {
+                "ns": {"tbl": self._make_table("ns", "tbl")},
+            },
+        )
+        aspects = self._get_aspects(wus)
+
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ns.tbl,PROD)"
+        assert "domains" not in aspects[dataset_urn]
+
+        # Also check namespace
+        container_urns = [urn for urn in aspects if urn.startswith("urn:li:container:")]
+        for urn in container_urns:
+            assert "domains" not in aspects[urn]
+
+    def test_no_domain_when_pattern_does_not_match(self) -> None:
+        """When domain patterns don't match the dataset name, no domains aspect should be emitted."""
+        source = with_iceberg_source(
+            domain={"Finance": AllowDenyPattern(allow=["finance\\..*"])},
+        )
+        wus = self._run_ingestion(
+            source,
+            {
+                "engineering": {"data": self._make_table("engineering", "data")},
+            },
+        )
+        aspects = self._get_aspects(wus)
+
+        dataset_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,engineering.data,PROD)"
+        )
+        assert "domains" not in aspects[dataset_urn]
+
+    def test_domain_first_match_wins(self) -> None:
+        """When multiple domain patterns match, the first one wins."""
+        source = with_iceberg_source(
+            domain={
+                "FirstDomain": AllowDenyPattern(allow=[".*"]),
+                "SecondDomain": AllowDenyPattern(allow=[".*"]),
+            },
+        )
+        wus = self._run_ingestion(
+            source,
+            {
+                "ns": {"tbl": self._make_table("ns", "tbl")},
+            },
+        )
+        aspects = self._get_aspects(wus)
+
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ns.tbl,PROD)"
+        assert aspects[dataset_urn]["domains"].domains == ["urn:li:domain:FirstDomain"]
+
+    def test_domain_deny_pattern(self) -> None:
+        """When a deny pattern excludes a table, no domain should be assigned."""
+        source = with_iceberg_source(
+            domain={
+                "Eng": AllowDenyPattern(allow=[".*"], deny=["ns\\.secret_.*"]),
+            },
+        )
+        wus = self._run_ingestion(
+            source,
+            {
+                "ns": {"secret_data": self._make_table("ns", "secret_data")},
+            },
+        )
+        aspects = self._get_aspects(wus)
+
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ns.secret_data,PROD)"
+        assert "domains" not in aspects[dataset_urn]
+
+    def test_domain_mcps_count_increases(self) -> None:
+        """When domain is configured, each table gets +1 MCP and each namespace gets +1 MCP."""
+        source_with_domain = with_iceberg_source(
+            domain={"TestDomain": AllowDenyPattern(allow=[".*"])},
+        )
+        source_without_domain = with_iceberg_source()
+
+        tables = {"ns": {"tbl": self._make_table("ns", "tbl")}}
+
+        wus_with = self._run_ingestion(source_with_domain, tables)
+        wus_without = self._run_ingestion(source_without_domain, tables)
+
+        # domain adds 1 MCP per table + 1 MCP per namespace
+        assert len(wus_with) == len(wus_without) + 2

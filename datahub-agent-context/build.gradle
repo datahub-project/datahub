@@ -13,9 +13,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-plugins {
-  id 'scala'
-}
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
@@ -94,20 +91,15 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
       "touch ${sentinel_file}"
 }
 
-task testQuick(type: Exec, dependsOn: [installDevTest]) {
-  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
-  inputs.files(project.fileTree(dir: "tests/", include: "**/*.py"))
-  commandLine 'bash', '-c',
-      "source ${venv_name}/bin/activate && set -x && " +
-      "pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
-}
-
 task testFull(type: Exec, dependsOn: [installDevTest]) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/", include: "**/*.py"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
-      "pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+      "pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors"
 }
 
 task cleanPythonCache(type: Exec) {

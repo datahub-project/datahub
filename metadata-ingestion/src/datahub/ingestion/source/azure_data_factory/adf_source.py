@@ -20,7 +20,7 @@ Usage:
 """
 
 import logging
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from azure.mgmt.datafactory.models import (
     Activity,
@@ -50,8 +50,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
+)
+from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+    ColumnLineageExtractor,
+    CopyActivityColumnLineageExtractor,
+    DatasetSchemaInfo,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
@@ -75,6 +81,7 @@ from datahub.metadata.schema_classes import (
     DataProcessTypeClass,
     DataTransformClass,
     DataTransformLogicClass,
+    FineGrainedLineageClass,
     QueryLanguageClass,
     QueryStatementClass,
 )
@@ -93,53 +100,6 @@ PLATFORM = "azure-data-factory"
 MAX_RUN_MESSAGE_LENGTH = 500  # Truncate long error/status messages
 MAX_RUN_PARAMETERS = 10  # Limit number of parameters to store
 MAX_PARAMETER_VALUE_LENGTH = 100  # Truncate long parameter values
-
-# Mapping of ADF linked service types to DataHub platforms.
-# Platform identifiers must match those defined in:
-# metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
-# Unsupported linked service types will trigger a structured warning.
-LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
-    # Azure Storage - all Azure storage types map to "abs" (Azure Blob Storage)
-    "AzureBlobStorage": "abs",
-    "AzureBlobFS": "abs",  # Azure Data Lake Storage Gen2 (uses abfs:// protocol)
-    "AzureDataLakeStore": "abs",  # Azure Data Lake Storage Gen1
-    "AzureDataLakeStoreCosmosStructuredStream": "abs",
-    "AzureFileStorage": "abs",
-    # Azure Databases - Synapse uses mssql protocol
-    "AzureSqlDatabase": "mssql",
-    "AzureSqlDW": "mssql",  # Azure Synapse (formerly SQL DW)
-    "AzureSynapseAnalytics": "mssql",  # Azure Synapse Analytics
-    "AzureSqlMI": "mssql",
-    "SqlServer": "mssql",
-    "AzurePostgreSql": "postgres",
-    "AzureMySql": "mysql",
-    # Databricks
-    "AzureDatabricks": "databricks",
-    "AzureDatabricksDeltaLake": "databricks",
-    # Cloud Platforms
-    "AmazonS3": "s3",
-    "AmazonS3Compatible": "s3",
-    "GoogleCloudStorage": "gcs",
-    "AmazonRedshift": "redshift",
-    "GoogleBigQuery": "bigquery",
-    "Snowflake": "snowflake",
-    # Traditional Databases
-    "PostgreSql": "postgres",
-    "MySql": "mysql",
-    "Oracle": "oracle",
-    "OracleServiceCloud": "oracle",
-    "Db2": "db2",
-    "Teradata": "teradata",
-    "Vertica": "vertica",
-    # Data Warehouses
-    "Hive": "hive",
-    "Spark": "spark",
-    "Hdfs": "hdfs",
-    # SaaS Applications
-    "Salesforce": "salesforce",
-    "SalesforceServiceCloud": "salesforce",
-    "SalesforceMarketingCloud": "salesforce",
-}
 
 # Mapping of ADF activity types to DataHub subtypes
 ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
@@ -204,6 +164,13 @@ class AzureDataFactoryContainerKey(ContainerKey):
     ],
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Extracts column-level lineage from Copy activities",
+    subtype_modifier=[
+        SourceCapabilityModifier.ADF_COPY_ACTIVITY,
+    ],
+)
+@capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
     subtype_modifier=[
@@ -240,6 +207,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self._data_flows_cache: dict[str, dict[str, DataFlowResource]] = {}
         self._pipelines_cache: dict[str, dict[str, PipelineResource]] = {}
         self._triggers_cache: dict[str, list[TriggerResource]] = {}
+
+        # Column-level lineage extractors - extensible for different activity types
+        self._column_lineage_extractors: list[ColumnLineageExtractor] = [
+            CopyActivityColumnLineageExtractor(),
+        ]
 
     @classmethod
     def create(
@@ -632,6 +604,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # Extract lineage (inlets/outlets)
         inlets: Optional[list[DatasetUrnOrStr]] = None
         outlets: Optional[list[DatasetUrnOrStr]] = None
+        fine_grained_lineages: Optional[list[FineGrainedLineageClass]] = None
 
         if self.config.include_lineage:
             extracted_inlets = self._extract_activity_inputs(activity, factory_key)
@@ -640,6 +613,16 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 inlets = extracted_inlets
             if extracted_outlets:
                 outlets = extracted_outlets
+
+            # Extract column-level lineage if enabled
+            if self.config.include_column_lineage and inlets and outlets:
+                fine_grained_lineages = self._extract_column_lineage(
+                    activity=activity,
+                    activity_type=activity_type,
+                    inlets=inlets,
+                    outlets=outlets,
+                    factory_key=factory_key,
+                )
 
         # Create DataJob with external URL to the parent pipeline
         # (ADF doesn't have direct activity URLs, so we link to the pipeline)
@@ -654,6 +637,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             subtype=subtype,
             inlets=inlets,
             outlets=outlets,
+            fine_grained_lineages=fine_grained_lineages,
         )
 
         return datajob
@@ -726,6 +710,170 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 pass  # Complex case, skip for now
 
         return outputs
+
+    def _extract_column_lineage(
+        self,
+        activity: Activity,
+        activity_type: str,
+        inlets: list[DatasetUrnOrStr],
+        outlets: list[DatasetUrnOrStr],
+        factory_key: str,
+    ) -> Optional[list[FineGrainedLineageClass]]:
+        """Extract column-level lineage from an activity.
+
+        Uses registered column lineage extractors to parse activity-specific
+        column mapping configurations. Each extractor is responsible for
+        selecting which inlets/outlets to use based on the activity semantics.
+
+        Args:
+            activity: The ADF activity object
+            activity_type: The activity type (e.g., "Copy")
+            inlets: List of input dataset URNs
+            outlets: List of output dataset URNs
+            factory_key: Factory key for cache lookups
+
+        Returns:
+            List of FineGrainedLineageClass objects, or None if no mappings found
+        """
+        if not inlets or not outlets:
+            # No inlets or outlets provided for activity
+            logger.debug(f"No inlets or outlets provided for activity: {activity.name}")
+            self.report.report_column_lineage_unsupported(activity_type)
+            return None
+
+        # Find an extractor that supports this activity type
+        extractor = self._get_extractor_for_activity_type(activity_type)
+
+        if extractor is None:
+            # No extractor supports this activity type - this is expected for most activities
+            logger.debug(
+                f"No column lineage extractor for activity type: {activity_type}"
+            )
+            self.report.report_column_lineage_unsupported(activity_type)
+            return None
+
+        # Create schema resolver bound to this factory
+        def schema_resolver(dataset_urn: str) -> Optional[DatasetSchemaInfo]:
+            return self._get_source_dataset_schema(dataset_urn, factory_key)
+
+        # Extract column lineage - extractor decides which inlets/outlets to use
+        fine_grained_lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=inlets,
+            outlets=outlets,
+            schema_resolver=schema_resolver,
+        )
+
+        if not fine_grained_lineages:
+            return None
+
+        for _ in fine_grained_lineages:
+            self.report.report_column_lineage_extracted()
+
+        return fine_grained_lineages
+
+    def _get_extractor_for_activity_type(
+        self, activity_type: str
+    ) -> Optional[ColumnLineageExtractor]:
+        """Find a column lineage extractor that supports the given activity type.
+
+        Args:
+            activity_type: The ADF activity type (e.g., "Copy", "ExecuteDataFlow")
+
+        Returns:
+            A ColumnLineageExtractor instance if one supports this type, None otherwise
+        """
+        for extractor in self._column_lineage_extractors:
+            if extractor.supports_activity(activity_type):
+                return extractor
+        return None
+
+    def _get_source_dataset_schema(
+        self, source_urn: str, factory_key: str
+    ) -> Optional[DatasetSchemaInfo]:
+        """Get schema information for a source dataset.
+
+        Looks up the dataset in the cache and extracts column names from
+        schema_definition or structure properties.
+
+        Args:
+            source_urn: URN of the source dataset
+            factory_key: Factory key for cache lookups
+
+        Returns:
+            DatasetSchemaInfo with column names, or None if schema not available
+        """
+        # Extract dataset name from URN
+        # URN format: urn:li:dataset:(platform,name,env)
+        try:
+            # Verify URN is parseable before searching cache
+            DatasetUrn.from_string(source_urn)
+            # For ADF datasets, the name in cache is the ADF dataset name, not the table name
+            # We need to search for a dataset that resolves to this URN
+        except Exception:
+            logger.debug(f"Could not parse dataset URN: {source_urn}")
+            return None
+
+        # Search datasets cache for matching dataset
+        datasets = self._datasets_cache.get(factory_key, {})
+        for dataset_name, dataset in datasets.items():
+            # Check if this dataset resolves to the source URN
+            resolved_urn = self._resolve_dataset_urn(dataset_name, factory_key)
+            if resolved_urn and str(resolved_urn) == source_urn:
+                # Found the dataset, extract schema
+                return self._extract_dataset_schema(dataset)
+
+        return None
+
+    def _extract_dataset_schema(
+        self, dataset: DatasetResource
+    ) -> Optional[DatasetSchemaInfo]:
+        """Extract schema information from a dataset resource.
+
+        Tries schema_definition first, then falls back to structure field.
+        """
+        props = dataset.properties
+
+        # Try schema_definition first (newer format), then structure (legacy)
+        schema_def = getattr(props, "schema", None)
+        columns = self._extract_column_names_from_field_list(schema_def)
+
+        if not columns:
+            structure = getattr(props, "structure", None)
+            columns = self._extract_column_names_from_field_list(structure)
+
+        if columns:
+            return DatasetSchemaInfo(columns=columns)
+
+        return None
+
+    def _extract_column_names_from_field_list(
+        self, field_list: Optional[list[Any]]
+    ) -> list[str]:
+        """Extract column names from a list of field definitions.
+
+        Handles both dict-style fields ({"name": "col"}) and SDK objects
+        with a name attribute.
+
+        Args:
+            field_list: List of field definitions, or None
+
+        Returns:
+            List of column names extracted from the field list
+        """
+        if not field_list or not isinstance(field_list, list):
+            return []
+
+        columns: list[str] = []
+        for field in field_list:
+            if isinstance(field, dict):
+                name = field.get("name")
+                if name:
+                    columns.append(str(name))
+            elif hasattr(field, "name") and field.name:
+                columns.append(str(field.name))
+
+        return columns
 
     def _get_data_flow_name_from_activity(
         self, activity: Activity, factory_key: str
@@ -1024,7 +1172,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
-        platform = LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
+        platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
 
         if not platform:
             self.report.report_unmapped_platform(dataset_name, ls_type)

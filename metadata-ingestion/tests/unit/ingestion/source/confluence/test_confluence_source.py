@@ -766,3 +766,139 @@ def test_browse_path_ancestor_not_ingested(
         assert browse_path.path[1].id == "API Documentation"
         assert browse_path.path[2].id == "REST API"
         assert browse_path.path[3].id == "Authentication"
+
+
+# ============================================================================
+# max_documents Limit Tests
+# ============================================================================
+
+
+def test_max_documents_default(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Test that max_documents defaults to 10000."""
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        assert source.chunking_source.config.max_documents == 10000
+
+
+def test_max_documents_limit_raises_error(
+    pipeline_context: PipelineContext,
+) -> None:
+    """Test that RuntimeError is raised when max_documents limit is hit."""
+    config = ConfluenceSourceConfig.model_validate(
+        {
+            "url": "https://test.atlassian.net/wiki",
+            "username": "test@example.com",
+            "api_token": "test-token-123",
+            "cloud": True,
+        }
+    )
+
+    # Minimal page dict that passes all filters
+    def make_page(page_id: str) -> dict:
+        return {
+            "id": page_id,
+            "title": f"Page {page_id}",
+            "body": {
+                "storage": {
+                    "value": "<p>This is enough content to pass the minimum text length filter.</p>"
+                }
+            },
+            "ancestors": [],
+            "space": {"key": "TEST", "name": "Test Space"},
+            "_links": {"webui": f"/spaces/TEST/pages/{page_id}/Title"},
+        }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_client = MagicMock()
+        mock_confluence.return_value = mock_client
+
+        source = ConfluenceSource(config, pipeline_context)
+        source.chunking_source.config.max_documents = 2
+        ingested_ids = {"11111", "22222"}
+        parent_ids: set = set()
+
+        source.chunking_source.embedding_model = None
+        dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+        with patch.object(
+            source.chunking_source,
+            "_chunk_elements",
+            return_value=dummy_chunk,
+        ):
+            # Process first page - should succeed
+            list(
+                source._create_document_entity(
+                    make_page("11111"), ingested_ids, parent_ids
+                )
+            )
+            assert source.report.pages_processed == 1
+            assert source.report.num_documents_limit_reached is False
+
+            # Process second page - should hit the limit and raise
+            with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
+                list(
+                    source._create_document_entity(
+                        make_page("22222"), ingested_ids, parent_ids
+                    )
+                )
+
+    assert source.report.num_documents_limit_reached is True
+    assert source.report.pages_processed == 1
+
+
+def test_max_documents_limit_reached_flag(
+    pipeline_context: PipelineContext,
+) -> None:
+    """Test that num_documents_limit_reached is set to True when limit is hit."""
+    config = ConfluenceSourceConfig.model_validate(
+        {
+            "url": "https://test.atlassian.net/wiki",
+            "username": "test@example.com",
+            "api_token": "test-token-123",
+            "cloud": True,
+        }
+    )
+
+    page = {
+        "id": "12345",
+        "title": "Test Page",
+        "body": {
+            "storage": {
+                "value": "<p>This is enough content to pass the minimum text length filter.</p>"
+            }
+        },
+        "ancestors": [],
+        "space": {"key": "TEST", "name": "Test Space"},
+        "_links": {"webui": "/spaces/TEST/pages/12345/Test-Page"},
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_client = MagicMock()
+        mock_confluence.return_value = mock_client
+
+        source = ConfluenceSource(config, pipeline_context)
+        source.chunking_source.config.max_documents = 1
+
+        source.chunking_source.embedding_model = None
+        dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+        with (
+            patch.object(
+                source.chunking_source,
+                "_chunk_elements",
+                return_value=dummy_chunk,
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            list(source._create_document_entity(page, {"12345"}, set()))
+
+    assert source.report.num_documents_limit_reached is True

@@ -5,15 +5,18 @@ ARG APP_ENV=prod
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
+# CVE-2023-45853: pin zlib to 1.3.x from edge/main for MiniZip integer/heap buffer overflow fix
+ARG ZLIB_VERSION=1.3
 
-FROM alpine:3.22 AS base
+FROM alpine:3.23 AS base
 
-ENV JMX_VERSION=0.20.0
+ENV JMX_VERSION=1.0.1
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL
 ARG GITHUB_REPO_URL
 ARG MAVEN_CENTRAL_REPO_URL
+ARG ZLIB_VERSION
 
 # Upgrade Alpine and base packages
 # Optionally set corporate mirror for apk
@@ -24,10 +27,11 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add 'c-ares>1.34.5'  --repository=${ALPINE_REPO_URL}/edge/main \
     && apk --no-cache add 'curl>8.17.0' --repository=${ALPINE_REPO_URL}/edge/main \
     && apk --no-cache add bash coreutils gcompat sqlite libc6-compat \
+    && apk --no-cache add "zlib=~${ZLIB_VERSION}" --repository=${ALPINE_REPO_URL}/edge/main \
     && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
-    && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.15.0/opentelemetry-javaagent.jar \
+    && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar \
     && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin

@@ -10,7 +10,8 @@ source:
     password: pass
 
     # This is recommended to improve lineage quality. Ignores case-sensitivity when constructing internal identifiers.
-    convert_urns_to_lowercase: True
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
     # Uncomment if you need to use encryption with pytds
@@ -19,6 +20,36 @@ source:
     #   connect_args:
     #     cafile: server-ca.pem
     #     validate_host: true
+
+sink:
+  # sink configs
+
+#------------------------------------------------------------------------
+#Example: with query-based lineage and usage statistics
+#This requires SQL Server 2016+ and Query Store enabled.
+#See the prerequisites documentation for setup instructions.
+# ------------------------------------------------------------------------
+
+source:
+  type: mssql
+  config:
+    host_port: localhost:1433
+    database: DemoDatabase
+    username: user
+    password: pass
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
+
+    # Query-based lineage extraction
+    include_query_lineage: true
+    max_queries_to_extract: 1000
+    min_query_calls: 5
+    query_exclude_patterns:
+      - "%sys.%"
+      - "%tempdb.%"
+      - "%INFORMATION_SCHEMA%"
+      - "%msdb.%"
+      - "%#%"  # Temporary tables
 
 sink:
   # sink configs
@@ -35,13 +66,12 @@ sink:
 source:
   type: mssql-odbc
   config:
-    # Coordinates
     host_port: localhost:1433
     database: DemoDatabase
-
-    # Credentials
     username: admin
     password: password
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
     uri_args:

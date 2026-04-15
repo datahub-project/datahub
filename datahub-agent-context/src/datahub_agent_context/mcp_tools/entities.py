@@ -1,17 +1,15 @@
 """Tools for getting entity information."""
 
-import json
 import logging
 import pathlib
 from typing import Iterator, List, Optional
-
-from json_repair import repair_json
 
 from datahub.errors import ItemNotFoundError
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import execute_graphql
 from datahub_agent_context.mcp_tools.helpers import (
     clean_get_entities_response,
+    clean_related_documents_response,
     inject_urls_for_urns,
     truncate_descriptions,
 )
@@ -23,60 +21,35 @@ entity_details_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/entity_details.gql"
 ).read_text()
 query_entity_gql = (pathlib.Path(__file__).parent / "gql/query_entity.gql").read_text()
+related_documents_gql = (
+    pathlib.Path(__file__).parent / "gql/related_documents.gql"
+).read_text()
 
 
-def get_entities(urns: List[str] | str) -> List[dict] | dict:
+def get_entities(urns: List[str]) -> List[dict]:
     """Get detailed information about one or more entities by their DataHub URNs.
 
-    IMPORTANT: Pass an array of URNs to retrieve multiple entities in a single call - this is much
-    more efficient than calling this tool multiple times. When examining search results, always pass
-    an array with the top 3-10 result URNs to compare and find the best match.
+    IMPORTANT: Pass multiple URNs in a single call — this is much more efficient than
+    calling this tool multiple times. When examining search results, always pass the top
+    3-10 result URNs together to compare and find the best match.
 
-    Accepts an array of URNs or a single URN. Supports all entity types including datasets,
-    assertions, incidents, dashboards, charts, users, groups, and more. The response fields vary
-    based on the entity type.
+    Supports all entity types including datasets, assertions, incidents, dashboards,
+    charts, users, groups, and more. Response fields vary by entity type.
 
     Args:
-        urns: List of URNs or a single URN string
+        urns: List of URN strings
 
     Returns:
-        Single dict if single URN provided, list of dicts if multiple URNs provided.
-        Each result contains entity details or error information.
-
-    Raises:
-        ItemNotFoundError: If single URN provided and entity not found
+        List of dicts, one per URN. Each entry contains entity details or an "error" key
+        if the entity was not found or could not be retrieved.
 
     Example:
         from datahub_agent_context.context import DataHubContext
 
         with DataHubContext(client.graph):
-            result = get_entities(urns=["urn:li:dataset:(...)"])
+            results = get_entities(urns=["urn:li:dataset:(...)"])
     """
     graph = get_graph()
-    # Handle JSON-stringified arrays
-    # Some MCP clients/LLMs pass arrays as JSON strings instead of proper lists
-    if isinstance(urns, str):
-        urns_str = urns.strip()  # Remove leading/trailing whitespace
-
-        # Try to parse as JSON array first
-        if urns_str.startswith("["):
-            try:
-                # Use json_repair to handle malformed JSON from LLMs
-                urns = json.loads(repair_json(urns_str))
-                return_single = False
-            except (json.JSONDecodeError, Exception) as e:
-                logger.warning(
-                    f"Failed to parse URNs as JSON array: {e}. Treating as single URN."
-                )
-                # Not valid JSON, treat as single URN string
-                urns = [urns_str]
-                return_single = True
-        else:
-            # Single URN string
-            urns = [urns_str]
-            return_single = True
-    else:
-        return_single = False
 
     # Trim whitespace from each URN (defensive against string concatenation issues)
     urns = [urn.strip() for urn in urns]
@@ -87,8 +60,6 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
             # Check if entity exists first
             if not graph.exists(urn):
                 logger.warning(f"Entity not found during existence check: {urn}")
-                if return_single:
-                    raise ItemNotFoundError(f"Entity {urn} not found")
                 results.append({"error": f"Entity {urn} not found", "urn": urn})
                 continue
 
@@ -122,21 +93,40 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
             inject_urls_for_urns(graph, result, [""])
             truncate_descriptions(result)
 
+            # Fetch related documents for supported entity types
+            try:
+                related_docs_input = {"start": 0, "count": 10}
+                related_docs_result = execute_graphql(
+                    graph,
+                    query=related_documents_gql,
+                    variables={"urn": urn, "input": related_docs_input},
+                    operation_name="getRelatedDocuments",
+                )
+                if (
+                    related_docs_result
+                    and related_docs_result.get("entity")
+                    and related_docs_result["entity"].get("relatedDocuments")
+                ):
+                    result["relatedDocuments"] = clean_related_documents_response(
+                        related_docs_result["entity"]["relatedDocuments"]
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Could not fetch related documents for {urn}: {e}. This entity type may not support related documents."
+                )
+
             results.append(clean_get_entities_response(result))
 
         except Exception as e:
             logger.warning(f"Error fetching entity {urn}: {e}")
-            if return_single:
-                raise
             results.append({"error": str(e), "urn": urn})
 
-    # Return single dict if single URN was passed, array otherwise
-    return results[0] if return_single else results
+    return results
 
 
 def list_schema_fields(
     urn: str,
-    keywords: Optional[List[str] | str] = None,
+    keywords: Optional[List[str]] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> dict:
@@ -147,10 +137,9 @@ def list_schema_fields(
 
     Args:
         urn: Dataset URN
-        keywords: Optional keywords to filter schema fields (OR matching).
-                 - Single string: Treated as one keyword (NOT split on whitespace). Use for field names or exact phrases.
-                 - List of strings: Multiple keywords, matches any (OR logic).
-                 - None or empty list: Returns all fields in priority order (same as get_entities).
+        keywords: Optional list of keywords to filter schema fields (OR matching).
+                 Each string is treated as one keyword (NOT split on whitespace).
+                 None returns all fields in priority order (same as get_entities).
                  Matches against fieldPath, description, label, tags, and glossary terms.
                  Matching fields are returned first, sorted by match count.
         limit: Maximum number of fields to return (default: 100)
@@ -167,11 +156,11 @@ def list_schema_fields(
         - offset: The offset used
 
     Examples:
-        # Single keyword (string) - search for exact field name or phrase
-        list_schema_fields(urn="urn:li:dataset:(...)", keywords="user_email")
+        # Single keyword - search for exact field name or phrase
+        list_schema_fields(urn="urn:li:dataset:(...)", keywords=["user_email"])
         # Returns fields matching "user_email" (like user_email_address, primary_user_email)
 
-        # Multiple keywords (list) - OR matching
+        # Multiple keywords (OR matching)
         list_schema_fields(urn="urn:li:dataset:(...)", keywords=["email", "user"])
         # Returns fields containing "email" OR "user" (user_email, contact_email, user_id, etc.)
 
@@ -192,12 +181,7 @@ def list_schema_fields(
         ItemNotFoundError: If entity not found
     """
     graph = get_graph()
-    # Normalize keywords to list (None means no filtering)
-    keywords_lower = None
-    if keywords is not None:
-        if isinstance(keywords, str):
-            keywords = [keywords]
-        keywords_lower = [kw.lower() for kw in keywords]
+    keywords_lower = [kw.lower() for kw in keywords] if keywords is not None else None
 
     # Fetch entity
     if not graph.exists(urn):
