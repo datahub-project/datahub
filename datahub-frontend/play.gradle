@@ -130,7 +130,7 @@ play {
   platform {
     playVersion = "2.8.22" // see also top level build.gradle
     scalaVersion = "2.13"
-    javaVersion = JavaVersion.VERSION_17
+    javaVersion = JavaVersion.VERSION_21
   }
 
   injectedRoutesGenerator = true
