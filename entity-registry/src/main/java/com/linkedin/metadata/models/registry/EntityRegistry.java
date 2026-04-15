@@ -157,6 +157,15 @@ public interface EntityRegistry {
     return getPluginFactory().getMclSideEffects();
   }
 
+  /**
+   * Returns observers to apply to {@link com.linkedin.mxe.MetadataChangeProposal} before the
+   * database transaction. Observers do not produce additional MCPs or MCLs.
+   *
+   * <p>Prefer {@link com.linkedin.metadata.aspect.batch.AspectsBatch} instead of using this method
+   * directly.
+   *
+   * @return MCP observers
+   */
   @Nonnull
   default List<MCPObserver> getAllMCPObservers() {
     return getPluginFactory().getMcpObservers();

@@ -441,6 +441,15 @@ public class PluginFactory {
         .collect(Collectors.toList());
   }
 
+  /**
+   * Returns observers to apply to {@link com.linkedin.mxe.MetadataChangeProposal} before the
+   * database transaction. Observers do not produce additional MCPs or MCLs.
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return MCP observers
+   */
   @Nonnull
   public List<MCPObserver> getMCPObservers(
       @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
