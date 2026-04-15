@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.TagUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,7 +34,7 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn), value));
+            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn) + "/", value));
     return this;
   }
 
@@ -41,6 +42,16 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(urn), null));
+    return this;
+  }
+
+  /** Removes only the entry for this tag URN attributed to a specific source. */
+  public GlobalTagsPatchBuilder removeTag(@Nonnull TagUrn urn, @Nonnull Urn attributionSource) {
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            BASE_PATH + encodeValueUrn(urn) + "/" + encodeValue(attributionSource.toString()),
+            null));
     return this;
   }
 

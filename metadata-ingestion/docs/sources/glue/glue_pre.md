@@ -74,7 +74,7 @@ Ingestion without platform instance parameter
 - DataHub will create single entity for table tableA
 - It should show lineage between Glue and S3. You have to ingest S3 as separate source (https://docs.datahub.com/docs/generated/ingestion/sources/s3)
 
-- Ingestion with platform instance parameter
+Ingestion with platform instance parameter
 
 - It will create separate entities for tableA as it will have different URN path
 - It should show lineage between Glue and S3

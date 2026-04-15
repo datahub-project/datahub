@@ -1,6 +1,5 @@
 """Unit tests for Dataplex entry processing."""
 
-from threading import Lock
 from typing import cast
 from unittest.mock import Mock, patch
 
@@ -31,8 +30,7 @@ class TestDataplexEntriesProcessorDesign:
             config=config,
             catalog_client=catalog_client,
             report=report,
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=source_report,
         )
 
@@ -82,6 +80,9 @@ class TestDataplexEntriesProcessorDesign:
         assert set(report.entry_group_filtered_samples).issubset(
             {f"eg-{index}" for index in range(12)}
         )
+        assert report.entry_groups_processed == 1
+        assert report.entry_group_processed_samples.total_elements == 1
+        assert list(report.entry_group_processed_samples) == ["eg-pass"]
 
         assert report.entries_seen == 48
         assert report.entries_filtered_by_pattern == 12
@@ -139,8 +140,7 @@ class TestDataplexEntriesProcessorDesign:
             config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -182,8 +182,7 @@ class TestDataplexEntriesProcessorDesign:
             config=DataplexConfig(project_ids=["test-project"], env="PROD"),
             catalog_client=catalog_client,
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -261,7 +260,6 @@ class TestDataplexEntriesProcessorDesign:
         assert entities == [entity]
         assert report.entries_seen == 0
         track_lineage_mock.assert_called_once_with(
-            project_id="project-1",
             dataplex_location="us",
             entry=accepted,
         )
@@ -272,8 +270,7 @@ class TestDataplexEntriesProcessorDesign:
             config=DataplexConfig(project_ids=["test-project"], env="PROD"),
             catalog_client=catalog_client,
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -333,8 +330,7 @@ class TestDataplexEntriesProcessorDesign:
             config=DataplexConfig(project_ids=["test-project"], env="PROD"),
             catalog_client=catalog_client,
             report=DataplexEntriesReport(),
-            entry_data_by_project={},
-            entry_data_lock=Lock(),
+            entry_data=[],
             source_report=Mock(),
         )
 
@@ -561,6 +557,107 @@ class TestDataplexEntriesProcessorDesign:
         assert isinstance(dataset_entity, Dataset)
         assert dataset_entity.parent_container is None
 
+    def test_build_entity_for_entry_warns_when_parent_expected_but_missing(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = False
+
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us/entryGroups/@bigquery/entries/"
+            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/bigquery-table"
+        )
+        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.parent_container is None
+        source_report = cast(Mock, processor.source_report)
+        source_report.warning.assert_called_once()
+        warning_kwargs = source_report.warning.call_args.kwargs
+        assert warning_kwargs["title"] == "Missing Dataplex parent_entry"
+
+    def test_build_entity_for_vertexai_dataset_uses_project_parent_and_display_name(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = False
+
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us-west2/entryGroups/@vertexai/entries/"
+            "aiplatform.googleapis.com/projects/p/locations/us-west2/datasets/5135361416504541184"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/vertexai-dataset"
+        )
+        dataset_entry.fully_qualified_name = (
+            "vertex_ai:dataset:p.us-west2.5135361416504541184"
+        )
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = Mock()
+        dataset_entry.entry_source.display_name = "sergio-dataplex-test"
+        dataset_entry.entry_source.description = ""
+        dataset_entry.entry_source.create_time = None
+        dataset_entry.entry_source.update_time = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.urn.urn() == (
+            "urn:li:dataset:(urn:li:dataPlatform:vertexai,"
+            "p.us-west2.5135361416504541184,PROD)"
+        )
+        assert dataset_entity.display_name == "sergio-dataplex-test"
+        assert dataset_entity.parent_container is not None
+        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
+
+    def test_build_entity_for_pubsub_topic_uses_project_parent_container(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        processor.config.include_schema = False
+
+        dataset_entry = Mock(spec=dataplex_v1.Entry)
+        dataset_entry.name = (
+            "projects/p/locations/us-west2/entryGroups/@pubsub/entries/"
+            "pubsub.googleapis.com/projects/acryl-staging/topics/observe-staging-obs"
+        )
+        dataset_entry.entry_type = (
+            "projects/123/locations/global/entryTypes/pubsub-topic"
+        )
+        dataset_entry.fully_qualified_name = (
+            "pubsub:topic:acryl-staging.observe-staging-obs"
+        )
+        dataset_entry.parent_entry = ""
+        dataset_entry.entry_source = None
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
+            return_value={"k": "v"},
+        ):
+            dataset_entity = processor.build_entity_for_entry(dataset_entry)
+
+        assert isinstance(dataset_entity, Dataset)
+        assert dataset_entity.urn.urn() == (
+            "urn:li:dataset:(urn:li:dataPlatform:pubsub,"
+            "acryl-staging.observe-staging-obs,PROD)"
+        )
+        assert dataset_entity.parent_container is not None
+        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
+
     def test_extract_helpers_cover_display_description_datetime_and_group_id(
         self,
         processor: DataplexEntriesProcessor,
@@ -608,11 +705,11 @@ class TestDataplexEntriesProcessorDesign:
         entry.entry_type = "invalid-entry-type"
         entry.fully_qualified_name = "bigquery:p.ds.table"
 
-        processor._track_entry_for_lineage("project-1", "us", entry)
+        processor._track_entry_for_lineage("us", entry)
 
         source_report = cast(Mock, processor.source_report)
         source_report.warning.assert_called_once()
-        assert "project-1" not in processor.entry_data_by_project
+        assert len(processor.entry_data) == 0
 
     def test_build_entry_container_key_and_lineage_tracking(
         self, processor: DataplexEntriesProcessor
@@ -641,9 +738,9 @@ class TestDataplexEntriesProcessorDesign:
             "projects/123/locations/global/entryTypes/bigquery-table"
         )
         dataset_entry.fully_qualified_name = "bigquery:p.ds.table1"
-        processor._track_entry_for_lineage("project-1", "us", dataset_entry)
-        assert "project-1" in processor.entry_data_by_project
-        tracked = next(iter(processor.entry_data_by_project["project-1"]))
+        processor._track_entry_for_lineage("us", dataset_entry)
+        assert len(processor.entry_data) == 1
+        tracked = processor.entry_data[0]
         assert tracked.datahub_dataset_name == "p.ds.table1"
         assert tracked.datahub_platform == "bigquery"
         assert tracked.dataplex_entry_fqn == "bigquery:p.ds.table1"
@@ -654,5 +751,5 @@ class TestDataplexEntriesProcessorDesign:
             "projects/123/locations/global/entryTypes/bigquery-dataset"
         )
         non_dataset_entry.fully_qualified_name = "bigquery:p.ds"
-        processor._track_entry_for_lineage("project-2", "us", non_dataset_entry)
-        assert "project-2" not in processor.entry_data_by_project
+        processor._track_entry_for_lineage("us", non_dataset_entry)
+        assert len(processor.entry_data) == 1

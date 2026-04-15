@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useRegisterInsight } from '@app/homeV2/content/tabs/discovery/sections/insight/InsightStatusProvider';
 import { InsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCard';
 import InsightCardSkeleton from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCardSkeleton';
@@ -29,13 +28,13 @@ const Title = styled.div`
     display: flex;
     align-items: center;
     justify-content: start;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     white-space: nowrap;
     margin-right: 20px;
 `;
 
 const ShowAll = styled(Link)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 700;
 

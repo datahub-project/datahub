@@ -161,6 +161,11 @@ public class AuthorizationUtils {
     return AuthUtil.isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
   }
 
+  public static boolean canManageGlobalSettings(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
+  }
+
   public static boolean canManageOwnershipTypes(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
