@@ -1,20 +1,14 @@
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from cachetools import TTLCache
-from google.api_core.retry import Retry
-from google.cloud import secretmanager
 from pydantic import BaseModel, field_validator
 
 from datahub.secret.secret_store import SecretStore
 from datahub.secret.secret_utils import validate_prefix
 
 logger = logging.getLogger(__name__)
-
-# Retry config for GCP Secret Manager.
-# The first gRPC call to establish the channel can take 10-30s ("cold channel" problem).
-_DEFAULT_RETRY = Retry(initial=1.0, maximum=10.0, multiplier=2.0, deadline=30.0)
 
 
 class GcpSecretManagerStoreConfig(BaseModel):
@@ -27,6 +21,13 @@ class GcpSecretManagerStoreConfig(BaseModel):
     def check_prefix(cls, v: str) -> str:
         return validate_prefix(v)
 
+    @field_validator("cache_ttl")
+    @classmethod
+    def check_cache_ttl(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("cache_ttl must be a positive integer")
+        return v
+
 
 class GcpSecretManagerStore(SecretStore):
     """SecretStore implementation that fetches secrets from GCP Secret Manager."""
@@ -37,12 +38,29 @@ class GcpSecretManagerStore(SecretStore):
         self._cache: TTLCache = TTLCache(maxsize=1000, ttl=config.cache_ttl)
         self._cache_lock = threading.Lock()
 
-    def _get_client(self) -> secretmanager.SecretManagerServiceClient:
+    def _get_client(self):
+        # Double-checked locking: multiple workload threads share this store
+        # instance, so we prevent duplicate client creation on first access.
         if self._client is None:
-            self._client = secretmanager.SecretManagerServiceClient()
+            with self._cache_lock:
+                if self._client is None:
+                    try:
+                        from google.cloud import secretmanager
+                    except ImportError as e:
+                        raise ImportError(
+                            "google-cloud-secret-manager is required for GCP Secret Manager support. "
+                            "Install with: pip install 'acryl-datahub[gcp-secret-manager]'"
+                        ) from e
+                    self._client = secretmanager.SecretManagerServiceClient()
         return self._client
 
     def _fetch_from_gcp(self, secret_names: List[str]) -> Dict[str, Optional[str]]:
+        from google.api_core.retry import Retry
+
+        # Retry config for GCP Secret Manager.
+        # The first gRPC call to establish the channel can take 10-30s ("cold channel" problem).
+        default_retry = Retry(initial=1.0, maximum=10.0, multiplier=2.0, deadline=30.0)
+
         client = self._get_client()
         results: Dict[str, Optional[str]] = {}
         for name in secret_names:
@@ -52,7 +70,7 @@ class GcpSecretManagerStore(SecretStore):
             )
             try:
                 resp = client.access_secret_version(
-                    request={"name": resource}, retry=_DEFAULT_RETRY
+                    request={"name": resource}, retry=default_retry
                 )
                 results[name] = resp.payload.data.decode("UTF-8")
             except Exception:
@@ -95,6 +113,6 @@ class GcpSecretManagerStore(SecretStore):
         pass
 
     @classmethod
-    def create(cls, config: Any) -> "GcpSecretManagerStore":
-        config = GcpSecretManagerStoreConfig.model_validate(config)
+    def create(cls, configs: dict) -> "GcpSecretManagerStore":
+        config = GcpSecretManagerStoreConfig.model_validate(configs)
         return cls(config)

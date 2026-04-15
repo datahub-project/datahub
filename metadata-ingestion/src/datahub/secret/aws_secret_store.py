@@ -1,8 +1,7 @@
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-import boto3
 from cachetools import TTLCache
 from pydantic import BaseModel, field_validator
 
@@ -25,6 +24,13 @@ class AwsSecretsManagerStoreConfig(BaseModel):
     def check_prefix(cls, v: str) -> str:
         return validate_prefix(v)
 
+    @field_validator("cache_ttl")
+    @classmethod
+    def check_cache_ttl(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("cache_ttl must be a positive integer")
+        return v
+
 
 class AwsSecretsManagerStore(SecretStore):
     """SecretStore implementation that fetches secrets from AWS Secrets Manager."""
@@ -36,10 +42,21 @@ class AwsSecretsManagerStore(SecretStore):
         self._cache_lock = threading.Lock()
 
     def _get_client(self):
+        # Double-checked locking: multiple workload threads share this store
+        # instance, so we prevent duplicate client creation on first access.
         if self._client is None:
-            self._client = boto3.client(
-                "secretsmanager", region_name=self.config.region
-            )
+            with self._cache_lock:
+                if self._client is None:
+                    try:
+                        import boto3
+                    except ImportError as e:
+                        raise ImportError(
+                            "boto3 is required for AWS Secrets Manager support. "
+                            "Install with: pip install 'acryl-datahub[aws-secret-manager]'"
+                        ) from e
+                    self._client = boto3.client(
+                        "secretsmanager", region_name=self.config.region
+                    )
         return self._client
 
     def _fetch_from_aws(self, secret_names: List[str]) -> Dict[str, Optional[str]]:
@@ -110,6 +127,6 @@ class AwsSecretsManagerStore(SecretStore):
         pass
 
     @classmethod
-    def create(cls, config: Any) -> "AwsSecretsManagerStore":
-        config = AwsSecretsManagerStoreConfig.model_validate(config)
+    def create(cls, configs: dict) -> "AwsSecretsManagerStore":
+        config = AwsSecretsManagerStoreConfig.model_validate(configs)
         return cls(config)

@@ -13,7 +13,7 @@ def _mock_secret_response(value: str) -> MagicMock:
 
 
 class TestGcpSecretManagerStore:
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
+    @patch("google.cloud.secretmanager.SecretManagerServiceClient")
     def test_get_secret_values_with_prefix(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -34,7 +34,7 @@ class TestGcpSecretManagerStore:
             == "projects/my-project/secrets/datahub-MY_SECRET/versions/latest"
         )
 
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
+    @patch("google.cloud.secretmanager.SecretManagerServiceClient")
     def test_get_secret_values_with_custom_prefix(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -51,7 +51,7 @@ class TestGcpSecretManagerStore:
             == "projects/yahoo-prod/secrets/myapp-DB_PASS/versions/latest"
         )
 
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
+    @patch("google.cloud.secretmanager.SecretManagerServiceClient")
     def test_missing_secret_returns_none(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -62,7 +62,7 @@ class TestGcpSecretManagerStore:
 
         assert result == {"NONEXISTENT": None}
 
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
+    @patch("google.cloud.secretmanager.SecretManagerServiceClient")
     def test_mixed_found_and_missing(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -80,7 +80,7 @@ class TestGcpSecretManagerStore:
         assert result["EXISTS"] == "value1"
         assert result["MISSING"] is None
 
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
+    @patch("google.cloud.secretmanager.SecretManagerServiceClient")
     def test_get_secret_value_single(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
