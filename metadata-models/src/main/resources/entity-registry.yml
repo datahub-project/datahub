@@ -687,6 +687,13 @@ entities:
     aspects:
       - ownershipTypeInfo
       - status
+  - name: lifecycleStageType
+    doc: Defines a lifecycle stage that entities can be placed in (e.g., Proposed, Certified, Archived). Controls search visibility and transition policies.
+    category: core
+    keyAspect: lifecycleStageTypeKey
+    aspects:
+      - lifecycleStageTypeInfo
+      - status
   - name: businessAttribute
     category: core
     keyAspect: businessAttributeKey
