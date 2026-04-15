@@ -138,6 +138,7 @@ athena = [
 aws-secret-manager = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "cachetools<6.0.0",
     "urllib3>=1.26,<3.0",
 ]
 
@@ -602,6 +603,7 @@ flink = [
 ]
 
 gcp-secret-manager = [
+    "cachetools<6.0.0",
     "google-cloud-secret-manager>=2.0.0,<3.0.0",
 ]
 

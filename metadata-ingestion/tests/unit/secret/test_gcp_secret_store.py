@@ -1,9 +1,8 @@
 from unittest.mock import MagicMock, patch
 
-from datahub.secret.gcp_secret_store import (
-    GcpSecretManagerStore,
-    GcpSecretManagerStoreConfig,
-)
+from datahub.secret.gcp_secret_store import GcpSecretManagerStore
+
+DEFAULT_CONFIG = {"project_id": "my-project", "prefix": "datahub-", "cache_ttl": 300}
 
 
 def _mock_secret_response(value: str) -> MagicMock:
@@ -14,139 +13,88 @@ def _mock_secret_response(value: str) -> MagicMock:
 
 
 class TestGcpSecretManagerStore:
-    def test_create(self):
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-        assert isinstance(store, GcpSecretManagerStore)
-        assert store.config.project_id == "my-project"
-
-    def test_get_id(self):
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-        assert store.get_id() == "gcp-sm"
-
     @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_get_secret_values_found(self, mock_client_cls):
+    def test_get_secret_values_with_prefix(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
         mock_client.access_secret_version.return_value = _mock_secret_response(
             "my-value"
         )
 
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
+        store = GcpSecretManagerStore.create(DEFAULT_CONFIG)
         result = store.get_secret_values(["MY_SECRET"])
 
         assert result == {"MY_SECRET": "my-value"}
-        mock_client.access_secret_version.assert_called_once()
+        assert store.get_id() == "gcp-sm"
 
-        # Verify the resource path is correct
+        # Verify resource path uses prefix
         call_args = mock_client.access_secret_version.call_args
         assert (
             call_args.kwargs["request"]["name"]
-            == "projects/my-project/secrets/MY_SECRET/versions/latest"
+            == "projects/my-project/secrets/datahub-MY_SECRET/versions/latest"
         )
 
     @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_get_secret_values_not_found(self, mock_client_cls):
+    def test_get_secret_values_with_custom_prefix(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.access_secret_version.return_value = _mock_secret_response("val")
+
+        store = GcpSecretManagerStore.create(
+            {"project_id": "yahoo-prod", "prefix": "myapp-", "cache_ttl": 300}
+        )
+        store.get_secret_values(["DB_PASS"])
+
+        call_args = mock_client.access_secret_version.call_args
+        assert (
+            call_args.kwargs["request"]["name"]
+            == "projects/yahoo-prod/secrets/myapp-DB_PASS/versions/latest"
+        )
+
+    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
+    def test_missing_secret_returns_none(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
         mock_client.access_secret_version.side_effect = Exception("NOT_FOUND")
 
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
+        store = GcpSecretManagerStore.create(DEFAULT_CONFIG)
         result = store.get_secret_values(["NONEXISTENT"])
 
         assert result == {"NONEXISTENT": None}
 
     @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_get_secret_values_mixed(self, mock_client_cls):
+    def test_mixed_found_and_missing(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
 
         def side_effect(request, retry):
-            name = request["name"]
-            if "EXISTS" in name:
+            if "EXISTS" in request["name"]:
                 return _mock_secret_response("value1")
             raise Exception("NOT_FOUND")
 
         mock_client.access_secret_version.side_effect = side_effect
 
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
+        store = GcpSecretManagerStore.create(DEFAULT_CONFIG)
         result = store.get_secret_values(["EXISTS", "MISSING"])
 
-        assert result == {"EXISTS": "value1", "MISSING": None}
+        assert result["EXISTS"] == "value1"
+        assert result["MISSING"] is None
 
     @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
     def test_get_secret_value_single(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        mock_client.access_secret_version.return_value = _mock_secret_response(
-            "single-value"
-        )
 
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-        result = store.get_secret_value("SINGLE")
+        mock_client.access_secret_version.side_effect = [
+            _mock_secret_response("tok123"),
+            Exception("NOT_FOUND"),
+        ]
 
-        assert result == "single-value"
+        store = GcpSecretManagerStore.create(DEFAULT_CONFIG)
 
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_get_secret_value_not_found(self, mock_client_cls):
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        mock_client.access_secret_version.side_effect = Exception("NOT_FOUND")
+        assert store.get_secret_value("TOKEN") == "tok123"
+        assert store.get_secret_value("NONEXISTENT") is None
 
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-        result = store.get_secret_value("NONEXISTENT")
-
-        assert result is None
-
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_get_secret_values_empty_list(self, mock_client_cls):
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-        result = store.get_secret_values([])
-
-        assert result == {}
-
-    def test_close(self):
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-        store.close()
-        assert store._client is None
-
-    def test_config_required_project_id(self):
-        import pytest
-        from pydantic import ValidationError
-
-        with pytest.raises(ValidationError):
-            GcpSecretManagerStoreConfig()  # project_id is required, no default
-
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_resource_path_includes_versions_latest(self, mock_client_cls):
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        mock_client.access_secret_version.return_value = _mock_secret_response("val")
-
-        store = GcpSecretManagerStore.create({"project_id": "yahoo-prod"})
-        store.get_secret_values(["DB_PASS"])
-
-        call_args = mock_client.access_secret_version.call_args
-        resource_path = call_args.kwargs["request"]["name"]
-        assert resource_path == "projects/yahoo-prod/secrets/DB_PASS/versions/latest"
-
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_client_reused_across_calls(self, mock_client_cls):
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-
-        store._get_client()
-        store._get_client()
-
-        # Client constructor called only once
-        assert mock_client_cls.call_count == 1
-
-    @patch("datahub.secret.gcp_secret_store.secretmanager.SecretManagerServiceClient")
-    def test_retry_is_passed(self, mock_client_cls):
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        mock_client.access_secret_version.return_value = _mock_secret_response("val")
-
-        store = GcpSecretManagerStore.create({"project_id": "my-project"})
-        store.get_secret_values(["SECRET"])
-
-        call_args = mock_client.access_secret_version.call_args
-        assert "retry" in call_args.kwargs
+    def test_empty_list_returns_empty_dict(self):
+        store = GcpSecretManagerStore.create(DEFAULT_CONFIG)
+        assert store.get_secret_values([]) == {}

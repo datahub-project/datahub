@@ -807,8 +807,8 @@ plugins: Dict[str, Set[str]] = {
         # The plugin is designed to be installed alongside source connectors, not standalone.
     },
     # Cloud secret store plugins.
-    "aws-secret-manager": aws_common,
-    "gcp-secret-manager": cloud_secret_common,
+    "aws-secret-manager": aws_common | cachetools_lib,
+    "gcp-secret-manager": cloud_secret_common | cachetools_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.

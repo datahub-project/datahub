@@ -241,6 +241,7 @@ athena = [
 aws-secret-manager = [
     { name = "boto3" },
     { name = "botocore" },
+    { name = "cachetools" },
     { name = "urllib3" },
 ]
 azure-data-factory = [
@@ -1062,6 +1063,7 @@ flink = [
     { name = "tenacity" },
 ]
 gcp-secret-manager = [
+    { name = "cachetools" },
     { name = "google-cloud-secret-manager" },
 ]
 gcs = [
@@ -2152,6 +2154,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'abs'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'all'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'athena'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'aws-secret-manager'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'bigquery'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'bigquery-queries'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'cassandra'", specifier = "<6.0.0" },
@@ -2170,6 +2173,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'elasticsearch'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'excel'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'fivetran'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'gcp-secret-manager'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'gcs'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'gcs-slim'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'glue'", specifier = "<6.0.0" },

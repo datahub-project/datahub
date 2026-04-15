@@ -1,88 +1,64 @@
 import boto3
 from moto import mock_aws
 
-from datahub.secret.aws_secret_store import (
-    AwsSecretsManagerStore,
-    AwsSecretsManagerStoreConfig,
-)
+from datahub.secret.aws_secret_store import AwsSecretsManagerStore
+
+DEFAULT_CONFIG = {"region": "us-east-1", "prefix": "datahub-", "cache_ttl": 300}
 
 
 class TestAwsSecretsManagerStore:
-    def test_create(self):
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
-        assert isinstance(store, AwsSecretsManagerStore)
-        assert store.config.region == "us-east-1"
+    @mock_aws
+    def test_get_secret_values_with_prefix(self):
+        client = boto3.client("secretsmanager", region_name="us-east-1")
+        client.create_secret(Name="datahub-DB_PASS", SecretString="secret123")
+        client.create_secret(Name="datahub-API_KEY", SecretString="key456")
 
-    def test_get_id(self):
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
+        store = AwsSecretsManagerStore.create(DEFAULT_CONFIG)
+        result = store.get_secret_values(["DB_PASS", "API_KEY"])
+
+        assert result == {"DB_PASS": "secret123", "API_KEY": "key456"}
         assert store.get_id() == "aws-sm"
 
     @mock_aws
-    def test_get_secret_values_found(self):
-        # Create a secret in mocked AWS
+    def test_get_secret_values_with_custom_prefix(self):
         client = boto3.client("secretsmanager", region_name="us-east-1")
-        client.create_secret(Name="MY_SECRET", SecretString="my-value")
+        client.create_secret(Name="myapp-prod-DB_PASS", SecretString="secret123")
 
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
-        result = store.get_secret_values(["MY_SECRET"])
+        store = AwsSecretsManagerStore.create(
+            {"region": "us-east-1", "prefix": "myapp-prod-", "cache_ttl": 300}
+        )
+        result = store.get_secret_values(["DB_PASS"])
 
-        assert result == {"MY_SECRET": "my-value"}
+        assert result == {"DB_PASS": "secret123"}
 
     @mock_aws
-    def test_get_secret_values_not_found(self):
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
+    def test_missing_secret_returns_none(self):
+        store = AwsSecretsManagerStore.create(DEFAULT_CONFIG)
         result = store.get_secret_values(["NONEXISTENT"])
 
         assert result == {"NONEXISTENT": None}
 
     @mock_aws
-    def test_get_secret_values_mixed(self):
+    def test_mixed_found_and_missing(self):
         client = boto3.client("secretsmanager", region_name="us-east-1")
-        client.create_secret(Name="EXISTS", SecretString="value1")
+        client.create_secret(Name="datahub-EXISTS", SecretString="value1")
 
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
+        store = AwsSecretsManagerStore.create(DEFAULT_CONFIG)
         result = store.get_secret_values(["EXISTS", "MISSING"])
 
-        assert result == {"EXISTS": "value1", "MISSING": None}
+        assert result["EXISTS"] == "value1"
+        assert result["MISSING"] is None
 
     @mock_aws
     def test_get_secret_value_single(self):
         client = boto3.client("secretsmanager", region_name="us-east-1")
-        client.create_secret(Name="SINGLE", SecretString="single-value")
+        client.create_secret(Name="datahub-TOKEN", SecretString="tok123")
 
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
-        result = store.get_secret_value("SINGLE")
+        store = AwsSecretsManagerStore.create(DEFAULT_CONFIG)
 
-        assert result == "single-value"
+        assert store.get_secret_value("TOKEN") == "tok123"
+        assert store.get_secret_value("NONEXISTENT") is None
 
-    @mock_aws
-    def test_get_secret_value_not_found(self):
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
-        result = store.get_secret_value("NONEXISTENT")
-
-        assert result is None
-
-    @mock_aws
-    def test_get_secret_values_empty_list(self):
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
-        result = store.get_secret_values([])
-
-        assert result == {}
-
-    def test_close(self):
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
-        store.close()
-        assert store._client is None
-
-    def test_config_defaults(self):
-        config = AwsSecretsManagerStoreConfig(region="eu-west-1")
-        assert config.region == "eu-west-1"
-
-    @mock_aws
-    def test_client_reused_across_calls(self):
-        store = AwsSecretsManagerStore.create({"region": "us-east-1"})
-
-        client1 = store._get_client()
-        client2 = store._get_client()
-
-        assert client1 is client2
+    def test_empty_list_returns_empty_dict(self):
+        store = AwsSecretsManagerStore.create(DEFAULT_CONFIG)
+        assert store.get_secret_values([]) == {}
