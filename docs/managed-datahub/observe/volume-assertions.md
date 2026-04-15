@@ -116,6 +116,12 @@ source types vary by the platform, but generally fall into these categories:
   and Tables stored inside the Data Warehouse, including their row count. It is usually efficient to check, but can in some cases be slightly delayed to update
   once a change has been made to a table. This is the optimal balance between cost and accuracy for most Data Platforms.
 
+- **Platform API** (BigQuery Only): Uses the Data Warehouse's native metadata API to retrieve the current row count for a Table. This is the
+  most cost-effective option as it does not run any SQL queries or scan any data — the row count is retrieved via a free API call.
+  For BigQuery, this uses the [tables.get](https://cloud.google.com/bigquery/docs/reference/rest/v2/tables/get) API, which requires
+  the `bigquery.tables.get` permission (included in the `roles/bigquery.metadataViewer` role).
+  This method is only supported for Tables, not Views.
+
 - **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform).
   This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve
   system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. This issues a query to the table, which can be more expensive than Information Schema.
