@@ -28,7 +28,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyList, LossySentinel
 from datahub.utilities.urns.urn import guess_platform_name
 
 logger = logging.getLogger(__name__)
@@ -536,20 +536,21 @@ class EntityFilterReport(ReportAttribute):
         )
 
 
-def _is_report_sentinel(item: object) -> bool:
-    return isinstance(item, str) and item.startswith("...")
-
-
 def _cap_report_samples(obj: dict, caps: Dict[str, int]) -> dict:
-    """Cap the failures/warnings/infos lists in an as_obj() output."""
+    """Truncate report lists to the configured cap.
+
+    Only counts non-string items as real entries so the LossyList
+    sentinel string (e.g. ``"... sampled of 30 total elements"``)
+    is not miscounted as an entry.
+    """
     result = {}
     for k, v in obj.items():
         cap = caps.get(k)
         if cap is not None and isinstance(v, list):
-            real = [x for x in v if not _is_report_sentinel(x)]
-            sentinels = [x for x in v if _is_report_sentinel(x)]
-            if len(real) > cap:
-                result[k] = real[:cap] + [f"... and {len(real) - cap} more"] + sentinels
+            entries = [x for x in v if not isinstance(x, LossySentinel)]
+            tail = [x for x in v if isinstance(x, LossySentinel)]
+            if len(entries) > cap:
+                result[k] = entries[:cap] + tail
             else:
                 result[k] = v
         else:

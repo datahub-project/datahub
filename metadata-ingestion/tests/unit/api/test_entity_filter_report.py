@@ -10,6 +10,7 @@ from datahub.ingestion.api.report import (
 )
 from datahub.ingestion.api.source import StructuredLogLevel, StructuredLogs
 from datahub.ingestion.run.pipeline_config import FlagsConfig
+from datahub.utilities.lossy_collections import LossySentinel
 
 
 @dataclasses.dataclass
@@ -41,24 +42,22 @@ def test_entity_filter_report():
 
 
 def test_cap_report_samples_basic():
+    sentinel = LossySentinel("... sampled of 50 total elements")
     obj = {
         "events_produced": 500,
-        "failures": ["err1", "err2", "err3", "err4", "err5"],
-        "warnings": ["w1", "w2", "w3"],
+        "failures": ["err1", "err2", "err3", "err4", "err5", sentinel],
+        "warnings": ["w1", "w2", "w3", sentinel],
         "infos": ["i1", "i2"],
         "aspects": {"dataset": {"schemaMetadata": 100}},
     }
     caps = {"failures": 2, "warnings": 1, "infos": 5}
     capped = _cap_report_samples(obj, caps)
 
-    # failures capped to 2 + summary message
-    assert len(capped["failures"]) == 3
-    assert capped["failures"][:2] == ["err1", "err2"]
-    assert "and 3 more" in capped["failures"][-1]
+    # failures: 2 entries + sentinel preserved
+    assert capped["failures"] == ["err1", "err2", sentinel]
 
-    # warnings capped to 1 + summary message
-    assert len(capped["warnings"]) == 2
-    assert "and 2 more" in capped["warnings"][-1]
+    # warnings: 1 entry + sentinel preserved
+    assert capped["warnings"] == ["w1", sentinel]
 
     # infos under cap — untouched
     assert capped["infos"] == ["i1", "i2"]
@@ -69,38 +68,41 @@ def test_cap_report_samples_basic():
 
 
 def test_cap_report_samples_zero_cap():
-    """cap=0 should suppress all entries but still show the count."""
-
-    obj = {"failures": ["e1", "e2", "e3"], "warnings": [], "infos": ["i1"]}
+    """cap=0 should remove all entries but keep the sentinel."""
+    sentinel = LossySentinel("... sampled of 30 total elements")
+    obj = {"failures": ["e1", "e2", "e3", sentinel], "warnings": [], "infos": ["i1"]}
     caps = {"failures": 0, "warnings": 0, "infos": 0}
     capped = _cap_report_samples(obj, caps)
 
-    # failures: all suppressed, one sentinel line
-    assert len(capped["failures"]) == 1
-    assert "and 3 more" in capped["failures"][0]
+    # failures: all entries removed, sentinel preserved
+    assert capped["failures"] == [sentinel]
 
-    # empty list stays empty (len(0) > 0 is False)
+    # empty list stays empty
     assert capped["warnings"] == []
 
-    # single-element list: still capped since 1 > 0
-    assert len(capped["infos"]) == 1
-    assert "and 1 more" in capped["infos"][0]
+    # single entry removed, no sentinel to preserve
+    assert capped["infos"] == []
+
+
+def test_cap_report_samples_no_sentinel():
+    """Lists without a LossySentinel are just truncated."""
+    obj = {"failures": ["e1", "e2", "e3"]}
+    capped = _cap_report_samples(obj, {"failures": 1})
+    assert capped["failures"] == ["e1"]
 
 
 def test_cap_report_samples_key_not_in_caps():
     """Keys absent from the caps dict are never capped."""
-
     obj = {"failures": ["e1", "e2"], "other_list": ["a", "b", "c"]}
     caps = {"failures": 1}
     capped = _cap_report_samples(obj, caps)
 
-    assert len(capped["failures"]) == 2  # 1 + sentinel
-    assert capped["other_list"] == ["a", "b", "c"]  # untouched
+    assert capped["failures"] == ["e1"]
+    assert capped["other_list"] == ["a", "b", "c"]
 
 
 def test_cap_report_samples_empty_caps_dict():
     """Empty caps dict means nothing is capped."""
-
     obj = {"failures": ["e1", "e2", "e3"]}
     capped = _cap_report_samples(obj, {})
     assert capped["failures"] == ["e1", "e2", "e3"]
@@ -108,19 +110,15 @@ def test_cap_report_samples_empty_caps_dict():
 
 def test_cap_report_samples_nested_dict_not_capped():
     """Dicts nested inside the report are passed through, not recursed into."""
-
     inner = {"nested_failures": ["x", "y", "z"]}
     obj = {"failures": ["e1"], "sub_report": inner}
     caps = {"failures": 10, "nested_failures": 1}
     capped = _cap_report_samples(obj, caps)
-
-    # The nested dict is untouched — capping is shallow
     assert capped["sub_report"] == inner
 
 
 def test_cap_report_samples_exact_cap():
-    """List with length == cap should NOT be capped (only > triggers it)."""
-
+    """List with length == cap should NOT be capped."""
     obj = {"failures": ["e1", "e2", "e3"]}
     caps = {"failures": 3}
     capped = _cap_report_samples(obj, caps)
@@ -146,9 +144,10 @@ def test_as_string_with_caps_applies_capping():
         count=42,
     )
     result = report.as_string(progress_sample_caps={"failures": 2, "warnings": 5})
-    assert "and 3 more" in result
-    # warnings list (len 1) is under cap 5, so no sentinel
-    assert result.count("more") == 1
+    assert "e1" in result
+    assert "e2" in result
+    assert "e3" not in result  # truncated
+    assert "w1" in result  # under cap, kept
 
 
 def test_as_string_none_caps_shows_all():
@@ -157,7 +156,6 @@ def test_as_string_none_caps_shows_all():
         count=10,
     )
     result = report.as_string(progress_sample_caps=None)
-    assert "more" not in result
     assert "e1" in result
     assert "e3" in result
 
@@ -254,37 +252,37 @@ def test_set_sample_sizes_after_entries_added_raises():
 
 
 def test_cap_ignores_lossy_list_sentinel():
-    """The '... sampled of N' sentinel from LossyList shouldn't count as a real entry."""
+    """LossySentinel shouldn't count as a real entry."""
+    sentinel = LossySentinel("... sampled of 30 total elements")
     obj = {
         "failures": [
-            {"message": "connection timeout", "context": ["db.orders"]},
-            {"message": "permission denied", "context": ["db.users"]},
-            {"message": "schema mismatch", "context": ["db.products"]},
-            "... sampled of 30 total elements",
+            {"message": "connection timeout"},
+            {"message": "permission denied"},
+            {"message": "schema mismatch"},
+            sentinel,
         ],
     }
-    # 3 real entries at cap of 3 — no truncation needed
     capped = _cap_report_samples(obj, {"failures": 3})
     assert capped["failures"] == obj["failures"]
 
 
 def test_cap_with_sentinel_and_truncation():
-    """When truncating, preserve the existing LossyList sentinel alongside the new one."""
+    """When truncating, the LossySentinel is preserved."""
+    sentinel = LossySentinel("... sampled of 50 total elements")
     obj = {
         "failures": [
-            {"message": "connection timeout", "context": ["db.orders"]},
-            {"message": "permission denied", "context": ["db.users"]},
-            {"message": "schema mismatch", "context": ["db.products"]},
-            {"message": "null column", "context": ["db.events"]},
-            "... sampled of 50 total elements",
+            {"message": "connection timeout"},
+            {"message": "permission denied"},
+            {"message": "schema mismatch"},
+            {"message": "null column"},
+            sentinel,
         ],
     }
     capped = _cap_report_samples(obj, {"failures": 2})
-    assert len(capped["failures"]) == 4  # 2 real + our sentinel + LossyList sentinel
+    assert len(capped["failures"]) == 3  # 2 entries + sentinel
     assert capped["failures"][0]["message"] == "connection timeout"
     assert capped["failures"][1]["message"] == "permission denied"
-    assert "and 2 more" in capped["failures"][2]
-    assert "sampled of 50" in capped["failures"][3]
+    assert capped["failures"][2] is sentinel
 
 
 def test_negative_sample_size_rejected():
@@ -382,11 +380,7 @@ def _run_pipeline_get_reports(flags: dict, num_each: int = 30) -> dict:
 def _count_real_entries(report_obj: dict, key: str) -> int:
     """Count non-sentinel entries in a report list."""
     items = report_obj.get(key, [])
-    return sum(
-        1
-        for item in items
-        if not (isinstance(item, str) and ("sampled" in item or "showing" in item))
-    )
+    return sum(1 for item in items if not isinstance(item, LossySentinel))
 
 
 def test_retention_both_defaults():
@@ -422,12 +416,10 @@ def test_retention_progress_max_higher_final_shows_report_size():
     # as_obj() returns all 25 retained (raw data)
     raw_failures = _count_real_entries(result["source"], "failures")
     assert raw_failures == 25
-    # But as_string with the final caps shows only 5 + sentinel
+    # But as_string with the final caps shows only 5
     final_str = result["source_report"].as_string(
         progress_sample_caps={"failures": 5, "warnings": 10, "infos": 10},
     )
-    assert "more" in final_str
-    # Verify only 5 real failure entries are displayed
     assert final_str.count("'message': 'F") == 5
 
 

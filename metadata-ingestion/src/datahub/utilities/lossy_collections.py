@@ -18,6 +18,16 @@ _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 
 
+class LossySentinel(str):
+    """Marks a lossy-collection truncation summary.
+
+    ``str`` subclass so it renders naturally in pprint/JSON but can be
+    distinguished from real entries via ``isinstance``.
+    """
+
+    pass
+
+
 class LossyList(List[T], Generic[T]):
     """A list that performs reservoir sampling of a much larger list"""
 
@@ -91,7 +101,9 @@ class LossyList(List[T], Generic[T]):
             Report.to_pure_python_obj(value) for value in list(self.__iter__())
         ]
         if self.sampled:
-            base_list.append(f"... sampled of {self.total_elements} total elements")
+            base_list.append(
+                LossySentinel(f"... sampled of {self.total_elements} total elements")
+            )
         return base_list
 
     def set_total(self, total: int) -> None:
