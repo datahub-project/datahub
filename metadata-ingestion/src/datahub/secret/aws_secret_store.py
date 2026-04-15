@@ -1,6 +1,6 @@
 import logging
 import threading
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache
 from pydantic import BaseModel, field_validator
@@ -37,7 +37,7 @@ class AwsSecretsManagerStore(SecretStore):
 
     def __init__(self, config: AwsSecretsManagerStoreConfig):
         self.config = config
-        self._client = None
+        self._client: Optional[Any] = None
         self._cache: TTLCache = TTLCache(maxsize=1000, ttl=config.cache_ttl)
         self._cache_lock = threading.Lock()
 
