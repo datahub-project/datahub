@@ -880,12 +880,12 @@ class TableauSourceReport(
     num_expected_tableau_metadata_queries: int = 0
     num_actual_tableau_metadata_queries: int = 0
     num_virtual_connections_processed: int = 0
-    num_vc_table_references_found: int = 0
-    num_vc_lineages_created: int = 0
-    num_vc_lineage_parsing_errors: int = 0
-    num_vc_upstream_columns_malformed: int = 0
-    num_vc_tables_malformed: int = 0
-    num_vc_fields_skipped_invalid: int = 0
+    num_virtual_connections_table_references_found: int = 0
+    num_virtual_connections_lineages_created: int = 0
+    num_virtual_connections_lineage_parsing_errors: int = 0
+    num_virtual_connections_upstream_columns_malformed: int = 0
+    num_virtual_connections_tables_malformed: int = 0
+    num_virtual_connections_fields_skipped_invalid: int = 0
     tableau_server_error_stats: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )
@@ -2994,7 +2994,7 @@ class TableauSiteSource:
                 all_fine_grained_lineages = (
                     fine_grained_lineages + vc_lineage_result.fine_grained_lineages
                 )
-                self.report.num_vc_lineages_created += len(
+                self.report.num_virtual_connections_lineages_created += len(
                     vc_lineage_result.fine_grained_lineages
                 )
             else:
@@ -4258,7 +4258,7 @@ class TableauSiteSource:
 
             if self.config.ingest_virtual_connections:
                 with PerfTimer() as timer:
-                    self.report.num_vc_table_references_found = len(
+                    self.report.num_virtual_connections_table_references_found = len(
                         self.vc_processor.vc_table_ids_for_lookup
                     )
                     self.report.num_virtual_connections_processed = len(
@@ -4266,7 +4266,7 @@ class TableauSiteSource:
                     )
 
                     logger.info(
-                        f"Virtual connections: {self.report.num_vc_table_references_found} table references found, "
+                        f"Virtual connections: {self.report.num_virtual_connections_table_references_found} table references found, "
                         f"{self.report.num_virtual_connections_processed} VCs to process"
                     )
 

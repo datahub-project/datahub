@@ -89,7 +89,7 @@ class VirtualConnectionProcessor:
             logger.warning(
                 f"Expected list for upstream_columns in field '{field_name}', got {type(upstream_columns)}. Skipping."
             )
-            self.report.num_vc_upstream_columns_malformed += 1
+            self.report.num_virtual_connections_upstream_columns_malformed += 1
             return vc_references
 
         for upstream_col in upstream_columns:
@@ -104,7 +104,7 @@ class VirtualConnectionProcessor:
                 logger.debug(
                     f"Skipping upstream column with non-dict table in field '{field_name}'"
                 )
-                self.report.num_vc_tables_malformed += 1
+                self.report.num_virtual_connections_tables_malformed += 1
                 continue
 
             table_type = table.get(c.TYPE_NAME)
@@ -142,7 +142,7 @@ class VirtualConnectionProcessor:
                     logger.debug(
                         f"Skipping invalid Virtual Connection reference: field={field_name}, column={column_name}, table={vc_table_name}"
                     )
-                    self.report.num_vc_fields_skipped_invalid += 1
+                    self.report.num_virtual_connections_fields_skipped_invalid += 1
                     continue
 
                 logger.debug(
@@ -205,7 +205,9 @@ class VirtualConnectionProcessor:
 
         if vc_references:
             self.datasource_vc_relationships[datasource_id] = vc_references
-            self.report.num_vc_table_references_found += len(vc_references)
+            self.report.num_virtual_connections_table_references_found += len(
+                vc_references
+            )
             logger.info(
                 f"Found {len(vc_references)} Virtual Connection references in {datasource_type} "
                 f"datasource '{datasource_name}'"
@@ -504,9 +506,7 @@ class VirtualConnectionProcessor:
                 "Expected format: urn:li:dataset:(urn:li:dataPlatform:tableau,datasource_id,PROD). "
                 "This indicates malformed Tableau data."
             )
-            self.report.num_vc_lineage_parsing_errors = (
-                getattr(self.report, "num_vc_lineage_parsing_errors", 0) + 1
-            )
+            self.report.num_virtual_connections_lineage_parsing_errors += 1
             return LineageResult(
                 upstream_tables=upstream_tables,
                 fine_grained_lineages=fine_grained_lineages,
@@ -517,9 +517,7 @@ class VirtualConnectionProcessor:
                 "This may indicate a code bug or URN format change.",
                 exc_info=True,
             )
-            self.report.num_vc_lineage_parsing_errors = (
-                getattr(self.report, "num_vc_lineage_parsing_errors", 0) + 1
-            )
+            self.report.num_virtual_connections_lineage_parsing_errors += 1
             return LineageResult(
                 upstream_tables=upstream_tables,
                 fine_grained_lineages=fine_grained_lineages,
@@ -637,7 +635,7 @@ class VirtualConnectionProcessor:
                         else None,
                     )
                 )
-                self.report.num_vc_lineages_created += 1
+                self.report.num_virtual_connections_lineages_created += 1
 
         logger.debug(
             f"Created {len(upstream_tables)} table lineages and {len(fine_grained_lineages)} column lineages for datasource {datasource_id}"
