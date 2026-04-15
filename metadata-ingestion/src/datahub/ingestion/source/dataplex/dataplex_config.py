@@ -192,13 +192,13 @@ class DataplexConfig(
     )
 
     max_workers_lineage: int = Field(
-        default=20,
+        default=10,
         ge=1,
         le=100,
         description="Number of parallel worker threads for lineage lookups "
         "(search_links API calls). Lineage lookup volume scales with entries × "
         "lineage_locations, so parallelism here has a large impact on total "
-        "ingestion time. Increase for large entry × location matrices. Default: 20.",
+        "ingestion time. Increase for large entry × location matrices. Default: 10.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
