@@ -596,6 +596,7 @@ dev = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
     { name = "humanfriendly" },
+    { name = "hypothesis" },
     { name = "ijson" },
     { name = "ipython" },
     { name = "jdk4py" },
@@ -789,6 +790,7 @@ docs = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
     { name = "humanfriendly" },
+    { name = "hypothesis" },
     { name = "ijson" },
     { name = "ipython" },
     { name = "jdk4py" },
@@ -2442,6 +2444,8 @@ requires-dist = [
     { name = "humanfriendly", specifier = "<11.0.0" },
     { name = "humanfriendly", marker = "extra == 'dev'", specifier = "<11.0.0" },
     { name = "humanfriendly", marker = "extra == 'docs'", specifier = "<11.0.0" },
+    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.0.0,<7.0.0" },
+    { name = "hypothesis", marker = "extra == 'docs'", specifier = ">=6.0.0,<7.0.0" },
     { name = "ibm-db-sa", marker = "(platform_machine == 'x86_64' and extra == 'all') or (sys_platform == 'darwin' and extra == 'all')", specifier = "==0.4.3" },
     { name = "ibm-db-sa", marker = "(platform_machine == 'x86_64' and extra == 'db2') or (sys_platform == 'darwin' and extra == 'db2')", specifier = "==0.4.3" },
     { name = "ibm-db-sa", marker = "(platform_machine == 'x86_64' and extra == 'integration-tests') or (sys_platform == 'darwin' and extra == 'integration-tests')", specifier = "==0.4.3" },
@@ -7145,6 +7149,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cc/3f/2c29224acb2e2df4d2046e4c73ee2662023c58ff5b113c4c1adac0886c43/humanfriendly-10.0.tar.gz", hash = "sha256:6b0b831ce8f15f7300721aa49829fc4e83921a9a301cc7f606be6686a2288ddc", size = 360702, upload-time = "2021-09-17T21:40:43.31Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f0/0f/310fb31e39e2d734ccaa2c0fb981ee41f7bd5056ce9bc29b2248bd569169/humanfriendly-10.0-py2.py3-none-any.whl", hash = "sha256:1697e1a8a8f550fd43c2865cd84542fc175a61dcb779b6fee18cf6b6ccba1477", size = 86794, upload-time = "2021-09-17T21:40:39.897Z" },
+]
+
+[[package]]
+name = "hypothesis"
+version = "6.152.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "sortedcontainers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/64/b1/c32bcddb9aab9e3abc700f1f56faf14e7655c64a16ca47701a57362276ea/hypothesis-6.152.1.tar.gz", hash = "sha256:4f4ed934eee295dd84ee97592477d23e8dc03e9f12ae0ee30a4e7c9ef3fca3b0", size = 465029, upload-time = "2026-04-14T22:29:24.062Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/83/860fb3075e00b0fc19a22a2301bc3c96f00437558c3911bdd0a3573a4a53/hypothesis-6.152.1-py3-none-any.whl", hash = "sha256:40a3619d9e0cb97b018857c7986f75cf5de2e5ec0fa8a0b172d00747758f749e", size = 530752, upload-time = "2026-04-14T22:29:20.893Z" },
 ]
 
 [[package]]
