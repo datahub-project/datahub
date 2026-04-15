@@ -35,6 +35,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.urn_encoder import UrnEncoder
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -1445,7 +1446,7 @@ def test_glue_database_name_encoding_in_urn() -> None:
     """Database names with '(', ')', '/' are percent-encoded in dataset URNs."""
     database_name = "data__team-owned_(read/write)_warehouse"
     table_name = "my_table"
-    full_table_name = f"{database_name}.{table_name}"
+    full_table_name = f"{UrnEncoder.encode_slash(database_name)}.{table_name}"
 
     urn = make_dataset_urn_with_platform_instance(
         platform="glue",

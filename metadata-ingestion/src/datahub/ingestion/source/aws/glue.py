@@ -129,6 +129,7 @@ from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
@@ -1606,7 +1607,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
-        full_table_name = f"{database_name}.{table_name}"
+        full_table_name = f"{UrnEncoder.encode_slash(database_name)}.{table_name}"
         self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(
             database_name
