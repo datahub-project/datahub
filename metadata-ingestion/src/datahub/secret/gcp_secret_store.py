@@ -45,8 +45,8 @@ class GcpSecretManagerStore(SecretStore):
             with self._cache_lock:
                 if self._client is None:
                     try:
-                        from google.cloud import (
-                            secretmanager,  # type: ignore[attr-defined]
+                        from google.cloud import (  # type: ignore[attr-defined]
+                            secretmanager,
                         )
                     except ImportError as e:
                         raise ImportError(
