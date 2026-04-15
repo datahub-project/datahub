@@ -1,5 +1,7 @@
 package com.linkedin.metadata.ingestion;
 
+import static com.linkedin.metadata.ingestion.Constants.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
@@ -27,35 +29,35 @@ public class IngestionRunReport {
   @NoArgsConstructor
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class CliInfo {
-    @JsonProperty("cli_version")
+    @JsonProperty(CLI_VERSION)
     @Nullable
     private String cliVersion;
 
-    @JsonProperty("models_version")
+    @JsonProperty(MODELS_VERSION)
     @Nullable
     private String modelsVersion;
 
-    @JsonProperty("py_version")
+    @JsonProperty(PY_VERSION)
     @Nullable
     private String pyVersion;
 
-    @JsonProperty("mem_info")
+    @JsonProperty(MEM_INFO)
     @Nullable
     private String memInfo;
 
-    @JsonProperty("peak_memory_usage")
+    @JsonProperty(PEAK_MEMORY_USAGE)
     @Nullable
     private String peakMemoryUsage;
 
-    @JsonProperty("peak_disk_usage")
+    @JsonProperty(PEAK_DISK_USAGE)
     @Nullable
     private String peakDiskUsage;
 
-    @JsonProperty("thread_count")
+    @JsonProperty(THREAD_COUNT)
     @Nullable
     private Long threadCount;
 
-    @JsonProperty("peak_thread_count")
+    @JsonProperty(PEAK_THREAD_COUNT)
     @Nullable
     private Long peakThreadCount;
   }
@@ -75,32 +77,32 @@ public class IngestionRunReport {
   public static class SourceReport {
     @Nullable private String platform;
 
-    @JsonProperty("events_produced")
+    @JsonProperty(EVENTS_PRODUCED)
     private long eventsProduced;
 
-    @JsonProperty("tables_scanned")
+    @JsonProperty(TABLES_SCANNED)
     private long tablesScanned;
 
-    @JsonProperty("views_scanned")
+    @JsonProperty(VIEWS_SCANNED)
     private long viewsScanned;
 
-    @JsonProperty("schemas_scanned")
+    @JsonProperty(SCHEMAS_SCANNED)
     private long schemasScanned;
 
-    @JsonProperty("databases_scanned")
+    @JsonProperty(DATABASES_SCANNED)
     private long databasesScanned;
 
-    @JsonProperty("entities_profiled")
+    @JsonProperty(ENTITIES_PROFILED)
     private long entitiesProfiled;
 
-    @JsonProperty("num_view_definitions_failed_parsing")
+    @JsonProperty(NUM_VIEW_DEFINITIONS_FAILED_PARSING)
     private long numViewDefinitionsFailedParsing;
 
-    @JsonProperty("ingestion_stage_durations")
+    @JsonProperty(INGESTION_STAGE_DURATIONS)
     @Nullable
     private Map<String, Double> ingestionStageDurations;
 
-    @JsonProperty("ingestion_high_stage_seconds")
+    @JsonProperty(INGESTION_HIGH_STAGE_SECONDS)
     @Nullable
     private Map<String, Double> ingestionHighStageSeconds;
 
@@ -124,18 +126,18 @@ public class IngestionRunReport {
   @NoArgsConstructor
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class SinkReport {
-    @JsonProperty("total_records_written")
+    @JsonProperty(TOTAL_RECORDS_WRITTEN)
     private long totalRecordsWritten;
 
-    @JsonProperty("records_written_per_second")
+    @JsonProperty(RECORDS_WRITTEN_PER_SECOND)
     @Nullable
     private Double recordsWrittenPerSecond;
 
-    @JsonProperty("pending_requests")
+    @JsonProperty(PENDING_REQUESTS)
     @Nullable
     private Long pendingRequests;
 
-    @JsonProperty("gms_version")
+    @JsonProperty(GMS_VERSION)
     @Nullable
     private String gmsVersion;
 
@@ -154,7 +156,7 @@ public class IngestionRunReport {
 
     private List<String> context = Collections.emptyList();
 
-    @JsonProperty("log_category")
+    @JsonProperty(LOG_CATEGORY)
     @Nullable
     private String logCategory;
   }

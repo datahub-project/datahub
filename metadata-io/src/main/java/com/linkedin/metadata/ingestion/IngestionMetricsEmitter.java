@@ -64,6 +64,14 @@ public class IngestionMetricsEmitter extends MCPObserver {
   private static final String TAG_STATUS = "status";
   private static final String TAG_CLI_VERSION = "cli_version";
 
+  private static final String LOG_ENTRY_TITLE = "title";
+  private static final String LOG_ENTRY_MESSAGE = "message";
+  private static final String LOG_ENTRY_CONTEXT = "context";
+  private static final String LOG_ENTRY_CATEGORY = "category";
+
+  private static final String MDC_MESSAGE_TYPE_KEY = "messageType";
+  private static final String MDC_MESSAGE_TYPE_VALUE = "ingestionRunReport";
+
   @Nonnull private AspectPluginConfig config;
 
   private final MeterRegistry meterRegistry;
@@ -236,7 +244,7 @@ public class IngestionMetricsEmitter extends MCPObserver {
       int sinkFailuresCount,
       @Nonnull IngestionRunReport.Report report) {
     try {
-      MDC.put("messageType", "ingestionRunReport");
+      MDC.put(MDC_MESSAGE_TYPE_KEY, MDC_MESSAGE_TYPE_VALUE);
       String json =
           objectMapper.writeValueAsString(
               buildRunEventMap(
@@ -258,7 +266,7 @@ public class IngestionMetricsEmitter extends MCPObserver {
     } catch (Exception e) {
       log.warn("Failed to emit structured run event: {}", e.getMessage());
     } finally {
-      MDC.remove("messageType");
+      MDC.remove(MDC_MESSAGE_TYPE_KEY);
     }
   }
 
@@ -276,38 +284,38 @@ public class IngestionMetricsEmitter extends MCPObserver {
       @Nonnull IngestionRunReport.Report report) {
     Map<String, Object> event = new LinkedHashMap<>();
 
-    event.put("execution_id", executionRequestUrn.getId());
-    event.put("connector", connector);
-    event.put("status", status);
+    event.put(Constants.EXECUTION_ID, executionRequestUrn.getId());
+    event.put(Constants.CONNECTOR, connector);
+    event.put(Constants.STATUS, status);
     if (durationMs != null) {
-      event.put("duration_ms", durationMs);
+      event.put(Constants.DURATION_MS, durationMs);
     }
 
     IngestionRunReport.CliInfo cli = report.getCli();
     if (cli != null) {
       if (cli.getCliVersion() != null) {
-        event.put("cli_version", cli.getCliVersion());
+        event.put(Constants.CLI_VERSION, cli.getCliVersion());
       }
       if (cli.getModelsVersion() != null) {
-        event.put("models_version", cli.getModelsVersion());
+        event.put(Constants.MODELS_VERSION, cli.getModelsVersion());
       }
       if (cli.getPyVersion() != null) {
-        event.put("py_version", cli.getPyVersion());
+        event.put(Constants.PY_VERSION, cli.getPyVersion());
       }
       if (cli.getMemInfo() != null) {
-        event.put("mem_info", cli.getMemInfo());
+        event.put(Constants.MEM_INFO, cli.getMemInfo());
       }
       if (cli.getPeakMemoryUsage() != null) {
-        event.put("peak_memory_usage", cli.getPeakMemoryUsage());
+        event.put(Constants.PEAK_MEMORY_USAGE, cli.getPeakMemoryUsage());
       }
       if (cli.getPeakDiskUsage() != null) {
-        event.put("peak_disk_usage", cli.getPeakDiskUsage());
+        event.put(Constants.PEAK_DISK_USAGE, cli.getPeakDiskUsage());
       }
       if (cli.getThreadCount() != null) {
-        event.put("thread_count", cli.getThreadCount());
+        event.put(Constants.THREAD_COUNT, cli.getThreadCount());
       }
       if (cli.getPeakThreadCount() != null) {
-        event.put("peak_thread_count", cli.getPeakThreadCount());
+        event.put(Constants.PEAK_THREAD_COUNT, cli.getPeakThreadCount());
       }
     }
 
@@ -316,32 +324,32 @@ public class IngestionMetricsEmitter extends MCPObserver {
     IngestionRunReport.SinkReport sinkReport =
         report.getSink() != null ? report.getSink().getReport() : null;
 
-    event.put("events_produced", eventsProduced);
+    event.put(Constants.EVENTS_PRODUCED, eventsProduced);
 
     if (sourceReport != null) {
       if (sourceReport.getTablesScanned() > 0) {
-        event.put("tables_scanned", sourceReport.getTablesScanned());
+        event.put(Constants.TABLES_SCANNED, sourceReport.getTablesScanned());
       }
       if (sourceReport.getViewsScanned() > 0) {
-        event.put("views_scanned", sourceReport.getViewsScanned());
+        event.put(Constants.VIEWS_SCANNED, sourceReport.getViewsScanned());
       }
       if (sourceReport.getSchemasScanned() > 0) {
-        event.put("schemas_scanned", sourceReport.getSchemasScanned());
+        event.put(Constants.SCHEMAS_SCANNED, sourceReport.getSchemasScanned());
       }
       if (sourceReport.getDatabasesScanned() > 0) {
-        event.put("databases_scanned", sourceReport.getDatabasesScanned());
+        event.put(Constants.DATABASES_SCANNED, sourceReport.getDatabasesScanned());
       }
       if (sourceReport.getEntitiesProfiled() > 0) {
-        event.put("entities_profiled", sourceReport.getEntitiesProfiled());
+        event.put(Constants.ENTITIES_PROFILED, sourceReport.getEntitiesProfiled());
       }
       if (sourceReport.getNumViewDefinitionsFailedParsing() > 0) {
         event.put(
-            "num_view_definitions_failed_parsing",
+            Constants.NUM_VIEW_DEFINITIONS_FAILED_PARSING,
             sourceReport.getNumViewDefinitionsFailedParsing());
       }
 
       if (sourceReport.getIngestionStageDurations() != null) {
-        event.put("ingestion_stage_durations", sourceReport.getIngestionStageDurations());
+        event.put(Constants.INGESTION_STAGE_DURATIONS, sourceReport.getIngestionStageDurations());
       }
 
       if (sourceReport.getIngestionHighStageSeconds() != null) {
@@ -360,35 +368,40 @@ public class IngestionMetricsEmitter extends MCPObserver {
           }
           highStageSeconds.put(key, entry.getValue());
         }
-        event.put("ingestion_high_stage_seconds", highStageSeconds);
+        event.put(Constants.INGESTION_HIGH_STAGE_SECONDS, highStageSeconds);
       }
     }
 
-    event.put("warnings_count", warningsCount);
-    event.put("failures_count", failuresCount);
+    event.put(Constants.WARNINGS_COUNT, warningsCount);
+    event.put(Constants.FAILURES_COUNT, failuresCount);
     event.put(
-        "failures", toLogEntryMaps(sourceReport != null ? sourceReport.getFailures() : List.of()));
+        Constants.FAILURES,
+        toLogEntryMaps(sourceReport != null ? sourceReport.getFailures() : List.of()));
     event.put(
-        "warnings", toLogEntryMaps(sourceReport != null ? sourceReport.getWarnings() : List.of()));
-    event.put("infos", toLogEntryMaps(sourceReport != null ? sourceReport.getInfos() : List.of()));
+        Constants.WARNINGS,
+        toLogEntryMaps(sourceReport != null ? sourceReport.getWarnings() : List.of()));
+    event.put(
+        Constants.INFOS,
+        toLogEntryMaps(sourceReport != null ? sourceReport.getInfos() : List.of()));
 
-    event.put("records_written", recordsWritten);
-    event.put("sink_failures_count", sinkFailuresCount);
+    event.put(Constants.RECORDS_WRITTEN, recordsWritten);
+    event.put(Constants.SINK_FAILURES_COUNT, sinkFailuresCount);
     event.put(
-        "sink_failures", toLogEntryMaps(sinkReport != null ? sinkReport.getFailures() : List.of()));
+        Constants.SINK_FAILURES,
+        toLogEntryMaps(sinkReport != null ? sinkReport.getFailures() : List.of()));
 
     if (sinkReport != null) {
       if (sinkReport.getRecordsWrittenPerSecond() != null) {
-        event.put("records_written_per_second", sinkReport.getRecordsWrittenPerSecond());
+        event.put(Constants.RECORDS_WRITTEN_PER_SECOND, sinkReport.getRecordsWrittenPerSecond());
       }
       if (sinkReport.getPendingRequests() != null) {
-        event.put("pending_requests", sinkReport.getPendingRequests());
+        event.put(Constants.PENDING_REQUESTS, sinkReport.getPendingRequests());
       }
       if (sinkReport.getGmsVersion() != null) {
-        event.put("gms_version", sinkReport.getGmsVersion());
+        event.put(Constants.GMS_VERSION, sinkReport.getGmsVersion());
       }
       if (sinkReport.getMode() != null) {
-        event.put("sink_mode", sinkReport.getMode());
+        event.put(Constants.SINK_MODE, sinkReport.getMode());
       }
     }
 
@@ -406,16 +419,16 @@ public class IngestionMetricsEmitter extends MCPObserver {
     for (IngestionRunReport.LogEntry entry : entries) {
       Map<String, Object> map = new LinkedHashMap<>();
       if (entry.getTitle() != null) {
-        map.put("title", entry.getTitle());
+        map.put(LOG_ENTRY_TITLE, entry.getTitle());
       }
       if (entry.getMessage() != null) {
-        map.put("message", entry.getMessage());
+        map.put(LOG_ENTRY_MESSAGE, entry.getMessage());
       }
       if (entry.getContext() != null && !entry.getContext().isEmpty()) {
-        map.put("context", entry.getContext());
+        map.put(LOG_ENTRY_CONTEXT, entry.getContext());
       }
       if (entry.getLogCategory() != null) {
-        map.put("category", entry.getLogCategory());
+        map.put(LOG_ENTRY_CATEGORY, entry.getLogCategory());
       }
       if (!map.isEmpty()) {
         result.add(map);
