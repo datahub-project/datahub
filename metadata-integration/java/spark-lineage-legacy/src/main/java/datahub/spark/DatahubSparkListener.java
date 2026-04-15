@@ -63,6 +63,9 @@ public class DatahubSparkListener extends SparkListener {
       new ConcurrentHashMap<>();
   private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
   private final Map<String, Config> appConfig = new ConcurrentHashMap<>();
+  // Tracks the execution ID of the most recent create-table-as-select command per app,
+  // so we can suppress the follow-up insert that Spark 3.5+ generates as a separate SQL execution.
+  private final Map<String, Long> lastCreateTableAsSelectExecId = new ConcurrentHashMap<>();
 
   public DatahubSparkListener() {
     log.info("DatahubSparkListener initialised.");
@@ -109,7 +112,12 @@ public class DatahubSparkListener extends SparkListener {
       this.plan = plan;
       this.ctx = ctx;
 
-      String jsonPlan = (plan != null) ? plan.toJSON() : null;
+      String jsonPlan;
+      try {
+        jsonPlan = (plan != null) ? plan.toJSON() : null;
+      } catch (Exception e) {
+        jsonPlan = (plan != null) ? plan.nodeName() : null;
+      }
       String sqlStartJson = (sqlStart != null) ? serializeSqlStartEvent(sqlStart) : null;
       log.debug(
           "SqlStartTask with parameters: sqlStart: {}, plan: {}, ctx: {}",
@@ -147,7 +155,11 @@ public class DatahubSparkListener extends SparkListener {
                   null));
       log.debug(
           "PLAN for execution id: " + getPipelineName(ctx) + ":" + sqlStart.executionId() + "\n");
-      log.debug(plan.toString());
+      try {
+        log.debug(plan.toString());
+      } catch (Exception e) {
+        log.debug("Plan toString failed for {}: {}", plan.nodeName(), e.getMessage());
+      }
 
       Optional<? extends Collection<SparkDataset>> outputDS =
           DatasetExtractor.asDataset(plan, ctx, true);
@@ -159,10 +171,39 @@ public class DatahubSparkListener extends SparkListener {
                 + sqlStart.executionId());
         return;
       }
+
+      SparkDataset sinkDataset = outputDS.get().iterator().next();
+
+      // In Spark 3.5+, CreateDataSourceTableAsSelectCommand and CreateHiveTableAsSelectCommand
+      // generate a follow-up InsertIntoHadoopFsRelationCommand or InsertIntoHiveTable as a
+      // separate SQL execution with the next sequential executionId. Skip these duplicate
+      // inserts to avoid redundant lineage entries.
+      Long lastCtasExecId = lastCreateTableAsSelectExecId.remove(ctx.applicationId());
+      if (DatasetExtractor.isFollowUpInsertCommand(plan)
+          && lastCtasExecId != null
+          && sqlStart.executionId() == lastCtasExecId + 1) {
+        log.debug(
+            "Skipping follow-up insert for create-table-as-select (execution {}:{}, prev CTAS: {})",
+            ctx.applicationId(),
+            sqlStart.executionId(),
+            lastCtasExecId);
+        return;
+      }
+
+      if (DatasetExtractor.isCreateTableAsSelectCommand(plan)) {
+        lastCreateTableAsSelectExecId.put(ctx.applicationId(), sqlStart.executionId());
+      }
+
       // Here assumption is that there will be only single target for single sql query
-      DatasetLineage lineage =
-          new DatasetLineage(
-              sqlStart.description(), plan.toString(), outputDS.get().iterator().next());
+      String planString;
+      try {
+        planString = plan.toString();
+      } catch (Exception e) {
+        // In Spark 3.5+, toString() can fail on plans containing InMemoryRelation
+        // with AdaptiveSparkPlanExec. Fall back to the class name.
+        planString = plan.nodeName();
+      }
+      DatasetLineage lineage = new DatasetLineage(sqlStart.description(), planString, sinkDataset);
       Collection<QueryPlan<?>> allInners = new ArrayList<>();
 
       plan.collect(
@@ -170,11 +211,22 @@ public class DatahubSparkListener extends SparkListener {
 
             @Override
             public Void apply(LogicalPlan plan) {
-              log.debug("CHILD " + plan.getClass() + "\n" + plan + "\n-------------\n");
+              log.debug("CHILD {}", plan.getClass());
               Optional<? extends Collection<SparkDataset>> inputDS =
                   DatasetExtractor.asDataset(plan, ctx, false);
               inputDS.ifPresent(x -> x.forEach(y -> lineage.addSource(y)));
-              allInners.addAll(JavaConversions.asJavaCollection(plan.innerChildren()));
+              try {
+                allInners.addAll(JavaConversions.asJavaCollection(plan.innerChildren()));
+              } catch (Exception e) {
+                // In Spark 3.5+, InMemoryRelation.innerChildren() can throw when
+                // the cachedPlan is AdaptiveSparkPlanExec. The datasets are already
+                // extracted via the PLAN_TO_DATASET handler above, so this is safe
+                // to skip.
+                log.debug(
+                    "Failed to get innerChildren for {}: {}",
+                    plan.getClass().getSimpleName(),
+                    e.getMessage());
+              }
               return null;
             }
 
@@ -195,7 +247,7 @@ public class DatahubSparkListener extends SparkListener {
 
               @Override
               public Void apply(LogicalPlan plan) {
-                log.debug("INNER CHILD " + plan.getClass() + "\n" + plan + "\n-------------\n");
+                log.debug("INNER CHILD {}", plan.getClass());
                 Optional<? extends Collection<SparkDataset>> inputDS =
                     DatasetExtractor.asDataset(plan, ctx, false);
                 inputDS.ifPresent(

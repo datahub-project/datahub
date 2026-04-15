@@ -23,6 +23,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.catalyst.catalog.HiveTableRelation;
+import org.apache.spark.sql.catalyst.plans.logical.GlobalLimit;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.execution.FileSourceScanExec;
 import org.apache.spark.sql.execution.RowDataSourceScanExec;
@@ -280,11 +281,24 @@ public class DatasetExtractor {
         });
 
     PLAN_TO_DATASET.put(
+        GlobalLimit.class,
+        (plan, ctx, datahubConfig) -> {
+          // GlobalLimit wraps a child plan, extract the child
+          LogicalPlan child = ((GlobalLimit) plan).child();
+          return asDataset(child, ctx, false);
+        });
+
+    PLAN_TO_DATASET.put(
         InMemoryRelation.class,
         (plan, ctx, datahubConfig) -> {
           SparkPlan cachedPlan = ((InMemoryRelation) plan).cachedPlan();
+          // In Spark 3.5+, cachedPlan may be AdaptiveSparkPlanExec which wraps
+          // the actual plan. Extract the underlying inputPlan via reflection
+          // since AdaptiveSparkPlanExec.collectLeaves() returns empty when
+          // isFinalPlan=false.
+          SparkPlan effectivePlan = unwrapAdaptiveSparkPlan(cachedPlan);
           ArrayList<SparkDataset> datasets = new ArrayList<>();
-          cachedPlan
+          effectivePlan
               .collectLeaves()
               .toList()
               .foreach(
@@ -309,6 +323,44 @@ public class DatasetExtractor {
                   });
           return datasets.isEmpty() ? Optional.empty() : Optional.of(datasets);
         });
+  }
+
+  /**
+   * Unwrap AdaptiveSparkPlanExec to get the underlying inputPlan. In Spark 3.5+,
+   * InMemoryRelation.cachedPlan() returns AdaptiveSparkPlanExec whose collectLeaves() returns empty
+   * when isFinalPlan=false. We need to extract the inputPlan to traverse the actual physical plan
+   * tree. Uses reflection to avoid compile-time dependency on AdaptiveSparkPlanExec which may not
+   * exist in older Spark versions.
+   */
+  private static SparkPlan unwrapAdaptiveSparkPlan(SparkPlan plan) {
+    if (plan.getClass().getName().contains("AdaptiveSparkPlanExec")) {
+      try {
+        java.lang.reflect.Method inputPlanMethod = plan.getClass().getMethod("inputPlan");
+        SparkPlan inputPlan = (SparkPlan) inputPlanMethod.invoke(plan);
+        log.debug("Unwrapped AdaptiveSparkPlanExec to {}", inputPlan.getClass().getName());
+        return inputPlan;
+      } catch (Exception e) {
+        log.warn("Failed to unwrap AdaptiveSparkPlanExec, using original plan", e);
+      }
+    }
+    return plan;
+  }
+
+  /**
+   * Check if a LogicalPlan is a create-table-as-select command
+   * (CreateDataSourceTableAsSelectCommand or CreateHiveTableAsSelectCommand).
+   */
+  static boolean isCreateTableAsSelectCommand(LogicalPlan plan) {
+    return plan instanceof CreateDataSourceTableAsSelectCommand
+        || plan instanceof CreateHiveTableAsSelectCommand;
+  }
+
+  /**
+   * Check if a LogicalPlan is an internal follow-up insert command that Spark 3.5+ generates after
+   * a create-table-as-select. These should be skipped to avoid duplicate lineage entries.
+   */
+  static boolean isFollowUpInsertCommand(LogicalPlan plan) {
+    return plan instanceof InsertIntoHadoopFsRelationCommand || plan instanceof InsertIntoHiveTable;
   }
 
   static Optional<? extends Collection<SparkDataset>> asDataset(
