@@ -1,7 +1,7 @@
 [
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -14,7 +14,7 @@
   },
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -25,7 +25,7 @@
   },
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -41,7 +41,7 @@
   },
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -52,7 +52,7 @@
   },
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -65,7 +65,7 @@
   },
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -76,7 +76,7 @@
   },
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -92,7 +92,7 @@
   },
   {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+    "entityUrn": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -136,7 +136,7 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
       "json": {
-        "parentTemplate": "urn:li:dataFlow:(dagster,prod/etl,PROD)",
+        "parentTemplate": "urn:li:dataFlow:(dagster,prod%2Fetl,PROD)",
         "upstreamInstances": []
       }
     }
@@ -179,7 +179,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -197,7 +197,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -208,7 +208,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -222,7 +222,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -238,7 +238,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -249,7 +249,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -267,7 +267,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -278,7 +278,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -292,7 +292,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -308,7 +308,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -346,7 +346,7 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
       "json": {
-        "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/extract)",
+        "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Fextract)",
         "upstreamInstances": []
       }
     }
@@ -389,7 +389,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -408,7 +408,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -419,7 +419,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -448,7 +448,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -464,7 +464,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -475,7 +475,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -494,7 +494,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -505,7 +505,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -534,7 +534,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -550,7 +550,7 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -588,7 +588,7 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
       "json": {
-        "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod/etl,PROD),prod/transform)",
+        "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(dagster,prod%2Fetl,PROD),prod%2Ftransform)",
         "upstreamInstances": []
       }
     }

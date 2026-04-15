@@ -44,7 +44,7 @@ class Asset:
 
 class TestIsAirflowAsset:
     def test_mock_asset_is_recognized(self) -> None:
-        asset = MockAsset(uri="s3://bucket/path")
+        asset = MockAsset(uri="s3://bucket%2Fpath")
         # MockAsset doesn't have the exact class name, so it should return False
         assert not is_airflow_asset(asset)
 
@@ -54,7 +54,7 @@ class TestIsAirflowAsset:
             def __init__(self, uri: str):
                 self.uri = uri
 
-        asset = Asset(uri="s3://bucket/path")
+        asset = Asset(uri="s3://bucket%2Fpath")
         assert is_airflow_asset(asset)
 
     def test_dataset_class_name_with_uri(self) -> None:
@@ -63,7 +63,7 @@ class TestIsAirflowAsset:
             def __init__(self, uri: str):
                 self.uri = uri
 
-        dataset = Dataset(uri="s3://bucket/path")
+        dataset = Dataset(uri="s3://bucket%2Fpath")
         assert is_airflow_asset(dataset)
 
     def test_asset_class_without_uri_is_rejected(self) -> None:
@@ -71,11 +71,11 @@ class TestIsAirflowAsset:
         assert not is_airflow_asset(asset)
 
     def test_non_asset_is_rejected(self) -> None:
-        obj = NotAnAsset(uri="s3://bucket/path")
+        obj = NotAnAsset(uri="s3://bucket%2Fpath")
         assert not is_airflow_asset(obj)
 
     def test_string_is_rejected(self) -> None:
-        assert not is_airflow_asset("s3://bucket/path")
+        assert not is_airflow_asset("s3://bucket%2Fpath")
 
     def test_none_is_rejected(self) -> None:
         assert not is_airflow_asset(None)
@@ -86,123 +86,129 @@ class TestTranslateAirflowAssetToUrn:
 
     def test_s3_uri(self) -> None:
         class Asset:
-            uri = "s3://my-bucket/path/to/data"
+            uri = "s3://my-bucket%2Fpath%2Fto%2Fdata"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/path/to/data,PROD)"
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Fpath%2Fto%2Fdata,PROD)"
         )
 
     def test_s3a_uri(self) -> None:
         class Asset:
-            uri = "s3a://my-bucket/path/to/data"
+            uri = "s3a://my-bucket%2Fpath%2Fto%2Fdata"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/path/to/data,PROD)"
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Fpath%2Fto%2Fdata,PROD)"
         )
 
     def test_gcs_uri(self) -> None:
         class Asset:
-            uri = "gs://my-bucket/path/to/data"
+            uri = "gs://my-bucket%2Fpath%2Fto%2Fdata"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/to/data,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket%2Fpath%2Fto%2Fdata,PROD)"
         )
 
     def test_postgres_uri(self) -> None:
         class Asset:
-            uri = "postgresql://myhost/mydb/mytable"
+            uri = "postgresql://myhost%2Fmydb%2Fmytable"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/mytable,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fmytable,PROD)"
         )
 
     def test_mysql_uri(self) -> None:
         class Asset:
-            uri = "mysql://myhost/mydb/mytable"
+            uri = "mysql://myhost%2Fmydb%2Fmytable"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:mysql,myhost/mydb/mytable,PROD)"
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:mysql,myhost%2Fmydb%2Fmytable,PROD)"
         )
 
     def test_bigquery_uri(self) -> None:
         class Asset:
-            uri = "bigquery://project/dataset/table"
+            uri = "bigquery://project%2Fdataset%2Ftable"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,project/dataset/table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,project%2Fdataset%2Ftable,PROD)"
         )
 
     def test_snowflake_uri(self) -> None:
         class Asset:
-            uri = "snowflake://account/db/schema/table"
+            uri = "snowflake://account%2Fdb%2Fschema%2Ftable"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,account/db/schema/table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,account%2Fdb%2Fschema%2Ftable,PROD)"
         )
 
     def test_hdfs_uri(self) -> None:
         class Asset:
-            uri = "hdfs://namenode/path/to/data"
+            uri = "hdfs://namenode%2Fpath%2Fto%2Fdata"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:hdfs,namenode/path/to/data,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:hdfs,namenode%2Fpath%2Fto%2Fdata,PROD)"
         )
 
     def test_adls_uri_abfs(self) -> None:
         class Asset:
-            uri = "abfs://container@storage.dfs.core.windows.net/path"
+            uri = "abfs://container@storage.dfs.core.windows.net%2Fpath"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net/path,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net%2Fpath,PROD)"
         )
 
     def test_adls_uri_abfss(self) -> None:
         class Asset:
-            uri = "abfss://container@storage.dfs.core.windows.net/path"
+            uri = "abfss://container@storage.dfs.core.windows.net%2Fpath"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net/path,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:adls,container@storage.dfs.core.windows.net%2Fpath,PROD)"
         )
 
     def test_file_uri(self) -> None:
         class Asset:
-            uri = "file:///local/path/to/data"
+            uri = "file:///local%2Fpath%2Fto%2Fdata"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:file,local/path/to/data,PROD)"
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:file,local%2Fpath%2Fto%2Fdata,PROD)"
         )
 
     def test_custom_env(self) -> None:
         class Asset:
-            uri = "s3://bucket/path"
+            uri = "s3://bucket%2Fpath"
 
         urn = translate_airflow_asset_to_urn(Asset(), env="DEV")
-        assert urn == "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path,DEV)"
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:s3,bucket%2Fpath,DEV)"
 
     def test_unknown_scheme_uses_scheme_as_platform(self) -> None:
         class Asset:
-            uri = "customscheme://host/path"
+            uri = "customscheme://host%2Fpath"
 
         urn = translate_airflow_asset_to_urn(Asset())
-        assert urn == "urn:li:dataset:(urn:li:dataPlatform:customscheme,host/path,PROD)"
+        assert (
+            urn == "urn:li:dataset:(urn:li:dataPlatform:customscheme,host%2Fpath,PROD)"
+        )
 
     def test_no_uri_attribute_returns_none(self) -> None:
         class NoUri:
@@ -269,14 +275,14 @@ class TestExtractUrnsFromIolets:
             def __init__(self, uri: str):
                 self.uri = uri
 
-        asset1 = Asset("s3://bucket/path1")
-        asset2 = Asset("gs://bucket/path2")
+        asset1 = Asset("s3://bucket%2Fpath1")
+        asset2 = Asset("gs://bucket%2Fpath2")
 
         urns = extract_urns_from_iolets([asset1, asset2], capture_airflow_assets=True)
 
         assert urns == [
-            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path1,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/path2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket%2Fpath1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket%2Fpath2,PROD)",
         ]
 
     def test_mixed_entities_and_assets(self) -> None:
@@ -285,13 +291,13 @@ class TestExtractUrnsFromIolets:
                 self.uri = uri
 
         entity = Urn("urn:li:dataset:(urn:li:dataPlatform:postgres,db.table,PROD)")
-        asset = Asset("s3://bucket/path")
+        asset = Asset("s3://bucket%2Fpath")
 
         urns = extract_urns_from_iolets([entity, asset], capture_airflow_assets=True)
 
         assert urns == [
             "urn:li:dataset:(urn:li:dataPlatform:postgres,db.table,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket%2Fpath,PROD)",
         ]
 
     def test_ignores_airflow_assets_when_disabled(self) -> None:
@@ -300,7 +306,7 @@ class TestExtractUrnsFromIolets:
                 self.uri = uri
 
         entity = Urn("urn:li:dataset:(urn:li:dataPlatform:postgres,db.table,PROD)")
-        asset = Asset("s3://bucket/path")
+        asset = Asset("s3://bucket%2Fpath")
 
         urns = extract_urns_from_iolets([entity, asset], capture_airflow_assets=False)
 
@@ -312,32 +318,32 @@ class TestExtractUrnsFromIolets:
             def __init__(self, uri: str):
                 self.uri = uri
 
-        valid_asset = Asset("s3://bucket/path")
+        valid_asset = Asset("s3://bucket%2Fpath")
         invalid_asset = Asset("")  # Empty URI should be skipped
 
         urns = extract_urns_from_iolets(
             [valid_asset, invalid_asset], capture_airflow_assets=True
         )
 
-        assert urns == ["urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path,PROD)"]
+        assert urns == ["urn:li:dataset:(urn:li:dataPlatform:s3,bucket%2Fpath,PROD)"]
 
     def test_uses_custom_env(self) -> None:
         class Asset:
             def __init__(self, uri: str):
                 self.uri = uri
 
-        asset = Asset("s3://bucket/path")
+        asset = Asset("s3://bucket%2Fpath")
 
         urns = extract_urns_from_iolets([asset], capture_airflow_assets=True, env="DEV")
 
-        assert urns == ["urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path,DEV)"]
+        assert urns == ["urn:li:dataset:(urn:li:dataPlatform:s3,bucket%2Fpath,DEV)"]
 
     def test_empty_list_returns_empty(self) -> None:
         urns = extract_urns_from_iolets([], capture_airflow_assets=True)
         assert urns == []
 
     def test_ignores_unknown_types(self) -> None:
-        unknown = NotAnAsset(uri="s3://bucket/path")
+        unknown = NotAnAsset(uri="s3://bucket%2Fpath")
 
         urns = extract_urns_from_iolets([unknown], capture_airflow_assets=True)
 
@@ -381,7 +387,7 @@ class TestRealAirflowDataset:
 
     def test_translate_real_airflow_dataset_s3(self) -> None:
         """Test translating real Airflow Dataset with S3 URI."""
-        dataset = _create_airflow_dataset("s3://my-bucket/path/to/data")
+        dataset = _create_airflow_dataset("s3://my-bucket%2Fpath%2Fto%2Fdata")
         if dataset is None:
             import pytest
 
@@ -389,7 +395,8 @@ class TestRealAirflowDataset:
 
         urn = translate_airflow_asset_to_urn(dataset)
         assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/path/to/data,PROD)"
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket%2Fpath%2Fto%2Fdata,PROD)"
         )
 
     def test_translate_real_airflow_dataset_postgres(self) -> None:
@@ -403,7 +410,7 @@ class TestRealAirflowDataset:
         urn = translate_airflow_asset_to_urn(dataset)
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost%2Fmydb%2Fschema%2Ftable,PROD)"
         )
 
     def test_translate_real_airflow_dataset_custom_env(self) -> None:
@@ -415,7 +422,9 @@ class TestRealAirflowDataset:
             pytest.skip("Could not create Airflow Dataset - ProvidersManager issue")
 
         urn = translate_airflow_asset_to_urn(dataset, env="DEV")
-        assert urn == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/data.csv,DEV)"
+        assert (
+            urn == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket%2Fdata.csv,DEV)"
+        )
 
     def test_extract_urns_with_real_airflow_dataset(self) -> None:
         """Test extract_urns_from_iolets with real Airflow Dataset."""
@@ -431,8 +440,8 @@ class TestRealAirflowDataset:
         )
 
         assert urns == [
-            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/input.parquet,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,project/dataset/table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket%2Finput.parquet,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,project%2Fdataset%2Ftable,PROD)",
         ]
 
     def test_mixed_datahub_entity_and_real_airflow_dataset(self) -> None:
@@ -451,7 +460,7 @@ class TestRealAirflowDataset:
 
         assert urns == [
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/output.parquet,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket%2Foutput.parquet,PROD)",
         ]
 
     def test_real_airflow_dataset_ignored_when_disabled(self) -> None:
