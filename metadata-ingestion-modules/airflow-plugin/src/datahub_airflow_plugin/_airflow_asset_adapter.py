@@ -278,7 +278,7 @@ def extract_urns_from_resolved_alias_events(
     """
     try:
         from airflow.models.asset import AssetEvent
-        from sqlalchemy import select
+        from sqlalchemy import and_, select
     except ImportError:
         return []
 
@@ -286,10 +286,12 @@ def extract_urns_from_resolved_alias_events(
         urns: List[str] = []
         events = s.scalars(
             select(AssetEvent).where(
-                AssetEvent.source_dag_id == dag_id,
-                AssetEvent.source_run_id == run_id,
-                AssetEvent.source_task_id == task_id,
-                AssetEvent.source_map_index == map_index,
+                and_(
+                    AssetEvent.source_dag_id == dag_id,
+                    AssetEvent.source_run_id == run_id,
+                    AssetEvent.source_task_id == task_id,
+                    AssetEvent.source_map_index == map_index,
+                )
             )
         ).all()
         for event in events:

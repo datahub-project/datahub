@@ -500,7 +500,7 @@ class TestExtractUrnsFromResolvedAliasEvents:
         ctx.__exit__ = MagicMock(return_value=False)
         return ctx
 
-    def _airflow_sys_modules(self, events: list) -> "patch":  # type: ignore[type-arg]
+    def _airflow_sys_modules(self, events: list) -> Any:
         """Inject mock airflow modules so the lazy imports inside the function work.
 
         sqlalchemy is also mocked here because select(MagicMock()) raises a
@@ -635,12 +635,12 @@ class TestExtractUrnsFromTaskInstanceOutletEvents:
             def __iter__(self):
                 return iter(self._data)
 
-            def __getitem__(self, key: Any):
+            def __getitem__(self, key: Any) -> Any:
                 return self._data[key]
 
         return AssetAlias, OutletEventAccessors
 
-    def _make_asset_accessor(self, uri: str, AssetAlias_cls: Any):
+    def _make_asset_accessor(self, uri: str, AssetAlias_cls: Any) -> Any:
         """Build a mock OutletEventAccessor with one AssetAliasEvent."""
 
         class Asset:
@@ -655,7 +655,7 @@ class TestExtractUrnsFromTaskInstanceOutletEvents:
 
     def _sys_modules_patch(
         self, AssetAlias_cls: Any, OutletEventAccessors_cls: Any
-    ) -> "patch":  # type: ignore[type-arg]
+    ) -> Any:
         import sys
 
         mock_sdk_asset = MagicMock()
