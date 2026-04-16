@@ -55,6 +55,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
 
         # Mock test_connection
         mock_client.test_connection.return_value = True
+        mock_client.get_organization.return_value = None
 
         # Mock get_users for ownership resolution
         from datahub.ingestion.source.snowplow.models.snowplow_models import User
@@ -195,6 +196,7 @@ def test_snowplow_event_specs_and_tracking_plans(pytestconfig, tmp_path, mock_ti
 
         # Mock test_connection
         mock_client.test_connection.return_value = True
+        mock_client.get_organization.return_value = None
 
         # Mock get_users for ownership resolution
         mock_users = [
@@ -337,6 +339,7 @@ def test_snowplow_tracking_plans(pytestconfig, tmp_path, mock_time):
 
         # Mock test_connection
         mock_client.test_connection.return_value = True
+        mock_client.get_organization.return_value = None
 
         # Mock get_users for ownership resolution
         mock_users = [
@@ -450,6 +453,7 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
             User(id="user2", email="jane@company.com", name="Jane Doe"),
         ]
         mock_client.get_users.return_value = mock_users
+        mock_client.get_organization.return_value = None
 
         # Run ingestion with pipelines enabled
         pipeline_run = Pipeline.create(
@@ -816,6 +820,7 @@ def test_snowplow_enrichments_without_event_spec_processor(
         ]
         mock_client.get_destinations.return_value = []
         mock_client.test_connection.return_value = True
+        mock_client.get_organization.return_value = None
 
         # Run ingestion with the critical flag combination:
         # extract_event_specifications=FALSE but extract_enrichments=TRUE
@@ -963,6 +968,7 @@ def test_snowplow_all_event_specs_processed(pytestconfig, tmp_path, mock_time):
         ]
         mock_client.get_destinations.return_value = []
         mock_client.test_connection.return_value = True
+        mock_client.get_organization.return_value = None
 
         pipeline_run = Pipeline.create(
             {
