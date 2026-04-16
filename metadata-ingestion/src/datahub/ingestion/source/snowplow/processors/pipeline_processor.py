@@ -120,7 +120,38 @@ class PipelineProcessor(EntityProcessor):
                 )
                 return
 
-            # Use first pipeline (most orgs have one pipeline)
+            # Filter pipelines by label matching deployment_environment (if set)
+            # deployment_environment is already normalized to uppercase by config validator
+            if self.config.deployment_environment:
+                target_env = self.config.deployment_environment
+                matching_pipelines = []
+                for p in physical_pipelines:
+                    if not p.label:
+                        # Pipeline has no environment label — include by default
+                        logger.info(
+                            f"Pipeline '{p.name}' has no label, including it "
+                            f"(cannot determine if it matches deployment_environment='{target_env}')"
+                        )
+                        matching_pipelines.append(p)
+                    elif p.label.upper() != target_env:
+                        logger.info(
+                            f"Filtering out pipeline '{p.name}' "
+                            f"(label='{p.label}' does not match deployment_environment='{target_env}')"
+                        )
+                        self.report.report_pipeline_filtered_by_env(p.name)
+                    else:
+                        matching_pipelines.append(p)
+
+                if not matching_pipelines:
+                    logger.warning(
+                        f"No pipelines match deployment_environment={target_env} "
+                        f"(found {len(physical_pipelines)} pipelines with labels: "
+                        f"{[p.label for p in physical_pipelines]}). "
+                        "Skipping pipeline extraction."
+                    )
+                    return
+                physical_pipelines = matching_pipelines
+
             pipeline = physical_pipelines[0]
             self.state.physical_pipeline = pipeline
 

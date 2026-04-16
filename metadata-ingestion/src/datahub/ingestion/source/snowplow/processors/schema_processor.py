@@ -134,6 +134,7 @@ class SchemaProcessor(EntityProcessor):
                 self._build_field_version_mappings(data_structures)
 
         # Apply filters
+        data_structures = self._filter_by_deployment_env(data_structures)
         data_structures = self._filter_by_deployed_since(data_structures)
         data_structures = self._filter_by_schema_pattern(data_structures)
 
@@ -170,6 +171,48 @@ class SchemaProcessor(EntityProcessor):
                 exc=e,
             )
             return []
+
+    def _filter_by_deployment_env(
+        self, data_structures: List[DataStructure]
+    ) -> List[DataStructure]:
+        """Filter data structures by Snowplow deployment environment.
+
+        Only includes schemas that have at least one deployment matching
+        config.deployment_environment. Schemas with no deployments (e.g., drafts)
+        are still included. Skipped when deployment_environment is not set.
+        """
+        if not self.config.deployment_environment:
+            return data_structures
+
+        # Already normalized to uppercase by config validator
+        target_env = self.config.deployment_environment
+        filtered = []
+        for ds in data_structures:
+            schema_key = f"{ds.vendor}/{ds.name}"
+            if not ds.deployments:
+                # No deployment info — include (could be a draft or Iglu-only schema)
+                filtered.append(ds)
+                continue
+
+            has_matching_env = any(
+                dep.env and dep.env.upper() == target_env for dep in ds.deployments
+            )
+            if has_matching_env:
+                filtered.append(ds)
+            else:
+                deployed_envs = {dep.env for dep in ds.deployments if dep.env}
+                logger.info(
+                    f"Filtering out schema {schema_key}: "
+                    f"no {target_env} deployment (deployed to: {deployed_envs})"
+                )
+                self.report.report_schema_filtered_by_env(schema_key)
+
+        if len(filtered) < len(data_structures):
+            logger.info(
+                f"Filtered schemas by deployment_environment={target_env}: "
+                f"{len(filtered)}/{len(data_structures)} schemas retained"
+            )
+        return filtered
 
     def _filter_by_deployed_since(
         self, data_structures: List[DataStructure]
