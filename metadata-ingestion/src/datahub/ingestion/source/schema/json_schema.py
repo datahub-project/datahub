@@ -287,18 +287,39 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
 
         if strategy == DatasetNameStrategy.SCHEMA_ID:
             schema_id = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
-            name = schema_id if schema_id else fallback
+            if schema_id:
+                name = schema_id
+            else:
+                name = fallback
+                logger.debug(
+                    f"Schema {schema_type} has no $id field; "
+                    f"falling back to basename '{fallback}' for display name"
+                )
         elif strategy == DatasetNameStrategy.TITLE:
             title = schema_dict.get("title")
-            name = title if title else fallback
+            if title:
+                name = title
+            else:
+                name = fallback
+                logger.debug(
+                    f"Schema {schema_type} has no title field; "
+                    f"falling back to basename '{fallback}' for display name"
+                )
         else:
             name = fallback
 
         if self.config.dataset_name_replace_pattern:
-            name = name.replace(
+            replaced = name.replace(
                 self.config.dataset_name_replace_pattern.match,
                 self.config.dataset_name_replace_pattern.replace,
             )
+            if replaced.strip():
+                name = replaced
+            else:
+                logger.warning(
+                    f"dataset_name_replace_pattern produced empty display name "
+                    f"for schema {schema_type}; keeping original name '{name}'"
+                )
 
         return name
 
