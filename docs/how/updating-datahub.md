@@ -167,6 +167,7 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 - #15748 (Ingestion) PowerBI: Reverted `create_corp_user` default back to `True` (was changed to `False` in v1.5.0). Customers on v1.5.0 or v1.5.0.1 with stateful ingestion enabled and without explicitly setting `ownership.create_corp_user: true` in their recipe may have had PowerBI-discovered users soft-deleted.
 
   **Remediation** — if users were already soft-deleted, restore them using one of:
+
   - Re-ingest from your authoritative source (LDAP/Okta/SCIM) — recommended.
   - CLI: `datahub delete --urn "urn:li:corpuser:<email>" --soft --undelete` for each affected user.
   - Python SDK: emit `StatusClass(removed=False)` for each affected user URN.
@@ -176,6 +177,7 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 
   **If you want `create_corp_user: false`** (to avoid overwriting LDAP/Okta profiles):
   Do **not** switch directly to `false` — this will cause the same soft-deletion bug. Instead:
+
   1. Upgrade to this version and run **at least one ingestion** with `create_corp_user: true` (the default). This updates the stateful ingestion checkpoint to mark user URNs as non-primary.
   2. After that run completes, set `ownership.create_corp_user: false` in your recipe.
   3. On subsequent runs, users will no longer be emitted, but stateful ingestion will safely skip them (they were already marked non-primary in the checkpoint).
@@ -1002,6 +1004,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 - Closing an authorization hole in creating tags adding a Platform Privilege called `Create Tags` for creating tags. This is assigned to `datahub` root user, along
   with default All Users policy. Notice: You may need to add this privilege (or `Manage Tags`) to existing users that need the ability to create tags on the platform.
 - #5329 Below profiling config parameters are now supported in `BigQuery`:
+
   - profiling.profile_if_updated_since_days (default=1)
   - profiling.profile_table_size_limit (default=1GB)
   - profiling.profile_table_row_limit (default=50000)
