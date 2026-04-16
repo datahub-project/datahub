@@ -135,8 +135,8 @@ def test_view_lineage_extraction_memory_usage():
     """
     Test memory usage when extracting lineage from many views.
 
-    This simulates the BigQuery ingestion scenario where 16k+ views are parsed,
-    leading to 16GB memory usage due to the sqlglot[c] leak.
+    This simulates the BigQuery ingestion scenario where many views are parsed,
+    leading to high memory usage due to the sqlglot[c] leak.
     """
     import tracemalloc
 
@@ -222,7 +222,7 @@ def test_view_lineage_extraction_memory_usage():
             f"\n⚠️  WARNING: High memory usage detected ({total_increase_mb:.1f} MB for {num_iterations} views)"
         )
         print(
-            f"   Projected for 16,443 views: {total_increase_mb * (16443 / num_iterations):.1f} MB"
+            f"   Projected for 10,000 views: {total_increase_mb * (10000 / num_iterations):.1f} MB"
         )
         print("   This may indicate the sqlglot[c] memory leak is present.")
         print("   See: https://github.com/tobymao/sqlglot/issues/7506")
