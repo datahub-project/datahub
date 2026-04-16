@@ -1,6 +1,8 @@
 """Unit tests for Dataplex entry processing."""
 
-from typing import cast
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -176,192 +178,6 @@ class TestDataplexEntriesProcessorDesign:
 
         assert processor._extract_display_name(entry) == "e1"
 
-    def test_collect_entries_streams_before_spanner_search(self) -> None:
-        catalog_client = Mock()
-        processor = DataplexEntriesProcessor(
-            config=DataplexConfig(project_ids=["test-project"], env="PROD"),
-            catalog_client=catalog_client,
-            report=DataplexEntriesReport(),
-            entry_data=[],
-            source_report=Mock(),
-        )
-
-        entry_group = Mock(spec=dataplex_v1.EntryGroup)
-        entry_group.name = "projects/p/locations/us/entryGroups/g1"
-
-        listed_entry = Mock(spec=dataplex_v1.Entry)
-        listed_entry.name = "projects/p/locations/us/entryGroups/g1/entries/e1"
-        listed_entry.fully_qualified_name = "bigquery:p.ds.e1"
-
-        detailed_entry = Mock(spec=dataplex_v1.Entry)
-        detailed_entry.name = listed_entry.name
-
-        catalog_client.list_entries.return_value = [listed_entry]
-        catalog_client.get_entry.return_value = detailed_entry
-        catalog_client.search_entries.return_value = []
-
-        with (
-            patch.object(
-                processor, "list_entry_groups", return_value=[entry_group]
-            ) as mock_list_entry_groups,
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.ListEntriesRequest"
-            ) as mock_list_entries_request,
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.GetEntryRequest"
-            ) as mock_get_entry_request,
-        ):
-            mock_list_entries_request.return_value = Mock()
-            mock_get_entry_request.return_value = Mock()
-            entries_iter = processor.collect_entries("p", "us")
-            first_entry = next(iter(entries_iter))
-
-        assert first_entry is detailed_entry
-        mock_list_entry_groups.assert_called_once_with("p", "us")
-        catalog_client.search_entries.assert_not_called()
-
-    def test_process_project_uses_entries_locations(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        processor.config.entries_locations = ["us", "eu"]
-
-        with patch.object(
-            processor, "process_location", side_effect=[[Mock()], [Mock()]]
-        ) as process_location_mock:
-            entities = list(processor.process_project("project-1"))
-
-        assert len(entities) == 2
-        assert process_location_mock.call_args_list[0].args == ("project-1", "us")
-        assert process_location_mock.call_args_list[1].args == ("project-1", "eu")
-
-    def test_process_location_yields_entity_for_pre_filtered_entries(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        accepted = Mock(spec=dataplex_v1.Entry)
-        accepted.name = "projects/p/locations/us/entryGroups/g/entries/allow"
-        accepted.fully_qualified_name = "bigquery:p.ds.allow"
-
-        entity = Mock()
-        with (
-            patch.object(
-                processor,
-                "collect_entries",
-                return_value=[accepted],
-            ),
-            patch.object(
-                processor, "build_project_container_for_entry", return_value=None
-            ),
-            patch.object(processor, "build_entity_for_entry", return_value=entity),
-            patch.object(processor, "_track_entry_for_lineage") as track_lineage_mock,
-        ):
-            entities = list(processor.process_location("project-1", "us"))
-
-        report = cast(DataplexEntriesReport, processor.report)
-        assert entities == [entity]
-        assert report.entries_seen == 0
-        track_lineage_mock.assert_called_once_with(
-            dataplex_location="us",
-            entry=accepted,
-        )
-
-    def test_collect_entries_covers_group_filtering_and_exception_paths(self) -> None:
-        catalog_client = Mock()
-        processor = DataplexEntriesProcessor(
-            config=DataplexConfig(project_ids=["test-project"], env="PROD"),
-            catalog_client=catalog_client,
-            report=DataplexEntriesReport(),
-            entry_data=[],
-            source_report=Mock(),
-        )
-
-        skipped_group = Mock(spec=dataplex_v1.EntryGroup)
-        skipped_group.name = "projects/p/locations/us/entryGroups/skip"
-        accepted_group = Mock(spec=dataplex_v1.EntryGroup)
-        accepted_group.name = "projects/p/locations/us/entryGroups/accept"
-
-        listed_ok = Mock(spec=dataplex_v1.Entry)
-        listed_ok.name = "projects/p/locations/us/entryGroups/accept/entries/ok"
-        listed_ok.fully_qualified_name = "bigquery:p.ds.ok"
-        listed_fail = Mock(spec=dataplex_v1.Entry)
-        listed_fail.name = "projects/p/locations/us/entryGroups/accept/entries/fail"
-        listed_fail.fully_qualified_name = "bigquery:p.ds.fail"
-
-        detailed_ok = Mock(spec=dataplex_v1.Entry)
-        detailed_ok.name = listed_ok.name
-        spanner_entry = Mock(spec=dataplex_v1.Entry)
-        spanner_entry.name = "projects/p/locations/us/entryGroups/@spanner/entries/e1"
-
-        catalog_client.list_entries.return_value = [listed_ok, listed_fail]
-        catalog_client.get_entry.side_effect = [detailed_ok, Exception("boom")]
-
-        with (
-            patch.object(
-                processor,
-                "list_entry_groups",
-                return_value=[skipped_group, accepted_group],
-            ),
-            patch.object(
-                processor,
-                "should_process_entry_group",
-                side_effect=[False, True],
-            ),
-            patch.object(
-                processor, "collect_spanner_entries", return_value=[spanner_entry]
-            ),
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.ListEntriesRequest"
-            ) as list_entries_request_mock,
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.GetEntryRequest"
-            ) as get_entry_request_mock,
-        ):
-            list_entries_request_mock.return_value = Mock()
-            get_entry_request_mock.return_value = Mock()
-            entries = list(processor.collect_entries("p", "us"))
-
-        report = cast(DataplexEntriesReport, processor.report)
-        assert entries == [detailed_ok, spanner_entry]
-        assert report.entry_groups_seen == 2
-        assert report.entry_groups_filtered == 1
-
-    def test_collect_spanner_entries_success_and_exception(self) -> None:
-        catalog_client = Mock()
-        processor = DataplexEntriesProcessor(
-            config=DataplexConfig(project_ids=["test-project"], env="PROD"),
-            catalog_client=catalog_client,
-            report=DataplexEntriesReport(),
-            entry_data=[],
-            source_report=Mock(),
-        )
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.SearchEntriesRequest"
-        ) as search_request_mock:
-            search_request_mock.return_value = Mock()
-            result_with_entry = Mock()
-            result_with_entry.dataplex_entry = Mock(spec=dataplex_v1.Entry)
-            result_with_entry.dataplex_entry.name = "projects/p/locations/us/entries/e1"
-            result_with_entry.dataplex_entry.fully_qualified_name = (
-                "spanner:p.us.instance.db.table"
-            )
-            result_without_entry = Mock()
-            result_without_entry.dataplex_entry = None
-            catalog_client.search_entries.return_value = [
-                result_with_entry,
-                result_without_entry,
-            ]
-
-            entries = list(processor.collect_spanner_entries("p", "us"))
-            assert len(entries) == 1
-            assert entries[0].name == "projects/p/locations/us/entries/e1"
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.dataplex_v1.SearchEntriesRequest"
-        ) as search_request_mock:
-            search_request_mock.return_value = Mock()
-            catalog_client.search_entries.side_effect = Exception("search failed")
-            assert list(processor.collect_spanner_entries("p", "us")) == []
-
     def test_build_entity_for_entry_dataset_and_container_paths(
         self, processor: DataplexEntriesProcessor
     ) -> None:
@@ -459,43 +275,6 @@ class TestDataplexEntriesProcessorDesign:
         assert isinstance(project_container, Container)
         assert project_container.display_name == "harshal-playground-306419"
         assert project_container.parent_container is None
-
-    def test_process_location_emits_project_container_once_per_project(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        entry_one = Mock(spec=dataplex_v1.Entry)
-        entry_one.name = "projects/p/locations/us/entryGroups/g/entries/one"
-        entry_one.fully_qualified_name = "bigquery:p.ds.one"
-        entry_two = Mock(spec=dataplex_v1.Entry)
-        entry_two.name = "projects/p/locations/us/entryGroups/g/entries/two"
-        entry_two.fully_qualified_name = "bigquery:p.ds.two"
-
-        project_container = Mock()
-        project_container.urn.urn.return_value = "urn:li:container:project"
-        dataset_entity_one = Mock()
-        dataset_entity_two = Mock()
-
-        with (
-            patch.object(
-                processor, "collect_entries", return_value=[entry_one, entry_two]
-            ),
-            patch.object(processor, "_entry_name_allowed", return_value=True),
-            patch.object(processor, "_entry_fqn_allowed", return_value=True),
-            patch.object(
-                processor,
-                "build_project_container_for_entry",
-                return_value=project_container,
-            ),
-            patch.object(
-                processor,
-                "build_entity_for_entry",
-                side_effect=[dataset_entity_one, dataset_entity_two],
-            ),
-            patch.object(processor, "_track_entry_for_lineage"),
-        ):
-            entities = list(processor.process_location("project-1", "us"))
-
-        assert entities == [project_container, dataset_entity_one, dataset_entity_two]
 
     def test_build_entity_for_entry_handles_invalid_and_unsupported_inputs(
         self,
@@ -753,3 +532,185 @@ class TestDataplexEntriesProcessorDesign:
         non_dataset_entry.fully_qualified_name = "bigquery:p.ds"
         processor._track_entry_for_lineage("us", non_dataset_entry)
         assert len(processor.entry_data) == 1
+
+
+class TestDataplexParallelEntries:
+    """Tests for the parallel entry processing path (process_entries)."""
+
+    @pytest.fixture
+    def processor(self) -> DataplexEntriesProcessor:
+        config = DataplexConfig(
+            project_ids=["proj-1"],
+            entries_locations=["us"],
+            env="PROD",
+        )
+        return DataplexEntriesProcessor(
+            config=config,
+            catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
+            report=DataplexEntriesReport(),
+            entry_data=[],
+            source_report=Mock(),
+        )
+
+    def test_process_entries_collects_all_entries(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entity_a = Mock()
+        entity_b = Mock()
+
+        with (
+            patch.object(
+                processor, "_list_entry_stubs", return_value=["entry-a", "entry-b"]
+            ),
+            patch.object(
+                processor,
+                "_fetch_and_build_entry",
+                side_effect=[[entity_a], [entity_b]],
+            ),
+            patch.object(processor, "_process_spanner_entries", return_value=[]),
+        ):
+            entities = list(
+                processor.process_entries(project_ids=["proj-1"], max_workers=2)
+            )
+
+        assert set(entities) == {entity_a, entity_b}
+
+    def test_process_entries_includes_spanner_entities(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        spanner_entity = Mock()
+
+        with (
+            patch.object(processor, "_list_entry_stubs", return_value=[]),
+            patch.object(
+                processor, "_process_spanner_entries", return_value=[spanner_entity]
+            ),
+        ):
+            entities = list(
+                processor.process_entries(project_ids=["proj-1"], max_workers=2)
+            )
+
+        assert spanner_entity in entities
+
+    def test_process_entries_handles_fetch_failure(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entity_ok = Mock()
+
+        with (
+            patch.object(
+                processor,
+                "_list_entry_stubs",
+                return_value=["entry-ok", "entry-fail"],
+            ),
+            patch.object(
+                processor,
+                "_fetch_and_build_entry",
+                side_effect=[[entity_ok], Exception("fetch failed")],
+            ),
+            patch.object(processor, "_process_spanner_entries", return_value=[]),
+        ):
+            entities = list(
+                processor.process_entries(project_ids=["proj-1"], max_workers=2)
+            )
+
+        assert entity_ok in entities
+        source_report = cast(Mock, processor.source_report)
+        source_report.warning.assert_called_once()
+
+    def test_process_entries_skips_failing_project_location_pair(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        """A PermissionDenied on one (project, location) must not abort the others."""
+        entity_ok = Mock()
+
+        def stub_side_effect(project_id: str, location: str) -> List[str]:
+            if project_id == "proj-fail":
+                raise PermissionError("403 PermissionDenied")
+            return ["entry-ok"]
+
+        with (
+            patch.object(processor, "_list_entry_stubs", side_effect=stub_side_effect),
+            patch.object(
+                processor,
+                "_fetch_and_build_entry",
+                return_value=[entity_ok],
+            ),
+            patch.object(processor, "_process_spanner_entries", return_value=[]),
+        ):
+            entities = list(
+                processor.process_entries(
+                    project_ids=["proj-fail", "proj-ok"], max_workers=2
+                )
+            )
+
+        assert entity_ok in entities
+        source_report = cast(Mock, processor.source_report)
+        source_report.warning.assert_called_once()
+
+    def test_build_entities_deduplicates_project_container_across_threads(
+        self,
+    ) -> None:
+        """Two parallel workers encountering the same project container emit it once."""
+        processor = DataplexEntriesProcessor(
+            config=DataplexConfig(project_ids=["proj-1"], env="PROD"),
+            catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
+            report=DataplexEntriesReport(),
+            entry_data=[],
+            source_report=Mock(),
+        )
+
+        project_container = Mock()
+        project_container.urn.urn.return_value = "urn:li:container:same-project"
+        entity_1 = Mock()
+        entity_2 = Mock()
+        entry_1 = Mock(spec=dataplex_v1.Entry)
+        entry_2 = Mock(spec=dataplex_v1.Entry)
+
+        with (
+            patch.object(
+                processor,
+                "build_project_container_for_entry",
+                return_value=project_container,
+            ),
+            patch.object(
+                processor,
+                "build_entity_for_entry",
+                side_effect=[entity_1, entity_2],
+            ),
+            patch.object(processor, "_track_entry_for_lineage"),
+        ):
+            barrier = threading.Barrier(2)
+
+            def call_build(entry: dataplex_v1.Entry) -> list:
+                barrier.wait()
+                return processor._build_entities_for_entry(entry, "us")
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                f1 = executor.submit(call_build, entry_1)
+                f2 = executor.submit(call_build, entry_2)
+            results = f1.result() + f2.result()
+
+        containers = [e for e in results if e is project_container]
+        assert len(containers) == 1
+        assert entity_1 in results
+        assert entity_2 in results
+
+    def test_report_thread_safety(self) -> None:
+        """Concurrent calls to report methods produce consistent counter totals."""
+        report = DataplexEntriesReport()
+        n_threads = 50
+        barrier = threading.Barrier(n_threads)
+
+        def bump() -> None:
+            barrier.wait()
+            report.report_entry_group("eg", filtered=True)
+
+        threads = [threading.Thread(target=bump) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert report.entry_groups_seen == n_threads
+        assert report.entry_groups_filtered == n_threads
