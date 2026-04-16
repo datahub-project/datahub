@@ -85,6 +85,7 @@ markers = [
     "read_only: marks tests as read only (deselect with '-m \"not read_only\"')",
     "no_cypress_suite1: main smoke tests, suite 1",
     "test_run_cypress: run cypress tests",
+    "integration: marks tests as integration tests",
 ]
 filterwarnings = [
     # Ignore some warnings that come from dependencies.

@@ -380,6 +380,8 @@ def create_datahub_step_state_aspects(
 
 
 class TestSessionWrapper:
+    __test__ = False  # Not a test class — prevent pytest collection
+
     """
     Many of the tests do not consider async writes. This
     class intercepts mutations using the requests library

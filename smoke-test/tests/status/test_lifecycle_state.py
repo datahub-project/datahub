@@ -57,7 +57,7 @@ def _ingest_lifecycle_stage(
     """Create a lifecycleStageType entity via the REST emitter. Returns the URN."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.emitter.rest_emitter import DatahubRestEmitter
-    from datahub.metadata.schema_classes import (
+    from datahub.metadata.schema_classes import (  # type: ignore[attr-defined]
         AuditStampClass,
         LifecycleStageSettingsClass,
         LifecycleStageTypeInfoClass,
@@ -160,7 +160,7 @@ def _set_lifecycle_stage_via_rest(
 
     status = StatusClass(
         removed=False,
-        lifecycleStage=lifecycle_stage_urn,
+        lifecycleStage=lifecycle_stage_urn,  # type: ignore[call-arg]
     )
     mcp = MetadataChangeProposalWrapper(entityUrn=urn, aspect=status)
     emitter = DatahubRestEmitter(
@@ -195,8 +195,8 @@ def _get_status(auth_session, urn: str) -> Dict[str, Any]:
     if aspect is None:
         return {}
     result: Dict[str, Any] = {"removed": aspect.removed}
-    if aspect.lifecycleStage is not None:
-        result["lifecycleStage"] = aspect.lifecycleStage
+    if aspect.lifecycleStage is not None:  # type: ignore[attr-defined]
+        result["lifecycleStage"] = aspect.lifecycleStage  # type: ignore[attr-defined]
     return result
 
 
