@@ -648,6 +648,10 @@ class BigQuerySchemaApi:
                 )
 
         # One list_policy_tags() call per unique taxonomy resolves all tags at once.
+        logger.info(
+            f"Resolving policy tag display names from {len(taxonomy_ids)} "
+            f"{'taxonomy' if len(taxonomy_ids) == 1 else 'taxonomies'}: {sorted(taxonomy_ids)}"
+        )
         for taxonomy_id in taxonomy_ids:
             try:
                 if rate_limiter:
@@ -660,6 +664,7 @@ class BigQuerySchemaApi:
                         parent=taxonomy_id
                     )
 
+                self.report.num_list_policy_tags_api_requests += 1
                 for policy_tag in policy_tags:
                     self._policy_tag_mapping_cache[policy_tag.name] = (
                         policy_tag.display_name

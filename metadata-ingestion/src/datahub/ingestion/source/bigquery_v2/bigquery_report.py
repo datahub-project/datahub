@@ -25,6 +25,7 @@ class BigQuerySchemaApiPerfReport(Report):
     num_list_projects_api_requests: int = 0
     num_list_datasets_api_requests: int = 0
     num_get_columns_for_dataset_api_requests: int = 0
+    num_list_policy_tags_api_requests: int = 0
     num_get_tables_for_dataset_api_requests: int = 0
     num_list_tables_api_requests: int = 0
     num_get_views_for_dataset_api_requests: int = 0
