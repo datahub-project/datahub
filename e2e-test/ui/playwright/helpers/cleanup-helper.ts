@@ -1,5 +1,6 @@
 import { Page, TestInfo } from '@playwright/test';
 import { GraphQLHelper } from './graphql-helper';
+import { gmsUrl } from '../utils/constants';
 
 // ── URL constants ─────────────────────────────────────────────────────────────
 
@@ -56,11 +57,8 @@ export class CleanupHelper {
   }
 
   private async deleteEntity(urn: string, hardDelete: boolean): Promise<void> {
-    const baseURL = process.env.BASE_URL || 'http://localhost:9002';
-    const gmsUrl = baseURL.replace(':9002', ':8080');
-
     if (hardDelete) {
-      const response = await this.page.request.post(`${gmsUrl}${GMS_DELETE_PATH}`, {
+      const response = await this.page.request.post(`${gmsUrl()}${GMS_DELETE_PATH}`, {
         data: { urn },
         headers: { 'Content-Type': 'application/json' },
       });

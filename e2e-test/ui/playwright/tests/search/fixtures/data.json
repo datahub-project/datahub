@@ -98,9 +98,7 @@
                 {
                   "fieldPath": "event_name",
                   "nullable": false,
-                  "description": {
-                    "string": "Name of your logging event"
-                  },
+                  "description": "Name of your logging event",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -112,9 +110,7 @@
                 {
                   "fieldPath": "event_data",
                   "nullable": false,
-                  "description": {
-                    "string": "Data of your event"
-                  },
+                  "description": "Data of your event",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -135,6 +131,21 @@
                   }
                 }
               ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:PlaywrightFeatureTag",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "PlaywrightFeatureTag",
+              "description": "Tag used for Playwright search filter tests"
             }
           }
         ]
@@ -177,9 +188,7 @@
                 {
                   "fieldPath": "user_id",
                   "nullable": false,
-                  "description": {
-                    "string": "Id of the user"
-                  },
+                  "description": "Id of the user",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -191,9 +200,7 @@
                 {
                   "fieldPath": "user_name",
                   "nullable": false,
-                  "description": {
-                    "string": "Name of the user who signed up"
-                  },
+                  "description": "Name of the user who signed up",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -210,8 +217,38 @@
               "tags": [
                 {
                   "tag": "urn:li:tag:Playwright"
+                },
+                {
+                  "tag": "urn:li:tag:PlaywrightFeatureTag"
                 }
               ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlossaryTerms": {
+              "terms": [
+                {
+                  "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightTerm"
+                }
+              ],
+              "auditStamp": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              }
             }
           }
         ]
@@ -254,9 +291,7 @@
                 {
                   "fieldPath": "user_id",
                   "nullable": false,
-                  "description": {
-                    "string": "Id of the user created"
-                  },
+                  "description": "Id of the user created",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -315,9 +350,7 @@
                 {
                   "fieldPath": "shipment_info",
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info description"
-                  },
+                  "description": "Shipment info description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -358,6 +391,110 @@
           }
         ]
       }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+        "urn": "urn:li:dashboard:(looker,playwright_search_dashboard)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+              "title": "Playwright Search Dashboard",
+              "description": "Dashboard for Playwright search tests",
+              "charts": [],
+              "lastModified": {
+                "created": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                },
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,playwright-search-model,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "description": "Playwright search test ML model",
+              "date": 1581407189000,
+              "customProperties": {},
+              "groups": [],
+              "hyperParams": [],
+              "trainingMetrics": [],
+              "tags": []
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+        "urn": "urn:li:dataFlow:(airflow,playwright_search_dag,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+              "name": "playwright_search_dag",
+              "description": "Playwright search test Airflow DAG"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,playwright_search_dag,PROD),playwright_search_task)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+              "name": "playwright_search_task",
+              "description": "Playwright search test Airflow task",
+              "type": {
+                "string": "airflow"
+              },
+              "flowUrn": "urn:li:dataFlow:(airflow,playwright_search_dag,PROD)"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_dev_dataset,DEV)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {}
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\":[\"urn:li:domain:marketing\"]}",
+      "contentType": "application/json"
     }
   }
 ]

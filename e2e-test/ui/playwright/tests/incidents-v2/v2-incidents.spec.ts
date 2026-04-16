@@ -17,6 +17,8 @@
 import { test, expect } from '../../fixtures/base-test';
 import { IncidentsPage } from '../../pages/incidents-page';
 
+test.use({ featureName: 'incidents-v2' });
+
 const EXISTING_INCIDENT_TITLE = 'test title';
 
 const NEW_INCIDENT_VALUES = {
@@ -55,6 +57,9 @@ test.describe('Incidents V2', () => {
   test('can view v1 incident', async ({ page, logger, logDir }) => {
     const incidentsPage = new IncidentsPage(page, logger, logDir);
     await incidentsPage.navigateToKafkaDatasetIncidents();
+
+    // Seeder fixture guarantees the Kafka dataset is present — wait for it to load.
+    await expect(page.getByText('Not Found')).not.toBeVisible({ timeout: 20000 });
 
     const row = incidentsPage.getIncidentRow(EXISTING_INCIDENT_TITLE);
     await expect(row).toBeVisible();

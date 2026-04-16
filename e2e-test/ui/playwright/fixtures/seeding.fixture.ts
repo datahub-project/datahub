@@ -14,9 +14,8 @@
  * given feature name, regardless of how many tests request it.
  *
  * NOTE: This fixture is intentionally worker-scoped.  Worker-scoped fixtures
- * cannot depend on test-scoped fixtures such as `logger`.  Seeding progress is
- * reported via console.log/warn, which appears in the worker's stdout and in
- * Playwright's built-in reporter output.
+ * cannot depend on test-scoped fixtures such as `logger`.  A dedicated logger
+ * instance is created directly via createLogger() using workerInfo.workerIndex.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Usage in a spec file (set at describe level, never inside a test):
@@ -49,19 +48,18 @@ import * as path from 'path';
 import { test as base, request } from '@playwright/test';
 import { readGmsToken } from './login';
 import type { UserCredentials } from './users';
+import { gmsUrl } from '../utils/constants';
+import { extractUrn, type Mcp } from '../helpers/seeder-utils';
+import { createLogger, type DataHubLogger } from '../utils/logger';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SEEDED_DIR = path.join(__dirname, '../.seeded');
 const TESTS_DIR = path.join(__dirname, '../tests');
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Mcp {
-  entityUrn?: string;
-  proposedSnapshot?: Record<string, { urn?: string }>;
-  [key: string]: unknown;
-}
+/** Global shared data ingested before any feature-specific seeding. */
+const GLOBAL_DATA_FILE = path.join(__dirname, '../test-data/data.json');
+const GLOBAL_FEATURE_NAME = 'global-data';
 
 /** Shape written to the state file after a successful seed. */
 interface SeedState {
@@ -98,21 +96,21 @@ function dataFilePath(featureName: string): string {
   return path.join(TESTS_DIR, featureName, 'fixtures', 'data.json');
 }
 
-function extractUrn(mcp: Mcp): string | null {
-  if (mcp.entityUrn) return mcp.entityUrn;
-  if (mcp.proposedSnapshot) {
-    const snapshot = Object.values(mcp.proposedSnapshot)[0];
-    if (snapshot?.urn) return snapshot.urn;
-  }
-  return null;
-}
-
+/**
+ * Ingest MCPs from a data file into the GMS.
+ *
+ * @param throwOnFailure - When true (default), throws if any entity fails.
+ *   Set to false for optional/global data where partial ingestion is acceptable.
+ */
 async function ingestMcps(
   featureName: string,
   gmsToken: string,
-  gmsUrl: string,
+  gmsBaseUrl: string,
+  logger: DataHubLogger,
+  explicitDataFile?: string,
+  throwOnFailure = true,
 ): Promise<void> {
-  const dataFile = dataFilePath(featureName);
+  const dataFile = explicitDataFile ?? dataFilePath(featureName);
   if (!fs.existsSync(dataFile)) {
     throw new Error(
       `Seed data file not found: ${dataFile}\n` +
@@ -120,11 +118,14 @@ async function ingestMcps(
     );
   }
 
-  const mcps = JSON.parse(fs.readFileSync(dataFile, 'utf-8')) as Mcp[];
-  console.log(`[seeding] seeding '${featureName}' — ${mcps.length} entities`);
+  // Strip the legacy "pegasus2avro." namespace prefix from Avro-translated class names so
+  // that the GMS REST API accepts the snapshot format in current DataHub versions.
+  const raw = fs.readFileSync(dataFile, 'utf-8').replace(/com\.linkedin\.pegasus2avro\./g, 'com.linkedin.');
+  const mcps = JSON.parse(raw) as Mcp[];
+  logger.info(`seeding '${featureName}'`, { entityCount: mcps.length });
 
   const apiContext = await request.newContext({
-    baseURL: gmsUrl,
+    baseURL: gmsBaseUrl,
     extraHTTPHeaders: {
       Authorization: `Bearer ${gmsToken}`,
       'Content-Type': 'application/json',
@@ -135,30 +136,47 @@ async function ingestMcps(
     const failures: string[] = [];
 
     for (const mcp of mcps) {
-      const urn = extractUrn(mcp);
-      const response = await apiContext.post(`${gmsUrl}/entities?action=ingest`, {
-        data: { entity: { value: mcp.proposedSnapshot ?? mcp } },
-        failOnStatusCode: false,
-      });
+      let urn: string;
+      try {
+        urn = extractUrn(mcp);
+      } catch {
+        const label = JSON.stringify(mcp).slice(0, 80);
+        failures.push(`${label}: could not extract URN`);
+        continue;
+      }
+
+      // Legacy snapshot format uses /entities?action=ingest;
+      // new MCP format (with entityUrn but no proposedSnapshot) uses /aspects?action=ingestProposal.
+      const response = mcp.proposedSnapshot
+        ? await apiContext.post(`${gmsBaseUrl}/entities?action=ingest`, {
+            data: { entity: { value: mcp.proposedSnapshot } },
+            failOnStatusCode: false,
+          })
+        : await apiContext.post(`${gmsBaseUrl}/aspects?action=ingestProposal`, {
+            data: { proposal: mcp },
+            failOnStatusCode: false,
+          });
 
       if (!response.ok()) {
         const body = await response.text();
-        const label = urn ?? JSON.stringify(mcp).slice(0, 80);
-        failures.push(`${label}: ${response.status()} ${body.slice(0, 200)}`);
-        console.warn(`[seeding] entity ingest failed — urn=${urn} status=${response.status()}`);
+        failures.push(`${urn}: ${response.status()} ${body.slice(0, 200)}`);
+        logger.warn('entity ingest failed', { urn, status: response.status() });
       } else {
-        console.log(`[seeding] ingested urn=${urn}`);
+        logger.info('ingested', { urn });
       }
     }
 
     if (failures.length > 0) {
-      throw new Error(
-        `Seeding '${featureName}' failed for ${failures.length} entities:\n` +
-          failures.join('\n'),
-      );
+      const msg = `Seeding '${featureName}' had ${failures.length} failed entities:\n${failures.join('\n')}`;
+      if (throwOnFailure) {
+        throw new Error(msg);
+      } else {
+        logger.warn(msg);
+      }
     }
 
     // Write state file so other workers (and next runs) skip re-seeding.
+    // Written even on partial failures (when throwOnFailure=false) so we don't retry endlessly.
     fs.mkdirSync(SEEDED_DIR, { recursive: true });
     const state: SeedState = {
       featureName,
@@ -166,7 +184,7 @@ async function ingestMcps(
       entityCount: mcps.length,
     };
     fs.writeFileSync(stateFilePath(featureName), JSON.stringify(state, null, 2));
-    console.log(`[seeding] state saved — featureName=${featureName}`);
+    logger.info('state saved', { featureName });
   } finally {
     await apiContext.dispose();
   }
@@ -183,15 +201,44 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
   // Using an internal name with underscore prefix to mark it as infrastructure.
   // Tests never destructure this — it runs automatically.
   _seedFeatureData: [
-    async ({ featureName, user }, use) => {
-      if (!featureName) {
-        // Suite does not need seeded data.
+    async ({ featureName, user }, use, workerInfo) => {
+      const logger = createLogger('', {
+        suite: 'seeding',
+        test: featureName ?? 'global',
+        worker: workerInfo.workerIndex,
+        retry: 0,
+      });
+
+      if (process.env.PW_NO_SEED === '1') {
+        logger.info('skipping all seeding (PW_NO_SEED=1)');
         await use();
         return;
       }
 
-      if (process.env.PW_NO_SEED === '1') {
-        console.log(`[seeding] skipping (PW_NO_SEED=1) — featureName=${featureName}`);
+      const gmsToken = readGmsToken(user.username);
+
+      // Track whether any fresh ingestion happened this run so we can wait
+      // for the search index to catch up before tests start.
+      let freshlySeeded = false;
+
+      // Always seed global shared data (test-data/data.json) once per worker.
+      if (fs.existsSync(GLOBAL_DATA_FILE)) {
+        const globalStateFile = stateFilePath(GLOBAL_FEATURE_NAME);
+        if (fs.existsSync(globalStateFile)) {
+          const state = JSON.parse(fs.readFileSync(globalStateFile, 'utf-8')) as SeedState;
+          logger.info('reusing global data', { seededAt: state.seededAt, entityCount: state.entityCount });
+        } else {
+          // throwOnFailure=false: global data has mixed-format MCPs; partial failures are non-blocking.
+          await ingestMcps(GLOBAL_FEATURE_NAME, gmsToken, gmsUrl(), logger, GLOBAL_DATA_FILE, false);
+          freshlySeeded = true;
+        }
+      }
+
+      if (!featureName) {
+        if (freshlySeeded) {
+          logger.info('waiting 15s for search index to catch up');
+          await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+        }
         await use();
         return;
       }
@@ -199,19 +246,21 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
       const stateFile = stateFilePath(featureName);
       if (fs.existsSync(stateFile)) {
         const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
-        console.log(
-          `[seeding] reusing seeded data — featureName=${featureName} seededAt=${state.seededAt} entityCount=${state.entityCount}`,
-        );
+        logger.info('reusing seeded data', { featureName, seededAt: state.seededAt, entityCount: state.entityCount });
+        if (freshlySeeded) {
+          logger.info('waiting 15s for search index to catch up');
+          await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+        }
         await use();
         return;
       }
 
-      // Slow path: seed data and save state.
-      const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
-      const gmsUrl = baseUrl.replace(':9002', ':8080');
-      const gmsToken = readGmsToken(user.username);
+      // Slow path: seed feature-specific data and save state.
+      await ingestMcps(featureName, gmsToken, gmsUrl(), logger);
+      freshlySeeded = true;
 
-      await ingestMcps(featureName, gmsToken, gmsUrl);
+      logger.info('waiting 15s for search index to catch up');
+      await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
 
       await use();
     },

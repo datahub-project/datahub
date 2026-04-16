@@ -19,7 +19,6 @@ export class DatasetPage extends BasePage {
   async navigateToDataset(urn: string): Promise<void> {
     await this.navigate(`/dataset/${encodeURIComponent(urn)}`);
     await this.page.waitForLoadState('networkidle');
-    await this.page.waitForTimeout(5000);
   }
 
   async viewSchema(): Promise<void> {
@@ -44,45 +43,69 @@ export class DatasetPage extends BasePage {
   }
 
   async clickSchemaField(fieldName: string): Promise<void> {
-    await this.page.getByText(fieldName).click();
-    await this.page.waitForTimeout(1000);
+    // Use the row's id attribute (set by SchemaTable's onRow handler) so the click
+    // reliably hits the row element and triggers the SchemaFieldDrawer to open.
+    await this.page.locator(`#column-${fieldName}`).click();
   }
 
   async addBusinessAttributeToField(fieldName: string, attributeName: string): Promise<void> {
     await this.clickSchemaField(fieldName);
 
-    const businessAttributeSection = this.page.locator(`[data-testid="schema-field-${fieldName}-businessAttribute"]`);
+    // The V2 schema field drawer renders the business attribute section inside SidebarSection.
+    // SidebarSection sets data-testid="sidebar-section-content-{title}" on its content container.
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
+    await businessAttributeSection.waitFor({ state: 'visible', timeout: 15000 });
+    await businessAttributeSection.hover();
     await businessAttributeSection.locator('text=Add Attribute').click();
 
-    const modalInput = this.page.locator('[data-testid="business-attribute-modal-input"]');
-    await modalInput.fill(attributeName);
+    // The Select component requires typing into the inner search input, not fill() on the outer wrapper.
+    const modalSearchInput = this.page.locator('[data-testid="business-attribute-modal-input"]')
+      .locator('.ant-select-selection-search-input');
+    await modalSearchInput.fill(attributeName);
 
-    await this.page.locator('[data-testid="business-attribute-option"]').click();
-    await this.page.locator('[data-testid="add-attribute-from-modal-btn"]').click();
-    await expect(this.page.locator('[data-testid="add-attribute-from-modal-btn"]')).not.toBeVisible();
+    // Wait for options to appear, then use ArrowDown + Enter to select without depending on click position.
+    await this.page.locator('[data-testid="business-attribute-option"]').first().waitFor({ state: 'visible' });
+    await modalSearchInput.press('ArrowDown');
+    await modalSearchInput.press('Enter');
+
+    // Once an option is selected the Done button becomes enabled.
+    // Use evaluate+click() to trigger the React onClick via the native DOM click method,
+    // bypassing the Playwright actionability check that fails due to the modal body overlay.
+    const doneBtn = this.page.locator('[data-testid="add-attribute-from-modal-btn"]');
+    await doneBtn.waitFor({ state: 'visible' });
+    await expect(doneBtn).toBeEnabled();
+    await doneBtn.evaluate((el: HTMLElement) => el.click());
+    await expect(doneBtn).not.toBeVisible();
 
     await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
   }
 
+  getBusinessAttributeSection(_fieldName: string): Locator {
+    // In the V2 entity view, the schema field drawer renders a SidebarSection with
+    // data-testid="sidebar-section-content-Business Attribute" for the business attribute content.
+    return this.page.locator('[data-testid="sidebar-section-content-Business Attribute"]');
+  }
+
   async removeBusinessAttributeFromField(fieldName: string, attributeName: string): Promise<void> {
-    const businessAttributeSection = this.page.locator(`[data-testid="schema-field-${fieldName}-businessAttribute"]`);
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
 
     const closeIcon = businessAttributeSection.locator('span[aria-label=close]');
     await closeIcon.hover({ force: true });
     await closeIcon.click({ force: true });
 
-    await this.page.getByText('Yes').click({ force: true });
+    // Scope the confirmation button to the dialog to avoid matching "Yes" text elsewhere.
+    await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click({ force: true });
 
     await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible();
   }
 
   async expectBusinessAttributeOnField(fieldName: string, attributeName: string): Promise<void> {
-    const businessAttributeSection = this.page.locator(`[data-testid="schema-field-${fieldName}-businessAttribute"]`);
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
     await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
   }
 
   async expectBusinessAttributeNotOnField(fieldName: string, attributeName: string): Promise<void> {
-    const businessAttributeSection = this.page.locator(`[data-testid="schema-field-${fieldName}-businessAttribute"]`);
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
     await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible();
   }
 

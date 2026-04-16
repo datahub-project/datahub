@@ -20,13 +20,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { APIRequestContext } from '@playwright/test';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Mcp {
-  entityUrn?: string;
-  proposedSnapshot?: Record<string, { urn?: string }>;
-}
+import { extractUrn, type Mcp } from '../helpers/seeder-utils';
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
@@ -42,16 +36,6 @@ export interface FeatureDataLoader {
   load(featureDir: string, featureName: string): Promise<void>;
 }
 
-// ── Implementation ────────────────────────────────────────────────────────────
-
-function extractUrn(mcp: Mcp): string {
-  if (mcp.entityUrn) return mcp.entityUrn;
-  if (mcp.proposedSnapshot) {
-    const snapshot = Object.values(mcp.proposedSnapshot)[0];
-    if (snapshot?.urn) return snapshot.urn;
-  }
-  throw new Error(`Cannot extract URN from MCP: ${JSON.stringify(mcp)}`);
-}
 
 async function prefixExists(
   request: APIRequestContext,

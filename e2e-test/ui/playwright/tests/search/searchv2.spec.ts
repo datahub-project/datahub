@@ -8,6 +8,8 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search-page';
 
+test.use({ featureName: 'search' });
+
 test.describe('SearchV2 Features', () => {
   let searchPage: SearchPage;
 
@@ -52,7 +54,9 @@ test.describe('SearchV2 Features', () => {
 
   test('should toggle filters using More Filters dropdown', async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
-    await searchPage.moreFiltersDropdown.click();
+    const moreFiltersBtn = searchPage.moreFiltersDropdown;
+    await expect(moreFiltersBtn).toBeVisible({ timeout: 10000 });
+    await moreFiltersBtn.click();
     await page.waitForTimeout(500);
     const moreFilterOption = page.locator('[data-testid^="more-filter-"]').first();
     await expect(moreFilterOption).toBeVisible();

@@ -72,12 +72,12 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.expectDocsLinkVisible();
     });
 
-    test.skip('should auto-advance slides after 10 seconds', async ({ page }) => {
+    test('should auto-advance slides after 10 seconds', async ({ page }) => {
+      await page.clock.install();
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.expectSlide1Visible();
-      await page.waitForTimeout(1000);
-      await welcomeModalPage.waitForSlideChange(1, 12000);
+      await page.clock.fastForward(10_000);
       await welcomeModalPage.expectSlide2Visible();
     });
   });
