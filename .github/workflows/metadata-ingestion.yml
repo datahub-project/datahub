@@ -235,17 +235,29 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -n "$COMMAND" ]; then
-            if [ "$COMMAND" = "testQuick" ] && [ "$GH_EVENT_NAME" = "pull_request" ] && [ "$CI_FULL_TESTS" != "true" ]; then
-              # On PRs: use testmon to skip unit tests whose coverage map is unaffected by
-              # changed source files. Cold start (no cache) runs all tests and builds the
-              # database; subsequent pushes on the same PR only run affected tests.
+            if [ "$COMMAND" = "testQuick" ]; then
               cd metadata-ingestion
               source venv/bin/activate
-              pytest --testmon \
-                tests/unit \
-                --random-order \
-                -m 'not integration' \
-                --junit-xml="test-results/junit.quick.xml"
+              if [ "$GH_EVENT_NAME" = "pull_request" ] && [ "$CI_FULL_TESTS" != "true" ]; then
+                # PRs: skip tests unaffected by changed files.
+                # If the base-branch cache was restored above, testmon already knows the
+                # coverage map from the last master run and only runs tests touching what
+                # changed since then — PRs start warm, not cold.
+                pytest --testmon \
+                  tests/unit \
+                  --random-order \
+                  -m 'not integration' \
+                  --junit-xml="test-results/junit.quick.xml"
+              else
+                # master / release / workflow_dispatch: run ALL tests and update the
+                # testmon database so future PRs can start warm (cache is accessible
+                # from branches that target master).
+                pytest --testmon-nocollect \
+                  tests/unit \
+                  --random-order \
+                  -m 'not integration' \
+                  --junit-xml="test-results/junit.quick.xml"
+              fi
             else
               ./gradlew :metadata-ingestion:"$COMMAND"
             fi
