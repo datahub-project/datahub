@@ -192,6 +192,8 @@ jobs:
         env:
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_BASE_REF: ${{ github.base_ref }}
+          # Set to "true" via the 'ci:full-tests' label to bypass snob and run the full suite
+          CI_FULL_TESTS: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full-tests') }}
         run: |
           # matrix.command is set for Gradle batch jobs (testQuick, testIntegrationBatch*)
           # For selective connector tests, test_path and connector come from the dynamic matrix
@@ -216,7 +218,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -n "$COMMAND" ]; then
-            if [ "$COMMAND" = "testQuick" ] && [ "$GH_EVENT_NAME" = "pull_request" ] && [ -n "$GH_BASE_REF" ]; then
+            if [ "$COMMAND" = "testQuick" ] && [ "$GH_EVENT_NAME" = "pull_request" ] && [ -n "$GH_BASE_REF" ] && [ "$CI_FULL_TESTS" != "true" ]; then
               # On PRs: use snob to run only unit tests affected by the changed files.
               # The preceding installDevTest step already set up the venv with snob and all deps.
               # Fetch base branch so snob can compute the changed-file diff.
