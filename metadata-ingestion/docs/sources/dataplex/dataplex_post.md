@@ -93,10 +93,6 @@ For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google
 - **`include_schema`** (default: `true`): Extract column metadata and types
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 
-**Performance Tuning:**
-
-- **`batch_size`** (default: `1000`): Entries per batch for memory optimization. Set to `None` to disable batching (small deployments only)
-
 #### Parallel Processing
 
 Entry detail fetching and lineage lookups are parallelised using thread pools to significantly
@@ -119,7 +115,7 @@ Two config fields control the thread pool sizes:
 | Field                 | Default | Description                                      |
 | --------------------- | ------- | ------------------------------------------------ |
 | `max_workers_entries` | `10`    | Workers for `get_entry` calls (entries stage)    |
-| `max_workers_lineage` | `20`    | Workers for `search_links` calls (lineage stage) |
+| `max_workers_lineage` | `10`    | Workers for `search_links` calls (lineage stage) |
 
 Increase these values for large deployments, subject to your GCP API quota limits.
 
