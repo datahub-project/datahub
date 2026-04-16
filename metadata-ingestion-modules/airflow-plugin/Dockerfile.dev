@@ -1,0 +1,11 @@
+FROM apache/airflow:3.1.0-python3.11
+
+# These layers are overridden by volume mounts at runtime, making source edits
+# live without a rebuild. They exist here only so `pip install -e` succeeds
+# at image build time.
+COPY --chown=airflow:root metadata-ingestion /opt/app/metadata-ingestion
+COPY --chown=airflow:root metadata-ingestion-modules/airflow-plugin /opt/app/airflow-plugin
+
+RUN pip install --no-cache-dir \
+      -e /opt/app/metadata-ingestion \
+      -e "/opt/app/airflow-plugin[airflow31]"
