@@ -511,6 +511,13 @@ confluence_common = {
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
 } | unstructured_lib
 
+sharepoint_common = {
+    # MSAL for Microsoft Graph API authentication (client credentials / service principal)
+    "msal>=1.20.0,<2.0.0",
+    # openpyxl for Excel (.xlsx) schema inference in data_lake mode
+    "openpyxl>=3.1.0,<4.0.0",
+} | unstructured_lib
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -774,6 +781,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "sharepoint": sharepoint_common,
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -1114,6 +1122,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "sharepoint = datahub.ingestion.source.sharepoint.sharepoint_source:SharePointSource",
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",

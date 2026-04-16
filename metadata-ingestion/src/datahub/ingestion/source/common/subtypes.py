@@ -69,6 +69,9 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    # SharePoint
+    SHAREPOINT_SITE = "SharePoint Site"
+    SHAREPOINT_DOCUMENT_LIBRARY = "Document Library"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"

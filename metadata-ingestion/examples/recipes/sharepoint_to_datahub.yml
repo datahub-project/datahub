@@ -1,0 +1,58 @@
+# SharePoint to DataHub ingestion recipe (data lake mode)
+#
+# Ingests structured files (CSV, Parquet, JSON, Avro, Excel) from SharePoint
+# Document Libraries as DataHub Dataset entities.
+#
+# Prerequisites:
+# 1. Register an Azure AD application (service principal)
+# 2. Grant the application Microsoft Graph API permissions:
+#    - Sites.Read.All (Application)
+#    - Files.Read.All (Application)
+# 3. Grant admin consent for the API permissions
+# 4. Set the environment variables below
+#
+# Installation:
+#   pip install 'acryl-datahub[sharepoint]'
+#
+# Run:
+#   datahub ingest -c sharepoint_to_datahub.yml
+
+source:
+  type: sharepoint
+  config:
+    auth:
+      tenant_id: "${AZURE_TENANT_ID}"
+      client_id: "${AZURE_CLIENT_ID}"
+      client_secret: "${AZURE_CLIENT_SECRET}"
+
+    site:
+      hostname: "myorg.sharepoint.com"
+      # Restrict to specific sites (omit to ingest all accessible sites)
+      # site_pattern:
+      #   allow:
+      #     - "/sites/Engineering"
+      #     - "/sites/DataTeam"
+
+    # mode: data_lake  — ingest structured files as Datasets (default)
+    # mode: document   — ingest pages and Office files as Documents
+    # mode: both       — run both in a single pipeline
+    mode: data_lake
+
+    # File types to ingest (default: csv, parquet, json, avro, xlsx)
+    # file_types:
+    #   - csv
+    #   - parquet
+    #   - json
+
+    # Skip personal OneDrive sites
+    # skip_personal_sites: true
+
+    # Stateful ingestion removes deleted entities automatically
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    # token: "${DATAHUB_TOKEN}"
