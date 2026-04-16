@@ -115,6 +115,37 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
       ``target=<entry_fqn>`` and build DataHub upstream edges from returned sources.
     - The tradeoff is API call volume: every entry is queried separately against every
       configured project-location pair.
+
+    Parallelization strategy:
+    - The entries stage runs in three sequential phases inside
+      ``DataplexEntriesProcessor.process_entries``:
+
+      * Phase 1a (sequential): ``list_entry_groups`` + ``list_entries`` across all
+        configured project × location pairs.  These listing calls are fast (paginated,
+        no detail payload) and accumulate a flat list of entry-name stubs.
+
+      * Phase 1b (parallel): ``get_entry(view=ALL)`` calls are submitted to a
+        ``ThreadPoolExecutor`` with ``max_workers_entries`` workers.  This is the
+        main bottleneck — one blocking RPC per entry.  Distributing across a single
+        flat pool avoids skew when entries are unevenly spread across projects.
+
+      * Phase 1c (sequential): Spanner entries are fetched via the
+        ``search_entries`` workaround.  They arrive already fully-fetched so
+        there is no detail-fetch RPC to parallelise.
+
+    - The lineage stage submits one task per entry to a ``ThreadPoolExecutor``
+      with ``max_workers_lineage`` workers via
+      ``DataplexLineageExtractor.get_lineage_workunits``.  Each worker
+      queries the Dataplex Lineage API across all configured project/location
+      pairs with the configured retry logic.
+
+    - Thread safety: ``DataplexEntriesReport`` and ``DataplexLineageReport``
+      protect all mutable fields with an internal ``threading.Lock`` initialised
+      in ``__post_init__``.  ``DataplexEntriesProcessor`` uses ``_container_lock``
+      for atomic check+add on ``_emitted_project_containers`` and
+      ``_entry_data_lock`` for appends to the shared ``entry_data`` list.
+      The GCP gRPC clients (``CatalogServiceClient``, ``LineageClient``) are
+      thread-safe and shared across all workers.
     """
 
     platform: str = "dataplex"
@@ -254,28 +285,27 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""
-        # Iterate over all configured projects
-        for project_id in self.config.project_ids:
-            logger.info(f"Processing Dataplex resources for project: {project_id}")
-            with self.report.new_stage(
-                f"Processing entries from Universal Catalog for project {project_id}"
-            ):
-                try:
-                    yield from auto_workunit(
-                        self.entries_processor.process_project(project_id)
+        with self.report.new_stage(
+            "Processing entries from Universal Catalog (parallel)"
+        ):
+            try:
+                yield from auto_workunit(
+                    self.entries_processor.process_entries(
+                        project_ids=self.config.project_ids,
+                        max_workers=self.config.max_workers_entries,
                     )
-                except exceptions.GoogleAPICallError as exc:
-                    self.report.warning(
-                        title="Failed to process Dataplex entries",
-                        message="Error while extracting entries from Universal Catalog.",
-                        context=project_id,
-                        exc=exc,
-                    )
-                    continue
+                )
+            except exceptions.GoogleAPICallError as exc:
+                self.report.warning(
+                    title="Failed to process Dataplex entries",
+                    message="Error while extracting entries from Universal Catalog.",
+                    context=str(self.config.project_ids),
+                    exc=exc,
+                )
 
         if self.config.include_lineage and self.lineage_extractor:
             with self.report.new_stage(
-                "Extracting Dataplex lineage across configured projects"
+                "Extracting Dataplex lineage across configured projects (parallel)"
             ):
                 if len(self.entry_data) == 0:
                     logger.info(
@@ -296,6 +326,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     yield from self.lineage_extractor.get_lineage_workunits(
                         self.entry_data,
                         active_lineage_project_location_pairs=lineage_project_location_pairs,
+                        max_workers=self.config.max_workers_lineage,
                     )
                 except Exception as e:
                     self.report.warning(
