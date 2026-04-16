@@ -3532,6 +3532,44 @@
       "platform_name": "Salesforce",
       "support_status": "CERTIFIED"
     },
+    "sharepoint": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Site, Document Library, and Folder containers in data_lake mode",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Schema inference for CSV, TSV, JSON, Parquet, Avro, and Excel in data_lake mode",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Validates Graph API credentials",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sharepoint.sharepoint_source.SharePointSource",
+      "platform_id": "sharepoint",
+      "platform_name": "SharePoint",
+      "support_status": "INCUBATING"
+    },
     "sigma": {
       "capabilities": [
         {
