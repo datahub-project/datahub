@@ -618,6 +618,38 @@ class TestDataplexParallelEntries:
         source_report = cast(Mock, processor.source_report)
         source_report.warning.assert_called_once()
 
+    def test_process_entries_skips_failing_project_location_pair(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        """A PermissionDenied on one (project, location) must not abort the others."""
+        entity_ok = Mock()
+
+        def stub_side_effect(project_id: str, location: str):
+            if project_id == "proj-fail":
+                raise PermissionError("403 PermissionDenied")
+            return ["entry-ok"]
+
+        with (
+            patch.object(
+                processor, "_list_entry_stubs", side_effect=stub_side_effect
+            ),
+            patch.object(
+                processor,
+                "_fetch_and_build_entry",
+                return_value=[entity_ok],
+            ),
+            patch.object(processor, "_process_spanner_entries", return_value=[]),
+        ):
+            entities = list(
+                processor.process_entries(
+                    project_ids=["proj-fail", "proj-ok"], max_workers=2
+                )
+            )
+
+        assert entity_ok in entities
+        source_report = cast(Mock, processor.source_report)
+        source_report.warning.assert_called_once()
+
     def test_build_entities_deduplicates_project_container_across_threads(
         self,
     ) -> None:

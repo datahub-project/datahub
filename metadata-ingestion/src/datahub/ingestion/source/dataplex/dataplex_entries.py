@@ -195,11 +195,21 @@ class DataplexEntriesProcessor:
           ``get_entry`` call, so there is nothing to parallelise here.
         """
         # Phase 1a: accumulate entry stubs across all projects and locations.
+        # Wrap each (project, location) pair individually so one failing project
+        # (e.g. PermissionDenied) does not abort listing for the others.
         entry_stubs: List[Tuple[str, str]] = []  # (entry_name, location)
         for project_id in project_ids:
             for location in self.config.entries_locations:
-                for name in self._list_entry_stubs(project_id, location):
-                    entry_stubs.append((name, location))
+                try:
+                    for name in self._list_entry_stubs(project_id, location):
+                        entry_stubs.append((name, location))
+                except Exception as exc:
+                    self.source_report.warning(
+                        title="Dataplex entry listing failed",
+                        message="Failed to list entries for project/location. Skipping.",
+                        context=f"project_id={project_id}, location={location}",
+                        exc=exc,
+                    )
 
         # Phase 1b: fetch entry details in parallel and build entities.
         # Submit stubs in bounded batches to cap in-flight futures and prevent
