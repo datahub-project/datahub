@@ -517,9 +517,9 @@ confluence_common = {
 
 sharepoint_common = {
     # MSAL for Microsoft Graph API authentication (client credentials / service principal)
-    "msal>=1.20.0,<2.0.0",
+    "msal>=1.31.1,<2.0.0",
     # openpyxl for Excel (.xlsx) schema inference in data_lake mode
-    "openpyxl>=3.1.0,<4.0.0",
+    "openpyxl>=3.1.5,<4.0.0",
 } | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
