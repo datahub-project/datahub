@@ -114,6 +114,22 @@ class TestDataHubDocumentsConfig:
         assert config.event_mode.consumer_id == "test-consumer"
 
 
+@pytest.fixture(autouse=True)
+def mock_embedding_probe():
+    """Patch _generate_embeddings so unit tests don't need real API credentials.
+
+    DataHubDocumentsSource.__init__ runs a startup probe via DocumentChunkingSource.
+    Without real credentials the probe would fail, set embedding_model=None, and
+    then DataHubDocumentsSource would hard-fail.  Tests that aren't exercising that
+    failure path should get a clean, successful probe instead.
+    """
+    with patch(
+        "datahub.ingestion.source.unstructured.chunking_source.DocumentChunkingSource._generate_embeddings",
+        return_value=[],
+    ):
+        yield
+
+
 class TestDataHubDocumentsSource:
     """Test DataHub documents source."""
 
@@ -1069,9 +1085,7 @@ class TestSourceTypeFiltering:
                     "source": {"sourceType": "NATIVE"},
                     "contents": {"text": "Native document content"},
                 },
-                "dataPlatformInstance": {
-                    "platform": {"urn": "urn:li:dataPlatform:datahub"}
-                },
+                "platform": {"urn": "urn:li:dataPlatform:datahub"},
             }
             info_native: dict[str, Any] = entity_native["info"]
 
@@ -1091,9 +1105,7 @@ class TestSourceTypeFiltering:
                     "source": {"sourceType": "EXTERNAL"},
                     "contents": {"text": "Notion document content"},
                 },
-                "dataPlatformInstance": {
-                    "platform": {"urn": "urn:li:dataPlatform:notion"}
-                },
+                "platform": {"urn": "urn:li:dataPlatform:notion"},
             }
             info_external: dict[str, Any] = entity_external["info"]
 
@@ -1242,11 +1254,7 @@ class TestSourceTypeFiltering:
 
             # Mock GraphQL response
             mock_response = {
-                "entity": {
-                    "dataPlatformInstance": {
-                        "platform": {"urn": "urn:li:dataPlatform:notion"}
-                    }
-                }
+                "entity": {"platform": {"urn": "urn:li:dataPlatform:notion"}}
             }
 
             with patch.object(
@@ -1256,10 +1264,10 @@ class TestSourceTypeFiltering:
 
                 assert platform == "notion"
                 mock_execute.assert_called_once()
-                # Verify query includes dataPlatformInstance
+                # Verify query uses the platform field directly
                 call_args = mock_execute.call_args
                 query = call_args[0][0]
-                assert "dataPlatformInstance" in query
+                assert "platform" in query
 
     def test_fetch_platform_from_entity_no_platform(self, ctx, config, mock_graph):
         """Test fetching platform when entity has no platform."""
@@ -1267,7 +1275,7 @@ class TestSourceTypeFiltering:
             source = DataHubDocumentsSource(ctx, config)
 
             # Mock GraphQL response with no platform
-            mock_response = {"entity": {"dataPlatformInstance": None}}
+            mock_response = {"entity": {"platform": None}}
 
             with patch.object(
                 source.graph, "execute_graphql", return_value=mock_response
@@ -1282,11 +1290,7 @@ class TestSourceTypeFiltering:
             source = DataHubDocumentsSource(ctx, config)
 
             # Test valid platform
-            entity = {
-                "dataPlatformInstance": {
-                    "platform": {"urn": "urn:li:dataPlatform:confluence"}
-                }
-            }
+            entity = {"platform": {"urn": "urn:li:dataPlatform:confluence"}}
             platform = source._extract_platform_from_entity(entity)
             assert platform == "confluence"
 
@@ -1296,9 +1300,7 @@ class TestSourceTypeFiltering:
             assert platform is None
 
             # Test malformed URN
-            entity_malformed = {
-                "dataPlatformInstance": {"platform": {"urn": "invalid"}}
-            }
+            entity_malformed = {"platform": {"urn": "invalid"}}
             platform = source._extract_platform_from_entity(entity_malformed)
             assert platform is None
 
@@ -1625,9 +1627,7 @@ class TestConfigFingerprintInHash:
                                         "text": "This is a Notion document with enough text content to pass the minimum length requirement."
                                     },
                                 },
-                                "dataPlatformInstance": {
-                                    "platform": {"urn": "urn:li:dataPlatform:notion"}
-                                },
+                                "platform": {"urn": "urn:li:dataPlatform:notion"},
                             }
                         },
                         {
@@ -1639,11 +1639,7 @@ class TestConfigFingerprintInHash:
                                         "text": "This is a Confluence document with enough text content to pass the minimum length requirement."
                                     },
                                 },
-                                "dataPlatformInstance": {
-                                    "platform": {
-                                        "urn": "urn:li:dataPlatform:confluence"
-                                    }
-                                },
+                                "platform": {"urn": "urn:li:dataPlatform:confluence"},
                             }
                         },
                     ]
@@ -2078,3 +2074,177 @@ class TestDataHubGraphInitialization:
             # Verify source uses the context graph
             assert source.graph is mock_ctx_graph
             assert source.graph is not mock_graph_class.return_value
+
+
+class TestEmbeddingHardFail:
+    """DataHubDocumentsSource must hard-fail at init if embeddings are unavailable."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def embedding_config(self):
+        return {
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        }
+
+    def test_hard_fail_when_probe_raises(self, ctx, embedding_config):
+        """Startup probe failure must raise ValueError, not silently degrade."""
+        config = DataHubDocumentsSourceConfig(
+            embedding=embedding_config,
+            stateful_ingestion={"enabled": False},
+        )
+        with (
+            patch(
+                "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+            ),
+            # Override the module-level autouse patch with one that raises.
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_source.DocumentChunkingSource._generate_embeddings",
+                side_effect=Exception("No AWS credentials"),
+            ),
+            pytest.raises(ValueError, match="requires a working embedding model"),
+        ):
+            DataHubDocumentsSource(ctx, config)
+
+
+class TestBatchModePendingChunks:
+    """Batch mode must resolve __pending__ chunks for EXTERNAL documents."""
+
+    @pytest.fixture
+    def config(self):
+        return DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def source(self, ctx, config):
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            return DataHubDocumentsSource(ctx, config)
+
+    def test_batch_mode_resolves_pending_chunks_for_external_docs(self, source):
+        """Pass 2 calls _process_document_for_pending_chunks for each EXTERNAL URN."""
+        native_doc = {"urn": "urn:li:document:native1", "text": "Native content"}
+        external_urn = "urn:li:document:external1"
+
+        with (
+            patch.object(source, "_fetch_documents_graphql", return_value=[native_doc]),
+            patch.object(
+                source, "_fetch_external_document_urns", return_value=[external_urn]
+            ),
+            patch.object(
+                source,
+                "_process_single_document",
+                return_value=iter([]),
+            ),
+            patch.object(
+                source,
+                "_process_document_for_pending_chunks",
+                return_value=iter([]),
+            ) as mock_pending,
+        ):
+            list(source._process_batch_mode())
+
+            mock_pending.assert_called_once_with(external_urn)
+
+    def test_batch_mode_skips_external_docs_with_no_pending(self, source):
+        """_process_document_for_pending_chunks is a no-op when no pending chunks exist."""
+        external_urn = "urn:li:document:external1"
+
+        with (
+            patch.object(source, "_fetch_documents_graphql", return_value=[]),
+            patch.object(
+                source, "_fetch_external_document_urns", return_value=[external_urn]
+            ),
+            patch.object(source, "_get_pending_chunks", return_value=None),
+        ):
+            workunits = list(source._process_batch_mode())
+
+        assert workunits == []
+
+    def test_fetch_external_document_urns_filters_native(self, source):
+        """_fetch_external_document_urns returns only EXTERNAL URNs."""
+        mock_response = {
+            "search": {
+                "searchResults": [
+                    {
+                        "entity": {
+                            "urn": "urn:li:document:native1",
+                            "info": {"source": {"sourceType": "NATIVE"}},
+                            "platform": {"urn": "urn:li:dataPlatform:datahub"},
+                        }
+                    },
+                    {
+                        "entity": {
+                            "urn": "urn:li:document:external1",
+                            "info": {"source": {"sourceType": "EXTERNAL"}},
+                            "platform": {"urn": "urn:li:dataPlatform:notion"},
+                        }
+                    },
+                ]
+            }
+        }
+
+        with patch.object(source.graph, "execute_graphql", return_value=mock_response):
+            urns = source._fetch_external_document_urns()
+
+        assert urns == ["urn:li:document:external1"]
+
+    def test_fetch_external_document_urns_returns_empty_on_error(self, source):
+        """Network errors return an empty list rather than propagating."""
+        with patch.object(
+            source.graph,
+            "execute_graphql",
+            side_effect=Exception("connection refused"),
+        ):
+            urns = source._fetch_external_document_urns()
+
+        assert urns == []
+
+    def test_fetch_external_document_urns_respects_document_urns_filter(self, source):
+        """Only URNs listed in config.document_urns are returned."""
+        source.config.document_urns = ["urn:li:document:external1"]
+
+        mock_response = {
+            "search": {
+                "searchResults": [
+                    {
+                        "entity": {
+                            "urn": "urn:li:document:external1",
+                            "info": {"source": {"sourceType": "EXTERNAL"}},
+                            "platform": {"urn": "urn:li:dataPlatform:notion"},
+                        }
+                    },
+                    {
+                        "entity": {
+                            "urn": "urn:li:document:external2",
+                            "info": {"source": {"sourceType": "EXTERNAL"}},
+                            "platform": {"urn": "urn:li:dataPlatform:notion"},
+                        }
+                    },
+                ]
+            }
+        }
+
+        with patch.object(source.graph, "execute_graphql", return_value=mock_response):
+            urns = source._fetch_external_document_urns()
+
+        assert urns == ["urn:li:document:external1"]

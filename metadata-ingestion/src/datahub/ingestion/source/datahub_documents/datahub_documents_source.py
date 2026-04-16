@@ -13,7 +13,7 @@ Supports both batch (GraphQL) and event-driven (Kafka MCL) modes.
 import hashlib
 import json
 import logging
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
@@ -46,12 +46,16 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
-from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
+from datahub.ingestion.source.unstructured.chunking_source import (
+    PENDING_CHUNKS_KEY,
+    DocumentChunkingSource,
+)
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
 
@@ -64,7 +68,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_embeddings_generated: int = 0
     num_embedding_failures: int = 0
     embedding_failures: list[str] = field(default_factory=list)
-    processing_errors: list[str] = []
+    processing_errors: list[str] = field(default_factory=list)
     num_documents_limit_reached: bool = False
 
     def report_document_fetched(self) -> None:
@@ -168,6 +172,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             graph=self.graph,
         )
 
+        # DataHubDocumentsSource exists solely to resolve __pending__ chunks into real
+        # embeddings. If the embedding model is unavailable (probe failed or not configured),
+        # the entire run would be a silent no-op — hard-fail immediately so the operator
+        # knows to fix credentials/config before re-running.
+        if not self.chunking_source.embedding_model:
+            probe_error = getattr(
+                self.chunking_source.report, "embedding_probe_error", None
+            )
+            detail = f": {probe_error}" if probe_error else ""
+            raise ValueError(
+                f"DataHubDocumentsSource requires a working embedding model but none is "
+                f"available{detail}. Fix the embedding credentials/config and re-run."
+            )
+
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
         self.state_file_path: Optional[Path] = None
@@ -239,10 +257,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Process documents using GraphQL search (batch mode)."""
         logger.info("Running in batch mode")
 
-        # Fetch documents from DataHub
+        # --- Pass 1: NATIVE documents ---
         documents = self._fetch_documents_graphql()
 
-        # Process each document
         for doc in documents:
             # Check if we should process this document (incremental mode)
             if (
@@ -262,6 +279,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Update state after successful processing
             if self.config.incremental.enabled:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
+
+        # --- Pass 2: EXTERNAL documents — resolve __pending__ chunks ---
+        # EXTERNAL documents (Notion, Confluence, etc.) are skipped in Pass 1 because
+        # DataHubDocumentsSource does not re-chunk them from contents.text.
+        # _process_document_for_pending_chunks is a no-op when no pending chunks exist.
+        external_urns = self._fetch_external_document_urns()
+        if external_urns:
+            logger.info(
+                f"Scanning {len(external_urns)} external document(s) for pending chunks..."
+            )
+        for urn in external_urns:
+            yield from self._process_document_for_pending_chunks(urn)
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
         """Bootstrap event mode by capturing current offsets BEFORE batch mode.
@@ -324,16 +353,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Yields:
             MetadataWorkUnit objects for the document if it should be processed, empty otherwise
         """
-        entity_urn = event.get("entityUrn")
-        aspect_name = event.get("aspectName")
+        entity_urn_raw = event.get("entityUrn")
+        aspect_name_raw = event.get("aspectName")
         aspect_data = event.get("aspect")
+
+        # Unpack Avro union wrappers (e.g. {"string": "urn:..."} → "urn:...")
+        entity_urn = (
+            entity_urn_raw.get("string")
+            if isinstance(entity_urn_raw, dict)
+            else entity_urn_raw
+        )
+        aspect_name = (
+            aspect_name_raw.get("string")
+            if isinstance(aspect_name_raw, dict)
+            else aspect_name_raw
+        )
 
         if not entity_urn or not aspect_name:
             logger.debug("Event missing entityUrn or aspectName, skipping")
             return
 
-        # Filter for documentInfo aspect
-        if aspect_name != "documentInfo":
+        # Filter for documentInfo or semanticContent aspects
+        if aspect_name not in ("documentInfo", "semanticContent"):
             return
 
         # Parse aspect data (handles Avro union wrapping)
@@ -344,6 +385,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 f"Failed to parse MCL aspect for {entity_urn}: {e}",
                 exc_info=True,
             )
+            return
+
+        # Handle semanticContent with pending embeddings
+        if aspect_name == "semanticContent":
+            if (
+                self._aspect_has_pending_chunks(aspect_dict)
+                and self.chunking_source.embedding_model
+            ):
+                yield from self._process_document_for_pending_chunks(entity_urn)
             return
 
         # Extract text from documentInfo
@@ -476,6 +526,65 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if event_consumer:
                 event_consumer.close()
 
+    def _aspect_has_pending_chunks(self, aspect_dict: dict[str, Any]) -> bool:
+        """Return True if the semanticContent aspect has a __pending__ embeddings entry."""
+        return bool(aspect_dict.get("embeddings", {}).get(PENDING_CHUNKS_KEY))
+
+    def _get_pending_chunks(self, urn: str) -> Optional[Any]:
+        """Fetch the pending EmbeddingModelData for a document from the graph."""
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        try:
+            semantic_content = self.graph.get_aspect(urn, SemanticContentClass)
+            if semantic_content is None or not semantic_content.embeddings:
+                return None
+            return semantic_content.embeddings.get(PENDING_CHUNKS_KEY)
+        except Exception as e:
+            logger.warning(f"Failed to fetch semanticContent for {urn}: {e}")
+            return None
+
+    def _pending_chunks_to_dicts(self, pending: Any) -> list[dict[str, Any]]:
+        """Convert pending EmbeddingModelData chunks into text dicts for embedding."""
+        return [
+            {
+                "text": c.text or "",
+                "characterOffset": c.characterOffset,
+                "characterLength": c.characterLength,
+            }
+            for c in (pending.chunks or [])
+            if c.text
+        ]
+
+    def _process_document_for_pending_chunks(
+        self, urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate real embeddings for a document that has pending chunks."""
+        if not self.chunking_source.embedding_model:
+            return
+
+        pending = self._get_pending_chunks(urn)
+        if not pending or not pending.chunks:
+            logger.debug(f"No pending chunks found for {urn}")
+            return
+
+        chunk_dicts = self._pending_chunks_to_dicts(pending)
+        if not chunk_dicts:
+            logger.debug(f"No text in pending chunks for {urn}")
+            return
+
+        try:
+            embeddings = self.chunking_source._generate_embeddings(chunk_dicts)
+            yield from self.chunking_source._emit_semantic_content(
+                urn, chunk_dicts, embeddings
+            )
+            self.report.report_embeddings_generated(len(embeddings))
+        except Exception as e:
+            error_msg = (
+                f"Failed to generate embeddings for pending chunks of {urn}: {e}"
+            )
+            logger.warning(error_msg, exc_info=True)
+            self.report.report_error(error_msg)
+
     def _parse_mcl_aspect(self, aspect_data: Any) -> dict[str, Any]:
         """Parse MCL aspect data (handles Avro union wrapping)."""
         if isinstance(aspect_data, dict):
@@ -557,19 +666,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             query getDocumentPlatform($urn: String!) {
                 entity(urn: $urn) {
                     ... on Document {
-                        dataPlatformInstance {
-                            platform {
-                                urn
-                            }
+                        platform {
+                            urn
                         }
                     }
                 }
             }
             """
             response = self.graph.execute_graphql(query, {"urn": entity_urn})
-            entity = response.get("entity", {})
-            platform_instance = entity.get("dataPlatformInstance", {})
-            platform = platform_instance.get("platform", {})
+            entity = response.get("entity") or {}
+            platform = entity.get("platform") or {}
             platform_urn = platform.get("urn")
 
             if platform_urn and isinstance(platform_urn, str):
@@ -711,10 +817,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         return False
 
     def _extract_platform_from_entity(self, entity: dict[str, Any]) -> Optional[str]:
-        """Extract platform name from GraphQL entity response."""
-        # Try to get from dataPlatformInstance
-        platform_instance = entity.get("dataPlatformInstance", {})
-        platform = platform_instance.get("platform", {})
+        """Extract platform name from GraphQL entity response.
+
+        Uses the Document.platform field (not dataPlatformInstance.platform.urn) because
+        the dataPlatformInstance resolver on the Document type returns null in GraphQL
+        even when the aspect is stored.  Document.platform resolves correctly.
+        """
+        platform = entity.get("platform") or {}
         platform_urn = platform.get("urn")
         if platform_urn and isinstance(platform_urn, str):
             # Extract platform name from URN (e.g., "urn:li:dataPlatform:notion" → "notion")
@@ -722,6 +831,110 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if len(parts) >= 3:
                 return parts[-1]
         return None
+
+    def _fetch_external_document_urns(self) -> list[str]:
+        """Fetch URNs of EXTERNAL documents that need pending-chunk resolution in batch mode.
+
+        EXTERNAL documents (Notion, Confluence, etc.) are skipped by the main
+        _fetch_documents_graphql pass because DataHubDocumentsSource does not
+        re-chunk them from contents.text.  This method collects their URNs so
+        batch mode can call _process_document_for_pending_chunks on each one.
+
+        The OpenSearch filter is:  embeddings.__pending__ EXISTS
+                                OR embeddings NOT EXISTS
+        This skips EXTERNAL docs that already have real embeddings — they are done.
+        """
+        query = """
+        query listDocuments($input: SearchInput!) {
+          search(input: $input) {
+            searchResults {
+              entity {
+                urn
+                ... on Document {
+                  info {
+                    source {
+                      sourceType
+                    }
+                  }
+                  platform {
+                    urn
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        search_input: dict[str, Any] = {
+            "type": "DOCUMENT",
+            "query": "*",
+            "start": 0,
+            "count": 1000,
+            # Only return docs that need work:
+            #   - __pending__ exists  → source stored chunks, real embeddings not yet generated
+            #   - embeddings absent   → doc has never been through the embedding pipeline
+            # Docs that already have real (non-pending) embeddings are skipped server-side.
+            "orFilters": [
+                {
+                    "and": [
+                        {
+                            "field": "embeddings.__pending__",
+                            "condition": "EXISTS",
+                            "values": [],
+                        }
+                    ]
+                },
+                {
+                    "and": [
+                        {
+                            "field": "embeddings",
+                            "condition": "EXISTS",
+                            "values": [],
+                            "negated": True,
+                        }
+                    ]
+                },
+            ],
+        }
+
+        # Always pre-filter to EXTERNAL documents server-side.
+        # The `platform` field is not reliably indexed for Document entities in
+        # OpenSearch (Documents use dataPlatformInstance, not a key-embedded platform),
+        # so platform filtering is done client-side via _should_process_by_source_type
+        # which reads dataPlatformInstance from the GraphQL response.
+        search_input["filters"] = [{"field": "sourceType", "values": ["EXTERNAL"]}]
+
+        try:
+            response = self.graph.execute_graphql(query, {"input": search_input})
+            search_results = response.get("search", {}).get("searchResults", [])
+
+            external_urns: list[str] = []
+            for result in search_results:
+                entity = result.get("entity", {})
+                urn = entity.get("urn")
+                if not urn:
+                    continue
+
+                if self.config.document_urns and urn not in self.config.document_urns:
+                    continue
+
+                info = entity.get("info") or {}
+                source = info.get("source") or {}
+                source_type = source.get("sourceType") or "NATIVE"
+                if source_type != "EXTERNAL":
+                    continue
+
+                if not self._should_process_by_source_type(entity, info):
+                    continue
+
+                external_urns.append(urn)
+
+            return external_urns
+
+        except Exception as e:
+            logger.error(f"Failed to fetch external document URNs: {e}", exc_info=True)
+            return []
 
     def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
         """Fetch Document entities from DataHub using GraphQL."""
@@ -748,10 +961,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                       sourceType
                     }
                   }
-                  dataPlatformInstance {
-                    platform {
-                      urn
-                    }
+                  platform {
+                    urn
                   }
                 }
               }
