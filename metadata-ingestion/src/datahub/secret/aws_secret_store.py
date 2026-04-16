@@ -1,6 +1,9 @@
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from botocore.client import BaseClient
 
 from cachetools import TTLCache
 from pydantic import BaseModel, field_validator
@@ -37,7 +40,8 @@ class AwsSecretsManagerStore(SecretStore):
 
     def __init__(self, config: AwsSecretsManagerStoreConfig):
         self.config = config
-        self._client: Optional[Any] = None
+        self._client: Optional["BaseClient"] = None
+        self._client_lock = threading.Lock()
         self._cache: TTLCache = TTLCache(maxsize=1000, ttl=config.cache_ttl)
         self._cache_lock = threading.Lock()
 
@@ -45,7 +49,7 @@ class AwsSecretsManagerStore(SecretStore):
         # Double-checked locking: multiple workload threads share this store
         # instance, so we prevent duplicate client creation on first access.
         if self._client is None:
-            with self._cache_lock:
+            with self._client_lock:
                 if self._client is None:
                     try:
                         import boto3

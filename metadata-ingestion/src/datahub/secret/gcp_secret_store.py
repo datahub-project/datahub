@@ -1,6 +1,9 @@
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from google.cloud.secretmanager_v1 import SecretManagerServiceClient
 
 from cachetools import TTLCache
 from pydantic import BaseModel, field_validator
@@ -34,7 +37,8 @@ class GcpSecretManagerStore(SecretStore):
 
     def __init__(self, config: GcpSecretManagerStoreConfig):
         self.config = config
-        self._client: Optional[Any] = None
+        self._client: Optional["SecretManagerServiceClient"] = None
+        self._client_lock = threading.Lock()
         self._cache: TTLCache = TTLCache(maxsize=1000, ttl=config.cache_ttl)
         self._cache_lock = threading.Lock()
 
@@ -50,10 +54,10 @@ class GcpSecretManagerStore(SecretStore):
         # Double-checked locking: multiple workload threads share this store
         # instance, so we prevent duplicate client creation on first access.
         if self._client is None:
-            with self._cache_lock:
+            with self._client_lock:
                 if self._client is None:
                     try:
-                        from google.cloud import (  # type: ignore[attr-defined]
+                        from google.cloud import (
                             secretmanager,
                         )
                     except ImportError as e:
