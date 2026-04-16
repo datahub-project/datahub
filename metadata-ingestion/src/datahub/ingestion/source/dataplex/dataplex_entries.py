@@ -312,8 +312,8 @@ class DataplexEntriesProcessor:
                     results.append(project_container)
 
         entity = self.build_entity_for_entry(entry)
-        self._track_entry_for_lineage(dataplex_location=location, entry=entry)
         if entity is not None:
+            self._track_entry_for_lineage(dataplex_location=location, entry=entry)
             results.append(entity)
 
         return results
