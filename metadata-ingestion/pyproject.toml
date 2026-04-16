@@ -1157,6 +1157,18 @@ salesforce = [
     "simple-salesforce<2.0.0",
 ]
 
+sharepoint = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "jsonpath-ng==1.7.0",
+    "litellm==1.83.0",
+    "msal>=1.31.1,<2.0.0",
+    "openpyxl>=3.1.5,<4.0.0",
+    "unstructured-ingest==0.7.2",
+    "unstructured[md]==0.18.24",
+    "urllib3>=1.26,<3.0",
+]
+
 sigma = [
     "patchy==2.8.0",
     "requests<3.0.0",
@@ -2174,6 +2186,7 @@ vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
+sharepoint = "datahub.ingestion.source.sharepoint.sharepoint_source:SharePointSource"
 
 [project.entry-points."datahub.ingestion.transformer.plugins"]
 pattern_cleanup_ownership = "datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership"
