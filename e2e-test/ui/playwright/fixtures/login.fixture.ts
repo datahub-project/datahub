@@ -70,6 +70,33 @@ function stateFilePath(username: string): string {
   return path.join(AUTH_DIR, `${username}.json`);
 }
 
+/**
+ * Returns true if the saved state file contains at least one non-expired
+ * session cookie. Playwright stores cookies with an `expires` field that is
+ * a Unix timestamp (-1 means session-only). We treat any cookie whose
+ * expiry is in the past as a stale session.
+ *
+ * This prevents the fixture from loading a saved state whose session cookies
+ * have expired, which would cause tests to land on the login page instead of
+ * the expected authenticated page.
+ */
+function isStateFileValid(stateFile: string): boolean {
+  try {
+    const raw = fs.readFileSync(stateFile, 'utf-8');
+    const state = JSON.parse(raw) as { cookies?: Array<{ name: string; expires: number }> };
+    const cookies = state.cookies ?? [];
+    if (cookies.length === 0) return false;
+
+    const now = Date.now() / 1000; // Unix seconds
+    // Session cookies (expires === -1) are always considered valid at read time;
+    // only explicitly-expired cookies are treated as stale.
+    const hasExpiredCookie = cookies.some((c) => c.expires > 0 && c.expires < now);
+    return !hasExpiredCookie;
+  } catch {
+    return false;
+  }
+}
+
 // ── Fixture implementation ────────────────────────────────────────────────────
 
 export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
@@ -82,7 +109,7 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
   context: async ({ user, browser, logger }, use) => {
     const stateFile = stateFilePath(user.username);
 
-    if (fs.existsSync(stateFile)) {
+    if (fs.existsSync(stateFile) && isStateFileValid(stateFile)) {
       // Fast path: reuse saved session — no browser interaction needed.
       logger.info('reusing auth state', { user: user.username, stateFile });
       const ctx = await browser.newContext({
@@ -94,8 +121,14 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
       return;
     }
 
-    // Slow path: perform UI login and save state for future workers/runs.
-    logger.info('auth state not found — logging in via UI', { user: user.username });
+    // Slow path: either the state file does not exist or the session cookies
+    // have expired. Perform a fresh UI login and save the new state.
+    if (fs.existsSync(stateFile)) {
+      logger.warn('auth state has expired — re-authenticating', { user: user.username, stateFile });
+      fs.unlinkSync(stateFile);
+    } else {
+      logger.info('auth state not found — logging in via UI', { user: user.username });
+    }
     fs.mkdirSync(AUTH_DIR, { recursive: true });
 
     const ctx = await browser.newContext({

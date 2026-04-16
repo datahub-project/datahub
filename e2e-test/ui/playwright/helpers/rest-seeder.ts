@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 import * as fs from 'fs/promises';
 import { extractUrn, waitForSync, type Mcp, type Urn } from './seeder-utils';
+import { gmsUrl as resolveGmsUrl } from '../utils/constants';
 
 /**
  * RestSeeder — seeds test data via the DataHub GMS REST API.
@@ -25,8 +26,7 @@ export class RestSeeder {
     private readonly page: Page,
     private readonly gmsToken?: string,
   ) {
-    const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
-    this.gmsUrl = baseURL.replace(':9002', ':8080');
+    this.gmsUrl = resolveGmsUrl();
   }
 
   /** Load a JSON test-data file containing an array of MCPs. */

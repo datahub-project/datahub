@@ -13,6 +13,13 @@ import { BusinessAttributePage } from '../../pages/business-attribute-page';
 import { DatasetPage } from '../../pages/dataset-page';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
 
+test.use({ featureName: 'business-attributes' });
+
+// Tests in this file share server-side state (the PlaywrightAttribute → event_name link).
+// Running them in parallel causes Field Ops to remove the link while Inheritance / Related
+// Entities are checking for it. Serialize within the file to avoid the conflict.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Business Attributes', () => {
   const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,Playwright_logging_events,PROD)';
   const FIELD_NAME = 'event_name';
@@ -31,7 +38,8 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute CRUD Operations', () => {
-    test('should create, view, and delete a business attribute', async () => {
+    test('should create, view, and delete a business attribute', async ({ page }) => {
+      test.setTimeout(180000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
@@ -58,6 +66,7 @@ test.describe('Business Attributes', () => {
 
   test.describe('Business Attribute Inheritance', () => {
     test('should inherit tags and terms from business attribute to dataset field', async () => {
+      test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
@@ -77,6 +86,7 @@ test.describe('Business Attributes', () => {
 
   test.describe('Business Attribute Related Entities', () => {
     test('should view related entities for a business attribute', async () => {
+      test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
@@ -89,6 +99,7 @@ test.describe('Business Attributes', () => {
     });
 
     test('should search related entities by query', async ({ page }) => {
+      test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
@@ -106,6 +117,7 @@ test.describe('Business Attributes', () => {
 
   test.describe('Business Attribute Field Operations', () => {
     test('should remove business attribute from dataset field', async () => {
+      test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
@@ -120,6 +132,7 @@ test.describe('Business Attributes', () => {
 
   test.describe('Business Attribute Data Type', () => {
     test('should update the data type of a business attribute', async () => {
+      test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 

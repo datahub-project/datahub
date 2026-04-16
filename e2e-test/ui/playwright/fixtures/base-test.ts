@@ -47,6 +47,7 @@ import { seedingFixture } from './seeding.fixture';
 import { readGmsToken } from './login';
 import { RestFeatureDataLoader, type FeatureDataLoader } from './test-data';
 import { ApiScopedCleanup, type ScopedCleanup } from './cleanup';
+import { gmsUrl } from '../utils/constants';
 
 // ── Compose the four core capability fixtures ─────────────────────────────────
 
@@ -69,24 +70,22 @@ export const test = composedTest.extend<ExtendedFixtures>({
   },
 
   featureData: async ({ playwright, gmsToken }, use) => {
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
-    const gmsUrl = baseUrl.replace(':9002', ':8080');
-    const request = await playwright.request.newContext({ baseURL: gmsUrl });
+    const url = gmsUrl();
+    const request = await playwright.request.newContext({ baseURL: url });
     try {
-      await use(new RestFeatureDataLoader(request, gmsToken, gmsUrl));
+      await use(new RestFeatureDataLoader(request, gmsToken, url));
     } finally {
       await request.dispose();
     }
   },
 
   cleanup: async ({ playwright, gmsToken }, use, testInfo) => {
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
-    const gmsUrl = baseUrl.replace(':9002', ':8080');
+    const url = gmsUrl();
     const request = await playwright.request.newContext({
-      baseURL: gmsUrl,
+      baseURL: url,
       extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
     });
-    const scopedCleanup = new ApiScopedCleanup(request, gmsUrl);
+    const scopedCleanup = new ApiScopedCleanup(request, url);
     await use(scopedCleanup);
     // Preserve entities on failure so engineers can inspect the broken state.
     await scopedCleanup.flush(testInfo.status);

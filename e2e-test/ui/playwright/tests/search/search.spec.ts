@@ -8,6 +8,8 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search-page';
 
+test.use({ featureName: 'search' });
+
 test.describe('Search Functionality', () => {
   let searchPage: SearchPage;
 
@@ -28,13 +30,17 @@ test.describe('Search Functionality', () => {
 
   test('should search, find a result, and visit the dataset page', async ({ page }) => {
     await searchPage.searchAndWait('fct_playwright_users_created', 5000);
-    await searchPage.expectHasResults();
+
+    // Wait for results — seeder fixture guarantees data is present.
+    await expect(page.getByText(/of [0-9]+ result/)).toBeVisible({ timeout: 30000 });
+
     await searchPage.clickResult('fct_playwright_users_created');
 
     await page.waitForURL(/.*dataset.*fct_playwright_users_created.*/);
     await page.waitForLoadState('networkidle');
 
-    await searchPage.expectTextVisible('Hive');
+    // The V2 entity page shows the platform as an icon (not text), so we verify
+    // the entity type and schema fields that are rendered as visible text.
     await searchPage.expectTextVisible('Dataset');
     await searchPage.expectTextVisible('fct_playwright_users_created');
     await searchPage.expectTextVisible('user_id');

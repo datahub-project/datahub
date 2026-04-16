@@ -31,6 +31,7 @@ export class BasePage {
   }
 
   async waitForPageLoad(): Promise<void> {
+    await this.page.waitForLoadState('domcontentloaded');
     await this.page.waitForLoadState('networkidle');
   }
 

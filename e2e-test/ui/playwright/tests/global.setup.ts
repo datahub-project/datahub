@@ -14,6 +14,7 @@ import * as path from 'path';
 import { test as setup, request } from '@playwright/test';
 import { readGmsToken } from '../fixtures/login';
 import { deleteEntities } from '../fixtures/cleanup';
+import { gmsUrl } from '../utils/constants';
 
 const ADMIN_USERNAME = 'datahub';
 
@@ -27,8 +28,7 @@ setup('global cleanup', async () => {
   setup.setTimeout(180_000);
   console.log('\n🧹 Starting global pre-run cleanup...');
 
-  const baseUrl = process.env.BASE_URL ?? 'http://localhost:9002';
-  const gmsUrl = baseUrl.replace(':9002', ':8080');
+  const url = gmsUrl();
   let gmsToken: string;
 
   try {
@@ -39,7 +39,7 @@ setup('global cleanup', async () => {
   }
 
   const apiContext = await request.newContext({
-    baseURL: gmsUrl,
+    baseURL: url,
     extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
   });
 
@@ -48,7 +48,7 @@ setup('global cleanup', async () => {
 
     for (const entityType of ENTITY_TYPES) {
       for (const prefix of CLEANUP_PREFIXES) {
-        const response = await apiContext.post(`${gmsUrl}/api/v2/graphql`, {
+        const response = await apiContext.post(`${url}/api/v2/graphql`, {
           data: {
             query: `query search($input: SearchInput!) { search(input: $input) { total entities { urn } } }`,
             variables: {
@@ -77,7 +77,7 @@ setup('global cleanup', async () => {
     }
 
     console.log(`🗑️  Deleting ${urnsToDelete.length} leftover entities...`);
-    await deleteEntities(apiContext, gmsUrl, urnsToDelete);
+    await deleteEntities(apiContext, url, urnsToDelete);
     console.log('✅ Global cleanup complete');
   } finally {
     await apiContext.dispose();

@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 import * as fs from 'fs/promises';
 import { extractUrn, waitForSync, type Mcp, type Urn } from './seeder-utils';
+import { gmsUrl } from '../utils/constants';
 
 /**
  * GraphQLSeeder — seeds test data via the DataHub GraphQL API.
@@ -57,8 +58,7 @@ export class GraphQLSeeder {
 
   /** Wait until all URNs are reachable via the GMS REST API. */
   async waitForSync(urns: Urn[], timeout?: number): Promise<void> {
-    const gmsUrl = this.baseURL.replace(':9002', ':8080');
-    await waitForSync(this.page.request, gmsUrl, urns, undefined, timeout);
+    await waitForSync(this.page.request, gmsUrl(), urns, undefined, timeout);
   }
 
   getCreatedUrns(): Urn[] {

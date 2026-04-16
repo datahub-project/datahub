@@ -1,6 +1,5 @@
 [
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)",
@@ -12,9 +11,6 @@
           },
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "description": null,
-              "uri": null,
-              "tags": [],
               "customProperties": {
                 "prop1": "fakeprop",
                 "prop2": "pikachu"
@@ -26,19 +22,16 @@
               "owners": [
                 {
                   "owner": "urn:li:corpuser:jdoe",
-                  "type": "DATAOWNER",
-                  "source": null
+                  "type": "DATAOWNER"
                 },
                 {
                   "owner": "urn:li:corpuser:datahub",
-                  "type": "DATAOWNER",
-                  "source": null
+                  "type": "DATAOWNER"
                 }
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -49,17 +42,12 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
               "hash": "",
               "platformSchema": {
                 "com.linkedin.pegasus2avro.schema.KafkaSchema": {
@@ -69,11 +57,8 @@
               "fields": [
                 {
                   "fieldPath": "[version=2.0].[type=boolean].field_foo_2",
-                  "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Foo field description"
-                  },
+                  "description": "Foo field description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -84,11 +69,8 @@
                 },
                 {
                   "fieldPath": "[version=2.0].[type=boolean].field_bar",
-                  "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Bar field description"
-                  },
+                  "description": "Bar field description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -97,18 +79,14 @@
                   "nativeDataType": "boolean",
                   "recursive": false
                 }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null
+              ]
             }
           }
         ]
       }
-    },
-    "proposedDelta": null
+    }
   },
   {
-    "auditHeader": null,
     "entityType": "incident",
     "entityUrn": "urn:li:incident:pw-incidents-v2-test-title",
     "changeType": "UPSERT",
@@ -116,11 +94,9 @@
     "aspect": {
       "value": "{\"type\": \"OPERATIONAL\", \"title\": \"test title\", \"description\": \"test description\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
       "contentType": "application/json"
-    },
-    "systemMetadata": null
+    }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
@@ -133,12 +109,7 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {},
-              "externalUrl": null,
-              "name": "customers",
-              "qualifiedName": null,
-              "description": null,
-              "uri": null,
-              "tags": []
+              "name": "customers"
             }
           },
           {
@@ -146,40 +117,30 @@
               "owners": [
                 {
                   "owner": "urn:li:corpuser:datahub",
-                  "type": "DATAOWNER",
-                  "source": null
+                  "type": "DATAOWNER"
                 }
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
+                "actor": "urn:li:corpuser:datahub"
               }
             }
           }
         ]
       }
-    },
-    "proposedDelta": null
+    }
   },
   {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
-      "json": {
-        "siblings": [
-          "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)"
-        ],
-        "primary": true
-      }
-    },
-    "systemMetadata": null
+      "value": "{\"siblings\":[\"urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)\"],\"primary\":true}",
+      "contentType": "application/json"
+    }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
@@ -192,33 +153,21 @@
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {},
-              "externalUrl": null,
-              "name": "customers",
-              "qualifiedName": null,
-              "description": null,
-              "uri": null,
-              "tags": []
+              "name": "customers"
             }
           }
         ]
       }
-    },
-    "proposedDelta": null
+    }
   },
   {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
-      "json": {
-        "siblings": [
-          "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)"
-        ],
-        "primary": false
-      }
-    },
-    "systemMetadata": null
+      "value": "{\"siblings\":[\"urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)\"],\"primary\":false}",
+      "contentType": "application/json"
+    }
   }
 ]

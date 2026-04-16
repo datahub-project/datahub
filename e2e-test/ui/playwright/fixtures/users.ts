@@ -1,18 +1,20 @@
 /**
  * User credential registry — the single source of truth for all test users.
  *
- * To add a new user, add an entry here. The `role` field is reserved for
- * role-based fixture expansion; add new roles to the union type as needed.
+ * Credentials are read from environment variables so no secrets are hardcoded.
+ * Set these in your local shell or CI environment:
+ *
+ *   DATAHUB_ADMIN_USERNAME   (default: "datahub")
+ *   DATAHUB_ADMIN_PASSWORD   (default: "datahub")
  *
  * CI override: create a sibling file `users.ci.ts` (do NOT commit it) that
  * exports a `users` object with the same shape. Any keys present there will
- * override the entries below at runtime. CI pipelines set credentials via
- * that file (or an environment-specific import) without touching this file.
+ * override the entries below at runtime.
  *
  * Example users.ci.ts:
  *   import type { UserMap } from './users';
  *   export const users: UserMap = {
- *     admin: { username: 'ci_admin', password: process.env.ADMIN_PASS!, role: 'admin' },
+ *     admin: { username: process.env.ADMIN_USERNAME!, password: process.env.ADMIN_PASSWORD!, role: 'admin' },
  *   };
  */
 
@@ -28,8 +30,8 @@ export type UserMap = Record<string, UserCredentials>;
 
 export const users = {
   admin: {
-    username: 'datahub',
-    password: 'datahub',
+    username: process.env.DATAHUB_ADMIN_USERNAME ?? 'datahub',
+    password: process.env.DATAHUB_ADMIN_PASSWORD ?? 'datahub',
     displayName: 'DataHub Admin',
     role: 'admin' as const,
   },
@@ -42,11 +44,11 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   ciOverrides = (require('./users.ci') as { users: UserMap }).users;
 } catch {
-  // No CI overrides — using local defaults.
+  // No CI overrides — using defaults.
 }
 
 /**
- * Resolved user registry: local defaults merged with any CI overrides.
+ * Resolved user registry: env-var defaults merged with any CI overrides.
  * Always import credentials from here, never from `users` directly.
  */
 export const resolvedUsers: UserMap = { ...users, ...ciOverrides };

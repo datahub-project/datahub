@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { extractUrn, waitForSync, type Mcp, type Urn } from './seeder-utils';
+import { gmsUrl as resolveGmsUrl } from '../utils/constants';
 
 const execAsync = promisify(exec);
 
@@ -42,8 +43,7 @@ export class CliSeeder {
     private readonly page: Page,
     private readonly gmsToken: string,
   ) {
-    const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
-    this.gmsUrl = baseURL.replace(':9002', ':8080');
+    this.gmsUrl = resolveGmsUrl();
   }
 
   /**

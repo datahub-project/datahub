@@ -21,8 +21,10 @@ export class WelcomeModalPage extends BasePage {
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
 
-    // Modal selectors (from feature doc)
-    this.modal = page.getByRole('dialog');
+    // Modal selectors — scoped to the Welcome to DataHub dialog so that other
+    // dialogs on the page (e.g. confirmation prompts, onboarding tours) do not
+    // cause false failures in expectModalVisible / expectModalNotVisible.
+    this.modal = page.getByRole('dialog').filter({ hasText: 'Welcome to DataHub' });
     this.modalTitle = page.getByRole('heading', { name: 'Welcome to DataHub' });
     this.closeButton = page.locator('[data-testid="modal-close-icon"]');
 

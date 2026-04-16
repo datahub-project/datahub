@@ -1,3 +1,11 @@
+/**
+ * Derive the GMS REST URL from a DataHub frontend URL.
+ * DataHub runs the frontend on :9002 and GMS on :8080 by convention.
+ */
+export function gmsUrl(baseUrl?: string): string {
+  return (baseUrl ?? process.env.BASE_URL ?? 'http://localhost:9002').replace(':9002', ':8080');
+}
+
 export const DEFAULT_TIMEOUT = 30000;
 export const NETWORK_IDLE_TIMEOUT = 10000;
 export const ANIMATION_TIMEOUT = 500;

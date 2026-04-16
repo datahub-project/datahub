@@ -37,16 +37,44 @@ export class SearchPage extends BasePage {
   }
 
   async navigateToHome(): Promise<void> {
+    // Suppress the ReactTour onboarding overlay before navigating so it does
+    // not intercept pointer events on the search results page.
+    await this.page.addInitScript(() => {
+      localStorage.setItem('skipOnboardingTour', 'true');
+    });
     await this.navigate('/');
     await this.page.waitForLoadState('networkidle');
     await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
-    // The onboarding modal blocks real DOM clicks (e.g. triggering onFocus on
-    // the search input). Dismiss it if it appears so subsequent interactions
-    // hit the actual elements rather than the overlay.
+    // Dismiss any remaining dialog (e.g. "Narrow your search" welcome modal).
+    await this.dismissOnboardingOverlays();
+  }
+
+  /**
+   * Dismiss any onboarding overlays that may block pointer events.
+   * Handles both the WelcomeToDataHub dialog and the ReactTour overlay.
+   */
+  async dismissOnboardingOverlays(): Promise<void> {
+    // Dismiss modal dialogs (WelcomeToDataHub, "Narrow your search").
     const modal = this.page.getByRole('dialog');
     if (await modal.isVisible()) {
       await this.page.keyboard.press('Escape');
       await modal.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    }
+    // Dismiss the ReactTour overlay if it is blocking pointer events.
+    // The overlay renders as div#___reactour covering the full viewport.
+    const reactTour = this.page.locator('#___reactour');
+    if (await reactTour.isVisible()) {
+      await this.page.evaluate(() => {
+        localStorage.setItem('skipOnboardingTour', 'true');
+      });
+      // Click the close button if it exists, otherwise press Escape.
+      const closeButton = reactTour.locator('button[aria-label="Close tour"]');
+      if (await closeButton.isVisible()) {
+        await closeButton.click();
+      } else {
+        await this.page.keyboard.press('Escape');
+      }
+      await reactTour.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
     }
   }
 
@@ -93,54 +121,118 @@ export class SearchPage extends BasePage {
     await this.page.getByText(filterType).click({ force: true });
   }
 
+  /**
+   * Returns true if a filter dropdown is available — either as a top-level
+   * button or inside the "More Filters" menu. Use this to skip tests that
+   * depend on a filter that the backend may not return aggregations for.
+   */
+  async isFilterAvailable(filterName: string): Promise<boolean> {
+    const filterDropdown = this.page.locator(`[data-testid="filter-dropdown-${filterName}"]`);
+    if (await filterDropdown.isVisible()) return true;
+
+    const moreFiltersBtn = this.moreFiltersDropdown;
+    if (!(await moreFiltersBtn.isVisible())) return false;
+
+    await moreFiltersBtn.click();
+    await this.page.waitForTimeout(300);
+    const moreFilterOption = this.page.locator(`[data-testid="more-filter-${filterName}"]`);
+    const found = await moreFilterOption.isVisible();
+    await this.page.keyboard.press('Escape');
+    return found;
+  }
+
   async selectFilterOption(filterName: string, optionLabel: string): Promise<void> {
     const filterDropdown = this.page.locator(`[data-testid="filter-dropdown-${filterName}"]`);
-    await filterDropdown.waitFor({ state: 'visible', timeout: 10000 });
+
+    // Some filters (e.g. Glossary Term, Tag) are only shown as top-level
+    // dropdowns when the backend returns aggregations for those fields.
+    // When not visible at the top level, fall back to the "More Filters" menu.
+    const isTopLevel = await filterDropdown.isVisible();
+    if (!isTopLevel) {
+      const moreFiltersBtn = this.moreFiltersDropdown;
+      const moreFiltersVisible = await moreFiltersBtn.isVisible();
+      if (moreFiltersVisible) {
+        await moreFiltersBtn.click();
+        await this.page.waitForTimeout(500);
+        const moreFilterOption = this.page.locator(`[data-testid="more-filter-${filterName}"]`);
+        const moreFilterVisible = await moreFilterOption.isVisible();
+        if (moreFilterVisible) {
+          await moreFilterOption.click();
+          await this.page.waitForTimeout(500);
+          // After clicking the more-filter option, select the option within
+          // the sub-dropdown that appears. Fall through to the selection logic.
+          await this.selectFilterValue(optionLabel);
+          return;
+        }
+        // Close the More Filters dropdown before failing
+        await this.page.keyboard.press('Escape');
+      }
+      // Wait for top-level filter dropdown with extended timeout as last resort
+      await filterDropdown.waitFor({ state: 'visible', timeout: 10000 });
+    }
+
     await filterDropdown.click({ force: true });
 
     // Wait for the dropdown menu to appear
     await this.page.waitForTimeout(1000);
 
-    // Try checkbox-based selection first (for Type filters)
-    const optionPattern = new RegExp(`^${optionLabel}(\\s+\\d+)?$`);
-    const checkboxOption = this.page.getByRole('checkbox', { name: optionPattern });
-    const checkboxCount = await checkboxOption.count();
+    await this.selectFilterValue(optionLabel);
+  }
 
-    if (checkboxCount > 0) {
-      // Checkbox found - use it
-      if (checkboxCount > 1) {
-        await checkboxOption.first().check();
-      } else {
-        await checkboxOption.check();
-      }
-    } else {
-      // No checkbox - try text-based selection (for Platform filters)
-      let textOption = this.page.getByText(optionLabel, { exact: true });
-      let textCount = await textOption.count();
+  /**
+   * Select a value within an already-open filter dropdown.
+   * Tries checkbox-based selection first, then falls back to text-based.
+   */
+  private async selectFilterValue(optionLabel: string): Promise<void> {
+    // Wait for the filter dropdown container to appear.
+    const dropdownMenu = this.filterDropdownMenu;
+    await dropdownMenu.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {
+      // Some filter types don't use the standard filter-dropdown container.
+    });
 
-      // If option not found, try using the search input in the dropdown
-      if (textCount === 0) {
-        const searchInputs = await this.page.locator('[data-testid="search-input"]').all();
-        if (searchInputs.length > 1) {
-          // Use the search input in the dropdown (second one, first is main search bar)
-          await searchInputs[1].fill(optionLabel);
-          await this.page.waitForTimeout(500);
-          textOption = this.page.getByText(optionLabel, { exact: true });
-          textCount = await textOption.count();
-        }
-      }
+    const optionPattern = new RegExp(optionLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-      if (textCount > 1) {
-        // Multiple matches - click the one inside the dropdown menu
-        await textOption.nth(1).click();
-      } else if (textCount === 1) {
-        await textOption.click();
-      } else {
-        throw new Error(`Could not find filter option: ${optionLabel}`);
+    // Helper: check if a checkbox matching optionLabel is visible and check it.
+    const tryCheckbox = async (): Promise<boolean> => {
+      const checkboxOption = this.page.getByRole('checkbox', { name: optionPattern });
+      const count = await checkboxOption.count();
+      if (count === 0) return false;
+      const target = count > 1 ? checkboxOption.first() : checkboxOption;
+      await target.check({ force: true });
+      return true;
+    };
+
+    // First pass: checkbox visible immediately (e.g. Type filter options).
+    if (await tryCheckbox()) {
+      await this.page.getByRole('button', { name: 'Update' }).click();
+      return;
+    }
+
+    // Second pass: type in the dropdown search bar to narrow the list, then
+    // re-try checkbox (Platform, Glossary Term, Tag options).
+    // The dropdown search input carries data-testid="search-input"; use .last()
+    // to avoid matching the AntD Select combobox that shares the same testid.
+    const dropdownSearchInput = dropdownMenu.locator('[data-testid="search-input"]').last();
+    if (await dropdownSearchInput.isVisible()) {
+      await dropdownSearchInput.fill(optionLabel);
+      await this.page.waitForTimeout(500);
+
+      if (await tryCheckbox()) {
+        await this.page.getByRole('button', { name: 'Update' }).click();
+        return;
       }
     }
 
-    await this.page.getByRole('button', { name: 'Update' }).click();
+    // Fallback: click the matching text entry inside the dropdown.
+    const textOption = dropdownMenu.getByText(optionLabel, { exact: true });
+    const textCount = await textOption.count();
+    if (textCount > 0) {
+      await textOption.first().click();
+      await this.page.getByRole('button', { name: 'Update' }).click();
+      return;
+    }
+
+    throw new Error(`Could not find filter option: ${optionLabel}`);
   }
 
   async selectFilterOptionThroughMoreFilters(filterName: string, optionLabel: string): Promise<void> {
