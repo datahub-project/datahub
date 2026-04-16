@@ -500,7 +500,7 @@ elasticsearch:
       schemaField:
         hashIdEnabled: ${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:false}
   buildIndices:
-    allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:false} # when cloneIndices is also enabled
+    allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:${ZDU_STAGE_20:false}} # when cloneIndices is also enabled
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
@@ -734,6 +734,8 @@ kafka:
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
+    authExceptionRetryIntervalSeconds: ${KAFKA_CONSUMER_AUTH_EXCEPTION_RETRY_INTERVAL_SECONDS:10} # Seconds to wait before retrying after an authentication/authorization exception (e.g. MSK IAM credential rotation). Set to 0 to disable (fatal on first auth exception).
+    maxAuthExceptionRetries: ${KAFKA_CONSUMER_MAX_AUTH_EXCEPTION_RETRIES:3} # Max consecutive auth exception retries before stopping the container. Prevents silent infinite retry on permanent auth failure.
     mcp:
       autoOffsetReset: ${KAFKA_CONSUMER_MCP_AUTO_OFFSET_RESET:earliest}
     mcl:
@@ -894,6 +896,8 @@ siblings:
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
   consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
+ingestionMetrics:
+  enabled: ${INGESTION_METRICS_ENABLED:true}
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
   consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:}

@@ -1,7 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator.*;
+import static com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator.*;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
