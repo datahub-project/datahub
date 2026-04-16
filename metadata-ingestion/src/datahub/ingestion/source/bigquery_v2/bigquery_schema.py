@@ -780,19 +780,18 @@ class BigQuerySchemaApi:
             raw_rows = []
             last_seen_table: str = ""
             for column in cur:
-                with timer.pause():
-                    if (
-                        column_limit
-                        and column.table_name in columns
-                        and len(columns[column.table_name]) >= column_limit
-                    ):
-                        if last_seen_table != column.table_name:
-                            logger.warning(
-                                f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
-                            )
-                            last_seen_table = column.table_name
-                    else:
-                        raw_rows.append(column)
+                if (
+                    column_limit
+                    and column.table_name in columns
+                    and len(columns[column.table_name]) >= column_limit
+                ):
+                    if last_seen_table != column.table_name:
+                        logger.warning(
+                            f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                        )
+                        last_seen_table = column.table_name
+                else:
+                    raw_rows.append(column)
 
             # Batch-resolve policy tag display names for the entire dataset in a
             # small number of Data Catalog API calls (one per unique taxonomy).
@@ -823,36 +822,35 @@ class BigQuerySchemaApi:
                     )
 
             for column in raw_rows:
-                with timer.pause():
-                    policy_tags: List[str] = []
-                    if extract_policy_tags_from_catalog:
-                        raw_tags = getattr(column, "policy_tags", None)
-                        if raw_tags:
-                            for resource_name in raw_tags:
-                                if resource_name not in policy_tag_display_name_map:
-                                    logger.debug(
-                                        f"Policy tag resource name not found in mapping "
-                                        f"(tag may have been deleted): {resource_name}"
-                                    )
-                                policy_tags.append(
-                                    policy_tag_display_name_map.get(
-                                        resource_name, resource_name
-                                    )
+                policy_tags: List[str] = []
+                if extract_policy_tags_from_catalog:
+                    raw_tags = getattr(column, "policy_tags", None)
+                    if raw_tags:
+                        for resource_name in raw_tags:
+                            if resource_name not in policy_tag_display_name_map:
+                                logger.debug(
+                                    f"Policy tag resource name not found in mapping "
+                                    f"(tag may have been deleted): {resource_name}"
                                 )
+                            policy_tags.append(
+                                policy_tag_display_name_map.get(
+                                    resource_name, resource_name
+                                )
+                            )
 
-                    columns[column.table_name].append(
-                        BigqueryColumn(
-                            name=column.column_name,
-                            ordinal_position=column.ordinal_position,
-                            field_path=column.field_path,
-                            is_nullable=column.is_nullable == "YES",
-                            data_type=column.data_type,
-                            comment=column.comment,
-                            is_partition_column=column.is_partitioning_column == "YES",
-                            cluster_column_position=column.clustering_ordinal_position,
-                            policy_tags=policy_tags,
-                        )
+                columns[column.table_name].append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        field_path=column.field_path,
+                        is_nullable=column.is_nullable == "YES",
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                        cluster_column_position=column.clustering_ordinal_position,
+                        policy_tags=policy_tags,
                     )
+                )
 
             self.report.num_get_columns_for_dataset_api_requests += 1
             self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
