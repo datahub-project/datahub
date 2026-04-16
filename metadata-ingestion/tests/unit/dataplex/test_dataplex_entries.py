@@ -2,7 +2,7 @@
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import cast
+from typing import List, cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -624,7 +624,7 @@ class TestDataplexParallelEntries:
         """A PermissionDenied on one (project, location) must not abort the others."""
         entity_ok = Mock()
 
-        def stub_side_effect(project_id: str, location: str):
+        def stub_side_effect(project_id: str, location: str) -> List[str]:
             if project_id == "proj-fail":
                 raise PermissionError("403 PermissionDenied")
             return ["entry-ok"]
