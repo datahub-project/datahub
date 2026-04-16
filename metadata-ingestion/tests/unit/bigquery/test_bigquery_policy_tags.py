@@ -200,17 +200,19 @@ def test_build_mapping_caches_across_calls() -> None:
     assert dc_client.list_policy_tags.call_count == 1  # cached after first call
 
 
-def test_build_mapping_malformed_resource_name_stored_as_is() -> None:
+def test_build_mapping_malformed_resource_name_skipped() -> None:
     dc_client = MagicMock()
     dc_client.list_policy_tags.return_value = []
 
     api = _make_schema_api(datacatalog_client=dc_client)
     malformed = "not/a/valid/resource/name"
+    report = BigQueryV2Report()
 
-    result = api.build_policy_tag_display_name_mapping({malformed}, BigQueryV2Report())
+    result = api.build_policy_tag_display_name_mapping({malformed}, report)
 
-    assert result == {malformed: malformed}
+    assert result == {}
     dc_client.list_policy_tags.assert_not_called()
+    assert len(report.warnings) > 0
 
 
 def test_build_mapping_api_failure_uses_resource_name() -> None:

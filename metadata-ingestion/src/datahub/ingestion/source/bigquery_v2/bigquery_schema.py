@@ -634,18 +634,18 @@ class BigQuerySchemaApi:
                 for name in policy_tag_resource_names
             }
 
-        # Parse taxonomy IDs from uncached resource names, falling back to the
-        # resource name itself for any that are malformed.
+        # Parse taxonomy IDs from uncached resource names, skipping any that are malformed.
         taxonomy_ids: Set[str] = set()
         for resource_name in uncached_names:
             taxonomy_id = _parse_taxonomy_id(resource_name)
             if taxonomy_id:
                 taxonomy_ids.add(taxonomy_id)
             else:
-                logger.warning(
-                    f"Malformed policy tag resource name, storing as-is: {resource_name}"
+                report.warning(
+                    title="Malformed policy tag resource name",
+                    message="Could not parse taxonomy ID from policy tag resource name; tag will be skipped",
+                    context=resource_name,
                 )
-                self._policy_tag_mapping_cache[resource_name] = resource_name
 
         # One list_policy_tags() call per unique taxonomy resolves all tags at once.
         for taxonomy_id in taxonomy_ids:
