@@ -7,10 +7,17 @@ from typing import List
 
 from airflow.models.baseoperator import BaseOperator
 
+# MappedOperator type alias - try airflow.models.mappedoperator first
+# Fall back to airflow.serialization.definitions.mappedoperator for Airflow 3.2+
+try:
+    from airflow.models.mappedoperator import MappedOperator
+except ModuleNotFoundError:
+    from airflow.serialization.definitions.mappedoperator import (  # type: ignore[no-redef]
+        SerializedMappedOperator as MappedOperator,
+    )
+
 # Operator type alias - try airflow.models.operator.Operator first (Airflow 2.5-2.9)
 # Fall back to BaseOperator for Airflow 2.10+ (transitioning to Airflow 3.x)
-from airflow.models.mappedoperator import MappedOperator
-
 try:
     from airflow.models.operator import Operator
 except ImportError:

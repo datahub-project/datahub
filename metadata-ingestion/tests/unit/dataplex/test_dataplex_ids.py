@@ -21,6 +21,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     build_container_urn_from_fqn,
     build_dataset_urn_from_fqn,
     build_dataset_urn_from_fqn_only,
+    build_lineage_parent,
     build_parent_container_key,
     build_parent_container_urn,
     build_project_container_urn_from_fqn,
@@ -88,6 +89,13 @@ def test_extract_entry_type_short_name(
 
 def test_extract_entry_type_short_name_invalid() -> None:
     assert extract_entry_type_short_name("bigquery-table") is None
+
+
+def test_build_lineage_parent() -> None:
+    assert (
+        build_lineage_parent(project_id="test-project", location="us-central1")
+        == "projects/test-project/locations/us-central1"
+    )
 
 
 def test_supported_entry_type_mapping_keys() -> None:

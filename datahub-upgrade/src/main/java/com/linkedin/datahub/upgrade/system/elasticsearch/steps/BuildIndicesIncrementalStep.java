@@ -129,11 +129,25 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               && !existingNextIndex.get().isEmpty()) {
             log.info("Resuming polling for index {} -> {}", config.name(), existingNextIndex.get());
             int targetShards = ESIndexBuilder.extractTargetShards(config);
+            long persistedSourceDocCount =
+                IncrementalReindexState.get(
+                        upgradeState, config.name(), IncrementalReindexState.SOURCE_DOC_COUNT)
+                    .map(Long::parseLong)
+                    .orElse(0L);
+            String persistedTaskId =
+                IncrementalReindexState.get(
+                        upgradeState, config.name(), IncrementalReindexState.TASK_ID)
+                    .orElse("");
             // On resume, reindexInfo from the original submission is not available — use empty map.
             // Stall-retry will re-submit with fresh optimal settings if needed.
             ESIndexBuilder.PollReindexResult pollResult =
                 indexBuilder.pollReindexCompletion(
-                    config.name(), existingNextIndex.get(), targetShards, new HashMap<>(), "");
+                    config.name(),
+                    existingNextIndex.get(),
+                    () -> persistedSourceDocCount,
+                    targetShards,
+                    new HashMap<>(),
+                    persistedTaskId);
             upgradeState =
                 handlePollResult(
                     context,
@@ -181,6 +195,8 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                   result.nextIndexName(),
                   oldBackingIndexName,
                   result.reindexStartTime(),
+                  result.sourceDocCount(),
+                  result.taskId(),
                   requiresDataBackfill,
                   IncrementalReindexState.Status.IN_PROGRESS);
           checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
@@ -207,10 +223,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             continue;
           }
 
+          final long sourceDocCount = result.sourceDocCount();
           ESIndexBuilder.PollReindexResult pollResult =
               indexBuilder.pollReindexCompletion(
                   config.name(),
                   result.nextIndexName(),
+                  () -> sourceDocCount,
                   result.targetShards(),
                   result.reindexInfo(),
                   result.taskId());

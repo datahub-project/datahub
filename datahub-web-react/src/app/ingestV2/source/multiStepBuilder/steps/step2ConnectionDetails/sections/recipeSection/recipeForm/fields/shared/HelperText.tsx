@@ -7,7 +7,7 @@ interface Props {
 
 export function HelperText({ text }: Props) {
     return (
-        <Text size="sm" color="gray" colorLevel={1800}>
+        <Text size="sm" color="textTertiary">
             {text}
         </Text>
     );

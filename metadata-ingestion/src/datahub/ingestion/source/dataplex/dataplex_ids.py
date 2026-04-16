@@ -650,6 +650,11 @@ def is_supported_lineage_entry_type(entry_type_short_name: str) -> bool:
     return bool(mapping and mapping.datahub_entity_type == "Dataset")
 
 
+def build_lineage_parent(project_id: str, location: str) -> str:
+    """Build Data Lineage API parent for an explicit project/location pair."""
+    return f"projects/{project_id}/locations/{location}"
+
+
 def build_container_urn_from_fqn(
     entry_type_or_short_name: str, fully_qualified_name: str
 ) -> Optional[str]:

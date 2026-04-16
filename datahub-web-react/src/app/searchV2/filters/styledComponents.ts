@@ -15,8 +15,8 @@ export const SearchFilterLabel = styled.div<{ $isOpen?: boolean; $isActive: bool
     cursor: pointer;
     user-select: none;
     white-space: nowrap;
-    color: ${(props) => (props.$isActive ? props.theme.colors.textSelected : props.theme.colors.text)};
-    background-color: ${(props) => (props.$isActive ? props.theme.colors.bgSelected : props.theme.colors.bg)};
+    color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => props.theme.colors.bg};
     box-shadow: ${(props) => props.theme.colors.shadowXs};
     transition: box-shadow 0.15s ease;
 
@@ -29,6 +29,13 @@ export const SearchFilterLabel = styled.div<{ $isOpen?: boolean; $isActive: bool
     &:hover {
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
+
+    ${(props) =>
+        props.$isActive &&
+        `
+        background-color: ${props.theme.colors.bgSelected};
+        color: ${props.theme.colors.textOnFillBrand};
+    `}
 `;
 
 export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: boolean }>`

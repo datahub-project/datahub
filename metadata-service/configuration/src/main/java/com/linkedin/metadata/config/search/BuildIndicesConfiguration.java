@@ -259,6 +259,12 @@ public class BuildIndicesConfiguration {
   private boolean incrementalReindexEnabled;
 
   /**
+   * Seconds between polls when checking if a timeseries catch-up reindex task is still running via
+   * the listTasks API. Default 5 seconds.
+   */
+  private long taskPollIntervalSeconds = 5;
+
+  /**
    * When true (and incrementalReindexEnabled is also true), the MAE consumer dual-writes to the old
    * backing index for rollback safety. When false, Phase 2 marks all completed indices as
    * DUAL_WRITE_DISABLED to prevent a later enable from writing to stale or deleted old indices.

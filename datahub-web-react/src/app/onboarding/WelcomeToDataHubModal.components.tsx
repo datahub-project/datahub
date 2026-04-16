@@ -2,8 +2,6 @@ import { Spin } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import colors from '@components/theme/foundations/colors';
-
 /**
  * Container for individual carousel slides with centered content
  */
@@ -12,6 +10,28 @@ export const SlideContainer = styled.div`
     text-align: left;
     margin-bottom: 32px;
     min-height: 470px;
+`;
+
+/**
+ * Theme-aware slide title (replaces Heading with raw alchemy gray)
+ */
+export const SlideTitle = styled.h2`
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0 0 4px;
+    color: ${(props) => props.theme.colors.text};
+`;
+
+/**
+ * Theme-aware slide description (replaces Heading with raw alchemy gray)
+ */
+export const SlideDescription = styled.h3`
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.4;
+    margin: 0;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 /**
@@ -34,11 +54,11 @@ const LoadingContainerBase = styled.div<{ width: string }>`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: ${colors.gray[1500]};
-    border: 2px dashed ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 2px dashed ${(props) => props.theme.colors.border};
     border-radius: 8px;
     font-size: 16px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 500;
     margin: 0 auto;
     gap: 16px;
@@ -63,7 +83,7 @@ export const LoadingContainer: React.FC<{ width: string; children?: React.ReactN
  * Styled anchor for DataHub Docs link
  */
 export const StyledDocsLink = styled.a`
-    color: ${colors.primary[500]};
+    color: ${(props) => props.theme.colors.textBrand};
     text-align: center;
     font-size: 14px;
     font-style: normal;
@@ -76,7 +96,7 @@ export const StyledDocsLink = styled.a`
     padding: 10px 12px;
 
     &:hover {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

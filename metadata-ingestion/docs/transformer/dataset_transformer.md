@@ -4,6 +4,11 @@ title: "Dataset"
 
 # Dataset Transformers
 
+:::tip "Looking for multi-entity support?"
+
+The transformers on this page only process dataset entities. To apply domains or ownership to containers, charts, dashboards, and other entity types, see [Universal Transformers](./universal_transformers.md).
+:::
+
 The below table shows transformer which can transform aspects of entity [Dataset](../../../docs/generated/metamodel/entities/dataset.md).
 
 | Dataset Aspect      | Transformer                                                                                                                                                                                                                                                                                                                                                           |
@@ -131,6 +136,11 @@ transformers:
 
 ## Simple Add Dataset ownership
 
+:::warning "Deprecated"
+
+Use [`simple_add_ownership`](./universal_transformers.md#simple-add-ownership) instead, which supports all entity types. This transformer only processes datasets, charts, dashboards, data jobs, and data flows.
+:::
+
 ### Config Details
 
 | Field              | Required | Type         | Default     | Description                                                                                                |
@@ -201,6 +211,11 @@ transformers:
   ```
 
 ## Pattern Add Dataset ownership
+
+:::warning "Deprecated"
+
+Use [`pattern_add_ownership`](./universal_transformers.md#pattern-add-ownership) instead, which supports all entity types. This transformer only processes datasets, charts, dashboards, data jobs, and data flows.
+:::
 
 ### Config Details
 
@@ -1225,6 +1240,11 @@ transformers:
 
 ## Simple Add Dataset domains
 
+:::warning "Deprecated"
+
+Use [`simple_add_domain`](./universal_transformers.md#simple-add-domain) instead, which supports all entity types. This transformer only processes datasets.
+:::
+
 ### Config Details
 
 | Field              | Required | Type                  | Default     | Description                                                      |
@@ -1286,6 +1306,11 @@ transformers:
   ```
 
 ## Pattern Add Dataset domains
+
+:::warning "Deprecated"
+
+Use [`pattern_add_domain`](./universal_transformers.md#pattern-add-domain) instead, which supports all entity types. This transformer only processes datasets.
+:::
 
 ### Config Details
 

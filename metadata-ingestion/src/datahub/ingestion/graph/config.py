@@ -24,6 +24,8 @@ class DatahubClientConfig(ConfigModel):
     timeout_sec: Optional[float] = None
     retry_status_codes: Optional[List[int]] = None
     retry_max_times: Optional[int] = None
+    pool_connections: Optional[int] = None
+    pool_maxsize: Optional[int] = None
     extra_headers: Optional[Dict[str, str]] = None
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
