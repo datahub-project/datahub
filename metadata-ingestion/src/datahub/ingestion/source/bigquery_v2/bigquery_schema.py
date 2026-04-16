@@ -804,10 +804,12 @@ class BigQuerySchemaApi:
                     if policy_tag_column:
                         try:
                             all_resource_names.update(policy_tag_column)
-                        except Exception:
-                            logger.warning(
-                                "Policy tags column not available in INFORMATION_SCHEMA "
-                                "(requires BigQuery API v2). Skipping policy tag extraction."
+                        except Exception as e:
+                            report.warning(
+                                title="Policy tags column not available in INFORMATION_SCHEMA",
+                                message="Requires BigQuery API v2. Skipping policy tag extraction for this dataset.",
+                                context=f"{project_id}.{dataset_name}",
+                                exc=e,
                             )
                             extract_policy_tags_from_catalog = False
 
