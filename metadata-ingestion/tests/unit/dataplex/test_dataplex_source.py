@@ -14,7 +14,7 @@ from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 def test_get_workunits_internal_wraps_project_processing() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = [Mock()]
+    source.entries_processor.process_entries.return_value = iter([Mock()])
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = False
@@ -32,13 +32,15 @@ def test_get_workunits_internal_wraps_project_processing() -> None:
 
     assert len(workunits) == 1
     auto_workunit_mock.assert_called_once()
-    source.entries_processor.process_project.assert_called_once_with("project-1")
+    source.entries_processor.process_entries.assert_called_once_with(
+        project_ids=["project-1"],
+        max_workers=source.config.max_workers_entries,
+    )
 
 
 def test_get_workunits_internal_reports_project_google_api_failure() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = [Mock()]
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = False
@@ -195,10 +197,7 @@ def test_get_workunit_processors_includes_stale_entity_processor() -> None:
 def test_get_workunits_internal_iterates_all_projects() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.side_effect = [
-        [Mock()],
-        [Mock()],
-    ]
+    source.entries_processor.process_entries.return_value = iter([])
     source.config = Mock()
     source.config.project_ids = ["project-1", "project-2"]
     source.config.include_lineage = True
@@ -208,11 +207,11 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
-    wu1, wu2 = Mock(), Mock()
+    wu1 = Mock()
     with (
         patch(
             "datahub.ingestion.source.dataplex.dataplex.auto_workunit",
-            side_effect=[[wu1], [wu2]],
+            return_value=[wu1],
         ) as auto_workunit_mock,
         patch.object(
             source.lineage_extractor, "get_lineage_workunits", return_value=[]
@@ -220,28 +219,26 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     ):
         workunits = list(source.get_workunits_internal())
 
-    assert workunits == [wu1, wu2]
-    assert auto_workunit_mock.call_count == 2
-    assert source.entries_processor.process_project.call_count == 2
-    source.entries_processor.process_project.assert_any_call("project-1")
-    source.entries_processor.process_project.assert_any_call("project-2")
-    assert source.report.new_stage.call_count == 3
+    assert workunits == [wu1]
+    assert auto_workunit_mock.call_count == 1
+    source.entries_processor.process_entries.assert_called_once_with(
+        project_ids=["project-1", "project-2"],
+        max_workers=source.config.max_workers_entries,
+    )
+    # entries stage + lineage stage (lineage returns early because entry_data is empty)
+    assert source.report.new_stage.call_count == 2
     source.lineage_extractor.get_lineage_workunits.assert_not_called()
     source.report.new_stage.assert_any_call(
-        "Processing entries from Universal Catalog for project project-1"
+        "Processing entries from Universal Catalog (parallel)"
     )
     source.report.new_stage.assert_any_call(
-        "Processing entries from Universal Catalog for project project-2"
-    )
-    source.report.new_stage.assert_any_call(
-        "Extracting Dataplex lineage across configured projects"
+        "Extracting Dataplex lineage across configured projects (parallel)"
     )
 
 
 def test_get_workunits_internal_skips_lineage_stage_when_disabled() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = False
@@ -257,14 +254,13 @@ def test_get_workunits_internal_skips_lineage_stage_when_disabled() -> None:
 
     assert workunits == []
     source.report.new_stage.assert_called_once_with(
-        "Processing entries from Universal Catalog for project project-1"
+        "Processing entries from Universal Catalog (parallel)"
     )
 
 
 def test_get_workunits_internal_handles_empty_entries_for_lineage() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = True
@@ -283,7 +279,6 @@ def test_get_workunits_internal_handles_empty_entries_for_lineage() -> None:
 def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1"]
@@ -314,6 +309,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
         source.entry_data,
         active_lineage_project_location_pairs=[("project-1", "us-central1")],
+        max_workers=source.config.max_workers_lineage,
     )
     args, _kwargs = source.lineage_extractor.get_lineage_workunits.call_args
     assert len(args[0]) == 1
@@ -325,7 +321,6 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
 ):
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1", "project-2"]
@@ -359,6 +354,7 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
             ("project-1", "us-central1"),
             ("project-2", "us-central1"),
         ],
+        max_workers=source.config.max_workers_lineage,
     )
     source.report.info.assert_called_once()
 
@@ -366,7 +362,6 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
 def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1"]
@@ -399,7 +394,6 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
 def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> None:
     source = object.__new__(DataplexSource)
     source.entries_processor = Mock()
-    source.entries_processor.process_project.return_value = []
     source.config = Mock()
     source.config.include_lineage = True
     source.config.project_ids = ["project-1", "project-2"]

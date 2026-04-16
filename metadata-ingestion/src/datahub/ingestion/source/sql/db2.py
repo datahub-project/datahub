@@ -120,7 +120,9 @@ def _quote_identifier(value: str) -> str:
 class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
         # The ibm_db package is not installable on ARM aside from macOS ARM
-        if not (platform.machine() == "x86_64" or platform.system() == "Darwin"):
+        if not (
+            platform.machine() in ("amd64", "x86_64") or platform.system() == "Darwin"
+        ):
             raise NotImplementedError(
                 f"Db2 ingestion is not supported on {platform.system()}-{platform.machine()}"
             )

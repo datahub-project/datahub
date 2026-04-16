@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 from dataclasses import dataclass
+from enum import auto
 from os.path import basename, dirname
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Union
@@ -16,6 +17,7 @@ from pydantic import AnyHttpUrl, DirectoryPath, FilePath, field_validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
+from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
@@ -73,6 +75,19 @@ class URIReplacePattern(ConfigModel):
     )
 
 
+class DatasetNameStrategy(ConfigEnum):
+    """Controls how the display name for ingested JSON schema datasets is computed."""
+
+    BASENAME = auto()
+    """Default. Uses the last path segment of the schema type (e.g. '1.0' from '.../domain/1.0')."""
+
+    SCHEMA_ID = auto()
+    """Uses the full $id URI as the display name. Falls back to BASENAME if no $id is present."""
+
+    TITLE = auto()
+    """Uses the 'title' field from the JSON schema. Falls back to BASENAME if no title is present."""
+
+
 class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     path: Union[FilePath, DirectoryPath, AnyHttpUrl] = Field(
         description="Set this to a single file-path or a directory-path (for recursive traversal) or a remote url. e.g. https://json.schemastore.org/petstore-v1.0.json"
@@ -88,6 +103,18 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
     uri_replace_pattern: Optional[URIReplacePattern] = Field(
         default=None,
         description="Use this if URI-s need to be modified during reference resolution. Simple string match - replace capabilities are supported.",
+    )
+    dataset_name_strategy: DatasetNameStrategy = Field(
+        default=DatasetNameStrategy.BASENAME,
+        description="Controls how the display name for datasets is computed. "
+        "BASENAME (default) uses the last path segment. "
+        "SCHEMA_ID uses the full $id URI. "
+        "TITLE uses the 'title' field from the schema.",
+    )
+    dataset_name_replace_pattern: Optional[URIReplacePattern] = Field(
+        default=None,
+        description="Apply a string match-replace on the computed display name. "
+        "Runs after dataset_name_strategy is applied.",
     )
 
     @field_validator("path", mode="after")
@@ -157,6 +184,12 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
     - Uses JsonSchemaTranslator to convert JSON Schema to DataHub SchemaMetadata
     - Dataset names inferred from $id field or file name
     - Implements stateful ingestion for stale entity removal
+
+    Display name control:
+    - dataset_name_strategy: BASENAME (default, last path segment), SCHEMA_ID (full $id URI),
+      or TITLE (schema's title field)
+    - dataset_name_replace_pattern: simple string match-replace on the computed display name
+    - These only affect the display name (DatasetProperties.name), not the URN
     """
 
     @staticmethod
@@ -247,6 +280,49 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
 
+    def _compute_display_name(self, schema_dict: dict, schema_type: str) -> str:
+        """Compute the display name based on the configured strategy."""
+        strategy = self.config.dataset_name_strategy
+        fallback = basename(schema_type)
+
+        if strategy == DatasetNameStrategy.SCHEMA_ID:
+            schema_id = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
+            if schema_id:
+                name = schema_id
+            else:
+                name = fallback
+                logger.debug(
+                    f"Schema {schema_type} has no $id field; "
+                    f"falling back to basename '{fallback}' for display name"
+                )
+        elif strategy == DatasetNameStrategy.TITLE:
+            title = schema_dict.get("title")
+            if title:
+                name = title
+            else:
+                name = fallback
+                logger.debug(
+                    f"Schema {schema_type} has no title field; "
+                    f"falling back to basename '{fallback}' for display name"
+                )
+        else:
+            name = fallback
+
+        if self.config.dataset_name_replace_pattern:
+            replaced = name.replace(
+                self.config.dataset_name_replace_pattern.match,
+                self.config.dataset_name_replace_pattern.replace,
+            )
+            if replaced.strip():
+                name = replaced
+            else:
+                logger.warning(
+                    f"dataset_name_replace_pattern produced empty display name "
+                    f"for schema {schema_type}; keeping original name '{name}'"
+                )
+
+        return name
+
     def _load_one_file(
         self, ref_loader: Any, browse_prefix: str, root_dir: Path, file_name: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -268,7 +344,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 schema_type = schema_type[: -len(".json")]
 
             browse_path = browse_prefix + dirname(schema_type)
-            dataset_simple_name = basename(schema_type)
+            dataset_simple_name = self._compute_display_name(schema_dict, schema_type)
 
             dataset_name = schema_type
 
