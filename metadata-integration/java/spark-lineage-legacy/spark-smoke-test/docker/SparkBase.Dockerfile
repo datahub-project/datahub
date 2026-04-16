@@ -18,7 +18,7 @@ RUN apt-get update -y && \
     apt-get install /tmp/zulu-repo_1.0.0-3_all.deb && \
     apt-get update && \
 #    apt-cache search zulu && \
-    apt-get install -y --no-install-recommends zulu21-jre ant cmake build-essential && \
+    apt-get install -y --no-install-recommends zulu21-jdk ant && \
     apt-get clean && \
     curl -sS https://archive.apache.org/dist/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz && \
     tar -xf spark.tgz && \
@@ -33,10 +33,10 @@ ENV JAVA_HOME=/usr/lib/jvm/zulu21-ca-amd64
 RUN set -e; \
     pip install JPype1
 
-ENV SPARK_HOME /usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}
-ENV SPARK_MASTER_HOST spark-master
-ENV SPARK_MASTER_PORT 7077
-ENV PYSPARK_PYTHON python3.9
+ENV SPARK_HOME=/usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}
+ENV SPARK_MASTER_HOST=spark-master
+ENV SPARK_MASTER_PORT=7077
+ENV PYSPARK_PYTHON=python3.9
 ENV PATH=$PATH:$SPARK_HOME/bin
 
 COPY workspace $SHARED_WORKSPACE

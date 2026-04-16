@@ -234,9 +234,9 @@ jobs:
             ~/.gradle/caches/modules-2
             ~/.gradle/caches/jars-*
             ~/.gradle/caches/transforms-*
-          key: gradle-plugins-cache
+          key: gradle-plugins-cache-java21
           restore-keys: |
-            gradle-plugins-cache
+            gradle-plugins-cache-java21
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
@@ -315,7 +315,7 @@ jobs:
             ~/.gradle/caches/modules-2
             ~/.gradle/caches/jars-*
             ~/.gradle/caches/transforms-*
-          key: gradle-plugins-cache
+          key: gradle-plugins-cache-java21
 
   scan_images:
     permissions:
