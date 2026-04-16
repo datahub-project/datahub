@@ -69,6 +69,8 @@ class GcpSecretManagerStore(SecretStore):
         return self._client
 
     def _fetch_from_gcp(self, secret_names: List[str]) -> Dict[str, Optional[str]]:
+        from google.api_core.exceptions import NotFound
+
         client = self._get_client()
         results: Dict[str, Optional[str]] = {}
         for name in secret_names:
@@ -81,13 +83,13 @@ class GcpSecretManagerStore(SecretStore):
                     request={"name": resource}, retry=self._default_retry
                 )
                 results[name] = resp.payload.data.decode("UTF-8")
+            except NotFound:
+                logger.warning(f"Secret '{name}' not found in GCP Secret Manager")
+                results[name] = None
             except Exception as e:
-                if "NotFound" in type(e).__name__ or "404" in str(e):
-                    logger.warning(f"Secret '{name}' not found in GCP Secret Manager")
-                else:
-                    logger.error(
-                        f"Failed to fetch secret '{name}' from GCP Secret Manager: {e}"
-                    )
+                logger.error(
+                    f"Failed to fetch secret '{name}' from GCP Secret Manager: {e}"
+                )
                 results[name] = None
         return results
 
@@ -120,9 +122,10 @@ class GcpSecretManagerStore(SecretStore):
         return "gcp-sm"
 
     def close(self) -> None:
-        if self._client is not None:
-            self._client.transport.close()
-            self._client = None
+        with self._client_lock:
+            if self._client is not None:
+                self._client.transport.close()
+                self._client = None
 
     @classmethod
     def create(cls, configs: dict) -> "GcpSecretManagerStore":
