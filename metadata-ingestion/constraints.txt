@@ -1270,6 +1270,7 @@ pytest==9.0.2
     #   pytest-docker
     #   pytest-random-order
     #   pytest-rerunfailures
+    #   pytest-snob
     #   pytest-timeout
 pytest-asyncio==1.3.0
     # via acryl-datahub
@@ -1280,6 +1281,8 @@ pytest-docker==3.2.5
 pytest-random-order==1.1.1
     # via acryl-datahub
 pytest-rerunfailures==16.1
+    # via acryl-datahub
+pytest-snob==0.1.14
     # via acryl-datahub
 pytest-timeout==2.4.0
     # via acryl-datahub
@@ -1566,6 +1569,8 @@ sniffio==1.3.1
     # via
     #   google-genai
     #   openai
+snob-lib==0.1.0
+    # via pytest-snob
 snowflake-connector-python==4.4.0
     # via
     #   acryl-datahub
