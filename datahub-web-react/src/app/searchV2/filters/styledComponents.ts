@@ -34,7 +34,7 @@ export const SearchFilterLabel = styled.div<{ $isOpen?: boolean; $isActive: bool
         props.$isActive &&
         `
         background-color: ${props.theme.colors.bgSelected};
-        color: ${props.theme.colors.textOnFillBrand};
+        color: ${props.theme.colors.textSelected};
     `}
 `;
 
