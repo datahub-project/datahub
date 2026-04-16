@@ -818,13 +818,20 @@ class BigQuerySchemaApi:
                             extract_policy_tags_from_catalog = False
 
                 if extract_policy_tags_from_catalog and all_resource_names:
-                    policy_tag_display_name_map = (
-                        self.build_policy_tag_display_name_mapping(
-                            all_resource_names,
-                            report,
-                            rate_limiter,
+                    with PerfTimer() as policy_tag_timer:
+                        policy_tag_display_name_map = (
+                            self.build_policy_tag_display_name_mapping(
+                                all_resource_names,
+                                report,
+                                rate_limiter,
+                            )
                         )
+                    elapsed = policy_tag_timer.elapsed_seconds()
+                    logger.info(
+                        f"Resolved policy tags for {project_id}.{dataset_name} "
+                        f"in {elapsed:.2f}s"
                     )
+                    self.report.list_policy_tags_sec += elapsed
 
             for column in raw_rows:
                 policy_tags: List[str] = []

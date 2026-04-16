@@ -38,6 +38,7 @@ class BigQuerySchemaApiPerfReport(Report):
     enrich_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
 
     get_columns_for_dataset_sec: float = 0
+    list_policy_tags_sec: float = 0
     get_tables_for_dataset_sec: float = 0
     get_table_constraints_for_dataset_sec: float = 0
     list_tables_sec: float = 0
