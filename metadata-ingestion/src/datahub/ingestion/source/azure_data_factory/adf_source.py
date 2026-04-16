@@ -1310,9 +1310,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if pipeline_run.message:
             properties["message"] = pipeline_run.message[:MAX_RUN_MESSAGE_LENGTH]
         if pipeline_run.invoked_by:
-            invoker_name = pipeline_run.invoked_by.name or ""
-            # PipelineRunInvokedBy uses snake_case attributes (invoked_by_type, not invokedByType)
-            invoker_type = pipeline_run.invoked_by.invoked_by_type or ""
+            invoker_name = pipeline_run.invoked_by.get("name", "")
+            invoker_type = pipeline_run.invoked_by.get("invokedByType", "")
             if invoker_name:
                 properties["invoked_by"] = invoker_name
             if invoker_type:
