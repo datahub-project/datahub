@@ -144,6 +144,18 @@ jobs:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+      # testmon database: stores the coverage-based test→source mapping so CI can skip
+      # tests unaffected by changed files. Cold start (no cache) runs the full suite and
+      # builds the database; subsequent pushes on the same PR only run affected tests.
+      # The restore-keys fallback to the base branch allows new PRs to start warm.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: ${{ matrix.command == 'testQuick' }}
+        with:
+          path: metadata-ingestion/.testmondata
+          key: testmon-${{ runner.os }}-py${{ matrix.python-version }}-${{ github.sha }}
+          restore-keys: |
+            testmon-${{ runner.os }}-py${{ matrix.python-version }}-${{ github.base_ref || 'master' }}-
+            testmon-${{ runner.os }}-py${{ matrix.python-version }}-
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install ODBC driver for mssql tests
@@ -197,8 +209,7 @@ jobs:
       - name: Run metadata-ingestion tests
         env:
           GH_EVENT_NAME: ${{ github.event_name }}
-          GH_BASE_REF: ${{ github.base_ref }}
-          # Set to "true" via the 'ci:full-tests' label to bypass snob and run the full suite
+          # Set to "true" via the 'ci:full-tests' label to bypass testmon and run the full suite
           CI_FULL_TESTS: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full-tests') }}
         run: |
           # matrix.command is set for Gradle batch jobs (testQuick, testIntegrationBatch*)
@@ -224,23 +235,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -n "$COMMAND" ]; then
-            if [ "$COMMAND" = "testQuick" ] && [ "$GH_EVENT_NAME" = "pull_request" ] && [ -n "$GH_BASE_REF" ] && [ "$CI_FULL_TESTS" != "true" ]; then
-              # On PRs: use snob to run only unit tests affected by the changed files.
-              # The preceding installDevTest step already set up the venv with snob and all deps.
-              # Fetch base branch so snob can compute the changed-file diff.
-              git fetch --no-tags --depth=50 origin "$GH_BASE_REF"
+            if [ "$COMMAND" = "testQuick" ] && [ "$GH_EVENT_NAME" = "pull_request" ] && [ "$CI_FULL_TESTS" != "true" ]; then
+              # On PRs: use testmon to skip unit tests whose coverage map is unaffected by
+              # changed source files. Cold start (no cache) runs all tests and builds the
+              # database; subsequent pushes on the same PR only run affected tests.
               cd metadata-ingestion
               source venv/bin/activate
-              set +e
-              pytest --no-cov tests/unit \
+              pytest --testmon \
+                tests/unit \
                 --random-order \
                 -m 'not integration' \
-                --commit-range "origin/${GH_BASE_REF}..HEAD" \
                 --junit-xml="test-results/junit.quick.xml"
-              PYTEST_EXIT=$?
-              set -e
-              # Exit code 5 = no tests collected (snob found no affected tests) — treat as success
-              [ "$PYTEST_EXIT" -eq 0 ] || [ "$PYTEST_EXIT" -eq 5 ] || exit "$PYTEST_EXIT"
             else
               ./gradlew :metadata-ingestion:"$COMMAND"
             fi
