@@ -223,11 +223,16 @@ jobs:
               git fetch --no-tags --depth=50 origin "$GH_BASE_REF"
               cd metadata-ingestion
               source venv/bin/activate
+              set +e
               pytest --no-cov tests/unit \
                 --random-order \
                 -m 'not integration' \
                 --commit-range "origin/${GH_BASE_REF}..HEAD" \
                 --junit-xml="test-results/junit.quick.xml"
+              PYTEST_EXIT=$?
+              set -e
+              # Exit code 5 = no tests collected (snob found no affected tests) — treat as success
+              [ "$PYTEST_EXIT" -eq 0 ] || [ "$PYTEST_EXIT" -eq 5 ] || exit "$PYTEST_EXIT"
             else
               ./gradlew :metadata-ingestion:"$COMMAND"
             fi
