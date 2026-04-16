@@ -630,9 +630,7 @@ class TestDataplexParallelEntries:
             return ["entry-ok"]
 
         with (
-            patch.object(
-                processor, "_list_entry_stubs", side_effect=stub_side_effect
-            ),
+            patch.object(processor, "_list_entry_stubs", side_effect=stub_side_effect),
             patch.object(
                 processor,
                 "_fetch_and_build_entry",
