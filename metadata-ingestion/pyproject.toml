@@ -1164,9 +1164,14 @@ sharepoint = [
     "litellm==1.83.0",
     "msal>=1.31.1,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
+    "parse>=1.19.0,<2.0.0",
+    "pyarrow>14.0.0,<24.0.0",
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.12.0,<6.0.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
+    "wcmatch<11.0.0",
 ]
 
 sigma = [

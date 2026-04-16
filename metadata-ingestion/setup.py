@@ -520,6 +520,11 @@ sharepoint_common = {
     "msal>=1.31.1,<2.0.0",
     # openpyxl for Excel (.xlsx) schema inference in data_lake mode
     "openpyxl>=3.1.5,<4.0.0",
+    # Schema inference deps (shared with s3/gcs/abs data lake connectors)
+    *pyarrow_common,
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.12.0,<6.0.0",
+    *path_spec_common,
 } | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
