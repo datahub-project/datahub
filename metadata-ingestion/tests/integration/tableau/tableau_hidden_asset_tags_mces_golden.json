@@ -15891,11 +15891,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),Country/Region)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),Country%2FRegion)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD),Country/Region)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD),Country%2FRegion)"
                     ],
                     "transformOperation": "IDENTITY",
                     "confidenceScore": 1.0
@@ -35059,7 +35059,7 @@
                     "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),City)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),Postal Code)",
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),Country/Region)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),Country%2FRegion)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),Region)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD),State)"
                     ],
