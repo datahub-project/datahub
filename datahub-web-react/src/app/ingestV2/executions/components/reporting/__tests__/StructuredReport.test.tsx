@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
@@ -15,6 +14,8 @@ import {
     StructuredReportItemLevel,
     StructuredReportLogEntry,
 } from '@app/ingestV2/executions/components/reporting/types';
+import lightTheme from '@conf/theme/colorThemes/light';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 // Mock the ShowMoreSection component
 vi.mock('@app/shared/ShowMoreSection', () => ({
@@ -51,17 +52,13 @@ vi.mock('@components', () => ({
             <div data-testid="card-content">{children}</div>
         </div>
     ),
-    colors: {
-        red: { 0: '#FBF3EF', 1000: '#C4360B' },
-        yellow: { 0: '#FFFAEB', 1000: '#C77100' },
-        gray: { 1000: '#F1F3FD', 1500: '#F9FAFC', 1700: '#5F6685' },
-        violet: { 500: '#533FD1' },
-    },
     Icon: ({ icon, ...props }: any) => {
         const iconName = typeof icon === 'string' ? icon : icon?.displayName || icon?.name || '';
         return <span data-testid={`icon-${iconName}`} data-icon={iconName} {...props} />;
     },
 }));
+
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
 
 const createMockItem = (
     level: StructuredReportItemLevel,
@@ -213,7 +210,7 @@ describe('StructuredReport Component', () => {
     };
 
     it('should render nothing when report has no items', () => {
-        const { container } = render(
+        const { container } = renderWithTheme(
             <StructuredReport
                 report={{
                     items: [],
@@ -227,18 +224,18 @@ describe('StructuredReport Component', () => {
     });
 
     it('should render title with pill showing total count', () => {
-        render(<StructuredReport report={mockReport} />);
+        renderWithTheme(<StructuredReport report={mockReport} />);
         expect(screen.getByText('Errors & Warnings')).toBeInTheDocument();
         expect(screen.getByText('5')).toBeInTheDocument();
     });
 
     it('should render subtitle describing the issues', () => {
-        render(<StructuredReport report={mockReport} />);
+        renderWithTheme(<StructuredReport report={mockReport} />);
         expect(screen.getByText('Ingestion ran with errors, warnings, and information.')).toBeInTheDocument();
     });
 
     it('should initially show only first 3 items (errors prioritized)', () => {
-        render(<StructuredReport report={mockReport} />);
+        renderWithTheme(<StructuredReport report={mockReport} />);
 
         // Should show error list with 2 items
         const errorList = screen.getByTestId('item-list-WarningDiamond');
@@ -266,7 +263,7 @@ describe('StructuredReport Component', () => {
             warnCount: 2,
         };
 
-        render(<StructuredReport report={warningsAndInfosReport} />);
+        renderWithTheme(<StructuredReport report={warningsAndInfosReport} />);
 
         // Should not show any item lists initially
         expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
@@ -289,7 +286,7 @@ describe('StructuredReport Component', () => {
             warnCount: 2,
         };
 
-        render(<StructuredReport report={warningsOnlyReport} />);
+        renderWithTheme(<StructuredReport report={warningsOnlyReport} />);
 
         // Should not show any item lists initially
         expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
@@ -312,7 +309,7 @@ describe('StructuredReport Component', () => {
             warnCount: 0,
         };
 
-        render(<StructuredReport report={infosOnlyReport} />);
+        renderWithTheme(<StructuredReport report={infosOnlyReport} />);
 
         // Should not show any item lists initially
         expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
@@ -325,14 +322,14 @@ describe('StructuredReport Component', () => {
     });
 
     it('should show "Show X more" button when there are more items', () => {
-        render(<StructuredReport report={mockReport} />);
+        renderWithTheme(<StructuredReport report={mockReport} />);
         expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
         expect(screen.getByText('Show 2 more')).toBeInTheDocument();
     });
 
     it('should expand to show more items when "Show more" is clicked', async () => {
         const user = userEvent.setup();
-        render(<StructuredReport report={mockReport} />);
+        renderWithTheme(<StructuredReport report={mockReport} />);
 
         const showMoreButton = screen.getByTestId('show-more-button');
         await user.click(showMoreButton);
@@ -348,20 +345,20 @@ describe('StructuredReport Component', () => {
     });
 
     it('should use correct colors for each item type', () => {
-        render(<StructuredReport report={mockReport} />);
+        renderWithTheme(<StructuredReport report={mockReport} />);
 
         const errorList = screen.getByTestId('item-list-WarningDiamond');
-        expect(errorList).toHaveAttribute('data-color', '#FBF3EF'); // ERROR_COLOR
-        expect(errorList).toHaveAttribute('data-text-color', '#C4360B'); // ERROR_TEXT_COLOR
+        expect(errorList).toHaveAttribute('data-color', lightTheme.bgSurfaceError);
+        expect(errorList).toHaveAttribute('data-text-color', lightTheme.textError);
 
         const warningList = screen.getByTestId('item-list-WarningCircle');
-        expect(warningList).toHaveAttribute('data-color', '#FFFAEB'); // WARNING_COLOR
-        expect(warningList).toHaveAttribute('data-text-color', '#C77100'); // WARNING_TEXT_COLOR
+        expect(warningList).toHaveAttribute('data-color', lightTheme.bgSurfaceWarning);
+        expect(warningList).toHaveAttribute('data-text-color', lightTheme.textWarning);
     });
 
     describe('Chevron Expand/Collapse Functionality', () => {
         it('should render chevron button with correct initial state', () => {
-            render(<StructuredReport report={mockReport} />);
+            renderWithTheme(<StructuredReport report={mockReport} />);
 
             // Should have chevron down (collapsed) initially
             const cardButton = screen.getByTestId('card-button');
@@ -374,7 +371,7 @@ describe('StructuredReport Component', () => {
 
         it('should auto-switch chevron to expanded when "Show more" reaches full expansion', async () => {
             const user = userEvent.setup();
-            render(<StructuredReport report={mockReport} />);
+            renderWithTheme(<StructuredReport report={mockReport} />);
 
             // Initially chevron should be down (collapsed)
             expect(screen.getByTestId('icon-CaretDown')).toBeInTheDocument();
@@ -397,7 +394,7 @@ describe('StructuredReport Component', () => {
 
         it('should maintain pill count as total regardless of expansion state', async () => {
             const user = userEvent.setup();
-            render(<StructuredReport report={mockReport} />);
+            renderWithTheme(<StructuredReport report={mockReport} />);
 
             // Pill should always show total (5)
             expect(screen.getByText('5')).toBeInTheDocument();

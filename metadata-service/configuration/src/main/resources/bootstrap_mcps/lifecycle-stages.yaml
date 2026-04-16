@@ -1,0 +1,115 @@
+# Example lifecycle stage types for entity governance.
+# Uncomment and increment the version in bootstrap_mcps.yaml to bootstrap these stages.
+#
+# Lifecycle stages control search visibility via the hideInSearch setting and
+# enforce transition policies via allowedPreviousStages. The special sentinel
+# urn:li:lifecycleStageType:__NONE__ represents the default active state (no stage set).
+#
+# These are examples — customize the stages, entity types, and transition
+# policies to match your organization's governance workflow.
+[]
+# # DRAFT: Entity is being authored. Hidden from default search.
+# - entityUrn: urn:li:lifecycleStageType:DRAFT
+#   entityType: lifecycleStageType
+#   aspectName: lifecycleStageTypeInfo
+#   changeType: UPSERT
+#   aspect:
+#     name: Draft
+#     description: >-
+#       Entity is being drafted and is not yet ready for review.
+#       Hidden from default searches but discoverable via explicit lifecycle stage filter.
+#     entityTypes:
+#       - document
+#       - glossaryTerm
+#     settings:
+#       hideInSearch: true
+#     created: {{&auditStamp}}
+#     lastModified: {{&auditStamp}}
+#
+# # IN_REVIEW: Entity submitted for steward review. Hidden from default search.
+# - entityUrn: urn:li:lifecycleStageType:IN_REVIEW
+#   entityType: lifecycleStageType
+#   aspectName: lifecycleStageTypeInfo
+#   changeType: UPSERT
+#   aspect:
+#     name: In Review
+#     description: >-
+#       Entity has been submitted for steward review and approval.
+#       Hidden from default searches until a reviewer approves and publishes it.
+#     entityTypes:
+#       - document
+#       - glossaryTerm
+#     settings:
+#       hideInSearch: true
+#     transitionPolicy:
+#       allowedPreviousStages:
+#         - urn:li:lifecycleStageType:DRAFT
+#         - urn:li:lifecycleStageType:REJECTED
+#     created: {{&auditStamp}}
+#     lastModified: {{&auditStamp}}
+#
+# # REJECTED: Reviewer rejected the submission. Author must revise and resubmit.
+# - entityUrn: urn:li:lifecycleStageType:REJECTED
+#   entityType: lifecycleStageType
+#   aspectName: lifecycleStageTypeInfo
+#   changeType: UPSERT
+#   aspect:
+#     name: Rejected
+#     description: >-
+#       Entity was reviewed and rejected. The author should address reviewer feedback,
+#       update the entity, and resubmit for review.
+#     entityTypes:
+#       - document
+#       - glossaryTerm
+#     settings:
+#       hideInSearch: true
+#     transitionPolicy:
+#       allowedPreviousStages:
+#         - urn:li:lifecycleStageType:IN_REVIEW
+#     created: {{&auditStamp}}
+#     lastModified: {{&auditStamp}}
+#
+# # DEPRECATED: Entity is retired or superseded. Visible in search with a label.
+# - entityUrn: urn:li:lifecycleStageType:DEPRECATED
+#   entityType: lifecycleStageType
+#   aspectName: lifecycleStageTypeInfo
+#   changeType: UPSERT
+#   aspect:
+#     name: Deprecated
+#     description: >-
+#       Entity is deprecated and should no longer be used for new work.
+#       Remains visible in search with a deprecated label so consumers can
+#       identify affected assets and migrate to a replacement.
+#     entityTypes:
+#       - document
+#       - glossaryTerm
+#     settings:
+#       hideInSearch: false
+#     transitionPolicy:
+#       allowedPreviousStages:
+#         - urn:li:lifecycleStageType:__NONE__
+#     created: {{&auditStamp}}
+#     lastModified: {{&auditStamp}}
+#
+# # ARCHIVED: Permanently hidden. Governance-aware soft-delete.
+# - entityUrn: urn:li:lifecycleStageType:ARCHIVED
+#   entityType: lifecycleStageType
+#   aspectName: lifecycleStageTypeInfo
+#   changeType: UPSERT
+#   aspect:
+#     name: Archived
+#     description: >-
+#       Entity is archived and hidden from all default searches and browse.
+#       Use this instead of hard-delete to preserve audit history.
+#       Can be restored by clearing the lifecycle stage.
+#     entityTypes:
+#       - document
+#       - glossaryTerm
+#     settings:
+#       hideInSearch: true
+#     transitionPolicy:
+#       allowedPreviousStages:
+#         - urn:li:lifecycleStageType:__NONE__
+#         - urn:li:lifecycleStageType:DEPRECATED
+#     created: {{&auditStamp}}
+#     lastModified: {{&auditStamp}}

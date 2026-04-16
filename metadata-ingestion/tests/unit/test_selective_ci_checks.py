@@ -679,27 +679,37 @@ class TestBuildSourceToTestDirs:
 
     def test_clickhouse_maps_to_sql_source(self, repo_root):
         registry = load_connector_registry(repo_root)
-        source_to_tests, _ = build_source_to_test_dirs(repo_root, registry)
-        sql_tests = source_to_tests.get("src/datahub/ingestion/source/sql", set())
+        ep_mapping = build_source_to_test_dirs(repo_root, registry)
+        sql_tests = ep_mapping.source_to_tests.get(
+            "src/datahub/ingestion/source/sql", set()
+        )
         assert "tests/integration/clickhouse/" in sql_tests
 
     def test_ep_module_to_test_populated(self, repo_root):
         registry = load_connector_registry(repo_root)
-        _, ep_module_to_test = build_source_to_test_dirs(repo_root, registry)
-        assert "datahub.ingestion.source.sql.clickhouse" in ep_module_to_test
+        ep_mapping = build_source_to_test_dirs(repo_root, registry)
+        assert "datahub.ingestion.source.sql.clickhouse" in ep_mapping.ep_module_to_test
         assert (
-            ep_module_to_test["datahub.ingestion.source.sql.clickhouse"]
+            ep_mapping.ep_module_to_test["datahub.ingestion.source.sql.clickhouse"]
+            == "tests/integration/clickhouse/"
+        )
+
+    def test_ep_module_to_test_includes_testless_connectors(self, repo_root):
+        """ep_module_to_test includes ALL entry points, with None for testless ones."""
+        registry = load_connector_registry(repo_root)
+        ep_mapping = build_source_to_test_dirs(repo_root, registry)
+        # clickhouse has a test dir → mapped to its test path
+        assert (
+            ep_mapping.ep_module_to_test["datahub.ingestion.source.sql.clickhouse"]
             == "tests/integration/clickhouse/"
         )
 
     def test_missing_setup_py_returns_empty(self, repo_root):
         (repo_root / "metadata-ingestion" / "setup.py").unlink()
         registry = load_connector_registry(repo_root)
-        source_to_tests, ep_module_to_test = build_source_to_test_dirs(
-            repo_root, registry
-        )
-        assert source_to_tests == {}
-        assert ep_module_to_test == {}
+        ep_mapping = build_source_to_test_dirs(repo_root, registry)
+        assert ep_mapping.source_to_tests == {}
+        assert ep_mapping.ep_module_to_test == {}
 
 
 class TestSourcePathToModule:
@@ -914,4 +924,132 @@ class TestNarrowEpParentPackage:
         # "datahub.ingestion.source.sql.clickhouse" does not start with
         # "datahub.ingestion.source.sql.__init__."
         # So narrowing fails → returns None → caller runs all SQL tests
+        assert result is None
+
+
+class TestKnownConnectorWithoutTests:
+    """Connector with a setup.py entry point but no integration test directory.
+
+    This is the 'glue scenario': glue.py lives in source/aws/ alongside shared
+    utilities (aws_common.py, s3_util.py). Without this fix, changing glue.py
+    would cascade through the import graph to every connector that imports from
+    source/aws/ (athena, redshift, s3, snowflake, etc.) because the narrowing
+    logic couldn't distinguish glue (a known connector) from a shared utility.
+    """
+
+    @pytest.fixture
+    def aws_like_repo(self, tmp_path):
+        """Create a repo structure mimicking source/aws/ with glue + shared utils."""
+        mi = tmp_path / "metadata-ingestion"
+        src = mi / "src" / "datahub" / "ingestion" / "source"
+        tests = mi / "tests" / "integration"
+
+        # Shared source dir (like source/aws/) with multiple connectors + utilities
+        (src / "aws").mkdir(parents=True)
+        (src / "aws" / "__init__.py").write_text("")
+        (src / "aws" / "aws_common.py").write_text("class AwsSourceConfig: pass\n")
+        (src / "aws" / "s3_util.py").write_text("def make_s3_urn(): pass\n")
+        (src / "aws" / "glue.py").write_text(
+            "from datahub.ingestion.source.aws.aws_common import AwsSourceConfig\n"
+            "class GlueSource: pass\n"
+        )
+        (src / "aws" / "sagemaker.py").write_text(
+            "from datahub.ingestion.source.aws.aws_common import AwsSourceConfig\n"
+            "class SagemakerSource: pass\n"
+        )
+        # s3 has integration tests, glue and sagemaker do not
+        (tests / "s3").mkdir(parents=True)
+
+        # Consumer that imports from aws (like source/athena/)
+        (src / "athena").mkdir(parents=True)
+        (src / "athena" / "__init__.py").write_text("")
+        (src / "athena" / "athena.py").write_text(
+            "from datahub.ingestion.source.aws.s3_util import make_s3_urn\n"
+            "class AthenaSource: pass\n"
+        )
+        (tests / "athena").mkdir(parents=True)
+
+        # Independent connector
+        (src / "kafka").mkdir(parents=True)
+        (src / "kafka" / "__init__.py").write_text("")
+        (src / "kafka" / "kafka.py").write_text("class KafkaSource: pass\n")
+        (tests / "kafka").mkdir(parents=True)
+
+        (mi / "scripts").mkdir(parents=True, exist_ok=True)
+        (mi / "setup.py").write_text(
+            "entry_points = {\n"
+            '    "datahub.ingestion.source.plugins": [\n'
+            '        "s3 = datahub.ingestion.source.aws.s3_util:S3Source",\n'
+            '        "glue = datahub.ingestion.source.aws.glue:GlueSource",\n'
+            '        "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",\n'
+            '        "athena = datahub.ingestion.source.athena.athena:AthenaSource",\n'
+            '        "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",\n'
+            "    ]\n"
+            "}\n"
+        )
+
+        return tmp_path
+
+    def test_known_ep_without_tests_does_not_cascade(self, aws_like_repo):
+        """Changing glue.py should NOT trigger athena/s3/kafka tests."""
+        d = classify(
+            ["metadata-ingestion/src/datahub/ingestion/source/aws/glue.py"],
+            aws_like_repo,
+        )
+        assert d.run_all_integration is False
+        assert d.test_matrix == []
+
+    def test_shared_utility_still_cascades(self, aws_like_repo):
+        """Changing aws_common.py SHOULD trigger all dependents (athena, s3)."""
+        d = classify(
+            ["metadata-ingestion/src/datahub/ingestion/source/aws/aws_common.py"],
+            aws_like_repo,
+        )
+        assert d.run_all_integration is False
+        paths = {e["test_path"] for e in d.test_matrix}
+        assert "tests/integration/athena/" in paths
+        assert "tests/integration/s3/" in paths
+        assert "tests/integration/kafka/" not in paths
+
+    def test_mixed_known_ep_and_shared_utility_cascades(self, aws_like_repo):
+        """Changing both glue.py and aws_common.py should cascade (aws_common is shared)."""
+        d = classify(
+            [
+                "metadata-ingestion/src/datahub/ingestion/source/aws/glue.py",
+                "metadata-ingestion/src/datahub/ingestion/source/aws/aws_common.py",
+            ],
+            aws_like_repo,
+        )
+        assert d.run_all_integration is False
+        paths = {e["test_path"] for e in d.test_matrix}
+        assert "tests/integration/athena/" in paths
+        assert "tests/integration/s3/" in paths
+
+    def test_narrow_ep_tests_with_known_ep_no_tests(self):
+        """Direct test: _narrow_ep_tests returns empty set for known EP without tests."""
+        ep_module_to_test: dict[str, str | None] = {
+            "datahub.ingestion.source.aws.s3_util": "tests/integration/s3/",
+            "datahub.ingestion.source.aws.glue": None,
+            "datahub.ingestion.source.aws.sagemaker": None,
+        }
+        result = _narrow_ep_tests(
+            "src/datahub/ingestion/source/aws",
+            ["metadata-ingestion/src/datahub/ingestion/source/aws/glue.py"],
+            ep_module_to_test,
+        )
+        # glue is a known EP (value=None) — narrowing succeeds with empty set
+        assert result == set()
+
+    def test_narrow_ep_tests_shared_utility_returns_none(self):
+        """Direct test: _narrow_ep_tests returns None for shared utility."""
+        ep_module_to_test: dict[str, str | None] = {
+            "datahub.ingestion.source.aws.s3_util": "tests/integration/s3/",
+            "datahub.ingestion.source.aws.glue": None,
+        }
+        result = _narrow_ep_tests(
+            "src/datahub/ingestion/source/aws",
+            ["metadata-ingestion/src/datahub/ingestion/source/aws/aws_common.py"],
+            ep_module_to_test,
+        )
+        # aws_common is NOT a key in ep_module_to_test — narrowing fails
         assert result is None

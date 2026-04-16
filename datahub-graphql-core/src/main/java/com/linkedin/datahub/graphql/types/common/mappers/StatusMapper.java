@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.LifecycleStageType;
 import com.linkedin.datahub.graphql.generated.Status;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
@@ -20,6 +21,15 @@ public class StatusMapper implements ModelMapper<com.linkedin.common.Status, Sta
       @Nullable QueryContext context, @Nonnull final com.linkedin.common.Status input) {
     final Status result = new Status();
     result.setRemoved(input.isRemoved());
+    if (input.hasLifecycleStage()) {
+      LifecycleStageType skeleton = new LifecycleStageType();
+      skeleton.setUrn(input.getLifecycleStage().toString());
+      result.setLifecycleStage(skeleton);
+    }
+    if (input.hasLifecycleLastUpdated()) {
+      result.setLifecycleLastUpdated(
+          AuditStampMapper.map(context, input.getLifecycleLastUpdated()));
+    }
     return result;
   }
 }

@@ -2548,6 +2548,11 @@ type GlossaryTerm implements Entity {
   glossaryTermInfo: GlossaryTermInfo
 
   """
+  The lifecycle status of the Glossary Term (removed flag and lifecycle stage).
+  """
+  status: Status
+
+  """
   The deprecation status of the Glossary Term
   """
   deprecation: Deprecation
@@ -4093,6 +4098,20 @@ type Status {
   Whether the entity is removed or not
   """
   removed: Boolean!
+
+  """
+  The resolved lifecycle stage of this entity.
+  When null, the entity is in its default active state (visible in search).
+  When set, provides the full stage definition (name, description, settings)
+  without an additional client round-trip.
+  """
+  lifecycleStage: LifecycleStageType
+
+  """
+  Attribution for the lifecycle stage transition — who moved the entity
+  into its current stage and when.
+  """
+  lifecycleLastUpdated: AuditStamp
 }
 
 """

@@ -28,7 +28,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyList, LossySentinel
 from datahub.utilities.urns.urn import guess_platform_name
 
 logger = logging.getLogger(__name__)
@@ -106,8 +106,13 @@ class Report(SupportsAsObj):
             if value is not None and not str(key).startswith("_")
         }
 
-    def as_string(self) -> str:
+    def as_string(
+        self,
+        sample_caps: Optional[Dict[str, int]] = None,
+    ) -> str:
         self_obj = self.as_obj()
+        if sample_caps is not None:
+            self_obj = _cap_report_samples(self_obj, sample_caps)
         _aspects_by_subtypes = self_obj.pop("aspects_by_subtypes", None)
 
         # Format the main report data
@@ -529,3 +534,25 @@ class EntityFilterReport(ReportAttribute):
         return dataclasses.field(
             default_factory=lambda: EntityFilterReport(type=type, severity=severity)
         )
+
+
+def _cap_report_samples(obj: dict, caps: Dict[str, int]) -> dict:
+    """Truncate report lists to the configured cap.
+
+    Only counts non-string items as real entries so the LossyList
+    sentinel string (e.g. ``"... sampled of 30 total elements"``)
+    is not miscounted as an entry.
+    """
+    result = {}
+    for k, v in obj.items():
+        cap = caps.get(k)
+        if cap is not None and isinstance(v, list):
+            entries = [x for x in v if not isinstance(x, LossySentinel)]
+            tail = [x for x in v if isinstance(x, LossySentinel)]
+            if len(entries) > cap:
+                result[k] = entries[:cap] + tail
+            else:
+                result[k] = v
+        else:
+            result[k] = v
+    return result
