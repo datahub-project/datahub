@@ -890,6 +890,7 @@ base_dev_requirements = {
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
+    "snob>=0.2.0",  # selective test runner: only runs tests affected by changed files
     "requests-mock<2.0.0",
     "freezegun<2.0.0",  # TODO: fully remove and use time-machine
     "time-machine<4.0.0",  # better Pydantic v2 compatibility
