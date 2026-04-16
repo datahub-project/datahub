@@ -18,17 +18,17 @@ db.grantRolesToUser("datahub_ingest", [
 ]);
 ```
 
-> **Note on system collections:** MongoDB `system.*` collections (such as `system.profile` and
-> `system.views`) are excluded from ingestion by default via the `excludeSystemCollections`
-> option (enabled by default). This means the `read` role is sufficient for all standard
-> ingestion use cases. If you disable `excludeSystemCollections`, ingestion of `system.profile`
-> requires the `dbAdmin` role — see [Config Details](#config-details) for more information.
+:::tip Note on system collections
 
-#### Upgrading from an earlier version
+MongoDB `system.*` collections (such as `system.profile` and `system.views`) are excluded
+from ingestion by default via the `excludeSystemCollections` option (enabled by default).
+This means the `read` role is sufficient for all standard ingestion use cases. If you
+disable `excludeSystemCollections`, ingestion of `system.profile` requires the `dbAdmin`
+role — see [Config Details](#config-details) for more information.
 
-If you are running a version of DataHub prior to [NEXT_VERSION] and have MongoDB profiling
-enabled on any ingested database, you may encounter an authorization error during ingestion.
-The workaround is to explicitly deny system collections in your recipe until you can upgrade:
+If you are upgrading from a version that ingested system collections by default and have
+MongoDB profiling enabled, you may encounter an authorization error during ingestion. As a
+workaround, you can explicitly deny system collections in your recipe:
 
 ```yaml
 source:
@@ -39,8 +39,7 @@ source:
         - ".*\\.system\\..*"
 ```
 
-Alternatively, add a `system.*` deny rule targeting the specific database. The `excludeSystemCollections`
-option (added in [NEXT_VERSION]) handles this automatically with no recipe changes required.
+:::
 
 #### Authentication
 

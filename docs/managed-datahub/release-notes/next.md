@@ -29,14 +29,7 @@ New Features:
 
 Fixes:
 
-- **MongoDB**: System collections (`system.*`) are now excluded from ingestion by default.
-  Previously, if MongoDB profiling was enabled, the connector would attempt to sample
-  `system.profile`, which requires `dbAdmin` access and caused ingestion to fail with
-  an authorization error. `system.views` was also silently ingested, producing noisy
-  schema metadata from view definitions rather than actual data. A new
-  `excludeSystemCollections` config option (default: `true`) controls this behavior.
-  The `read` role is now sufficient for all standard ingestion — `readWrite` access is
-  not required and was never needed.
+- TODO
 
 ## Known Issues
 
