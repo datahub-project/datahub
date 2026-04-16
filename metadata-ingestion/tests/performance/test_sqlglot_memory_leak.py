@@ -4,8 +4,7 @@ Test to reproduce sqlglot[c] memory leak when parsing BigQuery views.
 This test reproduces the memory leak reported in https://github.com/tobymao/sqlglot/issues/7506
 where accessing Table.name in sqlglot[c] causes a reference count leak.
 
-The leak manifests when parsing many views (as in BigQuery ingestion with 16k+ views),
-leading to multi-GB memory accumulation.
+The leak manifests when parsing many views leading to multi-GB memory accumulation.
 """
 
 import gc
