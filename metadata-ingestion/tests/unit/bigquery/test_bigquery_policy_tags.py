@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
+import pytest
 from google.cloud.bigquery.table import Row
 
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
@@ -78,26 +79,24 @@ def _make_schema_api(
 # ---------------------------------------------------------------------------
 
 
-def test_parse_taxonomy_id_valid() -> None:
-    resource_name = "projects/my-project/locations/us/taxonomies/12345/policyTags/67890"
-    assert (
-        _parse_taxonomy_id(resource_name)
-        == "projects/my-project/locations/us/taxonomies/12345"
-    )
-
-
-def test_parse_taxonomy_id_different_region() -> None:
-    resource_name = "projects/proj/locations/europe-west1/taxonomies/abc/policyTags/xyz"
-    assert (
-        _parse_taxonomy_id(resource_name)
-        == "projects/proj/locations/europe-west1/taxonomies/abc"
-    )
-
-
-def test_parse_taxonomy_id_malformed_returns_none() -> None:
-    assert _parse_taxonomy_id("not-a-resource-name") is None
-    assert _parse_taxonomy_id("") is None
-    assert _parse_taxonomy_id("projects/p/locations/l/taxonomies/t") is None
+@pytest.mark.parametrize(
+    "resource_name, expected",
+    [
+        (
+            "projects/my-project/locations/us/taxonomies/12345/policyTags/67890",
+            "projects/my-project/locations/us/taxonomies/12345",
+        ),
+        (
+            "projects/proj/locations/europe-west1/taxonomies/abc/policyTags/xyz",
+            "projects/proj/locations/europe-west1/taxonomies/abc",
+        ),
+        ("not-a-resource-name", None),
+        ("", None),
+        ("projects/p/locations/l/taxonomies/t", None),  # missing /policyTags/ segment
+    ],
+)
+def test_parse_taxonomy_id(resource_name: str, expected: Optional[str]) -> None:
+    assert _parse_taxonomy_id(resource_name) == expected
 
 
 # ---------------------------------------------------------------------------
