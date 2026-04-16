@@ -731,6 +731,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestion.defaultCliVersion",
           "ingestion.enabled",
           "ingestion.maxSerializedStringLength",
+          "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
           "ingestion.scheduler.refreshIntervalSeconds",

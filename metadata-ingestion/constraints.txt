@@ -12,7 +12,7 @@ adlfs==2026.2.0
     # via pyiceberg
 aenum==3.1.16
     # via okta
-aerospike==19.1.0
+aerospike==19.2.0
     # via acryl-datahub
 aiobotocore==3.2.1
     # via s3fs
@@ -476,6 +476,7 @@ google-api-core==2.25.2
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   sqlalchemy-bigquery
 google-auth==2.49.0
@@ -491,6 +492,7 @@ google-auth==2.49.0
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   google-genai
     #   sqlalchemy-bigquery
@@ -522,6 +524,8 @@ google-cloud-resource-manager==1.16.0
     # via
     #   acryl-datahub
     #   google-cloud-aiplatform
+google-cloud-secret-manager==2.27.0
+    # via acryl-datahub
 google-cloud-storage==3.4.1
     # via
     #   google-cloud-aiplatform
@@ -559,6 +563,7 @@ grpc-google-iam-v1==0.14.3
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 grpcio==1.78.0
     # via
     #   acryl-datahub
@@ -569,6 +574,7 @@ grpcio==1.78.0
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -1106,6 +1112,7 @@ proto-plus==1.27.1
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 protobuf==5.29.6
     # via
     #   acryl-datahub
@@ -1120,6 +1127,7 @@ protobuf==5.29.6
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
