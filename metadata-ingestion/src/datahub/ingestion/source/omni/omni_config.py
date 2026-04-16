@@ -17,7 +17,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 
 class OmniSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
+    StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
 ):
