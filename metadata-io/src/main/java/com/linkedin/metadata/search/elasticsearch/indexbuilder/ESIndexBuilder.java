@@ -1406,7 +1406,9 @@ public class ESIndexBuilder {
 
     // Add alias for the new index
     AliasActions removeAction =
-        deleteOld ? AliasActions.removeIndex() : AliasActions.remove().alias(originalName);
+        (deleteOld || aliasesResponse.getAliases().isEmpty())
+            ? AliasActions.removeIndex()
+            : AliasActions.remove().alias(originalName);
     removeAction.indices(aliasedIndexDelete.toArray(new String[0]));
     AliasActions addAction = AliasActions.add().alias(originalName).index(newName);
     updateAliasWithRetry(searchClient, removeAction, addAction, delinfo, requestOptions);
