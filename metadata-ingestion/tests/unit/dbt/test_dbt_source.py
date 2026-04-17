@@ -812,60 +812,79 @@ def test_drop_duplicate_sources() -> None:
     assert source.report.duplicate_sources_references_updated == 1
 
 
-def test_dbt_sibling_aspects_creation():
-    """Test that sibling patches are created correctly based on configuration."""
-    ctx = PipelineContext(run_id="test-run-id")
-    base_config = create_base_dbt_config()
-
-    # Create source with dbt as primary (default behavior)
-    config_dbt_primary = DBTCoreConfig(**base_config)
-    source_dbt_primary = DBTCoreSource(config_dbt_primary, ctx)
-
-    # Manually set the config value for testing since the field might not be parsed yet
-    source_dbt_primary.config.dbt_is_primary_sibling = True
-
-    model_node = DBTNode(
-        name="test_model",
+def _make_dbt_node(
+    materialization: str = "table",
+    node_type: str = "model",
+    name: str = "test_model",
+) -> DBTNode:
+    return DBTNode(
+        name=name,
         database="test_db",
         schema="test_schema",
         alias=None,
         comment="",
-        description="Test model",
+        description="",
         language="sql",
         raw_code=None,
         dbt_adapter="postgres",
-        dbt_name="model.package.test_model",
+        dbt_name=f"{node_type}.package.{name}",
         dbt_file_path=None,
         dbt_package_name="package",
-        node_type="model",
-        materialization="table",
+        node_type=node_type,
+        materialization=materialization,
         max_loaded_at=None,
         catalog_type=None,
         missing_from_catalog=False,
         owner=None,
         compiled_code=None,
     )
-    # Note: exists_in_target_platform is a property that returns True for non-ephemeral, non-test nodes
-    # Our node_type="model" and materialization="table" will make this property return True
 
-    # For models when dbt is primary - should not create sibling patches
-    should_create_siblings = source_dbt_primary._should_create_sibling_relationships(
-        model_node
-    )
-    assert should_create_siblings is False
 
-    # Test with target platform as primary - should create sibling patches
-    config_target_primary = DBTCoreConfig(**base_config)
-    source_target_primary = DBTCoreSource(config_target_primary, ctx)
+def _make_dbt_source(dbt_is_primary_sibling: bool = True) -> DBTCoreSource:
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+    source.config.dbt_is_primary_sibling = dbt_is_primary_sibling
+    return source
 
-    # Manually set the config value for testing
-    source_target_primary.config.dbt_is_primary_sibling = False
 
-    # For models when target platform is primary - should create sibling patches
-    should_create_siblings = source_target_primary._should_create_sibling_relationships(
-        model_node
-    )
-    assert should_create_siblings is True
+@pytest.mark.parametrize("dbt_is_primary_sibling", [True, False])
+def test_dbt_sibling_created_for_semantic_views(dbt_is_primary_sibling: bool) -> None:
+    """Regression test for CUS-7718: semantic views showed as duplicate search
+    results because the SiblingAssociationHook only handles the "source" subtype."""
+    source = _make_dbt_source(dbt_is_primary_sibling)
+    node = _make_dbt_node(materialization="semantic_view")
+    assert source._should_create_sibling_relationships(node) is True
+
+
+def test_dbt_sibling_not_created_for_standard_models_when_primary() -> None:
+    """Standard models rely on the SiblingAssociationHook for sibling creation
+    when dbt is primary. Only semantic views need explicit emission."""
+    source = _make_dbt_source(dbt_is_primary_sibling=True)
+    for materialization in ("table", "view", "incremental"):
+        node = _make_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is False
+
+
+def test_dbt_sibling_created_for_all_nodes_when_not_primary() -> None:
+    """When target platform is primary (dbt_is_primary_sibling=False),
+    the dbt source emits siblings for all nodes."""
+    source = _make_dbt_source(dbt_is_primary_sibling=False)
+    for materialization in ("table", "view", "incremental", "semantic_view"):
+        node = _make_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is True
+
+
+@pytest.mark.parametrize(
+    "materialization,node_type",
+    [("ephemeral", "model"), ("test", "test")],
+)
+def test_dbt_sibling_not_created_for_ephemeral_or_test_nodes(
+    materialization: str, node_type: str
+) -> None:
+    source = _make_dbt_source()
+    node = _make_dbt_node(materialization=materialization, node_type=node_type)
+    assert source._should_create_sibling_relationships(node) is False
 
 
 def test_dbt_cloud_source_description_precedence() -> None:
