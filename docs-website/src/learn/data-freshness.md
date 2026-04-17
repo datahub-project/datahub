@@ -103,7 +103,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/smart-assertions.png"/>
  <br />
-  <i style={{color:"grey"}}>Smart assertions checks for changes on a cadence based on the Table history, by default using the Audit Log.</i>
+  <i style={{color:"grey"}}>Freshness assertions with Anomaly Detection check for changes on a cadence based on the Table history, by default using the Audit Log.</i>
 </p>
 
 
