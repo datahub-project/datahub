@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -156,7 +158,8 @@ public class StructuredPropertiesPatchBuilder
 
   @Override
   protected Map<String, List<String>> getArrayPrimaryKeys() {
-    return Map.of("properties", List.of(URN_KEY, ATTRIBUTION_SOURCE_KEY));
+    return Collections.singletonMap(
+        "properties", Collections.unmodifiableList(Arrays.asList(URN_KEY, ATTRIBUTION_SOURCE_KEY)));
   }
 
   @Override

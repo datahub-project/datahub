@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -76,7 +78,8 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
 
   @Override
   protected Map<String, List<String>> getArrayPrimaryKeys() {
-    return Map.of("tags", List.of(URN_KEY, ATTRIBUTION_SOURCE_KEY));
+    return Collections.singletonMap(
+        "tags", Collections.unmodifiableList(Arrays.asList(URN_KEY, ATTRIBUTION_SOURCE_KEY)));
   }
 
   @Override

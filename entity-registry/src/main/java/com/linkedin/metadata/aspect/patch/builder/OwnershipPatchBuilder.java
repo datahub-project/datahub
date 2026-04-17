@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -130,7 +132,10 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
 
   @Override
   protected Map<String, List<String>> getArrayPrimaryKeys() {
-    return Map.of("owners", List.of(OWNER_KEY, TYPE_KEY, TYPE_URN_KEY, ATTRIBUTION_SOURCE_KEY));
+    return Collections.singletonMap(
+        "owners",
+        Collections.unmodifiableList(
+            Arrays.asList(OWNER_KEY, TYPE_KEY, TYPE_URN_KEY, ATTRIBUTION_SOURCE_KEY)));
   }
 
   @Override

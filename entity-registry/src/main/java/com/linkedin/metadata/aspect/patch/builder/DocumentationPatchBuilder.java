@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.DOCUMENTATION_ASPECT_NAME;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -53,7 +54,8 @@ public class DocumentationPatchBuilder
 
   @Override
   protected Map<String, List<String>> getArrayPrimaryKeys() {
-    return Map.of("documentations", List.of(ATTRIBUTION_SOURCE_KEY));
+    return Collections.singletonMap(
+        "documentations", Collections.singletonList(ATTRIBUTION_SOURCE_KEY));
   }
 
   @Override
