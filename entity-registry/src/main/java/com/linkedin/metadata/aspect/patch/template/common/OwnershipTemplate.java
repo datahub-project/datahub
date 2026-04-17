@@ -9,7 +9,7 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
-import java.util.List;
+import java.util.Arrays;
 import javax.annotation.Nonnull;
 
 public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
@@ -47,13 +47,14 @@ public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    return arrayFieldToMap(baseNode, OWNERS_FIELD_NAME, List.of(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
+    return arrayFieldToMap(
+        baseNode, OWNERS_FIELD_NAME, Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
     return transformedMapToArray(
-        patched, OWNERS_FIELD_NAME, List.of(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
+        patched, OWNERS_FIELD_NAME, Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
   }
 }
