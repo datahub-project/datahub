@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -17,6 +19,7 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
   private static final String OWNER_KEY = "owner";
   private static final String TYPE_KEY = "type";
   private static final String TYPE_URN_KEY = "typeUrn";
+  private static final String ATTRIBUTION_SOURCE_KEY = "attribution\u241fsource";
 
   public OwnershipPatchBuilder addOwner(@Nonnull Urn owner, @Nonnull OwnershipType type) {
     return addOwner(owner, type, null);
@@ -40,6 +43,32 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
                 + "/"
                 + encodeValue(typeUrn != null ? typeUrn.toString() : "")
                 + "/",
+            value));
+    return this;
+  }
+
+  public OwnershipPatchBuilder addOwner(
+      @Nonnull Urn owner,
+      @Nonnull OwnershipType type,
+      @Nullable Urn typeUrn,
+      @Nonnull Urn attributionSource) {
+    ObjectNode value = instance.objectNode();
+    value.put(OWNER_KEY, owner.toString());
+    value.put(TYPE_KEY, type.toString());
+    if (typeUrn != null) {
+      value.put(TYPE_URN_KEY, typeUrn.toString());
+    }
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH
+                + encodeValueUrn(owner)
+                + "/"
+                + encodeValue(type.toString())
+                + "/"
+                + encodeValue(typeUrn != null ? typeUrn.toString() : "")
+                + "/"
+                + encodeValue(attributionSource.toString()),
             value));
     return this;
   }
@@ -96,8 +125,12 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
                 + "/"
                 + encodeValue(attributionSource.toString()),
             null));
-
     return this;
+  }
+
+  @Override
+  protected Map<String, List<String>> getArrayPrimaryKeys() {
+    return Map.of("owners", List.of(OWNER_KEY, TYPE_KEY, TYPE_URN_KEY, ATTRIBUTION_SOURCE_KEY));
   }
 
   @Override

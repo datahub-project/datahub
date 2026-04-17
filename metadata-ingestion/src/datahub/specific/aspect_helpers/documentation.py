@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import Urn
 
 _DOCS_KEY_FIELDS = [f"attribution{UNIT_SEPARATOR}source"]
+_DOCS_APK = {"documentations": _DOCS_KEY_FIELDS}
 
 
 class HasDocumentationPatch(MetadataPatchProposal):
@@ -41,6 +42,7 @@ class HasDocumentationPatch(MetadataPatchProposal):
             "add",
             path=("documentations", source),
             value=doc,
+            array_primary_keys=_DOCS_APK,
         )
         return self
 
@@ -69,6 +71,6 @@ class HasDocumentationPatch(MetadataPatchProposal):
             "remove",
             path=("documentations", *path),
             value={},
-            array_primary_keys=array_primary_keys,
+            array_primary_keys=array_primary_keys if array_primary_keys else _DOCS_APK,
         )
         return self

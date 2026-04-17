@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -16,6 +18,7 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
   private static final String BASE_PATH = "/tags/";
   private static final String URN_KEY = "tag";
   private static final String CONTEXT_KEY = "context";
+  private static final String ATTRIBUTION_SOURCE_KEY = "attribution\u241fsource";
 
   /**
    * Adds a tag with an optional context string
@@ -38,6 +41,23 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
     return this;
   }
 
+  public GlobalTagsPatchBuilder addTag(
+      @Nonnull TagUrn urn, @Nullable String context, @Nonnull Urn attributionSource) {
+    ObjectNode value = instance.objectNode();
+    value.put(URN_KEY, urn.toString());
+
+    if (context != null) {
+      value.put(CONTEXT_KEY, context);
+    }
+
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + encodeValueUrn(urn) + "/" + encodeValue(attributionSource.toString()),
+            value));
+    return this;
+  }
+
   public GlobalTagsPatchBuilder removeTag(@Nonnull TagUrn urn) {
     pathValues.add(
         ImmutableTriple.of(
@@ -45,7 +65,6 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
     return this;
   }
 
-  /** Removes only the entry for this tag URN attributed to a specific source. */
   public GlobalTagsPatchBuilder removeTag(@Nonnull TagUrn urn, @Nonnull Urn attributionSource) {
     pathValues.add(
         ImmutableTriple.of(
@@ -53,6 +72,11 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
             BASE_PATH + encodeValueUrn(urn) + "/" + encodeValue(attributionSource.toString()),
             null));
     return this;
+  }
+
+  @Override
+  protected Map<String, List<String>> getArrayPrimaryKeys() {
+    return Map.of("tags", List.of(URN_KEY, ATTRIBUTION_SOURCE_KEY));
   }
 
   @Override

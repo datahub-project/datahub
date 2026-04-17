@@ -33,13 +33,16 @@ from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.testing import mce_helpers
 
-TAG_PATCH_VALUE = [
-    {
-        "op": "add",
-        "path": "/tags/urn:li:tag:test_tag/",
-        "value": {"tag": "urn:li:tag:test_tag"},
-    }
-]
+TAG_PATCH_VALUE = {
+    "arrayPrimaryKeys": {"tags": ["tag", "attribution\u241fsource"]},
+    "patch": [
+        {
+            "op": "add",
+            "path": "/tags/urn:li:tag:test_tag/",
+            "value": {"tag": "urn:li:tag:test_tag"},
+        }
+    ],
+}
 
 
 def test_basic_dataset_patch_builder():
@@ -144,9 +147,7 @@ def test_complex_dataset_patch(
         )
     )
     patcher.for_field("field1").add_tag(TagAssociationClass(tag=make_tag_urn("tag1")))
-    patcher.for_field("field1").remove_term(
-        "urn:li:glossaryTerm:term1", "urn:li:dataHubAction:myAction"
-    )
+    patcher.for_field("field1").remove_term("urn:li:glossaryTerm:term1")
 
     out_path = tmp_path / "patch.json"
     write_metadata_file(out_path, patcher.build())

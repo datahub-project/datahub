@@ -6,6 +6,8 @@ import static com.linkedin.metadata.Constants.DOCUMENTATION_ASPECT_NAME;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
@@ -14,13 +16,24 @@ public class DocumentationPatchBuilder
 
   private static final String BASE_PATH = "/documentations/";
   private static final String DOCUMENTATION_KEY = "documentation";
-  private static final String ATTRIBUTION_KEY = "attribution";
-  private static final String SOURCE_KEY = "source";
+  private static final String ATTRIBUTION_SOURCE_KEY = "attribution\u241fsource";
 
   public DocumentationPatchBuilder addDocumentation(@Nonnull String documentation) {
     ObjectNode value = instance.objectNode();
     value.put(DOCUMENTATION_KEY, documentation);
     pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH, value));
+    return this;
+  }
+
+  public DocumentationPatchBuilder addDocumentation(
+      @Nonnull String documentation, @Nonnull Urn attributionSource) {
+    ObjectNode value = instance.objectNode();
+    value.put(DOCUMENTATION_KEY, documentation);
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH + encodeValue(attributionSource.toString()),
+            value));
     return this;
   }
 
@@ -36,6 +49,11 @@ public class DocumentationPatchBuilder
     String path = BASE_PATH + encodeValue(attributionSource.toString());
     pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), path, null));
     return this;
+  }
+
+  @Override
+  protected Map<String, List<String>> getArrayPrimaryKeys() {
+    return Map.of("documentations", List.of(ATTRIBUTION_SOURCE_KEY));
   }
 
   @Override

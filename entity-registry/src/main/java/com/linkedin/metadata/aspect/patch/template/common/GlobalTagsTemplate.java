@@ -12,8 +12,6 @@ public class GlobalTagsTemplate implements ArrayMergingTemplate<GlobalTags> {
 
   private static final String TAGS_FIELD_NAME = "tags";
   private static final String TAG_FIELD_NAME = "tag";
-  private static final String ATTRIBUTION_SOURCE =
-      "attribution" + UNIT_SEPARATOR_DELIMITER + "source";
 
   @Override
   public GlobalTags getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -40,13 +38,12 @@ public class GlobalTagsTemplate implements ArrayMergingTemplate<GlobalTags> {
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    return arrayFieldToMap(baseNode, TAGS_FIELD_NAME, List.of(TAG_FIELD_NAME, ATTRIBUTION_SOURCE));
+    return arrayFieldToMap(baseNode, TAGS_FIELD_NAME, List.of(TAG_FIELD_NAME));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
-    return transformedMapToArray(
-        patched, TAGS_FIELD_NAME, List.of(TAG_FIELD_NAME, ATTRIBUTION_SOURCE));
+    return transformedMapToArray(patched, TAGS_FIELD_NAME, List.of(TAG_FIELD_NAME));
   }
 }
