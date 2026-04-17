@@ -41,6 +41,7 @@ class InformaticaClient:
         self._session = requests.Session()
         self._session_id: Optional[str] = None
         self._base_url: Optional[str] = None  # serverUrl from login response
+        self._session_created_at: float = 0.0
 
         self._max_retries = 3
         self._backoff_factor = 2.0
@@ -78,6 +79,7 @@ class InformaticaClient:
 
         self._session_id = data.get("icSessionId")
         self._base_url = data.get("serverUrl", "").rstrip("/")
+        self._session_created_at = time.time()
 
         if not self._session_id or not self._base_url:
             raise Exception(
@@ -91,10 +93,66 @@ class InformaticaClient:
             data.get("orgId", "unknown"),
         )
 
+    # IDMC sessions expire after 30 minutes of inactivity.
+    # We proactively validate when the session is older than this threshold
+    # to avoid sending requests that will definitely fail with 401.
+    _SESSION_VALIDATE_AFTER_SECS = 25 * 60  # 25 minutes
+
+    def _is_session_valid(self) -> bool:
+        """Check if the current session is still valid via the v2 validSessionId endpoint."""
+        if not self._session_id or not self._base_url:
+            return False
+
+        try:
+            url = f"{self._base_url}/api/v2/user/validSessionId"
+            resp = self._session.post(
+                url,
+                json={
+                    "@type": "validatedToken",
+                    "userName": self.config.username,
+                    "icToken": self._session_id,
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "icSessionId": self._session_id,
+                },
+                timeout=10,
+            )
+            self.report.report_api_call()
+            if resp.status_code == 200:
+                data = resp.json()
+                is_valid = data.get("isValidToken", False)
+                if is_valid:
+                    remaining = data.get("timeUntilExpire", "?")
+                    logger.debug("Session valid, %s minutes remaining", remaining)
+                return bool(is_valid)
+        except Exception:
+            logger.debug("Session validation check failed", exc_info=True)
+
+        return False
+
     def _ensure_authenticated(self) -> None:
-        """Ensure we have a valid session. Logs in if no session exists."""
-        if not self._session_id:
-            self.login()
+        """Ensure we have a valid session.
+
+        - No session → login
+        - Session older than 25 min → validate via validSessionId, re-login if expired
+        - Session younger than 25 min → skip validation (fast path)
+        - The 401 re-auth in _request() is kept as a safety net for edge cases
+        """
+        if self._session_id:
+            session_age = time.time() - self._session_created_at
+            if session_age < self._SESSION_VALIDATE_AFTER_SECS:
+                return
+            if self._is_session_valid():
+                return
+            logger.info(
+                "Session expired after %.0f minutes, re-authenticating...",
+                session_age / 60,
+            )
+            self._session_id = None
+
+        self.login()
+
         if not self._session_id:
             logger.error("Authentication failed: session ID is still None after login")
             raise Exception(
