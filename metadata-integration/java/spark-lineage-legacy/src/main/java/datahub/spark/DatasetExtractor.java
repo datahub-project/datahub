@@ -25,7 +25,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.catalyst.catalog.HiveTableRelation;
-import org.apache.spark.sql.catalyst.plans.logical.GlobalLimit;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.execution.FileSourceScanExec;
 import org.apache.spark.sql.execution.RowDataSourceScanExec;
@@ -290,23 +289,34 @@ public class DatasetExtractor {
                       getCommonFabricType(datahubConfig))));
         });
 
-    PLAN_TO_DATASET.put(
-        GlobalLimit.class,
-        (plan, ctx, datahubConfig) -> {
-          // Some Spark 3.5 query shapes surface GlobalLimit as a wrapper around the child plan
-          // that contains the actual dataset information. Unwrap and recurse to extract lineage.
-          try {
-            LogicalPlan child = ((GlobalLimit) plan).child();
-            if (child == null) {
-              log.debug("GlobalLimit.child() returned null, unable to extract lineage");
+    // GlobalLimit handler (Spark 3.5+) — register via reflection for Spark 3.3.x runtime
+    // compatibility
+    try {
+      @SuppressWarnings("unchecked")
+      Class<? extends LogicalPlan> globalLimitClass =
+          (Class<? extends LogicalPlan>)
+              Class.forName("org.apache.spark.sql.catalyst.plans.logical.GlobalLimit");
+      PLAN_TO_DATASET.put(
+          globalLimitClass,
+          (plan, ctx, datahubConfig) -> {
+            // Some Spark 3.5 query shapes surface GlobalLimit as a wrapper around the child plan
+            // that contains the actual dataset information. Unwrap and recurse to extract lineage.
+            try {
+              Method childMethod = plan.getClass().getMethod("child");
+              LogicalPlan child = (LogicalPlan) childMethod.invoke(plan);
+              if (child == null) {
+                log.debug("GlobalLimit.child() returned null, unable to extract lineage");
+                return Optional.empty();
+              }
+              return asDataset(child, ctx, false);
+            } catch (Exception e) {
+              log.warn("Error unwrapping GlobalLimit: {}", e.getMessage());
               return Optional.empty();
             }
-            return asDataset(child, ctx, false);
-          } catch (Exception e) {
-            log.error("Error unwrapping GlobalLimit: {}", e.getMessage());
-            return Optional.empty();
-          }
-        });
+          });
+    } catch (ClassNotFoundException e) {
+      log.debug("GlobalLimit not available in this Spark version (expected for Spark < 3.5)");
+    }
 
     PLAN_TO_DATASET.put(
         InMemoryRelation.class,
@@ -392,10 +402,10 @@ public class DatasetExtractor {
         return inputPlan;
       } catch (NoSuchMethodException e) {
         // Method doesn't exist in this Spark version; return plan unchanged
-        log.error("AdaptiveSparkPlanExec.inputPlan() not available, using original plan");
+        log.debug("AdaptiveSparkPlanExec.inputPlan() not available, using original plan");
       } catch (InvocationTargetException | IllegalAccessException e) {
         // Invocation failed; return plan unchanged
-        log.error("Failed to invoke AdaptiveSparkPlanExec.inputPlan(), using original plan");
+        log.debug("Failed to invoke AdaptiveSparkPlanExec.inputPlan(), using original plan");
       }
     }
     return plan;

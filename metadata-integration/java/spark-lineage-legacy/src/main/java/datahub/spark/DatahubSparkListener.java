@@ -74,6 +74,9 @@ public class DatahubSparkListener extends SparkListener {
   // Cached Spark version components (parsed once at first access)
   private static volatile int sparkMajorVersion = -1;
   private static volatile int sparkMinorVersion = -1;
+  // Tolerance window for CTAS follow-up insert detection in Spark 3.5+
+  // Handles parallel query execution where follow-up insert may not be immediately sequential
+  private static final long CTAS_FOLLOWUP_TOLERANCE = 50;
 
   public DatahubSparkListener() {
     log.info("DatahubSparkListener initialised.");
@@ -102,8 +105,8 @@ public class DatahubSparkListener extends SparkListener {
 
   /**
    * Serialize SparkListenerSQLExecutionStart to JSON string. Handles both Spark 3.4+ (Jackson API)
-   * and older versions. Uses reflection for Spark 3.4+ since we compile against Spark 3.3.4 but
-   * need to support runtime versions up to 3.5+.
+   * and older versions (json4s API). Uses reflection for version-specific APIs since we compile
+   * against Spark 3.5.0 but need to support runtime versions up to 3.5+.
    *
    * <p>NOTE: Spark < 3.4 fallback returns Scala case class toString() representation, not JSON.
    * This produces a human-readable but non-JSON output. For JSON serialization on all Spark
@@ -126,8 +129,11 @@ public class DatahubSparkListener extends SparkListener {
           Method sparkEventToJsonMethod =
               JsonProtocol.class.getMethod("sparkEventToJson", SparkListenerEvent.class);
           Object jsonValue = sparkEventToJsonMethod.invoke(null, event);
-          // Call toString() on json4s JValue result to get JSON string
-          return jsonValue.toString();
+          // Use json4s.jackson.JsonMethods.compact() to produce valid JSON (not toString())
+          Class<?> jsonMethodsClass = Class.forName("org.json4s.jackson.JsonMethods$");
+          Object module = jsonMethodsClass.getField("MODULE$").get(null);
+          Method compactMethod = jsonMethodsClass.getMethod("compact", Object.class);
+          return (String) compactMethod.invoke(module, jsonValue);
         } catch (Exception e) {
           // Fall back to toString() if sparkEventToJson unavailable
           log.debug(
@@ -220,14 +226,16 @@ public class DatahubSparkListener extends SparkListener {
 
       // Spark 3.5+ generates follow-up inserts for CTAS commands as separate SQL executions.
       // Spark < 3.5 does not, so no dedup needed.
-      if (getSparkMinorVersion() >= 5) {
+      // Version check handles Spark 3.5.x, 4.0.x, 5.x, etc. (any version >= 3.5)
+      if (sparkMajorVersion > 3 || (sparkMajorVersion == 3 && sparkMinorVersion >= 5)) {
         Set<Long> pendingCtas = pendingCtasExecIds.get(ctx.applicationId());
         if (DatasetExtractor.isFollowUpInsertCommand(plan) && pendingCtas != null) {
           for (Iterator<Long> it = pendingCtas.iterator(); it.hasNext(); ) {
             Long ctasExecId = it.next();
             // Tolerance window: accept follow-up insert within 50 execution IDs of CTAS.
             // Handles parallel query execution where follow-up may not be immediately sequential.
-            if (sqlStart.executionId() > ctasExecId && sqlStart.executionId() - ctasExecId <= 50) {
+            if (sqlStart.executionId() > ctasExecId
+                && sqlStart.executionId() - ctasExecId <= CTAS_FOLLOWUP_TOLERANCE) {
               log.debug(
                   "Skipping follow-up insert for create-table-as-select (execution {}:{}, CTAS: {})",
                   ctx.applicationId(),
