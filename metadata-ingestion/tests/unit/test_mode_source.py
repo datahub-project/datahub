@@ -14,6 +14,7 @@ Tests cover:
 from typing import Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
+import requests
 from requests.models import HTTPError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -494,6 +495,52 @@ class TestProcessReportErrorIsolation:
 
         # Failure should have been recorded
         assert source.report.failures
+
+    def test_timeout_error_uses_report_warning_not_failure(self):
+        """Built-in TimeoutError should call report_warning, not report_failure,
+        so one timed-out report doesn't mark the whole run as FAILURE."""
+        source = _make_source()
+        report = {"token": "tok", "name": "Report"}
+
+        def timeout_inner(space_token: str, report: dict) -> Iterator:
+            raise TimeoutError("timed out")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=timeout_inner):
+            list(source._process_report("space1", report))
+
+        assert not source.report.failures
+        assert source.report.warnings
+
+    def test_requests_timeout_uses_report_warning_not_failure(self):
+        """requests.exceptions.Timeout should also call report_warning."""
+        source = _make_source()
+        report = {"token": "tok", "name": "Report"}
+
+        def timeout_inner(space_token: str, report: dict) -> Iterator:
+            raise requests.exceptions.Timeout("connection timed out")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=timeout_inner):
+            list(source._process_report("space1", report))
+
+        assert not source.report.failures
+        assert source.report.warnings
+
+    def test_non_timeout_error_still_uses_report_failure(self):
+        """Non-timeout exceptions should still call report_failure."""
+        source = _make_source()
+        report = {"token": "tok", "name": "Report"}
+
+        def failing_inner(space_token: str, report: dict) -> Iterator:
+            raise ValueError("unexpected error")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=failing_inner):
+            list(source._process_report("space1", report))
+
+        assert source.report.failures
+        assert not source.report.warnings
 
     def test_error_handler_failure_does_not_propagate(self):
         """If report_failure itself raises (e.g. serialization error),
