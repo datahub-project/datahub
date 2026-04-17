@@ -9,6 +9,8 @@ import datahub.spark.model.dataset.HdfsPathDataset;
 import datahub.spark.model.dataset.JdbcDataset;
 import datahub.spark.model.dataset.SparkDataset;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -293,8 +295,17 @@ public class DatasetExtractor {
         (plan, ctx, datahubConfig) -> {
           // Some Spark 3.5 query shapes surface GlobalLimit as a wrapper around the child plan
           // that contains the actual dataset information. Unwrap and recurse to extract lineage.
-          LogicalPlan child = ((GlobalLimit) plan).child();
-          return asDataset(child, ctx, false);
+          try {
+            LogicalPlan child = ((GlobalLimit) plan).child();
+            if (child == null) {
+              log.debug("GlobalLimit.child() returned null, unable to extract lineage");
+              return Optional.empty();
+            }
+            return asDataset(child, ctx, false);
+          } catch (Exception e) {
+            log.error("Error unwrapping GlobalLimit: {}", e.getMessage());
+            return Optional.empty();
+          }
         });
 
     PLAN_TO_DATASET.put(
@@ -370,16 +381,21 @@ public class DatasetExtractor {
    */
   private static SparkPlan unwrapAdaptiveSparkPlan(SparkPlan plan) {
     // Use exact class name match instead of contains() to avoid false positives
+    // AdaptiveSparkPlanExec only exists in Spark 3.3+; defensive check handles older versions
     if (plan.getClass()
         .getName()
         .equals("org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec")) {
       try {
-        java.lang.reflect.Method inputPlanMethod = plan.getClass().getMethod("inputPlan");
+        Method inputPlanMethod = plan.getClass().getMethod("inputPlan");
         SparkPlan inputPlan = (SparkPlan) inputPlanMethod.invoke(plan);
         log.debug("Unwrapped AdaptiveSparkPlanExec to {}", inputPlan.getClass().getName());
         return inputPlan;
-      } catch (Exception e) {
-        log.warn("Failed to unwrap AdaptiveSparkPlanExec, using original plan", e);
+      } catch (NoSuchMethodException e) {
+        // Method doesn't exist in this Spark version; return plan unchanged
+        log.error("AdaptiveSparkPlanExec.inputPlan() not available, using original plan");
+      } catch (InvocationTargetException | IllegalAccessException e) {
+        // Invocation failed; return plan unchanged
+        log.error("Failed to invoke AdaptiveSparkPlanExec.inputPlan(), using original plan");
       }
     }
     return plan;

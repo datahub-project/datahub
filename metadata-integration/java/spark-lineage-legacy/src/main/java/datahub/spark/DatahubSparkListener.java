@@ -15,6 +15,7 @@ import datahub.spark.model.dataset.SparkDataset;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -78,8 +79,8 @@ public class DatahubSparkListener extends SparkListener {
     log.info("DatahubSparkListener initialised.");
   }
 
-  /** Parse and cache Spark version components. Thread-safe despite volatile double-check. */
-  private static void ensureSparkVersionParsed() {
+  /** Parse and cache Spark version components once. Thread-safe via synchronized. */
+  private static synchronized void ensureSparkVersionParsed() {
     if (sparkMinorVersion < 0) {
       try {
         String version = package$.MODULE$.SPARK_VERSION();
@@ -116,16 +117,26 @@ public class DatahubSparkListener extends SparkListener {
 
       // Spark 3.4+: Use Jackson API (returns valid JSON)
       if (sparkMajorVersion > 3 || (sparkMajorVersion == 3 && sparkMinorVersion >= 4)) {
-        java.lang.reflect.Method method =
+        Method method =
             JsonProtocol.class.getMethod("sparkEventToJsonString", SparkListenerEvent.class);
         return (String) method.invoke(null, event);
       } else {
-        // Spark < 3.4: Use toString() fallback (returns Scala case class string, not JSON)
-        log.debug(
-            "Spark {}.{} < 3.4, using toString() fallback (note: output is not JSON)",
-            sparkMajorVersion,
-            sparkMinorVersion);
-        return event.toString();
+        // Spark < 3.4: Try json4s-based sparkEventToJson via reflection
+        try {
+          Method sparkEventToJsonMethod =
+              JsonProtocol.class.getMethod("sparkEventToJson", SparkListenerEvent.class);
+          Object jsonValue = sparkEventToJsonMethod.invoke(null, event);
+          // Call toString() on json4s JValue result to get JSON string
+          return jsonValue.toString();
+        } catch (Exception e) {
+          // Fall back to toString() if sparkEventToJson unavailable
+          log.debug(
+              "Spark {}.{} < 3.4: sparkEventToJson unavailable ({}), using toString()",
+              sparkMajorVersion,
+              sparkMinorVersion,
+              e.getMessage());
+          return event.toString();
+        }
       }
     } catch (Exception e) {
       log.warn("Failed to serialize SQL execution event to JSON, using toString() fallback", e);
@@ -214,6 +225,8 @@ public class DatahubSparkListener extends SparkListener {
         if (DatasetExtractor.isFollowUpInsertCommand(plan) && pendingCtas != null) {
           for (Iterator<Long> it = pendingCtas.iterator(); it.hasNext(); ) {
             Long ctasExecId = it.next();
+            // Tolerance window: accept follow-up insert within 50 execution IDs of CTAS.
+            // Handles parallel query execution where follow-up may not be immediately sequential.
             if (sqlStart.executionId() > ctasExecId && sqlStart.executionId() - ctasExecId <= 50) {
               log.debug(
                   "Skipping follow-up insert for create-table-as-select (execution {}:{}, CTAS: {})",
