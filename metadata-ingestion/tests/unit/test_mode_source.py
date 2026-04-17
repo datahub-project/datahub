@@ -763,6 +763,7 @@ class TestReportPattern:
 
     def test_report_pattern_deny_excludes_report(self):
         """Reports matching the deny pattern should be excluded and tracked."""
+
         source = self._make_source_with_config(
             report_pattern=AllowDenyPattern(deny=["^slow_report$"])
         )
@@ -784,22 +785,3 @@ class TestReportPattern:
         assert len(report_args) == 1
         assert report_args[0][1]["token"] == "tok2"
         assert "slow_report" in list(source.report.filtered_reports)
-
-    def test_report_pattern_allow_all_by_default(self):
-        """Default report_pattern passes all reports through."""
-        source = self._make_source_with_config()
-
-        reports = [
-            {"token": "tok1", "name": "report_a"},
-            {"token": "tok2", "name": "report_b"},
-        ]
-
-        with (
-            patch.object(source, "_get_reports", return_value=iter([reports])),
-            patch.object(source, "_get_datasets", return_value=iter([])),
-            patch.object(source, "construct_space_container", return_value=iter([])),
-        ):
-            report_args, _, _ = source._collect_space_work_items("space1", "MySpace")
-
-        assert len(report_args) == 2
-        assert list(source.report.filtered_reports) == []

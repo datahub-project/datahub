@@ -229,7 +229,7 @@ class ModeConfig(
     )
 
     report_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+        default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns for Mode reports to filter in ingestion. "
         "Matched against the report name. "
         "e.g. to exclude a report named 'slow_report', use deny=['slow_report'].",
@@ -2047,9 +2047,10 @@ class ModeSource(StatefulIngestionSourceBase):
         report_args: List[Tuple[str, dict]] = []
         for report_page in self._get_reports(space_token):
             for report in report_page:
-                report_name = report.get("name", "")
+                report_name = report.get("name") or report.get("token", "unknown")
                 if not self.config.report_pattern.allowed(report_name):
                     self.report.report_dropped_report(report_name)
+                    logger.debug(f"Skipping report {report_name} due to report_pattern")
                     continue
                 report_args.append((space_token, report))
 
