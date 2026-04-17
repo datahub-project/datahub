@@ -1,12 +1,8 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
-)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey, gen_containers
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -21,14 +17,17 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.informatica.client import InformaticaClient
 from datahub.ingestion.source.informatica.config import (
     CONNECTION_TYPE_MAP,
-    ORCHESTRATOR,
     InformaticaSourceConfig,
 )
 from datahub.ingestion.source.informatica.models import (
+    ExportJobState,
     IdmcConnection,
     IdmcMapping,
     IdmcMappingTask,
     IdmcObject,
+    IdmcObjectType,
+    InformaticaApiError,
+    InformaticaLoginError,
     InformaticaSourceReport,
     LineageTable,
     MappingLineageInfo,
@@ -40,30 +39,21 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
-    DataFlowInfoClass,
-    DataJobInfoClass,
     DataJobInputOutputClass,
-    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    StatusClass,
-    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import (
-    CorpUserUrn,
-    DataFlowUrn,
-    DataJobUrn,
-    DatasetUrn,
-)
+from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn, DatasetUrn
+from datahub.sdk.container import Container
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
+from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
 
 PLATFORM = "informatica"
-PLATFORM_URN = make_data_platform_urn(PLATFORM)
+ORPHAN_PROJECT_SENTINEL = "__root__"
 
 
 class InformaticaProjectKey(ContainerKey):
@@ -86,8 +76,9 @@ class InformaticaFolderKey(ContainerKey):
 class InformaticaSource(StatefulIngestionSourceBase):
     """DataHub ingestion source for Informatica Cloud (IDMC).
 
-    Extracts projects, folders, taskflows (DataFlow), mapping tasks and mappings
-    (DataJob), and table-level lineage from source/target connections.
+    Emits IDMC Projects and Folders as Containers; Taskflows and per-project
+    mapping flows as DataFlows; Mappings and Mapping Tasks as DataJobs; and
+    table-level lineage resolved via the v3 Export API.
     """
 
     config: InformaticaSourceConfig
@@ -99,10 +90,24 @@ class InformaticaSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = InformaticaSourceReport()
         self.client = InformaticaClient(config, self.report)
-        self._connections: Dict[str, IdmcConnection] = {}
+        # Connections are looked up by federated_id during lineage resolution,
+        # and by id for the override-by-id config lookup. Separate dicts prevent
+        # one namespace from silently shadowing the other.
+        self._connections_by_fed_id: Dict[str, IdmcConnection] = {}
+        self._connections_by_id: Dict[str, IdmcConnection] = {}
         self._v2_mappings_by_guid: Dict[str, IdmcMapping] = {}
         self._project_objects: Dict[str, IdmcObject] = {}
         self._folder_objects: Dict[str, IdmcObject] = {}
+        # Cache of DTEMPLATE IDs collected during mapping extraction, reused by
+        # the lineage phase to avoid a second full v3 pass.
+        self._mapping_ids: List[str] = []
+        # Map v3 mapping GUID → parent project name, populated during mapping
+        # extraction and looked up during lineage emission so both phases
+        # resolve to the same per-project DataFlow URN.
+        self._mapping_project: Dict[str, str] = {}
+        # Track synthetic DataFlows we've already emitted so each is emitted once
+        # even when multiple DataJobs reference it.
+        self._emitted_flow_ids: set[str] = set()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "InformaticaSource":
@@ -120,78 +125,98 @@ class InformaticaSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.client.login()
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        try:
+            self.client.login()
+        except InformaticaLoginError as e:
+            self.report.failure(
+                title="IDMC login failed",
+                message="Cannot authenticate to Informatica Cloud; aborting ingestion. Check login_url, username, and password.",
+                context=self.config.login_url,
+                exc=e,
+            )
+            return
         yield from self._extract_containers()
         yield from self._extract_taskflows()
         yield from self._extract_mappings_and_tasks()
         if self.config.extract_lineage:
             yield from self._extract_lineage()
 
-    def _extract_containers(self) -> Iterable[MetadataWorkUnit]:
-        """Extract IDMC projects and folders as DataHub containers."""
-        for tag in self._tag_filters_or_none():
-            for project in self.client.list_objects("Project", tag=tag):
+    # ------------------------------------------------------------------ containers
+
+    def _extract_containers(self) -> Iterable[Entity]:
+        try:
+            for project in self._iter_with_tags("Project"):
                 if not self.config.project_pattern.allowed(project.name):
                     self.report.projects_filtered += 1
                     continue
                 self.report.projects_scanned += 1
                 self._project_objects[project.id] = project
-                yield from self._emit_project_container(project)
-        for tag in self._tag_filters_or_none():
-            for folder in self.client.list_objects("Folder", tag=tag):
+                yield self._make_project_container(project)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list IDMC projects",
+                message="Container hierarchy will be incomplete.",
+                context="/public/core/v3/objects?type=Project",
+                exc=e,
+            )
+        try:
+            for folder in self._iter_with_tags("Folder"):
                 if not self.config.folder_pattern.allowed(folder.name):
                     self.report.folders_filtered += 1
                     continue
                 self.report.folders_scanned += 1
                 self._folder_objects[folder.id] = folder
-                yield from self._emit_folder_container(folder)
-
-    def _emit_project_container(
-        self, project: IdmcObject
-    ) -> Iterable[MetadataWorkUnit]:
-        key = InformaticaProjectKey(
-            platform=PLATFORM,
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            project_name=project.name,
-        )
-        yield from gen_containers(
-            container_key=key,
-            name=project.name,
-            description=project.description or None,
-            sub_types=["Project"],
-            owner_urn=self._make_owner_urn(project.updated_by or project.created_by),
-        )
-
-    def _emit_folder_container(self, folder: IdmcObject) -> Iterable[MetadataWorkUnit]:
-        parent_project_name = self._resolve_parent_project(folder)
-        parent_key: Optional[ContainerKey] = None
-        if parent_project_name:
-            parent_key = InformaticaProjectKey(
-                platform=PLATFORM,
-                instance=self.config.platform_instance,
-                env=self.config.env,
-                project_name=parent_project_name,
+                yield self._make_folder_container(folder)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list IDMC folders",
+                message="Container hierarchy will be incomplete.",
+                context="/public/core/v3/objects?type=Folder",
+                exc=e,
             )
+
+    def _make_project_container(self, project: IdmcObject) -> Container:
+        return Container(
+            container_key=self._project_key(project.name),
+            display_name=project.name,
+            description=project.description,
+            subtype="Project",
+            owners=self._owner_list(project.updated_by or project.created_by),
+        )
+
+    def _make_folder_container(self, folder: IdmcObject) -> Container:
+        parent_project_name = self._resolve_parent_project(folder)
+        parent_key: Optional[ContainerKey] = (
+            self._project_key(parent_project_name) if parent_project_name else None
+        )
         key = InformaticaFolderKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
             env=self.config.env,
-            project_name=parent_project_name or "__root__",
+            project_name=parent_project_name or ORPHAN_PROJECT_SENTINEL,
             folder_name=folder.name,
         )
-        yield from gen_containers(
+        return Container(
             container_key=key,
-            name=folder.name,
-            description=folder.description or None,
-            sub_types=["Folder"],
-            owner_urn=self._make_owner_urn(folder.updated_by or folder.created_by),
-            parent_container_key=parent_key,
+            display_name=folder.name,
+            description=folder.description,
+            subtype="Folder",
+            owners=self._owner_list(folder.updated_by or folder.created_by),
+            parent_container=parent_key,
+        )
+
+    def _project_key(self, project_name: str) -> InformaticaProjectKey:
+        return InformaticaProjectKey(
+            platform=PLATFORM,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            project_name=project_name,
         )
 
     def _resolve_parent_project(self, obj: IdmcObject) -> str:
-        """Try to extract the parent project name from the object's path."""
         return self._resolve_parent_project_from_path(obj.path)
 
     @staticmethod
@@ -200,97 +225,119 @@ class InformaticaSource(StatefulIngestionSourceBase):
         parts = [p for p in path.split("/") if p and p != "Explore"]
         return parts[0] if parts else ""
 
-    def _extract_taskflows(self) -> Iterable[MetadataWorkUnit]:
-        """Extract IDMC taskflows as DataFlow entities."""
-        for tag in self._tag_filters_or_none():
-            for tf in self.client.list_objects("TASKFLOW", tag=tag):
+    # ------------------------------------------------------------------ taskflows
+
+    def _extract_taskflows(self) -> Iterable[Entity]:
+        try:
+            for tf in self._iter_with_tags("TASKFLOW"):
                 if self._is_bundle_object(tf):
                     continue
                 if not self.config.taskflow_pattern.allowed(tf.name):
                     self.report.taskflows_filtered += 1
                     continue
                 self.report.taskflows_scanned += 1
-                yield from self._emit_taskflow(tf)
-
-    def _emit_taskflow(self, tf: IdmcObject) -> Iterable[MetadataWorkUnit]:
-        flow_urn = str(
-            DataFlowUrn.create_from_ids(
-                orchestrator=ORCHESTRATOR,
-                flow_id=tf.id,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
+                yield self._make_taskflow(tf)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list IDMC taskflows",
+                message="Taskflow DataFlow entities will be missing.",
+                context="/public/core/v3/objects?type=TASKFLOW",
+                exc=e,
             )
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=DataFlowInfoClass(
-                name=tf.name,
-                description=tf.description or None,
-                customProperties={
-                    "path": tf.path,
-                    "createdBy": tf.created_by,
-                    "updatedBy": tf.updated_by,
-                    "createTime": tf.create_time,
-                    "updateTime": tf.update_time,
-                },
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=flow_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
-        if self.config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=flow_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=PLATFORM_URN,
-                    instance=make_dataplatform_instance_urn(
-                        PLATFORM, self.config.platform_instance
-                    ),
-                ),
-            ).as_workunit()
-        if self.config.extract_ownership:
-            yield from self._emit_ownership(flow_urn, tf.updated_by or tf.created_by)
 
-    def _extract_mappings_and_tasks(self) -> Iterable[MetadataWorkUnit]:
-        """Extract mappings and mapping tasks as DataJob entities."""
-        # v2 mapping cache keyed by v3 GUID, for cross-referencing below.
-        for m in self.client.list_mappings():
-            if m.asset_frs_guid:
-                self._v2_mappings_by_guid[m.asset_frs_guid] = m
-        for tag in self._tag_filters_or_none():
-            for obj in self.client.list_objects("DTEMPLATE", tag=tag):
+    def _make_taskflow(self, tf: IdmcObject) -> DataFlow:
+        return DataFlow(
+            platform=PLATFORM,
+            name=f"taskflow:{tf.id}",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=tf.name,
+            description=tf.description,
+            custom_properties=self._taskflow_custom_props(tf),
+            owners=self._owner_list(tf.updated_by or tf.created_by),
+            subtype="Taskflow",
+        )
+
+    @staticmethod
+    def _taskflow_custom_props(tf: IdmcObject) -> Dict[str, str]:
+        return {
+            k: v
+            for k, v in (
+                ("path", tf.path),
+                ("createdBy", tf.created_by or ""),
+                ("updatedBy", tf.updated_by or ""),
+                ("createTime", tf.create_time or ""),
+                ("updateTime", tf.update_time or ""),
+            )
+            if v
+        }
+
+    # ------------------------------------------------------------------ mappings
+
+    def _extract_mappings_and_tasks(self) -> Iterable[Entity]:
+        # Cache v2 mapping → GUID so we can look up v2 metadata (valid, v2_id) for v3 objects.
+        try:
+            for m in self.client.list_mappings():
+                if m.asset_frs_guid:
+                    self._v2_mappings_by_guid[m.asset_frs_guid] = m
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list IDMC v2 mappings",
+                message="v2 mapping attributes (valid flag, v2_id) will be missing from DataJob custom properties.",
+                context="/api/v2/mapping",
+                exc=e,
+            )
+
+        try:
+            for obj in self._iter_with_tags("DTEMPLATE"):
                 if self._is_bundle_object(obj):
                     continue
                 if not self.config.mapping_pattern.allowed(obj.name):
                     self.report.mappings_filtered += 1
                     continue
                 self.report.mappings_scanned += 1
-                yield from self._emit_mapping(
-                    obj, self._v2_mappings_by_guid.get(obj.id)
+                self._mapping_ids.append(obj.id)
+                project_name = self._resolve_parent_project(obj)
+                self._mapping_project[obj.id] = project_name
+                project_flow = self._project_flow(project_name)
+                if project_flow.urn not in self._emitted_flow_ids:
+                    self._emitted_flow_ids.add(project_flow.urn)
+                    yield project_flow
+                yield self._make_mapping_datajob(
+                    obj,
+                    project_flow,
+                    self._v2_mappings_by_guid.get(obj.id),
                 )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list IDMC mappings",
+                message="Mappings and their lineage will be missing.",
+                context="/public/core/v3/objects?type=DTEMPLATE",
+                exc=e,
+            )
+
         try:
             for mt in self.client.list_mapping_tasks():
                 self.report.mapping_tasks_scanned += 1
-                yield from self._emit_mapping_task(mt)
-        except Exception:
-            logger.warning("Failed to fetch mapping tasks", exc_info=True)
+                task_flow = self._mapping_task_flow(mt)
+                if task_flow.urn not in self._emitted_flow_ids:
+                    self._emitted_flow_ids.add(task_flow.urn)
+                    yield task_flow
+                yield self._make_mapping_task_datajob(mt, task_flow)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to list IDMC mapping tasks",
+                message="Mapping Tasks will be missing from ingestion output.",
+                context="/api/v2/mttask",
+                exc=e,
+            )
 
-    def _emit_mapping(
+    def _make_mapping_datajob(
         self,
         obj: IdmcObject,
+        flow: DataFlow,
         v2_mapping: Optional[IdmcMapping],
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit a mapping as a DataJob under a synthetic per-project DataFlow."""
-        flow_urn = str(
-            DataFlowUrn.create_from_ids(
-                orchestrator=ORCHESTRATOR,
-                flow_id=f"project:{self._resolve_parent_project(obj) or 'default'}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-        )
-        job_urn = str(DataJobUrn.create_from_ids(data_flow_urn=flow_urn, job_id=obj.id))
+    ) -> DataJob:
         custom_props: Dict[str, str] = {
             "path": obj.path,
             "objectType": "DTEMPLATE",
@@ -298,120 +345,120 @@ class InformaticaSource(StatefulIngestionSourceBase):
         }
         if v2_mapping:
             custom_props["v2Id"] = v2_mapping.v2_id
-            custom_props["valid"] = str(v2_mapping.valid)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=DataJobInfoClass(
-                name=obj.name,
-                description=obj.description or None,
-                type="COMMAND",
-                customProperties=custom_props,
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=SubTypesClass(typeNames=["Mapping"]),
-        ).as_workunit()
-        if self.config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=job_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=PLATFORM_URN,
-                    instance=make_dataplatform_instance_urn(
-                        PLATFORM, self.config.platform_instance
-                    ),
-                ),
-            ).as_workunit()
-        if self.config.extract_ownership:
-            yield from self._emit_ownership(job_urn, obj.updated_by or obj.created_by)
-
-    def _emit_mapping_task(self, mt: IdmcMappingTask) -> Iterable[MetadataWorkUnit]:
-        """Emit a mapping task as a DataJob."""
-        flow_urn = str(
-            DataFlowUrn.create_from_ids(
-                orchestrator=ORCHESTRATOR,
-                flow_id=f"mttask_flow:{mt.v2_id}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
+            custom_props["valid"] = "true" if v2_mapping.valid else "false"
+        return DataJob(
+            name=obj.id,
+            flow=flow,
+            display_name=obj.name,
+            description=obj.description,
+            custom_properties=custom_props,
+            subtype="Mapping",
+            owners=self._owner_list(obj.updated_by or obj.created_by),
         )
-        job_urn = str(
-            DataJobUrn.create_from_ids(data_flow_urn=flow_urn, job_id=mt.v2_id)
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=DataJobInfoClass(
-                name=mt.name,
-                description=mt.description or None,
-                type="COMMAND",
-                customProperties={
-                    "objectType": "MTT",
-                    "v2Id": mt.v2_id,
-                    "mappingId": mt.mapping_id,
-                    "mappingName": mt.mapping_name,
-                },
-            ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=SubTypesClass(typeNames=["Mapping Task"]),
-        ).as_workunit()
 
-    def _extract_lineage(self) -> Iterable[MetadataWorkUnit]:
-        """Extract table-level lineage from mapping definitions via v3 export."""
+    def _make_mapping_task_datajob(
+        self, mt: IdmcMappingTask, flow: DataFlow
+    ) -> DataJob:
+        custom_props: Dict[str, str] = {
+            "objectType": "MTT",
+            "v2Id": mt.v2_id,
+            "mappingId": mt.mapping_id,
+            "mappingName": mt.mapping_name,
+        }
+        return DataJob(
+            name=mt.v2_id,
+            flow=flow,
+            display_name=mt.name,
+            description=mt.description,
+            custom_properties=custom_props,
+            subtype="Mapping Task",
+            owners=self._owner_list(mt.updated_by or mt.created_by),
+        )
+
+    def _mapping_task_flow(self, mt: IdmcMappingTask) -> DataFlow:
+        return DataFlow(
+            platform=PLATFORM,
+            name=f"mttask_flow:{mt.v2_id}",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=mt.name,
+            subtype="Mapping Task Flow",
+        )
+
+    def _project_flow(self, project_name: str) -> DataFlow:
+        """Return the synthetic per-project DataFlow shared by lineage and mapping emission."""
+        return DataFlow(
+            platform=PLATFORM,
+            name=self._project_flow_id(project_name),
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=f"Mappings in {project_name}" if project_name else "Mappings",
+            subtype="Project Mapping Flow",
+        )
+
+    @staticmethod
+    def _project_flow_id(project_name: str) -> str:
+        return f"project:{project_name or 'default'}"
+
+    # ------------------------------------------------------------------ lineage
+
+    def _extract_lineage(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self._load_connections()
-        mapping_ids = [
-            obj.id
-            for obj in self._iter_mapping_objects()
-            if not self._is_bundle_object(obj)
-            and self.config.mapping_pattern.allowed(obj.name)
-        ]
-        if not mapping_ids:
+        if not self._mapping_ids:
             logger.info("No mappings to extract lineage for.")
             return
-        for batch_start in range(0, len(mapping_ids), self.config.export_batch_size):
-            batch = mapping_ids[
-                batch_start : batch_start + self.config.export_batch_size
-            ]
+        batch_size = self.config.export_batch_size
+        for batch_start in range(0, len(self._mapping_ids), batch_size):
+            batch = self._mapping_ids[batch_start : batch_start + batch_size]
             try:
-                job_id = self.client.submit_export_job(batch)
-                status = self.client.wait_for_export(job_id)
-                if status.state != "SUCCESSFUL":
-                    logger.warning(
-                        "Export job %s ended with state %s: %s",
-                        job_id,
-                        status.state,
-                        status.message,
-                    )
-                    continue
-                for lineage_info in self.client.download_and_parse_export(job_id):
-                    yield from self._emit_lineage(lineage_info)
-            except Exception:
-                logger.warning(
-                    "Failed to process export batch starting at index %d",
-                    batch_start,
-                    exc_info=True,
+                yield from self._process_export_batch(batch, batch_start)
+            except (InformaticaApiError, InformaticaLoginError) as e:
+                self.report.warning(
+                    title="IDMC export batch failed",
+                    message="Lineage for this batch will be missing.",
+                    context=f"batch_start={batch_start}, size={len(batch)}",
+                    exc=e,
+                )
+                self.report.export_jobs_failed.append(f"batch@{batch_start}: {e}")
+            except Exception as e:
+                self.report.warning(
+                    title="Unexpected error processing export batch",
+                    message="Lineage for this batch will be missing.",
+                    context=f"batch_start={batch_start}, size={len(batch)}",
+                    exc=e,
                 )
 
+    def _process_export_batch(
+        self, batch: List[str], batch_start: int
+    ) -> Iterable[MetadataWorkUnit]:
+        job_id = self.client.submit_export_job(batch)
+        status = self.client.wait_for_export(job_id)
+        if status.state != ExportJobState.SUCCESSFUL:
+            self.report.warning(
+                title="IDMC export job did not succeed",
+                message="Lineage for this batch will be missing.",
+                context=f"job_id={job_id}, state={status.state.value}, batch_start={batch_start}",
+            )
+            return
+        for lineage_info in self.client.download_and_parse_export(job_id, batch):
+            yield from self._emit_lineage(lineage_info)
+
     def _load_connections(self) -> None:
-        """Load all connections into cache, keyed by federatedId and id."""
-        if self._connections:
+        """Load all connections into cache, keyed by federatedId and id (separate dicts)."""
+        if self._connections_by_id or self._connections_by_fed_id:
             return
         try:
             for conn in self.client.list_connections():
                 if conn.federated_id:
-                    self._connections[conn.federated_id] = conn
-                self._connections[conn.id] = conn
-        except Exception:
-            logger.warning("Failed to load connections", exc_info=True)
+                    self._connections_by_fed_id[conn.federated_id] = conn
+                self._connections_by_id[conn.id] = conn
+        except Exception as e:
+            self.report.failure(
+                title="Failed to load IDMC connections",
+                message="Lineage resolution will be degraded; upstream/downstream datasets cannot be resolved.",
+                context="/api/v2/connection",
+                exc=e,
+            )
 
     def _resolve_connection_platform(self, connection: IdmcConnection) -> Optional[str]:
         """Resolve an IDMC connection to a DataHub platform name.
@@ -430,7 +477,14 @@ class InformaticaSource(StatefulIngestionSourceBase):
     def _emit_lineage(
         self, lineage_info: MappingLineageInfo
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit dataJobInputOutput and upstreamLineage for a mapping's lineage."""
+        """Emit dataJobInputOutput for the mapping job and upstreamLineage for each target."""
+        if not lineage_info.mapping_id:
+            self.report.warning(
+                title="IDMC lineage missing mapping id",
+                message="Could not align mapping export entry to a submitted v3 GUID; skipping lineage emission.",
+                context=f"mapping_name={lineage_info.mapping_name}",
+            )
+            return
         input_urns: List[str] = [
             urn
             for src in lineage_info.source_tables
@@ -443,18 +497,18 @@ class InformaticaSource(StatefulIngestionSourceBase):
         ]
         if not input_urns and not output_urns:
             return
-        project_name = self._resolve_parent_project_from_path(lineage_info.mapping_name)
-        flow_urn = str(
-            DataFlowUrn.create_from_ids(
-                orchestrator=ORCHESTRATOR,
-                flow_id=f"project:{project_name or 'default'}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-        )
+        project_name = self._project_from_mapping_id(lineage_info.mapping_id)
         job_urn = str(
             DataJobUrn.create_from_ids(
-                data_flow_urn=flow_urn, job_id=lineage_info.mapping_id
+                data_flow_urn=str(
+                    DataFlowUrn.create_from_ids(
+                        orchestrator=PLATFORM,
+                        flow_id=self._project_flow_id(project_name),
+                        env=self.config.env,
+                        platform_instance=self.config.platform_instance,
+                    )
+                ),
+                job_id=lineage_info.mapping_id,
             )
         )
         yield MetadataChangeProposalWrapper(
@@ -479,9 +533,11 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
+    def _project_from_mapping_id(self, mapping_id: str) -> str:
+        return self._mapping_project.get(mapping_id, "")
+
     def _resolve_table_to_dataset_urn(self, table: LineageTable) -> Optional[str]:
-        """Resolve a LineageTable to a DataHub dataset URN."""
-        conn = self._connections.get(table.connection_federated_id)
+        conn = self._connections_by_fed_id.get(table.connection_federated_id)
         if not conn:
             self.report.report_connection_unresolved(
                 table.connection_federated_id,
@@ -498,7 +554,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
             )
             return None
         self.report.connections_resolved += 1
-        # Dataset name: [database.][schema.]table — empty parts are skipped.
         parts: List[str] = []
         if conn.database:
             parts.append(conn.database)
@@ -515,42 +570,30 @@ class InformaticaSource(StatefulIngestionSourceBase):
             )
         )
 
-    def _iter_mapping_objects(self) -> Iterable[IdmcObject]:
-        """Re-iterate mapping objects from the v3 API for lineage extraction."""
+    # ------------------------------------------------------------------ helpers
+
+    def _iter_with_tags(self, object_type: IdmcObjectType) -> Iterable[IdmcObject]:
+        """Iterate v3 objects of a type, honoring tag filters and de-duplicating by id."""
+        seen: set[str] = set()
         for tag in self._tag_filters_or_none():
-            yield from self.client.list_objects("DTEMPLATE", tag=tag)
+            for obj in self.client.list_objects(object_type, tag=tag):
+                if obj.id in seen:
+                    continue
+                seen.add(obj.id)
+                yield obj
 
     def _tag_filters_or_none(self) -> List[Optional[str]]:
-        """Return tag filters or [None] to indicate no tag filtering."""
         if self.config.tag_filter_names:
             return list(self.config.tag_filter_names)  # type: ignore[arg-type]
         return [None]
 
     @staticmethod
     def _is_bundle_object(obj: IdmcObject) -> bool:
-        return obj.path.startswith("Add-On Bundles/") or obj.updated_by in (
-            "bundle-license-notifier",
+        return obj.path.startswith("Add-On Bundles/") or obj.updated_by == (
+            "bundle-license-notifier"
         )
 
-    @staticmethod
-    def _make_owner_urn(user_identifier: str) -> Optional[str]:
-        if not user_identifier:
+    def _owner_list(self, user_identifier: Optional[str]) -> Optional[List[str]]:
+        if not user_identifier or not self.config.extract_ownership:
             return None
-        return str(CorpUserUrn(user_identifier))
-
-    def _emit_ownership(
-        self, entity_urn: str, owner: str
-    ) -> Iterable[MetadataWorkUnit]:
-        if not owner:
-            return
-        yield MetadataChangeProposalWrapper(
-            entityUrn=entity_urn,
-            aspect=OwnershipClass(
-                owners=[
-                    OwnerClass(
-                        owner=str(CorpUserUrn(owner)),
-                        type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
-            ),
-        ).as_workunit()
+        return [str(CorpUserUrn(user_identifier))]

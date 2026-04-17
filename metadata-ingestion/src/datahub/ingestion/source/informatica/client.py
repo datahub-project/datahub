@@ -12,11 +12,15 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
 from datahub.ingestion.source.informatica.models import (
+    ExportJobState,
     ExportJobStatus,
     IdmcConnection,
     IdmcMapping,
     IdmcMappingTask,
     IdmcObject,
+    IdmcObjectType,
+    InformaticaApiError,
+    InformaticaLoginError,
     InformaticaSourceReport,
     LineageTable,
     MappingLineageInfo,
@@ -69,20 +73,20 @@ class InformaticaClient:
         )
         self.report.report_api_call()
         if resp.status_code != 200:
-            raise Exception(
-                f"IDMC login failed (HTTP {resp.status_code}): {resp.text}. "
+            raise InformaticaLoginError(
+                f"IDMC login failed (HTTP {resp.status_code}): {resp.text[:500]}. "
                 f"Check login_url ({self.config.login_url}), username, and password."
             )
         data = resp.json()
-        if "error" in data or ("@type" in data and data.get("@type") == "error"):
+        if "error" in data or data.get("@type") == "error":
             error_msg = data.get("error", {}).get("message") or data.get(
                 "description", str(data)
             )
-            raise Exception(f"IDMC login failed: {error_msg}")
+            raise InformaticaLoginError(f"IDMC login failed: {error_msg}")
         session_id = data.get("icSessionId")
         base_url = (data.get("serverUrl") or "").rstrip("/")
         if not session_id or not base_url:
-            raise Exception(
+            raise InformaticaLoginError(
                 "IDMC login succeeded but response is missing icSessionId "
                 f"or serverUrl. Keys returned: {list(data.keys())}"
             )
@@ -116,7 +120,12 @@ class InformaticaClient:
             )
             self.report.report_api_call()
         except requests.RequestException as e:
-            logger.warning("Session validation request failed: %s", e)
+            self.report.warning(
+                title="IDMC session validation request failed",
+                message="Will attempt to re-login; ingestion will continue if re-login succeeds.",
+                context=str(self._base_url),
+                exc=e,
+            )
             return False
         if resp.status_code != 200:
             return False
@@ -185,6 +194,12 @@ class InformaticaClient:
                 json_body,
                 stream,
             )
+            if self._is_auth_failure(resp):
+                self.report.failure(
+                    title="IDMC authentication rejected after retry",
+                    message="The server refused the request even after re-authentication. Check credentials and token permissions.",
+                    context=f"{method} {url}",
+                )
         return resp
 
     def _do_send(
@@ -235,7 +250,7 @@ class InformaticaClient:
 
     def list_objects(
         self,
-        object_type: str,
+        object_type: IdmcObjectType,
         tag: Optional[str] = None,
     ) -> Iterator[IdmcObject]:
         """Paginate through v3 objects of a given type."""
@@ -262,61 +277,16 @@ class InformaticaClient:
     def _parse_v3_object(data: Dict[str, Any], object_type: str) -> IdmcObject:
         # Some endpoints return nested OData-style `properties`; others return flat JSON.
         if "properties" in data:
-            props = {
-                p.get("name", ""): p.get("value")
-                for p in data.get("properties", [])
-                if isinstance(p, dict)
-            }
-            return IdmcObject(
-                id=props.get("id") or data.get("id", ""),
-                name=props.get("name") or "",
-                path=props.get("path") or "",
-                object_type=props.get("documentType") or object_type,
-                description=props.get("description") or "",
-                updated_by=props.get("lastUpdatedBy") or "",
-                created_by=props.get("createdBy") or "",
-                create_time=props.get("createdTime") or "",
-                update_time=props.get("lastUpdatedTime") or "",
-                raw=data,
-            )
-        return IdmcObject(
-            id=data.get("id", ""),
-            name=data.get("name", ""),
-            path=data.get("path", ""),
-            object_type=data.get("documentType", object_type),
-            description=data.get("description", ""),
-            updated_by=data.get("lastUpdatedBy", data.get("updatedBy", "")),
-            created_by=data.get("createdBy", ""),
-            create_time=data.get("createdTime", data.get("createTime", "")),
-            update_time=data.get("lastUpdatedTime", data.get("updateTime", "")),
-            raw=data,
-        )
+            return IdmcObject.from_properties(data, object_type)
+        return IdmcObject.from_flat(data, object_type)
 
     def list_mappings(self) -> List[IdmcMapping]:
         data = self._get_v2("/api/v2/mapping")
         items = data if isinstance(data, list) else [data]
-        return [self._parse_v2_mapping(m) for m in items if isinstance(m, dict)]
+        return [IdmcMapping.from_api_response(m) for m in items if isinstance(m, dict)]
 
     def get_mapping(self, v2_id: str) -> IdmcMapping:
-        return self._parse_v2_mapping(self._get_v2(f"/api/v2/mapping/{v2_id}"))
-
-    @staticmethod
-    def _parse_v2_mapping(data: Dict[str, Any]) -> IdmcMapping:
-        return IdmcMapping(
-            v2_id=data.get("id", ""),
-            name=data.get("name", ""),
-            asset_frs_guid=data.get("assetFrsGuid", ""),
-            description=data.get("description", ""),
-            created_by=data.get("createdBy", ""),
-            updated_by=data.get("updatedBy", ""),
-            create_time=data.get("createTime", ""),
-            update_time=data.get("updateTime", ""),
-            document_type=data.get("documentType", ""),
-            valid=data.get("valid", True),
-            parameters=data.get("parameters", []),
-            references=data.get("references", []),
-            raw=data,
-        )
+        return IdmcMapping.from_api_response(self._get_v2(f"/api/v2/mapping/{v2_id}"))
 
     def list_connections(self) -> List[IdmcConnection]:
         data = self._get_v2("/api/v2/connection")
@@ -333,34 +303,11 @@ class InformaticaClient:
     def list_mapping_tasks(self) -> List[IdmcMappingTask]:
         data = self._get_v2("/api/v2/mttask")
         items = data if isinstance(data, list) else [data]
-        return [self._parse_v2_mttask(mt) for mt in items if isinstance(mt, dict)]
-
-    @staticmethod
-    def _parse_v2_mttask(data: Dict[str, Any]) -> IdmcMappingTask:
-        return IdmcMappingTask(
-            v2_id=data.get("id", ""),
-            name=data.get("name", ""),
-            description=data.get("description", ""),
-            mapping_id=data.get("mappingId", ""),
-            mapping_name=data.get("mappingName", ""),
-            connection_id=data.get("connectionId", ""),
-            created_by=data.get("createdBy", ""),
-            updated_by=data.get("updatedBy", ""),
-            create_time=data.get("createTime", ""),
-            update_time=data.get("updateTime", ""),
-            raw=data,
-        )
-
-    def get_activity_log(
-        self,
-        rows: int = 100,
-        run_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        params: Dict[str, Any] = {"rows": rows}
-        if run_id:
-            params["runId"] = run_id
-        data = self._get_v2("/api/v2/activity/activityLog", params=params)
-        return data if isinstance(data, list) else []
+        return [
+            IdmcMappingTask.from_api_response(mt)
+            for mt in items
+            if isinstance(mt, dict)
+        ]
 
     def submit_export_job(self, object_ids: List[str]) -> str:
         body = {
@@ -371,7 +318,7 @@ class InformaticaClient:
         data = self._post_v3("/public/core/v3/export", body)
         job_id = data.get("id", "")
         if not job_id:
-            raise Exception(f"Export job submission returned no ID: {data}")
+            raise InformaticaApiError(f"Export job submission returned no ID: {data}")
         self.report.export_jobs_submitted += 1
         logger.info("Export job submitted: %s (%d objects)", job_id, len(object_ids))
         return job_id
@@ -381,7 +328,7 @@ class InformaticaClient:
         status = data.get("status", {})
         return ExportJobStatus(
             job_id=job_id,
-            state=status.get("state", "UNKNOWN"),
+            state=ExportJobState.from_api_value(status.get("state")),
             message=status.get("message", ""),
         )
 
@@ -390,19 +337,36 @@ class InformaticaClient:
         deadline = time.time() + self.config.export_poll_timeout_secs
         while time.time() < deadline:
             status = self.poll_export_job(job_id)
-            if status.state == "SUCCESSFUL":
+            if status.state == ExportJobState.SUCCESSFUL:
                 return status
-            if status.state not in ("IN_PROGRESS", "QUEUED"):
+            if status.state not in (ExportJobState.IN_PROGRESS, ExportJobState.QUEUED):
                 self.report.report_export_failed(job_id, status.message)
                 return status
             time.sleep(self.config.export_poll_interval_secs)
         self.report.report_export_failed(job_id, "Timed out waiting for export")
+        self.report.warning(
+            title="IDMC export job timed out",
+            message="Lineage for this export batch will be missing. Consider increasing export_poll_timeout_secs or reducing export_batch_size.",
+            context=f"job_id={job_id}",
+        )
         return ExportJobStatus(
-            job_id=job_id, state="TIMEOUT", message="Export poll timed out"
+            job_id=job_id,
+            state=ExportJobState.TIMEOUT,
+            message="Export poll timed out",
         )
 
-    def download_and_parse_export(self, job_id: str) -> Iterator[MappingLineageInfo]:
-        """Download export ZIP and yield one MappingLineageInfo per mapping."""
+    def download_and_parse_export(
+        self,
+        job_id: str,
+        submitted_ids: List[str],
+    ) -> Iterator[MappingLineageInfo]:
+        """Download export ZIP and yield one MappingLineageInfo per mapping.
+
+        `submitted_ids` is the list of v3 GUIDs submitted to the export job, in
+        submission order. The export package contains one `*.DTEMPLATE.zip`
+        entry per submitted object; we align entries to ids positionally, with
+        a fallback to searching the entry name for any of the submitted ids.
+        """
         resp = self._request(
             "GET",
             f"{self._base_url}/public/core/v3/export/{job_id}/package",
@@ -417,32 +381,61 @@ class InformaticaClient:
             tmp.seek(0)
             try:
                 outer_zip = zipfile.ZipFile(tmp)
-            except zipfile.BadZipFile:
-                logger.error("Export package for job %s is not a valid ZIP", job_id)
+            except zipfile.BadZipFile as e:
+                self.report.warning(
+                    title="IDMC export package is not a valid ZIP",
+                    message="Lineage for this batch will be missing.",
+                    context=f"job_id={job_id}",
+                    exc=e,
+                )
                 self.report.report_export_failed(job_id, "Invalid ZIP file")
                 return
-            for entry_name in outer_zip.namelist():
-                if not entry_name.endswith(".DTEMPLATE.zip"):
-                    continue
+            dtemplate_entries = [
+                n for n in outer_zip.namelist() if n.endswith(".DTEMPLATE.zip")
+            ]
+            for idx, entry_name in enumerate(dtemplate_entries):
+                mapping_id = self._resolve_entry_mapping_id(
+                    entry_name, submitted_ids, idx
+                )
                 try:
                     inner_zip = zipfile.ZipFile(io.BytesIO(outer_zip.read(entry_name)))
-                    lineage = self._parse_inner_dtemplate_zip(inner_zip, entry_name)
+                    lineage = self._parse_inner_dtemplate_zip(
+                        inner_zip, entry_name, mapping_id
+                    )
                     if lineage:
                         yield lineage
                     inner_zip.close()
-                except Exception:
-                    logger.warning(
-                        "Failed to parse inner ZIP %s in export %s",
-                        entry_name,
-                        job_id,
-                        exc_info=True,
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to parse IDMC mapping export entry",
+                        message="Lineage for this mapping will be missing.",
+                        context=f"job_id={job_id}, entry={entry_name}",
+                        exc=e,
                     )
+                    self.report.report_object_failed(entry_name, str(e))
             outer_zip.close()
+
+    @staticmethod
+    def _resolve_entry_mapping_id(
+        entry_name: str, submitted_ids: List[str], index: int
+    ) -> str:
+        """Match an export entry to its submitted mapping id.
+
+        Prefer a substring match against the entry name (more robust against
+        server-side ordering changes); fall back to positional alignment.
+        """
+        for sid in submitted_ids:
+            if sid and sid in entry_name:
+                return sid
+        if 0 <= index < len(submitted_ids):
+            return submitted_ids[index]
+        return ""
 
     def _parse_inner_dtemplate_zip(
         self,
         inner_zip: zipfile.ZipFile,
         entry_name: str,
+        mapping_id: str,
     ) -> Optional[MappingLineageInfo]:
         # @3.bin is the mapping design; @2.bin is a preview image we skip.
         bin_candidates = [n for n in inner_zip.namelist() if n.startswith("bin/@")]
@@ -455,16 +448,22 @@ class InformaticaClient:
             data = json.loads(raw_bytes.decode("utf-8"))
         except UnicodeDecodeError:
             data = json.loads(raw_bytes.decode("utf-8-sig"))
-        return self._extract_lineage_from_3bin(data, entry_name)
+        return self._extract_lineage_from_3bin(data, entry_name, mapping_id)
 
-    @staticmethod
     def _extract_lineage_from_3bin(
+        self,
         data: Dict[str, Any],
         source_label: str,
+        mapping_id: str,
     ) -> Optional[MappingLineageInfo]:
         content = data.get("content")
         if not content:
-            logger.warning("Missing 'content' key in @3.bin from %s", source_label)
+            self.report.warning(
+                title="Malformed IDMC mapping export",
+                message="The @3.bin file is missing the 'content' key; lineage for this mapping will be missing.",
+                context=source_label,
+            )
+            self.report.report_object_failed(source_label, "Missing 'content' key")
             return None
         sources: List[LineageTable] = []
         targets: List[LineageTable] = []
@@ -474,8 +473,7 @@ class InformaticaClient:
                 continue
             obj = adapter.get("object", {})
             conn_id = adapter.get("connectionId", "")
-            # connectionId format: "saas:@{federatedId}" — take the part after '@'.
-            fed_id = conn_id.split("@", 1)[-1] if "@" in conn_id else conn_id
+            fed_id = parse_saas_connection_ref(conn_id)
             lt = LineageTable(
                 table_name=obj.get("name")
                 or obj.get("objectName")
@@ -494,8 +492,16 @@ class InformaticaClient:
         if not sources and not targets:
             return None
         return MappingLineageInfo(
-            mapping_id="",
+            mapping_id=mapping_id,
             mapping_name=content.get("name", source_label),
             source_tables=sources,
             target_tables=targets,
         )
+
+
+def parse_saas_connection_ref(conn_id: str) -> str:
+    """Parse an IDMC connection reference of the form 'saas:@{federatedId}'.
+
+    Returns the part after the '@' if present, otherwise the input unchanged.
+    """
+    return conn_id.split("@", 1)[-1] if "@" in conn_id else conn_id

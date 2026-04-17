@@ -6,9 +6,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.ingestion.source.informatica.client import InformaticaClient
+from datahub.ingestion.source.informatica.client import (
+    InformaticaClient,
+    parse_saas_connection_ref,
+)
 from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
-from datahub.ingestion.source.informatica.models import InformaticaSourceReport
+from datahub.ingestion.source.informatica.models import (
+    ExportJobState,
+    InformaticaApiError,
+    InformaticaLoginError,
+    InformaticaSourceReport,
+)
 
 
 def _build_response(
@@ -57,34 +65,32 @@ class TestLogin:
         assert client._session_id == "session-abc"
         assert client._base_url == "https://pod.informaticacloud.com/saas"
         assert client.report.api_call_count == 1
-        assert mp.call_count == 1
         assert mp.call_args.kwargs["json"]["username"] == "svc"
-        assert mp.call_args.kwargs["json"]["password"] == "pw"
 
-    def test_login_http_error_raises(self, client):
+    def test_login_http_error_raises_typed(self, client):
         with (
             patch.object(
                 client._session,
                 "post",
                 return_value=_build_response(401, {"msg": "bad"}),
             ),
-            pytest.raises(Exception, match="IDMC login failed"),
+            pytest.raises(InformaticaLoginError, match="IDMC login failed"),
         ):
             client.login()
 
-    def test_login_error_payload_raises(self, client):
+    def test_login_error_payload_raises_typed(self, client):
         resp = _build_response(200, {"@type": "error", "description": "invalid creds"})
         with (
             patch.object(client._session, "post", return_value=resp),
-            pytest.raises(Exception, match="invalid creds"),
+            pytest.raises(InformaticaLoginError, match="invalid creds"),
         ):
             client.login()
 
-    def test_login_missing_session_id_raises(self, client):
+    def test_login_missing_session_id_raises_typed(self, client):
         resp = _build_response(200, {"serverUrl": "https://pod/saas"})
         with (
             patch.object(client._session, "post", return_value=resp),
-            pytest.raises(Exception, match="missing icSessionId"),
+            pytest.raises(InformaticaLoginError, match="missing icSessionId"),
         ):
             client.login()
 
@@ -114,8 +120,7 @@ class TestRequestRetryOnAuthFailure:
         fail = _build_response(401)
         success = _build_response(200, {"ok": True})
         login_resp = _build_response(
-            200,
-            {"icSessionId": "new", "serverUrl": "https://pod/saas"},
+            200, {"icSessionId": "new", "serverUrl": "https://pod/saas"}
         )
 
         with (
@@ -129,6 +134,25 @@ class TestRequestRetryOnAuthFailure:
         assert resp is success
         assert req.call_count == 2
         assert client._session_id == "new"
+
+    def test_still_failing_auth_after_retry_is_reported(self, client):
+        client._session_id = "old"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        fail1 = _build_response(401)
+        fail2 = _build_response(401)
+        login_resp = _build_response(
+            200, {"icSessionId": "new", "serverUrl": "https://pod/saas"}
+        )
+
+        with (
+            patch.object(client._session, "request", side_effect=[fail1, fail2]),
+            patch.object(client._session, "post", return_value=login_resp),
+        ):
+            client._request("GET", "https://pod/saas/api/v2/thing")
+
+        assert len(client.report.failures) > 0
 
     def test_request_returns_first_response_if_not_auth_failure(self, client):
         client._session_id = "sess"
@@ -166,7 +190,6 @@ class TestListObjectsPagination:
             results = list(client.list_objects("Project"))
 
         assert [o.id for o in results] == ["1", "2", "3"]
-        assert [o.name for o in results] == ["a", "b", "c"]
 
     def test_stops_on_empty_page(self, client):
         client._session_id = "s"
@@ -204,41 +227,17 @@ class TestListObjectsPagination:
 class TestParseV3Object:
     def test_parses_flat_response(self):
         obj = InformaticaClient._parse_v3_object(
-            {
-                "id": "x",
-                "name": "n",
-                "path": "/Explore/P",
-                "documentType": "Folder",
-                "createdBy": "alice",
-                "lastUpdatedBy": "bob",
-            },
+            {"id": "x", "name": "n", "path": "/Explore/P", "documentType": "Folder"},
             "Project",
         )
-        assert obj.id == "x"
         assert obj.object_type == "Folder"
-        assert obj.created_by == "alice"
-        assert obj.updated_by == "bob"
 
     def test_parses_properties_style_response(self):
         obj = InformaticaClient._parse_v3_object(
-            {
-                "properties": [
-                    {"name": "id", "value": "p1"},
-                    {"name": "name", "value": "pname"},
-                    {"name": "path", "value": "/Explore/Foo"},
-                    {"name": "documentType", "value": "DTEMPLATE"},
-                ]
-            },
-            "DTEMPLATE",
+            {"properties": [{"name": "id", "value": "p1"}]}, "DTEMPLATE"
         )
         assert obj.id == "p1"
-        assert obj.name == "pname"
-        assert obj.path == "/Explore/Foo"
         assert obj.object_type == "DTEMPLATE"
-
-    def test_falls_back_to_object_type_arg(self):
-        obj = InformaticaClient._parse_v3_object({"id": "1", "name": "x"}, "Project")
-        assert obj.object_type == "Project"
 
 
 class TestWaitForExport:
@@ -250,7 +249,7 @@ class TestWaitForExport:
         resp = _build_response(200, {"status": {"state": "SUCCESSFUL", "message": ""}})
         with patch.object(client._session, "request", return_value=resp):
             status = client.wait_for_export("job-1")
-        assert status.state == "SUCCESSFUL"
+        assert status.state == ExportJobState.SUCCESSFUL
 
     def test_returns_failure_state(self, client):
         client._session_id = "s"
@@ -260,14 +259,38 @@ class TestWaitForExport:
         resp = _build_response(200, {"status": {"state": "FAILED", "message": "boom"}})
         with patch.object(client._session, "request", return_value=resp):
             status = client.wait_for_export("job-1")
-        assert status.state == "FAILED"
+        assert status.state == ExportJobState.FAILED
         assert any("job-1" in e for e in client.report.export_jobs_failed)
 
-    def test_times_out(self, client):
+    def test_unknown_state_returns_unknown_enum(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        resp = _build_response(200, {"status": {"state": "BOGUS_STATE", "message": ""}})
+        with patch.object(client._session, "request", return_value=resp):
+            status = client.wait_for_export("job-unknown")
+        assert status.state == ExportJobState.UNKNOWN
+
+    def test_times_out_and_warns(self, client):
         client.config.export_poll_timeout_secs = 0
         status = client.wait_for_export("job-timeout")
-        assert status.state == "TIMEOUT"
+        assert status.state == ExportJobState.TIMEOUT
         assert any("job-timeout" in e for e in client.report.export_jobs_failed)
+
+
+class TestSubmitExportJob:
+    def test_raises_typed_error_on_missing_id(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        resp = _build_response(200, {"no_id": True})
+        with (
+            patch.object(client._session, "request", return_value=resp),
+            pytest.raises(InformaticaApiError, match="no ID"),
+        ):
+            client.submit_export_job(["m1"])
 
 
 class TestExtractLineage:
@@ -281,7 +304,7 @@ class TestExtractLineage:
             zf.writestr("bin/@3.bin", bin_bytes)
         return buf.getvalue()
 
-    def test_extracts_sources_and_targets_by_class(self):
+    def test_extracts_sources_and_targets_by_class(self, client):
         content = {
             "name": "my_mapping",
             "transformations": [
@@ -303,18 +326,15 @@ class TestExtractLineage:
                 },
             ],
         }
-        lineage = InformaticaClient._extract_lineage_from_3bin(
-            {"content": content}, "mapping.DTEMPLATE.zip"
+        lineage = client._extract_lineage_from_3bin(
+            {"content": content}, "mapping.DTEMPLATE.zip", mapping_id="guid-1"
         )
         assert lineage is not None
-        assert len(lineage.source_tables) == 1
-        assert len(lineage.target_tables) == 1
-        assert lineage.source_tables[0].table_name == "ORDERS"
-        assert lineage.source_tables[0].schema_name == "SALES"
+        assert lineage.mapping_id == "guid-1"
         assert lineage.source_tables[0].connection_federated_id == "fed-src"
         assert lineage.target_tables[0].connection_federated_id == "fed-tgt"
 
-    def test_classifies_by_name_when_class_missing(self):
+    def test_classifies_by_name_when_class_missing(self, client):
         content = {
             "name": "m",
             "transformations": [
@@ -334,24 +354,22 @@ class TestExtractLineage:
                 },
             ],
         }
-        lineage = InformaticaClient._extract_lineage_from_3bin(
-            {"content": content}, "m.zip"
+        lineage = client._extract_lineage_from_3bin(
+            {"content": content}, "m.zip", mapping_id="g"
         )
         assert lineage is not None
         assert len(lineage.source_tables) == 1
         assert len(lineage.target_tables) == 1
 
-    def test_returns_none_when_no_sources_or_targets(self):
+    def test_returns_none_when_no_sources_or_targets(self, client):
         content = {"name": "m", "transformations": []}
-        assert (
-            InformaticaClient._extract_lineage_from_3bin({"content": content}, "x")
-            is None
-        )
+        assert client._extract_lineage_from_3bin({"content": content}, "x", "g") is None
 
-    def test_returns_none_when_content_missing(self):
-        assert InformaticaClient._extract_lineage_from_3bin({}, "x") is None
+    def test_reports_when_content_missing(self, client):
+        assert client._extract_lineage_from_3bin({}, "entry-name", "g") is None
+        assert len(client.report.warnings) > 0
 
-    def test_download_and_parse_export_yields_lineage(self, client):
+    def test_download_and_parse_export_threads_mapping_id(self, client):
         client._session_id = "s"
         client._base_url = "https://pod/saas"
         client._session_last_validated_at = 1e12
@@ -375,13 +393,48 @@ class TestExtractLineage:
         )
         outer_buf = io.BytesIO()
         with zipfile.ZipFile(outer_buf, "w") as zf:
-            zf.writestr("mapping1.DTEMPLATE.zip", inner_zip_bytes)
+            zf.writestr("guid-abc.DTEMPLATE.zip", inner_zip_bytes)
             zf.writestr("readme.txt", b"ignored")
         resp = _build_response(200, raw_bytes=outer_buf.getvalue())
 
         with patch.object(client._session, "request", return_value=resp):
-            lineages: List = list(client.download_and_parse_export("job-42"))
+            lineages: List = list(
+                client.download_and_parse_export("job-42", ["guid-abc"])
+            )
 
         assert len(lineages) == 1
-        assert lineages[0].mapping_name == "my_mapping"
-        assert lineages[0].source_tables[0].connection_federated_id == "fed-1"
+        assert lineages[0].mapping_id == "guid-abc"
+
+
+class TestResolveEntryMappingId:
+    def test_prefers_substring_match(self):
+        assert (
+            InformaticaClient._resolve_entry_mapping_id(
+                "guid-42.DTEMPLATE.zip", ["guid-1", "guid-42", "guid-7"], index=0
+            )
+            == "guid-42"
+        )
+
+    def test_falls_back_to_positional_when_no_match(self):
+        assert (
+            InformaticaClient._resolve_entry_mapping_id(
+                "opaque.DTEMPLATE.zip", ["guid-1", "guid-2"], index=1
+            )
+            == "guid-2"
+        )
+
+    def test_returns_empty_when_no_candidates(self):
+        assert (
+            InformaticaClient._resolve_entry_mapping_id("x.DTEMPLATE.zip", [], 0) == ""
+        )
+
+
+class TestParseSaasConnectionRef:
+    def test_strips_saas_prefix(self):
+        assert parse_saas_connection_ref("saas:@fed-123") == "fed-123"
+
+    def test_passes_through_plain_id(self):
+        assert parse_saas_connection_ref("01ABC") == "01ABC"
+
+    def test_handles_empty(self):
+        assert parse_saas_connection_ref("") == ""

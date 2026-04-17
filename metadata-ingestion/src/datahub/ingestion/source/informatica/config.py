@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
@@ -173,12 +173,14 @@ class InformaticaSourceConfig(
         default=DEFAULT_EXPORT_POLL_TIMEOUT_SECS,
         description="Timeout in seconds for polling export job completion.",
         ge=30,
+        le=3600,
     )
 
     export_poll_interval_secs: int = Field(
         default=DEFAULT_EXPORT_POLL_INTERVAL_SECS,
         description="Interval in seconds between export job status polls.",
         ge=1,
+        le=600,
     )
 
     # Stateful ingestion
@@ -196,3 +198,34 @@ class InformaticaSourceConfig(
             )
         self.login_url = url
         return self
+
+    @model_validator(mode="after")
+    def validate_poll_bounds(self) -> "InformaticaSourceConfig":
+        if self.export_poll_interval_secs >= self.export_poll_timeout_secs:
+            raise ValueError(
+                "export_poll_interval_secs must be less than export_poll_timeout_secs "
+                f"(interval={self.export_poll_interval_secs}, "
+                f"timeout={self.export_poll_timeout_secs})"
+            )
+        return self
+
+    @field_validator("connection_type_overrides")
+    @classmethod
+    def validate_connection_type_overrides(
+        cls, overrides: Dict[str, str]
+    ) -> Dict[str, str]:
+        known_platforms = set(CONNECTION_TYPE_MAP.values())
+        for conn_id, platform in overrides.items():
+            if not platform:
+                raise ValueError(
+                    f"connection_type_overrides[{conn_id}] has empty platform name"
+                )
+            if platform not in known_platforms:
+                logger.warning(
+                    "connection_type_overrides[%s] uses platform %r which is not in "
+                    "the known platform map. This may still work if the platform is "
+                    "registered elsewhere in DataHub, but double-check the spelling.",
+                    conn_id,
+                    platform,
+                )
+        return overrides

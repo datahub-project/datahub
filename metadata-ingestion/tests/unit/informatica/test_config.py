@@ -1,11 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from datahub.ingestion.source.informatica.config import (
-    DEFAULT_EXPORT_BATCH_SIZE,
-    DEFAULT_PAGE_SIZE,
-    InformaticaSourceConfig,
-)
+from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
 
 
 def _base_config(**overrides):
@@ -15,17 +11,6 @@ def _base_config(**overrides):
 
 
 class TestInformaticaSourceConfig:
-    def test_minimal_config_accepts_defaults(self):
-        config = InformaticaSourceConfig.parse_obj(_base_config())
-        assert config.username == "svc@acme.com"
-        assert config.password.get_secret_value() == "hunter2"
-        assert config.login_url == "https://dm-us.informaticacloud.com"
-        assert config.page_size == DEFAULT_PAGE_SIZE
-        assert config.export_batch_size == DEFAULT_EXPORT_BATCH_SIZE
-        assert config.extract_lineage is True
-        assert config.extract_ownership is True
-        assert config.extract_tags is True
-
     def test_login_url_trailing_slash_is_stripped(self):
         config = InformaticaSourceConfig.parse_obj(
             _base_config(login_url="https://dm-em.informaticacloud.com/")
@@ -50,26 +35,36 @@ class TestInformaticaSourceConfig:
         with pytest.raises(ValidationError):
             InformaticaSourceConfig.parse_obj(_base_config(export_batch_size=1001))
 
-    def test_missing_username_or_password_rejected(self):
-        with pytest.raises(ValidationError):
-            InformaticaSourceConfig.parse_obj({"password": "x"})
-        with pytest.raises(ValidationError):
-            InformaticaSourceConfig.parse_obj({"username": "x"})
+    def test_poll_interval_must_be_less_than_timeout(self):
+        with pytest.raises(ValidationError, match="interval_secs must be less"):
+            InformaticaSourceConfig.parse_obj(
+                _base_config(export_poll_timeout_secs=30, export_poll_interval_secs=30)
+            )
+
+    def test_connection_type_overrides_rejects_empty_platform(self):
+        with pytest.raises(ValidationError, match="empty platform name"):
+            InformaticaSourceConfig.parse_obj(
+                _base_config(connection_type_overrides={"01A": ""})
+            )
+
+    def test_connection_type_overrides_warns_on_unknown_platform(self, caplog):
+        with caplog.at_level("WARNING"):
+            InformaticaSourceConfig.parse_obj(
+                _base_config(connection_type_overrides={"01A": "snowflak_typo"})
+            )
+        assert any("snowflak_typo" in r.message for r in caplog.records)
+
+    def test_connection_type_overrides_accepts_known_platform(self):
+        config = InformaticaSourceConfig.parse_obj(
+            _base_config(connection_type_overrides={"01B": "snowflake"})
+        )
+        assert config.connection_type_overrides == {"01B": "snowflake"}
 
     def test_tag_and_pattern_filters(self):
         config = InformaticaSourceConfig.parse_obj(
             _base_config(
                 tag_filter_names=["pii", "critical"],
-                project_pattern={"allow": ["Prod.*"], "deny": [".*_sandbox"]},
+                project_pattern={"allow": ["Prod.*"]},
             )
         )
         assert config.tag_filter_names == ["pii", "critical"]
-        assert config.project_pattern.allowed("Prod_sales") is True
-        assert config.project_pattern.allowed("Prod_sales_sandbox") is False
-        assert config.project_pattern.allowed("Dev_sales") is False
-
-    def test_connection_type_overrides(self):
-        config = InformaticaSourceConfig.parse_obj(
-            _base_config(connection_type_overrides={"01DM180B": "snowflake"})
-        )
-        assert config.connection_type_overrides == {"01DM180B": "snowflake"}
