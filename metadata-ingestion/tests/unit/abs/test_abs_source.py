@@ -411,3 +411,48 @@ def test_abs_get_fields_csv_zip(tmp_path):
 
     field_names = {f.fieldPath for f in fields}
     assert {"product", "price"}.issubset(field_names)
+
+
+def test_abs_get_fields_extension_map_zip(tmp_path):
+    zip_path = tmp_path / "events.zip"
+    zip_path.write_bytes(
+        _make_zip({"events.js": b'[{"event": "click", "user": "alice"}]'})
+    )
+
+    source = _make_abs_source()
+    with patch(
+        "datahub.ingestion.source.azure.azure_common.AzureConnectionConfig.get_blob_service_client",
+        return_value=None,
+    ):
+        fields = source.get_fields(
+            _table_data(str(zip_path)),
+            PathSpec(
+                include="https://testaccount.blob.core.windows.net/testcontainer/*.zip",
+                enable_compression=True,
+                extension_map={"js": "json"},
+            ),
+        )
+
+    field_names = {f.fieldPath for f in fields}
+    assert {"event", "user"}.issubset(field_names)
+
+
+def test_abs_get_fields_extension_map_plain_file(tmp_path):
+    js_path = tmp_path / "data.js"
+    js_path.write_bytes(b'[{"product": "widget", "price": 9.99}]')
+
+    source = _make_abs_source()
+    with patch(
+        "datahub.ingestion.source.azure.azure_common.AzureConnectionConfig.get_blob_service_client",
+        return_value=None,
+    ):
+        fields = source.get_fields(
+            _table_data(str(js_path)),
+            PathSpec(
+                include="https://testaccount.blob.core.windows.net/testcontainer/*.js",
+                extension_map={"js": "json"},
+            ),
+        )
+
+    field_names = {f.fieldPath for f in fields}
+    assert {"product", "price"}.issubset(field_names)

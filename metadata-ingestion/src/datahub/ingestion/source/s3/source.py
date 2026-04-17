@@ -399,17 +399,16 @@ class S3Source(StatefulIngestionSourceBase):
             return None, ""
 
         members = zf.namelist()
+        accepted = set(SUPPORTED_FILE_TYPES) | set(path_spec.extension_map.keys())
         supported = [
-            m
-            for m in members
-            if pathlib.Path(m).suffix.lstrip(".") in SUPPORTED_FILE_TYPES
+            m for m in members if pathlib.Path(m).suffix.lstrip(".") in accepted
         ]
 
         if not supported:
             self.report.report_warning(
                 full_path,
                 f"zip archive contains no files with a supported extension "
-                f"({SUPPORTED_FILE_TYPES}); found: {members}",
+                f"({sorted(accepted)}); found: {members}",
             )
             zf.close()
             zip_file.close()
@@ -466,6 +465,8 @@ class S3Source(StatefulIngestionSourceBase):
 
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
+
+        extension = path_spec.resolve_extension(extension)
 
         fields = []
         inferrer = self._get_inferrer(extension, table_data.content_type)
@@ -722,7 +723,9 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
         if self.source_config.is_profiling_enabled():
-            yield from self.profiler.get_table_profile(table_data, dataset_urn)
+            yield from self.profiler.get_table_profile(
+                table_data, dataset_urn, path_spec
+            )
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)

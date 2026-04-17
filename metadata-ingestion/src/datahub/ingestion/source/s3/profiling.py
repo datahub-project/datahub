@@ -47,6 +47,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
@@ -604,11 +605,14 @@ class SparkProfiler:
         {".parquet", ".csv", ".tsv", ".json", ".jsonl", ".avro"}
     )
 
-    def _extract_zip_to_tmp(self, full_path: str) -> Optional[Tuple[str, str]]:
+    def _extract_zip_to_tmp(
+        self, full_path: str, path_spec: PathSpec
+    ) -> Optional[Tuple[str, str]]:
         """Extract the first supported entry from a zip to a temp file.
 
-        Inner extension is detected from the entry name, not the outer filename.
-        Returns (temp_path, inner_ext) or None on error; caller must delete the file.
+        Inner extension is detected from the entry name, not the outer filename,
+        and resolved through path_spec.extension_map before writing the temp file.
+        Returns (temp_path, resolved_ext) or None on error; caller must delete the file.
         """
         try:
             if "s3://" in full_path and self.aws_config is not None:
@@ -624,21 +628,20 @@ class SparkProfiler:
             else:
                 zip_source = full_path
 
+            accepted = self._SPARK_SUPPORTED_EXTS | {
+                f".{k}" for k in path_spec.extension_map
+            }
             with zipfile.ZipFile(zip_source) as zf:
                 members = zf.namelist()
                 entry = next(
-                    (
-                        m
-                        for m in members
-                        if pathlib.Path(m).suffix in self._SPARK_SUPPORTED_EXTS
-                    ),
+                    (m for m in members if pathlib.Path(m).suffix in accepted),
                     None,
                 )
                 if entry is None:
                     self.report.report_warning(
                         full_path,
                         f"zip archive contains no entry with a supported extension "
-                        f"({sorted(self._SPARK_SUPPORTED_EXTS)}); found: {members}",
+                        f"({sorted(accepted)}); found: {members}",
                     )
                     return None
                 if len(members) > 1:
@@ -646,7 +649,7 @@ class SparkProfiler:
                         f"zip archive {full_path} contains {len(members)} entries; "
                         f"profiling only the first supported entry: {entry}"
                     )
-                inner_ext = pathlib.Path(entry).suffix
+                inner_ext = path_spec.resolve_extension(pathlib.Path(entry).suffix)
                 data = zf.read(entry)
 
             with tempfile.NamedTemporaryFile(suffix=inner_ext, delete=False) as tmp:
@@ -714,7 +717,7 @@ class SparkProfiler:
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_profile(
-        self, table_data: Any, dataset_urn: str
+        self, table_data: Any, dataset_urn: str, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
         # Importing here to avoid Deequ dependency for non profiling use cases
         from pydeequ.analyzers import AnalyzerContext
@@ -723,14 +726,14 @@ class SparkProfiler:
         tmp_path: Optional[str] = None
         try:
             if raw_ext == ".zip":
-                result = self._extract_zip_to_tmp(table_data.full_path)
+                result = self._extract_zip_to_tmp(table_data.full_path, path_spec)
                 if result is None:
                     return
                 tmp_path, ext = result
                 spark_path = tmp_path
             else:
                 spark_path = table_data.full_path
-                ext = raw_ext
+                ext = path_spec.resolve_extension(raw_ext)
 
             table = None
             try:

@@ -569,6 +569,17 @@ def zip_bucket(s3_resource, s3_client):
         zf.writestr("part1.csv", "name,age\nAlice,30\n")
         zf.writestr("part2.csv", "name,age\nBob,25\n")
     s3_client.put_object(Bucket=ZIP_BUCKET, Key="multi_entry.zip", Body=buf.getvalue())
+    # extension_map fixtures
+    s3_client.put_object(
+        Bucket=ZIP_BUCKET,
+        Key="events.js",
+        Body='[{"event": "click", "user": "alice"}]',
+    )
+    s3_client.put_object(
+        Bucket=ZIP_BUCKET,
+        Key="events.js.zip",
+        Body=_make_zip("events.js", '[{"event": "click", "user": "alice"}]'),
+    )
     yield
 
 
@@ -653,3 +664,40 @@ def test_s3_zip_multi_entry_uses_first_and_warns(zip_bucket, tmp_path, caplog):
 
     assert _schema_fields(out)
     assert any("2 files" in r.message for r in caplog.records)
+
+
+@pytest.mark.integration
+def test_s3_extension_map_plain_file(zip_bucket, tmp_path):
+    out = _run_pipeline(
+        tmp_path,
+        {
+            "path_specs": [
+                {
+                    "include": f"s3://{ZIP_BUCKET}/events.js",
+                    "extension_map": {"js": "json"},
+                }
+            ],
+            "aws_config": _AWS_CONFIG,
+            "profiling": {"enabled": False},
+        },
+    )
+    assert {"event", "user"}.issubset(_schema_fields(out))
+
+
+@pytest.mark.integration
+def test_s3_extension_map_inside_zip(zip_bucket, tmp_path):
+    out = _run_pipeline(
+        tmp_path,
+        {
+            "path_specs": [
+                {
+                    "include": f"s3://{ZIP_BUCKET}/events.js.zip",
+                    "enable_compression": True,
+                    "extension_map": {"js": "json"},
+                }
+            ],
+            "aws_config": _AWS_CONFIG,
+            "profiling": {"enabled": False},
+        },
+    )
+    assert {"event", "user"}.issubset(_schema_fields(out))

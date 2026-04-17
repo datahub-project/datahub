@@ -268,17 +268,16 @@ class ABSSource(StatefulIngestionSourceBase):
             return None, ""
 
         members = zf.namelist()
+        accepted = set(SUPPORTED_FILE_TYPES) | set(path_spec.extension_map.keys())
         supported = [
-            m
-            for m in members
-            if pathlib.Path(m).suffix.lstrip(".") in SUPPORTED_FILE_TYPES
+            m for m in members if pathlib.Path(m).suffix.lstrip(".") in accepted
         ]
 
         if not supported:
             self.report.report_warning(
                 table_data.full_path,
                 f"zip archive contains no files with a supported extension "
-                f"({SUPPORTED_FILE_TYPES}); found: {members}",
+                f"({sorted(accepted)}); found: {members}",
             )
             zf.close()
             zip_file.close()
@@ -346,6 +345,8 @@ class ABSSource(StatefulIngestionSourceBase):
 
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
+
+        extension = path_spec.resolve_extension(extension)
 
         try:
             if extension == ".parquet":

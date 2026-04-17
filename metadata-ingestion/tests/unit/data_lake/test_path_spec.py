@@ -823,3 +823,46 @@ def test_extract_table_name_and_path_with_table() -> None:
 
     assert table_name == "users"
     assert table_path == "s3://bucket/users"
+
+
+# extension_map tests
+
+
+def test_extension_map_valid() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js",
+        extension_map={"js": "json"},
+    )
+    assert path_spec.extension_map == {"js": "json"}
+
+
+def test_extension_map_invalid_value_raises() -> None:
+    with pytest.raises(ValidationError, match="not a supported file type"):
+        PathSpec(
+            include="s3://bucket/{table}/*.js",
+            extension_map={"js": "excel"},
+        )
+
+
+def test_extension_map_allows_include_with_mapped_ext() -> None:
+    # *.js in include is only valid because js is mapped; must not raise
+    PathSpec(include="s3://bucket/{table}/*.js", extension_map={"js": "json"})
+
+
+def test_include_unknown_ext_without_extension_map_raises() -> None:
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.js")
+
+
+def test_resolve_extension_mapped() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js",
+        extension_map={"js": "json"},
+    )
+    assert path_spec.resolve_extension(".js") == ".json"
+
+
+def test_resolve_extension_passthrough() -> None:
+    path_spec = PathSpec(include="s3://bucket/{table}/*.csv")
+    assert path_spec.resolve_extension(".csv") == ".csv"
+    assert path_spec.resolve_extension(".unknown") == ".unknown"
