@@ -79,4 +79,11 @@ public class KubernetesScaleDownConfiguration {
    * out. Default 1800 (30 min); increase for many pods or slow rollout strategies.
    */
   private int rolloutMaxWaitSeconds;
+
+  /**
+   * Minimum seconds between INFO logs while polling rollout status (avoids log spam). Defaults to
+   * 60 when unset or non-positive. Use a small value in tests to exercise progress logging without
+   * long waits.
+   */
+  private int rolloutProgressLogIntervalSeconds;
 }

@@ -1,8 +1,7 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
@@ -19,10 +18,10 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
 
-const getStyles = ($isShowNavBarRedesign?: boolean) => {
+const getStyles = ($isShowNavBarRedesign?: boolean, themeColors?: { bg: string }) => {
     return {
         input: {
-            backgroundColor: $isShowNavBarRedesign ? 'white' : '#343444',
+            backgroundColor: themeColors?.bg ?? 'transparent',
         },
         searchBox: {
             maxWidth: $isShowNavBarRedesign ? '100%' : 620,
@@ -78,7 +77,7 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
 `;
 
 const HeaderBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    ${(props) => !props.$isShowNavBarRedesign && 'background-color: #171723;'}
+    ${(props) => !props.$isShowNavBarRedesign && `background-color: ${props.theme.colors.bgSurfaceDarker};`}
     position: fixed;
     height: 100px;
     width: 100%;
@@ -156,7 +155,8 @@ export const SearchHeader = ({
     const showHomepageRedesign = useShowHomePageRedesign();
     const isHomePage = useIsHomePage();
     const hideNavToggler = showHomepageRedesign && isHomePage;
-    const styles = getStyles(isShowNavBarRedesign);
+    const themeConfig = useTheme();
+    const styles = getStyles(isShowNavBarRedesign, themeConfig.colors);
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;

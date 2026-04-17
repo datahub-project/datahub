@@ -75,6 +75,10 @@ action:
   | `connection.consumer_config` | ❌ | {} | A set of key-value pairs that represents arbitrary Kafka Consumer configs |
   | `topic_routes.mcl` | ❌  | `MetadataChangeLog_v1` | The name of the topic containing MetadataChangeLog events |
   | `topic_routes.pe` | ❌ | `PlatformEvent_v1` | The name of the topic containing PlatformEvent events |
+  | `async_commit_enabled` | ❌ | `true` | Use async (periodic background) offset commits. Set to `false` for batch-processing actions. |
+  | `async_commit_interval` | ❌ | `10000` | Milliseconds between background offset commits (only used when `async_commit_enabled` is `true`) |
+  | `commit_retry_count` | ❌ | `5` | Number of retries on synchronous commit failure (only used when `async_commit_enabled` is `false`) |
+  | `commit_retry_backoff` | ❌ | `10.0` | Seconds between synchronous commit retries (only used when `async_commit_enabled` is `false`) |
 </details>
 
 ## Schema Registry Configuration
@@ -115,6 +119,58 @@ source:
 
 If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](../../deploy/aws.md/#aws-glue-schema-registry) for details.
 
+## Offset Commit Modes
+
+The Kafka Event Source supports two offset commit strategies, controlled by the `async_commit_enabled` configuration option.
+
+### Async Commits (default)
+
+```yml
+source:
+  type: "kafka"
+  config:
+    async_commit_enabled: true # default
+    async_commit_interval: 10000 # ms between background commits (default: 10s)
+```
+
+After each event is processed, the offset is stored locally via `store_offsets()`. A background thread
+in librdkafka periodically commits all stored offsets to Kafka at the configured interval. This is the
+[manual store + auto commit](https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md#auto-offset-commit)
+pattern.
+
+**Tradeoff:** On consumer crash, up to `async_commit_interval` milliseconds of events may be
+redelivered. For idempotent actions (all built-in actions), this is a non-issue.
+
+**Performance:** Async commits eliminate the ~3ms synchronous Kafka round-trip per event, which can
+yield up to 25x throughput improvement for high-volume pipelines.
+
+### Sync Commits
+
+```yml
+source:
+  type: "kafka"
+  config:
+    async_commit_enabled: false
+    commit_retry_count: 5 # retries on commit failure (default: 5)
+    commit_retry_backoff: 10.0 # seconds between retries (default: 10)
+```
+
+After each event is processed, the consumer performs a blocking synchronous commit to Kafka. This
+provides tighter delivery guarantees at the cost of throughput (~326 events/sec per pod vs ~8,200
+with async).
+
+### Batch-Processing Actions
+
+Batch-processing actions (where `act()` returns `False` to defer acknowledgment) work with both
+commit modes. When an action returns `False`, no offset is stored or committed for that event.
+The action later calls `ctx.event_source.ack(event, processed=True)` to commit the offset when
+the batch is ready.
+
+| Mode                | Commit Timing               | Throughput            | Use Case                              |
+| ------------------- | --------------------------- | --------------------- | ------------------------------------- |
+| **Async** (default) | Background thread, periodic | High (~8,200 evt/sec) | All actions, including batch          |
+| **Sync**            | Immediate, per-event        | Lower (~326 evt/sec)  | When tighter offset control is needed |
+
 ## FAQ
 
 1. Is there a way to always start processing from the end of the topics on Actions start?
@@ -122,7 +178,3 @@ If you're using AWS Glue Schema Registry, you'll need to configure it differentl
 Currently, the only way is to change the `name` of the Action in its configuration file. In the future,
 we are hoping to add first-class support for configuring the action to be "stateless", ie only process
 messages that are received while the Action is running.
-
-2. Is there a way to asynchronously commit offsets back to Kafka?
-
-Currently, all consumer offset commits are made synchronously for each message received. For now we've optimized for correctness over performance.
