@@ -68,10 +68,35 @@ public class DatahubSparkListener extends SparkListener {
   // Tracks execution IDs of recent create-table-as-select commands per app,
   // so we can suppress the follow-up insert that Spark 3.5+ generates as a separate SQL execution.
   // Uses a sliding window (Set) instead of single ID to handle parallel queries correctly.
+  // Only used in Spark 3.5+; Spark < 3.5 does not generate follow-up inserts.
   private final Map<String, Set<Long>> pendingCtasExecIds = new ConcurrentHashMap<>();
+  // Cached Spark version components (parsed once at first access)
+  private static volatile int sparkMajorVersion = -1;
+  private static volatile int sparkMinorVersion = -1;
 
   public DatahubSparkListener() {
     log.info("DatahubSparkListener initialised.");
+  }
+
+  /** Parse and cache Spark version components. Thread-safe despite volatile double-check. */
+  private static void ensureSparkVersionParsed() {
+    if (sparkMinorVersion < 0) {
+      try {
+        String version = package$.MODULE$.SPARK_VERSION();
+        String[] parts = version.split("\\.");
+        sparkMajorVersion = parts.length > 0 ? Integer.parseInt(parts[0]) : 3;
+        sparkMinorVersion = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+      } catch (Exception e) {
+        log.warn("Failed to parse Spark version, defaulting to 3.x logic", e);
+        sparkMajorVersion = 3;
+        sparkMinorVersion = 3;
+      }
+    }
+  }
+
+  private int getSparkMinorVersion() {
+    ensureSparkVersionParsed();
+    return sparkMinorVersion;
   }
 
   /**
@@ -86,21 +111,20 @@ public class DatahubSparkListener extends SparkListener {
    */
   private static String serializeSqlStartEvent(SparkListenerSQLExecutionStart event) {
     try {
-      String sparkVersion = package$.MODULE$.SPARK_VERSION();
-      // Parse version: "3.5.0" -> major=3, minor=5
-      String[] versionParts = sparkVersion.split("\\.");
-      int major = Integer.parseInt(versionParts[0]);
-      int minor = Integer.parseInt(versionParts[1]);
+      // Use cached version from ensureSparkVersionParsed() to avoid re-parsing on every call
+      ensureSparkVersionParsed();
 
       // Spark 3.4+: Use Jackson API (returns valid JSON)
-      if (major > 3 || (major == 3 && minor >= 4)) {
+      if (sparkMajorVersion > 3 || (sparkMajorVersion == 3 && sparkMinorVersion >= 4)) {
         java.lang.reflect.Method method =
             JsonProtocol.class.getMethod("sparkEventToJsonString", SparkListenerEvent.class);
         return (String) method.invoke(null, event);
       } else {
         // Spark < 3.4: Use toString() fallback (returns Scala case class string, not JSON)
         log.debug(
-            "Spark {} < 3.4, using toString() fallback (note: output is not JSON)", sparkVersion);
+            "Spark {}.{} < 3.4, using toString() fallback (note: output is not JSON)",
+            sparkMajorVersion,
+            sparkMinorVersion);
         return event.toString();
       }
     } catch (Exception e) {
@@ -183,37 +207,34 @@ public class DatahubSparkListener extends SparkListener {
 
       SparkDataset sinkDataset = outputDS.get().iterator().next();
 
-      // In Spark 3.5+, CreateDataSourceTableAsSelectCommand and CreateHiveTableAsSelectCommand
-      // generate a follow-up InsertIntoHadoopFsRelationCommand or InsertIntoHiveTable as a
-      // separate SQL execution. Skip these duplicate inserts to avoid redundant lineage entries.
-      // Uses a tolerance window instead of exact +1 to handle parallel query execution correctly.
-      Set<Long> pendingCtas = pendingCtasExecIds.get(ctx.applicationId());
-      if (DatasetExtractor.isFollowUpInsertCommand(plan) && pendingCtas != null) {
-        for (Iterator<Long> it = pendingCtas.iterator(); it.hasNext(); ) {
-          Long ctasExecId = it.next();
-          // Check if this follow-up is for a recent CTAS (within 50 execution IDs).
-          // Tolerance window handles parallel execution where follow-up may not be exactly +1.
-          if (sqlStart.executionId() > ctasExecId && sqlStart.executionId() - ctasExecId <= 50) {
-            log.debug(
-                "Skipping follow-up insert for create-table-as-select (execution {}:{}, CTAS: {})",
-                ctx.applicationId(),
-                sqlStart.executionId(),
-                ctasExecId);
-            it.remove();
-            return;
+      // Spark 3.5+ generates follow-up inserts for CTAS commands as separate SQL executions.
+      // Spark < 3.5 does not, so no dedup needed.
+      if (getSparkMinorVersion() >= 5) {
+        Set<Long> pendingCtas = pendingCtasExecIds.get(ctx.applicationId());
+        if (DatasetExtractor.isFollowUpInsertCommand(plan) && pendingCtas != null) {
+          for (Iterator<Long> it = pendingCtas.iterator(); it.hasNext(); ) {
+            Long ctasExecId = it.next();
+            if (sqlStart.executionId() > ctasExecId && sqlStart.executionId() - ctasExecId <= 50) {
+              log.debug(
+                  "Skipping follow-up insert for create-table-as-select (execution {}:{}, CTAS: {})",
+                  ctx.applicationId(),
+                  sqlStart.executionId(),
+                  ctasExecId);
+              it.remove();
+              return;
+            }
+          }
+          if (pendingCtas.isEmpty()) {
+            pendingCtasExecIds.remove(ctx.applicationId());
           }
         }
-        // Cleanup if set is empty
-        if (pendingCtas.isEmpty()) {
-          pendingCtasExecIds.remove(ctx.applicationId());
-        }
-      }
 
-      if (DatasetExtractor.isCreateTableAsSelectCommand(plan)) {
-        Set<Long> ctas =
-            pendingCtasExecIds.computeIfAbsent(
-                ctx.applicationId(), k -> ConcurrentHashMap.newKeySet());
-        ctas.add(sqlStart.executionId());
+        if (DatasetExtractor.isCreateTableAsSelectCommand(plan)) {
+          Set<Long> ctas =
+              pendingCtasExecIds.computeIfAbsent(
+                  ctx.applicationId(), k -> ConcurrentHashMap.newKeySet());
+          ctas.add(sqlStart.executionId());
+        }
       }
 
       // Here assumption is that there will be only single target for single sql query

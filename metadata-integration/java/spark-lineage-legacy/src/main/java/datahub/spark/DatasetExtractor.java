@@ -43,6 +43,7 @@ import org.apache.spark.sql.hive.execution.InsertIntoHiveTable;
 import org.apache.spark.sql.sources.BaseRelation;
 import scala.Option;
 import scala.collection.JavaConversions;
+import scala.collection.Seq;
 import scala.runtime.AbstractFunction1;
 
 @Slf4j
@@ -120,11 +121,18 @@ public class DatasetExtractor {
     SPARKPLAN_TO_DATASET.put(
         InMemoryTableScanExec.class,
         (p, ctx, datahubConfig) -> {
-          InMemoryRelation baseRel = ((InMemoryTableScanExec) p).relation();
-          if (!PLAN_TO_DATASET.containsKey(baseRel.getClass())) {
+          try {
+            InMemoryRelation baseRel = ((InMemoryTableScanExec) p).relation();
+            if (baseRel == null || !PLAN_TO_DATASET.containsKey(baseRel.getClass())) {
+              return Optional.empty();
+            }
+            return PLAN_TO_DATASET
+                .get(baseRel.getClass())
+                .fromPlanNode(baseRel, ctx, datahubConfig);
+          } catch (Exception e) {
+            log.warn("Error extracting dataset from InMemoryTableScanExec: {}", e.getMessage());
             return Optional.empty();
           }
-          return PLAN_TO_DATASET.get(baseRel.getClass()).fromPlanNode(baseRel, ctx, datahubConfig);
         });
 
     PLAN_TO_DATASET.put(
@@ -292,39 +300,62 @@ public class DatasetExtractor {
     PLAN_TO_DATASET.put(
         InMemoryRelation.class,
         (plan, ctx, datahubConfig) -> {
-          SparkPlan cachedPlan = ((InMemoryRelation) plan).cachedPlan();
-          // In Spark 3.5, AQE (Adaptive Query Execution) may wrap cachedPlan in
-          // AdaptiveSparkPlanExec.
-          // When isFinalPlan=false, collectLeaves() on the wrapper returns empty, so we must unwrap
-          // to access the underlying inputPlan that contains the actual leaf operators
-          // (FileSourceScan,
-          // HiveTableScan, etc.) needed for lineage extraction.
-          SparkPlan effectivePlan = unwrapAdaptiveSparkPlan(cachedPlan);
-          ArrayList<SparkDataset> datasets = new ArrayList<>();
-          effectivePlan
-              .collectLeaves()
-              .toList()
-              .foreach(
-                  new AbstractFunction1<SparkPlan, Void>() {
+          try {
+            InMemoryRelation inMemRel = (InMemoryRelation) plan;
+            SparkPlan cachedPlan = inMemRel.cachedPlan();
 
-                    @Override
-                    public Void apply(SparkPlan leafPlan) {
+            if (cachedPlan == null) {
+              log.info("InMemoryRelation has null cachedPlan, unable to extract lineage");
+              return Optional.empty();
+            }
 
-                      if (SPARKPLAN_TO_DATASET.containsKey(leafPlan.getClass())) {
+            // In Spark 3.5, AQE (Adaptive Query Execution) may wrap cachedPlan in
+            // AdaptiveSparkPlanExec. When isFinalPlan=false, collectLeaves() on the wrapper
+            // returns empty, so we must unwrap to access the underlying inputPlan that
+            // contains the actual leaf operators (FileSourceScan, HiveTableScan, etc.)
+            // needed for lineage extraction.
+            SparkPlan effectivePlan = unwrapAdaptiveSparkPlan(cachedPlan);
+
+            ArrayList<SparkDataset> datasets = new ArrayList<>();
+            Seq<SparkPlan> leaves = effectivePlan.collectLeaves().toList();
+
+            if (leaves.isEmpty()) {
+              log.debug(
+                  "InMemoryRelation.collectLeaves() returned empty. Plan type: {}",
+                  effectivePlan.getClass().getSimpleName());
+              return Optional.empty();
+            }
+
+            leaves.foreach(
+                new AbstractFunction1<SparkPlan, Void>() {
+                  @Override
+                  public Void apply(SparkPlan leafPlan) {
+                    if (SPARKPLAN_TO_DATASET.containsKey(leafPlan.getClass())) {
+                      try {
                         Optional<? extends Collection<SparkDataset>> dataset =
                             SPARKPLAN_TO_DATASET
                                 .get(leafPlan.getClass())
                                 .fromSparkPlanNode(leafPlan, ctx, datahubConfig);
                         dataset.ifPresent(x -> datasets.addAll(x));
-                      } else {
+                      } catch (Exception e) {
                         log.error(
-                            leafPlan.getClass()
-                                + " is not yet supported. Please contact datahub team for further support.");
+                            "Error extracting dataset from InMemoryRelation leaf plan ({}): {}",
+                            leafPlan.getClass().getSimpleName(),
+                            e.getMessage());
                       }
-                      return null;
+                    } else {
+                      log.debug(
+                          "InMemoryRelation leaf plan type {} is not yet supported",
+                          leafPlan.getClass().getSimpleName());
                     }
-                  });
-          return datasets.isEmpty() ? Optional.empty() : Optional.of(datasets);
+                    return null;
+                  }
+                });
+            return datasets.isEmpty() ? Optional.empty() : Optional.of(datasets);
+          } catch (Exception e) {
+            log.error("Error processing InMemoryRelation: {}", e.getMessage(), e);
+            return Optional.empty();
+          }
         });
   }
 
