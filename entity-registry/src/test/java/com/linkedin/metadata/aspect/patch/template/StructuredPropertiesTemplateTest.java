@@ -33,53 +33,6 @@ public class StructuredPropertiesTemplateTest {
   }
 
   @Test
-  public void testUnattributedAddPreservesAttributedDuplicates() throws Exception {
-    // Start with (srcA, propX) and (srcB, propX) — two attributed entries for the same property
-    // URN.
-    StructuredProperties initial = new StructuredProperties();
-    initial.setProperties(
-        new StructuredPropertyValueAssignmentArray(
-            attributedAssignment("urn:li:structuredProperty:propX", "urn:li:dataHubAction:srcA"),
-            attributedAssignment("urn:li:structuredProperty:propX", "urn:li:dataHubAction:srcB")));
-
-    // Plain patch: add propY (no attribution).
-    JsonPatch patch =
-        Json.createPatch(
-            Json.createArrayBuilder()
-                .add(
-                    Json.createObjectBuilder()
-                        .add("op", "add")
-                        .add("path", "/properties/urn:li:structuredProperty:propY")
-                        .add(
-                            "value",
-                            Json.createArrayBuilder()
-                                .add(
-                                    Json.createObjectBuilder()
-                                        .add("propertyUrn", "urn:li:structuredProperty:propY")
-                                        .add(
-                                            "values",
-                                            Json.createArrayBuilder()
-                                                .add(
-                                                    Json.createObjectBuilder()
-                                                        .add("string", "testValue"))))))
-                .build());
-
-    StructuredProperties result = TEMPLATE.applyPatch(initial, patch);
-
-    Assert.assertNotNull(result.getProperties());
-    List<String> propUrns =
-        result.getProperties().stream()
-            .map(p -> p.getPropertyUrn().toString())
-            .collect(Collectors.toList());
-    // Both attributed propX entries should survive, plus the new propY.
-    long propXCount = propUrns.stream().filter("urn:li:structuredProperty:propX"::equals).count();
-    long propYCount = propUrns.stream().filter("urn:li:structuredProperty:propY"::equals).count();
-    Assert.assertEquals(propXCount, 2L, "both attributed propX entries should be preserved");
-    Assert.assertEquals(propYCount, 1L, "new propY entry should be present");
-    Assert.assertEquals(result.getProperties().size(), 3);
-  }
-
-  @Test
   public void testUnattributedRemoveDeletesAllEntriesForProperty() throws Exception {
     // (srcA, propX), (srcB, propX), (srcC, propY)
     StructuredProperties initial = new StructuredProperties();

@@ -2671,7 +2671,7 @@ def test_expand_run_results_paths_missing_aws_connection():
     assert any("Missing AWS connection" in str(f) for f in source.report.failures)
 
 
-def _make_dbt_node(dbt_name, node_type="model", **overrides):
+def _make_dbt_node(dbt_name, node_type="model", **overrides):  # type: ignore[no-redef]
     defaults = dict(
         database=None,
         schema=None,
