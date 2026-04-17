@@ -184,31 +184,39 @@ def _patch_runtime_ti_for_outlet_events() -> None:
     works there via the fallback path, but installing this patch is harmless.
     """
     global _RUNTIME_TI_PATCHED
+    # Fast path: already patched, no lock needed
     if _RUNTIME_TI_PATCHED:
         return
 
-    try:
-        from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
-    except ImportError:
-        return
+    # Slow path: use the existing listener lock with double-checked locking to
+    # match the established pattern in get_airflow_plugin_listener() and avoid
+    # doubly wrapping get_template_context on concurrent on_starting calls.
+    with _airflow_listener_lock:
+        if _RUNTIME_TI_PATCHED:
+            return
 
-    original_get_template_context = RuntimeTaskInstance.get_template_context
+        try:
+            from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+        except ImportError:
+            return
 
-    def _patched_get_template_context(self: Any) -> Any:
-        context = original_get_template_context(self)
-        outlet_events = context.get("outlet_events")
-        if outlet_events is not None:
-            # Store a reference to the mutable OutletEventAccessors so our
-            # on_task_instance_success listener can read it without DB access.
-            object.__setattr__(self, "_datahub_outlet_events", outlet_events)
-        return context
+        original_get_template_context = RuntimeTaskInstance.get_template_context
 
-    RuntimeTaskInstance.get_template_context = _patched_get_template_context  # type: ignore[method-assign]
-    _RUNTIME_TI_PATCHED = True
-    logger.debug(
-        "DataHub: patched RuntimeTaskInstance.get_template_context "
-        "to cache outlet_events for AssetAlias runtime resolution"
-    )
+        def _patched_get_template_context(self: Any) -> Any:
+            context = original_get_template_context(self)
+            outlet_events = context.get("outlet_events")
+            if outlet_events is not None:
+                # Store a reference to the mutable OutletEventAccessors so our
+                # on_task_instance_success listener can read it without DB access.
+                object.__setattr__(self, "_datahub_outlet_events", outlet_events)
+            return context
+
+        RuntimeTaskInstance.get_template_context = _patched_get_template_context  # type: ignore[method-assign]
+        _RUNTIME_TI_PATCHED = True
+        logger.debug(
+            "DataHub: patched RuntimeTaskInstance.get_template_context "
+            "to cache outlet_events for AssetAlias runtime resolution"
+        )
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -845,12 +853,16 @@ class DataHubListener:
             # Alias URIs unknown at task start — omit to avoid phantom nodes
             return urns
 
-        # Airflow 3.x: read outlet events from in-process execution context (no DB needed)
+        # Primary path: read outlet events from the in-process execution context
+        # (no DB needed).  Requires the on_starting patch or Airflow 3.2+ native
+        # _cached_template_context.
         resolved_urns = extract_urns_from_task_instance_outlet_events(
             task_instance, env=self.config.cluster
         )
         if not resolved_urns:
-            # Airflow 2.x fallback: query the DB for AssetEvents from this alias
+            # DB fallback: used when the in-process context is unavailable (e.g.
+            # the on_starting patch did not fire, or we're running in a test
+            # harness).  Requires Airflow 3.x AssetEvent ORM.
             resolved_urns = extract_urns_from_resolved_alias_events(
                 dag_id=dagrun.dag_id,
                 task_id=task.task_id,
@@ -1394,7 +1406,13 @@ class DataHubListener:
 
         # TODO: Handle UP_FOR_RETRY state.
         # TODO: Use the error parameter (available in kwargs for Airflow 3.0+) for better error reporting
-        self.on_task_instance_finish(task_instance, status=InstanceRunResult.FAILURE)
+        # Extract the session Airflow provides so it can be passed to DB queries
+        # in _get_outlet_urns.  In Airflow 3.0, create_session() is blocked inside
+        # listener threads; using the caller-provided session is the correct pattern.
+        airflow_session = kwargs.get("session")
+        self.on_task_instance_finish(
+            task_instance, status=InstanceRunResult.FAILURE, session=airflow_session
+        )
         logger.debug(
             f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
         )
