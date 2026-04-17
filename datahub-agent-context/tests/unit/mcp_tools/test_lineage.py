@@ -401,10 +401,13 @@ class TestGetLineagePathsBetween:
             "searchAcrossLineage": {"searchResults": []}
         }
 
+        src = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.src,PROD)"
+        tgt = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tgt,PROD)"
+
         with DataHubContext(mock_client):
             result = get_lineage_paths_between(
-                source_urn="urn:li:dataset:source",
-                target_urn="urn:li:dataset:target",
+                source_urn=src,
+                target_urn=tgt,
                 source_column="col_a",
                 target_column="col_b",
                 direction="upstream",
