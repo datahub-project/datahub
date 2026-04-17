@@ -812,7 +812,7 @@ def test_drop_duplicate_sources() -> None:
     assert source.report.duplicate_sources_references_updated == 1
 
 
-def _make_dbt_node(
+def _make_sibling_dbt_node(
     materialization: str = "table",
     node_type: str = "model",
     name: str = "test_model",
@@ -853,7 +853,7 @@ def test_dbt_sibling_created_for_semantic_views(dbt_is_primary_sibling: bool) ->
     """Regression test for CUS-7718: semantic views showed as duplicate search
     results because the SiblingAssociationHook only handles the "source" subtype."""
     source = _make_dbt_source(dbt_is_primary_sibling)
-    node = _make_dbt_node(materialization="semantic_view")
+    node = _make_sibling_dbt_node(materialization="semantic_view")
     assert source._should_create_sibling_relationships(node) is True
 
 
@@ -862,7 +862,7 @@ def test_dbt_sibling_not_created_for_standard_models_when_primary() -> None:
     when dbt is primary. Only semantic views need explicit emission."""
     source = _make_dbt_source(dbt_is_primary_sibling=True)
     for materialization in ("table", "view", "incremental"):
-        node = _make_dbt_node(materialization=materialization)
+        node = _make_sibling_dbt_node(materialization=materialization)
         assert source._should_create_sibling_relationships(node) is False
 
 
@@ -871,7 +871,7 @@ def test_dbt_sibling_created_for_all_nodes_when_not_primary() -> None:
     the dbt source emits siblings for all nodes."""
     source = _make_dbt_source(dbt_is_primary_sibling=False)
     for materialization in ("table", "view", "incremental", "semantic_view"):
-        node = _make_dbt_node(materialization=materialization)
+        node = _make_sibling_dbt_node(materialization=materialization)
         assert source._should_create_sibling_relationships(node) is True
 
 
@@ -883,7 +883,7 @@ def test_dbt_sibling_not_created_for_ephemeral_or_test_nodes(
     materialization: str, node_type: str
 ) -> None:
     source = _make_dbt_source()
-    node = _make_dbt_node(materialization=materialization, node_type=node_type)
+    node = _make_sibling_dbt_node(materialization=materialization, node_type=node_type)
     assert source._should_create_sibling_relationships(node) is False
 
 
