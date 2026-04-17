@@ -114,9 +114,13 @@ def translate_airflow_asset_to_urn(
         platform = URI_SCHEME_TO_PLATFORM.get(scheme, scheme)
         # Build dataset name from URI components
         if parsed.netloc:
-            name = f"{parsed.netloc}{parsed.path}".lstrip("/")
+            # strip() removes both the leading slash that urlsplit puts between
+            # netloc and path, and any trailing slash that Airflow's _sanitize_uri
+            # injects for netloc-only URIs (e.g. iceberg://catalog → stored as
+            # iceberg://catalog/ → name should be "catalog", not "catalog/").
+            name = f"{parsed.netloc}{parsed.path}".strip("/")
         else:
-            name = parsed.path.lstrip("/")
+            name = parsed.path.strip("/")
     else:
         # No scheme - this is likely an @asset decorated function with just a name
         # Use the fallback platform (default: "airflow") and the URI as the name
