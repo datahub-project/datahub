@@ -179,9 +179,31 @@ def is_k8s_enabled():
     return env_vars.get_k8s_cluster_enabled()
 
 
+def gms_health_probe_url() -> str:
+    """URL for GMS readiness GET in ``wait_for_healthcheck_util``.
+
+    Resolution order:
+
+    1. ``DATAHUB_GMS_HEALTH_URL`` — full URL override.
+    2. ``DATAHUB_GMS_URL`` set — direct GMS (Docker/local): ``{GMS}/health``.
+    3. ``DATAHUB_FRONTEND_URL`` set — gateway-only / SaaS: ``{frontend}/api/gms/health`` (Play proxy).
+    4. Neither env var — local OSS default: ``{get_frontend_url()}/api/gms/health`` (quickstart).
+    """
+    override = env_vars.get_gms_health_url()
+    if override:
+        return override
+    direct = env_vars.get_direct_gms_url()
+    if direct:
+        return f"{direct.rstrip('/')}/health"
+    fe = env_vars.get_frontend_url()
+    if fe:
+        return f"{fe.rstrip('/')}/api/gms/health"
+    return f"{get_frontend_url().rstrip('/')}/api/gms/health"
+
+
 def wait_for_healthcheck_util(auth_session):
     assert not check_endpoint(auth_session, f"{get_frontend_url()}/admin")
-    assert not check_endpoint(auth_session, f"{get_gms_url()}/health")
+    assert not check_endpoint(auth_session, gms_health_probe_url())
 
 
 def check_endpoint(auth_session, url):

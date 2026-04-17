@@ -116,7 +116,8 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
-            -x :metadata-integration:java:datahub-schematron:cli:test
+            -x :metadata-integration:java:datahub-schematron:cli:test \
+            -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Disk Space Analysis
