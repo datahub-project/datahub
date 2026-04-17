@@ -388,10 +388,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return data_source_platform_details
 
     def _get_element_input_details(
-        self, element: Element, workbook: Workbook
+        self,
+        element: Element,
+        workbook: Workbook,
+        elementId_to_chart_urn: Dict[str, str],
     ) -> Dict[str, List[str]]:
         """
-        Returns dict with keys as the all element input dataset urn and values as their all upstream dataset urns
+        Returns dict keyed by upstream URN. Values are SQL-parsed warehouse URNs
+        (non-empty only for Sigma Dataset upstreams matched against the SQL query).
+        Chart URNs from intra-workbook sheet upstreams are included with empty lists.
         """
         inputs: Dict[str, List[str]] = {}
         sql_parser_in_tables: List[str] = []
@@ -414,21 +419,36 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             except Exception:
                 logger.debug(f"Unable to parse query of element {element.name}")
 
-        # Add sigma dataset as input of element if present
-        # and its matched sql parser in_table as its upsteam dataset
-        for source_id, source_name in element.upstream_sources.items():
-            source_id = source_id.split("-")[-1]
-            for in_table_urn in list(sql_parser_in_tables):
-                if (
-                    DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
-                    in source_name.lower()
-                ):
-                    dataset_urn = self._gen_sigma_dataset_urn(source_id)
-                    if dataset_urn not in inputs:
-                        inputs[dataset_urn] = [in_table_urn]
-                    else:
-                        inputs[dataset_urn].append(in_table_urn)
-                    sql_parser_in_tables.remove(in_table_urn)
+        for node_id, upstream in element.upstream_sources.items():
+            if upstream.type == "dataset":
+                sigma_dataset_id = node_id.split("-")[-1]
+                for in_table_urn in list(sql_parser_in_tables):
+                    if (
+                        DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
+                        in (upstream.name or "").lower()
+                    ):
+                        dataset_urn = self._gen_sigma_dataset_urn(sigma_dataset_id)
+                        if dataset_urn not in inputs:
+                            inputs[dataset_urn] = [in_table_urn]
+                        else:
+                            inputs[dataset_urn].append(in_table_urn)
+                        sql_parser_in_tables.remove(in_table_urn)
+            elif upstream.type == "sheet":
+                if upstream.element_id is None:
+                    logger.debug(
+                        f"Sheet upstream missing elementId for element {element.name}, skipping"
+                    )
+                    continue
+                chart_urn = elementId_to_chart_urn.get(upstream.element_id)
+                if chart_urn is None:
+                    # Target element type not in our allow-list (e.g. pivot-table).
+                    # Known limitation — see SIGMA_TICKET_3_INTRA_WORKBOOK.md §3.
+                    logger.debug(
+                        f"Upstream elementId {upstream.element_id} not in element map "
+                        f"for element {element.name} (possibly a filtered element type)"
+                    )
+                    continue
+                inputs[chart_urn] = []
 
         # Add remaining sql parser in_tables as direct input of element
         for in_table_urn in sql_parser_in_tables:
@@ -442,6 +462,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         workbook: Workbook,
         all_input_fields: List[InputFieldClass],
         paths: List[str],
+        elementId_to_chart_urn: Dict[str, str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -461,8 +482,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield self._gen_entity_status_aspect(chart_urn)
 
             inputs: Dict[str, List[str]] = self._get_element_input_details(
-                element, workbook
+                element, workbook, elementId_to_chart_urn
             )
+
+            # Split by URN type: inputs (deprecated) holds Dataset URNs for UI
+            # backward compat; inputEdges holds Chart URNs for intra-workbook lineage.
+            dataset_input_urns = [
+                urn for urn in inputs if urn.startswith("urn:li:dataset:")
+            ]
+            chart_input_urns = [
+                urn for urn in inputs if urn.startswith("urn:li:chart:")
+            ]
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -472,7 +502,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
                     externalUrl=element.url,
-                    inputs=list(inputs.keys()),
+                    inputs=dataset_input_urns,
+                    inputEdges=(
+                        [EdgeClass(destinationUrn=urn) for urn in chart_input_urns]
+                        if chart_input_urns
+                        else None
+                    ),
                 ),
             ).as_workunit()
 
@@ -487,15 +522,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     paths=paths + [workbook.name],
                 )
 
-            # Add sigma dataset's upstream dataset urn mapping
-            for dataset_urn, upstream_dataset_urns in inputs.items():
+            # Only Sigma Dataset URNs (with SQL-matched warehouse upstreams) need
+            # the cross-entity UpstreamLineage aspect emitted later.
+            for dataset_urn in dataset_input_urns:
                 if (
-                    upstream_dataset_urns
+                    inputs[dataset_urn]
                     and dataset_urn not in self.dataset_upstream_urn_mapping
                 ):
-                    self.dataset_upstream_urn_mapping[dataset_urn] = (
-                        upstream_dataset_urns
-                    )
+                    self.dataset_upstream_urn_mapping[dataset_urn] = inputs[dataset_urn]
 
             element_input_fields = [
                 InputFieldClass(
@@ -522,6 +556,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma workbook page to Datahub dashboard
         """
+        # Build once at workbook scope — intra-workbook lineage can cross pages so
+        # this map must cover all elements before any individual page is processed.
+        elementId_to_chart_urn: Dict[str, str] = {
+            element.elementId: builder.make_chart_urn(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                name=element.elementId,
+            )
+            for page in workbook.pages
+            for element in page.elements
+        }
+
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
 
@@ -546,7 +592,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields, paths
+                page.elements, workbook, all_input_fields, paths, elementId_to_chart_urn
             )
 
             yield MetadataChangeProposalWrapper(

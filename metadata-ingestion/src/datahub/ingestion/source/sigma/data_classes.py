@@ -1,6 +1,6 @@
 from copy import deepcopy
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, model_validator
 
@@ -50,6 +50,15 @@ class SigmaDataset(BaseModel):
         return self.url.split("/")[-1]
 
 
+class ElementUpstream(BaseModel):
+    node_id: str
+    # "dataset" = Sigma Dataset node; "sheet" = Sigma element (any element.type).
+    # "table" (warehouse) and "join" (graph-only pass-through) are filtered at the API layer.
+    type: Literal["dataset", "sheet"]
+    name: Optional[str] = None
+    element_id: Optional[str] = None  # populated only when type == "sheet"
+
+
 class Element(BaseModel):
     elementId: str
     name: str
@@ -58,7 +67,7 @@ class Element(BaseModel):
     vizualizationType: Optional[str] = None
     query: Optional[str] = None
     columns: List[str] = []
-    upstream_sources: Dict[str, str] = {}
+    upstream_sources: Dict[str, "ElementUpstream"] = {}
 
     def get_urn_part(self):
         return self.elementId

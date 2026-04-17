@@ -14,6 +14,7 @@ from datahub.ingestion.source.sigma.config import (
 )
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
+    ElementUpstream,
     File,
     Page,
     SigmaDataset,
@@ -296,12 +297,15 @@ class SigmaAPI:
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
-    ) -> Dict[str, str]:
+    ) -> Dict[str, ElementUpstream]:
         """
-        Returns upstream dataset sources with keys as id and values as name of that dataset
+        Returns upstream sources keyed by nodeId. Admits Sigma Dataset nodes
+        (type="dataset") and intra-workbook element nodes (type="sheet"). Walks
+        through join pass-through nodes transparently. Warehouse table nodes
+        (type="table") are skipped here — their lineage comes from the SQL-parse path.
         """
         try:
-            upstream_sources: Dict[str, str] = {}
+            upstream_sources: Dict[str, ElementUpstream] = {}
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/lineage/elements/{element.elementId}"
             )
@@ -323,14 +327,37 @@ class SigmaAPI:
 
             response.raise_for_status()
             response_dict = response.json()
+            dependencies = response_dict[Constant.DEPENDENCIES]
+
             for edge in response_dict[Constant.EDGES]:
-                source_type = response_dict[Constant.DEPENDENCIES][
-                    edge[Constant.SOURCE]
-                ][Constant.TYPE]
+                source_node_id = edge[Constant.SOURCE]
+                source_node = dependencies[source_node_id]
+                source_type = source_node[Constant.TYPE]
+
                 if source_type == "dataset":
-                    upstream_sources[edge[Constant.SOURCE]] = response_dict[
-                        Constant.DEPENDENCIES
-                    ][edge[Constant.SOURCE]][Constant.NAME]
+                    upstream_sources[source_node_id] = ElementUpstream(
+                        node_id=source_node_id,
+                        type="dataset",
+                        name=source_node.get(Constant.NAME),
+                    )
+                elif source_type == "sheet":
+                    upstream_sources[source_node_id] = ElementUpstream(
+                        node_id=source_node_id,
+                        type="sheet",
+                        name=source_node.get(Constant.NAME),
+                        element_id=source_node.get(Constant.ELEMENTID),
+                    )
+                elif source_type in ("table", "join"):
+                    # "table" = warehouse table, handled by SQL-parse path.
+                    # "join" = graph-only pass-through: its upstreams appear as
+                    # separate edges in the same response and are processed there.
+                    pass
+                else:
+                    logger.debug(
+                        f"Skipping unknown lineage node type '{source_type}' "
+                        f"for element {element.name} of workbook '{workbook.name}'"
+                    )
+
             return upstream_sources
         except Exception as e:
             self._log_http_error(
