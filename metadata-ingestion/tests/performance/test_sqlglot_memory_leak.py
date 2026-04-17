@@ -294,28 +294,3 @@ def test_parse_cache_memory_footprint():
         print(
             f"Projected for 1000 cache entries: {result_size * 1000 / 1024 / 1024:.2f} MB"
         )
-
-
-if __name__ == "__main__":
-    # Run tests directly
-    import sqlglot.exp
-
-    print("=" * 80)
-    print("Testing sqlglot[c] memory leak...")
-    print("=" * 80)
-
-    try:
-        test_sqlglot_table_name_memory_leak()
-        print("✅ No memory leak detected in Table.name access")
-    except AssertionError as e:
-        print(f"❌ {e}")
-
-    print("\n" + "=" * 80)
-    print("Testing view lineage extraction memory usage...")
-    print("=" * 80)
-    test_view_lineage_extraction_memory_usage()
-
-    print("\n" + "=" * 80)
-    print("Testing parse cache memory footprint...")
-    print("=" * 80)
-    test_parse_cache_memory_footprint()
