@@ -4,7 +4,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from datahub.errors import ItemNotFoundError
 from datahub_agent_context.context import DataHubContext
 from datahub_agent_context.mcp_tools.lineage import (
     AssetLineageAPI,
@@ -358,19 +357,63 @@ class TestGetLineagePathsBetween:
         assert "direction" in result["metadata"]
         assert "auto-discovered" in result["metadata"]["direction"]
 
-    def test_path_not_found_raises_error(self, mock_client):
-        """Test that no path found raises ItemNotFoundError."""
+    def test_path_not_found_returns_message(self, mock_client):
+        """No lineage path returns a friendly dict instead of raising ItemNotFoundError."""
         mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {"searchResults": []}
         }
 
-        with pytest.raises(ItemNotFoundError, match="No lineage"):
-            with DataHubContext(mock_client):
-                get_lineage_paths_between(
-                    source_urn="urn:li:dataset:source",
-                    target_urn="urn:li:dataset:target",
-                    direction="downstream",
-                )
+        with DataHubContext(mock_client):
+            result = get_lineage_paths_between(
+                source_urn="urn:li:dataset:source",
+                target_urn="urn:li:dataset:target",
+                direction="downstream",
+            )
+
+        assert result["pathCount"] == 0
+        assert result["paths"] == []
+        assert "message" in result
+        assert "urn:li:dataset:source" in result["message"]
+        assert "urn:li:dataset:target" in result["message"]
+        assert result["source"]["urn"] == "urn:li:dataset:source"
+        assert result["target"]["urn"] == "urn:li:dataset:target"
+
+    def test_path_not_found_auto_discover_returns_message(self, mock_client):
+        """Auto-discover with no path in either direction returns a friendly dict."""
+        mock_client._graph.execute_graphql.return_value = {
+            "searchAcrossLineage": {"searchResults": []}
+        }
+
+        with DataHubContext(mock_client):
+            result = get_lineage_paths_between(
+                source_urn="urn:li:dataset:source",
+                target_urn="urn:li:dataset:target",
+                # direction=None triggers auto-discovery
+            )
+
+        assert result["pathCount"] == 0
+        assert result["paths"] == []
+        assert "message" in result
+
+    def test_path_not_found_with_columns_returns_message(self, mock_client):
+        """Column-level no-path response includes column info in message and source/target."""
+        mock_client._graph.execute_graphql.return_value = {
+            "searchAcrossLineage": {"searchResults": []}
+        }
+
+        with DataHubContext(mock_client):
+            result = get_lineage_paths_between(
+                source_urn="urn:li:dataset:source",
+                target_urn="urn:li:dataset:target",
+                source_column="col_a",
+                target_column="col_b",
+                direction="upstream",
+            )
+
+        assert result["pathCount"] == 0
+        assert result["source"]["column"] == "col_a"
+        assert result["target"]["column"] == "col_b"
+        assert "col_a" in result["message"]
 
     def test_column_mismatch_raises_error(self, mock_client):
         """Test that mismatched column parameters raise ValueError."""
