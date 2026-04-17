@@ -51,4 +51,5 @@ jobs:
           RELEASE_SKIP_TEST: "true"
         run: |
           cd metadata-ingestion
+          cp constraints.txt src/datahub/constraints.txt
           RELEASE_VERSION=${{ needs.setup.outputs.tag }} ./scripts/release.sh
