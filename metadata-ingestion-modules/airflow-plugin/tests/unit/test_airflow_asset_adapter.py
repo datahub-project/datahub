@@ -230,6 +230,28 @@ class TestTranslateAirflowAssetToUrn:
         urn = translate_airflow_asset_to_urn(Asset())
         assert urn is None
 
+    def test_airflow_sanitized_trailing_slash_stripped(self) -> None:
+        # Airflow's _sanitize_uri forces a "/" path on netloc-only URIs, e.g.
+        # iceberg://catalog → stored as iceberg://catalog/
+        # The trailing slash must not appear in the DataHub dataset name,
+        # otherwise it won't match URNs produced by the DataHub Iceberg source.
+        class Asset:
+            uri = "iceberg://my_catalog/"
+
+        urn = translate_airflow_asset_to_urn(Asset())
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:iceberg,my_catalog,PROD)"
+
+    def test_trailing_slash_stripped_from_path(self) -> None:
+        # Trailing slashes on S3 prefix URIs are also normalised away.
+        class Asset:
+            uri = "s3://my-bucket/path/to/table/"
+
+        urn = translate_airflow_asset_to_urn(Asset())
+        assert (
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/path/to/table,PROD)"
+        )
+
 
 class TestUriSchemeToPlatform:
     """Tests for the URI_SCHEME_TO_PLATFORM mapping."""
