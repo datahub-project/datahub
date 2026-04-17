@@ -17,6 +17,9 @@ public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
   private static final String OWNERS_FIELD_NAME = "owners";
   private static final String OWNER_FIELD_NAME = "owner";
   private static final String TYPE_FIELD_NAME = "type";
+  private static final String TYPE_URN_FIELD_NAME = "typeUrn";
+  private static final String ATTRIBUTION_SOURCE =
+      "attribution" + UNIT_SEPARATOR_DELIMITER + "source";
 
   @Override
   public Ownership getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -47,13 +50,18 @@ public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    return arrayFieldToMap(baseNode, OWNERS_FIELD_NAME, List.of(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
+    return arrayFieldToMap(
+        baseNode,
+        OWNERS_FIELD_NAME,
+        List.of(OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME, ATTRIBUTION_SOURCE));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
     return transformedMapToArray(
-        patched, OWNERS_FIELD_NAME, List.of(OWNER_FIELD_NAME, TYPE_FIELD_NAME));
+        patched,
+        OWNERS_FIELD_NAME,
+        List.of(OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME, ATTRIBUTION_SOURCE));
   }
 }
