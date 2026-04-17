@@ -52,10 +52,8 @@ export default function NoResultsFoundPlaceholder({
 
     return (
         <Container data-testid="no-results-found">
-            <Text color="gray" colorLevel={600} size="md">
-                No results found
-            </Text>
-            <Text color="gray" size="sm">
+            <Text size="md">No results found</Text>
+            <Text size="sm">
                 {message}
                 {clearText && (
                     <>

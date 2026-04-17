@@ -23,9 +23,6 @@ export const StyledEntitySidebarContainer = styled.div<{
         if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
             return 'none';
         }
-        if (props.$isShowNavBarRedesign) {
-            return props.theme.styles['box-shadow-navbar-redesign'];
-        }
         return props.theme.colors.shadowSm;
     }};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}

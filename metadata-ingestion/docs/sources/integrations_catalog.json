@@ -686,7 +686,7 @@
     "img_path": "img/logos/platforms/singlestore.svg"
   },
   "starrocks": {
-    "api_connector": true,
+    "api_connector": false,
     "platform_type": "Database",
     "title": "StarRocks",
     "description": "High-performance analytical database for real-time, multi-dimensional analytics at scale.",

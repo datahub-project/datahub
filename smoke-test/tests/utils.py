@@ -179,9 +179,31 @@ def is_k8s_enabled():
     return env_vars.get_k8s_cluster_enabled()
 
 
+def gms_health_probe_url() -> str:
+    """URL for GMS readiness GET in ``wait_for_healthcheck_util``.
+
+    Resolution order:
+
+    1. ``DATAHUB_GMS_HEALTH_URL`` — full URL override.
+    2. ``DATAHUB_GMS_URL`` set — direct GMS (Docker/local): ``{GMS}/health``.
+    3. ``DATAHUB_FRONTEND_URL`` set — gateway-only / SaaS: ``{frontend}/api/gms/health`` (Play proxy).
+    4. Neither env var — local OSS default: ``{get_frontend_url()}/api/gms/health`` (quickstart).
+    """
+    override = env_vars.get_gms_health_url()
+    if override:
+        return override
+    direct = env_vars.get_direct_gms_url()
+    if direct:
+        return f"{direct.rstrip('/')}/health"
+    fe = env_vars.get_frontend_url()
+    if fe:
+        return f"{fe.rstrip('/')}/api/gms/health"
+    return f"{get_frontend_url().rstrip('/')}/api/gms/health"
+
+
 def wait_for_healthcheck_util(auth_session):
     assert not check_endpoint(auth_session, f"{get_frontend_url()}/admin")
-    assert not check_endpoint(auth_session, f"{get_gms_url()}/health")
+    assert not check_endpoint(auth_session, gms_health_probe_url())
 
 
 def check_endpoint(auth_session, url):
@@ -384,13 +406,32 @@ class TestSessionWrapper:
     Many of the tests do not consider async writes. This
     class intercepts mutations using the requests library
     to simulate sync requests.
+
+    Two construction modes:
+
+    1. Login-based (default): provide a ``requests_session`` obtained via
+       ``get_frontend_session()``.  A short-lived GMS token is minted via GraphQL
+       and revoked on ``destroy()``.
+
+    2. Token-based: pass ``prebuilt_token`` directly (e.g. a PAT).  No login or
+       token-generation round-trip is performed.  ``frontend_url()`` returns the
+       GMS URL so GraphQL calls go to ``{gms_url}/api/graphql``.  ``destroy()``
+       is a no-op — the externally-provided token is never revoked.
     """
 
-    def __init__(self, requests_session):
+    def __init__(self, requests_session, *, prebuilt_token: str | None = None):
         self._upstream = requests_session
-        self._frontend_url = get_frontend_url()
         self._gms_url = get_gms_url()
-        self._gms_token_id, self._gms_token = self._generate_gms_token()
+
+        if prebuilt_token is not None:
+            # Token-based auth: skip login and token generation entirely.
+            # Route GraphQL calls through the GMS endpoint directly.
+            self._gms_token = prebuilt_token
+            self._gms_token_id = None  # externally-owned — never revoke
+            self._frontend_url = self._gms_url  # /api/graphql works on GMS too
+        else:
+            self._frontend_url = get_frontend_url()
+            self._gms_token_id, self._gms_token = self._generate_gms_token()
 
     def __getattr__(self, name):
         # Intercept method calls

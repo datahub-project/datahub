@@ -825,6 +825,8 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
             "datasetindex_v2_next_123",
             "datasetindex_v2_current_123",
             1L,
+            0L,
+            null,
             true,
             status);
     DataHubUpgradeResult dur = new DataHubUpgradeResult();
