@@ -149,11 +149,31 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
 
   @Override
   public void postSetup(Connection connection) throws SQLException {
-    // Drop the index if it exists but is invalid (e.g. a previous CONCURRENTLY run was
-    // interrupted). IF NOT EXISTS on the CREATE below would otherwise leave the invalid index
-    // in place and skip re-creation on retries.
+    // Unquoted index names are always stored in lower case by postgres, so the pg_catalog
+    // lookups below use the lowercased form.
+    createConcurrentIndexIdempotent(
+        connection,
+        "schemaversionindex",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
 
-    // Unquoted index names are awlays stored in lower case by postgres.
+    createConcurrentIndexIdempotent(
+        connection,
+        "idx_corpuser_aspect_v0",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpuser_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpuser:%' AND version = 0;");
+
+    createConcurrentIndexIdempotent(
+        connection,
+        "idx_corpgroup_aspect_v0",
+        "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpgroup_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpGroup:%' AND version = 0;");
+  }
+
+  /**
+   * Drops any pre-existing invalid version of the given index (left behind by an interrupted
+   * CONCURRENTLY build — IF NOT EXISTS would otherwise skip re-creation) and then creates it
+   * CONCURRENTLY. The indexNameLower parameter must be the lowercased form used in pg_catalog.
+   */
+  private void createConcurrentIndexIdempotent(
+      Connection connection, String indexNameLower, String createIndexSql) throws SQLException {
     String checkSql =
         """
         SELECT i.relname
@@ -161,19 +181,21 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
         JOIN pg_class i ON i.oid = ix.indexrelid
         JOIN pg_class t ON t.oid = ix.indrelid
         WHERE t.relname = 'metadata_aspect_v2'
-          AND i.relname = 'schemaversionindex'
+          AND i.relname = ?
           AND NOT ix.indisvalid
         """;
-    try (PreparedStatement stmt = connection.prepareStatement(checkSql);
-        ResultSet rs = stmt.executeQuery()) {
-      if (rs.next()) {
-        log.info("Dropping invalid schemaVersionIndex to allow re-creation");
-        boolean prevAutoCommit = connection.getAutoCommit();
-        connection.setAutoCommit(true);
-        try (java.sql.Statement dropStmt = connection.createStatement()) {
-          dropStmt.execute("DROP INDEX CONCURRENTLY schemaversionindex");
-        } finally {
-          connection.setAutoCommit(prevAutoCommit);
+    try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
+      stmt.setString(1, indexNameLower);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next()) {
+          log.info("Dropping invalid {} to allow re-creation", indexNameLower);
+          boolean prevAutoCommit = connection.getAutoCommit();
+          connection.setAutoCommit(true);
+          try (java.sql.Statement dropStmt = connection.createStatement()) {
+            dropStmt.execute("DROP INDEX CONCURRENTLY " + indexNameLower);
+          } finally {
+            connection.setAutoCommit(prevAutoCommit);
+          }
         }
       }
     }
@@ -181,8 +203,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
     boolean prevAutoCommit = connection.getAutoCommit();
     connection.setAutoCommit(true);
     try (java.sql.Statement stmt = connection.createStatement()) {
-      stmt.execute(
-          "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
+      stmt.execute(createIndexSql);
     } finally {
       connection.setAutoCommit(prevAutoCommit);
     }
