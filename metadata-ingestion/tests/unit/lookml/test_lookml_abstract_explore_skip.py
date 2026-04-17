@@ -4,6 +4,7 @@ Fixes https://github.com/datahub-project/datahub/issues/16826 — explores with
 `extension: required` are abstract base templates that cannot be queried via the
 Looker API and must be skipped during ingestion.
 """
+
 from collections import defaultdict
 
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
