@@ -99,11 +99,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = InformaticaSourceReport()
         self.client = InformaticaClient(config, self.report)
-
-        # Caches populated during extraction
         self._connections: Dict[str, IdmcConnection] = {}
         self._v2_mappings_by_guid: Dict[str, IdmcMapping] = {}
-        self._project_objects: Dict[str, IdmcObject] = {}  # id → object
+        self._project_objects: Dict[str, IdmcObject] = {}
         self._folder_objects: Dict[str, IdmcObject] = {}
 
     @classmethod
@@ -124,13 +122,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.client.login()
-
         yield from self._extract_containers()
-
         yield from self._extract_taskflows()
-
         yield from self._extract_mappings_and_tasks()
-
         if self.config.extract_lineage:
             yield from self._extract_lineage()
 
@@ -141,17 +135,14 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 if not self.config.project_pattern.allowed(project.name):
                     self.report.projects_filtered += 1
                     continue
-
                 self.report.projects_scanned += 1
                 self._project_objects[project.id] = project
                 yield from self._emit_project_container(project)
-
         for tag in self._tag_filters_or_none():
             for folder in self.client.list_objects("Folder", tag=tag):
                 if not self.config.folder_pattern.allowed(folder.name):
                     self.report.folders_filtered += 1
                     continue
-
                 self.report.folders_scanned += 1
                 self._folder_objects[folder.id] = folder
                 yield from self._emit_folder_container(folder)
@@ -183,7 +174,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 env=self.config.env,
                 project_name=parent_project_name,
             )
-
         key = InformaticaFolderKey(
             platform=PLATFORM,
             instance=self.config.platform_instance,
@@ -219,7 +209,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 if not self.config.taskflow_pattern.allowed(tf.name):
                     self.report.taskflows_filtered += 1
                     continue
-
                 self.report.taskflows_scanned += 1
                 yield from self._emit_taskflow(tf)
 
@@ -232,7 +221,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
             )
         )
-
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
             aspect=DataFlowInfoClass(
@@ -247,12 +235,10 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 },
             ),
         ).as_workunit()
-
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
             aspect=StatusClass(removed=False),
         ).as_workunit()
-
         if self.config.platform_instance:
             yield MetadataChangeProposalWrapper(
                 entityUrn=flow_urn,
@@ -263,19 +249,15 @@ class InformaticaSource(StatefulIngestionSourceBase):
                     ),
                 ),
             ).as_workunit()
-
         if self.config.extract_ownership:
             yield from self._emit_ownership(flow_urn, tf.updated_by or tf.created_by)
 
     def _extract_mappings_and_tasks(self) -> Iterable[MetadataWorkUnit]:
         """Extract mappings and mapping tasks as DataJob entities."""
-        # Build v2 mapping cache for cross-referencing
-        v2_mappings = self.client.list_mappings()
-        for m in v2_mappings:
+        # v2 mapping cache keyed by v3 GUID, for cross-referencing below.
+        for m in self.client.list_mappings():
             if m.asset_frs_guid:
                 self._v2_mappings_by_guid[m.asset_frs_guid] = m
-
-        # Discover mappings via v3 objects
         for tag in self._tag_filters_or_none():
             for obj in self.client.list_objects("DTEMPLATE", tag=tag):
                 if self._is_bundle_object(obj):
@@ -283,12 +265,10 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 if not self.config.mapping_pattern.allowed(obj.name):
                     self.report.mappings_filtered += 1
                     continue
-
                 self.report.mappings_scanned += 1
-                v2_mapping = self._v2_mappings_by_guid.get(obj.id)
-                yield from self._emit_mapping(obj, v2_mapping)
-
-        # Discover mapping tasks via v2
+                yield from self._emit_mapping(
+                    obj, self._v2_mappings_by_guid.get(obj.id)
+                )
         try:
             for mt in self.client.list_mapping_tasks():
                 self.report.mapping_tasks_scanned += 1
@@ -301,8 +281,7 @@ class InformaticaSource(StatefulIngestionSourceBase):
         obj: IdmcObject,
         v2_mapping: Optional[IdmcMapping],
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit a mapping as a DataJob."""
-        # Use a synthetic DataFlow as the parent for orphan mappings
+        """Emit a mapping as a DataJob under a synthetic per-project DataFlow."""
         flow_urn = str(
             DataFlowUrn.create_from_ids(
                 orchestrator=ORCHESTRATOR,
@@ -311,9 +290,7 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
             )
         )
-
         job_urn = str(DataJobUrn.create_from_ids(data_flow_urn=flow_urn, job_id=obj.id))
-
         custom_props: Dict[str, str] = {
             "path": obj.path,
             "objectType": "DTEMPLATE",
@@ -322,7 +299,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
         if v2_mapping:
             custom_props["v2Id"] = v2_mapping.v2_id
             custom_props["valid"] = str(v2_mapping.valid)
-
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInfoClass(
@@ -332,17 +308,14 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 customProperties=custom_props,
             ),
         ).as_workunit()
-
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=StatusClass(removed=False),
         ).as_workunit()
-
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=SubTypesClass(typeNames=["Mapping"]),
         ).as_workunit()
-
         if self.config.platform_instance:
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
@@ -353,13 +326,11 @@ class InformaticaSource(StatefulIngestionSourceBase):
                     ),
                 ),
             ).as_workunit()
-
         if self.config.extract_ownership:
             yield from self._emit_ownership(job_urn, obj.updated_by or obj.created_by)
 
     def _emit_mapping_task(self, mt: IdmcMappingTask) -> Iterable[MetadataWorkUnit]:
         """Emit a mapping task as a DataJob."""
-
         flow_urn = str(
             DataFlowUrn.create_from_ids(
                 orchestrator=ORCHESTRATOR,
@@ -368,11 +339,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
             )
         )
-
         job_urn = str(
             DataJobUrn.create_from_ids(data_flow_urn=flow_urn, job_id=mt.v2_id)
         )
-
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInfoClass(
@@ -387,12 +356,10 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 },
             ),
         ).as_workunit()
-
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=StatusClass(removed=False),
         ).as_workunit()
-
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=SubTypesClass(typeNames=["Mapping Task"]),
@@ -400,22 +367,16 @@ class InformaticaSource(StatefulIngestionSourceBase):
 
     def _extract_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Extract table-level lineage from mapping definitions via v3 export."""
-        # Build connection cache
         self._load_connections()
-
-        # Gather all mapping v3 IDs
         mapping_ids = [
             obj.id
             for obj in self._iter_mapping_objects()
             if not self._is_bundle_object(obj)
             and self.config.mapping_pattern.allowed(obj.name)
         ]
-
         if not mapping_ids:
             logger.info("No mappings to extract lineage for.")
             return
-
-        # Batch export
         for batch_start in range(0, len(mapping_ids), self.config.export_batch_size):
             batch = mapping_ids[
                 batch_start : batch_start + self.config.export_batch_size
@@ -431,10 +392,8 @@ class InformaticaSource(StatefulIngestionSourceBase):
                         status.message,
                     )
                     continue
-
                 for lineage_info in self.client.download_and_parse_export(job_id):
                     yield from self._emit_lineage(lineage_info)
-
             except Exception:
                 logger.warning(
                     "Failed to process export batch starting at index %d",
@@ -443,7 +402,7 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 )
 
     def _load_connections(self) -> None:
-        """Load all connections into cache, keyed by federatedId."""
+        """Load all connections into cache, keyed by federatedId and id."""
         if self._connections:
             return
         try:
@@ -455,43 +414,35 @@ class InformaticaSource(StatefulIngestionSourceBase):
             logger.warning("Failed to load connections", exc_info=True)
 
     def _resolve_connection_platform(self, connection: IdmcConnection) -> Optional[str]:
-        """Resolve an IDMC connection to a DataHub platform name."""
-        # Check manual overrides first
+        """Resolve an IDMC connection to a DataHub platform name.
+
+        Priority: manual override → connParams["Connection Type"] → base type.
+        """
         override = self.config.connection_type_overrides.get(connection.id)
         if override:
             return override
-
-        # Primary: connParams["Connection Type"]
         if connection.conn_type and connection.conn_type in CONNECTION_TYPE_MAP:
             return CONNECTION_TYPE_MAP[connection.conn_type]
-
-        # Fallback: base connection type
         if connection.base_type and connection.base_type in CONNECTION_TYPE_MAP:
             return CONNECTION_TYPE_MAP[connection.base_type]
-
         return None
 
     def _emit_lineage(
         self, lineage_info: MappingLineageInfo
     ) -> Iterable[MetadataWorkUnit]:
         """Emit dataJobInputOutput and upstreamLineage for a mapping's lineage."""
-        input_urns: List[str] = []
-        output_urns: List[str] = []
-
-        for src in lineage_info.source_tables:
-            urn = self._resolve_table_to_dataset_urn(src)
-            if urn:
-                input_urns.append(urn)
-
-        for tgt in lineage_info.target_tables:
-            urn = self._resolve_table_to_dataset_urn(tgt)
-            if urn:
-                output_urns.append(urn)
-
+        input_urns: List[str] = [
+            urn
+            for src in lineage_info.source_tables
+            if (urn := self._resolve_table_to_dataset_urn(src)) is not None
+        ]
+        output_urns: List[str] = [
+            urn
+            for tgt in lineage_info.target_tables
+            if (urn := self._resolve_table_to_dataset_urn(tgt)) is not None
+        ]
         if not input_urns and not output_urns:
             return
-
-        # Find the mapping's DataJob URN
         project_name = self._resolve_parent_project_from_path(lineage_info.mapping_name)
         flow_urn = str(
             DataFlowUrn.create_from_ids(
@@ -506,8 +457,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 data_flow_urn=flow_urn, job_id=lineage_info.mapping_id
             )
         )
-
-        # Emit dataJobInputOutput
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInputOutputClass(
@@ -516,8 +465,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
         self.report.lineage_edges_emitted += len(input_urns) + len(output_urns)
-
-        # Emit upstreamLineage on each target dataset
         for tgt_urn in output_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=tgt_urn,
@@ -534,7 +481,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
 
     def _resolve_table_to_dataset_urn(self, table: LineageTable) -> Optional[str]:
         """Resolve a LineageTable to a DataHub dataset URN."""
-
         conn = self._connections.get(table.connection_federated_id)
         if not conn:
             self.report.report_connection_unresolved(
@@ -543,7 +489,6 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 f"Connection not found for table {table.table_name}",
             )
             return None
-
         platform = self._resolve_connection_platform(conn)
         if not platform:
             self.report.report_connection_unresolved(
@@ -552,10 +497,8 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 f"Unmapped connection type: {conn.conn_type or conn.base_type}",
             )
             return None
-
         self.report.connections_resolved += 1
-
-        # Build dataset name: database.schema.table or schema.table or table
+        # Dataset name: [database.][schema.]table — empty parts are skipped.
         parts: List[str] = []
         if conn.database:
             parts.append(conn.database)
@@ -564,13 +507,10 @@ class InformaticaSource(StatefulIngestionSourceBase):
         elif conn.schema:
             parts.append(conn.schema)
         parts.append(table.table_name)
-
-        dataset_name = ".".join(parts)
-
         return str(
             DatasetUrn.create_from_ids(
                 platform_id=platform,
-                table_name=dataset_name,
+                table_name=".".join(parts),
                 env=self.config.env,
             )
         )

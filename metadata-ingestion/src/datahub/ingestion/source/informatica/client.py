@@ -7,6 +7,8 @@ import zipfile
 from typing import Any, Dict, Iterator, List, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
 from datahub.ingestion.source.informatica.models import (
@@ -22,13 +24,22 @@ from datahub.ingestion.source.informatica.models import (
 
 logger = logging.getLogger(__name__)
 
+# IDMC sessions expire after 30 min; validate near expiry instead of every request.
+_SESSION_VALIDATION_TTL_SECS = 25 * 60
+
+# backoff_factor=1.0 → delays of 1s, 2s, 4s.
+_RETRY_POLICY = Retry(
+    total=3,
+    backoff_factor=1.0,
+    status_forcelist=(429, 500, 502, 503, 504),
+    allowed_methods=frozenset({"GET", "POST"}),
+    respect_retry_after_header=True,
+    raise_on_status=False,
+)
+
 
 class InformaticaClient:
-    """REST API client for Informatica Cloud (IDMC).
-
-    Handles authentication (v2 login), dual v2/v3 API calls, automatic
-    re-authentication on 401, pagination, and retry with backoff.
-    """
+    """REST API client for Informatica Cloud (IDMC)."""
 
     def __init__(
         self,
@@ -37,76 +48,61 @@ class InformaticaClient:
     ):
         self.config = config
         self.report = report
-
         self._session = requests.Session()
+        adapter = HTTPAdapter(max_retries=_RETRY_POLICY)
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
         self._session_id: Optional[str] = None
-        self._base_url: Optional[str] = None  # serverUrl from login response
-        self._session_created_at: float = 0.0
+        self._base_url: Optional[str] = None
+        self._session_last_validated_at: Optional[float] = None
 
-        self._max_retries = 3
-        self._backoff_factor = 2.0
-
-    def login(self) -> None:
-        """Authenticate via the v2 user login endpoint."""
-        url = f"{self.config.login_url}/ma/api/v2/user/login"
-        payload = {
-            "username": self.config.username,
-            "password": self.config.password.get_secret_value(),
-        }
-
+    def login(self) -> str:
+        """Authenticate via the v2 login endpoint. Returns the session id."""
         resp = self._session.post(
-            url,
-            json=payload,
+            f"{self.config.login_url}/ma/api/v2/user/login",
+            json={
+                "username": self.config.username,
+                "password": self.config.password.get_secret_value(),
+            },
             headers={"Content-Type": "application/json"},
             timeout=30,
         )
         self.report.report_api_call()
-
         if resp.status_code != 200:
-            body = resp.text
             raise Exception(
-                f"IDMC login failed (HTTP {resp.status_code}): {body}. "
+                f"IDMC login failed (HTTP {resp.status_code}): {resp.text}. "
                 f"Check login_url ({self.config.login_url}), username, and password."
             )
-
         data = resp.json()
-
-        if "error" in data or "@type" in data and data.get("@type") == "error":
+        if "error" in data or ("@type" in data and data.get("@type") == "error"):
             error_msg = data.get("error", {}).get("message") or data.get(
                 "description", str(data)
             )
             raise Exception(f"IDMC login failed: {error_msg}")
-
-        self._session_id = data.get("icSessionId")
-        self._base_url = data.get("serverUrl", "").rstrip("/")
-        self._session_created_at = time.time()
-
-        if not self._session_id or not self._base_url:
+        session_id = data.get("icSessionId")
+        base_url = (data.get("serverUrl") or "").rstrip("/")
+        if not session_id or not base_url:
             raise Exception(
                 "IDMC login succeeded but response is missing icSessionId "
                 f"or serverUrl. Keys returned: {list(data.keys())}"
             )
-
+        self._session_id = session_id
+        self._base_url = base_url
+        self._session_last_validated_at = time.time()
         logger.info(
             "IDMC login successful. Base URL: %s, Org: %s",
-            self._base_url,
+            base_url,
             data.get("orgId", "unknown"),
         )
+        return session_id
 
-    # IDMC sessions expire after 30 minutes of inactivity.
-    # We proactively validate when the session is older than this threshold
-    # to avoid sending requests that will definitely fail with 401.
-    _SESSION_VALIDATE_AFTER_SECS = 25 * 60  # 25 minutes
-
-    def _is_session_valid(self) -> bool:
-        """Check if the current session is still valid via the v2 validSessionId endpoint."""
+    def _validate_session(self) -> bool:
+        """POST /api/v2/user/validSessionId. False on any failure or expired token."""
         if not self._session_id or not self._base_url:
             return False
-
         try:
-            url = f"{self._base_url}/api/v2/user/validSessionId"
             resp = self._session.post(
-                url,
+                f"{self._base_url}/api/v2/user/validSessionId",
                 json={
                     "@type": "validatedToken",
                     "userName": self.config.username,
@@ -119,46 +115,50 @@ class InformaticaClient:
                 timeout=10,
             )
             self.report.report_api_call()
-            if resp.status_code == 200:
-                data = resp.json()
-                is_valid = data.get("isValidToken", False)
-                if is_valid:
-                    remaining = data.get("timeUntilExpire", "?")
-                    logger.debug("Session valid, %s minutes remaining", remaining)
-                return bool(is_valid)
-        except Exception:
-            logger.debug("Session validation check failed", exc_info=True)
+        except requests.RequestException as e:
+            logger.warning("Session validation request failed: %s", e)
+            return False
+        if resp.status_code != 200:
+            return False
+        data = resp.json()
+        if not data.get("isValidToken", False):
+            return False
+        logger.debug(
+            "Session valid, %s minutes remaining", data.get("timeUntilExpire", "?")
+        )
+        self._session_last_validated_at = time.time()
+        return True
 
-        return False
-
-    def _ensure_authenticated(self) -> None:
-        """Ensure we have a valid session.
-
-        - No session → login
-        - Session older than 25 min → validate via validSessionId, re-login if expired
-        - Session younger than 25 min → skip validation (fast path)
-        - The 401 re-auth in _request() is kept as a safety net for edge cases
-        """
-        if self._session_id:
-            session_age = time.time() - self._session_created_at
-            if session_age < self._SESSION_VALIDATE_AFTER_SECS:
-                return
-            if self._is_session_valid():
-                return
-            logger.info(
-                "Session expired after %.0f minutes, re-authenticating...",
-                session_age / 60,
-            )
+    def _ensure_authenticated(self, *, clear_session: bool = False) -> str:
+        """Return a known-good session id. `clear_session` forces a fresh login."""
+        if clear_session:
             self._session_id = None
+            self._session_last_validated_at = None
+        if self._session_id and not self._session_stale():
+            return self._session_id
+        if self._session_id and self._validate_session():
+            return self._session_id
+        logger.info("IDMC session missing or invalid, authenticating...")
+        return self.login()
 
-        self.login()
+    def _session_stale(self) -> bool:
+        if self._session_last_validated_at is None:
+            return True
+        return (
+            time.time() - self._session_last_validated_at
+        ) > _SESSION_VALIDATION_TTL_SECS
 
-        if not self._session_id:
-            logger.error("Authentication failed: session ID is still None after login")
-            raise Exception(
-                "IDMC authentication failed — no session ID after login. "
-                "Check login_url, username, and password."
-            )
+    @staticmethod
+    def _is_auth_failure(resp: requests.Response) -> bool:
+        """True for a session/auth failure: 401, or 403 with error code AUTH_01."""
+        if resp.status_code == 401:
+            return True
+        if resp.status_code != 403:
+            return False
+        try:
+            return resp.json().get("error", {}).get("code") == "AUTH_01"
+        except ValueError:
+            return False
 
     def _request(
         self,
@@ -169,21 +169,39 @@ class InformaticaClient:
         params: Optional[Dict[str, Any]] = None,
         json_body: Optional[Any] = None,
         stream: bool = False,
-        _retry_count: int = 0,
     ) -> requests.Response:
-        """Execute an authenticated HTTP request with retry and re-auth logic."""
-        self._ensure_authenticated()
-        session_id: str = self._session_id  # type: ignore[assignment]
+        """Execute an authenticated request; retry once on 401/AUTH_01."""
+        resp = self._do_send(
+            self._ensure_authenticated(), method, url, is_v3, params, json_body, stream
+        )
+        if self._is_auth_failure(resp):
+            logger.info("IDMC session rejected by server, re-authenticating")
+            resp = self._do_send(
+                self._ensure_authenticated(clear_session=True),
+                method,
+                url,
+                is_v3,
+                params,
+                json_body,
+                stream,
+            )
+        return resp
 
-        headers: Dict[str, str] = {}
-        if is_v3:
-            headers["INFA-SESSION-ID"] = session_id
-        else:
-            headers["icSessionId"] = session_id
-
+    def _do_send(
+        self,
+        session_id: str,
+        method: str,
+        url: str,
+        is_v3: bool,
+        params: Optional[Dict[str, Any]],
+        json_body: Optional[Any],
+        stream: bool,
+    ) -> requests.Response:
+        headers: Dict[str, str] = {
+            "INFA-SESSION-ID" if is_v3 else "icSessionId": session_id
+        }
         if json_body is not None:
             headers["Content-Type"] = "application/json"
-
         resp = self._session.request(
             method,
             url,
@@ -194,83 +212,24 @@ class InformaticaClient:
             timeout=60,
         )
         self.report.report_api_call()
-
-        # Re-auth on 401/403 with AUTH_01
-        if resp.status_code in (401, 403) and _retry_count == 0:
-            try:
-                body = resp.json()
-            except Exception:
-                body = {}
-            error_code = body.get("error", {}).get("code", "")
-            if resp.status_code == 401 or error_code == "AUTH_01":
-                logger.info("Session expired, re-authenticating...")
-                self._session_id = None
-                self.login()
-                return self._request(
-                    method,
-                    url,
-                    is_v3=is_v3,
-                    params=params,
-                    json_body=json_body,
-                    stream=stream,
-                    _retry_count=_retry_count + 1,
-                )
-
-        # Retry on 429 / 5xx with backoff
-        if resp.status_code in (429, 500, 502, 503, 504):
-            if _retry_count < self._max_retries:
-                wait = self._backoff_factor**_retry_count
-                logger.warning(
-                    "HTTP %d from %s — retrying in %.1fs (attempt %d/%d)",
-                    resp.status_code,
-                    url,
-                    wait,
-                    _retry_count + 1,
-                    self._max_retries,
-                )
-                time.sleep(wait)
-                return self._request(
-                    method,
-                    url,
-                    is_v3=is_v3,
-                    params=params,
-                    json_body=json_body,
-                    stream=stream,
-                    _retry_count=_retry_count + 1,
-                )
-
         return resp
 
-    def _get_v2(
-        self,
-        path: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Any:
-        """GET from the v2 API. `path` is relative to base_url (e.g., '/api/v2/mapping')."""
-        url = f"{self._base_url}{path}"
-        resp = self._request("GET", url, is_v3=False, params=params)
+    def _get_v2(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        resp = self._request("GET", f"{self._base_url}{path}", params=params)
         resp.raise_for_status()
         return resp.json()
 
-    def _get_v3(
-        self,
-        path: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Any:
-        """GET from the v3 API. `path` is relative to base_url (e.g., '/public/core/v3/objects')."""
-        url = f"{self._base_url}{path}"
-        resp = self._request("GET", url, is_v3=True, params=params)
+    def _get_v3(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        resp = self._request(
+            "GET", f"{self._base_url}{path}", is_v3=True, params=params
+        )
         resp.raise_for_status()
         return resp.json()
 
-    def _post_v3(
-        self,
-        path: str,
-        json_body: Any,
-    ) -> Any:
-        """POST to the v3 API."""
-        url = f"{self._base_url}{path}"
-        resp = self._request("POST", url, is_v3=True, json_body=json_body)
+    def _post_v3(self, path: str, json_body: Any) -> Any:
+        resp = self._request(
+            "POST", f"{self._base_url}{path}", is_v3=True, json_body=json_body
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -279,36 +238,29 @@ class InformaticaClient:
         object_type: str,
         tag: Optional[str] = None,
     ) -> Iterator[IdmcObject]:
-        """Paginate through v3 objects of a given type. Yields IdmcObject instances."""
+        """Paginate through v3 objects of a given type."""
         skip = 0
         limit = self.config.page_size
-
         while True:
             q_parts = [f"type=='{object_type}'"]
             if tag:
                 q_parts.append(f"tag=='{tag}'")
-            q = " and ".join(q_parts)
-
             data = self._get_v3(
                 "/public/core/v3/objects",
-                params={"q": q, "limit": limit, "skip": skip},
+                params={"q": " and ".join(q_parts), "limit": limit, "skip": skip},
             )
-
             objects = data if isinstance(data, list) else data.get("objects", [])
             if not objects:
                 break
-
             for obj in objects:
                 yield self._parse_v3_object(obj, object_type)
-
             if len(objects) < limit:
                 break
             skip += limit
 
     @staticmethod
     def _parse_v3_object(data: Dict[str, Any], object_type: str) -> IdmcObject:
-        """Parse a v3 object response into an IdmcObject."""
-        # v3 objects use OData-like nested property format
+        # Some endpoints return nested OData-style `properties`; others return flat JSON.
         if "properties" in data:
             props = {
                 p.get("name", ""): p.get("value")
@@ -327,7 +279,6 @@ class InformaticaClient:
                 update_time=props.get("lastUpdatedTime") or "",
                 raw=data,
             )
-        # Flat JSON format (some endpoints)
         return IdmcObject(
             id=data.get("id", ""),
             name=data.get("name", ""),
@@ -342,15 +293,12 @@ class InformaticaClient:
         )
 
     def list_mappings(self) -> List[IdmcMapping]:
-        """List all mappings via the v2 API."""
         data = self._get_v2("/api/v2/mapping")
         items = data if isinstance(data, list) else [data]
         return [self._parse_v2_mapping(m) for m in items if isinstance(m, dict)]
 
     def get_mapping(self, v2_id: str) -> IdmcMapping:
-        """Get a single mapping by v2 ID."""
-        data = self._get_v2(f"/api/v2/mapping/{v2_id}")
-        return self._parse_v2_mapping(data)
+        return self._parse_v2_mapping(self._get_v2(f"/api/v2/mapping/{v2_id}"))
 
     @staticmethod
     def _parse_v2_mapping(data: Dict[str, Any]) -> IdmcMapping:
@@ -371,7 +319,6 @@ class InformaticaClient:
         )
 
     def list_connections(self) -> List[IdmcConnection]:
-        """List all connections via the v2 API."""
         data = self._get_v2("/api/v2/connection")
         items = data if isinstance(data, list) else [data]
         return [
@@ -379,12 +326,11 @@ class InformaticaClient:
         ]
 
     def get_connection(self, connection_id: str) -> IdmcConnection:
-        """Get a single connection by v2 ID."""
-        data = self._get_v2(f"/api/v2/connection/{connection_id}")
-        return IdmcConnection.from_api_response(data)
+        return IdmcConnection.from_api_response(
+            self._get_v2(f"/api/v2/connection/{connection_id}")
+        )
 
     def list_mapping_tasks(self) -> List[IdmcMappingTask]:
-        """List all mapping tasks via the v2 API."""
         data = self._get_v2("/api/v2/mttask")
         items = data if isinstance(data, list) else [data]
         return [self._parse_v2_mttask(mt) for mt in items if isinstance(mt, dict)]
@@ -410,7 +356,6 @@ class InformaticaClient:
         rows: int = 100,
         run_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Get activity log entries via the v2 API."""
         params: Dict[str, Any] = {"rows": rows}
         if run_id:
             params["runId"] = run_id
@@ -418,7 +363,6 @@ class InformaticaClient:
         return data if isinstance(data, list) else []
 
     def submit_export_job(self, object_ids: List[str]) -> str:
-        """Submit a v3 export job for the given object IDs. Returns the job ID."""
         body = {
             "objects": [
                 {"id": obj_id, "includeDependencies": False} for obj_id in object_ids
@@ -433,7 +377,6 @@ class InformaticaClient:
         return job_id
 
     def poll_export_job(self, job_id: str) -> ExportJobStatus:
-        """Poll the status of an export job."""
         data = self._get_v3(f"/public/core/v3/export/{job_id}")
         status = data.get("status", {})
         return ExportJobStatus(
@@ -443,7 +386,7 @@ class InformaticaClient:
         )
 
     def wait_for_export(self, job_id: str) -> ExportJobStatus:
-        """Poll an export job until it completes or times out."""
+        """Poll until complete or timeout."""
         deadline = time.time() + self.config.export_poll_timeout_secs
         while time.time() < deadline:
             status = self.poll_export_job(job_id)
@@ -453,41 +396,36 @@ class InformaticaClient:
                 self.report.report_export_failed(job_id, status.message)
                 return status
             time.sleep(self.config.export_poll_interval_secs)
-
         self.report.report_export_failed(job_id, "Timed out waiting for export")
         return ExportJobStatus(
             job_id=job_id, state="TIMEOUT", message="Export poll timed out"
         )
 
     def download_and_parse_export(self, job_id: str) -> Iterator[MappingLineageInfo]:
-        """Download an export ZIP and yield MappingLineageInfo for each mapping."""
-        self._ensure_authenticated()
-        assert self._session_id is not None
-
-        url = f"{self._base_url}/public/core/v3/export/{job_id}/package"
-        resp = self._request("GET", url, is_v3=True, stream=True)
+        """Download export ZIP and yield one MappingLineageInfo per mapping."""
+        resp = self._request(
+            "GET",
+            f"{self._base_url}/public/core/v3/export/{job_id}/package",
+            is_v3=True,
+            stream=True,
+        )
         resp.raise_for_status()
-
         with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
             for chunk in resp.iter_content(chunk_size=8192):
                 tmp.write(chunk)
             tmp.flush()
             tmp.seek(0)
-
             try:
                 outer_zip = zipfile.ZipFile(tmp)
             except zipfile.BadZipFile:
                 logger.error("Export package for job %s is not a valid ZIP", job_id)
                 self.report.report_export_failed(job_id, "Invalid ZIP file")
                 return
-
             for entry_name in outer_zip.namelist():
                 if not entry_name.endswith(".DTEMPLATE.zip"):
                     continue
-
                 try:
-                    inner_bytes = outer_zip.read(entry_name)
-                    inner_zip = zipfile.ZipFile(io.BytesIO(inner_bytes))
+                    inner_zip = zipfile.ZipFile(io.BytesIO(outer_zip.read(entry_name)))
                     lineage = self._parse_inner_dtemplate_zip(inner_zip, entry_name)
                     if lineage:
                         yield lineage
@@ -499,7 +437,6 @@ class InformaticaClient:
                         job_id,
                         exc_info=True,
                     )
-
             outer_zip.close()
 
     def _parse_inner_dtemplate_zip(
@@ -507,23 +444,17 @@ class InformaticaClient:
         inner_zip: zipfile.ZipFile,
         entry_name: str,
     ) -> Optional[MappingLineageInfo]:
-        """Parse a .DTEMPLATE.zip to extract lineage from @3.bin."""
+        # @3.bin is the mapping design; @2.bin is a preview image we skip.
         bin_candidates = [n for n in inner_zip.namelist() if n.startswith("bin/@")]
-        # @3.bin is the mapping design; @2.bin is a preview image
-        bin_file = next(
-            (n for n in bin_candidates if n != "bin/@2.bin"),
-            None,
-        )
+        bin_file = next((n for n in bin_candidates if n != "bin/@2.bin"), None)
         if not bin_file:
             logger.debug("No @3.bin found in %s", entry_name)
             return None
-
         raw_bytes = inner_zip.read(bin_file)
         try:
             data = json.loads(raw_bytes.decode("utf-8"))
         except UnicodeDecodeError:
             data = json.loads(raw_bytes.decode("utf-8-sig"))
-
         return self._extract_lineage_from_3bin(data, entry_name)
 
     @staticmethod
@@ -531,48 +462,40 @@ class InformaticaClient:
         data: Dict[str, Any],
         source_label: str,
     ) -> Optional[MappingLineageInfo]:
-        """Extract source/target tables from an @3.bin mapping definition."""
         content = data.get("content")
         if not content:
             logger.warning("Missing 'content' key in @3.bin from %s", source_label)
             return None
-
-        mapping_name = content.get("name", source_label)
         sources: List[LineageTable] = []
         targets: List[LineageTable] = []
-
         for tx in content.get("transformations", []):
             adapter = tx.get("dataAdapter")
             if not adapter:
                 continue
-
             obj = adapter.get("object", {})
-            table = obj.get("name") or obj.get("objectName") or obj.get("label") or ""
-            schema = obj.get("dbSchema") or ""
             conn_id = adapter.get("connectionId", "")
-            # connectionId format: "saas:@{federatedId}" → extract the federatedId
+            # connectionId format: "saas:@{federatedId}" — take the part after '@'.
             fed_id = conn_id.split("@", 1)[-1] if "@" in conn_id else conn_id
-
             lt = LineageTable(
-                table_name=table,
-                schema_name=schema,
+                table_name=obj.get("name")
+                or obj.get("objectName")
+                or obj.get("label")
+                or "",
+                schema_name=obj.get("dbSchema") or "",
                 connection_federated_id=fed_id,
                 transformation_name=tx.get("name", ""),
             )
-
             tx_class = tx.get("$$class")
             tx_name = tx.get("name", "").lower()
             if tx_class == 9 or "source" in tx_name:
                 sources.append(lt)
             elif tx_class == 8 or "target" in tx_name:
                 targets.append(lt)
-
         if not sources and not targets:
             return None
-
         return MappingLineageInfo(
-            mapping_id="",  # Filled later by caller
-            mapping_name=mapping_name,
+            mapping_id="",
+            mapping_name=content.get("name", source_label),
             source_tables=sources,
             target_tables=targets,
         )

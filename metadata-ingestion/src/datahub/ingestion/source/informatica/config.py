@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 ORCHESTRATOR = "informatica"
 
-# IDMC connection type → DataHub platform mapping.
-# The key is the value of connParams["Connection Type"] from the v2 connection API.
+# IDMC connParams["Connection Type"] → DataHub platform.
 CONNECTION_TYPE_MAP: Dict[str, str] = {
     "Oracle": "oracle",
     "Snowflake_Cloud_Data_Warehouse": "snowflake",

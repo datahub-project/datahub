@@ -6,8 +6,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.utilities.lossy_collections import LossyList
 
-# ── API response dataclasses ──
-
 
 @dataclass
 class IdmcObject:
@@ -119,9 +117,6 @@ class ExportJobStatus:
     job_id: str
     state: str  # IN_PROGRESS, SUCCESSFUL, FAILED
     message: str = ""
-
-
-# ── Source report ──
 
 
 @dataclass
