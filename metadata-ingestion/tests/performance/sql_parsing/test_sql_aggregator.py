@@ -149,7 +149,6 @@ def run_configuration(
     return elapsed_time
 
 
-@pytest.mark.integration
 # adding retries to mitigate flakiness in CI env
 @pytest.mark.flaky(reruns=5)
 def test_benchmark(pytestconfig: pytest.Config) -> None:

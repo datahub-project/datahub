@@ -191,13 +191,13 @@ def parse_custom_sql(
     # Log every call that grew RSS, and periodic summary every 50 calls
     if rss_delta > 1.0:
         logger.info(
-            f"[MEM] SQLGLOT-LEAK | call#{_sqlglot_call_count} | "
+            f"[MEM1] SQLGLOT-LEAK | call#{_sqlglot_call_count} | "
             f"RSS={rss_before:.0f}->{rss_after:.0f}MB(+{rss_delta:.1f}) | "
             f"{elapsed:.2f}s | query_len={len(query)}"
         )
     if _sqlglot_call_count % 50 == 0:
         logger.info(
-            f"[MEM] SQLGLOT-PROGRESS | "
+            f"[MEM1] SQLGLOT-PROGRESS | "
             f"calls={_sqlglot_call_count} | "
             f"cumulative_rss_delta={_sqlglot_total_rss_delta:+.1f}MB | "
             f"RSS={rss_after:.0f}MB"

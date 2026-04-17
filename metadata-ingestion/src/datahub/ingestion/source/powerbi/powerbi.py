@@ -1938,26 +1938,32 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         logger.info("PowerBi plugin execution is started")
         self.validate_dataset_type_mapping()
 
-        # --- [MEM] Startup diagnostics ---
+        # --- [MEM1] Startup diagnostics ---
         rss_start = _get_rss_mb()
         sqlglot_c = "unknown"
         try:
-            import importlib
-            sqlglot_c = "YES(LEAK!)" if importlib.util.find_spec("_sqlglotc") or importlib.util.find_spec("sqlglotc") else "no(pure-python)"
             import sqlglot
             sqlglot_ver = getattr(sqlglot, "__version__", "?")
+            # Check if the Expression class comes from a .so file (mypyc-compiled)
+            expr_file = sys.modules.get("sqlglot.expressions.core", sys.modules.get("sqlglot.expressions", object))
+            expr_path = getattr(expr_file, "__file__", "")
+            if expr_path.endswith(".so") or expr_path.endswith(".pyd"):
+                sqlglot_c = "YES_C_LOADED(.so)"
+            else:
+                sqlglot_c = "no(pure-python .py)"
         except Exception:
             sqlglot_ver = "?"
         logger.info(
-            f"[MEM] === STARTUP === "
+            f"[MEM1] === STARTUP === "
             f"python={sys.version.split()[0]} sqlglot={sqlglot_ver} sqlglot_c={sqlglot_c} "
+            f"expr_file={expr_path} "
             f"RSS={rss_start:.0f}MB pid={__import__('os').getpid()}"
         )
 
         allowed_workspaces = self.get_allowed_workspaces()
         total_ws = len(allowed_workspaces)
         logger.info(
-            f"[MEM] === PHASE 1 START === "
+            f"[MEM1] === PHASE 1 START === "
             f"total_workspaces={total_ws} batch_size={self.source_config.scan_batch_size} "
             f"use_scan_result_only={self.source_config.use_scan_result_only} "
             f"extract_lineage={self.source_config.extract_lineage} "
@@ -2008,7 +2014,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     ws_details.append(f"{ws.name}:{ds_count}ds/{tbl_in_ws}tbl/sr={sr_cleared}")
 
             logger.info(
-                f"[MEM] P1-BATCH {batch_num}/{(total_ws + self.source_config.scan_batch_size - 1) // self.source_config.scan_batch_size} | "
+                f"[MEM1] P1-BATCH {batch_num}/{(total_ws + self.source_config.scan_batch_size - 1) // self.source_config.scan_batch_size} | "
                 f"{cumulative_ws}/{total_ws}ws | "
                 f"registry={reg_count}ds/{tbl_count}tbl/{col_count}col | "
                 f"RSS={rss_before:.0f}->{rss_after:.0f}MB(+{rss_after - rss_before:.0f}) | "
@@ -2016,7 +2022,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             )
             # Log per-workspace details for each batch
             for detail in ws_details:
-                logger.info(f"[MEM] P1-WS-DETAIL | {detail}")
+                logger.info(f"[MEM1] P1-WS-DETAIL | {detail}")
 
         # --- Phase 1 complete ---
         gc.collect()
@@ -2038,7 +2044,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.mem_peak_rss_mb = max(self.reporter.mem_peak_rss_mb, rss_p1_done)
 
         logger.info(
-            f"[MEM] === PHASE 1 COMPLETE === "
+            f"[MEM1] === PHASE 1 COMPLETE === "
             f"scanned={cumulative_ws}/{total_ws}ws | "
             f"registry={reg_count}ds/{tbl_count}tbl/{col_count}col | "
             f"scan_result_retained={sr_retained_count}ws | "
@@ -2054,7 +2060,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             key=lambda x: x[1], reverse=True
         )[:10]
         for name, ds, tbl in ws_by_ds:
-            logger.info(f"[MEM] P1-TOP-WS | {name}: {ds}ds {tbl}tbl")
+            logger.info(f"[MEM1] P1-TOP-WS | {name}: {ds}ds {tbl}tbl")
 
         # Filter out inactive workspaces
         allowed_workspaces = [
@@ -2063,7 +2069,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         active_count = len(allowed_workspaces)
 
         logger.info(
-            f"[MEM] === PHASE 2 START === "
+            f"[MEM1] === PHASE 2 START === "
             f"{active_count} active workspaces to emit | "
             f"RSS={_get_rss_mb():.0f}MB"
         )
@@ -2082,7 +2088,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             rpt_count = len(workspace.reports)
 
             logger.info(
-                f"[MEM] P2-FILL | {workspace.name} | "
+                f"[MEM1] P2-FILL | {workspace.name} | "
                 f"{ds_count}ds {dash_count}dash {rpt_count}rpt | "
                 f"RSS={rss_before_fill:.0f}->{rss_after_fill:.0f}MB(+{rss_after_fill - rss_before_fill:.0f})"
             )
@@ -2118,7 +2124,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.mem_peak_rss_mb = max(self.reporter.mem_peak_rss_mb, rss_after_emit)
 
             logger.info(
-                f"[MEM] P2-EMIT | {workspace.name} | "
+                f"[MEM1] P2-EMIT | {workspace.name} | "
                 f"{mcp_count}mcps {elapsed:.1f}s | "
                 f"RSS={rss_before_emit:.0f}->{rss_after_emit:.0f}MB(+{rss_after_emit - rss_before_emit:.0f}) | "
                 f"progress={ws_emitted}/{active_count}({ws_emitted * 100 / active_count:.1f}%)"
@@ -2130,7 +2136,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     f"{ws_emitted}/{active_count}ws rss={rss_after_emit:.0f}MB"
                 )
                 logger.info(
-                    f"[MEM] P2-SUMMARY | "
+                    f"[MEM1] P2-SUMMARY | "
                     f"{ws_emitted}/{active_count}ws emitted | "
                     f"registry={len(self.powerbi_client.dataset_registry)}ds | "
                     f"RSS={rss_after_emit:.0f}MB peak={self.reporter.mem_peak_rss_mb:.0f}MB | "
@@ -2141,7 +2147,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         logger.info(
-            f"[MEM] === PHASE 2 COMPLETE === "
+            f"[MEM1] === PHASE 2 COMPLETE === "
             f"{ws_emitted}/{active_count}ws emitted | "
             f"RSS={_get_rss_mb():.0f}MB peak={self.reporter.mem_peak_rss_mb:.0f}MB"
         )

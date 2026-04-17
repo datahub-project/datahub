@@ -195,14 +195,14 @@ def get_upstream_tables(
         _parse_elapsed = __import__("time").time() - _parse_t0
         if _parse_elapsed > 5.0:
             logger.info(
-                f"[MEM] LINEAGE-SLOW | {table.full_name} | {_parse_elapsed:.1f}s | "
+                f"[MEM1] LINEAGE-SLOW | {table.full_name} | {_parse_elapsed:.1f}s | "
                 f"{len(lineages)} upstreams"
             )
         if reporter.m_query_parse_attempts % 100 == 0:
             try:
                 from datahub.ingestion.source.powerbi.config import _get_rss_mb
                 logger.info(
-                    f"[MEM] LINEAGE-PROGRESS | "
+                    f"[MEM1] LINEAGE-PROGRESS | "
                     f"attempts={reporter.m_query_parse_attempts} "
                     f"ok={reporter.m_query_parse_successes} "
                     f"err={reporter.m_query_parse_unknown_errors} "

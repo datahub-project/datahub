@@ -543,7 +543,7 @@ class PowerBiAPI:
                 for w in scan_result.get("workspaces", [])
             )
             logger.info(
-                f"[MEM] Scan result: {ws_count} workspaces, {ds_count} datasets, "
+                f"[MEM1] Scan result: {ws_count} workspaces, {ds_count} datasets, "
                 f"json.dumps size={len(pretty_json) / (1024 * 1024):.1f}MB"
             )
 
@@ -893,7 +893,7 @@ class PowerBiAPI:
         scan_result = self._get_scan_result(list(workspaces_by_id.keys()))
         rss_after_scan = _get_rss_mb()
         logger.info(
-            f"[MEM] SCAN-API | {len(workspaces_by_id)} ws requested | "
+            f"[MEM1] SCAN-API | {len(workspaces_by_id)} ws requested | "
             f"RSS={rss_before_scan:.0f}->{rss_after_scan:.0f}MB(+{rss_after_scan - rss_before_scan:.0f})"
         )
         if not scan_result:
@@ -967,7 +967,7 @@ class PowerBiAPI:
             rpt_count = len(cur_workspace.reports) if cur_workspace.reports else 0
             dash_count = len(cur_workspace.dashboards) if cur_workspace.dashboards else 0
             logger.info(
-                f"[MEM] P1-PARSE | {cur_workspace.name} | "
+                f"[MEM1] P1-PARSE | {cur_workspace.name} | "
                 f"{ds_count}ds {tbl_count}tbl {rpt_count}rpt {dash_count}dash | "
                 f"scan_result={'cleared' if not cur_workspace.scan_result else 'RETAINED'} | "
                 f"registry_total={len(self.dataset_registry)}"
