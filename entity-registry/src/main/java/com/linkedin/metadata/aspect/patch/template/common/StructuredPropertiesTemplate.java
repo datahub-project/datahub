@@ -5,7 +5,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 
 public class StructuredPropertiesTemplate implements ArrayMergingTemplate<StructuredProperties> {
@@ -40,13 +41,17 @@ public class StructuredPropertiesTemplate implements ArrayMergingTemplate<Struct
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
     return arrayFieldToMap(
-        baseNode, PROPERTIES_FIELD_NAME, List.of(URN_FIELD_NAME, ATTRIBUTION_SOURCE));
+        baseNode,
+        PROPERTIES_FIELD_NAME,
+        Collections.unmodifiableList(Arrays.asList(URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
     return transformedMapToArray(
-        patched, PROPERTIES_FIELD_NAME, List.of(URN_FIELD_NAME, ATTRIBUTION_SOURCE));
+        patched,
+        PROPERTIES_FIELD_NAME,
+        Collections.unmodifiableList(Arrays.asList(URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
   }
 }

@@ -5,7 +5,8 @@ import com.linkedin.common.Documentation;
 import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 
 public class DocumentationTemplate implements ArrayMergingTemplate<Documentation> {
@@ -36,12 +37,18 @@ public class DocumentationTemplate implements ArrayMergingTemplate<Documentation
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    return arrayFieldToMap(baseNode, DOCUMENTATIONS_FIELD_NAME, List.of(ATTRIBUTION_SOURCE));
+    return arrayFieldToMap(
+        baseNode,
+        DOCUMENTATIONS_FIELD_NAME,
+        Collections.unmodifiableList(Arrays.asList(ATTRIBUTION_SOURCE)));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
-    return transformedMapToArray(patched, DOCUMENTATIONS_FIELD_NAME, List.of(ATTRIBUTION_SOURCE));
+    return transformedMapToArray(
+        patched,
+        DOCUMENTATIONS_FIELD_NAME,
+        Collections.unmodifiableList(Arrays.asList(ATTRIBUTION_SOURCE)));
   }
 }

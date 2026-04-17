@@ -71,8 +71,8 @@ jobs:
           RUN_ALL: ${{ steps.ci.outputs.run_all_integration }}
           TEST_MATRIX: ${{ steps.ci.outputs.test_matrix }}
         run: |
-          # testQuick always runs (both Python versions)
-          BASE='[{"python-version":"3.11","command":"testQuick"},{"python-version":"3.10","command":"testQuick"},{"python-version":"3.12","command":"testQuick"}]'
+          # testQuick always runs (all Python versions) + testPerformance (3.11 only)
+          BASE='[{"python-version":"3.11","command":"testQuick"},{"python-version":"3.10","command":"testQuick"},{"python-version":"3.12","command":"testQuick"},{"python-version":"3.11","command":"testPerformance"}]'
 
           if [ "$RUN_ALL" = "true" ]; then
             # Full static batch list

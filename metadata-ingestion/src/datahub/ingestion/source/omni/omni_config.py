@@ -8,6 +8,9 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -19,6 +22,11 @@ class OmniSourceConfig(
     EnvConfigMixin,
 ):
     """Configuration for the Omni BI platform DataHub source."""
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion configuration for tracking processed entities and removing stale metadata.",
+    )
 
     base_url: str = Field(
         description=(
