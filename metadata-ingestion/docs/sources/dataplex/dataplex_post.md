@@ -3,14 +3,14 @@
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 :::caution
-The Dataplex connector will overwrite metadata from other Google Cloud source connectors (BigQuery, GCS, etc.) if they extract the same entities. If you're running multiple Google Cloud connectors, be aware that the last connector to run will determine the final metadata state for overlapping entities.
+The Google Cloud Knowledge Catalog (Dataplex) connector will overwrite metadata from other Google Cloud source connectors (BigQuery, GCS, etc.) if they extract the same entities. If you're running multiple Google Cloud connectors, be aware that the last connector to run will determine the final metadata state for overlapping entities.
 :::
 
 #### Platform Alignment
 
-Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `bigquery`, `gcs`). This means:
+Datasets discovered use the same URNs as native connectors (e.g., `bigquery`, `gcs`). This means:
 
-- **No Duplication**: Dataplex and native BigQuery/GCS connectors can run together - entities discovered by both will merge
+- **No Duplication**: Google Cloud Knowledge Catalog (Dataplex) and native BigQuery/GCS connectors can run together - entities discovered by both will merge
 - **Native Containers**: BigQuery tables appear in their native dataset containers
 - **Unified View**: Users see a single view of all datasets regardless of discovery method
 
@@ -18,18 +18,18 @@ Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `b
 
 The connector adds the following custom properties to datasets:
 
-| Property                        | Always Present | Description                                                                |
-| ------------------------------- | -------------- | -------------------------------------------------------------------------- |
-| `dataplex_ingested`             | Yes            | Marker indicating the dataset was ingested via Dataplex                    |
-| `dataplex_entry_id`             | Yes            | The entry identifier in Dataplex                                           |
-| `dataplex_entry_group`          | Yes            | The entry group containing this entry                                      |
-| `dataplex_fully_qualified_name` | Yes            | The fully qualified name of the entry                                      |
-| `dataplex_entry_type`           | No             | The Dataplex entry type (e.g. `bigquery-table`)                            |
-| `dataplex_parent_entry`         | No             | The parent entry name, if set                                              |
-| `dataplex_source_resource`      | No             | The source resource identifier from the entry source                       |
-| `dataplex_source_system`        | No             | The source system from the entry source                                    |
-| `dataplex_source_platform`      | No             | The source platform from the entry source                                  |
-| `dataplex_aspect_<aspect_type>` | No             | One property per aspect attached to the entry, named after the aspect type |
+| Property                        | Always Present | Description                                                                              |
+| ------------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
+| `dataplex_ingested`             | Yes            | Marker indicating the dataset was ingested via Google Cloud Knowledge Catalog (Dataplex) |
+| `dataplex_entry_id`             | Yes            | The entry identifier in Google Cloud Knowledge Catalog (Dataplex)                        |
+| `dataplex_entry_group`          | Yes            | The entry group containing this entry                                                    |
+| `dataplex_fully_qualified_name` | Yes            | The fully qualified name of the entry                                                    |
+| `dataplex_entry_type`           | No             | The Google Cloud Knowledge Catalog (Dataplex) entry type (e.g. `bigquery-table`)         |
+| `dataplex_parent_entry`         | No             | The parent entry name, if set                                                            |
+| `dataplex_source_resource`      | No             | The source resource identifier from the entry source                                     |
+| `dataplex_source_system`        | No             | The source system from the entry source                                                  |
+| `dataplex_source_platform`      | No             | The source platform from the entry source                                                |
+| `dataplex_aspect_<aspect_type>` | No             | One property per aspect attached to the entry, named after the aspect type               |
 
 #### Filtering Configuration
 
@@ -56,7 +56,7 @@ source:
 
 #### Lineage
 
-When `include_lineage` is enabled and proper permissions are granted, the connector extracts **table-level lineage** using the Dataplex Lineage API. Dataplex automatically tracks lineage from these Google Cloud systems:
+When `include_lineage` is enabled and proper permissions are granted, the connector extracts **table-level lineage** using the Dataplex Lineage API. The connector automatically tracks lineage from these Google Cloud systems:
 
 **Supported Systems:**
 
@@ -73,18 +73,17 @@ Only **BigQuery** lineage has been thoroughly tested with this connector. Lineag
 
 **Not Supported:**
 
-- **Column-level lineage**: The connector extracts only table-level lineage (column-level lineage is available in Dataplex but not exposed through this connector)
+- **Column-level lineage**: The connector extracts only table-level lineage (column-level lineage is available in Dataplex Lineage API but not exposed through this connector)
 - **Custom sources**: Only Google Cloud systems with automatic lineage tracking are supported
 - **BigQuery Data Transfer Service**: Recurring loads are not automatically tracked
 
 **Lineage Limitations:**
 
-- Lineage data is retained for 30 days in Dataplex
+- Lineage data is retained for 30 days in Google Cloud Knowledge Catalog (Dataplex)
 - Lineage may take up to 24 hours to appear after job completion
-- Cross-region lineage is not supported by Dataplex
 - Lineage is only available for entries with active lineage tracking enabled
 
-For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
+For more details, see [Google Cloud Knowledge Catalog (Dataplex) Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
 #### Configuration Options
 
