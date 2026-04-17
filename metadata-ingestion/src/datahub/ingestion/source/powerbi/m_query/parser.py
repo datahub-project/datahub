@@ -91,6 +91,7 @@ def get_upstream_tables(
         return []
 
     reporter.m_query_parse_attempts += 1
+    _parse_t0 = __import__("time").time()
 
     try:
         with reporter.m_query_parse_timer:
@@ -189,6 +190,27 @@ def get_upstream_tables(
                     table.full_name,
                     expression,
                 )
+
+        # Log slow parses and periodic progress
+        _parse_elapsed = __import__("time").time() - _parse_t0
+        if _parse_elapsed > 5.0:
+            logger.info(
+                f"[MEM] LINEAGE-SLOW | {table.full_name} | {_parse_elapsed:.1f}s | "
+                f"{len(lineages)} upstreams"
+            )
+        if reporter.m_query_parse_attempts % 100 == 0:
+            try:
+                from datahub.ingestion.source.powerbi.config import _get_rss_mb
+                logger.info(
+                    f"[MEM] LINEAGE-PROGRESS | "
+                    f"attempts={reporter.m_query_parse_attempts} "
+                    f"ok={reporter.m_query_parse_successes} "
+                    f"err={reporter.m_query_parse_unknown_errors} "
+                    f"timeout={reporter.m_query_parse_timeouts} | "
+                    f"RSS={_get_rss_mb():.0f}MB"
+                )
+            except Exception:
+                pass
 
         return lineages
 

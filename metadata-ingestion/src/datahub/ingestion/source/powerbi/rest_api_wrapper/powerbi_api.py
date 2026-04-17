@@ -530,8 +530,22 @@ class PowerBiAPI:
 
         # Scan is complete lets take the result
         scan_result = self.__admin_api_resolver.get_scan_result(scan_id=scan_id)
+
+        # Original json.dumps kept intentionally — measuring its memory impact
         pretty_json: str = json.dumps(scan_result, indent=1)
         logger.debug(f"scan result = {pretty_json}")
+
+        # Log scan result stats + json.dumps size for memory debugging
+        if scan_result:
+            ws_count = len(scan_result.get("workspaces", []))
+            ds_count = sum(
+                len(w.get("datasets", []))
+                for w in scan_result.get("workspaces", [])
+            )
+            logger.info(
+                f"[MEM] Scan result: {ws_count} workspaces, {ds_count} datasets, "
+                f"json.dumps size={len(pretty_json) / (1024 * 1024):.1f}MB"
+            )
 
         return scan_result
 
@@ -872,8 +886,16 @@ class PowerBiAPI:
         (active and not filtered). The caller should use this to filter out
         inactive workspaces before Phase 2.
         """
+        from datahub.ingestion.source.powerbi.config import _get_rss_mb
+
         workspaces_by_id = {workspace.id: workspace for workspace in workspaces}
+        rss_before_scan = _get_rss_mb()
         scan_result = self._get_scan_result(list(workspaces_by_id.keys()))
+        rss_after_scan = _get_rss_mb()
+        logger.info(
+            f"[MEM] SCAN-API | {len(workspaces_by_id)} ws requested | "
+            f"RSS={rss_before_scan:.0f}->{rss_after_scan:.0f}MB(+{rss_after_scan - rss_before_scan:.0f})"
+        )
         if not scan_result:
             return set()
 
@@ -938,6 +960,18 @@ class PowerBiAPI:
             # Free the raw scan result — all needed data has been extracted
             # into lightweight parsed fields. This will save memory for large workspaces
             cur_workspace.scan_result = {}
+
+            # Log per-workspace parse results
+            ds_count = len(cur_workspace.datasets)
+            tbl_count = sum(len(d.tables) for d in cur_workspace.datasets.values())
+            rpt_count = len(cur_workspace.reports) if cur_workspace.reports else 0
+            dash_count = len(cur_workspace.dashboards) if cur_workspace.dashboards else 0
+            logger.info(
+                f"[MEM] P1-PARSE | {cur_workspace.name} | "
+                f"{ds_count}ds {tbl_count}tbl {rpt_count}rpt {dash_count}dash | "
+                f"scan_result={'cleared' if not cur_workspace.scan_result else 'RETAINED'} | "
+                f"registry_total={len(self.dataset_registry)}"
+            )
 
         return scanned_ids
 

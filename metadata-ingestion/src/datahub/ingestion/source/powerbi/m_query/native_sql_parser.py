@@ -132,6 +132,10 @@ def remove_drop_statement(query: str) -> str:
     return remove_tsql_control_statements(query)
 
 
+_sqlglot_call_count: int = 0
+_sqlglot_total_rss_delta: float = 0.0
+
+
 def parse_custom_sql(
     ctx: PipelineContext,
     query: str,
@@ -141,8 +145,16 @@ def parse_custom_sql(
     env: str,
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
+    global _sqlglot_call_count, _sqlglot_total_rss_delta
     logger.debug("Using sqlglot_lineage to parse custom sql")
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
+
+    import time as _time
+
+    from datahub.ingestion.source.powerbi.config import _get_rss_mb
+
+    rss_before = _get_rss_mb()
+    t0 = _time.time()
 
     # Blank-line-separated SELECTs appear after DROP TABLE stripping removes the DDL
     # between statements, leaving no semicolons. Insert them so the multi-statement
@@ -168,6 +180,27 @@ def parse_custom_sql(
             platform_instance=platform_instance,
             env=env,
             graph=ctx.graph,
+        )
+
+    elapsed = _time.time() - t0
+    rss_after = _get_rss_mb()
+    rss_delta = rss_after - rss_before
+    _sqlglot_call_count += 1
+    _sqlglot_total_rss_delta += rss_delta
+
+    # Log every call that grew RSS, and periodic summary every 50 calls
+    if rss_delta > 1.0:
+        logger.info(
+            f"[MEM] SQLGLOT-LEAK | call#{_sqlglot_call_count} | "
+            f"RSS={rss_before:.0f}->{rss_after:.0f}MB(+{rss_delta:.1f}) | "
+            f"{elapsed:.2f}s | query_len={len(query)}"
+        )
+    if _sqlglot_call_count % 50 == 0:
+        logger.info(
+            f"[MEM] SQLGLOT-PROGRESS | "
+            f"calls={_sqlglot_call_count} | "
+            f"cumulative_rss_delta={_sqlglot_total_rss_delta:+.1f}MB | "
+            f"RSS={rss_after:.0f}MB"
         )
 
     return result

@@ -4,7 +4,10 @@
 #
 #########################################################
 import functools
+import gc
 import logging
+import sys
+import time
 from datetime import datetime
 from typing import Iterable, List, Optional, Tuple, Union
 
@@ -1930,56 +1933,218 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         """
         Datahub Ingestion framework invokes this method
         """
+        from datahub.ingestion.source.powerbi.config import _get_rss_mb
+
         logger.info("PowerBi plugin execution is started")
-        # Validate dataset type mapping
         self.validate_dataset_type_mapping()
-        # Fetch PowerBi workspace for given workspace identifier
+
+        # --- [MEM] Startup diagnostics ---
+        rss_start = _get_rss_mb()
+        sqlglot_c = "unknown"
+        try:
+            import importlib
+            sqlglot_c = "YES(LEAK!)" if importlib.util.find_spec("_sqlglotc") or importlib.util.find_spec("sqlglotc") else "no(pure-python)"
+            import sqlglot
+            sqlglot_ver = getattr(sqlglot, "__version__", "?")
+        except Exception:
+            sqlglot_ver = "?"
+        logger.info(
+            f"[MEM] === STARTUP === "
+            f"python={sys.version.split()[0]} sqlglot={sqlglot_ver} sqlglot_c={sqlglot_c} "
+            f"RSS={rss_start:.0f}MB pid={__import__('os').getpid()}"
+        )
 
         allowed_workspaces = self.get_allowed_workspaces()
+        total_ws = len(allowed_workspaces)
+        logger.info(
+            f"[MEM] === PHASE 1 START === "
+            f"total_workspaces={total_ws} batch_size={self.source_config.scan_batch_size} "
+            f"use_scan_result_only={self.source_config.use_scan_result_only} "
+            f"extract_lineage={self.source_config.extract_lineage} "
+            f"RSS={_get_rss_mb():.0f}MB"
+        )
 
-        # Phase 1: Scan all batches to populate datasets and dataset_registry
-        # so that cross-workspace references resolve correctly in Phase 2.
+        # Phase 1: Scan all batches — loads ALL workspace data into memory
         active_workspace_ids: set = set()
         batches = more_itertools.chunked(
             allowed_workspaces, self.source_config.scan_batch_size
         )
-        for batch_workspaces in batches:
+        cumulative_ws = 0
+        for batch_num, batch_workspaces in enumerate(batches, 1):
+            rss_before = _get_rss_mb()
+            t0 = time.time()
             scanned_ids = self.powerbi_client.fill_metadata_from_scan_result(
                 batch_workspaces
             )
+            elapsed = time.time() - t0
             active_workspace_ids.update(scanned_ids)
+            cumulative_ws += len(scanned_ids)
 
-        # Filter out workspaces that were inactive/filtered during scan
+            gc.collect()
+            rss_after = _get_rss_mb()
+            reg = self.powerbi_client.dataset_registry
+            reg_count = len(reg)
+
+            # Count tables in registry (expensive but critical data)
+            tbl_count = sum(len(d.tables) for d in reg.values())
+            col_count = sum(
+                sum(len(t.columns or []) for t in d.tables)
+                for d in reg.values()
+            )
+            self.reporter.mem_peak_rss_mb = max(self.reporter.mem_peak_rss_mb, rss_after)
+            self.reporter.mem_phase1_batch_rss.append(
+                f"b{batch_num}:{cumulative_ws}/{total_ws}ws "
+                f"reg={reg_count}ds/{tbl_count}tbl/{col_count}col "
+                f"rss={rss_after:.0f}MB(+{rss_after - rss_before:.0f}) {elapsed:.1f}s"
+            )
+
+            # Per-workspace dataset counts for this batch
+            ws_details = []
+            for ws in batch_workspaces:
+                if ws.id in scanned_ids:
+                    ds_count = len(ws.datasets)
+                    tbl_in_ws = sum(len(d.tables) for d in ws.datasets.values())
+                    sr_cleared = "cleared" if not ws.scan_result else f"RETAINED({len(ws.scan_result)}keys)"
+                    ws_details.append(f"{ws.name}:{ds_count}ds/{tbl_in_ws}tbl/sr={sr_cleared}")
+
+            logger.info(
+                f"[MEM] P1-BATCH {batch_num}/{(total_ws + self.source_config.scan_batch_size - 1) // self.source_config.scan_batch_size} | "
+                f"{cumulative_ws}/{total_ws}ws | "
+                f"registry={reg_count}ds/{tbl_count}tbl/{col_count}col | "
+                f"RSS={rss_before:.0f}->{rss_after:.0f}MB(+{rss_after - rss_before:.0f}) | "
+                f"{elapsed:.1f}s"
+            )
+            # Log per-workspace details for each batch
+            for detail in ws_details:
+                logger.info(f"[MEM] P1-WS-DETAIL | {detail}")
+
+        # --- Phase 1 complete ---
+        gc.collect()
+        rss_p1_done = _get_rss_mb()
+        reg = self.powerbi_client.dataset_registry
+        reg_count = len(reg)
+        tbl_count = sum(len(d.tables) for d in reg.values())
+        col_count = sum(
+            sum(len(t.columns or []) for t in d.tables)
+            for d in reg.values()
+        )
+
+        # Check scan_result retention across all workspaces
+        sr_retained_count = sum(1 for ws in allowed_workspaces if ws.scan_result)
+        ws_with_data = sum(1 for ws in allowed_workspaces if ws.datasets)
+
+        self.reporter.mem_rss_after_phase1_mb = rss_p1_done
+        self.reporter.mem_dataset_registry_count = reg_count
+        self.reporter.mem_peak_rss_mb = max(self.reporter.mem_peak_rss_mb, rss_p1_done)
+
+        logger.info(
+            f"[MEM] === PHASE 1 COMPLETE === "
+            f"scanned={cumulative_ws}/{total_ws}ws | "
+            f"registry={reg_count}ds/{tbl_count}tbl/{col_count}col | "
+            f"scan_result_retained={sr_retained_count}ws | "
+            f"ws_with_datasets={ws_with_data} | "
+            f"RSS={rss_p1_done:.0f}MB | "
+            f"ALL DATA NOW IN MEMORY"
+        )
+
+        # Top 10 workspaces by dataset count
+        ws_by_ds = sorted(
+            [(ws.name, len(ws.datasets), sum(len(d.tables) for d in ws.datasets.values()))
+             for ws in allowed_workspaces if ws.datasets],
+            key=lambda x: x[1], reverse=True
+        )[:10]
+        for name, ds, tbl in ws_by_ds:
+            logger.info(f"[MEM] P1-TOP-WS | {name}: {ds}ds {tbl}tbl")
+
+        # Filter out inactive workspaces
         allowed_workspaces = [
             ws for ws in allowed_workspaces if ws.id in active_workspace_ids
         ]
+        active_count = len(allowed_workspaces)
 
-        # Phase 2: Fill remaining metadata per workspace and yield workunits.
-        # The dataset_registry is now complete, so all cross-workspace
-        # references (including forward refs to later batches) resolve.
+        logger.info(
+            f"[MEM] === PHASE 2 START === "
+            f"{active_count} active workspaces to emit | "
+            f"RSS={_get_rss_mb():.0f}MB"
+        )
+
+        # Phase 2: Fill remaining metadata + emit one workspace at a time
+        ws_emitted = 0
         for workspace in allowed_workspaces:
-            logger.info(f"Processing workspace id: {workspace.id}")
+            t0 = time.time()
+            rss_before_fill = _get_rss_mb()
+
             self.powerbi_client.fill_regular_metadata_detail(workspace=workspace)
 
+            rss_after_fill = _get_rss_mb()
+            ds_count = len(workspace.datasets)
+            dash_count = len(workspace.dashboards)
+            rpt_count = len(workspace.reports)
+
+            logger.info(
+                f"[MEM] P2-FILL | {workspace.name} | "
+                f"{ds_count}ds {dash_count}dash {rpt_count}rpt | "
+                f"RSS={rss_before_fill:.0f}->{rss_after_fill:.0f}MB(+{rss_after_fill - rss_before_fill:.0f})"
+            )
+
+            # Emit workunits
+            mcp_count = 0
+            rss_before_emit = _get_rss_mb()
+
             if self.source_config.modified_since:
-                # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                # Because job_id is used as a dictionary key, we have to set a new job_id
-                # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                 self.stale_entity_removal_handler.set_job_id(workspace.id)
                 self.state_provider.register_stateful_ingestion_usecase_handler(
                     self.stale_entity_removal_handler
                 )
-
-                yield from self._apply_workunit_processors(
+                for wu in self._apply_workunit_processors(
                     [
                         *super().get_workunit_processors(),
                         self.stale_entity_removal_handler.workunit_processor,
                     ],
                     self.get_workspace_workunit(workspace),
-                )
+                ):
+                    mcp_count += 1
+                    yield wu
             else:
-                # Maintain backward compatibility
-                yield from self.get_workspace_workunit(workspace)
+                for wu in self.get_workspace_workunit(workspace):
+                    mcp_count += 1
+                    yield wu
+
+            ws_emitted += 1
+            elapsed = time.time() - t0
+            gc.collect()
+            rss_after_emit = _get_rss_mb()
+            self.reporter.mem_phase2_workspaces_emitted = ws_emitted
+            self.reporter.mem_peak_rss_mb = max(self.reporter.mem_peak_rss_mb, rss_after_emit)
+
+            logger.info(
+                f"[MEM] P2-EMIT | {workspace.name} | "
+                f"{mcp_count}mcps {elapsed:.1f}s | "
+                f"RSS={rss_before_emit:.0f}->{rss_after_emit:.0f}MB(+{rss_after_emit - rss_before_emit:.0f}) | "
+                f"progress={ws_emitted}/{active_count}({ws_emitted * 100 / active_count:.1f}%)"
+            )
+
+            # Detailed summary every 10 workspaces
+            if ws_emitted % 10 == 0:
+                self.reporter.mem_phase2_rss_samples.append(
+                    f"{ws_emitted}/{active_count}ws rss={rss_after_emit:.0f}MB"
+                )
+                logger.info(
+                    f"[MEM] P2-SUMMARY | "
+                    f"{ws_emitted}/{active_count}ws emitted | "
+                    f"registry={len(self.powerbi_client.dataset_registry)}ds | "
+                    f"RSS={rss_after_emit:.0f}MB peak={self.reporter.mem_peak_rss_mb:.0f}MB | "
+                    f"m_query_parses={self.reporter.m_query_parse_attempts} "
+                    f"(ok={self.reporter.m_query_parse_successes} "
+                    f"err={self.reporter.m_query_parse_unknown_errors} "
+                    f"timeout={self.reporter.m_query_parse_timeouts})"
+                )
+
+        logger.info(
+            f"[MEM] === PHASE 2 COMPLETE === "
+            f"{ws_emitted}/{active_count}ws emitted | "
+            f"RSS={_get_rss_mb():.0f}MB peak={self.reporter.mem_peak_rss_mb:.0f}MB"
+        )
 
     def get_report(self) -> SourceReport:
         return self.reporter

@@ -230,6 +230,18 @@ class SupportedDataPlatform(Enum):
     )
 
 
+def _get_rss_mb() -> float:
+    """Current process RSS in MB. Safe on all platforms."""
+    try:
+        import resource
+        import sys as _sys
+
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return (rss if _sys.platform == "darwin" else rss * 1024) / (1024 * 1024)
+    except Exception:
+        return 0.0
+
+
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     all_workspace_count: int = 0
@@ -244,6 +256,16 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     charts_scanned: int = 0
     filtered_dashboards: LossyList[str] = dataclass_field(default_factory=LossyList)
     filtered_charts: LossyList[str] = dataclass_field(default_factory=LossyList)
+
+    # Memory debugging — these fields survive pod OOM because the report
+    # is periodically sent to DataHub during ingestion.
+    mem_rss_after_phase1_mb: float = 0
+    mem_dataset_registry_count: int = 0
+    mem_dataset_registry_mb: float = 0
+    mem_phase1_batch_rss: LossyList[str] = dataclass_field(default_factory=LossyList)
+    mem_phase2_rss_samples: LossyList[str] = dataclass_field(default_factory=LossyList)
+    mem_phase2_workspaces_emitted: int = 0
+    mem_peak_rss_mb: float = 0
 
     m_query_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
     m_query_parse_attempts: int = 0
