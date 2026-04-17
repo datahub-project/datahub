@@ -42,6 +42,10 @@ base_requirements = {
     "setuptools<82.0.0",
 }
 
+gcp_sm_common = {
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
+}
+
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -483,8 +487,8 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
-    "litellm==1.80.5",
+    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.0 for CVE-2026-35030
+    "litellm==1.83.0",
     # AWS SDK for Bedrock embedding support
     *aws_common,
 }
@@ -546,6 +550,7 @@ plugins: Dict[str, Set[str]] = {
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
+    "aerospike": {"aerospike>=15.0.0,<20.0.0"},
     # sqlalchemy-bigquery is included here since it provides an implementation of
     # a SQLalchemy-conform STRUCT type definition
     "athena": sql_common
@@ -633,6 +638,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
+    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
     "glue": aws_common | cachetools_lib | sqlglot_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -698,7 +704,13 @@ plugins: Dict[str, Set[str]] = {
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
     | pyhive_common
-    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
+    | {
+        "psycopg2-binary<3.0.0",
+        "pymysql>=1.0.2,<2.0.0",
+        "pymetastore>=0.4.2,<1.0.0",
+        "tenacity>=8.0.1,<9.0.0",
+        "kerberos>=1.3.0,<2.0.0",
+    },
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
@@ -708,6 +720,13 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
+    | cachetools_lib,
+    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
+    "redshift-slim": redshift_common
+    | usage_common
+    | sqlglot_lib
+    | classification_lib
+    | {"db-dtypes"}
     | cachetools_lib,
     # S3 includes PySpark by default for profiling support (backward compatible)
     # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
@@ -744,6 +763,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
+    "starrocks": sql_common | {"starrocks>=1.3.3,<2.0", "lark>=1.3.1,<2.0"},
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
@@ -770,6 +790,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
@@ -785,6 +806,9 @@ plugins: Dict[str, Set[str]] = {
         # are expected to be provided by the source connector itself when needed.
         # The plugin is designed to be installed alongside source connectors, not standalone.
     },
+    # Cloud secret store plugins.
+    "aws-secret-manager": aws_common | cachetools_lib,
+    "gcp-secret-manager": gcp_sm_common | cachetools_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -883,6 +907,7 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "abs",
+            "aerospike",
             "athena",
             "bigquery",
             "clickhouse",
@@ -944,7 +969,11 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
+            "pinecone",
             "mssql-odbc",
+            "omni",
+            "aws-secret-manager",
+            "gcp-secret-manager",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -993,6 +1022,7 @@ full_test_dev_requirements = {
             "mariadb",
             "rdf",
             "redash",
+            "starrocks",
             "vertica",
             "vertexai",
         ]
@@ -1008,6 +1038,7 @@ entry_points = {
     ],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
+        "aerospike = datahub.ingestion.source.aerospike:AerospikeSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
@@ -1079,6 +1110,7 @@ entry_points = {
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
+        "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
@@ -1105,6 +1137,8 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "omni = datahub.ingestion.source.omni.omni:OmniSource",
+        "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
@@ -1115,9 +1149,17 @@ entry_points = {
         "add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership",
         "simple_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership",
         "pattern_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership",
+        # Aliases without "dataset" prefix — support all entity types including container
+        "add_ownership = datahub.ingestion.transformer.add_ownership:AddOwnership",
+        "simple_add_ownership = datahub.ingestion.transformer.add_ownership:SimpleAddOwnership",
+        "pattern_add_ownership = datahub.ingestion.transformer.add_ownership:PatternAddOwnership",
         "add_dataset_domain = datahub.ingestion.transformer.dataset_domain:AddDatasetDomain",
         "simple_add_dataset_domain = datahub.ingestion.transformer.dataset_domain:SimpleAddDatasetDomain",
         "pattern_add_dataset_domain = datahub.ingestion.transformer.dataset_domain:PatternAddDatasetDomain",
+        # Aliases without "dataset" prefix — support all entity types including container
+        "add_domain = datahub.ingestion.transformer.add_domain:AddDomain",
+        "simple_add_domain = datahub.ingestion.transformer.add_domain:SimpleAddDomain",
+        "pattern_add_domain = datahub.ingestion.transformer.add_domain:PatternAddDomain",
         "add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:AddDatasetTags",
         "simple_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:SimpleAddDatasetTags",
         "pattern_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:PatternAddDatasetTags",
@@ -1206,7 +1248,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
-        "datahub": ["py.typed"],
+        "datahub": ["py.typed", "constraints.txt"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],

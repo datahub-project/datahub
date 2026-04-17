@@ -7,6 +7,7 @@ import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.ListOptionsBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
@@ -29,6 +30,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class KubernetesApiAccessor {
+
+  /** Default minimum time between INFO logs while polling rollout (when config omits interval). */
+  private static final long DEFAULT_ROLLOUT_PROGRESS_LOG_INTERVAL_MS = 60_000L;
 
   private final KubernetesClient client;
   @Nullable private final KubernetesScaleDownConfiguration configuration;
@@ -126,6 +130,13 @@ public class KubernetesApiAccessor {
           "Rollout max wait seconds required: set systemUpdate.kubernetesScaleDown.rolloutMaxWaitSeconds in application.yaml");
     }
     return configuration.getRolloutMaxWaitSeconds();
+  }
+
+  private long rolloutProgressLogIntervalMs() {
+    if (configuration == null || configuration.getRolloutProgressLogIntervalSeconds() <= 0) {
+      return DEFAULT_ROLLOUT_PROGRESS_LOG_INTERVAL_MS;
+    }
+    return TimeUnit.SECONDS.toMillis((long) configuration.getRolloutProgressLogIntervalSeconds());
   }
 
   /**
@@ -310,29 +321,127 @@ public class KubernetesApiAccessor {
   }
 
   public void waitForRollout(String deploymentName, String namespace) {
-    long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(rolloutMaxWaitSeconds());
+    int maxWaitSec = rolloutMaxWaitSeconds();
+    int pollSec = rolloutPollSeconds();
+    long progressLogIntervalMs = rolloutProgressLogIntervalMs();
+    long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(maxWaitSec);
+    long lastProgressLogMs = System.currentTimeMillis();
+
+    log.info(
+        "Waiting for Deployment {}/{} to reach rollout target: spec must be observed (generation), "
+            + "unavailableReplicas must be 0, and replica counts (replicas/updated/available/ready) "
+            + "must match desired. pollInterval={}s timeout={}s",
+        namespace,
+        deploymentName,
+        pollSec,
+        maxWaitSec);
+
     while (System.currentTimeMillis() < deadline) {
       Deployment d =
           client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
       if (d == null || d.getSpec() == null) {
+        log.info(
+            "Deployment {}/{} missing or has no spec; treating as done waiting.",
+            namespace,
+            deploymentName);
         return;
       }
-      Integer desired = d.getSpec().getReplicas();
-      Integer updated =
-          d.getStatus() != null && d.getStatus().getUpdatedReplicas() != null
-              ? d.getStatus().getUpdatedReplicas()
-              : 0;
-      if (desired != null && desired.equals(updated)) {
+      if (isDeploymentRolloutComplete(d)) {
+        log.info("Deployment {}/{} rollout complete.", namespace, deploymentName);
         return;
+      }
+      long now = System.currentTimeMillis();
+      if (now - lastProgressLogMs >= progressLogIntervalMs) {
+        log.info(
+            "Still waiting for Deployment {}/{}: {}",
+            namespace,
+            deploymentName,
+            formatRolloutProgressSnapshot(d));
+        lastProgressLogMs = now;
       }
       try {
-        Thread.sleep(TimeUnit.SECONDS.toMillis(rolloutPollSeconds()));
+        Thread.sleep(TimeUnit.SECONDS.toMillis(pollSec));
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new RuntimeException("Interrupted while waiting for rollout", e);
       }
     }
+    log.warn(
+        "Timed out waiting for Deployment {}/{} rollout after {}s (last status not logged here)",
+        namespace,
+        deploymentName,
+        maxWaitSec);
     throw new RuntimeException("Timeout waiting for deployment " + deploymentName + " rollout");
+  }
+
+  /**
+   * One-line snapshot of Deployment status fields relevant to {@link #isDeploymentRolloutComplete}.
+   * Package-private for unit tests (same package).
+   */
+  static String formatRolloutProgressSnapshot(Deployment deployment) {
+    Integer desired = deployment.getSpec() != null ? deployment.getSpec().getReplicas() : null;
+    Long gen = deployment.getMetadata() != null ? deployment.getMetadata().getGeneration() : null;
+    DeploymentStatus st = deployment.getStatus();
+    if (st == null) {
+      return "desired=%s generation=%s status=null"
+          .formatted(desired != null ? desired : "null", gen != null ? gen : "null");
+    }
+    return ("desired=%s generation=%s observedGeneration=%s unavailable=%s "
+            + "replicas=%s updated=%s available=%s ready=%s")
+        .formatted(
+            desired != null ? desired : "null",
+            gen != null ? gen : "null",
+            st.getObservedGeneration() != null ? st.getObservedGeneration() : "null",
+            st.getUnavailableReplicas() != null ? st.getUnavailableReplicas() : "null",
+            st.getReplicas() != null ? st.getReplicas() : "null",
+            st.getUpdatedReplicas() != null ? st.getUpdatedReplicas() : "null",
+            st.getAvailableReplicas() != null ? st.getAvailableReplicas() : "null",
+            st.getReadyReplicas() != null ? st.getReadyReplicas() : "null");
+  }
+
+  /**
+   * Returns true when the Deployment controller has applied the latest spec and there are no stale
+   * pods for this workload.
+   *
+   * <p><strong>Environment variable updates (desired &gt; 0):</strong> requires {@code
+   * observedGeneration} to match the spec (so the new pod template is reconciled), {@code
+   * unavailableReplicas == 0}, and {@code replicas == updated == available == ready == desired}.
+   * That implies no extra pods from a rolling update (e.g. maxSurge) and no old revision pods still
+   * counted toward {@code replicas}.
+   *
+   * <p><strong>Scale to zero:</strong> requires the same generation check and all replica counters
+   * at zero so no workload pods remain in Running/terminating states tracked by this Deployment.
+   */
+  static boolean isDeploymentRolloutComplete(Deployment deployment) {
+    if (deployment == null || deployment.getSpec() == null) {
+      return false;
+    }
+    int desired = Optional.ofNullable(deployment.getSpec().getReplicas()).orElse(0);
+    DeploymentStatus status = deployment.getStatus();
+    if (status == null) {
+      return false;
+    }
+    Long generation =
+        deployment.getMetadata() != null ? deployment.getMetadata().getGeneration() : null;
+    Long observedGeneration = status.getObservedGeneration();
+    if (generation != null) {
+      if (observedGeneration == null || generation > observedGeneration) {
+        return false;
+      }
+    }
+    int unavailable = Optional.ofNullable(status.getUnavailableReplicas()).orElse(0);
+    if (unavailable > 0) {
+      return false;
+    }
+    int updated = Optional.ofNullable(status.getUpdatedReplicas()).orElse(0);
+    int current = Optional.ofNullable(status.getReplicas()).orElse(0);
+    int available = Optional.ofNullable(status.getAvailableReplicas()).orElse(0);
+    int ready = Optional.ofNullable(status.getReadyReplicas()).orElse(0);
+
+    if (desired == 0) {
+      return current == 0 && updated == 0 && available == 0 && ready == 0;
+    }
+    return desired == current && desired == updated && desired == available && desired == ready;
   }
 
   /**

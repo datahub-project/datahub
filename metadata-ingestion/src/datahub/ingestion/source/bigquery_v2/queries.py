@@ -41,12 +41,12 @@ SELECT
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
-  ts.storage_last_modified_time as last_altered,
+  ts.last_modified_time as last_altered,
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  ts.total_rows as row_count,
-  ts.total_logical_bytes as bytes,
+  ts.row_count as row_count,
+  ts.size_bytes as bytes,
   p.num_partitions,
   p.max_partition_id,
   p.active_billable_bytes as active_billable_bytes,
@@ -56,8 +56,7 @@ SELECT
 
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
-  left join `{{project_id}}`.`{{region}}`.INFORMATION_SCHEMA.TABLE_STORAGE as ts
-    on ts.table_schema = '{{dataset_name}}' and ts.table_name = t.TABLE_NAME and ts.deleted = false
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
@@ -75,7 +74,7 @@ FROM
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  t.table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -117,17 +116,16 @@ SELECT
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
-  ts.storage_last_modified_time as last_altered,
+  ts.last_modified_time as last_altered,
   tos_description.OPTION_VALUE as comment,
   tos_labels.OPTION_VALUE as labels,
   t.is_insertable_into,
   t.ddl as view_definition,
-  ts.total_rows as row_count,
-  ts.total_logical_bytes as size_bytes
+  ts.row_count,
+  ts.size_bytes
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
-  left join `{{project_id}}`.`{{region}}`.INFORMATION_SCHEMA.TABLE_STORAGE as ts
-    on ts.table_schema = '{{dataset_name}}' and ts.table_name = t.TABLE_NAME and ts.deleted = false
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_description on t.table_schema = tos_description.table_schema
   and t.TABLE_NAME = tos_description.TABLE_NAME
   and tos_description.OPTION_NAME = "description"
@@ -135,7 +133,7 @@ FROM
   and t.TABLE_NAME = tos_labels.TABLE_NAME
   and tos_labels.OPTION_NAME = "labels"
 WHERE
-  t.table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
@@ -180,19 +178,18 @@ SELECT
   t.base_table_catalog,
   t.base_table_schema,
   t.base_table_name,
-  ts.storage_last_modified_time as last_altered,
+  ts.last_modified_time as last_altered,
   tos.OPTION_VALUE as comment,
-  ts.total_rows as row_count,
-  ts.total_logical_bytes as size_bytes
+  ts.row_count,
+  ts.size_bytes
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
-  left join `{{project_id}}`.`{{region}}`.INFORMATION_SCHEMA.TABLE_STORAGE as ts
-    on ts.table_schema = '{{dataset_name}}' and ts.table_name = t.TABLE_NAME and ts.deleted = false
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  t.table_type = '{BigqueryTableType.SNAPSHOT}'
+  table_type = '{BigqueryTableType.SNAPSHOT}'
 order by
   table_schema ASC,
   table_name ASC

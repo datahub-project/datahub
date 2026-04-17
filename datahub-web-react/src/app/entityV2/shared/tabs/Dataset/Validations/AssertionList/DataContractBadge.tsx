@@ -1,22 +1,23 @@
 import { AuditOutlined } from '@ant-design/icons';
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
     font-size: 16px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 export const DataContractBadge = ({ link }: { link: string }) => {
+    const theme = useTheme();
     return (
         <Tooltip
             title={
                 <>
                     Part of Data Contract{' '}
-                    <Link to={link} style={{ color: colors.gray[300] }}>
+                    <Link to={link} style={{ color: theme.colors.icon }}>
                         View
                     </Link>
                 </>

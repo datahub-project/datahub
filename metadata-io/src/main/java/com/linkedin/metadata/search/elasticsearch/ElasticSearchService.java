@@ -657,6 +657,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
+  public boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+      throws Exception {
+    return indexBuilder.validateAndSwapAlias(aliasName, newBackingIndex);
+  }
+
+  @Override
   public ESIndexBuilder getIndexBuilder() {
     return indexBuilder;
   }

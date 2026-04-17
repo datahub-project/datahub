@@ -65,6 +65,12 @@ public class SimpleKafkaConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(customizedProperties));
     factory.setAutoStartup(false);
+    int authRetrySeconds = kafkaConfiguration.getConsumer().getAuthExceptionRetryIntervalSeconds();
+    if (authRetrySeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authRetrySeconds));
+    }
 
     log.info("Simple KafkaListenerContainerFactory built successfully");
 

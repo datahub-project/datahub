@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -21,13 +21,58 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_LINEAGE_LOCATIONS = [
+    "us",
+    "eu",
+    "asia",
+    "us-central1",
+    "us-east1",
+    "us-east4",
+    "us-east5",
+    "us-south1",
+    "us-west1",
+    "us-west2",
+    "us-west3",
+    "us-west4",
+    "northamerica-northeast1",
+    "northamerica-northeast2",
+    "southamerica-east1",
+    "southamerica-west1",
+    "europe-central2",
+    "europe-north1",
+    "europe-southwest1",
+    "europe-west1",
+    "europe-west2",
+    "europe-west3",
+    "europe-west4",
+    "europe-west6",
+    "europe-west8",
+    "europe-west9",
+    "europe-west10",
+    "europe-west12",
+    "me-central1",
+    "me-central2",
+    "me-west1",
+    "asia-east1",
+    "asia-east2",
+    "asia-northeast1",
+    "asia-northeast2",
+    "asia-northeast3",
+    "asia-south1",
+    "asia-south2",
+    "asia-southeast1",
+    "asia-southeast2",
+    "australia-southeast1",
+    "australia-southeast2",
+    "africa-south1",
+]
+
 
 class EntriesFilterConfig(ConfigModel):
     """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
 
     pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        validation_alias=AliasChoices("pattern", "dataset_pattern"),
         description="Regex patterns for Dataplex entry names to filter in ingestion.",
     )
     fqn_pattern: AllowDenyPattern = Field(
@@ -79,8 +124,10 @@ class DataplexConfig(
 
     entries_locations: List[str] = Field(
         default_factory=lambda: ["us", "eu", "asia", "global"],
-        description="List of GCP locations for Universal Catalog entries extraction. "
-        "Different resource types are registered in different locations. "
+        description="List of GCP regions to scan for Universal Catalog entries extraction. "
+        "This list may include multi-regions (for example 'us', 'eu', 'asia') and "
+        "single regions (for example 'us-central1'). "
+        "Entries scanning runs across all configured entries_locations. "
         "Default: ['us', 'eu', 'asia', 'global'].",
     )
 
@@ -103,6 +150,18 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
+    lineage_locations: List[str] = Field(
+        default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
+        description="List of GCP regions to scan for Dataplex lineage data. "
+        "By default, includes all supported multi-regions and regions. "
+        "Narrowing this list from the default is critical for better performance "
+        "because lineage API calls scale with configured project/location pairs. "
+        "This list may include multi-regions and single regions. "
+        "In practice, lineage often resides in job regions while entries may be in "
+        "multi-regions, so entries_locations and lineage_locations are configured separately. "
+        "Example: ['eu', 'us-central1', 'europe-west1'].",
+    )
+
     lineage_max_retries: int = Field(
         default=3,
         ge=1,
@@ -121,13 +180,25 @@ class DataplexConfig(
         "Higher values reduce API load but increase ingestion time. Default: 1.0.",
     )
 
-    batch_size: Optional[int] = Field(
-        default=1000,
-        description="Batch size for metadata emission and lineage extraction. "
-        "Entries are emitted in batches to prevent memory issues in large deployments. "
-        "Lower values reduce memory usage but may increase processing time. "
-        "Set to None to disable batching (process all entries at once). "
-        "Recommended: 1000 for large deployments (>10k entries), None for small deployments (<1k entries). Default: 1000.",
+    max_workers_entries: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Number of parallel worker threads for fetching entry details "
+        "(get_entry API calls). Entry detail fetching is the main bottleneck in the "
+        "entries stage because each entry requires one blocking RPC. Increasing this "
+        "value reduces wall-clock time proportionally up to the API quota limit. "
+        "Increase for large deployments (>1k entries). Default: 10.",
+    )
+
+    max_workers_lineage: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Number of parallel worker threads for lineage lookups "
+        "(search_links API calls). Lineage lookup volume scales with entries × "
+        "lineage_locations, so parallelism here has a large impact on total "
+        "ingestion time. Increase for large entry × location matrices. Default: 10.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -180,6 +251,10 @@ class DataplexConfig(
         if not self.entries_locations:
             raise ValueError(
                 "At least one entries location must be specified via entries_locations."
+            )
+        if not self.lineage_locations:
+            raise ValueError(
+                "At least one lineage location must be specified via lineage_locations."
             )
 
         return self

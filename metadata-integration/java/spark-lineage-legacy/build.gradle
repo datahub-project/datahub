@@ -30,6 +30,8 @@ configurations.all {
   }
   resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
   resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
+  resolutionStrategy.force externalDependency.commonsLang3 // CVE-2025-48924 (ClassUtils.getClass)
+  resolutionStrategy.force externalDependency.rhino // CVE-2025-66453 (toFixed DoS)
   resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
   def lv = rootProject.ext.log4jVersion
   resolutionStrategy.force "org.apache.logging.log4j:log4j-api:${lv}"
@@ -69,6 +71,12 @@ dependencies {
     }
     implementation(externalDependency.gson) {
       because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
+    provided(externalDependency.commonsLang3) {
+      because 'CVE-2025-48924: commons-lang3 before 3.18.0 (ClassUtils.getClass)'
+    }
+    implementation(externalDependency.commonsLang3) {
+      because 'CVE-2025-48924: commons-lang3 before 3.18.0 (ClassUtils.getClass)'
     }
   }
 

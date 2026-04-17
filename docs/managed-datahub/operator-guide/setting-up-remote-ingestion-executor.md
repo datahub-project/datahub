@@ -297,9 +297,39 @@ helm upgrade \
 
 For configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
+### Deploy using Docker
+
+The Remote Executor image can be run directly using Docker, though this is not recommended for production scenarios. The following example is provided for testing purposes or as an example configuration for setting up Remote Executor in high-availability environments other than Kubernetes or AWS ECS:
+
+1. **Registry Access Configuration**
+
+To access the private DataHub Cloud container registry, you'll need to contact your DataHub Cloud representative for specific requirements.
+
+2. **Run Docker Container**
+
+Run the Docker container:
+
+```bash
+docker run -it \
+    --env DATAHUB_GMS_URL="https://<your-company>.acryl.io" \
+    --env DATAHUB_GMS_HOST="<your-company>.acryl.io" \
+    --env DATAHUB_GMS_TOKEN="<token>" \
+    --env DATAHUB_EXECUTOR_POOL_ID="remote" \
+    --env DATAHUB_EXECUTOR_MODE=worker \
+    --name acryl-executor-worker \
+    <docker-image>
+```
+
+Required parameters:
+
+- `DATAHUB_GMS_URL`: Your DataHub Cloud URL (must start with `https://`)
+- `DATAHUB_GMS_HOST`: Your DataHub Cloud URL (raw domain name)
+- `DATAHUB_GMS_TOKEN`: Your Remote Executor Access Token
+- `DATAHUB_EXECUTOR_POOL_ID`: Your Executor Pool ID
+
 ## Checking Remote Executor status
 
-Once you have successfully deployed the Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
+Once you have successfully deployed the Remote Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
 
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/pool-list-after.png?raw=true"/>
@@ -307,7 +337,7 @@ Once you have successfully deployed the Executor in your environment, DataHub wi
 
 ## Assigning Ingestion Sources to an Executor Pool
 
-After you have created an Executor Pool and deployed the Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.
+After you have created an Executor Pool and deployed the Remote Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.
 
 1. Navigate to **Manage Data Sources** in DataHub Cloud
 2. Edit an existing Source or click **Create new source**

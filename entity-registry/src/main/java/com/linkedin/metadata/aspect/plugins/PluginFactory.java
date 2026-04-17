@@ -4,6 +4,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -185,6 +186,14 @@ public class PluginFactory {
                             loadedB.pluginConfiguration.getMcpSideEffects().stream()
                                 .noneMatch(bConfig -> aPlugin.getConfig().isDisabledBy(bConfig))),
                 loadedB.mcpSideEffects.stream())
+            .collect(Collectors.toList()),
+        Stream.concat(
+                loadedA.mcpObservers.stream()
+                    .filter(
+                        aPlugin ->
+                            loadedB.pluginConfiguration.getMcpObservers().stream()
+                                .noneMatch(bConfig -> aPlugin.getConfig().isDisabledBy(bConfig))),
+                loadedB.mcpObservers.stream())
             .collect(Collectors.toList()));
   }
 
@@ -194,6 +203,7 @@ public class PluginFactory {
   @Getter private List<MutationHook> mutationHooks;
   @Getter private List<MCLSideEffect> mclSideEffects;
   @Getter private List<MCPSideEffect> mcpSideEffects;
+  @Getter private List<MCPObserver> mcpObservers;
 
   private static final Map<Long, List<PluginSpec>> pluginCache = new ConcurrentHashMap<>();
 
@@ -210,7 +220,8 @@ public class PluginFactory {
       @Nonnull List<AspectPayloadValidator> aspectPayloadValidators,
       @Nonnull List<MutationHook> mutationHooks,
       @Nonnull List<MCLSideEffect> mclSideEffects,
-      @Nonnull List<MCPSideEffect> mcpSideEffects) {
+      @Nonnull List<MCPSideEffect> mcpSideEffects,
+      @Nonnull List<MCPObserver> mcpObservers) {
     this.classLoaders = classLoaders;
     this.pluginConfiguration =
         pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
@@ -218,25 +229,29 @@ public class PluginFactory {
     this.mutationHooks = sortByPriority(applyDisable(mutationHooks));
     this.mclSideEffects = applyDisable(mclSideEffects);
     this.mcpSideEffects = applyDisable(mcpSideEffects);
+    this.mcpObservers = applyDisable(mcpObservers);
   }
 
   public PluginFactory loadPlugins() {
     if (this.aspectPayloadValidators != null
         || this.mutationHooks != null
         || this.mclSideEffects != null
-        || this.mcpSideEffects != null) {
+        || this.mcpSideEffects != null
+        || this.mcpObservers != null) {
       log.error("Plugins are already loaded. Re-building plugins will be skipped.");
     } else {
       this.aspectPayloadValidators = buildAspectPayloadValidators(this.pluginConfiguration);
       this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
       this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
       this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
+      this.mcpObservers = buildMCPObservers(this.pluginConfiguration);
       logSummary(
           Stream.of(
                   this.aspectPayloadValidators,
                   this.mutationHooks,
                   this.mclSideEffects,
-                  this.mcpSideEffects)
+                  this.mcpSideEffects,
+                  this.mcpObservers)
               .flatMap(List::stream)
               .collect(Collectors.toList()));
     }
@@ -248,15 +263,17 @@ public class PluginFactory {
         && Optional.ofNullable(this.aspectPayloadValidators).map(List::isEmpty).orElse(true)
         && Optional.ofNullable(this.mutationHooks).map(List::isEmpty).orElse(true)
         && Optional.ofNullable(this.mclSideEffects).map(List::isEmpty).orElse(true)
-        && Optional.ofNullable(this.mcpSideEffects).map(List::isEmpty).orElse(true);
+        && Optional.ofNullable(this.mcpSideEffects).map(List::isEmpty).orElse(true)
+        && Optional.ofNullable(this.mcpObservers).map(List::isEmpty).orElse(true);
   }
 
   public boolean hasLoadedPlugins() {
     return Stream.of(
             this.aspectPayloadValidators,
             this.mutationHooks,
+            this.mclSideEffects,
             this.mcpSideEffects,
-            this.mcpSideEffects)
+            this.mcpObservers)
         .anyMatch(Objects::nonNull);
   }
 
@@ -424,6 +441,23 @@ public class PluginFactory {
         .collect(Collectors.toList());
   }
 
+  /**
+   * Returns observers to apply to {@link com.linkedin.mxe.MetadataChangeProposal} before the
+   * database transaction. Observers do not produce additional MCPs or MCLs.
+   *
+   * @param changeType The type of change
+   * @param entityName The entity name
+   * @param aspectName The aspect name
+   * @return MCP observers
+   */
+  @Nonnull
+  public List<MCPObserver> getMCPObservers(
+      @Nonnull ChangeType changeType, @Nonnull String entityName, @Nonnull String aspectName) {
+    return mcpObservers.stream()
+        .filter(plugin -> plugin.shouldApply(changeType, entityName, aspectName))
+        .collect(Collectors.toList());
+  }
+
   @Nonnull
   public EntityRegistryLoadResult.PluginLoadResult getPluginLoadResult() {
     return EntityRegistryLoadResult.PluginLoadResult.builder()
@@ -445,6 +479,9 @@ public class PluginFactory {
             mclSideEffects.stream()
                 .map(cls -> cls.getClass().getName())
                 .collect(Collectors.toSet()))
+        .mcpObserverCount(mcpObservers.size())
+        .mcpObserverClasses(
+            mcpObservers.stream().map(cls -> cls.getClass().getName()).collect(Collectors.toSet()))
         .build();
   }
 
@@ -496,6 +533,16 @@ public class PluginFactory {
                 MCPSideEffect.class,
                 pluginConfiguration.mcpSideEffectPackages(),
                 pluginConfiguration.getMcpSideEffects()));
+  }
+
+  private List<MCPObserver> buildMCPObservers(@Nullable PluginConfiguration pluginConfiguration) {
+    return pluginConfiguration == null
+        ? Collections.emptyList()
+        : applyDisable(
+            build(
+                MCPObserver.class,
+                pluginConfiguration.mcpObserverPackages(),
+                pluginConfiguration.getMcpObservers()));
   }
 
   /**

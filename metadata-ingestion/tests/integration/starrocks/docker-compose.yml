@@ -1,0 +1,7 @@
+services:
+  teststarrocks:
+    image: starrocks/allin1-ubuntu:latest
+    container_name: "teststarrocks"
+    ports:
+      - "59030:9030"  # MySQL protocol
+      - "58030:8030"  # HTTP
