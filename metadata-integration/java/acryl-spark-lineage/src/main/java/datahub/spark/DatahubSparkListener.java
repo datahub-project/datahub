@@ -104,6 +104,10 @@ public class DatahubSparkListener extends SparkListener {
     log.info("Application start called");
     this.appContext = getSparkAppContext(applicationStart);
     initializeContextFactoryIfNotInitialized();
+    if (contextFactory == null) {
+      log.warn("Context factory not initialized, skipping application start event");
+      return;
+    }
     listener.onApplicationStart(applicationStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.info("onApplicationStart completed successfully in {} ms", elapsedTime);
@@ -291,6 +295,10 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Application end called");
+    if (contextFactory == null) {
+      log.warn("Context factory not initialized, skipping application end event");
+      return;
+    }
     listener.onApplicationEnd(applicationEnd);
     if (datahubConf.hasPath(STREAMING_JOB) && (datahubConf.getBoolean(STREAMING_JOB))) {
       return;
@@ -328,6 +336,10 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Job start called");
+    if (contextFactory == null) {
+      log.warn("Context factory not initialized, skipping job start event");
+      return;
+    }
     listener.onJobStart(jobStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onJobStart completed successfully in {} ms", elapsedTime);
