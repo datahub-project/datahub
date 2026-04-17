@@ -63,7 +63,17 @@ class FieldPatchHelper(Generic[_Parent]):
         )
         return self
 
-    def remove_tag(self, tag: Union[str, Urn]) -> "FieldPatchHelper":
+    def remove_tag(
+        self,
+        tag: Union[str, Urn],
+        attribution_source: Optional[Union[str, Urn]] = None,
+    ) -> "FieldPatchHelper":
+        if attribution_source is not None:
+            warnings.warn(
+                "attribution_source is not supported for field-level tag removal and will be ignored.",
+                stacklevel=2,
+            )
+
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
         self._parent._add_patch(
@@ -89,7 +99,17 @@ class FieldPatchHelper(Generic[_Parent]):
         )
         return self
 
-    def remove_term(self, term: Union[str, Urn]) -> "FieldPatchHelper":
+    def remove_term(
+        self,
+        term: Union[str, Urn],
+        attribution_source: Optional[Union[str, Urn]] = None,
+    ) -> "FieldPatchHelper":
+        if attribution_source is not None:
+            warnings.warn(
+                "attribution_source is not supported for field-level glossary term removal and will be ignored.",
+                stacklevel=2,
+            )
+
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
         self._parent._add_patch(

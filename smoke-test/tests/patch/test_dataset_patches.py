@@ -450,11 +450,6 @@ def test_attributed_duplicates_survive_unrelated_tag_patch(patch_dataset):
         DatasetPatchBuilder(dataset_urn).add_tag(TagAssociationClass(tag=tag_y)).build()
     ):
         graph_client.emit_mcp(mcp)
-    aspect = graph_client.get_aspect(
-        entity_urn=dataset_urn, aspect_type=GlobalTagsClass
-    )
-    print(aspect)
-
     for mcp in DatasetPatchBuilder(dataset_urn).remove_tag(tag_y).build():
         graph_client.emit_mcp(mcp)
 

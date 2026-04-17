@@ -71,6 +71,6 @@ class HasDocumentationPatch(MetadataPatchProposal):
             "remove",
             path=("documentations", *path),
             value={},
-            array_primary_keys=array_primary_keys if array_primary_keys else _DOCS_APK,
+            array_primary_keys=array_primary_keys,
         )
         return self
