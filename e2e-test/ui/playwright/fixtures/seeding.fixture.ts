@@ -45,12 +45,76 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { test as base, request } from '@playwright/test';
-import { readGmsToken } from './login';
+import { test as base, request, type Browser } from '@playwright/test';
+import { readGmsToken, gmsTokenPath } from './login';
 import type { UserCredentials } from './users';
+import { LoginPage } from '../pages/login-page';
 import { gmsUrl } from '../utils/constants';
 import { extractUrn, type Mcp } from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
+
+// ── GMS token bootstrap ───────────────────────────────────────────────────────
+
+/**
+ * Creates and saves a GMS personal access token for `user` using a headless
+ * browser login. Called by the worker-scoped seeding fixture on first run,
+ * before any test-scoped fixture (e.g. loginFixture.context) has had a chance
+ * to create the token file.
+ */
+async function bootstrapGmsToken(browser: Browser, user: UserCredentials): Promise<string> {
+  const tokenFile = gmsTokenPath(user.username);
+  const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+
+  const ctx = await browser.newContext({ baseURL });
+  const page = await ctx.newPage();
+  try {
+    const loginPage = new LoginPage(page);
+    await loginPage.navigateToLogin();
+    await loginPage.login(user.username, user.password);
+
+    const cookies = await ctx.cookies();
+    const actorCookie = cookies.find((c) => c.name === 'actor');
+    if (!actorCookie) throw new Error(`'actor' cookie not found after login for '${user.username}'`);
+
+    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+    const apiCtx = await request.newContext({
+      baseURL,
+      extraHTTPHeaders: { Cookie: cookieHeader },
+    });
+    try {
+      const resp = await apiCtx.post('/api/v2/graphql', {
+        data: {
+          query: `mutation createAccessToken($input: CreateAccessTokenInput!) {
+            createAccessToken(input: $input) { accessToken metadata { id } }
+          }`,
+          variables: {
+            input: {
+              type: 'PERSONAL',
+              actorUrn: actorCookie.value,
+              duration: 'ONE_MONTH',
+              name: `Playwright Test Token — ${user.username}`,
+            },
+          },
+        },
+      });
+      if (!resp.ok()) throw new Error(`createAccessToken failed: ${resp.status()}`);
+      const body = (await resp.json()) as {
+        data?: { createAccessToken?: { accessToken?: string; metadata?: { id?: string } } };
+      };
+      const token = body.data?.createAccessToken?.accessToken;
+      const tokenId = body.data?.createAccessToken?.metadata?.id;
+      if (!token) throw new Error('Empty access token in response');
+      fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
+      fs.writeFileSync(tokenFile, JSON.stringify({ token, tokenId, actorUrn: actorCookie.value }, null, 2));
+      return token;
+    } finally {
+      await apiCtx.dispose();
+    }
+  } finally {
+    await page.close();
+    await ctx.close();
+  }
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -201,7 +265,7 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
   // Using an internal name with underscore prefix to mark it as infrastructure.
   // Tests never destructure this — it runs automatically.
   _seedFeatureData: [
-    async ({ featureName, user }, use, workerInfo) => {
+    async ({ featureName, user, browser }, use, workerInfo) => {
       const logger = createLogger('', {
         suite: 'seeding',
         test: featureName ?? 'global',
@@ -215,7 +279,10 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
         return;
       }
 
-      const gmsToken = readGmsToken(user.username);
+      const tokenFile = gmsTokenPath(user.username);
+      const gmsToken = fs.existsSync(tokenFile)
+        ? readGmsToken(user.username)
+        : await bootstrapGmsToken(browser, user);
 
       // Track whether any fresh ingestion happened this run so we can wait
       // for the search index to catch up before tests start.

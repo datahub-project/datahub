@@ -44,6 +44,7 @@ import * as path from 'path';
 import { test as base } from '@playwright/test';
 import { resolvedUsers, type UserCredentials } from './users';
 import { LoginPage } from '../pages/login-page';
+import { gmsTokenPath } from './login';
 import type { DataHubLogger } from '../utils/logger';
 
 // ── Fixture types ─────────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
   // ── Override context: authenticated or fresh depending on state file ─────────
   // Because `page` is derived from `context`, every test automatically
   // receives an authenticated page without any explicit login step.
-  context: async ({ user, browser, logger }, use) => {
+  context: async ({ user, browser, playwright, logger }, use) => {
     const stateFile = stateFilePath(user.username);
 
     if (fs.existsSync(stateFile) && isStateFileValid(stateFile)) {
@@ -144,6 +145,51 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
       // Persist the authenticated session so subsequent tests skip login.
       await ctx.storageState({ path: stateFile });
       logger.info('auth state saved', { user: user.username, stateFile });
+
+      // Mint a GMS personal access token using the live session cookies so
+      // that API-level fixtures (seeding, cleanup) don't need a separate
+      // auth-setup project to run first.
+      const tokenFile = gmsTokenPath(user.username);
+      const cookies = await ctx.cookies();
+      const actorCookie = cookies.find((c) => c.name === 'actor');
+      if (actorCookie) {
+        const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+        const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+        const apiCtx = await playwright.request.newContext({
+          baseURL,
+          extraHTTPHeaders: { Cookie: cookieHeader },
+        });
+        try {
+          const resp = await apiCtx.post('/api/v2/graphql', {
+            data: {
+              query: `mutation createAccessToken($input: CreateAccessTokenInput!) {
+                createAccessToken(input: $input) { accessToken metadata { id } }
+              }`,
+              variables: {
+                input: {
+                  type: 'PERSONAL',
+                  actorUrn: actorCookie.value,
+                  duration: 'ONE_MONTH',
+                  name: `Playwright Test Token — ${user.username}`,
+                },
+              },
+            },
+          });
+          if (resp.ok()) {
+            const body = (await resp.json()) as {
+              data?: { createAccessToken?: { accessToken?: string; metadata?: { id?: string } } };
+            };
+            const token = body.data?.createAccessToken?.accessToken;
+            const tokenId = body.data?.createAccessToken?.metadata?.id;
+            if (token) {
+              fs.writeFileSync(tokenFile, JSON.stringify({ token, tokenId, actorUrn: actorCookie.value }, null, 2));
+              logger.info('GMS token saved', { user: user.username, tokenFile });
+            }
+          }
+        } finally {
+          await apiCtx.dispose();
+        }
+      }
     } catch (err) {
       logger.error('login failed', { user: user.username, error: String(err) });
       throw err;
