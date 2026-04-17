@@ -93,9 +93,45 @@ For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google
 - **`include_schema`** (default: `true`): Extract column metadata and types
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 
-**Performance Tuning:**
+#### Parallel Processing
 
-- **`batch_size`** (default: `1000`): Entries per batch for memory optimization. Set to `None` to disable batching (small deployments only)
+Entry detail fetching and lineage lookups are parallelised using thread pools to significantly
+reduce wall-clock ingestion time for large deployments.
+
+**Entries stage** runs in three phases:
+
+1. `list_entry_groups` + `list_entries` — sequential listing across all project × location pairs
+   (fast; no parallelism needed)
+2. `get_entry(ALL)` calls — parallel across a flat worker pool so entries are distributed evenly
+   regardless of how they are spread across projects
+3. Spanner entries via `search_entries` — sequential (already fully-fetched, nothing to parallelise)
+
+**Lineage stage** dispatches one worker per entry to fetch `search_links` results across all
+configured `lineage_locations`, so total API call time scales with
+`max(entries / max_workers_lineage)` rather than `entries × lineage_locations`.
+
+Two config fields control the thread pool sizes:
+
+| Field                 | Default | Description                                      |
+| --------------------- | ------- | ------------------------------------------------ |
+| `max_workers_entries` | `10`    | Workers for `get_entry` calls (entries stage)    |
+| `max_workers_lineage` | `10`    | Workers for `search_links` calls (lineage stage) |
+
+Increase these values for large deployments, subject to your GCP API quota limits.
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    entries_locations:
+      - "us"
+
+    # Parallel processing (tune to your deployment size and API quota)
+    max_workers_entries: 20 # default: 10
+    max_workers_lineage: 40 # default: 20
+```
 
 **Lineage Retry Settings** (optional):
 

@@ -67,6 +67,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
     TableRename,
     TableSwap,
+    UrnStr,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -83,6 +84,26 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _DownstreamTarget:
+    """One downstream entry from a Snowflake audit log row.
+
+    downstream and column_lineage are both None for usage-only queries
+    (e.g. SELECTs), and both non-None for queries with a downstream table.
+    """
+
+    downstream: Optional[UrnStr]
+    column_lineage: Optional[List[ColumnLineageInfo]]
+    secondary_id: Optional[str]
+
+    def __post_init__(self) -> None:
+        if (self.downstream is None) != (self.column_lineage is None):
+            raise ValueError(
+                "downstream and column_lineage must be both None or both non-None"
+            )
+
 
 # Define a type alias
 UserName = str
@@ -494,16 +515,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
                 assert isinstance(row, dict)
                 try:
-                    entry = self._parse_audit_log_row(row, users)
+                    yield from self._parse_audit_log_row(row, users)
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing query log row",
                         context=f"{row}",
                         exc=e,
                     )
-                else:
-                    if entry:
-                        yield entry
 
     @classmethod
     def _has_temp_keyword(cls, query_text: str) -> bool:
@@ -514,7 +532,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
-    ) -> Optional[
+    ) -> Iterable[
         Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery, StoredProcCall]
     ]:
         json_fields = {
@@ -540,8 +558,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             snowflake_query_type, QueryType.UNKNOWN
         )
 
-        direct_objects_accessed = res["direct_objects_accessed"]
-        objects_modified = res["objects_modified"]
+        direct_objects_accessed = res["direct_objects_accessed"] or []
+        objects_modified = res["objects_modified"] or []
         object_modified_by_ddl = res["object_modified_by_ddl"]
 
         if (
@@ -553,7 +571,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             if direct_objects_accessed:
                 pass  # Fall through to normal query processing for usage tracking
             else:
-                return None
+                return
 
         if (
             isinstance(object_modified_by_ddl, dict)
@@ -572,12 +590,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     snowflake_query_type,
                 )
             if known_ddl_entry:
-                return known_ddl_entry
+                yield known_ddl_entry
+                return
             elif direct_objects_accessed:
                 # Unknown ddl relevant for usage. We want to continue execution here
                 pass
             else:
-                return None
+                return
 
         user = CorpUserUrn(
             self.identifiers.get_user_identifier(
@@ -618,7 +637,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             elif is_create_temp_view:
                 self.report.num_create_temp_view_queries_observed += 1
 
-            return ObservedQuery(
+            yield ObservedQuery(
                 query=query_text,
                 session_id=res["session_id"],
                 timestamp=timestamp,
@@ -630,9 +649,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 ),
                 extra_info=extra_info,
             )
+            return
 
         if snowflake_query_type == "CALL" and res["root_query_id"] is None:
-            return StoredProcCall(
+            yield StoredProcCall(
                 # This is the top-level query ID that other entries will reference.
                 snowflake_root_query_id=res["query_id"],
                 query_text=query_text,
@@ -641,6 +661,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 default_db=res["default_db"],
                 default_schema=res["default_schema"],
             )
+            return
 
         upstreams = []
         column_usage = {}
@@ -663,7 +684,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     self.report.queries_with_empty_column_name.append(query_id)
                     logger.info(f"Query {query_id} has empty column name in audit log.")
 
-                    return ObservedQuery(
+                    yield ObservedQuery(
                         query=query_text,
                         session_id=res["session_id"],
                         timestamp=timestamp,
@@ -675,79 +696,157 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         ),
                         extra_info=extra_info,
                     )
+                    return
                 columns.add(self.identifiers.snowflake_identifier(column_name))
 
             upstreams.append(dataset)
             column_usage[dataset] = columns
 
-        downstream = None
-        column_lineage = None
-        for obj in objects_modified:
-            # We don't expect there to be more than one object modified.
-            if downstream:
-                self.structured_reporter.report_warning(
-                    message="Unexpectedly got multiple downstream entities from the Snowflake audit log.",
-                    context=f"{row}",
-                )
+        is_multi_table = len(objects_modified) > 1
+        targets = self._build_downstream_targets(
+            objects_modified,
+            res["query_secondary_fingerprint"],
+            is_multi_table,
+            query_id=res["query_id"],
+        )
 
-            downstream = self.identifiers.gen_dataset_urn(
-                self.identifiers.get_dataset_identifier_from_qualified_name(
-                    obj["objectName"]
+        if objects_modified and not targets:
+            self.structured_reporter.warning(
+                "All downstream objects failed; falling back to SQL-based lineage",
+                context=f"query_id={res['query_id']}, "
+                f"num_objects={len(objects_modified)}",
+            )
+            yield ObservedQuery(
+                query=query_text,
+                session_id=res["session_id"],
+                timestamp=timestamp,
+                user=user,
+                default_db=res["default_db"],
+                default_schema=res["default_schema"],
+                usage_multiplier=res["query_count"],
+                query_hash=get_query_fingerprint(
+                    query_text, self.identifiers.platform, fast=True
+                ),
+                extra_info=extra_info,
+            )
+            return
+
+        for i, target in enumerate(targets):
+            # Only the first entry carries query_count; subsequent entries get 0
+            # to avoid double-counting upstream reads when multiple targets are yielded.
+            entry_query_count = res["query_count"] if i == 0 else 0
+
+            yield PreparsedQuery(
+                # Use DataHub's own fingerprint instead of Snowflake's opaque
+                # QUERY_SECONDARY_FINGERPRINT. fast=True uses regex-based
+                # normalization instead of full sqlglot parsing.
+                query_id=get_query_fingerprint(
+                    query_text,
+                    self.identifiers.platform,
+                    fast=True,
+                    secondary_id=target.secondary_id,
+                ),
+                query_text=query_text,
+                upstreams=list(upstreams),
+                downstream=target.downstream,
+                column_lineage=target.column_lineage,
+                column_usage=dict(column_usage),
+                inferred_schema=None,
+                confidence_score=1.0,
+                query_count=entry_query_count,
+                user=user,
+                timestamp=timestamp,
+                session_id=res["session_id"],
+                query_type=query_type,
+                extra_info=extra_info,
+            )
+
+    def _build_downstream_targets(
+        self,
+        objects_modified: List[Dict[str, Any]],
+        query_secondary_fingerprint: Optional[str],
+        is_multi_table: bool,
+        query_id: str,
+    ) -> List[_DownstreamTarget]:
+        """Build one _DownstreamTarget per modified object in an audit log row.
+
+        For multi-table INSERTs (INSERT ALL / INSERT FIRST) this returns N entries;
+        for normal queries it returns one. Each object is isolated so a bad entry
+        doesn't discard siblings. For queries with no objects_modified (e.g. SELECT
+        statements), returns a single entry with downstream=None to preserve
+        upstream usage tracking. If all objects fail to process (e.g. malformed
+        audit log entries), returns an empty list; the caller falls back to
+        SQL-based lineage.
+        """
+        targets: List[_DownstreamTarget] = []
+
+        if not objects_modified:
+            targets.append(
+                _DownstreamTarget(
+                    downstream=None,
+                    column_lineage=None,
+                    secondary_id=query_secondary_fingerprint,
                 )
             )
-            column_lineage = []
-            for modified_column in obj["columns"]:
-                column_lineage.append(
-                    ColumnLineageInfo(
-                        downstream=DownstreamColumnRef(
-                            dataset=downstream,
-                            column=self.identifiers.snowflake_identifier(
-                                modified_column["columnName"]
-                            ),
-                        ),
-                        upstreams=[
-                            ColumnRef(
-                                table=self.identifiers.gen_dataset_urn(
-                                    self.identifiers.get_dataset_identifier_from_qualified_name(
-                                        upstream["objectName"]
-                                    )
-                                ),
-                                column=self.identifiers.snowflake_identifier(
-                                    upstream["columnName"]
-                                ),
-                            )
-                            for upstream in modified_column["directSources"]
-                            if upstream["objectDomain"]
-                            in SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS
-                        ],
+        else:
+            for obj in objects_modified:
+                try:
+                    obj_downstream = self.identifiers.gen_dataset_urn(
+                        self.identifiers.get_dataset_identifier_from_qualified_name(
+                            obj["objectName"]
+                        )
                     )
-                )
+                    obj_column_lineage: List[ColumnLineageInfo] = []
+                    for modified_column in obj["columns"]:
+                        obj_column_lineage.append(
+                            ColumnLineageInfo(
+                                downstream=DownstreamColumnRef(
+                                    table=obj_downstream,
+                                    column=self.identifiers.snowflake_identifier(
+                                        modified_column["columnName"]
+                                    ),
+                                ),
+                                upstreams=[
+                                    ColumnRef(
+                                        table=self.identifiers.gen_dataset_urn(
+                                            self.identifiers.get_dataset_identifier_from_qualified_name(
+                                                upstream["objectName"]
+                                            )
+                                        ),
+                                        column=self.identifiers.snowflake_identifier(
+                                            upstream["columnName"]
+                                        ),
+                                    )
+                                    for upstream in modified_column["directSources"]
+                                    if upstream["objectDomain"]
+                                    in SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS
+                                ],
+                            )
+                        )
 
-        entry = PreparsedQuery(
-            # Despite having Snowflake's fingerprints available, our own fingerprinting logic does a better
-            # job at eliminating redundant / repetitive queries. As such, we include the fast fingerprint
-            # here
-            query_id=get_query_fingerprint(
-                query_text,
-                self.identifiers.platform,
-                fast=True,
-                secondary_id=res["query_secondary_fingerprint"],
-            ),
-            query_text=query_text,
-            upstreams=upstreams,
-            downstream=downstream,
-            column_lineage=column_lineage,
-            column_usage=column_usage,
-            inferred_schema=None,
-            confidence_score=1.0,
-            query_count=res["query_count"],
-            user=user,
-            timestamp=timestamp,
-            session_id=res["session_id"],
-            query_type=query_type,
-            extra_info=extra_info,
-        )
-        return entry
+                    # Multi-table INSERTs need a unique query_id per downstream table
+                    # so SqlParsingAggregator treats each as a distinct lineage entry.
+                    secondary_id = query_secondary_fingerprint
+                    if is_multi_table:
+                        base = secondary_id or ""
+                        secondary_id = f"{base}_{obj['objectName']}"
+
+                    targets.append(
+                        _DownstreamTarget(
+                            downstream=obj_downstream,
+                            column_lineage=obj_column_lineage,
+                            secondary_id=secondary_id,
+                        )
+                    )
+                except (KeyError, ValueError, TypeError) as e:
+                    self.structured_reporter.warning(
+                        "Failed to process downstream object",
+                        context=f"query_id={query_id}, "
+                        f"object={obj.get('objectName', '<unknown>')}",
+                        exc=e,
+                    )
+
+        return targets
 
     @staticmethod
     def _get_ddl_property(properties: dict, key: str) -> str:

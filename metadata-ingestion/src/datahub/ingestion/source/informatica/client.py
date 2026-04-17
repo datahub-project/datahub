@@ -92,8 +92,15 @@ class InformaticaClient:
         )
 
     def _ensure_authenticated(self) -> None:
+        """Ensure we have a valid session. Logs in if no session exists."""
         if not self._session_id:
             self.login()
+        if not self._session_id:
+            logger.error("Authentication failed: session ID is still None after login")
+            raise Exception(
+                "IDMC authentication failed — no session ID after login. "
+                "Check login_url, username, and password."
+            )
 
     def _request(
         self,
@@ -108,13 +115,13 @@ class InformaticaClient:
     ) -> requests.Response:
         """Execute an authenticated HTTP request with retry and re-auth logic."""
         self._ensure_authenticated()
-        assert self._session_id is not None
+        session_id: str = self._session_id  # type: ignore[assignment]
 
         headers: Dict[str, str] = {}
         if is_v3:
-            headers["INFA-SESSION-ID"] = self._session_id
+            headers["INFA-SESSION-ID"] = session_id
         else:
-            headers["icSessionId"] = self._session_id
+            headers["icSessionId"] = session_id
 
         if json_body is not None:
             headers["Content-Type"] = "application/json"

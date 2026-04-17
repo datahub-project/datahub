@@ -86,6 +86,57 @@ def test_lossydict_sampling(length, sampling, sub_length):
         assert len(v) == element_length_map[k]
 
 
+def test_lossydict_resize_grow():
+    """resize to a larger limit keeps all entries."""
+    d: LossyDict[str, int] = LossyDict(max_elements=3)
+    d["a"] = 1
+    d["b"] = 2
+    d.resize(10)
+    assert d.max_elements == 10
+    assert dict(d) == {"a": 1, "b": 2}
+    assert not d.sampled
+
+
+def test_lossydict_resize_shrink():
+    """resize to a smaller limit prunes excess entries."""
+    d: LossyDict[str, int] = LossyDict(max_elements=10)
+    for i in range(8):
+        d[f"k{i}"] = i
+    assert len(d) == 8
+
+    d.resize(3)
+    assert d.max_elements == 3
+    assert len(d) == 3
+    assert d.sampled
+    # surviving keys are a subset of the originals
+    assert set(d.keys()).issubset({f"k{i}" for i in range(8)})
+
+
+def test_lossydict_resize_to_same_size():
+    """resize to the current size is a no-op."""
+    d: LossyDict[str, int] = LossyDict(max_elements=5)
+    for i in range(5):
+        d[f"k{i}"] = i
+    d.resize(5)
+    assert len(d) == 5
+    assert not d.sampled
+
+
+def test_lossydict_resize_respects_new_limit_on_insert():
+    """After resize, new inserts respect the new max_elements."""
+    d: LossyDict[str, int] = LossyDict(max_elements=100)
+    d["a"] = 1
+    d["b"] = 2
+    d.resize(3)
+    # insert up to new limit
+    d["c"] = 3
+    assert len(d) == 3
+    # one more triggers sampling
+    d["d"] = 4
+    assert len(d) <= 3
+    assert d.sampled
+
+
 def test_lossylist_getitem_direct_indexing():
     """Test that direct indexing returns unwrapped items, not tuples.
 
