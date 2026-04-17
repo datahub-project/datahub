@@ -1,7 +1,6 @@
 import json
-from collections import defaultdict
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Type, cast
+from typing import Any, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
@@ -1056,17 +1055,10 @@ def test_process_dataflow_node_jdbc(
         dbtable=dbtable,
     )
 
-    new_dataset_ids: List[str] = []
-    new_dataset_mces: List[Any] = []
-    s3_formats: DefaultDict[str, Set[Any]] = defaultdict(set)
-
-    result = source.process_dataflow_node(
-        node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
-    )
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert result["urn"] == expected_urn
-    assert new_dataset_mces == []
 
 
 def test_process_dataflow_node_jdbc_missing_url() -> None:
@@ -1086,7 +1078,7 @@ def test_process_dataflow_node_jdbc_missing_url() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is None
     assert source.report.warnings
@@ -1151,7 +1143,7 @@ def test_process_dataflow_node_glue_connection_jdbc(
         "DataSource0", "DataSource", "My PG Connection", dbtable
     )
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert result["urn"] == expected_urn
@@ -1195,7 +1187,7 @@ def test_process_dataflow_node_glue_connection_native(
         "DataSource0", "DataSource", "My Connection", dbtable
     )
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert result["urn"] == expected_urn
@@ -1217,7 +1209,7 @@ def test_process_dataflow_node_glue_connection_missing_dbtable() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is None
     assert source.report.warnings
@@ -1233,7 +1225,7 @@ def test_process_dataflow_node_glue_connection_fetch_failure() -> None:
     flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
     node = _make_glue_connection_node("DataSource0", "DataSource", "Missing", "mytable")
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is None
     assert source.report.warnings
@@ -1338,7 +1330,7 @@ def test_process_dataflow_node_glue_connection_query_fallback(
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert expected_dbtable in result["urn"]
@@ -1369,7 +1361,7 @@ def test_process_dataflow_node_glue_connection_query_multi_table() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert not source.report.warnings
@@ -1403,7 +1395,7 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert (
