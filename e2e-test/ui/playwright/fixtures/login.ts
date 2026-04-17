@@ -39,7 +39,8 @@ export function readGmsToken(username: string): string {
   if (!fs.existsSync(tokenFile)) {
     throw new Error(
       `GMS token not found for user '${username}'. ` +
-        `Run auth setup first: npx playwright test --project=auth-setup`,
+        `Run at least one test first so the login fixture can create the token, ` +
+        `or delete .auth/ and re-run to force a fresh login.`,
     );
   }
   const data = JSON.parse(fs.readFileSync(tokenFile, 'utf-8')) as { token: string };
