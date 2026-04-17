@@ -7,7 +7,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import javax.annotation.Nonnull;
 
 public class GlobalTagsTemplate implements ArrayMergingTemplate<GlobalTags> {
@@ -42,13 +41,18 @@ public class GlobalTagsTemplate implements ArrayMergingTemplate<GlobalTags> {
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
-    return arrayFieldToMap(baseNode, TAGS_FIELD_NAME, Collections.unmodifiableList(Arrays.asList(TAG_FIELD_NAME, ATTRIBUTION_SOURCE)));
+    return arrayFieldToMap(
+        baseNode,
+        TAGS_FIELD_NAME,
+        Collections.unmodifiableList(Arrays.asList(TAG_FIELD_NAME, ATTRIBUTION_SOURCE)));
   }
 
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
     return transformedMapToArray(
-        patched, TAGS_FIELD_NAME, Collections.unmodifiableList(Arrays.asList(TAG_FIELD_NAME, ATTRIBUTION_SOURCE)));
+        patched,
+        TAGS_FIELD_NAME,
+        Collections.unmodifiableList(Arrays.asList(TAG_FIELD_NAME, ATTRIBUTION_SOURCE)));
   }
 }

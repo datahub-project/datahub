@@ -11,7 +11,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import javax.annotation.Nonnull;
 
 public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
@@ -55,7 +54,9 @@ public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
     return arrayFieldToMap(
         baseNode,
         OWNERS_FIELD_NAME,
-        Collections.unmodifiableList(Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
+        Collections.unmodifiableList(
+            Arrays.asList(
+                OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
   }
 
   @Nonnull
@@ -64,6 +65,8 @@ public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
     return transformedMapToArray(
         patched,
         OWNERS_FIELD_NAME,
-        Collections.unmodifiableList(Arrays.asList(OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
+        Collections.unmodifiableList(
+            Arrays.asList(
+                OWNER_FIELD_NAME, TYPE_FIELD_NAME, TYPE_URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
   }
 }
