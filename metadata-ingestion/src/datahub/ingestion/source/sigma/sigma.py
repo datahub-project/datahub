@@ -690,7 +690,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 workbook_columns_by_element=workbook_columns_by_element,
             )
 
-            if element_input_fields:
+            # Emit InputFieldsClass whenever we processed column data for this
+            # element, even if all refs were dropped. This overwrites stale
+            # self-referential InputFields that may persist from earlier runs.
+            had_column_data = element.elementId in workbook_columns_by_element
+            if element_input_fields or had_column_data:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=chart_urn,
                     aspect=InputFieldsClass(fields=element_input_fields),
