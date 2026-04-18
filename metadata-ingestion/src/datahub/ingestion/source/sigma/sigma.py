@@ -527,6 +527,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if upstream_urn is None:
                     continue
 
+                # The frontend's schemaFieldExists check requires the upstream entity
+                # to have schemaMetadata (Datasets only). Chart entities have no
+                # schemaMetadata, so chart→chart CLL edges are silently dropped by the
+                # UI. Only emit InputFields for warehouse/dataset upstreams.
+                if not upstream_urn.startswith("urn:li:dataset:"):
+                    self.reporter.num_cll_refs_unresolved += 1
+                    continue
+
                 input_fields.append(
                     InputFieldClass(
                         schemaFieldUrn=builder.make_schema_field_urn(
