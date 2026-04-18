@@ -141,6 +141,17 @@ class MongoDBConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for collections to filter in ingestion.",
     )
+    excludeSystemCollections: bool = Field(
+        default=True,
+        description=(
+            "Whether to exclude MongoDB system collections (those starting with 'system.') "
+            "from ingestion. System collections such as system.profile and system.views are "
+            "internal MongoDB collections that do not contain user data. Ingesting them produces "
+            "noisy or incorrect metadata. Set to False only if you explicitly need to ingest "
+            "system collections and have granted the appropriate database roles (dbAdmin for "
+            "system.profile). Default: True."
+        ),
+    )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
@@ -401,6 +412,16 @@ class MongoDBSource(StatefulIngestionSourceBase):
             # traverse collections in sorted order so output is consistent
             for collection_name in sorted(collection_names):
                 dataset_name = f"{database_name}.{collection_name}"
+
+                # Skip MongoDB internal system collections by default.
+                # system.profile requires dbAdmin (not just read/readWrite) and only exists
+                # when profiling is enabled. system.views contains view definitions, not data.
+                # Both produce garbage schema metadata if ingested naively.
+                if self.config.excludeSystemCollections and collection_name.startswith(
+                    "system."
+                ):
+                    self.report.report_dropped(dataset_name)
+                    continue
 
                 if not self.config.collection_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)

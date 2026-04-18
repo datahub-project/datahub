@@ -11,7 +11,6 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
-import java.util.Arrays;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
@@ -19,8 +18,6 @@ public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms
 
   private static final String TERMS_FIELD_NAME = "terms";
   private static final String URN_FIELD_NAME = "urn";
-  private static final String ATTRIBUTION_SOURCE =
-      "attribution" + UNIT_SEPARATOR_DELIMITER + "source";
   private static final String AUDIT_STAMP_FIELD = "auditStamp";
   private static final String TIME_FIELD = "time";
   private static final String ACTOR_FIELD = "actor";
@@ -61,10 +58,7 @@ public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms
       auditStampNode.put(ACTOR_FIELD, SYSTEM_ACTOR).put(TIME_FIELD, System.currentTimeMillis());
       ((ObjectNode) baseNode).set(AUDIT_STAMP_FIELD, auditStampNode);
     }
-    return arrayFieldToMap(
-        baseNode,
-        TERMS_FIELD_NAME,
-        Collections.unmodifiableList(Arrays.asList(URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
+    return arrayFieldToMap(baseNode, TERMS_FIELD_NAME, Collections.singletonList(URN_FIELD_NAME));
   }
 
   @Nonnull
@@ -77,8 +71,6 @@ public class GlossaryTermsTemplate implements ArrayMergingTemplate<GlossaryTerms
       ((ObjectNode) patched).set(AUDIT_STAMP_FIELD, auditStampNode);
     }
     return transformedMapToArray(
-        patched,
-        TERMS_FIELD_NAME,
-        Collections.unmodifiableList(Arrays.asList(URN_FIELD_NAME, ATTRIBUTION_SOURCE)));
+        patched, TERMS_FIELD_NAME, Collections.singletonList(URN_FIELD_NAME));
   }
 }
