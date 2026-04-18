@@ -55,48 +55,17 @@ A Metadata Policy can be broken down into 3 parts:
 
 #### Resources
 
-Resources can be associated with the policy in a number of ways:
+Resources can be associated with the policy in a number of ways.
 
-1. **Resource types** - The entity's type, for example: dataset, chart, dashboard
-2. **Resource URNs** - Specific entity URNs to target
-3. **Tags** - Assets tagged with specific tags
-4. **Domains** - Assets within specific domains
-5. **Containers** - Assets within specific containers (e.g., databases, schemas)
-6. **Glossary Terms or Term Groups** - Assets annotated with specific glossary terms or any term within a term group (see [Glossary-Based Policy Targeting](#glossary-based-policy-targeting) below)
+1. List of resource types - The entity's type for example: dataset, chart, dashboard
+2. List of resource URNs
+3. List of tags
+4. List of domains
 
 :::note Important Note
 The associations in the list above are an _intersection_ or an _AND_ operation. For example, if the policy targets
 `1. resource type: dataset` and `3. resources tagged: 'myTag'`, it will apply to datasets that are tagged with tag 'myTag'.
 :::
-
-##### Domain-Based Policy Targeting
-
-Policies can be targeted to assets based on **Domains**. This allows you to apply permissions to all assets within a specific business domain.
-
-When you target a policy by domain, the policy applies recursively to any asset that belongs to that domain as well as any assets in nested child domains.
-
-**Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
-
-##### Container-Based Policy Targeting
-
-Policies can be targeted to assets based on **Containers** (e.g., databases, schemas, projects). This allows you to apply permissions based on technical organization.
-
-When you target a policy by container, the policy applies recursively to all assets within that container as well as any assets in nested child containers.
-
-**Example**: A policy targeting a "production" database container will apply to all schemas within that database and all tables within those schemas.
-
-##### Glossary-Based Policy Targeting
-
-Policies can be targeted to assets based on **Glossary Terms** or **Glossary Term Groups**. This allows you to apply permissions based on business vocabulary rather than technical properties.
-
-When you target a policy by glossary terms or groups:
-
-- **Individual Terms**: The policy applies to any asset annotated with that specific glossary term
-- **Term Groups**: The policy applies recursively to assets annotated with any term within that group, including all nested child terms and groups
-
-This works similarly to domain and container-based policies, automatically covering assets as your glossary evolves.
-
-**Example**: A policy targeting the "Sensitive Data" term group will apply to all assets tagged with child terms like "PII", "PHI", or any terms in nested groups, without requiring policy updates when new terms are added to the hierarchy.
 
 #### Privileges
 
@@ -356,7 +325,9 @@ These privileges are not generalizable.
 
 Support for Policy Constraints based on entity sub-resources (tags, glossary terms, domains, containers, etc.) is currently in development and in an experimental phase.
 
-Currently the only supported sub-resources are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
+#### Tag-Based Privilege Constraints
+
+Currently the only supported sub-resources for privilege constraints are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
 option is `privilegeConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
 it applies to the subResource targeted in the action. For example, if the policy specifies it is constrained to tags that equal `urn:li:tag:tag1` or `urn:li:tag:tag2` for `EDIT_DATASET_TAGS` privilege, then assuming no other policies match,
 a user would only be able to apply those tags to the dataset. This is also supported with the `NOT_EQUALS` condition for preventing certain tags from being added/removed. These policies apply by default in the UI and can be configured to apply
@@ -430,6 +401,77 @@ mutation {
   )
 }
 ```
+
+## Domain-Based Authorization
+
+Domain-Based Authorization allows you to enforce access control at the domain level. When enabled, users must have appropriate privileges on the domain(s) that an entity belongs to in order to perform operations on that entity.
+
+**Configuration:**
+
+To enable domain-based authorization, set the following configuration:
+
+```yaml
+authorization:
+  defaultAuthorizer:
+    domainBasedAuthorizationEnabled: true
+```
+
+**How It Works:**
+
+When domain-based authorization is enabled:
+
+1. For CREATE/UPDATE operations: The system checks authorization against both the entity's current domains AND any new domains being assigned.
+2. For READ/DELETE operations: Standard entity-level authorization applies (domain authorization is handled by policy evaluation, which automatically fetches the entity's domains from the database).
+
+**Authorization Flow:**
+
+For synchronous CREATE/UPDATE operations (`async=false`):
+
+- Authorization happens **inside the database transaction** via `DomainBasedAuthorizationValidator`.
+- This ensures domains are checked consistently within the transaction state.
+- Prevents race conditions where domains could change between authorization and commit.
+
+For asynchronous CREATE/UPDATE operations (`async=true`):
+
+- A domain authorization pre-check is performed in `EntityServiceImpl.ingestProposal()` before the proposal is queued to Kafka.
+- This ensures that async callers are checked against the user's session context even though the validator runs under a system account when processing the Kafka message.
+
+For DELETE/READ operations:
+
+- Standard entity-level authorization applies (domain authorization is handled by policy evaluation, which automatically fetches the entity's domains from the database).
+
+**Example Policy:**
+
+To allow a user to edit entities within specific domains:
+
+```json
+{
+  "type": "METADATA",
+  "state": "ACTIVE",
+  "privileges": ["EDIT_ENTITY"],
+  "actors": {
+    "users": ["urn:li:corpuser:john.doe"],
+    "groups": [],
+    "allUsers": false,
+    "allGroups": false,
+    "resourceOwners": false
+  },
+  "resources": {
+    "allResources": false,
+    "filter": {
+      "criteria": [
+        {
+          "field": "DOMAIN",
+          "condition": "EQUALS",
+          "values": ["urn:li:domain:engineering", "urn:li:domain:marketing"]
+        }
+      ]
+    }
+  }
+}
+```
+
+In this example, john.doe can only edit entities that belong to the "engineering" or "marketing" domains.
 
 ## Feedback / Questions / Concerns
 

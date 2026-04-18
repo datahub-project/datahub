@@ -61,4 +61,5 @@ public class FeatureFlags {
   private boolean glossaryBasedPoliciesEnabled = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
+  private boolean domainBasedAuthorizationEnabled = false;
 }

@@ -268,7 +268,8 @@ public class OpenAPIV3Generator {
                             buildSingleEntityAspectPath(e, a))));
 
     // --> Link & Unlink APIs
-    if (configurationProvider.getFeatureFlags().isEntityVersioning()) {
+    if (configurationProvider.getFeatureFlags() != null
+        && configurationProvider.getFeatureFlags().isEntityVersioning()) {
       definedEntitySpecs.stream()
           .filter(entitySpec -> VERSION_SET_ENTITY_NAME.equals(entitySpec.getName()))
           .forEach(

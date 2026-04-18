@@ -11,6 +11,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.DomainProperties;
@@ -189,6 +190,41 @@ public class DomainFieldResolverProviderTest
         values.size(), 2, "Should resolve both domains despite cycle, but not infinitely loop");
     assertTrue(values.contains(CHILD_DOMAIN_URN.toString()));
     assertTrue(values.contains(PARENT_DOMAIN_URN.toString()));
+  }
+
+  @Test
+  public void testGetDomainsWithProposedAspect()
+      throws ExecutionException,
+          InterruptedException,
+          RemoteInvocationException,
+          URISyntaxException {
+    // Test the proposedAspects path: domain authorization before commit
+    Urn domainUrn1 = UrnUtils.getUrn("urn:li:domain:engineering");
+    Urn domainUrn2 = UrnUtils.getUrn("urn:li:domain:platform");
+
+    Domains proposedDomains = new Domains();
+    proposedDomains.setDomains(new UrnArray(domainUrn1, domainUrn2));
+
+    Map<String, com.linkedin.data.template.RecordTemplate> proposedAspects = new HashMap<>();
+    proposedAspects.put(DOMAINS_ASPECT_NAME, proposedDomains);
+
+    EntitySpec entitySpec = new EntitySpec("dataset", DATASET_URN.toString(), proposedAspects);
+
+    // Mock no parent domains
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            any(),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(Collections.emptyMap());
+
+    DomainFieldResolverProvider provider = new DomainFieldResolverProvider(mockEntityClient);
+    FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
+    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
+
+    assertEquals(fieldValue.getValues().size(), 2);
+    assertTrue(fieldValue.getValues().contains(domainUrn1.toString()));
+    assertTrue(fieldValue.getValues().contains(domainUrn2.toString()));
   }
 
   // Helper methods

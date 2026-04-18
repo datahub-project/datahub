@@ -81,12 +81,12 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
   }
 
   /**
-   * Given a set of initial domain URNs, recursively resolve all parent domains. Returns the initial
-   * domains plus all their ancestors in the domain hierarchy.
+   * Helper method to build domain field value from a Domains aspect. Includes the domain and all
+   * parent domains.
    */
-  private Set<Urn> resolveDomainsWithParents(
-      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> initialDomains) {
-    final Set<Urn> domainUrns = new HashSet<>(initialDomains);
+  private FieldResolver.FieldValue buildDomainFieldValue(
+      @Nonnull OperationContext opContext, Domains domains) {
+    final Set<Urn> domainUrns = new HashSet<>(domains.getDomains());
     Set<Urn> batchedParentUrns = getBatchedParentDomains(opContext, domainUrns);
     batchedParentUrns.removeAll(domainUrns);
 
@@ -96,12 +96,31 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       batchedParentUrns.removeAll(domainUrns);
     }
 
-    return domainUrns;
+    return FieldResolver.FieldValue.builder()
+        .values(domainUrns.stream().map(Object::toString).collect(Collectors.toSet()))
+        .build();
   }
 
   private FieldResolver.FieldValue getDomains(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
 
+    // Check for proposed domains aspect first (used during authorization of domain changes)
+    if (entitySpec.getProposedAspects() != null
+        && entitySpec.getProposedAspects().containsKey(DOMAINS_ASPECT_NAME)) {
+      try {
+        Domains proposedDomains =
+            (Domains) entitySpec.getProposedAspects().get(DOMAINS_ASPECT_NAME);
+        return buildDomainFieldValue(opContext, proposedDomains);
+      } catch (Exception e) {
+        log.error(
+            "Error while processing proposed domains aspect for entitySpec {}", entitySpec, e);
+        // Fail closed: throw rather than returning empty, which could allow a permissive
+        // non-domain policy to grant access when proposed-domain auth should have blocked it.
+        throw new RuntimeException("Failed to process proposed domains for authorization", e);
+      }
+    }
+
+    final EnvelopedAspect domainsAspect;
     try {
       if (entitySpec.getEntity().isEmpty()) {
         return FieldResolver.emptyFieldValue();
@@ -110,16 +129,12 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
 
       // In the case that the entity is a domain, the associated domain is the domain itself
-      // plus all parent domains
       if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
-        final Set<Urn> domainsWithParents =
-            resolveDomainsWithParents(opContext, Collections.singleton(entityUrn));
         return FieldResolver.FieldValue.builder()
-            .values(domainsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
+            .values(Collections.singleton(entityUrn.toString()))
             .build();
       }
 
-      // For non-domain entities, fetch the Domains aspect
       EntityResponse response =
           _entityClient.getV2(
               opContext,
@@ -129,20 +144,13 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       if (response == null || !response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();
       }
-
-      final EnvelopedAspect domainsAspect = response.getAspects().get(DOMAINS_ASPECT_NAME);
-      final Set<Urn> initialDomains =
-          new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
-
-      // Resolve all parent domains recursively
-      final Set<Urn> domainsWithParents = resolveDomainsWithParents(opContext, initialDomains);
-
-      return FieldResolver.FieldValue.builder()
-          .values(domainsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
-          .build();
+      domainsAspect = response.getAspects().get(DOMAINS_ASPECT_NAME);
     } catch (Exception e) {
       log.error("Error while retrieving domains aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
+
+    // Build domain field value from database aspect (includes parent domains)
+    return buildDomainFieldValue(opContext, new Domains(domainsAspect.getValue().data()));
   }
 }

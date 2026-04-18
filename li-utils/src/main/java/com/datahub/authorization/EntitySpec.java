@@ -1,6 +1,10 @@
 package com.datahub.authorization;
 
+import com.linkedin.data.template.RecordTemplate;
+import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.AllArgsConstructor;
 import lombok.Value;
 
 /**
@@ -9,6 +13,7 @@ import lombok.Value;
  * com.linkedin.metadata.authorization.PoliciesConfig}
  */
 @Value
+@AllArgsConstructor
 public class EntitySpec {
   /** The entity type. (dataset, chart, dashboard, corpGroup, etc). */
   @Nonnull String type;
@@ -18,4 +23,24 @@ public class EntitySpec {
    * (urn:li:corpGroup:groupId)
    */
   @Nonnull String entity;
+
+  /**
+   * Optional map of proposed aspects that override database values during authorization.
+   *
+   * <p>This enables authorizing operations based on proposed changes before they're committed. For
+   * example, when creating an entity with a domain, the domain aspect can be passed here so
+   * PolicyEngine can authorize based on the domain being assigned (not the null/empty domain that
+   * exists before creation).
+   *
+   * <p>Map key: aspect name (e.g., "domains", "ownership", "tags") Map value: aspect data as
+   * RecordTemplate
+   *
+   * <p>FieldResolvers should check this map before fetching from the database.
+   */
+  @Nullable Map<String, RecordTemplate> proposedAspects;
+
+  /** Convenience constructor for EntitySpec without proposed aspects. */
+  public EntitySpec(@Nonnull String type, @Nonnull String entity) {
+    this(type, entity, null);
+  }
 }
