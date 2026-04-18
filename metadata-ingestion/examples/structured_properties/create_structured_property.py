@@ -1,14 +1,14 @@
 import logging
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     PropertyValueClass,
     StructuredPropertyDefinitionClass,
 )
 from datahub.metadata.urns import StructuredPropertyUrn
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

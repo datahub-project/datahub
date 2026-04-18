@@ -2,9 +2,6 @@
 import logging
 import os
 
-from datahub.emitter.mce_builder import make_assertion_urn, make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     DataContractPropertiesClass,
     DataContractStateClass,
@@ -14,6 +11,10 @@ from datahub.metadata.schema_classes import (
     SchemaContractClass,
     StatusClass,
 )
+
+from datahub.emitter.mce_builder import make_assertion_urn, make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

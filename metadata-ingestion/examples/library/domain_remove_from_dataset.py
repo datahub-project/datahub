@@ -1,4 +1,5 @@
 from datahub.metadata.schema_classes import DomainsClass
+
 from datahub.sdk import DataHubClient, DatasetUrn
 
 client = DataHubClient.from_env()

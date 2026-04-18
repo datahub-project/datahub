@@ -1,6 +1,7 @@
+from datahub.metadata.schema_classes import TagAssociationClass
+
 from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import TagAssociationClass
 from datahub.specific.dataset import DatasetPatchBuilder
 
 # Create DataHub Client

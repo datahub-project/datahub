@@ -1,9 +1,10 @@
-import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.metadata.schema_classes import MLModelPropertiesClass
+
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import MLModelPropertiesClass
 
 gms_endpoint = "http://localhost:8080"
 # Create an emitter to DataHub over REST

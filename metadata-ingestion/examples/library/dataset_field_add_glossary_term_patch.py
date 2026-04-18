@@ -1,6 +1,7 @@
+from datahub.metadata.schema_classes import GlossaryTermAssociationClass
+
 from datahub.emitter.mce_builder import make_dataset_urn, make_term_urn
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import GlossaryTermAssociationClass
 from datahub.specific.dataset import DatasetPatchBuilder
 
 # Create DataHub Client

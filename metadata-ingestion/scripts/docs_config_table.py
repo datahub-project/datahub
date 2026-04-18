@@ -3,10 +3,10 @@ import json
 import re
 from typing import Any, ClassVar, Dict, Iterable, List, Optional, Set, Type
 
+from datahub.metadata.schema_classes import SchemaFieldClass
 from pydantic import BaseModel, Field
 
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-from datahub.metadata.schema_classes import SchemaFieldClass
 
 DEFAULT_VALUE_MAX_LENGTH = 50
 DEFAULT_VALUE_TRUNCATION_MESSAGE = "..."

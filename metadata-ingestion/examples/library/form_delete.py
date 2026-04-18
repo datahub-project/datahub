@@ -1,7 +1,8 @@
 import logging
 
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.urns import FormUrn
+
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

@@ -6,6 +6,7 @@ from datahub.metadata.urns import (
     GlossaryTermUrn,
     TagUrn,
 )
+
 from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()

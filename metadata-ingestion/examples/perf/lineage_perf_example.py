@@ -1,12 +1,6 @@
 import itertools
 from typing import Iterable
 
-from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import (
-    EmitMode,
-)
-from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DatasetLineageTypeClass,
@@ -16,6 +10,13 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+
+from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import (
+    EmitMode,
+)
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 

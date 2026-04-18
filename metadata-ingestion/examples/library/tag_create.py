@@ -1,4 +1,5 @@
 from datahub.metadata.urns import CorpUserUrn
+
 from datahub.sdk import DataHubClient, Tag
 
 client = DataHubClient.from_env()

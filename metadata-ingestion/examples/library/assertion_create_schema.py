@@ -2,9 +2,6 @@
 import os
 import time
 
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionTypeClass,
@@ -18,6 +15,10 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
+
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 emitter = DatahubRestEmitter(
     gms_server=os.getenv("DATAHUB_GMS_URL", "http://localhost:8080"),

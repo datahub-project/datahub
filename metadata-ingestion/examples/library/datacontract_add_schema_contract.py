@@ -1,14 +1,15 @@
 # metadata-ingestion/examples/library/datacontract_add_schema_contract.py
 import logging
 
-from datahub.emitter.mce_builder import make_assertion_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     DataContractPropertiesClass,
     SchemaContractClass,
 )
+
+from datahub.emitter.mce_builder import make_assertion_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

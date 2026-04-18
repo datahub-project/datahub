@@ -1,8 +1,5 @@
 import os
 
-from datahub.emitter.mce_builder import make_term_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     GlossaryTermInfoClass,
@@ -15,6 +12,10 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.metadata.urns import GlossaryNodeUrn
+
+from datahub.emitter.mce_builder import make_term_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 # Create the term URN
 term_urn = make_term_urn("Classification.PII")

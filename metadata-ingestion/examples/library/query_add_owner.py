@@ -1,15 +1,16 @@
 # metadata-ingestion/examples/library/query_add_owner.py
 import logging
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
 from datahub.metadata.urns import CorpUserUrn, QueryUrn
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

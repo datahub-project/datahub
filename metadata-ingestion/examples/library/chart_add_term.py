@@ -1,4 +1,5 @@
 from datahub.metadata.urns import GlossaryTermUrn
+
 from datahub.sdk import ChartUrn, DataHubClient
 
 client = DataHubClient.from_env()

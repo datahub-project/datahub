@@ -1,8 +1,9 @@
+from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
+from datahub.metadata.urns import GlossaryTermUrn
+
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
-from datahub.metadata.urns import GlossaryTermUrn
 
 # First, ensure the related terms exist (you would have created these previously)
 # For this example, assume we have:

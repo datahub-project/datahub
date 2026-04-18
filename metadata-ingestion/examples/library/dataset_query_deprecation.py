@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
 
 from datahub.metadata.schema_classes import DeprecationClass
+
 from datahub.sdk import DataHubClient, DatasetUrn
 
 

@@ -19,6 +19,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
+
 from datahub.specific.dataset import DatasetPatchBuilder
 
 DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)"

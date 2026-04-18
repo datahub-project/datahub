@@ -1,8 +1,9 @@
+from datahub.metadata.com.linkedin.pegasus2avro.datajob import DataJobInfoClass
+from datahub.metadata.schema_classes import DataFlowInfoClass
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.com.linkedin.pegasus2avro.datajob import DataJobInfoClass
-from datahub.metadata.schema_classes import DataFlowInfoClass
 
 # Construct the DataJobInfo aspect with the job -> flow lineage.
 dataflow_urn = builder.make_data_flow_urn(

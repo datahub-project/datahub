@@ -1,5 +1,6 @@
-from datahub.emitter.mce_builder import make_tag_urn
 from datahub.metadata.schema_classes import TagAssociationClass
+
+from datahub.emitter.mce_builder import make_tag_urn
 from datahub.sdk import DataHubClient, DatasetUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 

@@ -6,8 +6,6 @@ This example shows how to add a new version of an entity to an existing
 version set, with proper version tracking and metadata.
 """
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     MetadataAttributionClass,
@@ -16,6 +14,9 @@ from datahub.metadata.schema_classes import (
     VersionSetPropertiesClass,
     VersionTagClass,
 )
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 server = "http://localhost:8080"
 emitter = DatahubRestEmitter(gms_server=server)

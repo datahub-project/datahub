@@ -1,12 +1,13 @@
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DomainUrn
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080")

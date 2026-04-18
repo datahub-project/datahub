@@ -6,6 +6,7 @@ publishing or unpublishing documents.
 """
 
 from datahub.metadata.urns import DocumentUrn
+
 from datahub.sdk import DataHubClient, Document
 
 # Initialize the client

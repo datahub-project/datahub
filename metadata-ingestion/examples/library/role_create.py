@@ -1,8 +1,9 @@
 import os
 
+from datahub.metadata.schema_classes import RolePropertiesClass
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import RolePropertiesClass
 
 # Create the role URN
 # Role URNs follow the pattern: urn:li:role:{role_id}

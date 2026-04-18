@@ -1,7 +1,7 @@
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 # Get the current lineage for a datajob
 gms_endpoint = "http://localhost:8080"

@@ -1,10 +1,11 @@
 # metadata-ingestion/examples/library/corpuser_add_tag.py
 import logging
 
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+
 from datahub.emitter.mce_builder import make_tag_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

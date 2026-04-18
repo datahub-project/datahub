@@ -1,14 +1,15 @@
 import os
 import time
 
-from datahub.emitter.mce_builder import make_user_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     OwnershipTypeInfoClass,
     OwnershipTypeKeyClass,
 )
+
+from datahub.emitter.mce_builder import make_user_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 emitter = DatahubRestEmitter(
     gms_server=os.getenv("DATAHUB_GMS_URL", "http://localhost:8080"),

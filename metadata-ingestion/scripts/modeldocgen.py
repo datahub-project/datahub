@@ -13,20 +13,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import avro.schema
 import click
-from utils import should_write_json_file
-
-from datahub.configuration.common import ConfigEnum, PermissiveConfigModel
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataset_urn,
-    make_schema_field_urn,
-)
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
-from datahub.ingestion.api.sink import NoopWriteCallback
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsClass,
@@ -47,6 +33,20 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.metadata.urns import StructuredPropertyUrn, Urn
+from utils import should_write_json_file
+
+from datahub.configuration.common import ConfigEnum, PermissiveConfigModel
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataset_urn,
+    make_schema_field_urn,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.sink import NoopWriteCallback
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 
 logger = logging.getLogger(__name__)
 

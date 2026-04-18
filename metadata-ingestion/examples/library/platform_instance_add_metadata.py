@@ -1,9 +1,6 @@
 # metadata-ingestion/examples/library/platform_instance_add_metadata.py
 import time
 
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     GlobalTagsClass,
@@ -14,6 +11,10 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
+
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 # Create the platform instance URN
 platform_instance_urn = builder.make_dataplatform_instance_urn(

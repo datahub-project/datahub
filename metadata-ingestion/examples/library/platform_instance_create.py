@@ -1,10 +1,11 @@
 # metadata-ingestion/examples/library/platform_instance_create.py
 import os
 
+from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 
 # Create the platform instance URN
 platform_instance_urn = builder.make_dataplatform_instance_urn(

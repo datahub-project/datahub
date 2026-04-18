@@ -1,5 +1,6 @@
-import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 

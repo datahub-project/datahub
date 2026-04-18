@@ -9,12 +9,12 @@ all versions using both REST API and GraphQL approaches.
 from urllib.parse import quote
 
 import requests
-
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     VersionPropertiesClass,
     VersionSetPropertiesClass,
 )
+
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 # Initialize DataHub Graph client
 config = DatahubClientConfig(server="http://localhost:8080")

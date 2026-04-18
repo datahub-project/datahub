@@ -1,14 +1,15 @@
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass as FineGrainedLineage,
+    FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
+)
+
 from datahub.emitter.mce_builder import (
     make_data_job_urn,
     make_dataset_urn,
     make_schema_field_urn,
 )
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (
-    FineGrainedLineageClass as FineGrainedLineage,
-    FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
-)
 from datahub.specific.datajob import DataJobPatchBuilder
 
 # Create DataHub Client

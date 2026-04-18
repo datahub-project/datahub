@@ -1,9 +1,6 @@
 # metadata-ingestion/examples/library/assertion_freshness.py
 import os
 
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionTypeClass,
@@ -13,6 +10,10 @@ from datahub.metadata.schema_classes import (
     FreshnessAssertionTypeClass,
     FreshnessCronScheduleClass,
 )
+
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 emitter = DatahubRestEmitter(
     gms_server=os.getenv("DATAHUB_GMS_URL", "http://localhost:8080"),

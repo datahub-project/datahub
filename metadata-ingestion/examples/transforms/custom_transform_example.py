@@ -2,16 +2,17 @@
 import json
 from typing import List, Optional
 
+from datahub.metadata.schema_classes import (
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+)
+
 from datahub.configuration.common import ConfigModel, TransformerSemantics
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,
-)
-from datahub.metadata.schema_classes import (
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
 )
 
 

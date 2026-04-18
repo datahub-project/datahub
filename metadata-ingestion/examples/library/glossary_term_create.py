@@ -1,9 +1,10 @@
 import os
 
+from datahub.metadata.schema_classes import GlossaryTermInfoClass
+
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import GlossaryTermInfoClass
 
 # Get DataHub connection details from environment
 gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")

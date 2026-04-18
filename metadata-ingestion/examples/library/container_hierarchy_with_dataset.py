@@ -1,5 +1,6 @@
-from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.metadata.urns import CorpUserUrn, TagUrn
+
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.sdk import Container, DataHubClient, Dataset
 
 client = DataHubClient.from_env()

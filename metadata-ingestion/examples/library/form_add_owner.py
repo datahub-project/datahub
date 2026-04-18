@@ -1,7 +1,5 @@
 import logging
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     OwnerClass,
@@ -9,6 +7,9 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.metadata.urns import CorpUserUrn, FormUrn
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

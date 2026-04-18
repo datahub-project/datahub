@@ -1,12 +1,13 @@
 # metadata-ingestion/examples/library/assertion_add_tags.py
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
 emitter = DatahubRestEmitter("http://localhost:8080")

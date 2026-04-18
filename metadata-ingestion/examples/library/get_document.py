@@ -5,6 +5,7 @@ This example demonstrates how to get documents and access their properties.
 """
 
 from datahub.metadata.urns import DocumentUrn
+
 from datahub.sdk import DataHubClient
 
 # Initialize the client

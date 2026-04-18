@@ -1,5 +1,6 @@
 # metadata-ingestion/examples/library/tag_add_ownership.py
 from datahub.metadata.urns import CorpUserUrn
+
 from datahub.sdk import DataHubClient, Tag
 
 client = DataHubClient.from_env()

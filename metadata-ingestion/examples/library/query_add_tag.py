@@ -1,12 +1,13 @@
 # metadata-ingestion/examples/library/query_add_tag.py
 import logging
 
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.metadata.urns import QueryUrn
+
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
-from datahub.metadata.urns import QueryUrn
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

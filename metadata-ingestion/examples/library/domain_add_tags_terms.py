@@ -1,8 +1,5 @@
 import time
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     GlobalTagsClass,
@@ -11,6 +8,10 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.metadata.urns import DomainUrn, GlossaryTermUrn, TagUrn
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080")

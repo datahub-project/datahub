@@ -6,13 +6,14 @@ This example demonstrates how to create a version set with rich metadata
 including custom properties to track additional information.
 """
 
-from datahub.emitter.mce_builder import datahub_guid
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     VersioningSchemeClass,
     VersionSetPropertiesClass,
 )
+
+from datahub.emitter.mce_builder import datahub_guid
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 server = "http://localhost:8080"
 emitter = DatahubRestEmitter(gms_server=server)

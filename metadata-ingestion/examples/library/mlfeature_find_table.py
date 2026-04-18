@@ -1,6 +1,7 @@
+from datahub.metadata.urns import MlFeatureUrn
+
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.graph.openapi import RelationshipDirection
-from datahub.metadata.urns import MlFeatureUrn
 
 graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
 

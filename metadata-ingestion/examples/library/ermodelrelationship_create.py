@@ -1,8 +1,5 @@
 import time
 
-from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ERModelRelationshipCardinalityClass,
@@ -16,6 +13,10 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
+
+from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 # Configuration
 GMS_ENDPOINT = "http://localhost:8080"

@@ -1,7 +1,4 @@
 # metadata-ingestion/examples/library/corpgroup_update_info.py
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     CorpGroupEditableInfoClass,
     OwnerClass,
@@ -9,6 +6,10 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 
 graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080")

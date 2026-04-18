@@ -10,8 +10,6 @@ import pathlib
 import time
 from typing import Dict, List, cast
 
-from datahub.ingestion.sink.file import write_metadata_file as write_mces
-from datahub.ingestion.source.file import read_metadata_file
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     CorpUserInfoClass,
@@ -27,6 +25,9 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+
+from datahub.ingestion.sink.file import write_metadata_file as write_mces
+from datahub.ingestion.source.file import read_metadata_file
 
 DEMO_DATA_DIR = pathlib.Path("./examples/demo_data")
 INPUT_ALL_DATASETS = DEMO_DATA_DIR / "all_covid19_datasets.json"

@@ -5,6 +5,7 @@ This example demonstrates how to retrieve, modify, and update documents.
 """
 
 from datahub.metadata.urns import DocumentUrn
+
 from datahub.sdk import DataHubClient
 
 # Initialize the client
