@@ -46,6 +46,8 @@ class SigmaAPI:
         self.session.mount("https://", adapter)
 
         self.refresh_token: Optional[str] = None
+        # Set True after first 404 on /columns to suppress per-workbook log spam.
+        self._cll_columns_unavailable: bool = False
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self.config.api_url}")
         self._generate_token()
@@ -441,6 +443,50 @@ class SigmaAPI:
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
+            )
+            return []
+
+    def get_workbook_columns(self, workbook_id: str) -> List[Dict[str, str]]:
+        """Fetch all column entries for a workbook from /v2/workbooks/{id}/columns.
+
+        Requires Sigma API Jan-2026 or later. Returns [] on 404/400 and logs a
+        one-time warning so callers can gracefully skip CLL.
+        """
+        if self._cll_columns_unavailable:
+            return []
+        base_url = f"{self.config.api_url}/workbooks/{workbook_id}/columns"
+        url = base_url
+        columns: List[Dict[str, str]] = []
+        try:
+            while True:
+                response = self._get_api_call(url)
+                if response.status_code in (400, 404):
+                    if not self._cll_columns_unavailable:
+                        logger.warning(
+                            "Workbook columns endpoint unavailable (HTTP %d). "
+                            "Column-level lineage will be skipped for this run. "
+                            "Requires Sigma API Jan-2026 or later.",
+                            response.status_code,
+                        )
+                        self._cll_columns_unavailable = True
+                    return []
+                if response.status_code == 403:
+                    logger.debug(
+                        "Workbook columns not accessible for workbook %s", workbook_id
+                    )
+                    return []
+                response.raise_for_status()
+                response_dict = response.json()
+                columns.extend(response_dict.get(Constant.ENTRIES, []))
+                next_page = response_dict.get(Constant.NEXTPAGE)
+                if next_page:
+                    url = f"{base_url}?page={next_page}"
+                else:
+                    break
+            return columns
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch columns for workbook {workbook_id}. Exception: {e}"
             )
             return []
 

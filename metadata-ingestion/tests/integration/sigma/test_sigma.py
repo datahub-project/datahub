@@ -382,6 +382,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "sql": 'select PK_8 "Pk", PROFILE_ID_9 "Profile Id", STATUS_10 "Status", CAST_TIMESTAMP_TO_DATETIME_11 "Created At", CAST_TIMESTAMP_TO_DATETIME_12 "Updated At", PK_13 "Pk (ADOPTIONS)", PET_FK_14 "Pet Fk", HUMAN_FK_15 "Human Fk", STATUS_16 "Status (ADOPTIONS)", CAST_TIMESTAMP_TO_DATETIME_19 "Created At (ADOPTIONS)", CAST_TIMESTAMP_TO_DATETIME_20 "Updated At (ADOPTIONS)" from (select PK_8, PROFILE_ID_9, STATUS_10, CAST_TIMESTAMP_TO_DATETIME_11, CAST_TIMESTAMP_TO_DATETIME_12, PK_13, PET_FK_14, HUMAN_FK_15, STATUS_16, CREATED_AT_17::timestamp_ltz CAST_TIMESTAMP_TO_DATETIME_19, UPDATED_AT_18::timestamp_ltz CAST_TIMESTAMP_TO_DATETIME_20 from (select Q1.PK_8 PK_8, Q1.PROFILE_ID_9 PROFILE_ID_9, Q1.STATUS_10 STATUS_10, Q1.CAST_TIMESTAMP_TO_DATETIME_11 CAST_TIMESTAMP_TO_DATETIME_11, Q1.CAST_TIMESTAMP_TO_DATETIME_12 CAST_TIMESTAMP_TO_DATETIME_12, Q2.PK PK_13, Q2.PET_FK PET_FK_14, Q2.HUMAN_FK HUMAN_FK_15, Q2.STATUS STATUS_16, Q2.CREATED_AT CREATED_AT_17, Q2.UPDATED_AT UPDATED_AT_18 from (select PK PK_8, PROFILE_ID PROFILE_ID_9, STATUS STATUS_10, CREATED_AT::timestamp_ltz CAST_TIMESTAMP_TO_DATETIME_11, UPDATED_AT::timestamp_ltz CAST_TIMESTAMP_TO_DATETIME_12 from LONG_TAIL_COMPANIONS.ADOPTION.PETS PETS) Q1 inner join LONG_TAIL_COMPANIONS.ADOPTION.ADOPTIONS Q2 on (Q1.PK_8 = Q2.PET_FK) limit 1000) Q4) Q5 limit 1000\n\n-- Sigma Σ {"request-id":"f5a997ef-b80c-47f1-b32e-9cd0f50cd491","email":"john.doe@example.com"}',
             },
         },
+        # /columns requires Sigma API Jan-2026+; respond 404 by default so existing
+        # tests get clean fallback (no self-referential InputFields emitted).
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
         "https://aws-api.sigmacomputing.com/v2/members": {
             "method": "GET",
             "status_code": 200,
@@ -812,6 +819,214 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
     pipeline.run()
     pipeline.raise_from_status()
     golden_file = "golden_test_sigma_ingest_shared_entities_mces.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_cll(pytestconfig, tmp_path, requests_mock):
+    """
+    Exercises formula-based column-level lineage for workbook elements:
+    - warehouse ref: [TABLE/col] resolved to warehouse column URN
+    - cross-element ref: [ElementName/col] resolved to upstream chart column URN
+    - self-ref: [CurrentElementName/col] dropped (passthrough pattern)
+    - parameter ref: [P_*] dropped silently
+    - no-formula column: no InputField emitted
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    # CLL test uses a dedicated page so it doesn't interfere with other pages.
+    # The workbook SQL parser needs a platform mapping to produce warehouse URNs.
+    CLL_PAGE_ID = "CllTestPage"
+    CLL_ELEM_SOURCE = "cllElemSource"  # warehouse-backed element
+    CLL_ELEM_DOWNSTREAM = "cllElemDownstream"  # references cllElemSource
+
+    override_data: Dict[str, Dict] = {
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [{"pageId": CLL_PAGE_ID, "name": "CLL Test Page"}],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages/{CLL_PAGE_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": CLL_ELEM_SOURCE,
+                        "type": "table",
+                        "name": "CLL Source Element",
+                        "columns": ["col_from_warehouse"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        "elementId": CLL_ELEM_DOWNSTREAM,
+                        "type": "visualization",
+                        "name": "CLL Downstream Element",
+                        "columns": ["col_cross_elem"],
+                        "vizualizationType": "bar",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # cllElemSource: warehouse upstream only
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/{CLL_ELEM_SOURCE}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_cll_source": {
+                        "nodeId": "tgt_cll_source",
+                        "elementId": CLL_ELEM_SOURCE,
+                        "name": "CLL Source Element",
+                        "type": "sheet",
+                    },
+                    "inode-cll-warehouse": {
+                        "nodeId": "inode-cll-warehouse",
+                        "name": "CLL_SOURCE_TABLE",
+                        "type": "table",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "inode-cll-warehouse",
+                        "target": "tgt_cll_source",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        # cllElemDownstream: sheet upstream from cllElemSource
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/{CLL_ELEM_DOWNSTREAM}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_cll_downstream": {
+                        "nodeId": "tgt_cll_downstream",
+                        "elementId": CLL_ELEM_DOWNSTREAM,
+                        "name": "CLL Downstream Element",
+                        "type": "sheet",
+                    },
+                    "src_cll_source": {
+                        "nodeId": "src_cll_source",
+                        "elementId": CLL_ELEM_SOURCE,
+                        "name": "CLL Source Element",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_cll_source",
+                        "target": "tgt_cll_downstream",
+                        "type": "lookup",
+                    }
+                ],
+            },
+        },
+        # SQL query for cllElemSource so the SQL parser produces warehouse URNs
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/{CLL_ELEM_SOURCE}/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "elementId": CLL_ELEM_SOURCE,
+                "sql": "SELECT source_col FROM LONG_TAIL_COMPANIONS.ADOPTION.CLL_SOURCE_TABLE LIMIT 1000",
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/{CLL_ELEM_DOWNSTREAM}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # /columns endpoint enabled for this test (overrides the base 404)
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    # --- cllElemSource columns ---
+                    # warehouse ref → emit InputField with warehouse column URN
+                    {
+                        "elementId": CLL_ELEM_SOURCE,
+                        "columnId": "col_wh_01",
+                        "name": "col_from_warehouse",
+                        "formula": "[CLL_SOURCE_TABLE/source_col]",
+                    },
+                    # self-ref (source == element name) → dropped
+                    {
+                        "elementId": CLL_ELEM_SOURCE,
+                        "columnId": "col_self_01",
+                        "name": "col_self_ref",
+                        "formula": "[CLL Source Element/col_from_warehouse]",
+                    },
+                    # parameter ref → dropped silently
+                    {
+                        "elementId": CLL_ELEM_SOURCE,
+                        "columnId": "col_param_01",
+                        "name": "col_param",
+                        "formula": "[P_DateFilter]",
+                    },
+                    # no formula → no CLL emission
+                    {
+                        "elementId": CLL_ELEM_SOURCE,
+                        "columnId": "col_nofml_01",
+                        "name": "col_no_formula",
+                    },
+                    # --- cllElemDownstream columns ---
+                    # cross-element ref → emit InputField with chart column URN
+                    {
+                        "elementId": CLL_ELEM_DOWNSTREAM,
+                        "columnId": "col_cross_01",
+                        "name": "col_cross_elem",
+                        "formula": "[CLL Source Element/col_from_warehouse]",
+                    },
+                ],
+                "nextPage": None,
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_cll_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_sigma_ingest_cll.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,

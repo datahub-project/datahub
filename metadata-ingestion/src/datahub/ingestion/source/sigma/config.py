@@ -130,6 +130,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
 
+    # Column-level lineage counters
+    num_formulas_parsed: int = 0
+    num_formulas_unparseable: int = 0
+    num_cll_edges_emitted: int = 0
+    num_self_refs_dropped: int = 0
+    num_cll_refs_unresolved: int = 0
+
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(
@@ -190,4 +197,12 @@ class SigmaSourceConfig(
     workbook_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
+    )
+    extract_column_lineage: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Extract column-level lineage from Sigma formula metadata. "
+            "Uses the /workbooks/{id}/columns endpoint (Sigma API Jan-2026 or later). "
+            "Non-SQL path — no sqlglot dependency, no OOM risk."
+        ),
     )

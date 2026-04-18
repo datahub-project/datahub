@@ -47,6 +47,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.sigma.formula_parser import BracketRef, parse_formula
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -456,6 +457,145 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return inputs
 
+    def _build_source_name_to_urn(self, inputs: Dict[str, List[str]]) -> Dict[str, str]:
+        """Build a table-name → warehouse URN map from the inputs dict.
+
+        Covers both direct warehouse URNs (inputs[urn] = []) and warehouse URNs
+        that are values of Sigma Dataset entries (inputs[sigma_urn] = [wh_urn]).
+        Keys are uppercased last path components (e.g. "ADOPTIONS").
+        """
+        result: Dict[str, str] = {}
+        sigma_prefix = "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        for urn, warehouse_urns in inputs.items():
+            if urn.startswith(sigma_prefix):
+                for wh_urn in warehouse_urns:
+                    table_name = (
+                        DatasetUrn.from_string(wh_urn).name.split(".")[-1].upper()
+                    )
+                    result[table_name] = wh_urn
+            elif urn.startswith("urn:li:dataset:"):
+                table_name = DatasetUrn.from_string(urn).name.split(".")[-1].upper()
+                result[table_name] = urn
+        return result
+
+    def _build_element_cll_input_fields(
+        self,
+        element: Element,
+        chart_urn: str,
+        inputs: Dict[str, List[str]],
+        element_name_to_id: Dict[str, str],
+        elementId_to_chart_urn: Dict[str, str],
+        workbook_columns_by_element: Dict[str, List[Dict[str, str]]],
+    ) -> List[InputFieldClass]:
+        """Return formula-driven InputField entries for one element.
+
+        Returns [] when CLL is disabled, the columns endpoint was unavailable,
+        or the element has no formula-backed columns with resolvable upstreams.
+        """
+        if not self.config.extract_column_lineage:
+            return []
+
+        column_entries = workbook_columns_by_element.get(element.elementId, [])
+        if not column_entries:
+            return []
+
+        source_name_to_urn = self._build_source_name_to_urn(inputs)
+        input_fields: List[InputFieldClass] = []
+
+        for col_entry in column_entries:
+            col_name: str = col_entry.get("name", "")
+            formula: str = col_entry.get("formula", "")
+            if not formula:
+                continue
+
+            refs = parse_formula(formula)
+            if not refs:
+                self.reporter.num_formulas_unparseable += 1
+                continue
+
+            self.reporter.num_formulas_parsed += 1
+
+            for ref in refs:
+                upstream_urn = self._resolve_formula_ref(
+                    ref=ref,
+                    element_name=element.name,
+                    element_name_to_id=element_name_to_id,
+                    elementId_to_chart_urn=elementId_to_chart_urn,
+                    source_name_to_urn=source_name_to_urn,
+                )
+                if upstream_urn is None:
+                    continue
+
+                input_fields.append(
+                    InputFieldClass(
+                        schemaFieldUrn=builder.make_schema_field_urn(
+                            upstream_urn, ref.column
+                        ),
+                        schemaField=SchemaFieldClass(
+                            fieldPath=col_name,
+                            type=SchemaFieldDataTypeClass(StringTypeClass()),
+                            nativeDataType="String",
+                        ),
+                    )
+                )
+                self.reporter.num_cll_edges_emitted += 1
+
+        return input_fields
+
+    def _resolve_formula_ref(
+        self,
+        ref: BracketRef,
+        element_name: str,
+        element_name_to_id: Dict[str, str],
+        elementId_to_chart_urn: Dict[str, str],
+        source_name_to_urn: Dict[str, str],
+    ) -> Optional[str]:
+        """Resolve one BracketRef to an upstream dataset/chart column URN base.
+
+        Returns the upstream entity URN (without field path) or None when the
+        ref should be dropped or cannot be resolved.
+        """
+        if ref.source is None:
+            # [Col] — no slash: parameter ref or same-element self-ref
+            if ref.column.startswith("P_"):
+                return None  # parameter, skip silently
+            self.reporter.num_self_refs_dropped += 1
+            return None
+
+        if ref.source == element_name:
+            # [ElementName/col] where source matches the current element — passthrough
+            # self-ref pattern observed in DM-backed workbook elements.
+            self.reporter.num_self_refs_dropped += 1
+            return None
+
+        if ref.source in element_name_to_id:
+            upstream_elem_id = element_name_to_id[ref.source]
+            chart_urn = elementId_to_chart_urn.get(upstream_elem_id)
+            if chart_urn:
+                return chart_urn
+            logger.debug(
+                "Cross-element ref [%s/%s]: elementId %s not in chart URN map "
+                "(possibly filtered element type)",
+                ref.source,
+                ref.column,
+                upstream_elem_id,
+            )
+            self.reporter.num_cll_refs_unresolved += 1
+            return None
+
+        # Not an element name — try warehouse table lookup
+        upstream_urn = source_name_to_urn.get(ref.source.upper())
+        if upstream_urn:
+            return upstream_urn
+
+        logger.debug(
+            "Unresolved CLL ref [%s/%s]: name not found in elements or warehouse tables",
+            ref.source,
+            ref.column,
+        )
+        self.reporter.num_cll_refs_unresolved += 1
+        return None
+
     def _gen_elements_workunit(
         self,
         elements: List[Element],
@@ -463,6 +603,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         all_input_fields: List[InputFieldClass],
         paths: List[str],
         elementId_to_chart_urn: Dict[str, str],
+        element_name_to_id: Dict[str, str],
+        workbook_columns_by_element: Dict[str, List[Dict[str, str]]],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -531,24 +673,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     self.dataset_upstream_urn_mapping[dataset_urn] = inputs[dataset_urn]
 
-            element_input_fields = [
-                InputFieldClass(
-                    schemaFieldUrn=builder.make_schema_field_urn(chart_urn, column),
-                    schemaField=SchemaFieldClass(
-                        fieldPath=column,
-                        type=SchemaFieldDataTypeClass(StringTypeClass()),
-                        nativeDataType="String",  # Make type default as Sting
-                    ),
-                )
-                for column in element.columns
-            ]
+            element_input_fields = self._build_element_cll_input_fields(
+                element=element,
+                chart_urn=chart_urn,
+                inputs=inputs,
+                element_name_to_id=element_name_to_id,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_columns_by_element=workbook_columns_by_element,
+            )
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=InputFieldsClass(fields=element_input_fields),
-            ).as_workunit()
+            if element_input_fields:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=InputFieldsClass(fields=element_input_fields),
+                ).as_workunit()
 
-            all_input_fields.extend(element_input_fields)
+                all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
         self, workbook: Workbook, paths: List[str]
@@ -556,8 +696,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma workbook page to Datahub dashboard
         """
-        # Build once at workbook scope — intra-workbook lineage can cross pages so
-        # this map must cover all elements before any individual page is processed.
+        # Both maps are built at workbook scope so cross-page references resolve.
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,
@@ -567,6 +706,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for page in workbook.pages
             for element in page.elements
         }
+
+        # element_name → elementId reverse map for formula cross-element resolution.
+        # First occurrence wins on name collision (rare); a warning is logged below.
+        element_name_to_id: Dict[str, str] = {}
+        for page in workbook.pages:
+            for element in page.elements:
+                if element.name in element_name_to_id:
+                    logger.warning(
+                        "Duplicate element name %r in workbook %r; "
+                        "CLL cross-element refs to this name may resolve to wrong element",
+                        element.name,
+                        workbook.name,
+                    )
+                else:
+                    element_name_to_id[element.name] = element.elementId
+
+        # Fetch columns once per workbook; group by elementId for O(1) lookup.
+        workbook_columns_by_element: Dict[str, List[Dict[str, str]]] = {}
+        if self.config.extract_column_lineage:
+            raw_columns = self.sigma_api.get_workbook_columns(workbook.workbookId)
+            for col in raw_columns:
+                elem_id = col.get("elementId", "")
+                if elem_id:
+                    workbook_columns_by_element.setdefault(elem_id, []).append(col)
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
@@ -592,13 +755,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields, paths, elementId_to_chart_urn
+                page.elements,
+                workbook,
+                all_input_fields,
+                paths,
+                elementId_to_chart_urn,
+                element_name_to_id,
+                workbook_columns_by_element,
             )
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn,
-                aspect=InputFieldsClass(fields=all_input_fields),
-            ).as_workunit()
+            if all_input_fields:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=InputFieldsClass(fields=all_input_fields),
+                ).as_workunit()
 
     def _gen_workbook_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:
         """
