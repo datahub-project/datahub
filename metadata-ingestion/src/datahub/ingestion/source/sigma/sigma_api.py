@@ -512,10 +512,12 @@ class SigmaAPI:
                             self.report.data_models.dropped(
                                 f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
                             )
-                    elif self.config.ingest_shared_entities:
+                    else:
+                        # Sigma's files API doesn't expose data model workspace placement,
+                        # so workspace context is optional — always process without it.
                         if self.config.data_model_pattern.allowed(data_model.name):
                             self.report.data_models.processed(
-                                f"{data_model.name} ({data_model.dataModelId}) in workspace id {data_model.workspaceId or 'unknown'}"
+                                f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
                             )
                             data_model.columns = self.get_data_model_columns(
                                 data_model.dataModelId
@@ -526,12 +528,8 @@ class SigmaAPI:
                             data_models.append(data_model)
                         else:
                             self.report.data_models.dropped(
-                                f"{data_model.name} ({data_model.dataModelId}) in workspace id {data_model.workspaceId or 'unknown'}"
+                                f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
                             )
-                    else:
-                        self.report.data_models.dropped(
-                            f"{data_model.name} ({data_model.dataModelId}) in workspace id {data_model.workspaceId or 'unknown'}"
-                        )
 
                 if response_dict.get(Constant.NEXTPAGE):
                     url = f"{data_model_url}?page={response_dict[Constant.NEXTPAGE]}"
