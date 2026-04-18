@@ -1699,9 +1699,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
     if (domainBasedAuthorizationEnabled && !opContext.isSystemAuth()) {
-      // Perform domain auth pre-check here with the user context for both sync and async paths.
-      // Filter out system entities like dataHubExecutionRequest that are absent from
-      // ENTITY_RESOURCE_PRIVILEGES and would always fail authorization.
+      // Perform domain auth pre-check with the user context for both sync and async paths.
+      // Filter out dataHubExecutionRequest (absent from ENTITY_RESOURCE_PRIVILEGES).
       List<MetadataChangeProposal> mcps =
           aspectsBatch.getMCPItems().stream()
               .map(MCPItem::getMetadataChangeProposal)
@@ -1734,7 +1733,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .map(mcp -> String.valueOf(mcp.getEntityUrn()))
                   .collect(Collectors.joining(", "));
           throw new ActorAccessException(
-              "User is unauthorized to modify entities (async): " + errorMessages);
+              "User is unauthorized to modify entities: " + errorMessages);
         }
       }
     }
