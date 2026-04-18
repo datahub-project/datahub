@@ -1,6 +1,13 @@
 from typing import Any, Dict
 from unittest.mock import Mock
 
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
+
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
     HiveStorageLineageConfigMixin,
@@ -8,12 +15,6 @@ from datahub.ingestion.source.sql.hive.storage_lineage import (
     LineageDirection,
     StoragePathParser,
     StoragePlatform,
-)
-from datahub.metadata.schema_classes import (
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
 )
 
 

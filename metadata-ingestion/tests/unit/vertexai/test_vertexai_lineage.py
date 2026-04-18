@@ -3,6 +3,12 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.metadata.schema_classes import (
+    DataProcessInstanceRelationshipsClass,
+    MLModelGroupPropertiesClass,
+    MLModelPropertiesClass,
+    TrainingDataClass,
+)
 from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.cloud.aiplatform import PipelineJob
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
@@ -17,12 +23,6 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ExperimentRunMetadata,
     ModelMetadata,
     TrainingJobMetadata,
-)
-from datahub.metadata.schema_classes import (
-    DataProcessInstanceRelationshipsClass,
-    MLModelGroupPropertiesClass,
-    MLModelPropertiesClass,
-    TrainingDataClass,
 )
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,

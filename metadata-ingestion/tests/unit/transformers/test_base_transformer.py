@@ -2,17 +2,18 @@
 
 from typing import Iterable, List, Optional, Tuple, cast
 
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    OwnershipClass,
+    TagAssociationClass,
+)
+
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     MultipleAspectTransformer,
-)
-from datahub.metadata.schema_classes import (
-    GlobalTagsClass,
-    OwnershipClass,
-    TagAssociationClass,
 )
 
 

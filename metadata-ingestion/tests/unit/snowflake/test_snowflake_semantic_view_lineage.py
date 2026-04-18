@@ -3,6 +3,10 @@ from typing import Dict
 from unittest.mock import MagicMock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    TagAssociationClass,
+)
 
 from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -15,10 +19,6 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
-)
-from datahub.metadata.schema_classes import (
-    GlobalTagsClass,
-    TagAssociationClass,
 )
 from datahub.utilities.urns.tag_urn import TagUrn
 

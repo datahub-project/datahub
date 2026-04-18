@@ -303,9 +303,11 @@ class DataProcessCleanup:
 
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
         dpis.sort(
-            key=lambda x: x["created"]["time"]
-            if x.get("created") and x["created"].get("time")
-            else 0,
+            key=lambda x: (
+                x["created"]["time"]
+                if x.get("created") and x["created"].get("time")
+                else 0
+            ),
             reverse=True,
         )
 

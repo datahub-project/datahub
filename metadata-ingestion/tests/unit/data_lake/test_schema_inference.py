@@ -6,15 +6,15 @@ import ujson
 from avro import schema as avro_schema
 from avro.datafile import DataFileWriter
 from avro.io import DatumWriter
-
-from datahub.ingestion.source.schema_inference import csv_tsv, json, parquet
-from datahub.ingestion.source.schema_inference.avro import AvroInferrer
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     NumberTypeClass,
     SchemaField,
     StringTypeClass,
 )
+
+from datahub.ingestion.source.schema_inference import csv_tsv, json, parquet
+from datahub.ingestion.source.schema_inference.avro import AvroInferrer
 from tests.unit.test_schema_util import assert_field_paths_match
 
 expected_field_paths = [

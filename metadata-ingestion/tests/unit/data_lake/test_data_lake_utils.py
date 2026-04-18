@@ -2,17 +2,17 @@ from typing import List, Optional, Tuple, Union
 from unittest.mock import MagicMock
 
 import pytest
-
-from datahub.ingestion.source.data_lake_common.data_lake_utils import (
-    add_partition_columns_to_schema,
-)
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
 )
+
+from datahub.ingestion.source.data_lake_common.data_lake_utils import (
+    add_partition_columns_to_schema,
+)
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 
 
 class TestAddPartitionColumnsToSchema:

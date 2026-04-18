@@ -429,8 +429,8 @@ def test_cycle_detection_prevents_infinite_loop(
         "datahub.ingestion.source.confluence.confluence_source.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
-        mock_client.get_page_by_id.side_effect = (
-            lambda page_id, expand=None: mock_pages.get(page_id)
+        mock_client.get_page_by_id.side_effect = lambda page_id, expand=None: (
+            mock_pages.get(page_id)
         )
         mock_client.get_child_pages.side_effect = lambda page_id: iter(
             mock_children.get(page_id, [])
@@ -560,8 +560,9 @@ def test_browse_path_emitted_for_root_page(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that BrowsePathsV2 is emitted for root pages with just space name."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )
@@ -601,8 +602,9 @@ def test_browse_path_emitted_for_nested_page(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that BrowsePathsV2 is emitted for nested pages with full hierarchy."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )
@@ -654,8 +656,9 @@ def test_browse_path_deep_hierarchy(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that BrowsePathsV2 handles deeply nested pages correctly."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )
@@ -704,8 +707,9 @@ def test_browse_path_ancestor_not_ingested(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that ancestors not being ingested don't get URNs in browse path."""
-    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
         create_mock_confluence_client,
     )

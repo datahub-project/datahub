@@ -4,7 +4,12 @@ from pathlib import Path
 from typing import Dict, List, Union
 from unittest.mock import MagicMock, Mock, patch
 
-from freezegun import freeze_time
+import time_machine
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,11 +21,6 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
-)
-from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-09-15 09:00:00"
@@ -47,7 +47,7 @@ def test_redshift_usage_config():
     assert config.include_tables
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch("redshift_connector.Cursor")
 @patch("redshift_connector.Connection")
 def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_path):
@@ -155,7 +155,7 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch("redshift_connector.Cursor")
 @patch("redshift_connector.Connection")
 def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tmp_path):

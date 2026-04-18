@@ -4,7 +4,17 @@ from typing import Any, Dict, List, cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from tableauserverclient import Server, SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
@@ -30,16 +40,6 @@ from datahub.ingestion.source.tableau.tableau_common import (
     optimize_query_filter,
     tableau_field_to_schema_field,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-    DatasetPropertiesClass,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-)
 from tests.test_helpers import test_connection_helpers
 from tests.unit.tableau.test_tableau_config import default_config
 
@@ -55,7 +55,7 @@ def read_response(file_name):
         return data
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_tableau_test_connection_success():
     with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
         report = test_connection_helpers.run_test_connection(
@@ -64,7 +64,7 @@ def test_tableau_test_connection_success():
         test_connection_helpers.assert_basic_connectivity_success(report)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_tableau_test_connection_failure():
     report = test_connection_helpers.run_test_connection(TableauSource, default_config)
     test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
@@ -812,7 +812,7 @@ def _extract_dataset_properties(work_units):
     return None
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "datasource_type,datasource_name,csql_id,ds_id,project_luid,has_project_luid_patch,expected_name,workbook_data",
     [
@@ -1016,7 +1016,7 @@ def test_table_lineage_without_columns():
             assert report.num_upstream_table_processed_without_columns == 1
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_emit_datasource_does_not_add_embedded_ids_to_published_list():
     """Embedded datasource IDs should not leak into datasource_ids_being_used,
     which is the tracking list for published datasources.

@@ -12,6 +12,11 @@ from typing import Dict, List
 from unittest.mock import Mock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowplow.dependencies import IngestionState
@@ -21,11 +26,6 @@ from datahub.ingestion.source.snowplow.processors.event_spec_processor import (
 from datahub.ingestion.source.snowplow.services.field_tagging import (
     FieldTagContext,
     FieldTagger,
-)
-from datahub.metadata.schema_classes import (
-    SchemaFieldClass,
-    StructuredPropertiesClass,
-    StructuredPropertyValueAssignmentClass,
 )
 
 
@@ -179,7 +179,9 @@ class TestEventSpecProcessorStructuredProperties:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         deps.ownership_builder = Mock()

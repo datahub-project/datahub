@@ -2,6 +2,8 @@
 Tests for ExternalTag and UnityCatalogTag classes.
 """
 
+from datahub.metadata.urns import TagUrn
+
 from datahub.api.entities.external.external_tag import (
     ExternalTag,
 )
@@ -16,7 +18,6 @@ from datahub.api.entities.external.unity_catalog_external_entites import (
     UnityCatalogTagKeyText,
     UnityCatalogTagValueText,
 )
-from datahub.metadata.urns import TagUrn
 
 
 class TestRestrictedText:

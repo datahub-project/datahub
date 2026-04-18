@@ -1,12 +1,13 @@
 from typing import Optional
 
-from datahub.ingestion.api.incremental_lineage_helper import convert_chart_info_to_patch
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     ChartInfoClass,
     MetadataChangeProposalClass,
 )
+
+from datahub.ingestion.api.incremental_lineage_helper import convert_chart_info_to_patch
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 
 def test_convert_chart_info_to_patch():

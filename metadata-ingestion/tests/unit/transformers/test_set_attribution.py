@@ -3,15 +3,6 @@ from typing import cast
 from unittest.mock import ANY
 
 import pytest
-from pydantic import ValidationError
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_patch_builder import UNIT_SEPARATOR, _Patch
-from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
-from datahub.ingestion.transformer.set_attribution import (
-    SetAttributionConfig,
-    SetAttributionTransformer,
-)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     GenericAspectClass,
@@ -24,6 +15,15 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     TagAssociationClass,
+)
+from pydantic import ValidationError
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_patch_builder import UNIT_SEPARATOR, _Patch
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.transformer.set_attribution import (
+    SetAttributionConfig,
+    SetAttributionTransformer,
 )
 
 SAMPLE_URN = (

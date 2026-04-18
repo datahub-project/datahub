@@ -13,7 +13,7 @@ import time
 from typing import Any, Dict, List, Optional, Union
 from unittest.mock import patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -144,7 +144,7 @@ def make_thread_safe_session(*args: Any, **kwargs: Any) -> ThreadSafeMockSession
 # ──────────────────────────────────────────────────────────────────────
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
     """Threaded execution (max_threads=2) produces the same MCEs as sequential."""
     with patch(
@@ -183,7 +183,7 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
     """Verify correctness even with more threads than reports."""
     with patch(
@@ -275,7 +275,7 @@ def test_max_threads_rejects_zero_and_negative():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_pool_size_scales_with_max_threads():
     """HTTPAdapter pool_connections/pool_maxsize = max_threads + 10."""
     from unittest.mock import MagicMock

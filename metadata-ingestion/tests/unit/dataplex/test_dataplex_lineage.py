@@ -5,6 +5,7 @@ from typing import cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from datahub.metadata.schema_classes import DatasetLineageTypeClass
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
@@ -13,7 +14,6 @@ from datahub.ingestion.source.dataplex.dataplex_lineage import (
     LineageEdge,
 )
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
-from datahub.metadata.schema_classes import DatasetLineageTypeClass
 
 
 @pytest.fixture

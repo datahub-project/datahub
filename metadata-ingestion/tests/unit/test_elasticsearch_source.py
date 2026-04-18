@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple, cast
 
 import pydantic
 import pytest
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
@@ -12,7 +13,6 @@ from datahub.ingestion.source.elastic_search import (
     ElasticToSchemaFieldConverter,
     collapse_urn,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
 

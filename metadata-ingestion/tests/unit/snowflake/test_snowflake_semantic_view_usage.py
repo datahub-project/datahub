@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 from pydantic import ValidationError
 
 from datahub.configuration.time_window_config import BucketDuration
@@ -26,7 +27,6 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 
 
 class TestSemanticViewsConfig:

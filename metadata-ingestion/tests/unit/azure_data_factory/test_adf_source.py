@@ -16,6 +16,10 @@ We do NOT test:
 from typing import Callable, Optional
 
 import pytest
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+)
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
@@ -25,10 +29,6 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
 )
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
-)
-from datahub.metadata.schema_classes import (
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
 )
 
 

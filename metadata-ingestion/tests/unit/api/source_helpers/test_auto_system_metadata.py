@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional
 
-from freezegun import freeze_time
+import time_machine
+from datahub.metadata.schema_classes import SystemMetadataClass
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -11,7 +12,6 @@ from datahub.ingestion.run.pipeline_config import (
     PipelineConfig,
     SourceConfig,
 )
-from datahub.metadata.schema_classes import SystemMetadataClass
 
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
 FROZEN_TIME_TS = int(FROZEN_TIME.timestamp() * 1000)
@@ -26,7 +26,7 @@ def get_ctx(flags: FlagsConfig) -> PipelineContext:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stamping_without_existing_metadata():
     ctx = get_ctx(FlagsConfig())
     mcpw = MetadataChangeProposalWrapper(entityUrn=DUMMY_URN)
@@ -41,7 +41,7 @@ def test_stamping_without_existing_metadata():
     assert system_metadata.lastObserved == FROZEN_TIME_TS
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stamping_with_existing_metadata():
     ctx = get_ctx(FlagsConfig())
     mcpw = MetadataChangeProposalWrapper(
@@ -63,7 +63,7 @@ def test_stamping_with_existing_metadata():
     )  # lastObserved is not changed
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_not_stamping_with_existing_metadata():
     ctx = get_ctx(FlagsConfig(set_system_metadata=False))
     mcpw = MetadataChangeProposalWrapper(

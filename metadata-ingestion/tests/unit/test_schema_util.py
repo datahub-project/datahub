@@ -7,13 +7,7 @@ from typing import Dict, List, Type
 
 import avro.errors
 import pytest
-from freezegun import freeze_time
-
-from datahub.emitter.mce_builder import (
-    make_global_tag_aspect_with_tag_list,
-    make_glossary_terms_aspect_from_urn_list,
-)
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+import time_machine
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NumberTypeClass,
@@ -21,6 +15,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
+
+from datahub.emitter.mce_builder import (
+    make_global_tag_aspect_with_tag_list,
+    make_glossary_terms_aspect_from_urn_list,
+)
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
@@ -782,7 +782,7 @@ def test_ignore_exceptions():
     assert not fields
 
 
-@freeze_time("2023-09-12")
+@time_machine.travel("2023-09-12", tick=False)
 def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     schema = """
 {

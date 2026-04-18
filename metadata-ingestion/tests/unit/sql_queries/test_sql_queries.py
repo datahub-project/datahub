@@ -6,6 +6,7 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
@@ -16,7 +17,6 @@ from datahub.ingestion.source.sql_queries import (
     SqlQueriesSource,
     SqlQueriesSourceConfig,
 )
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 
 
 class TestQueryEntry:

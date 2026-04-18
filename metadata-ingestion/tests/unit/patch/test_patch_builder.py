@@ -3,18 +3,7 @@ import pathlib
 from typing import Any, Dict, Union
 
 import pytest
-from freezegun.api import freeze_time
-
-from datahub.emitter.mce_builder import (
-    make_chart_urn,
-    make_dashboard_urn,
-    make_data_flow_urn,
-    make_data_job_urn_with_flow,
-    make_dataset_urn,
-    make_schema_field_urn,
-    make_tag_urn,
-)
-from datahub.ingestion.sink.file import write_metadata_file
+import time_machine
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
@@ -27,6 +16,17 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
 )
+
+from datahub.emitter.mce_builder import (
+    make_chart_urn,
+    make_dashboard_urn,
+    make_data_flow_urn,
+    make_data_job_urn_with_flow,
+    make_dataset_urn,
+    make_schema_field_urn,
+    make_tag_urn,
+)
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
@@ -207,7 +207,7 @@ def test_basic_dashboard_patch_builder():
     ],
     ids=["both_timestamps", "no_timestamps", "only_created", "only_modified"],
 )
-@freeze_time("2020-04-14 07:00:00")
+@time_machine.travel("2020-04-14 07:00:00", tick=False)
 def test_datajob_patch_builder(created_on, last_modified, expected_actor):
     def make_edge_or_urn(urn: str) -> Union[EdgeClass, str]:
         if created_on or last_modified:

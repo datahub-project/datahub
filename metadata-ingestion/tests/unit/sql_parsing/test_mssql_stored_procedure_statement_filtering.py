@@ -8,8 +8,9 @@ string matching.
 Test cases cover all problematic statement patterns found in production logs.
 """
 
-from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.urns import DatasetUrn
+
+from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 

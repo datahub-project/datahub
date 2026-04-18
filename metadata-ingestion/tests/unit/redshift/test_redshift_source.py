@@ -2,6 +2,12 @@ from typing import Iterable, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+)
 
 from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -14,12 +20,6 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
     RedshiftTable,
     _add_redshift_query_tag,
-)
-from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    MetadataChangeProposalClass,
-    OwnershipClass,
-    OwnershipTypeClass,
 )
 
 

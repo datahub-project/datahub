@@ -2,16 +2,16 @@ from typing import Dict
 from unittest import mock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
 
 from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
-)
-from datahub.metadata.schema_classes import (
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
 )
 
 

@@ -5,7 +5,16 @@ from unittest import mock
 
 import pydantic
 import pytest
-from freezegun import freeze_time
+import time_machine
+from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
+    DataProcessInstanceProperties,
+)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DataPlatformInstanceClass,
+    StatusClass,
+)
+from datahub.metadata.urns import DataPlatformUrn, QueryUrn
 from pydantic import Field
 
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
@@ -27,15 +36,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
-    DataProcessInstanceProperties,
-)
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DataPlatformInstanceClass,
-    StatusClass,
-)
-from datahub.metadata.urns import DataPlatformUrn, QueryUrn
 from datahub.testing import mce_helpers
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers.state_helpers import (
@@ -170,7 +170,7 @@ def mock_generic_checkpoint_state():
         yield mock_checkpoint_state
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     # test stateful ingestion using dummy source
     state_file_name: str = "checkpoint_state_mces.json"
@@ -324,7 +324,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
     # test stateful ingestion using dummy source with pipeline execution failed in second ingestion
     state_file_name: str = "checkpoint_state_mces_failure.json"

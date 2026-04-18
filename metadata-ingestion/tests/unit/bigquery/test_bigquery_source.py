@@ -7,7 +7,20 @@ from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    MetadataChangeProposalClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    TagAssociationClass,
+    TimeStampClass,
+)
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
@@ -48,19 +61,6 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
-from datahub.metadata.schema_classes import (
-    ContainerClass,
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-    GlobalTagsClass,
-    MetadataChangeProposalClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    TagAssociationClass,
-    TimeStampClass,
-)
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -604,7 +604,7 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_datasets_for_project_id_with_timestamps(

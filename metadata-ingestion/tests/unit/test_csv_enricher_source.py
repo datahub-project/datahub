@@ -1,9 +1,6 @@
 from typing import Dict, List, Union
 from unittest import mock
 
-from datahub.emitter import mce_builder
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.csv_enricher import CSVEnricherConfig, CSVEnricherSource
 from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     OwnerClass,
@@ -11,6 +8,10 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
+
+from datahub.emitter import mce_builder
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.csv_enricher import CSVEnricherConfig, CSVEnricherSource
 
 DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_dataset.test.Test,PROD)"

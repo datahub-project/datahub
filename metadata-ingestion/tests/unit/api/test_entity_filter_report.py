@@ -308,13 +308,14 @@ def _run_pipeline_get_reports(flags: dict, num_each: int = 30) -> dict:
     import io
     from typing import Iterable
 
+    from datahub.metadata.schema_classes import DatasetPropertiesClass
+
     from datahub.configuration.common import ConfigModel
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.api.source import Source, SourceReport
     from datahub.ingestion.api.workunit import MetadataWorkUnit
     from datahub.ingestion.run.pipeline import Pipeline
-    from datahub.metadata.schema_classes import DatasetPropertiesClass
 
     class _Cfg(ConfigModel):
         n: int = 30

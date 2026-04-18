@@ -1,5 +1,3 @@
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     FineGrainedLineage,
@@ -8,6 +6,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     Upstream,
     UpstreamLineage,
 )
+
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.utilities.urns.urn_iter import list_urns_with_path, lowercase_dataset_urns
 
 

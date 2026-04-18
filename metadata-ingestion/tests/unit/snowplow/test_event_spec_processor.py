@@ -4,6 +4,14 @@ from typing import List, Type, TypeVar
 from unittest.mock import Mock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
+    StructuredPropertiesClass,
+    UpstreamLineageClass,
+    _Aspect,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -16,14 +24,6 @@ from datahub.ingestion.source.snowplow.models.snowplow_models import (
 )
 from datahub.ingestion.source.snowplow.processors.event_spec_processor import (
     EventSpecProcessor,
-)
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-    SchemaFieldClass,
-    SchemaMetadataClass,
-    StructuredPropertiesClass,
-    UpstreamLineageClass,
-    _Aspect,
 )
 
 _T = TypeVar("_T", bound=_Aspect)
@@ -102,7 +102,9 @@ class TestEventSpecProcessorExtract:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         return deps
@@ -208,7 +210,9 @@ class TestEventSpecProcessorProcessing:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         deps.ownership_builder = Mock()
@@ -437,7 +441,9 @@ class TestEmitEventSpecSchemaMetadata:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         deps.platform = "snowplow"

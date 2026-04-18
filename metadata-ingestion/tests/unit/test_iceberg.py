@@ -16,6 +16,18 @@ from unittest.mock import patch
 
 import pytest
 from botocore.exceptions import ClientError
+from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    DateTypeClass,
+    FixedTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    StringTypeClass,
+    TimeTypeClass,
+)
 from pydantic import ValidationError
 from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import (
@@ -64,18 +76,6 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
     ToAvroSchemaIcebergVisitor,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    FixedTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
-    StringTypeClass,
-    TimeTypeClass,
 )
 
 MCPS_PER_TABLE = 7  # assuming no profiling
