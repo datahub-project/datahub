@@ -8,6 +8,12 @@ from typing import Dict, List, Type
 import avro.errors
 import pytest
 import time_machine
+
+from datahub.emitter.mce_builder import (
+    make_global_tag_aspect_with_tag_list,
+    make_glossary_terms_aspect_from_urn_list,
+)
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NumberTypeClass,
@@ -15,12 +21,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-
-from datahub.emitter.mce_builder import (
-    make_global_tag_aspect_with_tag_list,
-    make_glossary_terms_aspect_from_urn_list,
-)
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)

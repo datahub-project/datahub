@@ -1,6 +1,9 @@
 import logging
 from typing import Union
 
+from datahub.configuration.kafka import KafkaProducerConnectionConfig
+from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
+from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.metadata.schema_classes import (
     FormPromptClass,
     FormPromptTypeClass,
@@ -10,10 +13,6 @@ from datahub.metadata.schema_classes import (
     StructuredPropertyParamsClass,
 )
 from datahub.metadata.urns import FormUrn
-
-from datahub.configuration.kafka import KafkaProducerConnectionConfig
-from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
-from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.specific.form import FormPatchBuilder
 
 log = logging.getLogger(__name__)

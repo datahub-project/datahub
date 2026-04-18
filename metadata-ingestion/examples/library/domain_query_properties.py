@@ -1,3 +1,4 @@
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     GlobalTagsClass,
@@ -5,8 +6,6 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
 )
 from datahub.metadata.urns import DomainUrn
-
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
 

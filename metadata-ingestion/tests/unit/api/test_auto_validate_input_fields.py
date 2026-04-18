@@ -1,3 +1,8 @@
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
+    ValidateInputFieldsProcessor,
+)
+from datahub.ingestion.api.source import SourceReport
 from datahub.metadata.schema_classes import (
     InputFieldClass,
     InputFieldsClass,
@@ -5,12 +10,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
-    ValidateInputFieldsProcessor,
-)
-from datahub.ingestion.api.source import SourceReport
 
 DUMMY_CHART_URN = "urn:li:chart:(grafana,dashboard.123)"
 DUMMY_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:grafana,dataset,PROD)"

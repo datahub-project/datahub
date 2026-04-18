@@ -3,14 +3,10 @@ import unittest
 from typing import Union
 from unittest.mock import MagicMock, call, patch
 
-import datahub.metadata.schema_classes as models
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
-)
 
 import datahub.emitter.mce_builder as builder
+import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.kafka_emitter import MCP_KEY
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -22,6 +18,10 @@ from datahub.ingestion.sink.datahub_kafka import (
     _AggregatingKafkaCallback,
     _enhance_schema_registry_error,
     _KafkaCallback,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
 )
 
 

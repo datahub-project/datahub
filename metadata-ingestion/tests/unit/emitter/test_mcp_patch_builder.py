@@ -2,7 +2,6 @@ import json
 from typing import Any, cast
 
 import pytest
-from datahub.metadata.schema_classes import GenericAspectClass
 
 from datahub.emitter.mcp_patch_builder import (
     UNIT_SEPARATOR,
@@ -10,6 +9,7 @@ from datahub.emitter.mcp_patch_builder import (
     _Patch,
     parse_patch_path,
 )
+from datahub.metadata.schema_classes import GenericAspectClass
 
 TAGS_ARRAY_PRIMARY_KEYS = {"tags": [f"attribution{UNIT_SEPARATOR}source", "tag"]}
 

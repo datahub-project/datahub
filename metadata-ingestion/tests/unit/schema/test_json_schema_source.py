@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import datahub.metadata.schema_classes as models
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit

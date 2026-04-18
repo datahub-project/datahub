@@ -1,12 +1,11 @@
 # metadata-ingestion/examples/library/ermodelrelationship_add_term.py
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 GMS_ENDPOINT = "http://localhost:8080"
 relationship_urn = "urn:li:erModelRelationship:employee_to_company"

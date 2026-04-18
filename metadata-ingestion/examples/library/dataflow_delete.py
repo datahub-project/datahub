@@ -1,6 +1,5 @@
 # metadata-ingestion/examples/library/dataflow_delete.py
 from datahub.metadata.urns import DataFlowUrn
-
 from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()

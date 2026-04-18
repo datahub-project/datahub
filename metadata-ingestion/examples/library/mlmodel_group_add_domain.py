@@ -1,5 +1,4 @@
 from datahub.metadata.urns import DomainUrn, MlModelGroupUrn
-
 from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()

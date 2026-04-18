@@ -2,15 +2,15 @@ from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional
 
 import pytest
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.transformer.set_browse_path import SetBrowsePathTransformer
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     StatusClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
-from datahub.ingestion.transformer.set_browse_path import SetBrowsePathTransformer
 
 SAMPLE_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)"
 

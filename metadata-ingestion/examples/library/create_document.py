@@ -6,7 +6,6 @@ and external documents (references to content in other platforms).
 """
 
 from datahub.metadata.urns import CorpUserUrn
-
 from datahub.sdk import DataHubClient, Document
 
 # Initialize the client

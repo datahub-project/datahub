@@ -1,10 +1,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from datahub.metadata.schema_classes import (
-    DataProcessInstancePropertiesClass,
-    MLModelDeploymentPropertiesClass,
-)
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -15,6 +11,10 @@ from datahub.ingestion.source.vertexai.vertexai import (
 )
 from datahub.ingestion.source.vertexai.vertexai_models import TrainingJobMetadata
 from datahub.ingestion.source.vertexai.vertexai_utils import get_actor_from_labels
+from datahub.metadata.schema_classes import (
+    DataProcessInstancePropertiesClass,
+    MLModelDeploymentPropertiesClass,
+)
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_model,
     gen_mock_model_evaluation,

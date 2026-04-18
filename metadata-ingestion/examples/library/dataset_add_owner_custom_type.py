@@ -1,11 +1,5 @@
 # Inlined from /metadata-ingestion/examples/library/dataset_add_owner_custom_type.py
 
-from datahub.metadata.schema_classes import (
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-)
-
 from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_ownership_type_urn,
@@ -14,6 +8,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.metadata.schema_classes import (
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+)
 
 # Create DataHub client
 graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))

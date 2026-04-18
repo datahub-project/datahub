@@ -1,7 +1,6 @@
 # Imports for metadata model classes
-from datahub.metadata.schema_classes import UpstreamLineageClass
-
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.metadata.schema_classes import UpstreamLineageClass
 
 # Get the current lineage for a dataset
 gms_endpoint = "http://localhost:8080"

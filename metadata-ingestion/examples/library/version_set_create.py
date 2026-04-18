@@ -8,6 +8,9 @@ establishing the first version in the set.
 
 import os
 
+from datahub.emitter.mce_builder import datahub_guid
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     MetadataAttributionClass,
@@ -16,10 +19,6 @@ from datahub.metadata.schema_classes import (
     VersionSetPropertiesClass,
     VersionTagClass,
 )
-
-from datahub.emitter.mce_builder import datahub_guid
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
 token = os.getenv("DATAHUB_GMS_TOKEN")

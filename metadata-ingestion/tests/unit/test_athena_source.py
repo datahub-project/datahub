@@ -5,12 +5,6 @@ from unittest import mock
 import pytest
 import sqlglot
 import time_machine
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    MapTypeClass,
-    StringTypeClass,
-)
 from pyathena import OperationalError
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
@@ -23,6 +17,12 @@ from datahub.ingestion.source.sql.athena import (
     AthenaSource,
     CustomAthenaRestDialect,
     Partitionitem,
+)
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    MapTypeClass,
+    StringTypeClass,
 )
 from datahub.utilities.sqlalchemy_type_converter import MapType
 

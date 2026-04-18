@@ -3,6 +3,10 @@ import time
 from typing import Any, Dict, List, Optional, Union
 
 import datahub.metadata.schema_classes as models
+from datahub.api.entities.dataset.dataset import Dataset
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceInput,
     DataProcessInstanceOutput,
@@ -20,11 +24,6 @@ from datahub.metadata.urns import (
     MlModelUrn,
     VersionSetUrn,
 )
-
-from datahub.api.entities.dataset.dataset import Dataset
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

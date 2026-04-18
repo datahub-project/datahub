@@ -1,5 +1,4 @@
 from datahub.metadata.urns import ChartUrn, DashboardUrn
-
 from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()

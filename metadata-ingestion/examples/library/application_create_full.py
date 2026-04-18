@@ -2,6 +2,9 @@
 
 import os
 
+from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     ApplicationPropertiesClass,
     ApplicationsClass,
@@ -12,10 +15,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
-
-from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 
 # Utility function for creating application URNs (not yet in SDK)

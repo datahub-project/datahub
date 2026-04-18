@@ -1,13 +1,12 @@
 # metadata-ingestion/examples/library/ermodelrelationship_update_properties.py
 import time
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     EditableERModelRelationshipPropertiesClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 GMS_ENDPOINT = "http://localhost:8080"
 relationship_urn = "urn:li:erModelRelationship:employee_to_company"

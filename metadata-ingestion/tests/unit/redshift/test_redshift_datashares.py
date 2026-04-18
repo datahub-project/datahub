@@ -2,12 +2,6 @@ import json
 from typing import Dict, List, Union
 from unittest.mock import patch
 
-from datahub.metadata.schema_classes import (
-    PlatformResourceInfoClass,
-    SerializedValueClass,
-    SerializedValueContentTypeClass,
-)
-
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceKey,
@@ -27,6 +21,11 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftDatabase,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.metadata.schema_classes import (
+    PlatformResourceInfoClass,
+    SerializedValueClass,
+    SerializedValueContentTypeClass,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
 
 

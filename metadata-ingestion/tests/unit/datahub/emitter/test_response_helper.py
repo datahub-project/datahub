@@ -4,7 +4,6 @@ from typing import Any, List
 from unittest.mock import Mock
 
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 from requests import Response
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -14,6 +13,7 @@ from datahub.emitter.response_helper import (
     extract_trace_data_from_mcps,
 )
 from datahub.errors import APITracingWarning
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 
 
 def create_response(status_code: int, headers: dict, json_data: Any) -> Response:

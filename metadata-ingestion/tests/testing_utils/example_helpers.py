@@ -15,10 +15,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from unittest import mock
 
-from datahub.metadata.schema_classes import MetadataChangeEventClass
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 from datahub.testing.mce_helpers import clean_nones
 

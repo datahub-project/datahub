@@ -1,6 +1,12 @@
 from typing import Any, Dict
 from unittest.mock import patch
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.redash import (
+    RedashConfig,
+    RedashSource,
+    get_full_qualified_name,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -10,13 +16,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     DashboardSnapshot,
 )
 from datahub.metadata.schema_classes import ChartInfoClass, DashboardInfoClass
-
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.redash import (
-    RedashConfig,
-    RedashSource,
-    get_full_qualified_name,
-)
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo
 
 mock_dashboard_response = {

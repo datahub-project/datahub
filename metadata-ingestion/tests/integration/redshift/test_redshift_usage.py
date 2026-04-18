@@ -5,11 +5,6 @@ from typing import Dict, List, Union
 from unittest.mock import MagicMock, Mock, patch
 
 import time_machine
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
-)
-from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -21,6 +16,11 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-09-15 09:00:00"

@@ -2,10 +2,10 @@ import re
 import unittest
 from typing import List, Optional
 
-import datahub.metadata.schema_classes as models
 import pytest
 
 import datahub.emitter.mce_builder as builder
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.incremental_lineage_helper import (

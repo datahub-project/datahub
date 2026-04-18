@@ -9,12 +9,6 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
 )
-from datahub.metadata.schema_classes import (
-    BrowsePathsV2Class,
-    DataPlatformInstanceClass,
-    KafkaSchemaClass,
-    SchemaMetadataClass,
-)
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
@@ -32,6 +26,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
+from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    DataPlatformInstanceClass,
+    KafkaSchemaClass,
+    SchemaMetadataClass,
+)
 
 
 @pytest.fixture

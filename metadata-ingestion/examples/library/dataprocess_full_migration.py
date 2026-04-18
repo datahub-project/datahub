@@ -10,6 +10,8 @@ This example demonstrates a full migration path that:
 Use this as a template for migrating multiple dataProcess entities in bulk.
 """
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     OwnerClass,
@@ -17,9 +19,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.sdk import DataFlow, DataHubClient, DataJob
 
 # Initialize clients

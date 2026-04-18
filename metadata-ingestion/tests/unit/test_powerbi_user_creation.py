@@ -5,9 +5,8 @@ Tests the fix for CUS-7063: PowerBI ingestion overwrites existing user profiles.
 
 from typing import List, Optional
 
-from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserKeyClass
-
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import User
+from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserKeyClass
 
 _NOT_SET = object()  # Sentinel for distinguishing None from "not provided"
 

@@ -1,11 +1,6 @@
 import logging
 
 import pytest
-from datahub.metadata.schema_classes import (
-    NumberTypeClass,
-    StringTypeClass,
-    TimeTypeClass,
-)
 
 from datahub.ingestion.source.grafana.field_utils import (
     extract_prometheus_fields,
@@ -14,6 +9,11 @@ from datahub.ingestion.source.grafana.field_utils import (
     extract_time_format_fields,
     get_fields_from_field_config,
     get_fields_from_transformations,
+)
+from datahub.metadata.schema_classes import (
+    NumberTypeClass,
+    StringTypeClass,
+    TimeTypeClass,
 )
 
 

@@ -1,5 +1,4 @@
 from datahub.metadata.urns import TagUrn
-
 from datahub.sdk import DataFlow, DataHubClient
 
 client = DataHubClient.from_env()

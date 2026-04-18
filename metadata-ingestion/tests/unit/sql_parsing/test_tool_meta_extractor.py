@@ -1,6 +1,5 @@
-from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, Urn
-
 from datahub.configuration.datetimes import parse_absolute_time
+from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, Urn
 from datahub.sql_parsing.sql_parsing_aggregator import PreparsedQuery
 from datahub.sql_parsing.tool_meta_extractor import (
     ToolMetaExtractor,

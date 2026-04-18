@@ -5,7 +5,6 @@ This example demonstrates how to delete documents from DataHub.
 """
 
 from datahub.metadata.urns import DocumentUrn
-
 from datahub.sdk import DataHubClient
 
 # Initialize the client

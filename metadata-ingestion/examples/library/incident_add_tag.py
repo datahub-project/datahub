@@ -1,13 +1,12 @@
 # metadata-ingestion/examples/library/incident_add_tag.py
 import logging
 
-import datahub.metadata.schema_classes as models
-from datahub.metadata.urns import IncidentUrn
-
 import datahub.emitter.mce_builder as builder
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.metadata.urns import IncidentUrn
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

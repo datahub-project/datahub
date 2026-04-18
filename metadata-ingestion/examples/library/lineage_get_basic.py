@@ -1,5 +1,4 @@
 from datahub.metadata.urns import DatasetUrn
-
 from datahub.sdk.main_client import DataHubClient
 
 client = DataHubClient.from_env()

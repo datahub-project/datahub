@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.urns import CorpUserUrn
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
@@ -20,6 +19,7 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_pk_constraints,
     optimized_get_columns,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 
 

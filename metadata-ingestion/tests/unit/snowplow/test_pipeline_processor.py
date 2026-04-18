@@ -4,14 +4,6 @@ from typing import Optional
 from unittest.mock import Mock
 
 import pytest
-from datahub.metadata.schema_classes import (
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    NumberTypeClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
-)
 
 from datahub.ingestion.source.snowplow.constants import WAREHOUSE_PLATFORM_MAP
 from datahub.ingestion.source.snowplow.dependencies import IngestionState
@@ -23,6 +15,14 @@ from datahub.ingestion.source.snowplow.models.snowplow_models import (
 )
 from datahub.ingestion.source.snowplow.processors.pipeline_processor import (
     PipelineProcessor,
+)
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
 )
 
 

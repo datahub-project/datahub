@@ -1,15 +1,14 @@
 # metadata-ingestion/examples/library/ermodelrelationship_add_owner.py
 import time
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 GMS_ENDPOINT = "http://localhost:8080"
 relationship_urn = "urn:li:erModelRelationship:employee_to_company"

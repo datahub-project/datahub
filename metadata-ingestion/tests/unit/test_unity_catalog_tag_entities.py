@@ -1,7 +1,6 @@
 from unittest.mock import Mock
 
 import pytest
-from datahub.metadata.urns import TagUrn
 
 from datahub.api.entities.external.external_entities import LinkedResourceSet
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
@@ -11,6 +10,7 @@ from datahub.ingestion.source.unity.tag_entities import (
     UnityCatalogTagPlatformResourceId,
     UnityCatalogTagSyncContext,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 

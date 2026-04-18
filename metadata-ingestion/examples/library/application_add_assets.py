@@ -1,8 +1,7 @@
 # metadata-ingestion/examples/library/application_add_assets.py
-from datahub.metadata.schema_classes import ApplicationsClass
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import ApplicationsClass
 
 
 def make_application_urn(application_id: str) -> str:

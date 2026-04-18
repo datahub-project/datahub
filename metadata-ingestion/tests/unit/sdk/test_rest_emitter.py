@@ -7,18 +7,6 @@ from typing import Any, Dict
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    Status,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetProfile,
-    DatasetProperties,
-)
-from datahub.metadata.schema_classes import (
-    KEY_ASPECT_NAMES,
-    KEY_ASPECTS,
-    ChangeTypeClass,
-)
 from requests import Response, Session
 
 from datahub.configuration.common import (
@@ -42,6 +30,18 @@ from datahub.emitter.rest_emitter import (
 )
 from datahub.errors import APITracingWarning
 from datahub.ingestion.graph.config import ClientMode
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    Status,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetProfile,
+    DatasetProperties,
+)
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    KEY_ASPECTS,
+    ChangeTypeClass,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.server_config_util import RestServiceConfig
 

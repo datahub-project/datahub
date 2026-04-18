@@ -1,10 +1,9 @@
 """Unit tests for Confluence hierarchy extraction."""
 
-from datahub.metadata.schema_classes import BrowsePathsV2Class
-
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
     ConfluenceHierarchyExtractor,
 )
+from datahub.metadata.schema_classes import BrowsePathsV2Class
 
 
 def test_extract_parent_id_with_parent() -> None:

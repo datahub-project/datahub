@@ -3,18 +3,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
-import datahub.metadata.schema_classes as models
 import pydantic
 import pytest
 import time_machine
 from botocore.stub import Stubber
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
-    MapTypeClass,
-    RecordTypeClass,
-    StringTypeClass,
-)
 
+import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
@@ -29,6 +23,12 @@ from datahub.ingestion.source.aws.glue import (
 )
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    MapTypeClass,
+    RecordTypeClass,
+    StringTypeClass,
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column

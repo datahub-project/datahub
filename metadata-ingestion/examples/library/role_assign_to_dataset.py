@@ -1,8 +1,7 @@
-from datahub.metadata.schema_classes import AccessClass, RoleAssociationClass
-
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import AccessClass, RoleAssociationClass
 
 # Create the dataset URN
 dataset_urn = make_dataset_urn(

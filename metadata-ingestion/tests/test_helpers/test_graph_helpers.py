@@ -1,6 +1,6 @@
 import pytest
-from datahub.metadata.schema_classes import DatasetPropertiesClass
 
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
 

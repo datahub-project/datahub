@@ -1,15 +1,14 @@
-from datahub.metadata.schema_classes import (
-    GlobalTagsClass,
-    StructuredPropertiesClass,
-    TagAssociationClass,
-)
-
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.tags_to_structured_properties import (
     StructuredPropertyMappingConfig,
     TagsToStructuredPropertiesConfig,
     TagsToStructuredPropertiesTransformer,
+)
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    StructuredPropertiesClass,
+    TagAssociationClass,
 )
 
 

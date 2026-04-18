@@ -1,5 +1,4 @@
 from datahub.metadata.urns import MlModelGroupUrn
-
 from datahub.sdk import DataHubClient, GlossaryTermUrn
 
 client = DataHubClient.from_env()

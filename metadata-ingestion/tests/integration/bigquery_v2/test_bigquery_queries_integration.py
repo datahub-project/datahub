@@ -6,13 +6,13 @@ from unittest.mock import patch
 
 import pytest
 import time_machine
-from datahub.metadata.urns import CorpUserUrn
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
     BigQueryQueriesSource,
     BigQueryQueriesSourceReport,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.testing import mce_helpers
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList

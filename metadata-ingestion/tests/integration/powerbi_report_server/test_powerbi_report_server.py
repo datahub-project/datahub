@@ -3,9 +3,9 @@ from typing import Any, Optional
 from unittest import mock
 
 import time_machine
-from datahub.metadata.schema_classes import AuditStampClass, OwnerClass, OwnershipClass
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.metadata.schema_classes import AuditStampClass, OwnerClass, OwnershipClass
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"

@@ -2,7 +2,6 @@
 from datetime import datetime, timezone
 
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, GlossaryTermUrn, TagUrn
-
 from datahub.sdk import DataFlow, DataHubClient
 
 client = DataHubClient.from_env()

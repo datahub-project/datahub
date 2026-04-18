@@ -3,10 +3,10 @@ from typing import List
 
 import pytest
 import yaml
-from datahub.metadata.schema_classes import FineGrainedLineageClass, UpstreamClass
 from pydantic import ValidationError
 
 from datahub.ingestion.source.metadata.lineage import LineageConfig, _get_lineage_mcp
+from datahub.metadata.schema_classes import FineGrainedLineageClass, UpstreamClass
 
 logger = logging.getLogger(__name__)
 

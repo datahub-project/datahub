@@ -2,12 +2,6 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionResultType
-from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.schema_classes import (
-    AssertionSourceTypeClass,
-    AssertionTypeClass,
-)
 
 from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.ingestion.source.snowflake.snowflake_assertion import (
@@ -15,6 +9,12 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionResultType
+from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from datahub.metadata.schema_classes import (
+    AssertionSourceTypeClass,
+    AssertionTypeClass,
+)
 
 
 class TestDataQualityMonitoringResultModel:

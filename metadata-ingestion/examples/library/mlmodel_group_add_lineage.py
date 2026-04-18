@@ -1,6 +1,5 @@
-from datahub.metadata.urns import MlModelGroupUrn
-
 from datahub.emitter import mce_builder
+from datahub.metadata.urns import MlModelGroupUrn
 from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()

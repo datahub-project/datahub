@@ -1,14 +1,4 @@
 import pytest
-from datahub.metadata.schema_classes import (
-    DataJobInputOutputClass,
-    NumberTypeClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemalessClass,
-    SchemaMetadataClass,
-    StringTypeClass,
-)
-from datahub.metadata.urns import DatasetUrn
 
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
@@ -20,6 +10,16 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     get_procedure_flow_name,
 )
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 

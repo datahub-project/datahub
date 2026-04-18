@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Union
 
 import pytest
+
+from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NumberTypeClass,
     SchemaField,
@@ -17,9 +20,6 @@ from datahub.metadata.schema_classes import (
     RecordTypeClass,
     UnionTypeClass,
 )
-
-from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-from datahub.ingestion.run.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
 

@@ -1,3 +1,7 @@
+from datahub.api.entities.datacontract.data_quality_assertion import (
+    DataQualityAssertion,
+)
+from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionSourceTypeClass,
@@ -10,11 +14,6 @@ from datahub.metadata.schema_classes import (
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
 )
-
-from datahub.api.entities.datacontract.data_quality_assertion import (
-    DataQualityAssertion,
-)
-from datahub.emitter.mce_builder import SYSTEM_ACTOR
 
 
 def test_parse_sql_assertion():

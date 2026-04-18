@@ -1,12 +1,11 @@
 import logging
 
-from datahub.metadata.urns import CorpUserUrn
-
 from datahub.api.entities.corpgroup.corpgroup import (
     CorpGroup,
     CorpGroupGenerationConfig,
 )
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.metadata.urns import CorpUserUrn
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

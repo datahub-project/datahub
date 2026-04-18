@@ -1,14 +1,13 @@
 # metadata-ingestion/examples/library/notebook_add_tags.py
 import logging
 
+from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
-
-from datahub.emitter.mce_builder import make_tag_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

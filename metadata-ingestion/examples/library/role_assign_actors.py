@@ -1,12 +1,11 @@
+from datahub.emitter.mce_builder import make_group_urn, make_user_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     ActorsClass,
     RoleGroupClass,
     RoleUserClass,
 )
-
-from datahub.emitter.mce_builder import make_group_urn, make_user_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 # Create the role URN
 # Role URNs follow the pattern: urn:li:role:{role_id}

@@ -1,6 +1,5 @@
 # metadata-ingestion/examples/library/dataflow_add_tags_terms.py
 from datahub.metadata.urns import DataFlowUrn, GlossaryTermUrn, TagUrn
-
 from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()

@@ -1,11 +1,10 @@
 import logging
 from typing import Union
 
-from datahub.metadata.urns import StructuredPropertyUrn
-
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.metadata.urns import StructuredPropertyUrn
 from datahub.specific.structured_property import StructuredPropertyPatchBuilder
 
 log = logging.getLogger(__name__)

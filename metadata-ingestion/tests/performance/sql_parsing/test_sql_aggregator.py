@@ -16,9 +16,9 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import pytest
-from datahub.metadata.urns import CorpUserUrn
 
 from datahub.configuration.env_vars import is_ci
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,

@@ -3,6 +3,12 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
+from datahub.ingestion.source.hex.constants import HEX_PLATFORM_URN
+from datahub.ingestion.source.hex.query_fetcher import (
+    HexQueryFetcher,
+    HexQueryFetcherReport,
+    QueryResponse,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     QueryPropertiesClass,
@@ -11,13 +17,6 @@ from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
 )
 from datahub.metadata.urns import DatasetUrn, QueryUrn
-
-from datahub.ingestion.source.hex.constants import HEX_PLATFORM_URN
-from datahub.ingestion.source.hex.query_fetcher import (
-    HexQueryFetcher,
-    HexQueryFetcherReport,
-    QueryResponse,
-)
 
 
 class TestHexQueryFetcherExtractHexMetadata(unittest.TestCase):

@@ -4,10 +4,10 @@ from typing import Optional
 
 import pytest
 import time_machine
-from datahub.metadata.schema_classes import DatasetProfileClass
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresSource
+from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2024-01-01 12:00:00"

@@ -1,6 +1,9 @@
 # metadata-ingestion/examples/library/assertion_field_uniqueness.py
 import os
 
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionStdOperatorClass,
@@ -11,10 +14,6 @@ from datahub.metadata.schema_classes import (
     FieldMetricTypeClass,
     SchemaFieldSpecClass,
 )
-
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 emitter = DatahubRestEmitter(
     gms_server=os.getenv("DATAHUB_GMS_URL", "http://localhost:8080"),

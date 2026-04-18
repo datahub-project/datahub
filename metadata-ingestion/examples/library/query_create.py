@@ -3,6 +3,8 @@ import logging
 import os
 import time
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     QueryLanguageClass,
@@ -13,9 +15,6 @@ from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
-
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

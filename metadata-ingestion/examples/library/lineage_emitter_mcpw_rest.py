@@ -1,14 +1,13 @@
 from typing import List
 
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineage,
 )
-
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 upstream_table_1 = UpstreamClass(
     dataset=builder.make_dataset_urn("bigquery", "upstream_table_1", "PROD"),

@@ -1,10 +1,9 @@
 # metadata-ingestion/examples/library/corpgroup_add_members.py
-from datahub.metadata.schema_classes import GroupMembershipClass
-from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.metadata.schema_classes import GroupMembershipClass
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 
 graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080")

@@ -1,7 +1,6 @@
-from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
-
 from datahub.emitter.mce_builder import make_dataset_urn, make_group_urn, make_user_urn
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
 from datahub.specific.dataset import DatasetPatchBuilder
 
 # Create DataHub Client

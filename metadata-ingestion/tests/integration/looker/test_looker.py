@@ -8,7 +8,6 @@ from unittest import mock
 import pytest
 import time_machine
 from _pytest.config import Config
-from datahub.metadata.schema_classes import GlobalTagsClass
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
@@ -47,6 +46,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
     UserViewField,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.metadata.schema_classes import GlobalTagsClass
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,

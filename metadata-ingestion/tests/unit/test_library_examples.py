@@ -168,7 +168,6 @@ def test_query_dataset_deprecation_deprecated():
     from unittest import mock
 
     from datahub.metadata.schema_classes import DeprecationClass
-
     from examples.library.dataset_query_deprecation import query_dataset_deprecation
 
     # Mock client and dataset

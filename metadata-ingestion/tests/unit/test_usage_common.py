@@ -1,9 +1,6 @@
 from datetime import datetime
 
 import pytest
-from datahub.metadata.schema_classes import (
-    DatasetUsageStatisticsClass,
-)
 from pydantic import ValidationError
 
 import datahub.ingestion.source.usage.usage_common
@@ -17,6 +14,9 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
     UsageAggregator,
+)
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
 )
 from datahub.testing.doctest import assert_doctest
 

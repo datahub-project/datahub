@@ -3,7 +3,6 @@ from typing import List
 
 import datahub.metadata.schema_classes as models
 from datahub.metadata.urns import CorpUserUrn
-
 from datahub.sdk import DataHubClient
 from datahub.sdk.dashboard import Dashboard
 

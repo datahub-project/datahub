@@ -3,7 +3,6 @@
 from typing import Literal, Optional
 
 import pytest
-from datahub.metadata.schema_classes import UpstreamLineageClass
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
@@ -20,6 +19,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     Workspace,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 
 
 @pytest.fixture

@@ -3,13 +3,6 @@
 from unittest.mock import Mock
 
 import pytest
-from datahub.metadata.schema_classes import (
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
-    UpstreamLineageClass,
-)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowplow.dependencies import IngestionState
@@ -19,6 +12,13 @@ from datahub.ingestion.source.snowplow.services.column_lineage_builder import (
 from datahub.ingestion.source.snowplow.snowplow_config import (
     SnowplowBDPConnectionConfig,
     SnowplowSourceConfig,
+)
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    UpstreamLineageClass,
 )
 
 

@@ -1,12 +1,12 @@
 import logging
 import os
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import GlossaryTermInfoClass
-
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+
+# Imports for metadata model classes
+from datahub.metadata.schema_classes import GlossaryTermInfoClass
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

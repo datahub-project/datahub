@@ -1,12 +1,4 @@
 import pytest
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    DateTypeClass,
-    NumberTypeClass,
-    StringTypeClass,
-    TimeTypeClass,
-)
 
 from datahub.ingestion.source.sql.sql_types import (
     ATHENA_SQL_TYPES_MAP,
@@ -17,6 +9,14 @@ from datahub.ingestion.source.sql.sql_types import (
     resolve_snowflake_modified_type,
     resolve_sql_type,
     resolve_trino_modified_type,
+)
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    DateTypeClass,
+    NumberTypeClass,
+    StringTypeClass,
+    TimeTypeClass,
 )
 
 

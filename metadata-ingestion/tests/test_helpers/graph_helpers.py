@@ -2,17 +2,6 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
-)
-from datahub.metadata.schema_classes import (
-    ASPECT_NAME_MAP,
-    DomainPropertiesClass,
-    SystemMetadataClass,
-    UsageAggregationClass,
-)
-
 from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,6 +12,16 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
+from datahub.metadata.schema_classes import (
+    ASPECT_NAME_MAP,
+    DomainPropertiesClass,
+    SystemMetadataClass,
+    UsageAggregationClass,
+)
 
 
 class MockDataHubGraph(DataHubGraph):

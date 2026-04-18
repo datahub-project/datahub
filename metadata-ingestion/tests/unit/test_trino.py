@@ -1,5 +1,9 @@
 from unittest import mock
 
+from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
+from datahub.ingestion.source.sql.trino import TrinoConfig, TrinoSource
 from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -8,11 +12,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UpstreamLineageClass,
 )
-
-from datahub.emitter.mce_builder import make_schema_field_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
-from datahub.ingestion.source.sql.trino import TrinoConfig, TrinoSource
 
 
 def get_test_trino_source(include_column_lineage: bool = True) -> TrinoSource:

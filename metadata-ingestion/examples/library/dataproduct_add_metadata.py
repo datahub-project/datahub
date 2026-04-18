@@ -1,16 +1,15 @@
 import logging
 
-from datahub.metadata.schema_classes import (
-    GlossaryTermAssociationClass,
-    TagAssociationClass,
-)
-
 from datahub.emitter.mce_builder import (
     make_data_product_urn,
     make_tag_urn,
     make_term_urn,
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import (
+    GlossaryTermAssociationClass,
+    TagAssociationClass,
+)
 from datahub.specific.dataproduct import DataProductPatchBuilder
 
 log = logging.getLogger(__name__)

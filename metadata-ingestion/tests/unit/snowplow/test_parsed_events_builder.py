@@ -3,6 +3,13 @@
 from unittest.mock import Mock
 
 import pytest
+
+from datahub.ingestion.source.snowplow.builders.urn_factory import SnowplowURNFactory
+from datahub.ingestion.source.snowplow.dependencies import IngestionState
+from datahub.ingestion.source.snowplow.services.parsed_events_builder import (
+    ParsedEventsBuilder,
+)
+from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     NumberTypeClass,
@@ -13,13 +20,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
-
-from datahub.ingestion.source.snowplow.builders.urn_factory import SnowplowURNFactory
-from datahub.ingestion.source.snowplow.dependencies import IngestionState
-from datahub.ingestion.source.snowplow.services.parsed_events_builder import (
-    ParsedEventsBuilder,
-)
-from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 
 
 class TestParsedEventsBuilder:

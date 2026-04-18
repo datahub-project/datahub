@@ -7,11 +7,6 @@ from unittest.mock import MagicMock, patch
 import pydantic
 import pytest
 import time_machine
-from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-    UpstreamLineageClass,
-)
 from deepdiff import DeepDiff
 from looker_sdk.sdk.api40.models import DBConnection
 
@@ -35,6 +30,11 @@ from datahub.ingestion.source.looker.lookml_config import (
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.ingestion.source.looker.lookml_source import LookMLSource
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+    UpstreamLineageClass,
+)
 from datahub.sdk.entity import Entity
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.testing import mce_helpers

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-from datahub.metadata.schema_classes import ApplicationsClass
-
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import ApplicationsClass
 
 
 # Utility function for creating application URNs (not yet in SDK)

@@ -1,6 +1,10 @@
 from typing import no_type_check
 from unittest.mock import MagicMock
 
+from sqlalchemy import types
+from sqlalchemy.engine.default import DefaultDialect
+from sqlalchemy_bigquery import STRUCT
+
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     MapTypeClass,
@@ -8,10 +12,6 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     RecordTypeClass,
 )
-from sqlalchemy import types
-from sqlalchemy.engine.default import DefaultDialect
-from sqlalchemy_bigquery import STRUCT
-
 from datahub.utilities.sqlalchemy_type_converter import (
     MapType,
     get_schema_fields_for_sqlalchemy_column,

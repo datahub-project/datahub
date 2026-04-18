@@ -1,6 +1,5 @@
 # metadata-ingestion/examples/library/datajob_create_basic.py
 from datahub.metadata.urns import DataFlowUrn, DatasetUrn
-
 from datahub.sdk import DataHubClient, DataJob
 
 client = DataHubClient.from_env()
