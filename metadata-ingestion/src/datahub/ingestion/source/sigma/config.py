@@ -48,6 +48,8 @@ class Constant:
     WORKBOOK = "workbook"
     BADGE = "badge"
     NEXTPAGE = "nextPage"
+    NEXTPAGETOKEN = "nextPageToken"
+    DATA_MODEL = "dataModel"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
@@ -127,6 +129,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workbooks: EntityFilterReport = EntityFilterReport.field(type="workbook")
     workbooks_without_workspace: int = 0
 
+    data_models: EntityFilterReport = EntityFilterReport.field(type="data_model")
+
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
 
@@ -190,4 +194,12 @@ class SigmaSourceConfig(
     workbook_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
+    )
+    ingest_data_models: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest Sigma Data Models as Dataset entities.",
+    )
+    data_model_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter Sigma Data Model names in ingestion.",
     )

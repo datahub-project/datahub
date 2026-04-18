@@ -17,6 +17,9 @@ from datahub.ingestion.source.sigma.data_classes import (
     ElementUpstream,
     File,
     Page,
+    SigmaDataModel,
+    SigmaDataModelColumn,
+    SigmaDataModelSource,
     SigmaDataset,
     Workbook,
     Workspace,
@@ -441,6 +444,130 @@ class SigmaAPI:
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
+            )
+            return []
+
+    def get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
+        logger.debug(f"Fetching columns for data model '{data_model_id}'.")
+        columns_url = url = f"{self.config.api_url}/dataModels/{data_model_id}/columns"
+        try:
+            columns: List[SigmaDataModelColumn] = []
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for col_dict in response_dict.get(Constant.ENTRIES, []):
+                    columns.append(SigmaDataModelColumn.model_validate(col_dict))
+                if response_dict.get(Constant.NEXTPAGE):
+                    url = f"{columns_url}?page={response_dict[Constant.NEXTPAGE]}"
+                else:
+                    break
+            return columns
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch columns for data model '{data_model_id}'. Exception: {e}"
+            )
+            return []
+
+    def get_data_model_sources(self, data_model_id: str) -> List[SigmaDataModelSource]:
+        logger.debug(f"Fetching sources for data model '{data_model_id}'.")
+        # /sources uses nextPageToken (not nextPage used by other endpoints)
+        sources_url = url = f"{self.config.api_url}/dataModels/{data_model_id}/sources"
+        try:
+            sources: List[SigmaDataModelSource] = []
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for src_dict in response_dict.get(Constant.ENTRIES, []):
+                    sources.append(SigmaDataModelSource.model_validate(src_dict))
+                next_token = response_dict.get(Constant.NEXTPAGETOKEN)
+                if next_token:
+                    url = f"{sources_url}?nextPageToken={next_token}"
+                else:
+                    break
+            return sources
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch sources for data model '{data_model_id}'. Exception: {e}"
+            )
+            return []
+
+    def get_data_models(self) -> List[SigmaDataModel]:
+        logger.debug("Fetching all accessible data models metadata.")
+        data_model_url = url = f"{self.config.api_url}/dataModels"
+        data_model_files_metadata = self._get_files_metadata(
+            file_type=Constant.DATA_MODEL
+        )
+        try:
+            data_models: List[SigmaDataModel] = []
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for dm_dict in response_dict.get(Constant.ENTRIES, []):
+                    data_model = SigmaDataModel.model_validate(dm_dict)
+
+                    file_meta = data_model_files_metadata.get(data_model.dataModelId)
+                    if file_meta:
+                        data_model.workspaceId = file_meta.workspaceId
+                        data_model.path = file_meta.path
+                        data_model.badge = file_meta.badge
+
+                    workspace = None
+                    if data_model.workspaceId:
+                        workspace = self.get_workspace(data_model.workspaceId)
+
+                    if workspace:
+                        if self.config.workspace_pattern.allowed(workspace.name):
+                            if self.config.data_model_pattern.allowed(data_model.name):
+                                self.report.data_models.processed(
+                                    f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                                )
+                                data_model.columns = self.get_data_model_columns(
+                                    data_model.dataModelId
+                                )
+                                data_model.sources = self.get_data_model_sources(
+                                    data_model.dataModelId
+                                )
+                                data_models.append(data_model)
+                            else:
+                                self.report.data_models.dropped(
+                                    f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                                )
+                        else:
+                            self.report.data_models.dropped(
+                                f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                            )
+                    elif self.config.ingest_shared_entities:
+                        if self.config.data_model_pattern.allowed(data_model.name):
+                            self.report.data_models.processed(
+                                f"{data_model.name} ({data_model.dataModelId}) in workspace id {data_model.workspaceId or 'unknown'}"
+                            )
+                            data_model.columns = self.get_data_model_columns(
+                                data_model.dataModelId
+                            )
+                            data_model.sources = self.get_data_model_sources(
+                                data_model.dataModelId
+                            )
+                            data_models.append(data_model)
+                        else:
+                            self.report.data_models.dropped(
+                                f"{data_model.name} ({data_model.dataModelId}) in workspace id {data_model.workspaceId or 'unknown'}"
+                            )
+                    else:
+                        self.report.data_models.dropped(
+                            f"{data_model.name} ({data_model.dataModelId}) in workspace id {data_model.workspaceId or 'unknown'}"
+                        )
+
+                if response_dict.get(Constant.NEXTPAGE):
+                    url = f"{data_model_url}?page={response_dict[Constant.NEXTPAGE]}"
+                else:
+                    break
+            return data_models
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch sigma data models. Exception: {e}"
             )
             return []
 
