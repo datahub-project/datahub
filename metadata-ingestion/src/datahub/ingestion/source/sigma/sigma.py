@@ -365,7 +365,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstreams = []
         for source in data_model.sources:
             if source.type == "dataset" and source.datasetId:
-                upstream_urn = self._gen_sigma_dataset_urn(source.datasetId)
+                # /sources gives the UUID; existing dataset entities use the URL-based
+                # ID — look it up in the mapping populated during dataset ingestion.
+                urn_part = self.sigma_api.dataset_id_to_urn_part.get(
+                    source.datasetId, source.datasetId
+                )
+                upstream_urn = self._gen_sigma_dataset_urn(urn_part)
                 upstreams.append(
                     Upstream(dataset=upstream_urn, type=DatasetLineageType.COPY)
                 )

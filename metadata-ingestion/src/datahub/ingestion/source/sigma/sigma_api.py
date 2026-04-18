@@ -35,6 +35,9 @@ class SigmaAPI:
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
+        # Maps SigmaDataset UUID → URL-based ID used as the dataset URN part.
+        # Populated during get_sigma_datasets(); consumed by get_data_models().
+        self.dataset_id_to_urn_part: Dict[str, str] = {}
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff
@@ -269,6 +272,9 @@ class SigmaAPI:
                             self.report.datasets.processed(
                                 f"{dataset.name} ({dataset.datasetId}) in {workspace.name}"
                             )
+                            self.dataset_id_to_urn_part[dataset.datasetId] = (
+                                dataset.get_urn_part()
+                            )
                             datasets.append(dataset)
                         else:
                             self.report.datasets.dropped(
@@ -279,6 +285,9 @@ class SigmaAPI:
                         self.report.datasets_without_workspace += 1
                         self.report.datasets.processed(
                             f"{dataset.name} ({dataset.datasetId}) in workspace id {dataset.workspaceId or 'unknown'}"
+                        )
+                        self.dataset_id_to_urn_part[dataset.datasetId] = (
+                            dataset.get_urn_part()
                         )
                         datasets.append(dataset)
                     else:
