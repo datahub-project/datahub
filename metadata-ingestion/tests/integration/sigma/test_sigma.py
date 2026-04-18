@@ -612,3 +612,218 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
+    """
+    Exercises Data Model ingestion:
+    - DM1 ("Pet Analytics Model"): Sigma Dataset upstream, 3 columns (2 passthrough + 1 calculated)
+    - DM2 ("Chained Model"): DM1 as upstream (chained Data Model), 2 columns
+    - Both Data Models live in the "Acryl Data" workspace
+    - /sources uses nextPageToken pagination (DM1 sources span 2 pages)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    dm1_id = "aa11bb22-1111-2222-3333-444444444444"
+    dm2_id = "bb22cc33-2222-3333-4444-555555555555"
+    workspace_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    pets_dataset_id = "8891fd40-5470-4ff2-a74f-6e61ee44d3fc"
+
+    override_data: Dict[str, Dict] = {
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataModel": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": dm1_id,
+                        "urlId": "dm1UrlId",
+                        "name": "Pet Analytics Model",
+                        "type": "dataModel",
+                        "parentId": workspace_id,
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-04-15T13:43:12.664Z",
+                        "updatedAt": "2024-04-15T13:43:12.664Z",
+                        "isArchived": False,
+                    },
+                    {
+                        "id": dm2_id,
+                        "urlId": "dm2UrlId",
+                        "name": "Chained Model",
+                        "type": "dataModel",
+                        "parentId": workspace_id,
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-04-16T09:00:00.000Z",
+                        "updatedAt": "2024-04-16T09:00:00.000Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": dm1_id,
+                        "name": "Pet Analytics Model",
+                        "description": "Analytics model for pets data",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-04-15T13:43:12.664Z",
+                        "updatedAt": "2024-04-15T13:43:12.664Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{dm1_id}",
+                        "isArchived": False,
+                    },
+                    {
+                        "dataModelId": dm2_id,
+                        "name": "Chained Model",
+                        "description": "Chained from Pet Analytics Model",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-04-16T09:00:00.000Z",
+                        "updatedAt": "2024-04-16T09:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{dm2_id}",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # DM1 columns: 2 passthrough + 1 calculated
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm1_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": f"inode-{dm1_id}/pet_id",
+                        "name": "pet_id",
+                        "label": "Pet ID",
+                        "formula": "[PETS/pet_id]",
+                    },
+                    {
+                        "columnId": f"inode-{dm1_id}/status",
+                        "name": "status",
+                        "label": "Status",
+                        "formula": "[PETS/status]",
+                    },
+                    {
+                        "columnId": "yM2rd2GcRO",
+                        "name": "status_label",
+                        "label": "Status Label",
+                        "formula": 'If([status] = "active", "Active", "Inactive")',
+                    },
+                ],
+                "total": 3,
+                "nextPage": None,
+            },
+        },
+        # DM2 columns
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm2_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": f"inode-{dm2_id}/pet_id",
+                        "name": "pet_id",
+                        "label": "Pet ID",
+                        "formula": "[Pet Analytics Model/pet_id]",
+                    },
+                    {
+                        "columnId": "kQ9mP3xVwN",
+                        "name": "summary_count",
+                        "label": "Summary Count",
+                        "formula": "Count([pet_id])",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # DM1 sources: paginated with nextPageToken across 2 pages.
+        # Page 1 has a Sigma Dataset source and a nextPageToken.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm1_id}/sources": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"type": "dataset", "datasetId": pets_dataset_id},
+                ],
+                "total": 1,
+                "nextPageToken": "tok_dm1_page2",
+            },
+        },
+        # DM1 sources page 2: empty, pagination ends.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm1_id}/sources?nextPageToken=tok_dm1_page2": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [],
+                "total": 0,
+                "nextPageToken": None,
+            },
+        },
+        # DM2 sources: chains from DM1
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm2_id}/sources": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"type": "dataModel", "dataModelId": dm1_id},
+                ],
+                "total": 1,
+                "nextPageToken": None,
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_data_models_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_sigma_data_models.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
