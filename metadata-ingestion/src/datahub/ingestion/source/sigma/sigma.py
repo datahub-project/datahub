@@ -519,6 +519,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_urn = self._resolve_formula_ref(
                     ref=ref,
                     element_name=element.name,
+                    current_element_id=element.elementId,
                     element_name_to_id=element_name_to_id,
                     elementId_to_chart_urn=elementId_to_chart_urn,
                     source_name_to_urn=source_name_to_urn,
@@ -546,6 +547,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self,
         ref: BracketRef,
         element_name: str,
+        current_element_id: str,
         element_name_to_id: Dict[str, str],
         elementId_to_chart_urn: Dict[str, str],
         source_name_to_urn: Dict[str, str],
@@ -570,6 +572,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         if ref.source in element_name_to_id:
             upstream_elem_id = element_name_to_id[ref.source]
+            # Guard against self-refs that slip through name comparison due to
+            # casing or whitespace differences between the formula source and the
+            # element's stored name (observed in DM-backed workbooks on live tenant).
+            if upstream_elem_id == current_element_id:
+                self.reporter.num_self_refs_dropped += 1
+                return None
             chart_urn = elementId_to_chart_urn.get(upstream_elem_id)
             if chart_urn:
                 return chart_urn

@@ -198,6 +198,10 @@ class SigmaSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
     )
+    ingest_data_models: bool = pydantic.Field(
+        default=True,
+        description="Ingest Sigma Data Models as Datasets. Full support lands in a follow-up release; accepted here for recipe forward-compatibility.",
+    )
     extract_column_lineage: bool = pydantic.Field(
         default=True,
         description=(
