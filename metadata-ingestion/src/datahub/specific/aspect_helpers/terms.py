@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import GlossaryTermUrn, Urn
 
 DEFAULT_TERMS_KEY_FIELDS = ["urn", f"attribution{UNIT_SEPARATOR}source"]
+_TERMS_APK = {"terms": DEFAULT_TERMS_KEY_FIELDS}
 
 
 class HasTermsPatch(MetadataPatchProposal):
@@ -39,6 +40,7 @@ class HasTermsPatch(MetadataPatchProposal):
             "add",
             path=("terms", term.urn, source),
             value=term,
+            array_primary_keys=_TERMS_APK,
         )
         return self
 
