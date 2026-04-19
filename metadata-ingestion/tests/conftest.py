@@ -1,10 +1,10 @@
 import logging
 import os
 import pathlib
+import time
 from typing import List, Optional
 
 import pytest
-import time_machine
 
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 os.environ["DATAHUB_TEST_MODE"] = "1"
@@ -35,13 +35,13 @@ from tests.test_helpers.state_helpers import (  # noqa: F401,E402
     mock_datahub_graph_instance,
 )
 
-_MOCK_TIME = "2021-03-11 06:16:28.097509+00:00"
+_MOCK_TIME = 1615443388.0975091  # 2021-03-11 06:16:28.097509+00:00
 
 
 @pytest.fixture
-def mock_time():
-    with time_machine.travel(_MOCK_TIME, tick=False):
-        yield
+def mock_time(monkeypatch):
+    monkeypatch.setattr(time, "time", lambda: _MOCK_TIME)
+    yield
 
 
 def pytest_ignore_collect(

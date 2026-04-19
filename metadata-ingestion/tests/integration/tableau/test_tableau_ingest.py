@@ -1123,7 +1123,7 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
             )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@time_machine.travel(FROZEN_TIME, tick=True)
 @pytest.mark.integration
 def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(

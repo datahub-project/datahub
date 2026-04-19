@@ -285,7 +285,7 @@ basicAuditStamp = models.AuditStampClass(
     ],
 )
 @time_machine.travel(
-    datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc, tick=False)
+    datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc), tick=False
 )
 def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:

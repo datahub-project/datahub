@@ -16,7 +16,7 @@ from tests.integration.snowflake.common import FROZEN_TIME, default_query_result
 pytestmark = pytest.mark.integration_batch_5
 
 
-@time_machine.travel(FROZEN_TIME, tick=True)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_streamlit_ingestion(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -86,7 +86,7 @@ def test_snowflake_streamlit_ingestion(
         )
 
 
-@time_machine.travel(FROZEN_TIME, tick=True)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_streamlit_filtering(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -160,7 +160,7 @@ def test_snowflake_streamlit_filtering(
         )
 
 
-@time_machine.travel(FROZEN_TIME, tick=True)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_streamlit_disabled(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

@@ -189,7 +189,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
-@time_machine.travel(FROZEN_TIME, tick=True)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_basic_disable_queries(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -326,7 +326,7 @@ def test_snowflake_tags_as_structured_properties(
         )
 
 
-@time_machine.travel(FROZEN_TIME, tick=True)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_private_link_and_incremental_mcps(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
