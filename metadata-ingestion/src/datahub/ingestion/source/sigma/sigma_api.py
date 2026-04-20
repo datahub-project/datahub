@@ -522,8 +522,8 @@ class SigmaAPI:
                                 f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
                             )
                     else:
-                        # Sigma's files API doesn't expose data model workspace placement,
-                        # so workspace context is optional — always process without it.
+                        # DMs in personal folders (e.g. 'My Documents') won't resolve to a workspace.
+                        # Treat as shared entities — mirror get_sigma_datasets' no-workspace branch.
                         if self.config.data_model_pattern.allowed(data_model.name):
                             self.report.data_models.processed(
                                 f"{data_model.name} ({data_model.dataModelId}) (no workspace)"

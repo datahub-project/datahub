@@ -49,7 +49,7 @@ class Constant:
     BADGE = "badge"
     NEXTPAGE = "nextPage"
     NEXTPAGETOKEN = "nextPageToken"
-    DATA_MODEL = "dataModel"
+    DATA_MODEL = "data-model"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
