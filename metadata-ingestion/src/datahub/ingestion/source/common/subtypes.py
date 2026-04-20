@@ -12,6 +12,7 @@ class DatasetSubTypes(StrEnum):
     VIEW = "View"
     TOPIC = "Topic"
     SCHEMA = "Schema"
+    GRAPH = "Graph"
     # System-Specific SubTypes
     LOOKER_EXPLORE = "Explore"
     ELASTIC_INDEX_TEMPLATE = "Index Template"
@@ -28,8 +29,6 @@ class DatasetSubTypes(StrEnum):
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
-    # Graph databases (first use: Spanner Graph)
-    GRAPH = "Graph"
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
