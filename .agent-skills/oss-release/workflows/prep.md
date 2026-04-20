@@ -68,11 +68,11 @@ EOF
 **Blocker handling.** Two common degenerate states surface at this step (and often
 co-occur — HEAD being at the latest tag implies an empty range by definition):
 
-| Blocker | Real run | Dry-run |
-|---|---|---|
-| HEAD is already tagged as `v*` (`AT_HEAD_TAGS` non-empty) | **Stop.** Show the preflight summary, name the tag(s), and wait for the user to either abort or explicitly type "republish" to acknowledge they want to tag the same commit under another name. | Announce the block and proceed — the dry-run is inspectable without side effects. |
-| Empty range (`RANGE_COUNT = 0` since `LATEST_STABLE`) | **Stop** unless the user already acknowledged via the HEAD-tagged path above (same root cause). If the empty range is independent of an at-HEAD tag, still require explicit "republish" confirmation. | Announce and proceed, same as above. |
-| Any other failure (fetch failed, HEAD ≠ origin/master, dirty tree) | **Stop hard** regardless of mode — those are working-tree-broken states, not policy blocks. | Same — hard stop. |
+| Blocker                                                            | Real run                                                                                                                                                                                              | Dry-run                                                                           |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| HEAD is already tagged as `v*` (`AT_HEAD_TAGS` non-empty)          | **Stop.** Show the preflight summary, name the tag(s), and wait for the user to either abort or explicitly type "republish" to acknowledge they want to tag the same commit under another name.       | Announce the block and proceed — the dry-run is inspectable without side effects. |
+| Empty range (`RANGE_COUNT = 0` since `LATEST_STABLE`)              | **Stop** unless the user already acknowledged via the HEAD-tagged path above (same root cause). If the empty range is independent of an at-HEAD tag, still require explicit "republish" confirmation. | Announce and proceed, same as above.                                              |
+| Any other failure (fetch failed, HEAD ≠ origin/master, dirty tree) | **Stop hard** regardless of mode — those are working-tree-broken states, not policy blocks.                                                                                                           | Same — hard stop.                                                                 |
 
 If the two warnings co-occur (HEAD-tagged AND empty-range), present them as one
 consolidated "nothing to release" block rather than two separate warnings.
@@ -88,13 +88,14 @@ consolidated "nothing to release" block rather than two separate warnings.
 that's not in the other. Useful for posture: "are we caught up with OSS? what
 acryl-only work has accumulated?"
 
-**What this does NOT show**: it does NOT tell you what's in the *current release range*.
+**What this does NOT show**: it does NOT tell you what's in the _current release range_.
 Commits that came into our fork via upstream sync (cryptography bumps, security patches,
 bug fixes from the OSS team) appear in the release range but NOT in the fork-only set,
 so the "File stats" section of `compare-upstream.sh` can be empty even when the release
 contains significant ingestion changes. Use Step 2 below to see release content.
 
 Report to user:
+
 - Merge base SHA
 - Gap size (OSS ahead / fork ahead)
 - Ingestion-relevant commits from each side
@@ -146,6 +147,7 @@ exactly. It defines the 5 categories you must classify, the dependency-bump verd
 mapping, and the overall verdict rollup.
 
 Render the result as the 5-row table specified there. If the overall verdict is:
+
 - ✅ SAFE → proceed to Step 3.
 - ⚠️ REVIEW NEEDED → present the ⚠️ rows to the user, ask how to proceed.
 - ❌ BLOCKED → list what must be fixed; stop the workflow.
@@ -155,15 +157,16 @@ Render the result as the 5-row table specified there. If the overall verdict is:
 **Parse the user's bump intent from `$ARGUMENTS`.** The subcommand form the user
 invoked may carry a bump hint:
 
-| User typed | BUMP | Command to run |
-|---|---|---|
-| `/oss-release rc` *(or `prep`)* | (auto) | `next-version.sh` |
-| `/oss-release rc patch` | `patch` | `next-version.sh rc patch` |
-| `/oss-release rc minor` | `minor` | `next-version.sh rc minor` |
-| `/oss-release rc major` | `major` | `next-version.sh rc major` |
-| `/oss-release rc fourth` | `fourth` | `next-version.sh rc fourth` |
+| User typed                      | BUMP     | Command to run              |
+| ------------------------------- | -------- | --------------------------- |
+| `/oss-release rc` _(or `prep`)_ | (auto)   | `next-version.sh`           |
+| `/oss-release rc patch`         | `patch`  | `next-version.sh rc patch`  |
+| `/oss-release rc minor`         | `minor`  | `next-version.sh rc minor`  |
+| `/oss-release rc major`         | `major`  | `next-version.sh rc major`  |
+| `/oss-release rc fourth`        | `fourth` | `next-version.sh rc fourth` |
 
 Token recognition rules:
+
 - If any of `patch`, `minor`, `major`, `fourth` appears in `$ARGUMENTS`, use it as the
   bump type and invoke `next-version.sh rc <bump>`.
 - `--dry-run` is consumed by Step 0 and does not participate in bump-type parsing.
@@ -178,6 +181,7 @@ Token recognition rules:
 ```
 
 **Auto-detection behavior when no bump is passed:**
+
 - Latest tag is RC → increments RC number (e.g. `v1.5.0.7rc3` → `v1.5.0.7rc4`)
 - Latest tag is stable → starts new RC cycle with fourth bump (e.g. `v1.5.0.12` → `v1.5.0.13rc1`)
 
@@ -263,6 +267,7 @@ Do not attempt to spawn a `claude` subprocess — a Claude Code agent cannot inv
 Tell the user:
 
 > "The `generating-datahub-changelog` skill is not available. I can either:
+>
 > - **Skip changelog generation** — use a minimal placeholder release note, or
 > - **Use notes you provide** — give me a path to a file you've drafted."
 

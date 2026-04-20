@@ -48,6 +48,7 @@ Review the output against `.agent-skills/oss-release/known-flaky-tests.md`.
 Only failures listed there may be ignored. Any unexpected failure blocks the release.
 
 **If CI is still running**, use `/loop` to poll:
+
 ```
 /loop check CI every 5 minutes: .agent-skills/oss-release/scripts/check-ci.sh <sha>
 ```
@@ -110,6 +111,7 @@ esac
 proceed without blocking, per SKILL.md):
 
 - **Exit 2 — no matching run found.** Offer and wait for the user:
+
   1. **Dispatch one now** — run
      `.agent-skills/oss-release/scripts/dispatch-connector-tests.sh ${LATEST_RC}`,
      surface the run URL, then **stop finish** and tell the user to re-run
@@ -135,9 +137,11 @@ proceed without blocking, per SKILL.md):
 ## Step 4 — Determine stable version
 
 Strip the `rcN` suffix from the RC tag:
+
 - `v1.5.0.8rc3` → `v1.5.0.8`
 
 Or run:
+
 ```bash
 .agent-skills/oss-release/scripts/next-version.sh stable
 ```
@@ -145,6 +149,7 @@ Or run:
 ## Step 5 — Mandatory confirmation gate
 
 Present to user:
+
 - RC being promoted: `$LATEST_RC`
 - Stable version to create: `$STABLE_VERSION`
 - Commit SHA: `$RC_SHA`

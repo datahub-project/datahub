@@ -11,13 +11,13 @@ You MUST produce a verdict for EVERY category below. Do not skip a category by s
 it's clear you looked. Free-form impressions ("looks fine") are not acceptable; each row
 needs an explicit verdict and a one-line justification.
 
-| Category | Files in Stage 2a output | Verdict | One-line justification |
-|---|---|---|---|
-| Dependencies | `pyproject.toml`, `setup.py`, `setup.cfg`, `uv.lock`, `requirements*.txt` | ✅ / ⚠️ / ❌ / N/A | e.g. "patch bump 46.0.5 → 46.0.7, upper bound preserved" |
-| Breaking / API | `*.py` removals, validator signatures, CLI command files, config schema files | ✅ / ⚠️ / ❌ / N/A | e.g. "no public API changes; only test-weight JSON" |
-| OSS scope | Anything matching `acryl_*`, `*cloud*`, `internal/`, or paths flagged as proprietary | ✅ / ⚠️ / ❌ / N/A | e.g. "no acryl-proprietary code in this range" |
-| Build / packaging | `MANIFEST.in`, build scripts, GitHub Actions publish workflows | ✅ / ⚠️ / ❌ / N/A | e.g. "no packaging changes" |
-| Schema / migration | `metadata-models/` PDL, `*.avsc`, migration SQL | ✅ / ⚠️ / ❌ / N/A | e.g. "no schema changes" |
+| Category           | Files in Stage 2a output                                                             | Verdict            | One-line justification                                   |
+| ------------------ | ------------------------------------------------------------------------------------ | ------------------ | -------------------------------------------------------- |
+| Dependencies       | `pyproject.toml`, `setup.py`, `setup.cfg`, `uv.lock`, `requirements*.txt`            | ✅ / ⚠️ / ❌ / N/A | e.g. "patch bump 46.0.5 → 46.0.7, upper bound preserved" |
+| Breaking / API     | `*.py` removals, validator signatures, CLI command files, config schema files        | ✅ / ⚠️ / ❌ / N/A | e.g. "no public API changes; only test-weight JSON"      |
+| OSS scope          | Anything matching `acryl_*`, `*cloud*`, `internal/`, or paths flagged as proprietary | ✅ / ⚠️ / ❌ / N/A | e.g. "no acryl-proprietary code in this range"           |
+| Build / packaging  | `MANIFEST.in`, build scripts, GitHub Actions publish workflows                       | ✅ / ⚠️ / ❌ / N/A | e.g. "no packaging changes"                              |
+| Schema / migration | `metadata-models/` PDL, `*.avsc`, migration SQL                                      | ✅ / ⚠️ / ❌ / N/A | e.g. "no schema changes"                                 |
 
 ## Dependency-bump verdict mapping
 
@@ -33,8 +33,8 @@ infer from commit titles. Then evaluate:
 
 ## Overall verdict rollup
 
-| Per-category mix | Overall |
-|---|---|
-| All ✅ or N/A | ✅ SAFE — proceed to Step 3 |
-| Any ⚠️ | ⚠️ REVIEW NEEDED — present the ⚠️ rows to the user, ask how to proceed |
-| Any ❌ | ❌ BLOCKED — list what must be fixed; stop the workflow |
+| Per-category mix | Overall                                                                |
+| ---------------- | ---------------------------------------------------------------------- |
+| All ✅ or N/A    | ✅ SAFE — proceed to Step 3                                            |
+| Any ⚠️           | ⚠️ REVIEW NEEDED — present the ⚠️ rows to the user, ask how to proceed |
+| Any ❌           | ❌ BLOCKED — list what must be fixed; stop the workflow                |

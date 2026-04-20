@@ -37,6 +37,7 @@ Full install docs + options (specific branches, local auto-discovery, etc.):
 
 **If the plugin is not installed**, the `rc` workflow still completes but
 the agent will ask you whether to:
+
 - **Skip** — attach a minimal placeholder note to the release, or
 - **Provide a file** — point to release notes you've drafted manually
 
@@ -129,16 +130,16 @@ The agent walks through the stages below. Each one can stop the workflow if some
 looks off; [Validations performed](#validations-performed) lists what each gate is
 actually checking and why.
 
-| # | Stage | What happens |
-|---|---|---|
-| 0 | **Preflight** | Fetch origin, verify clean tree, verify `HEAD == origin/master`, check whether HEAD is already tagged. |
-| 1 | **Upstream diff** (`compare-upstream.sh`) | Show how the fork compares to `datahub-project/datahub`. Posture context only — does **not** describe the release content. |
-| 2a | **Release-range diff** | Show the actual commits and files changed between the latest stable tag and HEAD. This is the input to safety judgment. |
-| 2b | **Safety assessment** | Agent classifies dep changes, breaking-API risk, and OSS scope into ✅ SAFE / ⚠️ REVIEW NEEDED / ❌ BLOCKED. |
-| 3 | **Next version** (`next-version.sh`) | Auto-compute next RC tag (e.g. `v1.5.0.12` → `v1.5.0.13rc1`). **Asks you to confirm.** Empty-range republishes are flagged. |
-| 3.5 | **Stale-notes check + generate changelog** | Detect a stale `release-notes-<version>.md` from a prior run, then generate fresh notes via `generating-datahub-changelog` (or fall back to skip / user-provided file). **Shown to you for approval.** |
-| 4 | **Cut the RC** (`cut-release.sh`) | Create annotated tag, push, publish GitHub pre-release. Re-rendered as a readable Markdown summary in the chat. |
-| 5 | **Dispatch connector tests** (`dispatch-connector-tests.sh`) | Fire the `Nightly Connector Tests` workflow on `acryldata/connector-tests` with `version=<new-rc>`. Stateless — run URL printed to chat; `finish` later queries GitHub for its conclusion. Skipped in dry-run. |
+| #   | Stage                                                        | What happens                                                                                                                                                                                                   |
+| --- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | **Preflight**                                                | Fetch origin, verify clean tree, verify `HEAD == origin/master`, check whether HEAD is already tagged.                                                                                                         |
+| 1   | **Upstream diff** (`compare-upstream.sh`)                    | Show how the fork compares to `datahub-project/datahub`. Posture context only — does **not** describe the release content.                                                                                     |
+| 2a  | **Release-range diff**                                       | Show the actual commits and files changed between the latest stable tag and HEAD. This is the input to safety judgment.                                                                                        |
+| 2b  | **Safety assessment**                                        | Agent classifies dep changes, breaking-API risk, and OSS scope into ✅ SAFE / ⚠️ REVIEW NEEDED / ❌ BLOCKED.                                                                                                   |
+| 3   | **Next version** (`next-version.sh`)                         | Auto-compute next RC tag (e.g. `v1.5.0.12` → `v1.5.0.13rc1`). **Asks you to confirm.** Empty-range republishes are flagged.                                                                                    |
+| 3.5 | **Stale-notes check + generate changelog**                   | Detect a stale `release-notes-<version>.md` from a prior run, then generate fresh notes via `generating-datahub-changelog` (or fall back to skip / user-provided file). **Shown to you for approval.**         |
+| 4   | **Cut the RC** (`cut-release.sh`)                            | Create annotated tag, push, publish GitHub pre-release. Re-rendered as a readable Markdown summary in the chat.                                                                                                |
+| 5   | **Dispatch connector tests** (`dispatch-connector-tests.sh`) | Fire the `Nightly Connector Tests` workflow on `acryldata/connector-tests` with `version=<new-rc>`. Stateless — run URL printed to chat; `finish` later queries GitHub for its conclusion. Skipped in dry-run. |
 
 RCs are a real deliverable on their own. Ship one to a customer for testing and leave
 it as an RC forever if you want; nothing forces you to promote.
@@ -165,6 +166,7 @@ Once CI and connector tests pass and the team is ready:
 ```
 
 The agent will:
+
 1. Auto-detect the latest RC tag (highest `rcN` for the version line — rc15 beats rc1)
 2. Warn if `master` has moved ahead (new commits not in the RC)
 3. Show CI status — unexpected failures block the release
@@ -340,13 +342,14 @@ you  > /oss-release rc --dry-run
 ```
 
 Walks through Steps 0-5 end-to-end:
+
 - Preflight runs real checks
 - Safety assessment is real
 - Release notes are really generated
 - `cut-release.sh` prints the exact `git tag` + `gh release create` commands it
-  *would* run, then exits 0 without tagging
+  _would_ run, then exits 0 without tagging
 - `dispatch-connector-tests.sh` prints the `gh workflow run` command it
-  *would* fire, then exits without dispatching
+  _would_ fire, then exits without dispatching
 
 No tags, no dispatches, no side effects. Run it whenever you want a preview.
 
@@ -359,20 +362,20 @@ want to get bitten again. Inventory:
 
 ### Preflight (Stage 0)
 
-| Check | What it verifies | Why it exists |
-|---|---|---|
-| Clean working tree | `git diff-index --quiet HEAD --` passes | Prevents tagging a release that includes uncommitted local changes you forgot about. |
-| `HEAD == origin/master` | Local tip matches the remote branch tip exactly | Stops you from tagging an old SHA after a teammate merged something, or tagging an unpushed local commit nobody else can see. The release tag must point at the canonical, public tip. |
-| Tag-already-at-HEAD warning | `git tag --points-at HEAD` is empty (or warns) | Catches the "I just `prep`'d, why am I doing it again?" case where running prep on a stale branch would tag the same SHA under a different name. |
-| Range-count summary | Counts non-merge commits in `<latest stable>..HEAD` | Surfaces the empty-range republish case (zero new commits) so you can abort instead of cutting a duplicate-content release. |
+| Check                       | What it verifies                                    | Why it exists                                                                                                                                                                          |
+| --------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clean working tree          | `git diff-index --quiet HEAD --` passes             | Prevents tagging a release that includes uncommitted local changes you forgot about.                                                                                                   |
+| `HEAD == origin/master`     | Local tip matches the remote branch tip exactly     | Stops you from tagging an old SHA after a teammate merged something, or tagging an unpushed local commit nobody else can see. The release tag must point at the canonical, public tip. |
+| Tag-already-at-HEAD warning | `git tag --points-at HEAD` is empty (or warns)      | Catches the "I just `prep`'d, why am I doing it again?" case where running prep on a stale branch would tag the same SHA under a different name.                                       |
+| Range-count summary         | Counts non-merge commits in `<latest stable>..HEAD` | Surfaces the empty-range republish case (zero new commits) so you can abort instead of cutting a duplicate-content release.                                                            |
 
 ### Release-range visibility (Stage 2a)
 
-| Check | What it verifies | Why it exists |
-|---|---|---|
-| Commit list since last stable | Prints `git log --no-merges <stable>..HEAD` | Gives the agent the *actual* release content — not the fork-vs-upstream divergence (which can be empty even when the release contains significant ingestion changes via upstream sync). |
-| Full file-stats diff | `git diff --stat <stable>..HEAD` | Shows total lines/files changed, useful for sanity-checking the magnitude of the release. |
-| Safety-relevant paths grep | Filters changed files to `pyproject.toml`, `setup.py`, `uv.lock`, `requirements*.txt`, `metadata-ingestion/`, `datahub-actions/`, `metadata-ingestion-modules/` | Pre-filters the diff to the things that most often warrant a closer safety look. Empty output means no dep/ingestion-code changes. |
+| Check                         | What it verifies                                                                                                                                                | Why it exists                                                                                                                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commit list since last stable | Prints `git log --no-merges <stable>..HEAD`                                                                                                                     | Gives the agent the _actual_ release content — not the fork-vs-upstream divergence (which can be empty even when the release contains significant ingestion changes via upstream sync). |
+| Full file-stats diff          | `git diff --stat <stable>..HEAD`                                                                                                                                | Shows total lines/files changed, useful for sanity-checking the magnitude of the release.                                                                                               |
+| Safety-relevant paths grep    | Filters changed files to `pyproject.toml`, `setup.py`, `uv.lock`, `requirements*.txt`, `metadata-ingestion/`, `datahub-actions/`, `metadata-ingestion-modules/` | Pre-filters the diff to the things that most often warrant a closer safety look. Empty output means no dep/ingestion-code changes.                                                      |
 
 ### Safety assessment (Stage 2b)
 
@@ -381,24 +384,24 @@ verdict. "N/A" is fine when no files in that category changed, but "nothing to a
 isn't acceptable — the point is a paper trail showing you looked. Result is a 5-row
 table you can scan in a few seconds.
 
-| Category | Files the agent inspects |
-|---|---|
-| **Dependencies** | `pyproject.toml`, `setup.py`, `setup.cfg`, `uv.lock`, `requirements*.txt` |
-| **Breaking / API** | `*.py` removals, validator signatures, CLI command files, config schema files |
-| **OSS scope** | `acryl_*`, `*cloud*`, `internal/`, or paths flagged as proprietary |
-| **Build / packaging** | `MANIFEST.in`, build scripts, GitHub Actions publish workflows |
-| **Schema / migration** | `metadata-models/` PDL, `*.avsc`, migration SQL |
+| Category               | Files the agent inspects                                                      |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| **Dependencies**       | `pyproject.toml`, `setup.py`, `setup.cfg`, `uv.lock`, `requirements*.txt`     |
+| **Breaking / API**     | `*.py` removals, validator signatures, CLI command files, config schema files |
+| **OSS scope**          | `acryl_*`, `*cloud*`, `internal/`, or paths flagged as proprietary            |
+| **Build / packaging**  | `MANIFEST.in`, build scripts, GitHub Actions publish workflows                |
+| **Schema / migration** | `metadata-models/` PDL, `*.avsc`, migration SQL                               |
 
 For dependency changes specifically, the agent runs `git show <sha> -- <file>` to inspect
 the actual diff (not just the commit title) and classifies each bump:
 
-| Bump type | Verdict |
-|---|---|
-| Patch bump (`46.0.5 → 46.0.7`), upper bound preserved | ✅ SAFE |
-| Minor bump (`46.0.x → 46.1.x`), upper bound preserved | ⚠️ REVIEW NEEDED |
-| Major bump (`46.x → 47.x`) or removed upper bound | ⚠️ REVIEW NEEDED, default toward ❌ |
-| Package added or removed entirely | ⚠️ REVIEW NEEDED |
-| Lockfile-only change with no manifest delta | ✅ SAFE |
+| Bump type                                             | Verdict                             |
+| ----------------------------------------------------- | ----------------------------------- |
+| Patch bump (`46.0.5 → 46.0.7`), upper bound preserved | ✅ SAFE                             |
+| Minor bump (`46.0.x → 46.1.x`), upper bound preserved | ⚠️ REVIEW NEEDED                    |
+| Major bump (`46.x → 47.x`) or removed upper bound     | ⚠️ REVIEW NEEDED, default toward ❌ |
+| Package added or removed entirely                     | ⚠️ REVIEW NEEDED                    |
+| Lockfile-only change with no manifest delta           | ✅ SAFE                             |
 
 **Overall verdict** rolls up the per-category verdicts:
 
@@ -408,31 +411,31 @@ the actual diff (not just the commit title) and classifies each bump:
 
 ### Stale-notes detector (Stage 3.5)
 
-| Check | What it verifies | Why it exists |
-|---|---|---|
+| Check                          | What it verifies                                                                                                     | Why it exists                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SHA mismatch in existing notes | If `release-notes-<version>.md` exists, grep its body for any 10–40 char hex SHA and compare against current `HEAD`. | The most insidious failure mode of `prep`: a notes file from a prior `prep` run still sits in the working tree, the branch fast-forwarded since, and reusing the file silently publishes incorrect content (wrong commit SHA, missing changes, false "quiet release" claims). This is a quiet data-integrity bug — there's no error, just wrong content on the GitHub release page. |
 
 If the detector fires, the agent defaults to regenerating the notes. Reuse only happens if you explicitly acknowledge the SHA mismatch is intentional.
 
 ### Confirmation gates (Stages 3 and 6/finish)
 
-| Gate | When | What you confirm |
-|---|---|---|
-| Next-version confirmation | After Stage 3 | The proposed tag (e.g. `v1.5.0.13rc1`) and the non-empty range. Required for `prep`. |
-| Notes approval | After Stage 3.5 | The contents of `release-notes-<version>.md` look correct for the release. |
+| Gate                           | When             | What you confirm                                                                                         |
+| ------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------- |
+| Next-version confirmation      | After Stage 3    | The proposed tag (e.g. `v1.5.0.13rc1`) and the non-empty range. Required for `prep`.                     |
+| Notes approval                 | After Stage 3.5  | The contents of `release-notes-<version>.md` look correct for the release.                               |
 | Promote-to-stable confirmation | `finish` Stage 5 | The RC being promoted, the stable version to be created, and the SHA. Requires explicit "yes"/"confirm". |
 
 ### CI status check (`finish` only)
 
-| Check | What it verifies | Why it exists |
-|---|---|---|
+| Check                    | What it verifies                                             | Why it exists                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Required workflows green | `check-ci.sh <rc-sha>` reports all required CI checks passed | Prevents promoting a broken RC to stable. Failures listed in [`known-flaky-tests.md`](known-flaky-tests.md) are the only ones that may be ignored. |
 
 ### RC-identity + connector-tests (`finish` Step 3.5)
 
-| Check | What it verifies | Why it exists |
-|---|---|---|
-| RC tag still points at `$RC_SHA` | `git rev-parse $LATEST_RC == $RC_SHA` | The existing Step 2 check catches "master moved ahead of RC"; this narrower check catches the case where the RC tag itself was force-moved to a different SHA after Step 1 resolved it. |
+| Check                                                   | What it verifies                                                                                                                                                                                                                | Why it exists                                                                                                                                                                                                                              |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RC tag still points at `$RC_SHA`                        | `git rev-parse $LATEST_RC == $RC_SHA`                                                                                                                                                                                           | The existing Step 2 check catches "master moved ahead of RC"; this narrower check catches the case where the RC tag itself was force-moved to a different SHA after Step 1 resolved it.                                                    |
 | Connector tests concluded successfully for `$LATEST_RC` | `check-connector-tests.sh $LATEST_RC` returns exit 0 — i.e. GitHub has a recent `workflow_dispatch` run on `nightly_tests.yaml` whose `set-version` job logged `Testing version: $LATEST_RC` exactly, with `conclusion=success` | Stable means `finish` promotes the RC's exact SHA — so the tested bytes must equal the shipped bytes. Anchoring on the highest-numbered RC (rc15 > rc1) prevents using an earlier RC's signal as proof for a later RC (different commits). |
 
 ---
@@ -472,12 +475,12 @@ finish Step 3.5 →  check-connector-tests.sh v1.5.0.13rc1
 
 ### `check-connector-tests.sh` exit codes
 
-| Exit | Meaning | `finish` behavior |
-|---|---|---|
-| 0 | Most recent matching run concluded with `conclusion=success` | Proceed to Step 4 |
-| 2 | No matching run in the last N dispatches (default 30) | Offer three options: dispatch now, widen scan, or override |
-| 3 | Matching run exists but still running | Stop; tell user to re-run `finish` after CI finishes (offer `/loop` auto-poll) |
-| 4 | Matching run exists but failed or was cancelled | Stop; show run URL; suggest cutting a new RC |
+| Exit | Meaning                                                      | `finish` behavior                                                              |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 0    | Most recent matching run concluded with `conclusion=success` | Proceed to Step 4                                                              |
+| 2    | No matching run in the last N dispatches (default 30)        | Offer three options: dispatch now, widen scan, or override                     |
+| 3    | Matching run exists but still running                        | Stop; tell user to re-run `finish` after CI finishes (offer `/loop` auto-poll) |
+| 4    | Matching run exists but failed or was cancelled              | Stop; show run URL; suggest cutting a new RC                                   |
 
 ### When `check-connector-tests.sh` returns exit 2, the agent asks you
 
@@ -491,11 +494,11 @@ finish Step 3.5 →  check-connector-tests.sh v1.5.0.13rc1
 
 ### Performance
 
-| Case | Approx. cost |
-|---|---|
-| Run is near the top of recent dispatches (common — `prep` just fired it) | ~2-7 seconds, 1-2 API calls |
-| No matching run (full 30-run scan) | ~60-90 seconds, ~60 API calls |
-| Match at position 15 of 30 | ~30 seconds |
+| Case                                                                     | Approx. cost                  |
+| ------------------------------------------------------------------------ | ----------------------------- |
+| Run is near the top of recent dispatches (common — `prep` just fired it) | ~2-7 seconds, 1-2 API calls   |
+| No matching run (full 30-run scan)                                       | ~60-90 seconds, ~60 API calls |
+| Match at position 15 of 30                                               | ~30 seconds                   |
 
 The scan walks runs newest-first and stops on the first match, so the common case is
 quick. No-match is slow because it has to pull every run's log before giving up, but
@@ -515,12 +518,12 @@ v1.5.0.13rc2
   └─────────── major
 ```
 
-| Bump | From | To (RC) | To (stable) |
-|------|------|---------|-------------|
+| Bump               | From        | To (RC)        | To (stable) |
+| ------------------ | ----------- | -------------- | ----------- |
 | `fourth` (default) | `v1.5.0.12` | `v1.5.0.13rc1` | `v1.5.0.13` |
-| `patch` | `v1.5.0.12` | `v1.5.1.0rc1` | `v1.5.1.0` |
-| `minor` | `v1.5.0.12` | `v1.6.0.0rc1` | `v1.6.0.0` |
-| `major` | `v1.5.0.12` | `v2.0.0rc1` | `v2.0.0` |
+| `patch`            | `v1.5.0.12` | `v1.5.1.0rc1`  | `v1.5.1.0`  |
+| `minor`            | `v1.5.0.12` | `v1.6.0.0rc1`  | `v1.6.0.0`  |
+| `major`            | `v1.5.0.12` | `v2.0.0rc1`    | `v2.0.0`    |
 
 Override the default bump:
 
@@ -559,26 +562,26 @@ ls .agent-skills/oss-release/notes/
 
 ## Files in this directory
 
-| Path | Purpose |
-|------|---------|
-| `SKILL.md` | Router for `/oss-release` — handles cross-cutting policies (dry-run gates, prerequisites, dispatch table); reads workflow files for actual steps |
-| `README.md` | This file — human-facing docs and validation reference |
-| `workflows/prep.md` | Full `prep` workflow (Steps 0–5) |
-| `workflows/finish.md` | Full `finish` workflow (Steps 0–6, with 3.5 sub-step for RC identity + connector-tests) plus `status` subcommand at the bottom |
-| `references/safety-assessment.md` | 5-category structured checklist used in `prep` Step 2b |
-| `references/cut-release-render.md` | Markdown rendering template for `cut-release.sh` output (dry-run + real-run) |
-| `templates/release-info-header.md` | Required prepend for every release-notes file |
-| `known-flaky-tests.md` | CI failures that are pre-existing and don't block releases |
-| `.gitignore` | Local ignore — keeps `notes/` out of git |
-| `notes/` | Generated release notes (one per release; never committed). Created automatically on the first run of `prep` or `finish`. **No runtime state** — the skill does not persist connector-test run records; GitHub is the source of truth. |
-| `scripts/next-version.sh` | Calculate next version from git tags |
-| `scripts/cut-release.sh` | Create annotated tag + push + `gh release create` |
-| `scripts/compare-upstream.sh` | Show how far the fork is behind `datahub-project/datahub` |
-| `scripts/check-ci.sh` | Poll GitHub Actions CI status for a commit SHA (release-triggered runs on `acryldata/datahub`) |
-| `scripts/dispatch-connector-tests.sh` | Fire `acryldata/connector-tests/nightly_tests.yaml` with `version=<rc-tag>`. Stateless; prints the run URL. Called from `prep` Step 5. |
-| `scripts/check-connector-tests.sh` | Query GitHub for the most recent `workflow_dispatch` run matching `Testing version: <rc-tag>`; return exit 0/2/3/4 by conclusion. Called from `finish` Step 3.5. |
-| `scripts/safe-fetch-tags.sh` | Wrap `git fetch origin --tags`; suppress benign legacy-tag clobber warnings; loud only on real failures |
-| `tests/*.sh` | Shell tests for helper scripts (run via `tests/run-all.sh`) |
+| Path                                  | Purpose                                                                                                                                                                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SKILL.md`                            | Router for `/oss-release` — handles cross-cutting policies (dry-run gates, prerequisites, dispatch table); reads workflow files for actual steps                                                                                       |
+| `README.md`                           | This file — human-facing docs and validation reference                                                                                                                                                                                 |
+| `workflows/prep.md`                   | Full `prep` workflow (Steps 0–5)                                                                                                                                                                                                       |
+| `workflows/finish.md`                 | Full `finish` workflow (Steps 0–6, with 3.5 sub-step for RC identity + connector-tests) plus `status` subcommand at the bottom                                                                                                         |
+| `references/safety-assessment.md`     | 5-category structured checklist used in `prep` Step 2b                                                                                                                                                                                 |
+| `references/cut-release-render.md`    | Markdown rendering template for `cut-release.sh` output (dry-run + real-run)                                                                                                                                                           |
+| `templates/release-info-header.md`    | Required prepend for every release-notes file                                                                                                                                                                                          |
+| `known-flaky-tests.md`                | CI failures that are pre-existing and don't block releases                                                                                                                                                                             |
+| `.gitignore`                          | Local ignore — keeps `notes/` out of git                                                                                                                                                                                               |
+| `notes/`                              | Generated release notes (one per release; never committed). Created automatically on the first run of `prep` or `finish`. **No runtime state** — the skill does not persist connector-test run records; GitHub is the source of truth. |
+| `scripts/next-version.sh`             | Calculate next version from git tags                                                                                                                                                                                                   |
+| `scripts/cut-release.sh`              | Create annotated tag + push + `gh release create`                                                                                                                                                                                      |
+| `scripts/compare-upstream.sh`         | Show how far the fork is behind `datahub-project/datahub`                                                                                                                                                                              |
+| `scripts/check-ci.sh`                 | Poll GitHub Actions CI status for a commit SHA (release-triggered runs on `acryldata/datahub`)                                                                                                                                         |
+| `scripts/dispatch-connector-tests.sh` | Fire `acryldata/connector-tests/nightly_tests.yaml` with `version=<rc-tag>`. Stateless; prints the run URL. Called from `prep` Step 5.                                                                                                 |
+| `scripts/check-connector-tests.sh`    | Query GitHub for the most recent `workflow_dispatch` run matching `Testing version: <rc-tag>`; return exit 0/2/3/4 by conclusion. Called from `finish` Step 3.5.                                                                       |
+| `scripts/safe-fetch-tags.sh`          | Wrap `git fetch origin --tags`; suppress benign legacy-tag clobber warnings; loud only on real failures                                                                                                                                |
+| `tests/*.sh`                          | Shell tests for helper scripts (run via `tests/run-all.sh`)                                                                                                                                                                            |
 
 ---
 
@@ -586,12 +589,11 @@ ls .agent-skills/oss-release/notes/
 
 Defaults come from the git remote; override only if you need to.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GITHUB_REPO_OWNER` | `acryldata` | Owner of the release repo |
-| `GITHUB_REPO_NAME` | `datahub` | Name of the release repo |
-| `CONNECTOR_TESTS_REPO` | `acryldata/connector-tests` | Repo hosting the connector-tests workflow |
-| `CONNECTOR_TESTS_WORKFLOW` | `nightly_tests.yaml` | Workflow filename to dispatch + scan |
-| `CONNECTOR_TESTS_REF` | `main` | Branch/ref of connector-tests to dispatch from |
-| `CONNECTOR_TESTS_SCAN_LIMIT` | `30` | How many recent `workflow_dispatch` runs `check-connector-tests.sh` scans before giving up. Raise this if you need to verify an older RC. |
-
+| Variable                     | Default                     | Description                                                                                                                               |
+| ---------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_REPO_OWNER`          | `acryldata`                 | Owner of the release repo                                                                                                                 |
+| `GITHUB_REPO_NAME`           | `datahub`                   | Name of the release repo                                                                                                                  |
+| `CONNECTOR_TESTS_REPO`       | `acryldata/connector-tests` | Repo hosting the connector-tests workflow                                                                                                 |
+| `CONNECTOR_TESTS_WORKFLOW`   | `nightly_tests.yaml`        | Workflow filename to dispatch + scan                                                                                                      |
+| `CONNECTOR_TESTS_REF`        | `main`                      | Branch/ref of connector-tests to dispatch from                                                                                            |
+| `CONNECTOR_TESTS_SCAN_LIMIT` | `30`                        | How many recent `workflow_dispatch` runs `check-connector-tests.sh` scans before giving up. Raise this if you need to verify an older RC. |

@@ -39,13 +39,13 @@ pip install acryl-datahub==<VERSION_NO_V_PREFIX>
 
 ## Substitutions
 
-| Placeholder | Source |
-|---|---|
-| `<NEXT_VERSION>` | Computed in `prep` Step 3 (e.g. `v1.5.0.13rc1`) |
-| `<LATEST_STABLE>` | The value used in the preflight summary (e.g. `v1.5.0.12`) |
-| `<SHA_SHORT>` | `git rev-parse --short=10 HEAD` |
-| `<SHA_FULL>` | `git rev-parse HEAD` |
-| `<YYYY-MM-DD>` | Today's date |
+| Placeholder             | Source                                                          |
+| ----------------------- | --------------------------------------------------------------- |
+| `<NEXT_VERSION>`        | Computed in `prep` Step 3 (e.g. `v1.5.0.13rc1`)                 |
+| `<LATEST_STABLE>`       | The value used in the preflight summary (e.g. `v1.5.0.12`)      |
+| `<SHA_SHORT>`           | `git rev-parse --short=10 HEAD`                                 |
+| `<SHA_FULL>`            | `git rev-parse HEAD`                                            |
+| `<YYYY-MM-DD>`          | Today's date                                                    |
 | `<VERSION_NO_V_PREFIX>` | `<NEXT_VERSION>` with leading `v` stripped (e.g. `1.5.0.13rc1`) |
 
 For `finish` Step 6 (stable), the same template applies but the changelog body is

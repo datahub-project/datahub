@@ -4,27 +4,32 @@ After `cut-release.sh` runs (real or dry), re-render its raw output as a readabl
 Markdown block in your own message. The raw script output is not scannable on its own.
 
 **Rules:**
+
 - Always render — both dry-run and real-run.
 - Don't re-run the script — reformat the output you already have.
 - Don't summarize or drop sections — keep the rendering faithful.
 
 ## Common skeleton
 
-```markdown
+Produce something with this shape. The code fences shown here use `~~~` so the
+template itself parses cleanly as a Markdown file — when you render to the user,
+use standard triple-backticks for the inner bash block.
+
+````markdown
 ### <HEADER>
 
 **Mode:** <MODE_LINE>
 
 **Release parameters**
 
-| Field | Value |
-|---|---|
-| Repo | `acryldata/datahub` |
-| Version | `v<VERSION>` |
-| Commit | `<SHA>` |
-| Prior tag (for range) | `<PRIOR_TAG>` |
-| Notes file | `<NOTES_FILE>` |
-| Pre-release | `true` (or `false` for stable) |
+| Field                 | Value                          |
+| --------------------- | ------------------------------ |
+| Repo                  | `acryldata/datahub`            |
+| Version               | `v<VERSION>`                   |
+| Commit                | `<SHA>`                        |
+| Prior tag (for range) | `<PRIOR_TAG>`                  |
+| Notes file            | `<NOTES_FILE>`                 |
+| Pre-release           | `true` (or `false` for stable) |
 
 **<COMMANDS_LABEL>**
 
@@ -44,31 +49,32 @@ gh release create v<VERSION> \
 **Commit range** — `<PRIOR_TAG>..<SHA>` (N non-merge commits)
 
 | SHA | Title |
-|---|---|
-| ... | ... |
+| --- | ----- |
+| ... | ...   |
 
 ### 📄 Notes Body Preview
 
-> [wrap each line of the notes body in `> ` so it renders as a blockquote;
-> do NOT alter the content of the notes]
+> wrap each line of the notes body in `> ` so it renders as a blockquote;
+> do NOT alter the content of the notes
 
 **Status:** <STATUS_LINE>
-<RELEASE_URL_LINE>   # only for real runs
-```
+<RELEASE_URL_LINE> # only for real runs
+````
 
 ## Placeholder fills per mode
 
-| Placeholder | Dry-run | Real run |
-|---|---|---|
-| `<HEADER>` | `🧪 Dry-Run: \`v<VERSION>\`` | `🚀 Release Cut: \`v<VERSION>\`` |
-| `<MODE_LINE>` | `DRY-RUN — no tags created, no releases published.` | `LIVE — tag pushed and release published.` |
-| `<COMMANDS_LABEL>` | `Commands that WOULD run` (suppressed) | `Commands executed` |
-| `<STATUS_LINE>` | `` `[3/3] Dry-run complete. Nothing was changed.` ✅ `` | `` `[3/3] Release published.` ✅ `` |
-| `<RELEASE_URL_LINE>` | *(omit)* | `**Release URL:** <https://github.com/acryldata/datahub/releases/tag/v<VERSION>>` |
+| Placeholder          | Dry-run                                                 | Real run                                                                          |
+| -------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `<HEADER>`           | `` 🧪 Dry-Run: `v<VERSION>` ``                          | `` 🚀 Release Cut: `v<VERSION>` ``                                                |
+| `<MODE_LINE>`        | `DRY-RUN — no tags created, no releases published.`     | `LIVE — tag pushed and release published.`                                        |
+| `<COMMANDS_LABEL>`   | `Commands that WOULD run` (suppressed)                  | `Commands executed`                                                               |
+| `<STATUS_LINE>`      | `` `[3/3] Dry-run complete. Nothing was changed.` ✅ `` | `` `[3/3] Release published.` ✅ ``                                               |
+| `<RELEASE_URL_LINE>` | _(omit)_                                                | `**Release URL:** <https://github.com/acryldata/datahub/releases/tag/v<VERSION>>` |
 
 ## Stable releases (no `--prerelease`)
 
 For `finish` Step 6 (cutting stable):
+
 - Omit `--prerelease` in the rendered commands code block
 - Set `Pre-release` row in the parameters table to `false`
 - Everything else identical
