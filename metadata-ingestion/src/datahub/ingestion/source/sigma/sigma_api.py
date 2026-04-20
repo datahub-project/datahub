@@ -546,9 +546,19 @@ class SigmaAPI:
                                 f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
                             )
 
-                if response_dict.get(Constant.NEXTPAGE):
-                    url = f"{data_model_url}?page={response_dict[Constant.NEXTPAGE]}"
+                entries = response_dict.get(Constant.ENTRIES, [])
+                next_page = response_dict.get(Constant.NEXTPAGE)
+                next_token = response_dict.get(Constant.NEXTPAGETOKEN)
+                if next_page:
+                    url = f"{data_model_url}?page={next_page}"
+                elif next_token:
+                    url = f"{data_model_url}?nextPageToken={next_token}"
                 else:
+                    if len(entries) >= 100:
+                        logger.warning(
+                            "No pagination token in /dataModels response with a full page of entries; "
+                            "some data models may have been silently dropped."
+                        )
                     break
             return data_models
         except Exception as e:
