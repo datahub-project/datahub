@@ -231,7 +231,7 @@ Required parameters:
 
 4. **Configure Secret Mounting (Optional)**
 
-Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Secret CRDs. This enables runtime secret updates without executor restarts.
+Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Secrets. This enables runtime secret updates without executor restarts.
 
 Create a Kubernetes secret:
 
@@ -254,12 +254,49 @@ extraVolumeMounts:
     name: datahub-secret-store
 ```
 
+To mount secrets from one or more Kubernetes Secrets, rename hyphenated keys, and combine them into `/mnt/secrets`, use `subPath`:
+
+```yaml
+extraVolumes:
+  - name: snowflake-secret
+    secret:
+      secretName: my-snowflake-secret
+  - name: postgres-secret
+    secret:
+      secretName: my-postgres-secret
+extraVolumeMounts:
+  - mountPath: /mnt/secrets/MY_SNOWFLAKE_PRIVATE_KEY
+    name: snowflake-secret
+    subPath: snowflake-private-key
+    readOnly: true
+  - mountPath: /mnt/secrets/MY_SNOWFLAKE_PRIVATE_KEY_PASSWORD
+    name: snowflake-secret
+    subPath: snowflake-private-key-password
+    readOnly: true
+  - mountPath: /mnt/secrets/SOME_POSTGRES_PASSWORD
+    name: postgres-secret
+    subPath: postgres-password
+    readOnly: true
+```
+
+This mounts only the specified keys and renames them to valid secret names (underscores instead of hyphens).
+
+**Naming conventions:**
+
+- Use `UPPER_CASE` names for mounted secret files (e.g., `DB_PASSWORD`, `API_KEY`)
+- Secret substitution is **case-sensitive**: `${DB_PASSWORD}` and `${db_password}` are different and must match the filename exactly
+- No whitespace or special characters with the exception of underscores (see [Secret Resolution](../../secret-resolution.md))
+- Secrets must be flat files directly in `/mnt/secrets/`—nested paths, relative paths, etc. are not supported
+
+See [Kubernetes Secrets documentation](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-files-from-a-pod) for more volume mount options.
+
 :::note
 Secret Configuration:
 
 - Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`)
 - Default file size limit: 1MB (override with `DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN`)
 - Reference secrets in ingestion recipes using `${SECRET_NAME}` syntax
+- **Important**: Secret names must not contain whitespace or special characters with the exception of underscores. See [Secret Resolution](../../secret-resolution.md) for details.
 
 :::
 
