@@ -7,8 +7,6 @@ from datahub.configuration.datetimes import parse_user_datetime
 
 
 # FIXME: Ideally we'd use tz_offset here to test this code in a non-UTC timezone.
-# However, freezegun has a long-standing bug that prevents this from working:
-# https://github.com/spulec/freezegun/issues/348.
 @time_machine.travel("2021-09-01 10:02:03", tick=False)
 def test_user_time_parser():
     # Absolute times.

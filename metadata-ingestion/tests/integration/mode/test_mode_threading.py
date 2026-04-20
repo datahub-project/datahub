@@ -430,8 +430,8 @@ def test_threading_speedup(tmp_path):
     Uses 10 reports with 2 queries each. Each HTTP call sleeps 50ms.
     With 4 threads, expect ~2-4x wall-clock speedup.
 
-    Note: No @freeze_time here -- freezegun patches time.monotonic() which
-    would make our wall-clock measurements return 0.
+    Note: No @time_machine.travel here -- time_machine patches time.monotonic()
+    which would make our wall-clock measurements return 0.
     """
     num_reports = 10
     num_queries_per_report = 2
