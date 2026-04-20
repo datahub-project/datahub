@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -812,7 +813,7 @@ def test_drop_duplicate_sources() -> None:
     assert source.report.duplicate_sources_references_updated == 1
 
 
-def _make_dbt_node(
+def _make_sibling_dbt_node(
     materialization: str = "table",
     node_type: str = "model",
     name: str = "test_model",
@@ -853,7 +854,7 @@ def test_dbt_sibling_created_for_semantic_views(dbt_is_primary_sibling: bool) ->
     """Regression test for CUS-7718: semantic views showed as duplicate search
     results because the SiblingAssociationHook only handles the "source" subtype."""
     source = _make_dbt_source(dbt_is_primary_sibling)
-    node = _make_dbt_node(materialization="semantic_view")
+    node = _make_sibling_dbt_node(materialization="semantic_view")
     assert source._should_create_sibling_relationships(node) is True
 
 
@@ -862,7 +863,7 @@ def test_dbt_sibling_not_created_for_standard_models_when_primary() -> None:
     when dbt is primary. Only semantic views need explicit emission."""
     source = _make_dbt_source(dbt_is_primary_sibling=True)
     for materialization in ("table", "view", "incremental"):
-        node = _make_dbt_node(materialization=materialization)
+        node = _make_sibling_dbt_node(materialization=materialization)
         assert source._should_create_sibling_relationships(node) is False
 
 
@@ -871,7 +872,7 @@ def test_dbt_sibling_created_for_all_nodes_when_not_primary() -> None:
     the dbt source emits siblings for all nodes."""
     source = _make_dbt_source(dbt_is_primary_sibling=False)
     for materialization in ("table", "view", "incremental", "semantic_view"):
-        node = _make_dbt_node(materialization=materialization)
+        node = _make_sibling_dbt_node(materialization=materialization)
         assert source._should_create_sibling_relationships(node) is True
 
 
@@ -883,7 +884,7 @@ def test_dbt_sibling_not_created_for_ephemeral_or_test_nodes(
     materialization: str, node_type: str
 ) -> None:
     source = _make_dbt_source()
-    node = _make_dbt_node(materialization=materialization, node_type=node_type)
+    node = _make_sibling_dbt_node(materialization=materialization, node_type=node_type)
     assert source._should_create_sibling_relationships(node) is False
 
 
@@ -1903,6 +1904,9 @@ def test_make_assertion_from_freshness() -> None:
     assert isinstance(mcp.aspect.customAssertion, CustomAssertionInfoClass)
     assert mcp.aspect.customAssertion.type == "dbt Freshness"
     assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
@@ -2022,7 +2026,9 @@ def test_make_assertion_from_freshness_warn_only() -> None:
     assert mcp.aspect.customProperties.get("warn_after_period") == "day"
     assert "error_after_count" not in mcp.aspect.customProperties
     assert "error_after_period" not in mcp.aspect.customProperties
-    # Validate that the aspect can be serialized without errors
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
     mcp.aspect.to_obj()
 
 

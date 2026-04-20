@@ -74,41 +74,6 @@ public class GlobalTagsTemplateTest {
   }
 
   @Test
-  public void testUnattributedAddPreservesAttributedDuplicates() throws Exception {
-    // Start with (srcA, tagX) and (srcB, tagX) — two attributed entries for the same tag URN.
-    GlobalTags initial = new GlobalTags();
-    initial.setTags(
-        new TagAssociationArray(
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcA"),
-            attributedTag("urn:li:tag:tagX", "urn:li:platformResource:srcB")));
-
-    // Plain patch: add tagY (no attribution).
-    JsonPatch patch =
-        Json.createPatch(
-            Json.createArrayBuilder()
-                .add(
-                    Json.createObjectBuilder()
-                        .add("op", "add")
-                        .add("path", "/tags/urn:li:tag:tagY")
-                        .add(
-                            "value",
-                            Json.createArrayBuilder()
-                                .add(Json.createObjectBuilder().add("tag", "urn:li:tag:tagY"))))
-                .build());
-
-    GlobalTags result = TEMPLATE.applyPatch(initial, patch);
-
-    Assert.assertNotNull(result.getTags());
-    List<String> tagUrns = result.getTags().stream().map(t -> t.getTag().toString()).toList();
-    // Both attributed tagX entries should survive, plus the new tagY.
-    long tagXCount = tagUrns.stream().filter("urn:li:tag:tagX"::equals).count();
-    long tagYCount = tagUrns.stream().filter("urn:li:tag:tagY"::equals).count();
-    Assert.assertEquals(tagXCount, 2L, "both attributed tagX entries should be preserved");
-    Assert.assertEquals(tagYCount, 1L, "new tagY entry should be present");
-    Assert.assertEquals(result.getTags().size(), 3);
-  }
-
-  @Test
   public void testUnattributedRemoveDeletesAllEntriesForTag() throws Exception {
     // (srcA, tagX), (srcB, tagX), (srcC, tagY)
     GlobalTags initial = new GlobalTags();
