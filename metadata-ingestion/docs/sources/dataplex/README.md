@@ -21,6 +21,7 @@ Dataplex ingestion is entry-type driven: each Universal Catalog `entry_type` map
 | `cloud-spanner-instance`       | `spanner`        | Container (`Instance`)         | Parent is project container            |
 | `cloud-spanner-database`       | `spanner`        | Container (`Database`)         | Parent is Spanner instance container   |
 | `cloud-spanner-table`          | `spanner`        | Dataset (`Table`)              | Parent is Spanner database container   |
+| `cloud-spanner-graph`          | `spanner`        | Dataset (`Graph`)              | Parent is Spanner database container   |
 | `cloud-bigtable-instance`      | `bigtable`       | Container (`Instance`)         | Parent is project container            |
 | `cloud-bigtable-table`         | `bigtable`       | Dataset (`Table`)              | Parent is Bigtable instance container  |
 | `pubsub-topic`                 | `pubsub`         | Dataset (`Topic`)              | Parent is project container            |
