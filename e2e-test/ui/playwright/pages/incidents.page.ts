@@ -1,5 +1,5 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { BasePage } from './base-page';
+import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
 const KAFKA_INCIDENTS_DATASET_URL =
@@ -211,9 +211,15 @@ export class IncidentsPage extends BasePage {
   }
 
   async filterByStatus(status: string): Promise<void> {
+    // The filter SelectBase is gated on IntersectionObserver (useIsVisible). Scroll
+    // the element into the viewport so the observer fires and the SelectBase renders.
+    await this.filterBase.scrollIntoViewIfNeeded();
+    await this.filterBase.waitFor({ state: 'visible', timeout: 10000 });
     await this.filterBase.click();
-    await this.page.locator(`[data-testid="child-option-${status}"]`).click();
-    // Close the filter dropdown
+    const childOption = this.page.locator(`[data-testid="child-option-${status}"]`);
+    await childOption.waitFor({ state: 'visible', timeout: 10000 });
+    await childOption.click();
+    // Close the filter dropdown by clicking the base again.
     await this.filterBase.click();
   }
 

@@ -9,7 +9,7 @@
  *
  * Additionally extends the merged result with:
  *   gmsToken    — GMS personal access token read from .auth/gms-token-{user}.json
- *   featureData — Feature-scoped test data injection with idempotency check
+ *   featureDataLoader — Feature-scoped test data injection with idempotency check
  *   cleanup     — Per-test URN tracker flushed automatically after each test
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@
  * Multi-user example (user is set at describe level, never inside a test):
  *
  *   import { test, expect } from '../../fixtures/base-test';
- *   import { resolvedUsers } from '../../fixtures/users';
+ *   import { users } from '../../data/users';
  *
  *   test.describe('Reader access', () => {
  *     test.use({ user: resolvedUsers.reader });
@@ -45,8 +45,8 @@ import { mockingFixture } from './mocking.fixture';
 import { loginFixture } from './login.fixture';
 import { seedingFixture } from './seeding.fixture';
 import { readGmsToken } from './login';
-import { RestFeatureDataLoader, type FeatureDataLoader } from './test-data';
-import { ApiScopedCleanup, type ScopedCleanup } from './cleanup';
+import { RestFeatureDataLoader, type FeatureDataLoader } from '../utils/test-data';
+import { ApiScopedCleanup, type ScopedCleanup } from '../utils/cleanup';
 import { gmsUrl } from '../utils/constants';
 
 // ── Compose the four core capability fixtures ─────────────────────────────────
@@ -59,7 +59,7 @@ type ExtendedFixtures = {
   /** GMS personal access token for the active user. */
   gmsToken: string;
   /** Injects feature-scoped test data from {featureDir}/data/{feature}.json. */
-  featureData: FeatureDataLoader;
+  featureDataLoader: FeatureDataLoader;
   /** Per-test URN tracker; auto-flushed after each test (skipped on failure). */
   cleanup: ScopedCleanup;
 };
@@ -69,7 +69,7 @@ export const test = composedTest.extend<ExtendedFixtures>({
     await use(readGmsToken(user.username));
   },
 
-  featureData: async ({ playwright, gmsToken }, use) => {
+  featureDataLoader: async ({ playwright, gmsToken }, use) => {
     const url = gmsUrl();
     const request = await playwright.request.newContext({ baseURL: url });
     try {
@@ -94,8 +94,3 @@ export const test = composedTest.extend<ExtendedFixtures>({
 });
 
 export { expect } from '@playwright/test';
-export type { UserCredentials } from './users';
-export type { DataHubLogger } from './logger.fixture';
-export type { ApiMocker } from './mocking.fixture';
-export type { FeatureDataLoader } from './test-data';
-export type { ScopedCleanup } from './cleanup';
