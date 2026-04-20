@@ -53,7 +53,9 @@ def extract_graph_schema_from_entry_aspects(
 
         nodes_data = data_dict.get("nodes")
         if nodes_data and hasattr(nodes_data, "list_value"):
-            for node_value in nodes_data.list_value.values:
+            # Proto Value form
+            node_items_proto = nodes_data.list_value.values
+            for node_value in node_items_proto:
                 node_fields = dict(node_value.struct_value.fields)
                 name_val = node_fields.get("name")
                 node_name = name_val.string_value if name_val else None
@@ -67,9 +69,27 @@ def extract_graph_schema_from_entry_aspects(
                             recursive=False,
                         )
                     )
+        elif nodes_data and hasattr(nodes_data, "__iter__"):
+            # Python-native list form (proto-plus auto-marshaled Struct → dict)
+            for node_item in nodes_data:
+                if isinstance(node_item, dict):
+                    node_name = node_item.get("name")
+                else:
+                    node_name = getattr(node_item, "name", None)
+                if node_name:
+                    fields.append(
+                        SchemaFieldClass(
+                            fieldPath=f"[nodes].{node_name}",
+                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                            nativeDataType="NODE",
+                            nullable=True,
+                            recursive=False,
+                        )
+                    )
 
         edges_data = data_dict.get("edges")
         if edges_data and hasattr(edges_data, "list_value"):
+            # Proto Value form
             for edge_value in edges_data.list_value.values:
                 edge_fields = dict(edge_value.struct_value.fields)
 
@@ -87,6 +107,38 @@ def extract_graph_schema_from_entry_aspects(
                 if dst_val and hasattr(dst_val, "struct_value"):
                     dst_name_val = dict(dst_val.struct_value.fields).get("name")
                     dst_name = dst_name_val.string_value if dst_name_val else None
+
+                if edge_name:
+                    description = (
+                        f"{src_name} \u2192 {dst_name}"
+                        if src_name and dst_name
+                        else None
+                    )
+                    fields.append(
+                        SchemaFieldClass(
+                            fieldPath=f"[edges].{edge_name}",
+                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                            nativeDataType="EDGE",
+                            description=description,
+                            nullable=True,
+                            recursive=False,
+                        )
+                    )
+        elif edges_data and hasattr(edges_data, "__iter__"):
+            # Python-native list form (proto-plus auto-marshaled Struct → dict)
+            for edge_item in edges_data:
+                if isinstance(edge_item, dict):
+                    edge_name = edge_item.get("name")
+                    src = edge_item.get("source")
+                    src_name = src.get("name") if isinstance(src, dict) else None
+                    dst = edge_item.get("destination")
+                    dst_name = dst.get("name") if isinstance(dst, dict) else None
+                else:
+                    edge_name = getattr(edge_item, "name", None)
+                    src = getattr(edge_item, "source", None)
+                    src_name = getattr(src, "name", None) if src else None
+                    dst = getattr(edge_item, "destination", None)
+                    dst_name = getattr(dst, "name", None) if dst else None
 
                 if edge_name:
                     description = (

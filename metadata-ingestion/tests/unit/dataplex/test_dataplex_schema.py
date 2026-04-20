@@ -474,3 +474,45 @@ class TestExtractGraphSchemaFromEntryAspects:
         assert result is not None
         assert result.schemaName == "MyGraph"
         assert "spanner" in result.platform
+
+    def test_nodes_and_edges_native_list_form(self) -> None:
+        """Python-native list form produced by proto-plus auto-marshaling."""
+        aspect = Mock()
+        aspect.data = {
+            "nodes": [
+                {"name": "Users"},
+                {"name": "Orders"},
+            ],
+            "edges": [
+                {
+                    "name": "ShoppingCarts",
+                    "source": {"name": "Users"},
+                    "destination": {"name": "Products"},
+                }
+            ],
+        }
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+
+        result = extract_graph_schema_from_entry_aspects(
+            entry, "ECommerceGraph", "spanner"
+        )
+
+        assert result is not None
+        field_paths = [f.fieldPath for f in result.fields]
+        assert "[nodes].Users" in field_paths
+        assert "[nodes].Orders" in field_paths
+        assert "[edges].ShoppingCarts" in field_paths
+
+        edge_field = next(
+            f for f in result.fields if f.fieldPath == "[edges].ShoppingCarts"
+        )
+        assert edge_field.description == "Users \u2192 Products"
+        assert edge_field.nativeDataType == "EDGE"
+
+    def test_empty_nodes_and_edges_returns_none(self) -> None:
+        aspect = Mock()
+        aspect.data = {"nodes": [], "edges": []}
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
