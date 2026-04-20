@@ -1129,6 +1129,113 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class));
   }
 
+  /**
+   * Defense-in-depth: even with reindexOptimizationEnabled=true, a failure of the cluster-level
+   * /_nodes/stats call (used to pick an optimal translog.flush_threshold_size) must not abort the
+   * reindex. The replica/refresh_interval tuning should still be applied, the flush_threshold
+   * tuning should be skipped, and the reindex should still be submitted.
+   */
+  @Test
+  void testReindexContinuesWhenNodeStatsFails() throws Exception {
+    // Override the @BeforeMethod stub: /_nodes/stats now fails.
+    when(searchClient.performLowLevelRequest(
+            argThat(req -> req != null && req.getEndpoint().contains("_nodes/stats"))))
+        .thenThrow(new IOException("permission denied on cluster:monitor/nodes/stats"));
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+    when(indexState.indexPattern()).thenReturn(null);
+
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(createResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(createResponse);
+
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(100L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+
+    org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
+        mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
+    when(searchClient.listTasks(
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
+        .thenReturn(taskListResponse);
+
+    org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
+        mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
+    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+
+    GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
+    when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
+        .thenReturn("512mb");
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(getSettingsResponse);
+
+    AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
+    when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(settingsUpdateResponse);
+
+    when(searchClient.submitReindexTask(any(ReindexRequest.class), any())).thenReturn("task1");
+
+    GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
+    when(getAliasesResponse.getAliases()).thenReturn(Map.of());
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+
+    AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
+    when(aliasResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(aliasResponse);
+
+    ReindexResult result = indexBuilder.buildIndex(indexState);
+
+    // Reindex is still submitted - the node-stats failure is swallowed.
+    assertEquals(result, ReindexResult.REINDEXING);
+    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any());
+
+    // Replica/refresh_interval tuning is still applied (they don't depend on heap stats).
+    verify(searchClient)
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && "0".equals(request.settings().get("index.number_of_replicas"))),
+            any(RequestOptions.class));
+    verify(searchClient)
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && "-1".equals(request.settings().get("index.refresh_interval"))),
+            any(RequestOptions.class));
+
+    // Flush threshold optimization should be skipped because the heap query failed.
+    verify(searchClient, never())
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && request.settings().get("index.translog.flush_threshold_size") != null),
+            any(RequestOptions.class));
+  }
+
   @Test
   void testBuildIndex_ReindexUsesConfigBatchSizeAndMaxSlices() throws Exception {
     when(buildIndicesConfig.getReindexBatchSize()).thenReturn(999);

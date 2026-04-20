@@ -1283,18 +1283,27 @@ public class ESIndexBuilder {
     }
     setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
     setIndexSetting(tempIndexName, "-1", INDEX_REFRESH_INTERVAL);
-    // these depend on jvm max heap...
     // flush_threshold_size: 512MB by def. Increasing to 1gb, if heap at least 16gb (this is more
     // conservative than %25 mentioned
     // https://docs.opensearch.org/docs/2.11/tuning-your-cluster/performance/
     //    "index.translog.flush_threshold_size": "512mb",
-    double jvmheapgb = jvminfo.getAverageDataNodeMaxHeapSizeGB();
-    String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
-    String optimValue = "1024mb";
-    String curval = getIndexSetting(tempIndexName, setting);
-    if (SizeUtils.isGreaterSize(optimValue, curval) && jvmheapgb >= MINJVMHEAP) {
-      setIndexSetting(tempIndexName, optimValue, setting);
-      res.put(ORIGINALPREFIX + setting, curval);
+    // The heap query hits the cluster-level /_nodes/stats endpoint which may fail in
+    // reduced-permission deployments. Guard the whole flush_threshold optimization so a
+    // failure here only skips this tuning rather than aborting the reindex.
+    try {
+      double jvmheapgb = jvminfo.getAverageDataNodeMaxHeapSizeGB();
+      String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
+      String optimValue = "1024mb";
+      String curval = getIndexSetting(tempIndexName, setting);
+      if (SizeUtils.isGreaterSize(optimValue, curval) && jvmheapgb >= MINJVMHEAP) {
+        setIndexSetting(tempIndexName, optimValue, setting);
+        res.put(ORIGINALPREFIX + setting, curval);
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Failed to optimize translog.flush_threshold_size for {}, keeping current value: {}",
+          tempIndexName,
+          e.getMessage());
     }
     // this is a cluster setting "index_buffer_size": "10%",
     // GET _cluster/settings?include_defaults&filter_path=defaults.indices.memory
