@@ -178,6 +178,8 @@ project.ext.externalDependency = [
     'hazelcastSpring':"com.hazelcast:hazelcast-spring:$hazelcastVersion",
     'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
+    // CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (EL in constraint violation messages); Play java-forms pulls 6.1.x otherwise
+    'hibernateValidator': 'org.hibernate.validator:hibernate-validator:6.2.5.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
      // The jacksonBom controls the version of other jackson modules, pin the version once
