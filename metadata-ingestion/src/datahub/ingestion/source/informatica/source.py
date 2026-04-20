@@ -300,8 +300,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 project_name = self._resolve_parent_project(obj)
                 self._mapping_project[obj.id] = project_name
                 project_flow = self._project_flow(project_name)
-                if project_flow.urn not in self._emitted_flow_ids:
-                    self._emitted_flow_ids.add(project_flow.urn)
+                project_flow_urn = str(project_flow.urn)
+                if project_flow_urn not in self._emitted_flow_ids:
+                    self._emitted_flow_ids.add(project_flow_urn)
                     yield project_flow
                 yield self._make_mapping_datajob(
                     obj,
@@ -320,8 +321,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
             for mt in self.client.list_mapping_tasks():
                 self.report.mapping_tasks_scanned += 1
                 task_flow = self._mapping_task_flow(mt)
-                if task_flow.urn not in self._emitted_flow_ids:
-                    self._emitted_flow_ids.add(task_flow.urn)
+                task_flow_urn = str(task_flow.urn)
+                if task_flow_urn not in self._emitted_flow_ids:
+                    self._emitted_flow_ids.add(task_flow_urn)
                     yield task_flow
                 yield self._make_mapping_task_datajob(mt, task_flow)
         except Exception as e:
@@ -593,7 +595,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
             "bundle-license-notifier"
         )
 
-    def _owner_list(self, user_identifier: Optional[str]) -> Optional[List[str]]:
+    def _owner_list(
+        self, user_identifier: Optional[str]
+    ) -> Optional[List[CorpUserUrn]]:
         if not user_identifier or not self.config.extract_ownership:
             return None
-        return [str(CorpUserUrn(user_identifier))]
+        return [CorpUserUrn(user_identifier)]

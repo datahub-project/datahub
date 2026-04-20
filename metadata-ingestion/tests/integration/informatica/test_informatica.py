@@ -12,7 +12,7 @@ builds a stubbed ``InformaticaClient`` with canned fixture data covering:
 The resulting MCE stream is compared against a checked-in golden file.
 """
 
-from typing import Iterator, List
+from typing import Iterator, List, Optional
 from unittest import mock
 
 import pytest
@@ -194,7 +194,9 @@ _LINEAGE_INFOS: List[MappingLineageInfo] = [
 ]
 
 
-def _fake_list_objects(object_type: str, tag=None) -> Iterator[IdmcObject]:
+def _fake_list_objects(
+    object_type: str, tag: Optional[str] = None
+) -> Iterator[IdmcObject]:
     table = {
         "Project": _PROJECTS,
         "Folder": _FOLDERS,

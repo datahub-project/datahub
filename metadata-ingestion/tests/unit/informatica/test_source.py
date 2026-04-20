@@ -1,5 +1,7 @@
+from typing import Any
 from unittest.mock import patch
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
 from datahub.ingestion.source.informatica.models import (
@@ -17,7 +19,7 @@ from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 
 
-def _make_source(**config_overrides) -> InformaticaSource:
+def _make_source(**config_overrides: Any) -> InformaticaSource:
     defaults = {
         "username": "svc",
         "password": "pw",
@@ -268,12 +270,17 @@ class TestLineageEmission:
             ],
         )
         wus = list(source._emit_lineage(lineage))
-        aspect_names = [wu.metadata.aspectName for wu in wus]
+        mcps = []
+        for wu in wus:
+            assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            mcps.append(wu.metadata)
+        aspect_names = [m.aspectName for m in mcps]
         assert "dataJobInputOutput" in aspect_names
         assert "upstreamLineage" in aspect_names
-        io_wu = next(w for w in wus if w.metadata.aspectName == "dataJobInputOutput")
-        assert "guid-42" in io_wu.metadata.entityUrn
-        assert "project:Sales" in io_wu.metadata.entityUrn
+        io_mcp = next(m for m in mcps if m.aspectName == "dataJobInputOutput")
+        assert io_mcp.entityUrn is not None
+        assert "guid-42" in io_mcp.entityUrn
+        assert "project:Sales" in io_mcp.entityUrn
         assert source.report.lineage_edges_emitted == 2
 
     def test_emit_lineage_skips_when_mapping_id_missing(self):
