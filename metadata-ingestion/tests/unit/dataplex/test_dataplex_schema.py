@@ -8,6 +8,8 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     NumberTypeClass,
     RecordTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     StringTypeClass,
     TimeTypeClass,
 )
@@ -447,19 +449,30 @@ class TestExtractGraphSchemaFromEntryAspects:
         )
 
         assert result is not None
-        field_paths = [f.fieldPath for f in result.fields]
-        assert "[nodes].Users" in field_paths
-        assert "[nodes].Orders" in field_paths
-        assert "[edges].ShoppingCarts" in field_paths
-
-        edge_field = next(
-            f for f in result.fields if f.fieldPath == "[edges].ShoppingCarts"
-        )
-        assert edge_field.description == "Users \u2192 Products"
-        assert edge_field.nativeDataType == "EDGE"
-
-        node_field = next(f for f in result.fields if f.fieldPath == "[nodes].Users")
-        assert node_field.nativeDataType == "NODE"
+        assert result.fields == [
+            SchemaFieldClass(
+                fieldPath="[nodes].Users",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[nodes].Orders",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[edges].ShoppingCarts",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="EDGE",
+                description="Users \u2192 Products",
+                nullable=True,
+                recursive=False,
+            ),
+        ]
 
     def test_schema_name_and_platform(self) -> None:
         aspect = _make_graph_aspect(
@@ -499,16 +512,30 @@ class TestExtractGraphSchemaFromEntryAspects:
         )
 
         assert result is not None
-        field_paths = [f.fieldPath for f in result.fields]
-        assert "[nodes].Users" in field_paths
-        assert "[nodes].Orders" in field_paths
-        assert "[edges].ShoppingCarts" in field_paths
-
-        edge_field = next(
-            f for f in result.fields if f.fieldPath == "[edges].ShoppingCarts"
-        )
-        assert edge_field.description == "Users \u2192 Products"
-        assert edge_field.nativeDataType == "EDGE"
+        assert result.fields == [
+            SchemaFieldClass(
+                fieldPath="[nodes].Users",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[nodes].Orders",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[edges].ShoppingCarts",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="EDGE",
+                description="Users \u2192 Products",
+                nullable=True,
+                recursive=False,
+            ),
+        ]
 
     def test_empty_nodes_and_edges_returns_none(self) -> None:
         aspect = Mock()
