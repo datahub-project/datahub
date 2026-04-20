@@ -13,12 +13,10 @@
 
 set -euo pipefail
 
-# Resolve repo root from the script's own location — works regardless of CWD
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 cd "$REPO_ROOT"
 
-# --- Prerequisites check ---
 for cmd in gh python3; do
     if ! command -v "$cmd" &>/dev/null; then
         echo "Error: '$cmd' is required but not installed." >&2
@@ -39,20 +37,18 @@ if [ -z "$SHA" ]; then
     exit 1
 fi
 
-# Shorten for display
-SHORT_SHA="${SHA:0:10}"
+export SHORT_SHA="${SHA:0:10}"
 
 echo "=== CI Status: ${SHORT_SHA} (${REPO}) ==="
 echo ""
 
 gh run list --repo "$REPO" --limit 60 --json name,status,conclusion,url,headSha,event \
-  | python3 - << EOF
-import json, sys
+  | python3 - << 'PYEOF'
+import json, sys, os
 
-raw = sys.stdin.read()
-runs = json.loads(raw)
+runs = json.loads(sys.stdin.read())
+sha_prefix = os.environ["SHORT_SHA"]
 
-sha_prefix = "${SHORT_SHA}"
 release_runs = [
     r for r in runs
     if r.get("event") == "release"
@@ -88,34 +84,27 @@ done  = len(success) + len(failed) + len(other)
 
 print(f"Progress: {done}/{total} complete")
 print()
-
 print(f"SUCCESS ({len(success)}):")
 for n in success:
     print(f"  ✓ {n}")
 print()
-
 print(f"IN PROGRESS ({len(running)}):")
 for n in running:
     print(f"  … {n}")
 print()
-
 print(f"QUEUED ({len(queued)}):")
 for n in queued:
     print(f"  ⏳ {n}")
 print()
-
-print(f"FAILED ({len(failed)}):")
-for n, c, u in failed:
-    print(f"  ✗ {n}  [{c}]")
-    print(f"    {u}")
-print()
-
+if failed:
+    print(f"FAILED ({len(failed)}):")
+    for n, c, u in failed:
+        print(f"  ✗ {n}  [{c}]")
+        print(f"    {u}")
+    print()
 if other:
     print(f"OTHER ({len(other)}):")
     for n, c in other:
-        print(f"  - {n}  [{c}]")
+        print(f"  ? {n}  [{c}]")
     print()
-
-all_done = (len(running) + len(queued)) == 0
-print("ALL DONE" if all_done else "STILL RUNNING")
-EOF
+PYEOF
