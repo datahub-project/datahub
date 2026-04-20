@@ -442,7 +442,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 chart_urn = elementId_to_chart_urn.get(upstream.element_id)
                 if chart_urn is None:
                     # Target element type not in our allow-list (e.g. pivot-table).
-                    # Known limitation — see SIGMA_TICKET_3_INTRA_WORKBOOK.md §3.
                     logger.debug(
                         f"Upstream elementId {upstream.element_id} not in element map "
                         f"for element {element.name} (possibly a filtered element type)"
@@ -562,7 +561,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
-                name=element.elementId,
+                name=element.get_urn_part(),
             )
             for page in workbook.pages
             for element in page.elements

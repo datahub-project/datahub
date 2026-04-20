@@ -707,7 +707,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_sigma_extract_lineage.json"
+    golden_file = "golden_test_intra_workbook_lineage.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
