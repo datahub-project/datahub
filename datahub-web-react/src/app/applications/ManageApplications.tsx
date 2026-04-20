@@ -165,10 +165,11 @@ const ManageApplications = () => {
 
             <CreateNewApplicationModal
                 open={showCreateApplicationModal}
-                onClose={() => {
+                onCreate={() => {
                     setShowCreateApplicationModal(false);
                     setTimeout(() => refetch(), 3000);
                 }}
+                onClose={() => setShowCreateApplicationModal(false)}
             />
         </PageContainer>
     );

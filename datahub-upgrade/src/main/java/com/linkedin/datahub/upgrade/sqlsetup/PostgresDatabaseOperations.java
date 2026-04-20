@@ -183,6 +183,10 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
     try (java.sql.Statement stmt = connection.createStatement()) {
       stmt.execute(
           "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpuser_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpuser:%' AND version = 0;");
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpgroup_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpGroup:%' AND version = 0;");
     } finally {
       connection.setAutoCommit(prevAutoCommit);
     }

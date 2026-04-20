@@ -4,37 +4,9 @@ import { HelmetProvider } from 'react-helmet-async';
 import { MemoryRouter } from 'react-router';
 import { ItalicExtension, UnderlineExtension } from 'remirror/extensions';
 
+import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
 import UserContextProvider from '@app/context/UserContextProvider';
-import { RoleEntity } from '@app/entityV2/Access/RoleEntity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { ApplicationEntity } from '@app/entityV2/application/ApplicationEntity';
-import { BusinessAttributeEntity } from '@app/entityV2/businessAttribute/BusinessAttributeEntity';
-import { ChartEntity } from '@app/entityV2/chart/ChartEntity';
-import { ContainerEntity } from '@app/entityV2/container/ContainerEntity';
-import { DashboardEntity } from '@app/entityV2/dashboard/DashboardEntity';
-import { DataContractEntity } from '@app/entityV2/dataContract/DataContractEntity';
-import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
-import { DataJobEntity } from '@app/entityV2/dataJob/DataJobEntity';
-import { DataPlatformEntity } from '@app/entityV2/dataPlatform/DataPlatformEntity';
-import { DataPlatformInstanceEntity } from '@app/entityV2/dataPlatformInstance/DataPlatformInstanceEntity';
-import { DataProcessInstanceEntity } from '@app/entityV2/dataProcessInstance/DataProcessInstanceEntity';
-import { DataProductEntity } from '@app/entityV2/dataProduct/DataProductEntity';
-import { DatasetEntity } from '@app/entityV2/dataset/DatasetEntity';
-import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
-import { DomainEntity } from '@app/entityV2/domain/DomainEntity';
-import GlossaryNodeEntity from '@app/entityV2/glossaryNode/GlossaryNodeEntity';
-import { GlossaryTermEntity } from '@app/entityV2/glossaryTerm/GlossaryTermEntity';
-import { GroupEntity } from '@app/entityV2/group/Group';
-import { MLFeatureEntity } from '@app/entityV2/mlFeature/MLFeatureEntity';
-import { MLFeatureTableEntity } from '@app/entityV2/mlFeatureTable/MLFeatureTableEntity';
-import { MLModelEntity } from '@app/entityV2/mlModel/MLModelEntity';
-import { MLModelGroupEntity } from '@app/entityV2/mlModelGroup/MLModelGroupEntity';
-import { MLPrimaryKeyEntity } from '@app/entityV2/mlPrimaryKey/MLPrimaryKeyEntity';
-import { QueryEntity } from '@app/entityV2/query/QueryEntity';
-import { SchemaFieldEntity } from '@app/entityV2/schemaField/SchemaFieldEntity';
-import { StructuredPropertyEntity } from '@app/entityV2/structuredProperty/StructuredPropertyEntity';
-import { TagEntity } from '@app/entityV2/tag/Tag';
-import { UserEntity } from '@app/entityV2/user/User';
 import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
 import { CLIENT_AUTH_COOKIE } from '@conf/Global';
 import AppConfigProvider from '@src/AppConfigProvider';
@@ -46,38 +18,8 @@ type Props = {
     initialEntries?: string[];
 };
 
-export function getTestEntityRegistry() {
-    const entityRegistry = new EntityRegistry();
-    entityRegistry.register(new DatasetEntity());
-    entityRegistry.register(new DataContractEntity());
-    entityRegistry.register(new DashboardEntity());
-    entityRegistry.register(new ChartEntity());
-    entityRegistry.register(new UserEntity());
-    entityRegistry.register(new GroupEntity());
-    entityRegistry.register(new TagEntity());
-    entityRegistry.register(new DataFlowEntity());
-    entityRegistry.register(new DataJobEntity());
-    entityRegistry.register(new GlossaryTermEntity());
-    entityRegistry.register(new MLFeatureEntity());
-    entityRegistry.register(new MLPrimaryKeyEntity());
-    entityRegistry.register(new MLFeatureTableEntity());
-    entityRegistry.register(new MLModelEntity());
-    entityRegistry.register(new MLModelGroupEntity());
-    entityRegistry.register(new DomainEntity());
-    entityRegistry.register(new DocumentEntity());
-    entityRegistry.register(new ContainerEntity());
-    entityRegistry.register(new GlossaryNodeEntity());
-    entityRegistry.register(new RoleEntity());
-    entityRegistry.register(new DataPlatformEntity());
-    entityRegistry.register(new DataProductEntity());
-    entityRegistry.register(new DataPlatformInstanceEntity());
-    entityRegistry.register(new QueryEntity());
-    entityRegistry.register(new SchemaFieldEntity());
-    entityRegistry.register(new StructuredPropertyEntity());
-    entityRegistry.register(new DataProcessInstanceEntity());
-    entityRegistry.register(new BusinessAttributeEntity());
-    entityRegistry.register(new ApplicationEntity());
-    return entityRegistry;
+export function getTestEntityRegistry(): EntityRegistry {
+    return buildEntityRegistryV2();
 }
 
 export default ({ children, initialEntries }: Props) => {

@@ -62,6 +62,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.kafka.trace",
       "com.linkedin.gms.factory.system_info",
       "com.linkedin.gms.factory.consistency",
+      "com.linkedin.gms.factory.lifecycle",
       "com.linkedin.metadata.aspect.consistency.check",
       "com.linkedin.metadata.aspect.consistency.fix",
       "com.linkedin.metadata.aspect.hooks.migrations",

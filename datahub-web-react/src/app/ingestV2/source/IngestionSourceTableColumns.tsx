@@ -1,12 +1,11 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { CellHoverWrapper, Icon, Pill, Text, Tooltip } from '@components';
 import { Play } from '@phosphor-icons/react/dist/csr/Play';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
@@ -30,20 +29,20 @@ const PreviewImage = styled(Image)`
 `;
 
 const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     ${(props) =>
         props.$shouldUnderline &&
         `
- :hover {
- text-decoration: underline;
- }
- `}
+            :hover {
+                text-decoration: underline;
+            }
+        `}
 `;
 
 const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -64,16 +63,16 @@ const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     ${(props) =>
         props.$shouldUnderline &&
         `
- :hover {
- text-decoration: underline;
- }
- `}
+            :hover {
+                text-decoration: underline;
+            }
+        `}
 `;
 
 const SourceTypeText = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: normal;
 `;
 
@@ -97,6 +96,7 @@ interface NameColumnProps {
 }
 
 export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
+    const theme = useTheme();
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
     const textRef = useRef<HTMLDivElement>(null);
@@ -139,8 +139,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 {showTooltip ? (
                     <Tooltip
                         title={record.name}
-                        color="white"
-                        overlayInnerStyle={{ color: colors.gray[1700] }}
+                        overlayInnerStyle={{ color: theme.colors.textSecondary }}
                         showArrow={false}
                     >
                         {textElement}
@@ -162,6 +161,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
 }
 
 export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    const theme = useTheme();
     let scheduleText: string;
 
     try {
@@ -178,8 +178,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
             ellipsis={{
                 tooltip: {
                     title: scheduleText,
-                    color: 'white',
-                    overlayInnerStyle: { color: colors.gray[1700] },
+                    overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },
             }}
@@ -223,6 +222,7 @@ interface ActionsColumnProps {
 type MenuOption = {
     key: string;
     label: React.ReactNode;
+    danger?: boolean;
 };
 
 export function ActionsColumn({
@@ -318,6 +318,7 @@ export function ActionsColumn({
         });
     items.push({
         key: '6',
+        danger: true,
         label: (
             <MenuItem
                 onClick={() => {

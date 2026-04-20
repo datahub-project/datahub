@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -155,9 +156,7 @@ def test_dbt_source_patching_with_conflict():
         )
 
 
-def test_dbt_source_patching_with_conflict_null_source_type_in_existing_owner():
-    # verifying when existing owners have null source_type and new owners are present.
-    # So the existing owners will null type will be removed.
+def test_dbt_source_patching_with_null_source_type_in_existing_owner_preserves_them():
     source = create_mocked_dbt_source()
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
@@ -169,14 +168,50 @@ def test_dbt_source_patching_with_conflict_null_source_type_in_existing_owner():
     transformed_owner_list = source.get_transformed_owners_by_source_type(
         new_owners_list, "urn:li:dataset:dummy", "AUDIT"
     )
-    assert len(transformed_owner_list) == 2
-    expected_owner_set = {"urn:li:corpuser:new_test", "urn:li:corpuser:new_test2"}
-    for single_owner in transformed_owner_list:
-        assert single_owner.owner in expected_owner_set
-        assert (
-            single_owner.source
-            and single_owner.source.type == OwnershipSourceTypeClass.AUDIT
+    assert len(transformed_owner_list) == 3
+    transformed_urns = {o.owner for o in transformed_owner_list}
+    assert "urn:li:corpuser:existing_test_user" in transformed_urns
+    assert "urn:li:corpuser:new_test" in transformed_urns
+    assert "urn:li:corpuser:new_test2" in transformed_urns
+
+
+def test_dbt_source_patching_preserves_manually_added_owners_without_source():
+    source = create_mocked_dbt_source()
+    graph = mock.MagicMock()
+
+    dbt_owner = OwnerClass(
+        owner="urn:li:corpuser:dbt_defined_owner",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+    api_added_owner = OwnerClass(
+        owner="urn:li:corpGroup:team_data_infra",
+        type=OwnershipTypeClass.DATAOWNER,
+        source=None,
+    )
+    graph.get_ownership.return_value = OwnershipClass(
+        owners=[dbt_owner, api_added_owner]
+    )
+    source.ctx.graph = graph
+
+    new_owners = [
+        OwnerClass(
+            owner="urn:li:corpuser:dbt_defined_owner",
+            type=OwnershipTypeClass.DATAOWNER,
+            source=OwnershipSourceClass(type=OwnershipSourceTypeClass.SOURCE_CONTROL),
         )
+    ]
+
+    transformed = source.get_transformed_owners_by_source_type(
+        new_owners,
+        "urn:li:dataset:dummy",
+        str(OwnershipSourceTypeClass.SOURCE_CONTROL),
+    )
+
+    transformed_urns = {o.owner for o in transformed}
+    assert "urn:li:corpGroup:team_data_infra" in transformed_urns
+    assert "urn:li:corpuser:dbt_defined_owner" in transformed_urns
+    assert len(transformed) == 2
 
 
 def test_dbt_source_patching_tags():
@@ -778,60 +813,79 @@ def test_drop_duplicate_sources() -> None:
     assert source.report.duplicate_sources_references_updated == 1
 
 
-def test_dbt_sibling_aspects_creation():
-    """Test that sibling patches are created correctly based on configuration."""
-    ctx = PipelineContext(run_id="test-run-id")
-    base_config = create_base_dbt_config()
-
-    # Create source with dbt as primary (default behavior)
-    config_dbt_primary = DBTCoreConfig(**base_config)
-    source_dbt_primary = DBTCoreSource(config_dbt_primary, ctx)
-
-    # Manually set the config value for testing since the field might not be parsed yet
-    source_dbt_primary.config.dbt_is_primary_sibling = True
-
-    model_node = DBTNode(
-        name="test_model",
+def _make_sibling_dbt_node(
+    materialization: str = "table",
+    node_type: str = "model",
+    name: str = "test_model",
+) -> DBTNode:
+    return DBTNode(
+        name=name,
         database="test_db",
         schema="test_schema",
         alias=None,
         comment="",
-        description="Test model",
+        description="",
         language="sql",
         raw_code=None,
         dbt_adapter="postgres",
-        dbt_name="model.package.test_model",
+        dbt_name=f"{node_type}.package.{name}",
         dbt_file_path=None,
         dbt_package_name="package",
-        node_type="model",
-        materialization="table",
+        node_type=node_type,
+        materialization=materialization,
         max_loaded_at=None,
         catalog_type=None,
         missing_from_catalog=False,
         owner=None,
         compiled_code=None,
     )
-    # Note: exists_in_target_platform is a property that returns True for non-ephemeral, non-test nodes
-    # Our node_type="model" and materialization="table" will make this property return True
 
-    # For models when dbt is primary - should not create sibling patches
-    should_create_siblings = source_dbt_primary._should_create_sibling_relationships(
-        model_node
-    )
-    assert should_create_siblings is False
 
-    # Test with target platform as primary - should create sibling patches
-    config_target_primary = DBTCoreConfig(**base_config)
-    source_target_primary = DBTCoreSource(config_target_primary, ctx)
+def _make_dbt_source(dbt_is_primary_sibling: bool = True) -> DBTCoreSource:
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+    source.config.dbt_is_primary_sibling = dbt_is_primary_sibling
+    return source
 
-    # Manually set the config value for testing
-    source_target_primary.config.dbt_is_primary_sibling = False
 
-    # For models when target platform is primary - should create sibling patches
-    should_create_siblings = source_target_primary._should_create_sibling_relationships(
-        model_node
-    )
-    assert should_create_siblings is True
+@pytest.mark.parametrize("dbt_is_primary_sibling", [True, False])
+def test_dbt_sibling_created_for_semantic_views(dbt_is_primary_sibling: bool) -> None:
+    """Regression test for CUS-7718: semantic views showed as duplicate search
+    results because the SiblingAssociationHook only handles the "source" subtype."""
+    source = _make_dbt_source(dbt_is_primary_sibling)
+    node = _make_sibling_dbt_node(materialization="semantic_view")
+    assert source._should_create_sibling_relationships(node) is True
+
+
+def test_dbt_sibling_not_created_for_standard_models_when_primary() -> None:
+    """Standard models rely on the SiblingAssociationHook for sibling creation
+    when dbt is primary. Only semantic views need explicit emission."""
+    source = _make_dbt_source(dbt_is_primary_sibling=True)
+    for materialization in ("table", "view", "incremental"):
+        node = _make_sibling_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is False
+
+
+def test_dbt_sibling_created_for_all_nodes_when_not_primary() -> None:
+    """When target platform is primary (dbt_is_primary_sibling=False),
+    the dbt source emits siblings for all nodes."""
+    source = _make_dbt_source(dbt_is_primary_sibling=False)
+    for materialization in ("table", "view", "incremental", "semantic_view"):
+        node = _make_sibling_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is True
+
+
+@pytest.mark.parametrize(
+    "materialization,node_type",
+    [("ephemeral", "model"), ("test", "test")],
+)
+def test_dbt_sibling_not_created_for_ephemeral_or_test_nodes(
+    materialization: str, node_type: str
+) -> None:
+    source = _make_dbt_source()
+    node = _make_sibling_dbt_node(materialization=materialization, node_type=node_type)
+    assert source._should_create_sibling_relationships(node) is False
 
 
 def test_dbt_cloud_source_description_precedence() -> None:
@@ -1850,6 +1904,9 @@ def test_make_assertion_from_freshness() -> None:
     assert isinstance(mcp.aspect.customAssertion, CustomAssertionInfoClass)
     assert mcp.aspect.customAssertion.type == "dbt Freshness"
     assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
@@ -1969,7 +2026,9 @@ def test_make_assertion_from_freshness_warn_only() -> None:
     assert mcp.aspect.customProperties.get("warn_after_period") == "day"
     assert "error_after_count" not in mcp.aspect.customProperties
     assert "error_after_period" not in mcp.aspect.customProperties
-    # Validate that the aspect can be serialized without errors
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
     mcp.aspect.to_obj()
 
 

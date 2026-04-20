@@ -206,6 +206,7 @@ def make_assertion_from_test(
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
+            source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
                 scope=assertion_params.scope,
@@ -239,6 +240,7 @@ def make_assertion_from_test(
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
+            source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
                 scope=DatasetAssertionScopeClass.DATASET_COLUMN,
@@ -255,6 +257,7 @@ def make_assertion_from_test(
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
+            source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
                 scope=DatasetAssertionScopeClass.DATASET_ROWS,
@@ -327,6 +330,7 @@ def make_assertion_from_freshness(
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=custom_props,
+        source=mce_builder.make_assertion_source(),
         customAssertion=CustomAssertionInfoClass(
             type="dbt Freshness", entity=upstream_urn
         ),

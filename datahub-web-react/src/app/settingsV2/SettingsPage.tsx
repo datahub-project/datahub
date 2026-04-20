@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Bank } from '@phosphor-icons/react/dist/csr/Bank';
 import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
@@ -20,7 +19,7 @@ import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarR
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 
 const PageContainer = styled.div`
     display: flex;
@@ -37,7 +36,7 @@ const NavBarContainer = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     align-items: start;
     overflow: auto;
     width: 20%;
@@ -60,7 +59,7 @@ const NavBarTitle = styled.div`
 
 const NavBarSubTitle = styled.div`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: 8px;
 `;
 
@@ -75,7 +74,7 @@ const ContentContainer = styled.div`
     display: flex;
     overflow: auto;
     background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 export const SettingsPage = () => {

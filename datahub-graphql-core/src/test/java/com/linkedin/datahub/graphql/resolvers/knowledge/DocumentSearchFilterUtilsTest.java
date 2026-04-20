@@ -28,7 +28,7 @@ public class DocumentSearchFilterUtilsTest {
     assertNotNull(filter.getOr());
     assertEquals(filter.getOr().size(), 2); // PUBLISHED OR UNPUBLISHED owned
 
-    // Check first clause: PUBLISHED AND showInGlobalContext=true
+    // Check first clause: PUBLISHED AND showInGlobalContext!=false
     ConjunctiveCriterion publishedClause = filter.getOr().get(0);
     assertNotNull(publishedClause.getAnd());
     assertEquals(publishedClause.getAnd().size(), 2); // state + showInGlobalContext
@@ -36,13 +36,14 @@ public class DocumentSearchFilterUtilsTest {
     assertEquals(stateCriterion.getField(), "state");
     assertEquals(stateCriterion.getCondition(), Condition.EQUAL);
     assertEquals(stateCriterion.getValues().get(0), "PUBLISHED");
-    // Verify showInGlobalContext filter
+    // Verify showInGlobalContext uses negated filter (exclude false, not require true)
     Criterion showInGlobalContextCriterion = publishedClause.getAnd().get(1);
     assertEquals(showInGlobalContextCriterion.getField(), "showInGlobalContext");
     assertEquals(showInGlobalContextCriterion.getCondition(), Condition.EQUAL);
-    assertEquals(showInGlobalContextCriterion.getValues().get(0), "true");
+    assertEquals(showInGlobalContextCriterion.getValues().get(0), "false");
+    assertTrue(showInGlobalContextCriterion.isNegated());
 
-    // Check second clause: UNPUBLISHED AND owned AND showInGlobalContext=true
+    // Check second clause: UNPUBLISHED AND owned AND showInGlobalContext!=false
     ConjunctiveCriterion unpublishedClause = filter.getOr().get(1);
     assertNotNull(unpublishedClause.getAnd());
     assertEquals(unpublishedClause.getAnd().size(), 3); // State + owners + showInGlobalContext
@@ -55,11 +56,12 @@ public class DocumentSearchFilterUtilsTest {
     assertEquals(ownersCriterion.getCondition(), Condition.EQUAL);
     assertTrue(ownersCriterion.getValues().contains(TEST_USER_URN));
     assertTrue(ownersCriterion.getValues().contains(TEST_GROUP_URN));
-    // Verify showInGlobalContext filter in unpublished clause
+    // Verify showInGlobalContext uses negated filter in unpublished clause
     Criterion unpublishedShowInGlobalContextCriterion = unpublishedClause.getAnd().get(2);
     assertEquals(unpublishedShowInGlobalContextCriterion.getField(), "showInGlobalContext");
     assertEquals(unpublishedShowInGlobalContextCriterion.getCondition(), Condition.EQUAL);
-    assertEquals(unpublishedShowInGlobalContextCriterion.getValues().get(0), "true");
+    assertEquals(unpublishedShowInGlobalContextCriterion.getValues().get(0), "false");
+    assertTrue(unpublishedShowInGlobalContextCriterion.isNegated());
   }
 
   @Test
@@ -79,20 +81,20 @@ public class DocumentSearchFilterUtilsTest {
     assertNotNull(filter.getOr());
     assertEquals(filter.getOr().size(), 2);
 
-    // Check first clause: base criteria AND PUBLISHED AND showInGlobalContext=true
+    // Check first clause: base criteria AND PUBLISHED AND showInGlobalContext!=false
     ConjunctiveCriterion publishedClause = filter.getOr().get(0);
     assertNotNull(publishedClause.getAnd());
     assertEquals(
         publishedClause.getAnd().size(), 4); // types + domains + state + showInGlobalContext
 
-    // Check second clause: base criteria AND UNPUBLISHED AND owned AND showInGlobalContext=true
+    // Check second clause: base criteria AND UNPUBLISHED AND owned AND showInGlobalContext!=false
     ConjunctiveCriterion unpublishedClause = filter.getOr().get(1);
     assertNotNull(unpublishedClause.getAnd());
     assertEquals(
         unpublishedClause.getAnd().size(),
         5); // types + domains + state + owners + showInGlobalContext
 
-    // Verify base criteria are in both clauses
+    // Verify base criteria and showInGlobalContext are in both clauses
     boolean foundTypesInPublished = false;
     boolean foundDomainsInPublished = false;
     boolean foundTypesInUnpublished = false;
@@ -109,6 +111,7 @@ public class DocumentSearchFilterUtilsTest {
       }
       if ("showInGlobalContext".equals(criterion.getField())) {
         foundShowInGlobalContextInPublished = true;
+        assertTrue(criterion.isNegated(), "showInGlobalContext should use negated filter");
       }
     }
 
@@ -121,6 +124,7 @@ public class DocumentSearchFilterUtilsTest {
       }
       if ("showInGlobalContext".equals(criterion.getField())) {
         foundShowInGlobalContextInUnpublished = true;
+        assertTrue(criterion.isNegated(), "showInGlobalContext should use negated filter");
       }
     }
 
@@ -181,8 +185,8 @@ public class DocumentSearchFilterUtilsTest {
 
   @Test
   public void testBuildCombinedFilterStructure() {
-    // Verify the filter structure: (base AND PUBLISHED AND showInGlobalContext=true)
-    // OR (base AND UNPUBLISHED AND owners AND showInGlobalContext=true)
+    // Verify the filter structure: (base AND PUBLISHED AND showInGlobalContext!=false)
+    // OR (base AND UNPUBLISHED AND owners AND showInGlobalContext!=false)
     List<Criterion> baseCriteria = new ArrayList<>();
     baseCriteria.add(
         CriterionUtils.buildCriterion(
@@ -202,7 +206,8 @@ public class DocumentSearchFilterUtilsTest {
     assertEquals(publishedClause.getAnd().get(1).getField(), "state");
     assertEquals(publishedClause.getAnd().get(1).getValues().get(0), "PUBLISHED");
     assertEquals(publishedClause.getAnd().get(2).getField(), "showInGlobalContext");
-    assertEquals(publishedClause.getAnd().get(2).getValues().get(0), "true");
+    assertEquals(publishedClause.getAnd().get(2).getValues().get(0), "false");
+    assertTrue(publishedClause.getAnd().get(2).isNegated());
 
     // Unpublished clause should have: relatedAssets + state + owners + showInGlobalContext
     ConjunctiveCriterion unpublishedClause = filter.getOr().get(1);
@@ -211,12 +216,15 @@ public class DocumentSearchFilterUtilsTest {
     assertEquals(unpublishedClause.getAnd().get(1).getValues().get(0), "UNPUBLISHED");
     assertEquals(unpublishedClause.getAnd().get(2).getField(), "owners");
     assertEquals(unpublishedClause.getAnd().get(3).getField(), "showInGlobalContext");
-    assertEquals(unpublishedClause.getAnd().get(3).getValues().get(0), "true");
+    assertEquals(unpublishedClause.getAnd().get(3).getValues().get(0), "false");
+    assertTrue(unpublishedClause.getAnd().get(3).isNegated());
   }
 
   @Test
-  public void testBuildCombinedFilterRequiresShowInGlobalContext() {
-    // Verify that showInGlobalContext=true is required in both published and unpublished clauses
+  public void testBuildCombinedFilterExcludesExplicitlyHidden() {
+    // Verify that showInGlobalContext!=false is used in both published and unpublished clauses.
+    // This excludes only documents that explicitly set showInGlobalContext=false;
+    // documents without a documentSettings aspect are included by default.
     List<Criterion> baseCriteria = new ArrayList<>();
     List<String> userAndGroupUrns = ImmutableList.of(TEST_USER_URN);
 
@@ -226,16 +234,17 @@ public class DocumentSearchFilterUtilsTest {
     assertNotNull(filter.getOr());
     assertEquals(filter.getOr().size(), 2);
 
-    // Both clauses should have showInGlobalContext=true criterion
-    boolean foundShowInGlobalContextInPublished = false;
-    boolean foundShowInGlobalContextInUnpublished = false;
+    // Both clauses should have negated showInGlobalContext=false criterion
+    boolean foundNegatedInPublished = false;
+    boolean foundNegatedInUnpublished = false;
 
     ConjunctiveCriterion publishedClause = filter.getOr().get(0);
     for (Criterion criterion : publishedClause.getAnd()) {
       if ("showInGlobalContext".equals(criterion.getField())
           && criterion.getCondition() == Condition.EQUAL
-          && criterion.getValues().contains("true")) {
-        foundShowInGlobalContextInPublished = true;
+          && criterion.getValues().contains("false")
+          && criterion.isNegated()) {
+        foundNegatedInPublished = true;
       }
     }
 
@@ -243,16 +252,15 @@ public class DocumentSearchFilterUtilsTest {
     for (Criterion criterion : unpublishedClause.getAnd()) {
       if ("showInGlobalContext".equals(criterion.getField())
           && criterion.getCondition() == Condition.EQUAL
-          && criterion.getValues().contains("true")) {
-        foundShowInGlobalContextInUnpublished = true;
+          && criterion.getValues().contains("false")
+          && criterion.isNegated()) {
+        foundNegatedInUnpublished = true;
       }
     }
 
     assertTrue(
-        foundShowInGlobalContextInPublished,
-        "Published clause should require showInGlobalContext=true");
+        foundNegatedInPublished, "Published clause should exclude showInGlobalContext=false");
     assertTrue(
-        foundShowInGlobalContextInUnpublished,
-        "Unpublished clause should require showInGlobalContext=true");
+        foundNegatedInUnpublished, "Unpublished clause should exclude showInGlobalContext=false");
   }
 }

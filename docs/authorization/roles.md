@@ -164,24 +164,24 @@ These privileges are only relevant to DataHub Cloud.
 
 ##### Metadata Privileges
 
-| Privilege                             | Admin              | Editor             | Reader             | Description                                                                                    |
-| ------------------------------------- | ------------------ | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------- |
-| View Entity                           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                              |
-| Propose Tags                          | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a tag to an asset.                                               |
-| Propose Glossary Terms                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a glossary term to an asset.                                     |
-| Propose Documentation                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose updates to an asset's documentation.                                    |
-| Propose Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose column (field) glossary terms associated with a dataset schema.         |
-| Propose Dataset Column Tags           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose new column (field) tags associated with a dataset schema.               |
-| Manage Tag Proposals                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a tag to an asset.                                     |
-| Manage Glossary Term Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a glossary term to an asset.                           |
-| Manage Dataset Column Glossary Terms  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) glossary term proposals associated with a dataset schema. |
-| Manage Dataset Column Tag Proposals   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) tag proposals associated with a dataset schema.           |
-| Manage Documentation Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal update an asset's documentation                               |
-| Manage Group Notification Settings    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
-| Manage Group Subscriptions            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
-| Manage User Subscriptions             | :heavy_check_mark: | :x:                | :x:                | The ability to manage subscriptions for another user.                                          |
-| Manage Data Contract Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
-| Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another DataHub Cloud instance.                            |
+| Privilege                                     | Admin              | Editor             | Reader             | Description                                                                                    |
+| --------------------------------------------- | ------------------ | ------------------ | ------------------ | ---------------------------------------------------------------------------------------------- |
+| View Entity                                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                              |
+| Propose Tags                                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a tag to an asset.                                               |
+| Propose Glossary Terms                        | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a glossary term to an asset.                                     |
+| Propose Description                           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose updates to an asset's description.                                      |
+| Propose Dataset Column Glossary Terms         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose column (field) glossary terms associated with a dataset schema.         |
+| Propose Dataset Column Tags                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose new column (field) tags associated with a dataset schema.               |
+| Manage Tag Proposals                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a tag to an asset.                                     |
+| Manage Glossary Term Proposals                | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a glossary term to an asset.                           |
+| Manage Dataset Column Glossary Term Proposals | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) glossary term proposals associated with a dataset schema. |
+| Manage Dataset Column Tag Proposals           | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) tag proposals associated with a dataset schema.           |
+| Manage Description Proposals                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to update an asset's description                              |
+| Manage Group Notification Settings            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
+| Manage Group Subscriptions                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
+| Manage User Subscriptions                     | :heavy_check_mark: | :x:                | :x:                | The ability to manage subscriptions for another user.                                          |
+| Manage Data Contract Proposals                | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
+| Share Entity                                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another DataHub Cloud instance.                            |
 
 ## Additional Resources
 
