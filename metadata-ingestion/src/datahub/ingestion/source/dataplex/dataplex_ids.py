@@ -406,8 +406,6 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
             "{project_id}.regional-{location}.{instance_id}.{database_id}.{table_id}"
         ),
     ),
-    # TODO: Process the "Graph Schema" aspect for cloud-spanner-graph entries to capture
-    # node and edge type definitions exposed by the Dataplex Catalog.
     "cloud-spanner-graph": DataplexEntryTypeMapping(
         datahub_platform="spanner",
         datahub_entity_type="Dataset",

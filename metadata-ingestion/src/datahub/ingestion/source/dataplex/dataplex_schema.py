@@ -23,6 +23,112 @@ from datahub.metadata.urns import DataPlatformUrn
 logger = logging.getLogger(__name__)
 
 
+def extract_graph_schema_from_entry_aspects(
+    entry: dataplex_v1.Entry, entry_id: str, platform: str
+) -> Optional[SchemaMetadataClass]:
+    """Extract schema from a Spanner Graph ``graph-schema`` aspect.
+
+    Nodes are emitted as fields under ``[nodes].<name>`` and edges as fields
+    under ``[edges].<name>``, with source→destination in the edge description.
+    """
+    if not entry.aspects:
+        return None
+
+    graph_aspect = None
+    for aspect_key, aspect_value in entry.aspects.items():
+        if "graph-schema" in aspect_key:
+            graph_aspect = aspect_value
+            break
+
+    if graph_aspect is None:
+        logger.debug(f"No graph-schema aspect found for entry {entry_id}")
+        return None
+    if not hasattr(graph_aspect, "data") or not graph_aspect.data:
+        logger.debug(f"graph-schema aspect for entry {entry_id} has no data")
+        return None
+
+    fields: list[SchemaFieldClass] = []
+    try:
+        data_dict = dict(graph_aspect.data)
+
+        nodes_data = data_dict.get("nodes")
+        if nodes_data and hasattr(nodes_data, "list_value"):
+            for node_value in nodes_data.list_value.values:
+                node_fields = dict(node_value.struct_value.fields)
+                name_val = node_fields.get("name")
+                node_name = name_val.string_value if name_val else None
+                if node_name:
+                    fields.append(
+                        SchemaFieldClass(
+                            fieldPath=f"[nodes].{node_name}",
+                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                            nativeDataType="NODE",
+                            nullable=True,
+                            recursive=False,
+                        )
+                    )
+
+        edges_data = data_dict.get("edges")
+        if edges_data and hasattr(edges_data, "list_value"):
+            for edge_value in edges_data.list_value.values:
+                edge_fields = dict(edge_value.struct_value.fields)
+
+                name_val = edge_fields.get("name")
+                edge_name = name_val.string_value if name_val else None
+
+                src_val = edge_fields.get("source")
+                src_name = None
+                if src_val and hasattr(src_val, "struct_value"):
+                    src_name_val = dict(src_val.struct_value.fields).get("name")
+                    src_name = src_name_val.string_value if src_name_val else None
+
+                dst_val = edge_fields.get("destination")
+                dst_name = None
+                if dst_val and hasattr(dst_val, "struct_value"):
+                    dst_name_val = dict(dst_val.struct_value.fields).get("name")
+                    dst_name = dst_name_val.string_value if dst_name_val else None
+
+                if edge_name:
+                    description = (
+                        f"{src_name} \u2192 {dst_name}"
+                        if src_name and dst_name
+                        else None
+                    )
+                    fields.append(
+                        SchemaFieldClass(
+                            fieldPath=f"[edges].{edge_name}",
+                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                            nativeDataType="EDGE",
+                            description=description,
+                            nullable=True,
+                            recursive=False,
+                        )
+                    )
+
+        if not fields:
+            logger.debug(
+                f"No nodes or edges extracted from graph-schema for {entry_id}"
+            )
+            return None
+
+        logger.info(f"Extracted {len(fields)} graph schema fields for entry {entry_id}")
+        return SchemaMetadataClass(
+            schemaName=entry_id,
+            platform=str(DataPlatformUrn(platform)),
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=fields,
+        )
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to extract graph schema from entry {entry_id}: {e}",
+            exc_info=True,
+        )
+        return None
+
+
 def extract_field_value(field_data: Any, field_key: str, default: str = "") -> str:
     """Extract a field value from protobuf field data (dict or object).
 

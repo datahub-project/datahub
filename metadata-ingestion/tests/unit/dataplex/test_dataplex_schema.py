@@ -2,14 +2,6 @@
 
 from unittest.mock import Mock
 
-from google.cloud import dataplex_v1
-
-from datahub.ingestion.source.dataplex.dataplex_schema import (
-    extract_field_value,
-    extract_schema_from_entry_aspects,
-    map_aspect_type_to_datahub,
-    process_schema_field_item,
-)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -18,6 +10,15 @@ from datahub.metadata.schema_classes import (
     RecordTypeClass,
     StringTypeClass,
     TimeTypeClass,
+)
+from google.cloud import dataplex_v1
+
+from datahub.ingestion.source.dataplex.dataplex_schema import (
+    extract_field_value,
+    extract_graph_schema_from_entry_aspects,
+    extract_schema_from_entry_aspects,
+    map_aspect_type_to_datahub,
+    process_schema_field_item,
 )
 
 
@@ -357,3 +358,119 @@ class TestExtractSchemaFromEntryAspects:
         result = extract_schema_from_entry_aspects(entry, "test_entry", "bigquery")
 
         assert result is None
+
+
+def _make_node_value(name: str) -> Mock:
+    """Build a mock protobuf Value for a graph node entry."""
+    name_val = Mock()
+    name_val.string_value = name
+
+    struct = Mock()
+    struct.fields = {"name": name_val}
+
+    value = Mock()
+    value.struct_value = struct
+    return value
+
+
+def _make_edge_value(name: str, source: str, destination: str) -> Mock:
+    """Build a mock protobuf Value for a graph edge entry."""
+    name_val = Mock()
+    name_val.string_value = name
+
+    src_name_val = Mock()
+    src_name_val.string_value = source
+    src_struct = Mock()
+    src_struct.fields = {"name": src_name_val}
+    src_val = Mock()
+    src_val.struct_value = src_struct
+
+    dst_name_val = Mock()
+    dst_name_val.string_value = destination
+    dst_struct = Mock()
+    dst_struct.fields = {"name": dst_name_val}
+    dst_val = Mock()
+    dst_val.struct_value = dst_struct
+
+    edge_struct = Mock()
+    edge_struct.fields = {"name": name_val, "source": src_val, "destination": dst_val}
+
+    value = Mock()
+    value.struct_value = edge_struct
+    return value
+
+
+def _make_graph_aspect(nodes: list, edges: list) -> Mock:
+    nodes_list = Mock()
+    nodes_list.values = nodes
+    nodes_val = Mock()
+    nodes_val.list_value = nodes_list
+
+    edges_list = Mock()
+    edges_list.values = edges
+    edges_val = Mock()
+    edges_val.list_value = edges_list
+
+    aspect = Mock()
+    aspect.data = {"nodes": nodes_val, "edges": edges_val}
+    return aspect
+
+
+class TestExtractGraphSchemaFromEntryAspects:
+    def test_no_aspects_returns_none(self) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
+
+    def test_no_graph_schema_aspect_returns_none(self) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"some-other-aspect": Mock()}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
+
+    def test_graph_schema_aspect_no_data_returns_none(self) -> None:
+        aspect = Mock()
+        aspect.data = None
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
+
+    def test_nodes_and_edges_extracted(self) -> None:
+        aspect = _make_graph_aspect(
+            nodes=[_make_node_value("Users"), _make_node_value("Orders")],
+            edges=[_make_edge_value("ShoppingCarts", "Users", "Products")],
+        )
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+
+        result = extract_graph_schema_from_entry_aspects(
+            entry, "ECommerceGraph", "spanner"
+        )
+
+        assert result is not None
+        field_paths = [f.fieldPath for f in result.fields]
+        assert "[nodes].Users" in field_paths
+        assert "[nodes].Orders" in field_paths
+        assert "[edges].ShoppingCarts" in field_paths
+
+        edge_field = next(
+            f for f in result.fields if f.fieldPath == "[edges].ShoppingCarts"
+        )
+        assert edge_field.description == "Users \u2192 Products"
+        assert edge_field.nativeDataType == "EDGE"
+
+        node_field = next(f for f in result.fields if f.fieldPath == "[nodes].Users")
+        assert node_field.nativeDataType == "NODE"
+
+    def test_schema_name_and_platform(self) -> None:
+        aspect = _make_graph_aspect(
+            nodes=[_make_node_value("A")],
+            edges=[],
+        )
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+
+        result = extract_graph_schema_from_entry_aspects(entry, "MyGraph", "spanner")
+
+        assert result is not None
+        assert result.schemaName == "MyGraph"
+        assert "spanner" in result.platform
