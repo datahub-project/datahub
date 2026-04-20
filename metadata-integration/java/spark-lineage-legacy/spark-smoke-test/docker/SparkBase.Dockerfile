@@ -7,8 +7,8 @@ ENV SHARED_WORKSPACE=${shared_workspace}
 
 # -- Layer: Apache Spark
 
-ARG spark_version=3.2.0
-ARG hadoop_version=2.7
+ARG spark_version=3.5.0
+ARG hadoop_version=3
 
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends curl gnupg && \
