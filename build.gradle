@@ -65,7 +65,7 @@ buildscript {
   ext.openLineageVersion = '1.33.0'
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
-  ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
+  ext.vertxVersion = '4.5.14' // vert.x#5895 StaticHandler/RFC3986; CVE-2026-1002; fabric8 kubernetes-httpclient-vertx
   ext.nettyVersion = '4.1.132.Final' // align all io.netty modules; CVE-2026-33870
   // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
   // 1.80.0 -> shaded netty-common 4.1.130.Final (CVE-2026-33870: fixed in Netty 4.1.132+; upgrade grpc when a release bundles patched Netty).
