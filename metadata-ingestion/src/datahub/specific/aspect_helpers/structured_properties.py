@@ -16,8 +16,7 @@ from datahub.utilities.urns.structured_properties_urn import (
     make_structured_property_urn,
 )
 
-_PROPERTIES_KEY_FIELDS = ["propertyUrn", f"attribution{UNIT_SEPARATOR}source"]
-_PROPERTIES_APK = {"properties": _PROPERTIES_KEY_FIELDS}
+_PROPERTIES_KEY_FIELDS = ["propertyUrn", "values", f"attribution{UNIT_SEPARATOR}source"]
 
 
 class HasStructuredPropertiesPatch(MetadataPatchProposal):
@@ -46,7 +45,6 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
                 propertyUrn=property_urn,
                 values=value if isinstance(value, list) else [value],
             ),
-            array_primary_keys=_PROPERTIES_APK,
         )
         return self
 
@@ -116,7 +114,6 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
             "add",
             path=("properties", property.propertyUrn, source),
             value=property,
-            array_primary_keys=_PROPERTIES_APK,
         )
         return self
 

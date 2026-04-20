@@ -29,7 +29,6 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.aspect_helpers.fine_grained_lineage import (
     HasFineGrainedLineagePatch,
 )
-from datahub.specific.aspect_helpers.tags import HasTagsPatch
 
 
 def helper_test_entity_terms_patch(
@@ -87,7 +86,7 @@ def helper_test_entity_terms_patch(
 def helper_test_dataset_tags_patch(
     graph_client: DataHubGraph,
     test_entity_urn: str,
-    patch_builder_class: Type[HasTagsPatch],
+    patch_builder_class: Type[MetadataPatchProposal],
 ):
     tag_urn = make_tag_urn(tag=f"testTag-{uuid.uuid4()}")
 
@@ -106,6 +105,7 @@ def helper_test_dataset_tags_patch(
 
     new_tag = TagAssociationClass(tag=make_tag_urn(f"test-{uuid.uuid4()}"))
     patch_builder = patch_builder_class(test_entity_urn)
+    assert hasattr(patch_builder, "add_tag")
     for patch_mcp in patch_builder.add_tag(new_tag).build():
         graph_client.emit_mcp(patch_mcp)
         pass

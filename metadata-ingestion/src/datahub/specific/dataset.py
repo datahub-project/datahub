@@ -4,6 +4,7 @@ from typing import Generic, List, Optional, Tuple, TypeVar, Union
 from datahub.emitter.mcp_patch_builder import (
     MetadataPatchProposal,
     PatchPath,
+    determine_array_primary_keys,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
@@ -30,8 +31,9 @@ from datahub.specific.aspect_helpers.siblings import HasSiblingsPatch
 from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
 )
-from datahub.specific.aspect_helpers.tags import HasTagsPatch
+from datahub.specific.aspect_helpers.tags import DEFAULT_TAG_KEY_FIELDS, HasTagsPatch
 from datahub.specific.aspect_helpers.terms import (
+    DEFAULT_TERMS_KEY_FIELDS,
     HasTermsPatch,
 )
 
@@ -55,10 +57,20 @@ class FieldPatchHelper(Generic[_Parent]):
         self.aspect_field = "editableSchemaFieldInfo" if editable else "schemaFieldInfo"
 
     def add_tag(self, tag: Tag) -> "FieldPatchHelper":
+        source = (
+            tag.attribution.source if tag.attribution and tag.attribution.source else ""
+        )
         self._parent._add_patch(
             self.aspect_name,
             "add",
-            path=(self.aspect_field, self.field_path, "globalTags", "tags", tag.tag),
+            path=(
+                self.aspect_field,
+                self.field_path,
+                "globalTags",
+                "tags",
+                tag.tag,
+                source,
+            ),
             value=tag,
         )
         return self
@@ -68,23 +80,29 @@ class FieldPatchHelper(Generic[_Parent]):
         tag: Union[str, Urn],
         attribution_source: Optional[Union[str, Urn]] = None,
     ) -> "FieldPatchHelper":
-        if attribution_source is not None:
-            warnings.warn(
-                "attribution_source is not supported for field-level tag removal and will be ignored.",
-                stacklevel=2,
-            )
-
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
+        source = str(attribution_source) if attribution_source is not None else None
+        path, array_primary_keys = determine_array_primary_keys(
+            field_name="tags",
+            default_key_fields=DEFAULT_TAG_KEY_FIELDS,
+            path=[str(tag), source],
+        )
         self._parent._add_patch(
             self.aspect_name,
             "remove",
-            path=(self.aspect_field, self.field_path, "globalTags", "tags", tag),
+            path=(self.aspect_field, self.field_path, "globalTags", "tags", *path),
             value={},
+            array_primary_keys=array_primary_keys,
         )
         return self
 
     def add_term(self, term: Term) -> "FieldPatchHelper":
+        source = (
+            term.attribution.source
+            if (term.attribution and term.attribution.source)
+            else ""
+        )
         self._parent._add_patch(
             self.aspect_name,
             "add",
@@ -94,6 +112,7 @@ class FieldPatchHelper(Generic[_Parent]):
                 "glossaryTerms",
                 "terms",
                 term.urn,
+                source,
             ),
             value=term,
         )
@@ -104,19 +123,20 @@ class FieldPatchHelper(Generic[_Parent]):
         term: Union[str, Urn],
         attribution_source: Optional[Union[str, Urn]] = None,
     ) -> "FieldPatchHelper":
-        if attribution_source is not None:
-            warnings.warn(
-                "attribution_source is not supported for field-level glossary term removal and will be ignored.",
-                stacklevel=2,
-            )
-
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
+        source = str(attribution_source) if attribution_source is not None else None
+        path, array_primary_keys = determine_array_primary_keys(
+            field_name="terms",
+            default_key_fields=DEFAULT_TERMS_KEY_FIELDS,
+            path=[str(term), source],
+        )
         self._parent._add_patch(
             self.aspect_name,
             "remove",
-            path=(self.aspect_field, self.field_path, "glossaryTerms", "terms", term),
+            path=(self.aspect_field, self.field_path, "glossaryTerms", "terms", *path),
             value={},
+            array_primary_keys=array_primary_keys,
         )
         return self
 
