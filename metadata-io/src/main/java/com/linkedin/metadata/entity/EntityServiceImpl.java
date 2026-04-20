@@ -72,6 +72,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -1311,10 +1312,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                             .request(writeItem)
                                                             .build())
                                                 .orElse(null);
-                                          } catch (
-                                              com.linkedin.metadata.entity.validation
-                                                      .AspectSizeExceededException
-                                                  e) {
+                                          } catch (AspectSizeExceededException e) {
                                             // Convert to AspectValidationException for uniform
                                             // batch handling
                                             AspectValidationException validationException =

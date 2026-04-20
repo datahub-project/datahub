@@ -303,7 +303,6 @@ public class RollbackService {
   private boolean isAuthorized(
       @Nonnull OperationContext opContext, @Nonnull List<AspectRowSummary> rowSummaries) {
 
-    // Standard authorization
     return AuthUtil.isAPIAuthorizedEntityUrns(
         opContext,
         DELETE,

@@ -52,6 +52,8 @@ public class RestliUtils {
       } else if (throwable instanceof IllegalArgumentException
           || throwable.getCause() instanceof IllegalArgumentException) {
         finalException = badRequestException(throwable.getMessage());
+      } else if (throwable instanceof ActorAccessException) {
+          finalException = forbidden(throwable.getMessage());
       } else if (throwable.getCause() instanceof ActorAccessException) {
           finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException) {

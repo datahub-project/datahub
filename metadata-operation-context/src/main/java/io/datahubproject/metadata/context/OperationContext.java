@@ -668,38 +668,10 @@ public class OperationContext implements AuthorizationSession {
               this.systemTelemetryContext,
               new java.util.ArrayList<>());
 
-      // Inject opContext as the AuthorizationSession into RetrieverContext.
-      // OperationContext implements AuthorizationSession, so pass it directly.
-      // Only rebuild if retrieverContext is a concrete instance with all required fields.
+      // Always inject current session's authorization into RetrieverContext
       if (this.retrieverContext instanceof RetrieverContext
-          && this.retrieverContext.getAuthorizationSession() == null
           && this.retrieverContext.getGraphRetriever() != null) {
-        RetrieverContext concreteRC = (RetrieverContext) this.retrieverContext;
-        RetrieverContext withSession =
-            RetrieverContext.builder()
-                .graphRetriever(concreteRC.getGraphRetriever())
-                .aspectRetriever(concreteRC.getAspectRetriever())
-                .cachingAspectRetriever(concreteRC.getCachingAspectRetriever())
-                .searchRetriever(concreteRC.getSearchRetriever())
-                .authorizationSession(opContext)
-                .build();
-        opContext =
-            new OperationContext(
-                this.operationContextConfig,
-                sessionActor,
-                this.systemActorContext,
-                Objects.requireNonNull(this.searchContext),
-                Objects.requireNonNull(this.authorizationContext),
-                this.entityRegistryContext,
-                this.servicesRegistryContext,
-                this.requestContext,
-                withSession,
-                this.objectMapperContext != null
-                    ? this.objectMapperContext
-                    : ObjectMapperContext.DEFAULT,
-                this.validationContext,
-                this.systemTelemetryContext,
-                new java.util.ArrayList<>());
+        ((RetrieverContext) this.retrieverContext).setAuthorizationSession(opContext);
       }
 
       return opContext;

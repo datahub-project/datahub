@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.DomainProperties;
@@ -129,10 +130,10 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
 
       // In the case that the entity is a domain, the associated domain is the domain itself
+      // plus all parent domains
       if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
-        return FieldResolver.FieldValue.builder()
-            .values(Collections.singleton(entityUrn.toString()))
-            .build();
+        Domains selfDomain = new Domains().setDomains(new UrnArray(entityUrn));
+        return buildDomainFieldValue(opContext, selfDomain);
       }
 
       EntityResponse response =

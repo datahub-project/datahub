@@ -21,7 +21,12 @@ public class RetrieverContext
   @Nonnull private final AspectRetriever aspectRetriever;
   @Nonnull private final CachingAspectRetriever cachingAspectRetriever;
   @Nonnull private final SearchRetriever searchRetriever;
-  @Nullable private final AuthorizationSession authorizationSession;
+  @Nullable private AuthorizationSession authorizationSession;
+
+  /** Package-private setter to allow OperationContext to inject itself after construction. */
+  void setAuthorizationSession(@Nullable AuthorizationSession authorizationSession) {
+    this.authorizationSession = authorizationSession;
+  }
 
   @Override
   public Optional<Integer> getCacheKeyComponent() {
