@@ -9,6 +9,7 @@ export default defineConfig({
   reporter: process.env.CI
     ? [
         ['blob'],
+        ['html'],
         ['junit', { outputFile: 'test-results/junit.xml' }],
       ]
     : [

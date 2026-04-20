@@ -210,15 +210,16 @@ export class IncidentsPage extends BasePage {
     await this.page.waitForLoadState('networkidle');
   }
 
+  childOption(status: string): Locator {
+    return this.page.locator(`[data-testid="child-option-${status}"]`);
+  }
+
   async filterByStatus(status: string): Promise<void> {
     // The filter SelectBase is gated on IntersectionObserver (useIsVisible). Scroll
     // the element into the viewport so the observer fires and the SelectBase renders.
     await this.filterBase.scrollIntoViewIfNeeded();
-    await this.filterBase.waitFor({ state: 'visible', timeout: 10000 });
     await this.filterBase.click();
-    const childOption = this.page.locator(`[data-testid="child-option-${status}"]`);
-    await childOption.waitFor({ state: 'visible', timeout: 10000 });
-    await childOption.click();
+    await this.childOption(status).click();
     // Close the filter dropdown by clicking the base again.
     await this.filterBase.click();
   }

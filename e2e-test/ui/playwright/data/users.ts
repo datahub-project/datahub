@@ -51,5 +51,3 @@ try {
  */
 export const users: UserMap = { ...defaultUsers, ...ciOverrides };
 
-/** @deprecated Use `users` instead. */
-export const resolvedUsers = users;
