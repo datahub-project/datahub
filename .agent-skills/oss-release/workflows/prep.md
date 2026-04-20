@@ -65,8 +65,17 @@ cat <<EOF
 EOF
 ```
 
-If any check fails or the summary reveals a blocker (empty range, HEAD already tagged
-with a conflicting version), **stop and tell the user what to fix** before continuing.
+**Blocker handling.** Two common degenerate states surface at this step (and often
+co-occur — HEAD being at the latest tag implies an empty range by definition):
+
+| Blocker | Real run | Dry-run |
+|---|---|---|
+| HEAD is already tagged as `v*` (`AT_HEAD_TAGS` non-empty) | **Stop.** Show the preflight summary, name the tag(s), and wait for the user to either abort or explicitly type "republish" to acknowledge they want to tag the same commit under another name. | Announce the block and proceed — the dry-run is inspectable without side effects. |
+| Empty range (`RANGE_COUNT = 0` since `LATEST_STABLE`) | **Stop** unless the user already acknowledged via the HEAD-tagged path above (same root cause). If the empty range is independent of an at-HEAD tag, still require explicit "republish" confirmation. | Announce and proceed, same as above. |
+| Any other failure (fetch failed, HEAD ≠ origin/master, dirty tree) | **Stop hard** regardless of mode — those are working-tree-broken states, not policy blocks. | Same — hard stop. |
+
+If the two warnings co-occur (HEAD-tagged AND empty-range), present them as one
+consolidated "nothing to release" block rather than two separate warnings.
 
 ## Step 1 — Upstream Diff Analysis
 
@@ -114,6 +123,21 @@ git diff --name-only "$LATEST_STABLE..HEAD" | \
     grep -E '(pyproject\.toml|setup\.py|setup\.cfg|uv\.lock|requirements.*\.txt|metadata-ingestion|datahub-actions|metadata-ingestion-modules)' \
     || echo "(no safety-relevant paths touched)"
 ```
+
+**Empty-range rendering.** If `$LATEST_STABLE..HEAD` contains zero commits,
+all three `git log` / `git diff` commands above produce no output. Don't render
+empty tables — they're confusing. Instead, print a single consolidated line and
+skip ahead:
+
+```
+=== Release range ($LATEST_STABLE..HEAD) ===
+  (empty — HEAD is at $LATEST_STABLE, nothing to release)
+```
+
+When the range is empty, Step 2b can be abbreviated: render the 5-row safety
+table with all categories marked `✅ N/A — empty range` and overall verdict
+`✅ SAFE (but nothing to ship)`, then continue to Step 3 where the empty-range
+guard will gate the actual decision.
 
 **Step 2b — Apply the safety-assessment checklist**
 

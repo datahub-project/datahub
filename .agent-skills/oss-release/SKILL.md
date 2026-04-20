@@ -80,13 +80,25 @@ validation. `stable` is called separately, potentially days or weeks later.
 
 ## Confirmation gates: dry-run vs real-run
 
-Several stages call for "explicit confirmation" from the user (next-version, notes
-approval, promote-to-stable). The behavior depends on the mode:
+Two classes of confirmation: **policy gates** (operator intent — "are you sure
+you want to cut this version?") and **state blockers** (something is wrong with
+the tree — "HEAD is already tagged," "range is empty"). Both honor dry-run vs
+real-run, but phrased slightly differently.
 
-| Mode | Gate behavior |
+**Policy gates** — next-version, notes approval, promote-to-stable:
+
+| Mode | Behavior |
 |---|---|
-| **Real run** | Honor every gate. Stop and wait for the user's explicit "yes" / "confirm" / equivalent before each gated stage. Silence is NOT consent. |
-| **Dry-run** | Announce each gate ("In a real run I would pause here for confirmation of NEXT_VERSION"), but proceed without blocking. Nothing the dry-run does is irreversible, and forcing the user to type "yes" through five gates to preview a release defeats the purpose. |
+| **Real run** | Stop and wait for the user's explicit "yes" / "confirm" / equivalent. Silence is NOT consent. |
+| **Dry-run** | Announce each gate ("In a real run I would pause here for confirmation of NEXT_VERSION"), but proceed. Nothing the dry-run does is irreversible. |
+
+**State blockers** — HEAD already tagged, empty range, failed fetch, dirty tree
+(covered in detail in `workflows/prep.md` Step 0):
+
+| Mode | Behavior |
+|---|---|
+| **Real run** | Stop. Show the blocker and require explicit "republish" / "override" for degenerate-but-intentional cases (HEAD-tagged, empty range). Hard-fail for working-tree-broken cases (dirty tree, HEAD ≠ origin/master, fetch failures) — those can't be overridden without fixing the tree. |
+| **Dry-run** | Announce the blocker and proceed for the degenerate cases. Hard-fail for working-tree-broken cases even in dry-run, since they indicate the tool is running in the wrong state. |
 
 A user-supplied override always wins: if they explicitly say "stop and ask me each time"
 during a dry-run, honor that for the rest of the run.

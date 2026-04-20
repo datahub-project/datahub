@@ -84,16 +84,38 @@ FORK_AHEAD=$(git rev-list "$MERGE_BASE..origin/master" --count)
 echo "Gap: OSS is ${OSS_AHEAD} commit(s) ahead | Fork is ${FORK_AHEAD} commit(s) ahead"
 echo ""
 
-echo "--- OSS commits not in fork (${OSS_AHEAD}) ---"
-if [ "$OSS_AHEAD" -gt 0 ]; then
-    git log "$MERGE_BASE..$OSS_REMOTE/master" \
+# Helper: print the ingestion-relevant commit summary + file-stats for a range,
+# emitting "(none)" fallbacks when either section would otherwise be silent.
+# A range with many commits can still have zero ingestion-relevant ones, so
+# we must check each section independently.
+_ingestion_report() {
+    local range="$1"
+    local commits stats
+
+    commits=$(git log "$range" \
         --pretty=format:"  %h %s" \
         --no-merges \
-        -- metadata-ingestion/ datahub-actions/ 2>/dev/null | head -40
+        -- metadata-ingestion/ datahub-actions/ 2>/dev/null | head -40)
+    if [ -n "$commits" ]; then
+        echo "$commits"
+    else
+        echo "  (none — no metadata-ingestion or datahub-actions commits in this range)"
+    fi
     echo ""
+
     echo "  File stats (metadata-ingestion + datahub-actions):"
-    git diff --stat "$MERGE_BASE..$OSS_REMOTE/master" \
-        -- metadata-ingestion/ datahub-actions/ 2>/dev/null | tail -5
+    stats=$(git diff --stat "$range" \
+        -- metadata-ingestion/ datahub-actions/ 2>/dev/null | tail -5)
+    if [ -n "$stats" ]; then
+        echo "$stats"
+    else
+        echo "    (none — no ingestion file changes in this range)"
+    fi
+}
+
+echo "--- OSS commits not in fork (${OSS_AHEAD}) ---"
+if [ "$OSS_AHEAD" -gt 0 ]; then
+    _ingestion_report "$MERGE_BASE..$OSS_REMOTE/master"
 else
     echo "  (none — fork is fully synced)"
 fi
@@ -101,14 +123,7 @@ echo ""
 
 echo "--- Fork-only commits since sync (${FORK_AHEAD}, non-merge) ---"
 if [ "$FORK_AHEAD" -gt 0 ]; then
-    git log "$MERGE_BASE..origin/master" \
-        --pretty=format:"  %h %s" \
-        --no-merges \
-        -- metadata-ingestion/ datahub-actions/ 2>/dev/null | head -40
-    echo ""
-    echo "  File stats (metadata-ingestion + datahub-actions):"
-    git diff --stat "$MERGE_BASE..origin/master" \
-        -- metadata-ingestion/ datahub-actions/ 2>/dev/null | tail -5
+    _ingestion_report "$MERGE_BASE..origin/master"
 else
     echo "  (none)"
 fi

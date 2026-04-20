@@ -151,6 +151,21 @@ if [ "$DRY_RUN" = "true" ]; then
     done < <(git tag --merged "$SHA" --sort=-v:refname 2>/dev/null)
     rm -f "$AT_SHA_TAGS_FILE"
     [ -z "$PRIOR_TAG" ] && PRIOR_TAG="$PRIOR_TAG_FALLBACK"
+
+    # If any release tag is already AT this SHA, the commit range we're about to
+    # show is the range that went into THAT tag, NOT new content for the tag
+    # we're cutting. Flag this loudly above the range so operators don't mistake
+    # already-shipped commits for fresh content.
+    AT_SHA_RELEASE_TAGS=$(git tag --points-at "$SHA" 2>/dev/null | grep -E '^v[0-9]' || true)
+    if [ -n "$AT_SHA_RELEASE_TAGS" ]; then
+        echo "⚠️  WARNING: ${SHA:0:10} is already tagged as:"
+        echo "$AT_SHA_RELEASE_TAGS" | sed 's/^/      /'
+        echo "   Cutting ${TAG} here would tag the same commit under another name."
+        echo "   The commit range below is the range that went into the tag(s) above —"
+        echo "   NOT new content being released. Abort unless this is an intentional republish."
+        echo ""
+    fi
+
     if [ -n "$PRIOR_TAG" ]; then
         RANGE_COUNT=$(git rev-list --count --no-merges "${PRIOR_TAG}..${SHA}" 2>/dev/null || echo "?")
         echo "--- Commit range: ${PRIOR_TAG}..${SHA:0:10} (${RANGE_COUNT} non-merge commits) ---"
