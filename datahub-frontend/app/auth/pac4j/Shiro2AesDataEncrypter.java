@@ -6,8 +6,8 @@ import org.pac4j.core.util.CommonHelper;
 import org.pac4j.play.store.DataEncrypter;
 
 /**
- * AES session cookie encryption compatible with {@code PlayCookieSessionStore}, using Apache Shiro 2.x
- * cryptography (same behavior as legacy pac4j {@code ShiroAesDataEncrypter} against Shiro 1.x).
+ * AES session cookie encryption compatible with {@code PlayCookieSessionStore}, using Apache Shiro
+ * 2.x cryptography (same behavior as legacy pac4j {@code ShiroAesDataEncrypter} against Shiro 1.x).
  */
 public final class Shiro2AesDataEncrypter implements DataEncrypter {
 

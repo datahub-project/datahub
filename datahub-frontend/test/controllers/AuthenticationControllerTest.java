@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import auth.AuthUtils;
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
@@ -30,7 +31,6 @@ import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.core.exception.http.RedirectionAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.store.DataEncrypter;
-import auth.pac4j.DatahubPlayCookieSessionStore;
 import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;

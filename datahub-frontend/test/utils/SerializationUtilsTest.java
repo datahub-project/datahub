@@ -2,6 +2,7 @@ package utils;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.net.URL;
@@ -10,7 +11,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 import org.pac4j.core.exception.http.FoundAction;
-import auth.pac4j.DatahubPlayCookieSessionStore;
 
 public class SerializationUtilsTest {
 

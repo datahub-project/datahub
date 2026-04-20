@@ -4,6 +4,8 @@ import static auth.AuthUtils.*;
 import static utils.ConfigUtil.*;
 
 import auth.metrics.PrometheusScrapeServer;
+import auth.pac4j.DatahubPlayCookieSessionStore;
+import auth.pac4j.Shiro2AesDataEncrypter;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
@@ -59,8 +61,6 @@ import org.pac4j.core.util.serializer.JavaSerializer;
 import org.pac4j.play.LogoutController;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlayCacheSessionStore;
-import auth.pac4j.DatahubPlayCookieSessionStore;
-import auth.pac4j.Shiro2AesDataEncrypter;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
@@ -125,7 +125,8 @@ public class AuthModule extends AbstractModule {
             DigestUtils.sha256Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
         final String aesEncryptionKey = aesKeyHash.substring(0, 16);
         playCacheCookieStore =
-            new DatahubPlayCookieSessionStore(new Shiro2AesDataEncrypter(aesEncryptionKey.getBytes()));
+            new DatahubPlayCookieSessionStore(
+                new Shiro2AesDataEncrypter(aesEncryptionKey.getBytes()));
         playCacheCookieStore.setSerializer(new JavaSerializer());
       } catch (Exception e) {
         throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);

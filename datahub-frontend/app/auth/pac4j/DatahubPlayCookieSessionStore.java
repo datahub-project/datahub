@@ -26,19 +26,19 @@ import org.slf4j.LoggerFactory;
 import play.mvc.Http;
 
 /**
- * Same behavior as pac4j {@code PlayCookieSessionStore} (play-pac4j 12.0.x) but without a default field
- * initializer that references {@code ShiroAesDataEncrypter} (Shiro 1.x / broken classpath with Shiro 2.x).
+ * Same behavior as pac4j {@code PlayCookieSessionStore} (play-pac4j 12.0.x) but without a default
+ * field initializer that references {@code ShiroAesDataEncrypter} (Shiro 1.x / broken classpath
+ * with Shiro 2.x).
  *
- * <p>See <a href="https://shiro.apache.org/security-reports.html">CVE-2026-23903</a> and DataHub's upgrade to
- * Apache Shiro 2.x.
+ * <p>See <a href="https://shiro.apache.org/security-reports.html">CVE-2026-23903</a> and DataHub's
+ * upgrade to Apache Shiro 2.x.
  */
 @Singleton
 @Getter
 @Setter
 public class DatahubPlayCookieSessionStore implements SessionStore {
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(DatahubPlayCookieSessionStore.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatahubPlayCookieSessionStore.class);
 
   private String sessionName = "pac4j";
 
@@ -84,9 +84,7 @@ public class DatahubPlayCookieSessionStore implements SessionStore {
     if (sessionValue != null) {
       final byte[] inputBytes = Base64.getDecoder().decode(sessionValue);
       values =
-          (Map)
-              serializer.deserializeFromBytes(
-                  uncompressBytes(dataEncrypter.decrypt(inputBytes)));
+          (Map) serializer.deserializeFromBytes(uncompressBytes(dataEncrypter.decrypt(inputBytes)));
     }
     if (values != null) {
       return values;
@@ -133,7 +131,8 @@ public class DatahubPlayCookieSessionStore implements SessionStore {
     if (serialized == null) {
       playWebContext.setNativeSession(playWebContext.getNativeSession().removing(sessionName));
     } else {
-      playWebContext.setNativeSession(playWebContext.getNativeSession().adding(sessionName, serialized));
+      playWebContext.setNativeSession(
+          playWebContext.getNativeSession().adding(sessionName, serialized));
     }
   }
 
@@ -149,7 +148,8 @@ public class DatahubPlayCookieSessionStore implements SessionStore {
   }
 
   @Override
-  public Optional buildFromTrackableSession(final WebContext context, final Object trackableSession) {
+  public Optional buildFromTrackableSession(
+      final WebContext context, final Object trackableSession) {
     return Optional.empty();
   }
 
@@ -160,14 +160,14 @@ public class DatahubPlayCookieSessionStore implements SessionStore {
 
   protected Object clearUserProfiles(Object value) {
     final LinkedHashMap profiles = (LinkedHashMap) value;
-    profiles.forEach(
-        (name, profile) -> ((CommonProfile) profile).removeLoginData());
+    profiles.forEach((name, profile) -> ((CommonProfile) profile).removeLoginData());
     return profiles;
   }
 
   public static byte[] uncompressBytes(byte[] zippedBytes) {
     final ByteArrayOutputStream resultBao = new ByteArrayOutputStream();
-    try (GZIPInputStream zipInputStream = new GZIPInputStream(new ByteArrayInputStream(zippedBytes))) {
+    try (GZIPInputStream zipInputStream =
+        new GZIPInputStream(new ByteArrayInputStream(zippedBytes))) {
       byte[] buffer = new byte[8192];
       int len;
       while ((len = zipInputStream.read(buffer)) > 0) {

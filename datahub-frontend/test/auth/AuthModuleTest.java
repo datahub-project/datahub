@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.ActorType;
@@ -28,7 +29,6 @@ import org.junitpioneer.jupiter.ClearEnvironmentVariable;
 import org.mockito.MockedStatic;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.play.store.PlayCacheSessionStore;
-import auth.pac4j.DatahubPlayCookieSessionStore;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
