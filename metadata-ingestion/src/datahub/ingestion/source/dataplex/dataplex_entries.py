@@ -21,10 +21,7 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.common.subtypes import (
-    DatasetContainerSubTypes,
-    DatasetSubTypes,
-)
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
@@ -521,18 +518,11 @@ class DataplexEntriesProcessor:
 
             schema_metadata = None
             if self.config.include_schema:
-                if mapping.datahub_subtype == DatasetSubTypes.GRAPH:
-                    schema_metadata = extract_graph_schema_from_entry_aspects(
-                        entry,
-                        entry_name,
-                        mapping.datahub_platform,
-                    )
-                else:
-                    schema_metadata = extract_schema_from_entry_aspects(
-                        entry,
-                        entry_name,
-                        mapping.datahub_platform,
-                    )
+                schema_metadata = extract_schema_from_entry_aspects(
+                    entry, entry_name, mapping.datahub_platform
+                ) or extract_graph_schema_from_entry_aspects(
+                    entry, entry_name, mapping.datahub_platform
+                )
 
             parent_container_key: Optional[ContainerKey] = None
             if (
