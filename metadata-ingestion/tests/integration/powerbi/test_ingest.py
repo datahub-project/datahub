@@ -89,7 +89,7 @@ def test_mysql_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_monotonic_time: datetime.datetime,
+    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -147,7 +147,7 @@ def test_mysql_odbc_datasource_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_monotonic_time: datetime.datetime,
+    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -205,7 +205,7 @@ def test_mysql_odbc_query_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_monotonic_time: datetime.datetime,
+    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -265,7 +265,7 @@ def test_soft_reference_mode_no_user_entities(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_monotonic_time: datetime.datetime,
+    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     """
@@ -332,7 +332,7 @@ def test_empty_owner_criteria_includes_all_users(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_monotonic_time: datetime.datetime,
+    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     """

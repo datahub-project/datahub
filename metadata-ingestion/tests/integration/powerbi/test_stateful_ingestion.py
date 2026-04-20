@@ -278,7 +278,7 @@ def test_powerbi_stateful_ingestion(
     mock_msal,
     pytestconfig,
     tmp_path,
-    mock_monotonic_time,
+    mock_time,
     requests_mock,
     mock_datahub_graph,
 ):
