@@ -1,26 +1,37 @@
 /**
- * Auth Setup — runs ONCE per Playwright run before all test projects.
+ * Auth Setup — optional one-shot authentication script.
+ *
+ * NOTE: This file is intentionally ignored by the default Playwright project
+ * (see `testIgnore: /.*\.setup\.ts/` in playwright.config.ts). Authentication
+ * is handled dynamically at the worker level by `loginFixture` in
+ * fixtures/login.fixture.ts, which logs in on first use and caches the session
+ * in `.auth/{username}.json`. You do NOT need to run this file separately.
+ *
+ * This file can be run manually to pre-populate the `.auth/` files before a
+ * test run (e.g. in a CI pipeline that separates auth from test execution):
+ *
+ *   yarn playwright test tests/auth.setup.ts --project=chromium
+ *
+ * Note: you must temporarily remove or override `testIgnore` in
+ * playwright.config.ts to run it as part of a project, or invoke it directly
+ * as a Node script.
  *
  * For every user in `resolvedUsers` this setup:
  *   1. Logs in via the DataHub UI and saves the Playwright storageState to
- *      .auth/{username}.json  (consumed by base-test.ts's `context` fixture)
+ *      .auth/{username}.json  (consumed by loginFixture's `context` override)
  *   2. Obtains a personal access token via the DataHub GraphQL API and saves it
  *      to .auth/gms-token-{username}.json  (consumed by base-test.ts's `gmsToken`
  *      fixture and by data-seeding setup scripts)
  *
- * The GMS token is obtained via a standalone API request context after UI login,
- * keeping the browser session (cookies) and the API credential (token) as
- * independent artefacts as required by §2 of the framework spec.
- *
- * Adding a new user: add the entry to fixtures/users.ts. No changes needed here.
+ * Adding a new user: add the entry to data/users.ts. No changes needed here.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { test as setup, expect } from '@playwright/test';
-import { resolvedUsers } from '../fixtures/users';
+import { users } from '../data/users';
 import { authStatePath, gmsTokenPath } from '../fixtures/login';
-import { LoginPage } from '../pages/login-page';
+import { LoginPage } from '../pages/login.page';
 
 const AUTH_DIR = path.join(__dirname, '../.auth');
 
@@ -28,7 +39,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
   setup.setTimeout(120_000);
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
-  for (const [key, user] of Object.entries(resolvedUsers)) {
+  for (const [key, user] of Object.entries(users)) {
     console.log(`\n🔐 Authenticating user '${key}' (${user.username})...`);
 
     // ── 1. UI login + storageState ──────────────────────────────────────────
