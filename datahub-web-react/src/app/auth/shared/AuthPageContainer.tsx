@@ -1,15 +1,14 @@
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import backgroundVideo from '@images/login-signup-animation.mp4';
 
-export const VideoWrapper = styled.div`
+const VideoWrapper = styled.div`
     position: relative;
     width: 100%;
     height: 100vh;
     overflow: hidden;
-    background-color: ${colors.gray[1600]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
 `;
 
 const BackgroundVideo = styled.video`
@@ -23,7 +22,7 @@ const BackgroundVideo = styled.video`
     object-fit: cover;
 `;
 
-export const Content = styled.div`
+const Content = styled.div`
     position: relative;
     z-index: 2;
     height: 100%;

@@ -1,8 +1,8 @@
-import { ArrowRight } from '@phosphor-icons/react';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
@@ -20,10 +20,10 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
 
-const getStyles = ($isShowNavBarRedesign?: boolean) => {
+const getStyles = ($isShowNavBarRedesign?: boolean, themeColors?: { bg: string }) => {
     return {
         input: {
-            backgroundColor: 'white',
+            backgroundColor: themeColors?.bg ?? 'transparent',
         },
         searchBox: {
             maxWidth: $isShowNavBarRedesign ? '100%' : 620,
@@ -78,7 +78,8 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
     align-items: center;
 `;
 
-const HeaderBackground = styled.div`
+const HeaderBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) => !props.$isShowNavBarRedesign && `background-color: ${props.theme.colors.bgSurfaceDarker};`}
     position: fixed;
     height: 100px;
     width: 100%;
@@ -156,11 +157,12 @@ export const SearchHeader = ({
     const showHomepageRedesign = useShowHomePageRedesign();
     const isHomePage = useIsHomePage();
     const hideNavToggler = showHomepageRedesign && isHomePage;
-    const styles = getStyles(isShowNavBarRedesign);
     const location = useLocation();
 
     // Hide recommendations on analytics page since they are not displayed
     const isAnalyticsPage = location.pathname === PageRoutes.ANALYTICS;
+    const themeConfig = useTheme();
+    const styles = getStyles(isShowNavBarRedesign, themeConfig.colors);
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;

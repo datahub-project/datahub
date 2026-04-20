@@ -49,6 +49,8 @@ from datahub.configuration.env_vars import (
     get_rest_emitter_batch_max_payload_bytes,
     get_rest_emitter_batch_max_payload_length,
     get_rest_emitter_default_endpoint,
+    get_rest_emitter_default_pool_connections,
+    get_rest_emitter_default_pool_maxsize,
     get_rest_emitter_default_retry_max_times,
 )
 from datahub.emitter.generic_emitter import Emitter
@@ -74,6 +76,7 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECT_NAMES,
     ChangeTypeClass,
 )
+from datahub.utilities.caller_context import identify_caller
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
@@ -92,6 +95,8 @@ _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(get_rest_emitter_default_retry_max_times())
+_DEFAULT_POOL_CONNECTIONS = get_rest_emitter_default_pool_connections()
+_DEFAULT_POOL_MAXSIZE = get_rest_emitter_default_pool_maxsize()
 
 # Multiplier to increase number of retries on 429s
 _429_RETRY_MULTIPLIER = get_rest_emitter_429_retry_multiplier()
@@ -196,6 +201,10 @@ class EmitMode(ConfigEnum):
     # strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
     ASYNC_WAIT = auto()
 
+    @property
+    def is_async(self) -> bool:
+        return self in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
+
 
 _DEFAULT_EMIT_MODE = pydantic.TypeAdapter(EmitMode).validate_python(
     get_emit_mode() or EmitMode.SYNC_PRIMARY,
@@ -218,6 +227,9 @@ class RequestsSessionConfig(ConfigModel):
     retry_status_codes: List[int] = _DEFAULT_RETRY_STATUS_CODES
     retry_methods: List[str] = _DEFAULT_RETRY_METHODS
     retry_max_times: int = _DEFAULT_RETRY_MAX_TIMES
+
+    pool_connections: int = _DEFAULT_POOL_CONNECTIONS
+    pool_maxsize: int = _DEFAULT_POOL_MAXSIZE
 
     extra_headers: Dict[str, str] = {}
 
@@ -274,7 +286,9 @@ class RequestsSessionConfig(ConfigModel):
             )
 
         adapter = HTTPAdapter(
-            pool_connections=100, pool_maxsize=100, max_retries=retry_strategy
+            pool_connections=self.pool_connections,
+            pool_maxsize=self.pool_maxsize,
+            max_retries=retry_strategy,
         )
         session.mount("http://", adapter)
         session.mount("https://", adapter)
@@ -340,7 +354,11 @@ class RequestsSessionConfig(ConfigModel):
             requests_user_agent = ""
 
         # 1.0 refers to the user agent string version
-        return f"DataHub-Client/1.0 ({client_mode.name.lower()}; {self.datahub_component if self.datahub_component else DATAHUB_COMPONENT_ENV}; {version}){requests_user_agent}"
+        component = (
+            self.datahub_component if self.datahub_component else DATAHUB_COMPONENT_ENV
+        )
+        caller = identify_caller()
+        return f"DataHub-Client/1.0 ({client_mode.name.lower()}; {component}/{caller}; {version}){requests_user_agent}"
 
 
 @dataclass
@@ -380,6 +398,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         retry_status_codes: Optional[List[int]] = None,
         retry_methods: Optional[List[str]] = None,
         retry_max_times: Optional[int] = None,
+        pool_connections: Optional[int] = None,
+        pool_maxsize: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
@@ -450,6 +470,8 @@ class DataHubRestEmitter(Closeable, Emitter):
             ),
             retry_methods=get_or_else(retry_methods, _DEFAULT_RETRY_METHODS),
             retry_max_times=get_or_else(retry_max_times, _DEFAULT_RETRY_MAX_TIMES),
+            pool_connections=get_or_else(pool_connections, _DEFAULT_POOL_CONNECTIONS),
+            pool_maxsize=get_or_else(pool_maxsize, _DEFAULT_POOL_MAXSIZE),
             extra_headers={**headers, **(extra_headers or {})},
             ca_certificate_path=ca_certificate_path,
             client_certificate_path=client_certificate_path,
@@ -584,7 +606,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         return OpenApiRequest.from_mcp(
             mcp=mcp,
             gms_server=self._gms_server,
-            async_flag=emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT),
+            async_flag=emit_mode.is_async,
             search_sync_flag=emit_mode == EmitMode.SYNC_WAIT,
         )
 
@@ -705,9 +727,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
                 payload_dict = {
                     "proposal": mcp_obj,
-                    "async": "true"
-                    if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                    else "false",
+                    "async": "true" if emit_mode.is_async else "false",
                 }
 
             payload = json.dumps(payload_dict)
@@ -894,9 +914,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {
                 "proposals": mcp_obj_chunk,
-                "async": "true"
-                if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                else "false",
+                "async": "true" if emit_mode.is_async else "false",
             }
 
             payload = json.dumps(payload_dict)

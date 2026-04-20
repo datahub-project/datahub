@@ -50,7 +50,6 @@ export function Pill({
     customIconRenderer,
     showLabel,
     className,
-    iconSource,
     dataTestId,
 }: PillProps) {
     if (!SUPPORTED_CONFIGURATIONS[variant].includes(color)) {
@@ -74,11 +73,11 @@ export function Pill({
         >
             {customIconRenderer
                 ? customIconRenderer()
-                : leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} source={iconSource} />}
+                : leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             <PillText style={customStyle}>{label}</PillText>
             {rightIcon && (
                 <Button style={{ padding: 0 }} variant="text" onClick={onClickRightIcon}>
-                    <Icon icon={rightIcon} size={size} source={iconSource} />
+                    <Icon icon={rightIcon} size={size} />
                 </Button>
             )}
         </PillContainer>

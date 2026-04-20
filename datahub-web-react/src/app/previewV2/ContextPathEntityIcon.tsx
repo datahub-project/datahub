@@ -1,4 +1,4 @@
-import { FolderOpen } from '@phosphor-icons/react';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import React from 'react';
 
 function ContextPathEntityIcon() {

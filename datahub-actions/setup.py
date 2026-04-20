@@ -48,13 +48,14 @@ base_requirements = {
     f"acryl-datahub[datahub-kafka]{_self_pin}",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=2.0.0,<3.0.0",
+    "pydantic>=2.4.0,<3.0.0",
     "ratelimit",
     # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
     "azure-identity==1.21.0",
     "aws-msk-iam-sasl-signer-python==1.0.2",
     "h11>=0.16",
+    "acryl-executor==0.3.11",
 }
 
 framework_common = {
@@ -77,9 +78,7 @@ plugins: Dict[str, Set[str]] = {
         "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
-    "executor": {
-        "acryl-executor==0.3.2",
-    },
+    "executor": set(),
     "slack": {
         "slack-bolt>=1.15.5",
     },

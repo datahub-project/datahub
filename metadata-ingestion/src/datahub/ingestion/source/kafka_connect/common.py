@@ -194,7 +194,7 @@ class KafkaConnectSourceConfig(
         "When available, enables getting all topics from Kafka cluster for improved transform pipeline accuracy.",
     )
 
-    kafka_api_key: Optional[str] = Field(
+    kafka_api_key: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Optional: Confluent Cloud Kafka API key for authenticating with Kafka REST API v3. "
         "If not specified, DataHub will reuse the Connect credentials (username/password) for Kafka API authentication. "
@@ -422,7 +422,10 @@ class KafkaConnectSourceConfig(
         Otherwise, fall back to reusing Connect credentials.
         """
         if self.kafka_api_key and self.kafka_api_secret:
-            return self.kafka_api_key, self.kafka_api_secret.get_secret_value()
+            return (
+                self.kafka_api_key.get_secret_value(),
+                self.kafka_api_secret.get_secret_value(),
+            )
         # Fall back to Connect credentials (username/password)
         password = self.password.get_secret_value() if self.password else None
         return self.username, password
@@ -951,10 +954,8 @@ class BaseConnector:
 
             # Build target URN using DatasetUrn helper with correct target platform
             # Use platform_instance if configured in platform_instance_map for Kafka
-            kafka_platform_instance = (
-                self.config.platform_instance_map.get(target_platform)
-                if self.config.platform_instance_map
-                else None
+            kafka_platform_instance = get_platform_instance(
+                self.config, self.connector_manifest.name, target_platform
             )
             target_urn = DatasetUrn.create_from_ids(
                 platform_id=target_platform,

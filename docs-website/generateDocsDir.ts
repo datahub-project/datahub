@@ -111,6 +111,8 @@ function list_markdown_files(): string[] {
   const filter_patterns = [
     // We don't need our issue and pull request templates.
     /^\.github\//,
+    // Ignore hidden/dot directories at the repo root (e.g. .claude, .agent-skills, .cursor).
+    /^\.[^/]+\//,
     // Ignore everything within this directory.
     /^docs-website\//,
     // Ignore third-party dependencies and library documentation.

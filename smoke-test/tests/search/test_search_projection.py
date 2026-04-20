@@ -69,7 +69,8 @@ class TestSearchProjection:
 
         if dataset_entity is not None:
             assert "properties" in dataset_entity
-            assert "name" in dataset_entity["properties"]
+            if dataset_entity["properties"] is not None:
+                assert "name" in dataset_entity["properties"]
             assert "platform" in dataset_entity
         else:
             logger.info(

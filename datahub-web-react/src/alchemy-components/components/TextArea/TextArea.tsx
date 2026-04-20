@@ -1,3 +1,5 @@
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
 
 import {
@@ -70,9 +72,9 @@ export const TextArea = ({
                     required={isRequired}
                     {...props}
                 />
-                {isSuccess && <StyledStatusIcon icon="CheckCircle" color="green" size="lg" />}
-                {invalid && <StyledStatusIcon icon="WarningAmber" color="red" size="lg" />}
-                {warning && <StyledStatusIcon icon="ErrorOutline" color="yellow" size="lg" />}
+                {isSuccess && <StyledStatusIcon icon={Check} color="green" size="lg" />}
+                {invalid && <StyledStatusIcon icon={Warning} color="red" size="lg" />}
+                {warning && <StyledStatusIcon icon={Warning} color="yellow" size="lg" />}
             </TextAreaContainer>
             {invalid && error && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}

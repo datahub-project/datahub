@@ -11,6 +11,7 @@ Usage:
     python3 scripts/dev/datahub_dev.py wait [--timeout 300]
     python3 scripts/dev/datahub_dev.py setup [module]
     python3 scripts/dev/datahub_dev.py frontend
+    python3 scripts/dev/datahub_dev.py docs [--build]
     python3 scripts/dev/datahub_dev.py rebuild [--wait] [--module gms]
     python3 scripts/dev/datahub_dev.py test <path> [pytest-args...]
     python3 scripts/dev/datahub_dev.py flag list
@@ -117,6 +118,9 @@ COMPOSE_PROJECT = os.environ.get("DOCKER_COMPOSE_PROJECT_NAME", "datahub")
 
 DEFAULT_TIMEOUT = 300  # seconds
 POLL_INTERVAL = 3  # seconds
+
+# Ports that DataHub binds on the host. Used to detect conflicting instances.
+DATAHUB_CRITICAL_PORTS = (8080, 9002, 3306, 9200, 9092, 5001, 5002, 5003)
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +277,71 @@ def _run_docker_compose_ps() -> List[Dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return containers
+
+
+def _find_conflicting_projects() -> Dict[str, List[str]]:
+    """Find other compose projects with containers bound to our critical ports.
+
+    Returns a dict mapping project name -> list of port descriptions (e.g. ["8080", "9002"]).
+    Skips containers belonging to our own COMPOSE_PROJECT.
+    """
+    result = _run(["docker", "ps", "--format", "{{json .}}"])
+    if result.returncode != 0:
+        return {}
+
+    port_pattern = re.compile(r":(\d+)->")
+    conflicts: Dict[str, List[str]] = {}
+
+    for line in result.stdout.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            container = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        ports_str = container.get("Ports", "")
+        labels_str = container.get("Labels", "")
+
+        # Extract host-side ports that match our critical ports
+        host_ports = port_pattern.findall(ports_str)
+        matching = [p for p in host_ports if int(p) in DATAHUB_CRITICAL_PORTS]
+        if not matching:
+            continue
+
+        # Extract compose project name from labels
+        project = None
+        for label in labels_str.split(","):
+            if label.startswith("com.docker.compose.project="):
+                project = label.split("=", 1)[1]
+                break
+
+        if not project or project == COMPOSE_PROJECT:
+            continue
+
+        conflicts.setdefault(project, []).extend(matching)
+
+    # Deduplicate port lists
+    return {proj: sorted(set(ports)) for proj, ports in conflicts.items()}
+
+
+def _stop_conflicting_projects(conflicts: Dict[str, List[str]]) -> None:
+    """Stop compose projects that conflict with our ports."""
+    for project, ports in conflicts.items():
+        port_list = ", ".join(ports)
+        _log(
+            f"Stopping conflicting project '{project}' (occupying ports: {port_list})..."
+        )
+        result = _run(
+            ["docker", "compose", "-p", project, "down"],
+            capture=False,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            _log(
+                f"Warning: failed to stop project '{project}' — you may see port conflicts."
+            )
 
 
 def _get_container_info(containers: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -501,8 +570,6 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         "test",
         "-x",
         "check",
-        "-x",
-        "generateGitPropertiesGlobal",
     ]
     _log(f"Running: {' '.join(gradle_cmd)}")
     build_start = time.time()
@@ -557,8 +624,6 @@ def cmd_test(args: argparse.Namespace) -> int:
             [
                 "./gradlew",
                 CONFIG.gradle_smoke_install_task,
-                "-x",
-                "generateGitPropertiesGlobal",
             ],
             capture=False,
             timeout=300,
@@ -646,7 +711,6 @@ def _load_flag_classification() -> Dict[str, Any]:
         _log("WARNING: flag-classification.json not generated yet.")
         _log(
             "Run: ./gradlew :metadata-service:configuration:generateFlagClassification"
-            " -x generateGitPropertiesGlobal"
         )
         _log("Or:  scripts/datahub-dev.sh sync-flags")
         return {"dynamic": {}, "static": {}}
@@ -657,7 +721,6 @@ def _load_flag_classification() -> Dict[str, Any]:
             _log("ERROR: flag-classification.json is corrupted (partial write?).")
             _log(
                 "Re-run: ./gradlew :metadata-service:configuration:generateFlagClassification"
-                " -x generateGitPropertiesGlobal"
             )
             return {"dynamic": {}, "static": {}}
 
@@ -789,8 +852,6 @@ def cmd_env_restart(args: argparse.Namespace) -> int:
         [
             "./gradlew",
             CONFIG.gradle_reload_env_task,
-            "-x",
-            "generateGitPropertiesGlobal",
         ],
         capture=False,
         timeout=300,
@@ -875,6 +936,26 @@ def cmd_env_clean(args: argparse.Namespace) -> int:
         if sentinel.exists():
             sentinel.unlink()
     _log("Done.")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Command: stop
+# ---------------------------------------------------------------------------
+
+
+def cmd_stop(args: argparse.Namespace) -> int:
+    """Stop all DataHub services without restarting."""
+    _log("Stopping DataHub services...")
+    result = _run(
+        ["docker", "compose", "-p", COMPOSE_PROJECT, "down"],
+        capture=False,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        _log("Failed to stop DataHub services.")
+        return 1
+    _log("DataHub stopped.")
     return 0
 
 
@@ -1029,7 +1110,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
     gradle_task = SETUP_MODULES[module]
     _log(f"Setting up {module} via {gradle_task}...")
     result = _run(
-        ["./gradlew", gradle_task, "-x", "generateGitPropertiesGlobal"],
+        ["./gradlew", gradle_task],
         capture=False,
         timeout=600,
     )
@@ -1096,19 +1177,42 @@ def cmd_frontend(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Command: docs
+# ---------------------------------------------------------------------------
+
+
+def cmd_docs(args: argparse.Namespace) -> int:
+    """Start the docs dev server (Docusaurus)."""
+    docs_dir = REPO_ROOT / "docs-website"
+    if args.build:
+        _log("Building and starting docs dev server (full regeneration)...")
+        return _run(["./gradlew", ":docs-website:yarnStart"], cwd=REPO_ROOT).returncode
+    _log("Starting docs dev server on http://localhost:3001 ...")
+    _log("  (Use --build for full regeneration including docGen)")
+    try:
+        result = subprocess.run(["yarn", "start"], cwd=docs_dir, text=True)
+        return result.returncode
+    except KeyboardInterrupt:
+        _log("\nDocs dev server stopped.")
+        return 0
+
+
+# ---------------------------------------------------------------------------
 # Command: start
 # ---------------------------------------------------------------------------
 
 
 def cmd_start(args: argparse.Namespace) -> int:
     """Start (or restart) DataHub via quickstartDebug, then wait for readiness."""
+    conflicts = _find_conflicting_projects()
+    if conflicts:
+        _stop_conflicting_projects(conflicts)
+
     _log(f"Starting DataHub via {CONFIG.gradle_quickstart_task}...")
     result = _run(
         [
             "./gradlew",
             CONFIG.gradle_quickstart_task,
-            "-x",
-            "generateGitPropertiesGlobal",
         ],
         capture=False,
         timeout=1200,
@@ -1136,8 +1240,6 @@ def cmd_sync_flags(args: argparse.Namespace) -> int:
         [
             "./gradlew",
             CONFIG.gradle_sync_flags_task,
-            "-x",
-            "generateGitPropertiesGlobal",
         ],
         capture=False,
         timeout=300,
@@ -1179,6 +1281,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     # frontend
     subparsers.add_parser("frontend", help="Start the frontend dev server (yarn start)")
+
+    # docs
+    docs_p = subparsers.add_parser(
+        "docs", help="Start documentation dev server (Docusaurus)"
+    )
+    docs_p.add_argument(
+        "--build",
+        action="store_true",
+        help="Full rebuild including docGen before starting",
+    )
 
     # start
     start_p = subparsers.add_parser(
@@ -1252,6 +1364,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate scripts/generated/flag-classification.json from source",
     )
 
+    # stop
+    subparsers.add_parser("stop", help="Stop all DataHub services")
+
     # reset
     subparsers.add_parser("reset", help="Soft reset (restart without data loss)")
 
@@ -1276,7 +1391,9 @@ def main() -> int:
         "status": cmd_status,
         "setup": cmd_setup,
         "frontend": cmd_frontend,
+        "docs": cmd_docs,
         "start": cmd_start,
+        "stop": cmd_stop,
         "wait": cmd_wait,
         "rebuild": cmd_rebuild,
         "test": cmd_test,

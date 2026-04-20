@@ -2631,7 +2631,7 @@
   {
     "auditHeader": null,
     "entityType": "incident",
-    "entityUrn": "urn:li:incident:test",
+    "entityUrn": "urn:li:incident:test-health",
     "changeType": "UPSERT",
     "aspectName": "incidentInfo",
     "aspect": {
@@ -2647,7 +2647,7 @@
     "changeType": "UPSERT",
     "aspectName": "incidentsSummary",
     "aspect": {
-      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
+      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test-health\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -3984,5 +3984,71 @@
         "platform": "urn:li:dataPlatform:unknown"
       }
     }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_model.model,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": null,
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "node_type": "model"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_model",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1704067200000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.SqlSchema": {
+                  "rawSchema": "{\"column\": \"integer\"}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "column",
+                  "nativeDataType": "integer",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_model.model,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"Model\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]

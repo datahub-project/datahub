@@ -42,6 +42,15 @@ from tests.test_helpers.state_helpers import run_and_get_pipeline
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
+@pytest.fixture(autouse=True)
+def mock_service_account_credentials():
+    """Mock from_service_account_info so tests with dummy private keys don't fail PEM validation."""
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+    ):
+        yield
+
+
 def random_email():
     return (
         "".join(

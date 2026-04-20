@@ -50,6 +50,12 @@ In these scenarios, you may want to consider creating a [Smart Assertion](./smar
 
 Both traditional and smart assertions can be defined through the DataHub API or the UI.
 
+### Time-Series Bucketing & Historical Backfill
+
+For assertions that need to evaluate data at a specific time granularity (e.g., daily or weekly), you can enable **time-series bucketing** on [Volume](/docs/managed-datahub/observe/volume-assertions.md#time-series-bucketing) and [Column Metric](/docs/managed-datahub/observe/column-assertions.md#time-series-bucketing-for-column-metric-assertions) assertions. This partitions your data into time buckets using a timestamp column and evaluates each bucket independently.
+
+For Smart Assertions with bucketing enabled, you can also configure **historical backfill** to immediately populate the assertion's metrics history, so the AI model can start making accurate predictions from day one. See [Backfill Assertion History](/docs/managed-datahub/observe/assertion-backfill.md) for details.
+
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/assertions/assertion-ui.png"/>
 </p>
@@ -86,7 +92,7 @@ There are a few ways DataHub Cloud assertions can be executed:
 1. Directly query the source system:
    a. `Information Schema` tables are used by default to power cheap, fast checks on a table's freshness or row count.
    b. `Audit log` or `Operation log` tables can be used to granularly monitor table operations.
-   c. The table itself can also be queried directly. This is useful for freshness checks referencing `last_updated` columns, row count checks targetting a subset of the data, and column value checks. We offer several optimizations to reduce query costs for these checks.
+   c. The table itself can also be queried directly. This is useful for freshness checks referencing `last_updated` columns, row count checks targeting a subset of the data, and column value checks. We offer several optimizations to reduce query costs for these checks.
 2. Reference DataHub metadata
    a. [Operations](/docs/api/tutorials/operations.md) that are reported via ingestion or our SDKs can power monitoring table freshness.
    b. `DatasetProfile` and `SchemaFieldProfile` ingested or reported via SDKs can power monitoring table metrics and column metrics.

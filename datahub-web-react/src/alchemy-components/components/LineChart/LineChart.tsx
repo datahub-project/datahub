@@ -17,7 +17,7 @@ import { ChartWrapper } from '@components/components/LineChart/components';
 // But there are no ways to do it with StyledComponents as glyph and crosshairs rendered in portals
 // https://github.com/styled-components/styled-components/issues/2620
 import '@components/components/LineChart/customTooltip.css';
-import { lineChartDefault } from '@components/components/LineChart/defaults';
+import { useLineChartDefaults } from '@components/components/LineChart/defaults';
 import usePreparedLineChartScales from '@components/components/LineChart/hooks/usePreparedScales';
 import { Datum, LineChartProps } from '@components/components/LineChart/types';
 import { Popover } from '@components/components/Popover';
@@ -26,31 +26,46 @@ export function LineChart({
     data,
     isEmpty,
 
-    xScale = lineChartDefault.xScale,
-    yScale = lineChartDefault.yScale,
+    xScale: xScaleProp,
+    yScale: yScaleProp,
     maxYDomainForZeroData,
-    shouldAdjustYZeroPoint = lineChartDefault.shouldAdjustYZeroPoint,
+    shouldAdjustYZeroPoint: shouldAdjustYZeroPointProp,
     yZeroPointThreshold,
 
-    lineColor = lineChartDefault.lineColor,
-    areaColor = lineChartDefault.areaColor,
+    lineColor: lineColorProp,
+    areaColor: areaColorProp,
     margin,
 
     leftAxisProps,
-    showLeftAxisLine = lineChartDefault.showLeftAxisLine,
+    showLeftAxisLine: showLeftAxisLineProp,
     bottomAxisProps,
-    showBottomAxisLine = lineChartDefault.showBottomAxisLine,
+    showBottomAxisLine: showBottomAxisLineProp,
     gridProps,
 
     popoverRenderer,
-    renderGradients = lineChartDefault.renderGradients,
-    toolbarVerticalCrosshairStyle = lineChartDefault.toolbarVerticalCrosshairStyle,
-    renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
-    showGlyphOnSingleDataPoint = lineChartDefault.showGlyphOnSingleDataPoint,
-    renderGlyphOnSingleDataPoint = lineChartDefault.renderGlyphOnSingleDataPoint,
+    renderGradients: renderGradientsProp,
+    toolbarVerticalCrosshairStyle: toolbarVerticalCrosshairStyleProp,
+    renderTooltipGlyph: renderTooltipGlyphProp,
+    showGlyphOnSingleDataPoint: showGlyphOnSingleDataPointProp,
+    renderGlyphOnSingleDataPoint: renderGlyphOnSingleDataPointProp,
 
     dataTestId,
 }: LineChartProps) {
+    const defaults = useLineChartDefaults();
+
+    const xScale = xScaleProp ?? defaults.xScale;
+    const yScale = yScaleProp ?? defaults.yScale;
+    const shouldAdjustYZeroPoint = shouldAdjustYZeroPointProp ?? defaults.shouldAdjustYZeroPoint;
+    const lineColor = lineColorProp ?? defaults.lineColor;
+    const areaColor = areaColorProp ?? defaults.areaColor;
+    const showLeftAxisLine = showLeftAxisLineProp ?? defaults.showLeftAxisLine;
+    const showBottomAxisLine = showBottomAxisLineProp ?? defaults.showBottomAxisLine;
+    const renderGradients = renderGradientsProp ?? defaults.renderGradients;
+    const toolbarVerticalCrosshairStyle = toolbarVerticalCrosshairStyleProp ?? defaults.toolbarVerticalCrosshairStyle;
+    const renderTooltipGlyph = renderTooltipGlyphProp ?? defaults.renderTooltipGlyph;
+    const showGlyphOnSingleDataPoint = showGlyphOnSingleDataPointProp ?? defaults.showGlyphOnSingleDataPoint;
+    const renderGlyphOnSingleDataPoint = renderGlyphOnSingleDataPointProp ?? defaults.renderGlyphOnSingleDataPoint;
+
     const [showGrid, setShowGrid] = useState<boolean>(false);
 
     const defaultMargin = useMemo(
@@ -85,17 +100,17 @@ export function LineChart({
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
-        lineChartDefault.leftAxisProps,
+        defaults.leftAxisProps,
     );
 
     const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<AxisProps>(
         bottomAxisProps,
-        lineChartDefault.bottomAxisProps,
+        defaults.bottomAxisProps,
     );
 
     const { computeNumTicks: computeGridNumTicks, ...mergedGridProps } = useMergedProps<GridProps>(
         gridProps,
-        lineChartDefault.gridProps,
+        defaults.gridProps,
     );
 
     const wrapperRef = useRef<HTMLDivElement>(null);

@@ -1,10 +1,10 @@
-import { Button, DatePicker, Form, Modal, message } from 'antd';
+import { Button, Form, Modal, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { handleBatchError } from '@app/entity/shared/utils';
+import DatePicker from '@utils/DayjsDatePicker';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 
@@ -15,7 +15,7 @@ type Props = {
 };
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {

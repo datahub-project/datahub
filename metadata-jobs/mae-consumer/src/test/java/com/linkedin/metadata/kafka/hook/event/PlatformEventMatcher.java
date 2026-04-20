@@ -1,8 +1,10 @@
 package com.linkedin.metadata.kafka.hook.event;
 
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
+import com.linkedin.platform.event.v1.RelationshipChangeEvent;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentMatcher;
 
@@ -24,6 +26,30 @@ public class PlatformEventMatcher implements ArgumentMatcher<PlatformEvent> {
   }
 
   public boolean payloadMatches(@Nonnull final PlatformEvent actual) {
+    if (actual.getName().equals(Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME)) {
+      return entityChangepayloadMatches(actual);
+    } else if (actual.getName().equals(Constants.RELATIONSHIP_PLATFORM_EVENT_NAME)) {
+      return relationshipChangepayloadMatches(actual);
+    }
+    return false;
+  }
+
+  public boolean relationshipChangepayloadMatches(@Nonnull final PlatformEvent actual) {
+    final RelationshipChangeEvent expectedChangeEvent =
+        GenericRecordUtils.deserializePayload(
+            _expected.getPayload().getValue(), RelationshipChangeEvent.class);
+    final RelationshipChangeEvent actualChangeEvent =
+        GenericRecordUtils.deserializePayload(
+            actual.getPayload().getValue(), RelationshipChangeEvent.class);
+    boolean requiredFieldsMatch =
+        expectedChangeEvent.getOperation().equals(actualChangeEvent.getOperation())
+            && expectedChangeEvent.getSourceUrn().equals(actualChangeEvent.getSourceUrn())
+            && expectedChangeEvent.getDestinationUrn().equals(actualChangeEvent.getDestinationUrn())
+            && expectedChangeEvent.getAuditStamp().equals(actualChangeEvent.getAuditStamp());
+    return requiredFieldsMatch;
+  }
+
+  public boolean entityChangepayloadMatches(@Nonnull final PlatformEvent actual) {
     final EntityChangeEvent expectedChangeEvent =
         GenericRecordUtils.deserializePayload(
             _expected.getPayload().getValue(), EntityChangeEvent.class);

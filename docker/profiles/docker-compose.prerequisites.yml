@@ -13,17 +13,6 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-storage
   - quickstart-consumers
 
-# Which profiles to run mysql setup
-x-mysql-setup-profiles-dev: &mysql-setup-profiles-dev
-  - debug-min
-  - debug-frontend
-  - debug-backend
-  - debug-consumers
-  - debug-neo4j
-  - debug-elasticsearch
-  - debug-backend-aws
-  - debug-aws
-
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -79,19 +68,6 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
-x-opensearch-setup-profiles-dev: &opensearch-setup-profiles-dev
-  - debug-min
-  - debug-datahub-actions
-  - debug-frontend
-  - debug-backend
-  - debug-postgres
-  - debug-postgres-cdc
-  - debug-cassandra
-  - debug-consumers
-  - debug-consumers-cdc
-  - debug-neo4j
-  - debug-backend-aws
-  - debug-aws
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -149,26 +125,6 @@ x-profiles-dev: &profiles-dev
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
-x-mysql-setup-common: &mysql-setup-common
-  hostname: mysql-setup
-  image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
-  env_file:
-    - mysql-setup/env/docker.env
-  depends_on:
-    mysql:
-      condition: service_healthy
-  labels:
-    datahub_setup_job: true
-x-postgres-setup-common: &postgres-setup-common
-  hostname: postgres-setup
-  image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-head}
-  env_file: postgres-setup/env/docker.env
-  depends_on:
-    postgres:
-      condition: service_healthy
-  labels:
-    datahub_setup_job: true
-
 services:
   mysql:
     profiles: *mysql-profiles
@@ -187,26 +143,6 @@ services:
       retries: 5
     volumes:
       - mysqldata:/var/lib/mysql
-  mysql-setup:
-    <<: *mysql-setup-common
-    profiles: *mysql-profiles-quickstart
-  mysql-setup-cdc:
-    <<: *mysql-setup-common
-    environment: &mysql-setup-env-cdc
-      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-false}
-    profiles:
-      - quickstart-consumers-cdc
-  mysql-setup-dev:
-    <<: *mysql-setup-common
-    profiles: *mysql-setup-profiles-dev
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
-  mysql-setup-dev-cdc:
-    <<: *mysql-setup-common
-    profiles:
-      - debug-consumers-cdc
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
-    environment:
-      <<: *mysql-setup-env-cdc
   postgres:
     profiles: *postgres-profiles
     hostname: postgres
@@ -225,26 +161,6 @@ services:
     volumes:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgresdata:/var/lib/postgresql/data
-  postgres-setup:
-    <<: *postgres-setup-common
-    profiles: *postgres-profiles-quickstart
-  postgres-setup-cdc:
-    <<: *postgres-setup-common
-    environment: &postgres-setup-env-cdc
-      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-false}
-    profiles:
-      - quickstart-postgres-cdc
-  postgres-setup-dev:
-    <<: *postgres-setup-common
-    profiles: *postgres-profiles-dev
-    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-debug}
-  postgres-setup-dev-cdc:
-    <<: *postgres-setup-common
-    profiles:
-      - debug-postgres-cdc
-    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-debug}
-    environment:
-      <<: *postgres-setup-env-cdc
   cassandra:
     profiles: *cassandra-profiles
     hostname: cassandra
@@ -382,19 +298,6 @@ services:
       timeout: 5s
     volumes:
       - esdata:/usr/share/elasticsearch/data
-  elasticsearch-setup-dev: &elasticsearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
-    profiles: *elasticsearch-profiles
-    hostname: elasticsearch-setup
-    env_file: elasticsearch-setup/env/docker.env
-    environment:
-      <<: *search-datastore-environment
-      USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-false}
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    labels:
-      datahub_setup_job: true
   opensearch:
     profiles: *opensearch-profiles
     hostname: search
@@ -413,32 +316,6 @@ services:
       timeout: 15s
     volumes:
       - osdata:/usr/share/opensearch/data
-  opensearch-setup: &opensearch-setup
-    <<: *elasticsearch-setup-dev
-    profiles: *opensearch-profiles-quickstart
-    hostname: opensearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
-    environment:
-      <<: *search-datastore-environment
-      USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}
-    depends_on:
-      opensearch:
-        condition: service_healthy
-    command: /bin/sh -c "/create-indices.sh"
-    labels:
-      datahub_setup_job: true
-  opensearch-setup-dev:
-    <<: *opensearch-setup
-    profiles: *opensearch-setup-profiles-dev
-    hostname: opensearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
-    environment:
-      <<: *search-datastore-environment
-      USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}
-    depends_on:
-      opensearch:
-        condition: service_healthy
-    command: /bin/sh -c "sleep 10 && /create-indices.sh"
   aws-localstack:
     profiles: *aws-profiles
     hostname: localstack

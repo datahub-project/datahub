@@ -1,5 +1,6 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { colors } from '@components';
-import { X } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import styled from 'styled-components';
 
 export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
@@ -118,17 +119,6 @@ export const FeatureItem = styled.div<{ $hasIcon: boolean }>`
     display: flex;
     align-items: flex-start;
     gap: ${(props) => (props.$hasIcon ? '10px' : '0')};
-`;
-
-export const FeatureIconWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    min-height: 20px;
-    color: ${colors.gray[500]};
-    flex-shrink: 0;
-    margin-top: 2px;
 `;
 
 export const FeatureContent = styled.div`

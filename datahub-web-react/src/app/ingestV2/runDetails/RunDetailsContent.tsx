@@ -82,7 +82,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                         status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING ? (
                             <LoadingOutlined />
                         ) : (
-                            <Icon icon={ResultIcon} source="phosphor" size="lg" />
+                            <Icon icon={ResultIcon} size="lg" />
                         )
                     }
                     label={getExecutionRequestStatusDisplayText(status)}

@@ -1,4 +1,5 @@
 import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 
@@ -143,6 +144,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
+                            {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once brand purple token is added */}
                             <TableIcon color="#705EE4" />
                         </IconContainer>
                         <DataContainer>
@@ -311,7 +313,11 @@ const StructuredPropsTable = ({
                     <>
                         <CardIcons>
                             <Menu items={items} trigger={['click']}>
-                                <Icon icon="MoreVert" size="md" data-testid="structured-props-more-options-icon" />
+                                <Icon
+                                    icon={DotsThreeVertical}
+                                    size="md"
+                                    data-testid="structured-props-more-options-icon"
+                                />
                             </Menu>
                         </CardIcons>
                     </>

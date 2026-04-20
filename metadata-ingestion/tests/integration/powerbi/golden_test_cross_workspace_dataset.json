@@ -21,6 +21,30 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales.sales_semantic_model.public_issue_history,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sales",
+                    "urn": "urn:li:container:39b4d6fa32129c4516404eb7ce2f34e4"
+                },
+                {
+                    "id": "sales semantic model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,sales.sales_semantic_model.public_issue_history,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
@@ -163,6 +187,30 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,global_workspace.base_records.core_sales_set,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sales",
+                    "urn": "urn:li:container:39b4d6fa32129c4516404eb7ce2f34e4"
+                },
+                {
+                    "id": "base_records"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,global_workspace.base_records.core_sales_set,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
@@ -281,11 +329,18 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.885D1762-1655-46BA-AFE3-74C6EC403A9E)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "paths": [
-                "/powerbi/Sales"
+            "path": [
+                {
+                    "id": "Sales",
+                    "urn": "urn:li:container:39b4d6fa32129c4516404eb7ce2f34e4"
+                },
+                {
+                    "id": "test_dashboard",
+                    "urn": "urn:li:dashboard:(powerbi,dashboards.A1C7204F-4D04-4E5E-B886-B30EA2C64CB3)"
+                }
             ]
         }
     },
@@ -342,26 +397,6 @@
         "json": {
             "typeNames": [
                 "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(powerbi,charts.885D1762-1655-46BA-AFE3-74C6EC403A9E)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sales"
-                }
             ]
         }
     },
@@ -479,30 +514,17 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.945C2C2A-4588-45DE-8385-F24F5E39A57C)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
-    "aspect": {
-        "json": {
-            "paths": [
-                "/powerbi/Sales"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(powerbi,charts.945C2C2A-4588-45DE-8385-F24F5E39A57C)",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "Sales"
+                    "id": "Sales",
+                    "urn": "urn:li:container:39b4d6fa32129c4516404eb7ce2f34e4"
+                },
+                {
+                    "id": "test_dashboard",
+                    "urn": "urn:li:dashboard:(powerbi,dashboards.A1C7204F-4D04-4E5E-B886-B30EA2C64CB3)"
                 }
             ]
         }
@@ -549,11 +571,14 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.A1C7204F-4D04-4E5E-B886-B30EA2C64CB3)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "paths": [
-                "/powerbi/Sales"
+            "path": [
+                {
+                    "id": "Sales",
+                    "urn": "urn:li:container:39b4d6fa32129c4516404eb7ce2f34e4"
+                }
             ]
         }
     },
@@ -724,11 +749,18 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.B847EBDA-BC48-4F92-8E16-6B46D900E7BB)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "paths": [
-                "/powerbi/Sales"
+            "path": [
+                {
+                    "id": "Sales",
+                    "urn": "urn:li:container:39b4d6fa32129c4516404eb7ce2f34e4"
+                },
+                {
+                    "id": "test_dashboard",
+                    "urn": "urn:li:dashboard:(powerbi,dashboards.A1C7204F-4D04-4E5E-B886-B30EA2C64CB3)"
+                }
             ]
         }
     },
@@ -755,26 +787,6 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(powerbi,charts.B847EBDA-BC48-4F92-8E16-6B46D900E7BB)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sales"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.A1C7204F-4D04-4E5E-B886-B30EA2C64CB3)",
     "changeType": "UPSERT",
@@ -783,26 +795,6 @@
         "json": {
             "dashboardTool": "powerbi",
             "dashboardId": "powerbi.linkedin.com/dashboards/A1C7204F-4D04-4E5E-B886-B30EA2C64CB3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.A1C7204F-4D04-4E5E-B886-B30EA2C64CB3)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sales"
-                }
-            ]
         }
     },
     "systemMetadata": {

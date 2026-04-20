@@ -1,11 +1,13 @@
 package app;
 
+import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 import static play.mvc.Http.Status.MOVED_PERMANENTLY;
 import static play.mvc.Http.Status.OK;
+import static play.mvc.Http.Status.SERVICE_UNAVAILABLE;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
 
@@ -23,6 +25,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
+import config.GracefulShutdownModule;
 import controllers.routes;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -42,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import no.nav.security.mock.oauth2.MockOAuth2Server;
 import no.nav.security.mock.oauth2.http.OAuth2HttpRequest;
 import no.nav.security.mock.oauth2.http.OAuth2HttpResponse;
@@ -59,6 +63,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.TestWatcher;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
@@ -91,6 +98,24 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
 @SetEnvironmentVariable(key = "MFE_CONFIG_FILE_PATH", value = "mfe.config.local.yaml")
 public class ApplicationTest extends WithBrowser {
+
+  /**
+   * On failure, logs browser URL, cookies, and mock server ports so CI logs explain OIDC / HtmlUnit
+   * issues without re-running locally.
+   */
+  @RegisterExtension
+  static final TestWatcher BROWSER_FAILURE_DIAGNOSTICS =
+      new TestWatcher() {
+        @Override
+        public void testFailed(ExtensionContext context, Throwable cause) {
+          context
+              .getTestInstance()
+              .filter(ApplicationTest.class::isInstance)
+              .map(ApplicationTest.class::cast)
+              .ifPresent(at -> at.logBrowserFailureDiagnostics(context.getDisplayName(), cause));
+        }
+      };
+
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
   private static final String ISSUER_ID = "testIssuer";
 
@@ -255,6 +280,45 @@ public class ApplicationTest extends WithBrowser {
       // Clear cookies using the underlying WebDriver
       browser.getDriver().manage().deleteAllCookies();
     }
+  }
+
+  private void logBrowserFailureDiagnostics(String testDisplayName, Throwable cause) {
+    logger.error(
+        "ApplicationTest failure diagnostics [test={}]: {} — {}",
+        testDisplayName,
+        cause.getClass().getName(),
+        cause.getMessage());
+    if (browser == null) {
+      logger.error(
+          "Browser diagnostics: browser is null (not initialized yet or already torn down).");
+      return;
+    }
+    try {
+      logger.error("Browser URL after failure: {}", browser.url());
+      var driver = browser.getDriver();
+      if (driver == null) {
+        logger.error("Browser diagnostics: WebDriver is null.");
+        return;
+      }
+      logger.error("Page title after failure: {}", driver.getTitle());
+      Set<Cookie> cookies = driver.manage().getCookies();
+      String cookieNames =
+          cookies.stream().map(Cookie::getName).sorted().collect(Collectors.joining(", "));
+      boolean hasRedirectCookie =
+          cookies.stream().anyMatch(c -> REDIRECT_URL_COOKIE_NAME.equals(c.getName()));
+      logger.error(
+          "Browser cookies (names only): [{}]; {} present={}",
+          cookieNames,
+          REDIRECT_URL_COOKIE_NAME,
+          hasRedirectCookie);
+    } catch (RuntimeException e) {
+      logger.error("Failed to collect browser diagnostics", e);
+    }
+    logger.error(
+        "Mock server ports: oauth={} gms={} play(app)={}",
+        actualOauthServerPort,
+        actualGmsServerPort,
+        providePort());
   }
 
   @AfterAll
@@ -1024,7 +1088,14 @@ public class ApplicationTest extends WithBrowser {
     assertTrue(TestModule.getCapturedProposals().isEmpty());
 
     browser.goTo("/authenticate");
-    assertEquals("", browser.url());
+    assertEquals(
+        "",
+        browser.url(),
+        () ->
+            "Expected post-OIDC URL to be app root (empty relative path). If actual looks like "
+                + "login?error_msg=..., the SSO callback failed — search logs for "
+                + "\"Caught exception while attempting to handle SSO callback\". actual="
+                + browser.url());
 
     Cookie actorCookie = browser.getCookie("actor");
     assertEquals(TEST_USER, actorCookie.getValue());
@@ -1110,7 +1181,13 @@ public class ApplicationTest extends WithBrowser {
         .until(() -> browser.getDriver() != null);
 
     browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
-    assertEquals("container/urn:li:container:DATABASE", browser.url());
+    assertEquals(
+        "container/urn:li:container:DATABASE",
+        browser.url(),
+        () ->
+            "Expected post-OIDC redirect to deep link /container/urn:li:container:DATABASE. "
+                + "login?error_msg=... means SsoCallbackController caught a callback exception. actual="
+                + browser.url());
   }
 
   /**
@@ -1121,20 +1198,29 @@ public class ApplicationTest extends WithBrowser {
   @Test
   public void testInvalidRedirectUrl() {
     browser.goTo("/authenticate?redirect_uri=https%3A%2F%2Fwww.google.com");
-    assertEquals("", browser.url());
+    assertEquals(
+        "", browser.url(), () -> "https redirect_uri must be rejected; actual=" + browser.url());
 
     browser.goTo("/authenticate?redirect_uri=file%3A%2F%2FmyFile");
-    assertEquals("", browser.url());
+    assertEquals(
+        "", browser.url(), () -> "file: redirect_uri must be rejected; actual=" + browser.url());
 
     browser.goTo("/authenticate?redirect_uri=ftp%3A%2F%2FsomeFtp");
-    assertEquals("", browser.url());
+    assertEquals(
+        "", browser.url(), () -> "ftp: redirect_uri must be rejected; actual=" + browser.url());
 
     browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
-    assertEquals("", browser.url());
+    assertEquals(
+        "",
+        browser.url(),
+        () -> "ambiguous host-like redirect_uri must be rejected; actual=" + browser.url());
 
     // Protocol-relative URL (///google.com) must not redirect to external host
     browser.goTo("/authenticate?redirect_uri=%2F%2F%2Fgoogle.com");
-    assertEquals("", browser.url());
+    assertEquals(
+        "",
+        browser.url(),
+        () -> "protocol-relative redirect_uri must be rejected; actual=" + browser.url());
   }
 
   /** Test module that provides comprehensive mocks to handle all GMS interactions */
@@ -1382,6 +1468,25 @@ public class ApplicationTest extends WithBrowser {
     assertEquals("no-cache", result.headers().get("Cache-Control"));
   }
 
+  @Test
+  public void testHealthCheckReturns503WhenShuttingDown() {
+    // Get the singleton GracefulShutdownModule instance from the app injector
+    GracefulShutdownModule shutdownModule = app.injector().instanceOf(GracefulShutdownModule.class);
+    // Set shutdown flag via instance method
+    shutdownModule.setShuttingDown(true);
+
+    try {
+      Http.RequestBuilder request = fakeRequest(Helpers.GET, "/health");
+      Result result = route(app, request);
+      assertEquals(SERVICE_UNAVAILABLE, result.status());
+      String content = Helpers.contentAsString(result);
+      assertEquals("Shutting down", content);
+    } finally {
+      // Reset the shutdown flag after test
+      shutdownModule.setShuttingDown(false);
+    }
+  }
+
   /**
    * Test module that provides a mock Application controller that simulates resource loading failure
    */
@@ -1402,7 +1507,10 @@ public class ApplicationTest extends WithBrowser {
       Environment mockEnvironment = mock(Environment.class);
       when(mockEnvironment.resourceAsStream("public/index.html")).thenReturn(null);
 
-      return new controllers.Application(mockHttpClient, mockEnvironment, config);
+      // Mock GracefulShutdownModule for the test
+      GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
+      return new controllers.Application(
+          mockHttpClient, mockEnvironment, config, mockShutdownModule);
     }
 
     @Provides

@@ -1,9 +1,12 @@
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { colors } from '@src/alchemy-components';

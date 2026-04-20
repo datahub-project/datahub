@@ -1,7 +1,4 @@
 describe("manage views", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
   it("go to views settings page, create, edit, make default, delete a view", () => {
     const viewName = "Test View";
 

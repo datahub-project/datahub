@@ -1,4 +1,5 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -111,13 +112,13 @@ export const withCustomSeparator = () => (
                 key: 'Home',
                 label: 'Home',
                 href: '/',
-                separator: <Icon icon="ArrowRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />,
+                separator: <Icon icon={ArrowRight} color="gray" colorLevel={1800} size="sm" />,
             },
             {
                 key: 'Projects',
                 label: 'Projects',
                 href: '/projects',
-                separator: <Icon icon="ArrowRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />,
+                separator: <Icon icon={ArrowRight} color="gray" colorLevel={1800} size="sm" />,
             },
             { key: 'Overview', label: 'Overview', isActive: true },
         ]}

@@ -27,7 +27,6 @@ const clickDownAndUpArrow = (asset) => {
 
 describe("column-Level lineage and impact analysis path test", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.on("uncaught:exception", (err, runnable) => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
@@ -36,8 +35,7 @@ describe("column-Level lineage and impact analysis path test", () => {
 
   it("verify column-level lineage path at lineage praph and impact analysis ", () => {
     // Open dataset with column-level lineage configured an navigate to lineage tab -> visualize lineage
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, DATASET_URN);
 
     // Enable “show columns” toggle
