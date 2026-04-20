@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from queue import Queue
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -66,6 +66,10 @@ class BulkMetadataExtractor:
         "row_count",
         "clustering_key",
         "view_definition",
+        "is_dynamic",
+        "is_iceberg",
+        "is_hybrid",
+        "retention_time",
     ]
 
     def __init__(
@@ -73,6 +77,7 @@ class BulkMetadataExtractor:
         connection: SnowflakeConnection,
         connection_config: Optional[SnowflakeConnectionConfig] = None,
         max_workers: Optional[int] = None,
+        temp_dir: Optional[str] = None,
     ):
         """
         Initialize extractor with Snowflake connection.
@@ -81,6 +86,9 @@ class BulkMetadataExtractor:
             connection: Primary SnowflakeConnection for discover_databases()
             connection_config: Optional SnowflakeConnectionConfig for spawning worker connections
             max_workers: Number of parallel worker threads (default: CPU core count)
+            temp_dir: If provided, reuse this existing directory path instead of allocating a
+                new TemporaryDirectory.  Worker sub-extractors pass the parent's temp dir here
+                so that only the parent owns and cleans up the directory.
         """
         self.connection = connection
         self._connection_config = connection_config
@@ -88,11 +96,15 @@ class BulkMetadataExtractor:
         self._max_workers = max_workers or os.cpu_count() or 4
         # TemporaryDirectory context manager ensures cleanup even if extraction fails.
         # Store both the object (for cleanup ownership) and the string path (for use).
-        # Worker sub-extractors only receive the string path and do not own cleanup.
-        self._temp_dir_obj: Optional[tempfile.TemporaryDirectory] = (
-            tempfile.TemporaryDirectory(prefix="snowflake_metadata_")
-        )
-        self._temp_dir: str = self._temp_dir_obj.name
+        # Worker sub-extractors pass temp_dir= and therefore do not own cleanup.
+        if temp_dir is not None:
+            self._temp_dir_obj: Optional[tempfile.TemporaryDirectory] = None
+            self._temp_dir: str = temp_dir
+        else:
+            self._temp_dir_obj = tempfile.TemporaryDirectory(
+                prefix="snowflake_metadata_"
+            )
+            self._temp_dir = self._temp_dir_obj.name
 
         # Pre-allocate connection pool to avoid creating new connections per worker.
         # Without pooling, each worker call to get_connection() opens a new Snowflake
@@ -110,7 +122,7 @@ class BulkMetadataExtractor:
         )
 
     def cleanup(self) -> None:
-        """Remove the temporary directory, close pooled connections, and release resources."""
+        """Close pooled connections and remove the temporary directory."""
         if self._connection_pool is not None:
             while not self._connection_pool.empty():
                 try:
@@ -122,9 +134,16 @@ class BulkMetadataExtractor:
         if self._temp_dir_obj is not None:
             self._temp_dir_obj.cleanup()
             self._temp_dir_obj = None
+            logger.debug(f"Cleaned up temp directory: {self._temp_dir}")
+
+    def __enter__(self) -> "BulkMetadataExtractor":
+        return self
+
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        self.cleanup()
 
     def __del__(self) -> None:
-        """Ensure temp directory is cleaned up if cleanup() was not called explicitly."""
+        """Ensure resources are cleaned up if the context manager was not used."""
         self.cleanup()
 
     def discover_databases(self) -> List[str]:
@@ -409,15 +428,16 @@ class BulkMetadataExtractor:
                     conn = None
                     try:
                         # Borrow a connection from the pool (blocks until available)
-                        assert self._connection_pool is not None
+                        if self._connection_pool is None:
+                            raise RuntimeError("Connection pool not initialized")
                         conn = self._connection_pool.get()
                         try:
                             extractor = BulkMetadataExtractor(
                                 conn,
                                 connection_config=None,
                                 max_workers=1,
+                                temp_dir=self._temp_dir,
                             )
-                            extractor._temp_dir = self._temp_dir
                             df = extractor.extract_database(db)
 
                             if df is not None and not df.empty:
@@ -853,8 +873,10 @@ class BulkMetadataExtractor:
         )
 
         # 2. Replace remaining {database_name} with single quotes for string literals (WHERE clauses)
+        # Escape single quotes by doubling them to prevent SQL injection
+        escaped_database_name = database_name.replace("'", "''")
         extraction_query = extraction_query.replace(
-            "{database_name}", f"'{database_name}'"
+            "{database_name}", f"'{escaped_database_name}'"
         )
 
         # Strip trailing semicolon
@@ -948,10 +970,3 @@ class BulkMetadataExtractor:
             logger.error(f"Failed to parse metadata file {file_path}: {e}")
             raise
 
-    def close(self) -> None:
-        """Clean up resources."""
-        import shutil
-
-        if Path(self._temp_dir).exists():
-            shutil.rmtree(self._temp_dir, ignore_errors=True)
-            logger.debug(f"Cleaned up temp directory: {self._temp_dir}")

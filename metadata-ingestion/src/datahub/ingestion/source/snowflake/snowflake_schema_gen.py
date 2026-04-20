@@ -251,11 +251,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     "   Parallelization: Enabled (auto-scale to CPU cores)"
                 )
                 bulk_extraction_start_time = time.time()
-                extractor = BulkMetadataExtractor(
+                with BulkMetadataExtractor(
                     self.connection,
                     connection_config=self.config,
-                )
-                try:
+                ) as extractor:
                     try:
                         bulk_metadata_df = extractor.extract_all_metadata()
                         bulk_extraction_used = True
@@ -277,8 +276,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         )
                         bulk_metadata_df = None
                         bulk_extraction_used = False
-                finally:
-                    extractor.close()  # Clean up temp files (~3-5GB per run)
             else:
                 logger.info(
                     "⏭️ Bulk metadata extraction: DISABLED\n"

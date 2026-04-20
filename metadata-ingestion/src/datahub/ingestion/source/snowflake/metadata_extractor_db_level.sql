@@ -75,7 +75,11 @@ tables_and_views AS (
             'row_count', row_count,
             'bytes', bytes,
             'is_transient', is_transient,
-            'clustering_key', clustering_key
+            'clustering_key', clustering_key,
+            'is_dynamic', is_dynamic,
+            'is_iceberg', is_iceberg,
+            'is_hybrid', is_hybrid,
+            'retention_time', retention_time
         ) AS properties,
         'TABLE_META'::VARCHAR AS metadata_source
     FROM {database_name}.INFORMATION_SCHEMA.TABLES
@@ -146,15 +150,3 @@ UNION ALL
 SELECT * FROM views
 UNION ALL
 SELECT * FROM columns
-ORDER BY
-    schema_name,
-    table_name,
-    CASE metadata_source
-        WHEN 'SCHEMA' THEN 0
-        WHEN 'TABLE_META' THEN 1
-        WHEN 'VIEW_DEFINITION' THEN 2
-        WHEN 'COLUMN_META' THEN 3
-        ELSE 99
-    END,
-    column_ordinal,
-    column_name

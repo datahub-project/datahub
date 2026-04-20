@@ -1775,10 +1775,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
             tables: List[SnowflakeTable] = []
             for _, row in tables_df.iterrows():
+                is_dynamic_val = str(row.get("is_dynamic") or "").upper() == "YES"
                 table_cls = (
-                    SnowflakeDynamicTable
-                    if row.get("is_dynamic") == "YES"
-                    else SnowflakeTable
+                    SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
                 )
                 table = table_cls(
                     name=row["table_name"],
@@ -1789,6 +1788,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=int(row["row_count"]) if row.get("row_count") else None,
                     comment=row.get("comment"),
                     clustering_key=row.get("clustering_key"),
+                    is_dynamic=is_dynamic_val,
+                    is_iceberg=str(row.get("is_iceberg") or "").upper() == "YES",
+                    is_hybrid=str(row.get("is_hybrid") or "").upper() == "YES",
+                    retention_time=int(row["retention_time"])
+                    if row.get("retention_time") is not None
+                    else None,
                 )
                 tables.append(table)
 
