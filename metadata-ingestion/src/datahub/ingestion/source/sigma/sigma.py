@@ -363,13 +363,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self, data_model: SigmaDataModel
     ) -> Optional[MetadataWorkUnit]:
         upstreams = []
+        unresolved_dataset_ids = set()
+        skipped_warehouse_tables = False
         for source in data_model.sources:
             if source.type == "dataset" and source.datasetId:
                 # /sources gives the UUID; existing dataset entities use the URL-based
                 # ID — look it up in the mapping populated during dataset ingestion.
-                urn_part = self.sigma_api.dataset_id_to_urn_part.get(
-                    source.datasetId, source.datasetId
-                )
+                urn_part = self.sigma_api.dataset_id_to_urn_part.get(source.datasetId)
+                if urn_part is None:
+                    unresolved_dataset_ids.add(source.datasetId)
+                    continue
                 upstream_urn = self._gen_sigma_dataset_urn(urn_part)
                 upstreams.append(
                     Upstream(dataset=upstream_urn, type=DatasetLineageType.COPY)
@@ -386,10 +389,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     f"Skipping warehouse table upstream for data model '{data_model.name}': "
                     f"inodeId-only reference cannot be resolved to a warehouse URN without SQL parsing."
                 )
+                skipped_warehouse_tables = True
             else:
                 logger.debug(
                     f"Unknown source type '{source.type}' for data model '{data_model.name}', skipping."
                 )
+        if unresolved_dataset_ids:
+            self.reporter.warning(
+                message=f"Data model '{data_model.name}' references datasetId(s) not in ingested datasets; upstream edges skipped.",
+                title="Unresolved Sigma dataset upstream",
+                context=data_model.dataModelId,
+            )
+        if skipped_warehouse_tables:
+            self.reporter.warning(
+                message=f"Data model '{data_model.name}' has warehouse table source(s); upstream edges skipped (inodeId cannot be resolved to a warehouse URN without SQL parsing).",
+                title="Warehouse table upstream skipped",
+                context=data_model.dataModelId,
+            )
+            self.reporter.skipped_warehouse_table_upstreams += 1
         if not upstreams:
             return None
         return MetadataChangeProposalWrapper(

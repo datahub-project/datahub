@@ -130,6 +130,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workbooks_without_workspace: int = 0
 
     data_models: EntityFilterReport = EntityFilterReport.field(type="data_model")
+    skipped_warehouse_table_upstreams: int = 0
 
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
