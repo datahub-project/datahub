@@ -64,7 +64,7 @@ jobs:
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
 
-  build-and-test:
+  build-except-metadata-ingestion:
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
     needs: setup
@@ -116,7 +116,8 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
-            -x :metadata-integration:java:datahub-schematron:cli:test
+            -x :metadata-integration:java:datahub-schematron:cli:test \
+            -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Disk Space Analysis
@@ -128,7 +129,7 @@ jobs:
           docker system df -v
       - name: Gradle compile (jdk8) for legacy Spark
         run: |
-          ./gradlew -PjavaClassVersionDefault=17 :metadata-integration:java:spark-lineage:compileJava
+          ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
           {

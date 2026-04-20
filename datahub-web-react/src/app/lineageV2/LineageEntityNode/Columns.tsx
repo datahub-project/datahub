@@ -8,7 +8,6 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { FetchedEntity } from '@app/lineage/types';
 import Column from '@app/lineageV2/LineageEntityNode/Column';
 import ColumnSearch from '@app/lineageV2/LineageEntityNode/ColumnSearch';
@@ -38,11 +37,11 @@ const SearchBarWrapper = styled.div`
 `;
 
 const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: boolean }>`
-    ${({ selected }) => (selected ? `color: ${LINEAGE_COLORS.BLUE_1};` : '')};
+    ${(props) => (props.selected ? `color: ${props.theme.colors.textBrand};` : '')};
     padding-right: 4px;
 
     :hover {
-        color: ${REDESIGN_COLORS.BLUE};
+        color: ${(props) => props.theme.colors.textInformation};
     }
 
     ::after {

@@ -107,27 +107,13 @@ public class UserSessionEligibilityCheckerTest {
   }
 
   @Test
-  public void testInactiveCorpUserInfo() {
-    CorpUserKey key = new CorpUserKey().setUsername("eligibilitytest");
-    EntityService<?> entityService = Mockito.mock(EntityService.class);
-    Map<String, RecordTemplate> aspects = new HashMap<>();
-    aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
-    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo().setActive(false));
-    stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
-
-    UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
-    assertEquals(
-        checker.checkEligibility(opContext, USER, true), Optional.of(LoginDenialReason.INACTIVE));
-  }
-
-  @Test
   public void testResolvesBareUsernameToCorpuserUrn() {
     CorpUserKey key = new CorpUserKey().setUsername("jdoe");
     Urn jdoe = UrnUtils.getUrn("urn:li:corpuser:jdoe");
     EntityService<?> entityService = Mockito.mock(EntityService.class);
     Map<String, RecordTemplate> aspects = new HashMap<>();
     aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
-    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo().setActive(true));
+    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo());
     stubLatestAspectsForUrn(entityService, jdoe, aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);
@@ -140,7 +126,7 @@ public class UserSessionEligibilityCheckerTest {
     EntityService<?> entityService = Mockito.mock(EntityService.class);
     Map<String, RecordTemplate> aspects = new HashMap<>();
     aspects.put(CORP_USER_KEY_ASPECT_NAME, key);
-    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo().setActive(true));
+    aspects.put(CORP_USER_INFO_ASPECT_NAME, new CorpUserInfo());
     stubLatestAspectsForUrn(entityService, UrnUtils.getUrn(USER), aspects);
 
     UserSessionEligibilityChecker checker = new UserSessionEligibilityChecker(entityService);

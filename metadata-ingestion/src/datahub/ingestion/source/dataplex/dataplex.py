@@ -9,7 +9,7 @@ Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
-from threading import Lock
+from itertools import product
 from typing import Iterable, Optional
 
 from google.api_core import exceptions
@@ -105,18 +105,79 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     for parent traversal. Also note that Spanner entries are currently fetched through
     a search workaround, which bypasses entry-group filtering and must be controlled
     with entry-level filters.
+
+    Lineage extraction strategy:
+    - The source first traverses all entries, then performs lineage lookups for each
+      entry across the full configured ``(project_id, location)`` scan matrix.
+    - This is required because the Dataplex Lineage API does not provide a bulk
+      lineage retrieval endpoint that can return all lineage for a project in one call.
+    - For graph construction, upstream lookup is sufficient: we query links with
+      ``target=<entry_fqn>`` and build DataHub upstream edges from returned sources.
+    - The tradeoff is API call volume: every entry is queried separately against every
+      configured project-location pair.
+
+    Parallelization strategy:
+    - The entries stage runs in three sequential phases inside
+      ``DataplexEntriesProcessor.process_entries``:
+
+      * Phase 1a (sequential): ``list_entry_groups`` + ``list_entries`` across all
+        configured project × location pairs.  These listing calls are fast (paginated,
+        no detail payload) and accumulate a flat list of entry-name stubs.
+
+      * Phase 1b (parallel): ``get_entry(view=ALL)`` calls are submitted to a
+        ``ThreadPoolExecutor`` with ``max_workers_entries`` workers.  This is the
+        main bottleneck — one blocking RPC per entry.  Distributing across a single
+        flat pool avoids skew when entries are unevenly spread across projects.
+
+      * Phase 1c (sequential): Spanner entries are fetched via the
+        ``search_entries`` workaround.  They arrive already fully-fetched so
+        there is no detail-fetch RPC to parallelise.
+
+    - The lineage stage submits one task per entry to a ``ThreadPoolExecutor``
+      with ``max_workers_lineage`` workers via
+      ``DataplexLineageExtractor.get_lineage_workunits``.  Each worker
+      queries the Dataplex Lineage API across all configured project/location
+      pairs with the configured retry logic.
+
+    - Thread safety: ``DataplexEntriesReport`` and ``DataplexLineageReport``
+      protect all mutable fields with an internal ``threading.Lock`` initialised
+      in ``__post_init__``.  ``DataplexEntriesProcessor`` uses ``_container_lock``
+      for atomic check+add on ``_emitted_project_containers`` and
+      ``_entry_data_lock`` for appends to the shared ``entry_data`` list.
+      The GCP gRPC clients (``CatalogServiceClient``, ``LineageClient``) are
+      thread-safe and shared across all workers.
     """
 
     platform: str = "dataplex"
+
+    def _resolve_lineage_project_location_pairs(self) -> list[tuple[str, str]]:
+        """Resolve and report lineage scan pairs from configured project/location product."""
+        lineage_project_location_pairs = list(
+            product(self.config.project_ids, self.config.lineage_locations)
+        )
+        self.report.info(
+            title="Lineage extraction project/location pairs",
+            message=(
+                "Extracting lineage for configured project/location pairs. "
+                "Lineage scan scope is derived from the Cartesian product of "
+                "project_ids and lineage_locations."
+            ),
+            context=str(
+                dict(
+                    lineage_locations=self.config.lineage_locations,
+                    lineage_project_location_pairs=lineage_project_location_pairs,
+                )
+            ),
+        )
+        return lineage_project_location_pairs
 
     def __init__(self, ctx: PipelineContext, config: DataplexConfig):
         super().__init__(config, ctx)
         self.config = config
         self.report: DataplexReport = DataplexReport()
 
-        # Track entry data for lineage extraction
-        # Key: project_id, Value: set of EntryDataTuple
-        self.entry_data_by_project: dict[str, set[EntryDataTuple]] = {}
+        # Track entry data for lineage extraction across all configured projects.
+        self.entry_data: list[EntryDataTuple] = []
 
         creds = self.config.get_credentials()
         credentials = (
@@ -159,13 +220,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.lineage_client = None
             self.lineage_extractor = None
 
-        self._entry_data_lock = Lock()
         self.entries_processor = DataplexEntriesProcessor(
             config=self.config,
             catalog_client=self.catalog_client,
             report=self.report.entries_report,
-            entry_data_by_project=self.entry_data_by_project,
-            entry_data_lock=self._entry_data_lock,
+            entry_data=self.entry_data,
             source_report=self.report,
         )
 
@@ -226,68 +285,56 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""
-        # Iterate over all configured projects
-        for project_id in self.config.project_ids:
-            logger.info(f"Processing Dataplex resources for project: {project_id}")
-            yield from self._process_project(project_id)
-
-    def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """Process all Dataplex resources for a single project."""
         with self.report.new_stage(
-            f"Processing entries from Universal Catalog for project {project_id}"
+            "Processing entries from Universal Catalog (parallel)"
         ):
             try:
                 yield from auto_workunit(
-                    self.entries_processor.process_project(project_id)
+                    self.entries_processor.process_entries(
+                        project_ids=self.config.project_ids,
+                        max_workers=self.config.max_workers_entries,
+                    )
                 )
             except exceptions.GoogleAPICallError as exc:
-                self.report.report_failure(
+                self.report.warning(
                     title="Failed to process Dataplex entries",
                     message="Error while extracting entries from Universal Catalog.",
-                    context=project_id,
+                    context=str(self.config.project_ids),
                     exc=exc,
                 )
-                return
 
         if self.config.include_lineage and self.lineage_extractor:
-            yield from self._get_lineage_workunits(project_id)
+            with self.report.new_stage(
+                "Extracting Dataplex lineage across configured projects (parallel)"
+            ):
+                if len(self.entry_data) == 0:
+                    logger.info(
+                        "No entries found for lineage extraction across configured projects"
+                    )
+                    return
 
-    def _get_lineage_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """
-        Extract lineage for entries in a project.
+                logger.info(
+                    "Extracting lineage for %s entries across %s configured projects",
+                    len(self.entry_data),
+                    len(self.config.project_ids),
+                )
+                lineage_project_location_pairs = (
+                    self._resolve_lineage_project_location_pairs()
+                )
 
-        Args:
-            project_id: GCP project ID
-
-        Yields:
-            MetadataWorkUnit objects containing lineage information
-        """
-        if not self.lineage_extractor:
-            return
-
-        # Get entry data that was processed for this project
-        entry_data = self.entry_data_by_project.get(project_id, set())
-        if not entry_data:
-            logger.info(
-                f"No entries found for lineage extraction in project {project_id}"
-            )
-            return
-
-        logger.info(
-            f"Extracting lineage for {len(entry_data)} entries in project {project_id}"
-        )
-
-        try:
-            yield from self.lineage_extractor.get_lineage_workunits(
-                project_id, entry_data
-            )
-        except Exception as e:
-            self.report.report_failure(
-                title="Lineage extraction failed",
-                message="Failed to extract lineage for project",
-                context=project_id,
-                exc=e,
-            )
+                try:
+                    yield from self.lineage_extractor.get_lineage_workunits(
+                        self.entry_data,
+                        active_lineage_project_location_pairs=lineage_project_location_pairs,
+                        max_workers=self.config.max_workers_lineage,
+                    )
+                except Exception as e:
+                    self.report.warning(
+                        title="Lineage extraction failed",
+                        message="Failed to extract lineage across configured projects",
+                        context="all-configured-projects",
+                        exc=e,
+                    )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DataplexSource":

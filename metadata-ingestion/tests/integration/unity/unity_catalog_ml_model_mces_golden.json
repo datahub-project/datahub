@@ -2690,16 +2690,26 @@
     "changeType": "PATCH",
     "aspectName": "ownership",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
-                "value": {
-                    "owner": "urn:li:corpuser:account users",
-                    "type": "DATAOWNER"
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
+                    "value": {
+                        "owner": "urn:li:corpuser:account users",
+                        "type": "DATAOWNER"
+                    }
                 }
-            }
-        ]
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -3054,16 +3064,26 @@
     "changeType": "PATCH",
     "aspectName": "ownership",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
-                "value": {
-                    "owner": "urn:li:corpuser:account users",
-                    "type": "DATAOWNER"
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
+                    "value": {
+                        "owner": "urn:li:corpuser:account users",
+                        "type": "DATAOWNER"
+                    }
                 }
-            }
-        ]
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,

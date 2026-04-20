@@ -25,10 +25,9 @@
 # As such, the mapping for stable is not required, but can be used to override the latest release.
 quickstart_version_map:
   # The "default" key is mandatory and is used if no version is specified.
-  # Must be v1.4.0.3+ so datahub-upgrade runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.
   default:
-    composefile_git_ref: v1.4.0
-    docker_tag: v1.4.0.3
+    composefile_git_ref: master
+    docker_tag: v1.5.0.2
     mysql_tag: "8.2"
   # default:  # Use this to pin default to a specific version.
   #   composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
@@ -37,6 +36,12 @@ quickstart_version_map:
   head:
     composefile_git_ref: master
     docker_tag: head
+    mysql_tag: "8.2"
+
+  # Must be v1.4.0.3+ so datahub-upgrade runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.
+  v1.4.0:
+    composefile_git_ref: v1.4.0.3
+    docker_tag: v1.4.0.3
     mysql_tag: "8.2"
 
   # Locked for previous-release testing (compatibility/regression). Default is v1.4.0.3+.

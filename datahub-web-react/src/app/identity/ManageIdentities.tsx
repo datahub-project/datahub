@@ -36,7 +36,7 @@ const Content = styled.div`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     // height: calc(100vh - 60px);
 
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
