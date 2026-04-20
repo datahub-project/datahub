@@ -45,7 +45,8 @@ buildscript {
   ext.aircompressorVersion = '2.0.3' // CVE-2025-67721: Snappy/LZ4 buffer reuse info leak
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
-  ext.log4jVersion = '2.25.3'
+  // CVE-2026-34477: Ssl verifyHostName ignored for SMTP/Socket/Syslog appenders; fixed in 2.25.4+
+  ext.log4jVersion = '2.25.4'
   ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   ext.rhinoVersion = '1.7.15.1' // CVE-2025-66453 (NativeNumber.toFixed / DToA DoS); also 1.8.1, 1.7.14.1
   // Spark-lineage only (spark-lineage-legacy, acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
