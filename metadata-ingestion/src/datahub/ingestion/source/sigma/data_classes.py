@@ -129,4 +129,7 @@ class SigmaDataModel(BaseModel):
     sources: List[SigmaDataModelSource] = []
 
     def get_urn_part(self) -> str:
+        # dataModelId equals the URL slug in the current Sigma API; URN stability
+        # depends on this invariant. Revisit if Sigma decouples the two (as happened
+        # with SigmaDataset, which now uses url.split('/')[-1]).
         return self.dataModelId
