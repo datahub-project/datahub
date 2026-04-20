@@ -450,6 +450,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield upstream_wu
 
         if data_model.workspaceId:
+            self.reporter.workspaces.increment_data_models_count(data_model.workspaceId)
             yield from add_entity_to_container(
                 container_key=self._gen_workspace_key(data_model.workspaceId),
                 entity_type="dataset",
