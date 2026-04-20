@@ -319,7 +319,7 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
+    "cryptography>=46.0.7,<47.0.0",  # >=46.0.7 for CVE-2026-26007
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -900,8 +900,7 @@ base_dev_requirements = {
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
-    "freezegun<2.0.0",  # TODO: fully remove and use time-machine
-    "time-machine<4.0.0",  # better Pydantic v2 compatibility
+    "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
     "twine<7.0.0",

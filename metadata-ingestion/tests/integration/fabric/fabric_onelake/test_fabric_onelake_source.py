@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
@@ -24,7 +24,7 @@ from datahub.testing import mce_helpers
 FROZEN_TIME = "2024-01-15 12:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fabric_onelake_workspace_ingestion() -> None:
     """Test ingestion of a single workspace."""
@@ -82,7 +82,7 @@ def test_fabric_onelake_workspace_ingestion() -> None:
         Path(output_file).unlink(missing_ok=True)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fabric_onelake_lakehouse_with_tables(pytestconfig: pytest.Config) -> None:
     """Test ingestion of a lakehouse with tables."""
