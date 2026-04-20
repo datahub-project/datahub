@@ -236,9 +236,8 @@ class VertexAIExperimentExtractor:
                 for e in filtered_experiments
             ]
             experiment_metadata.sort(
-                key=lambda e: (
-                    e.update_time or datetime.min.replace(tzinfo=timezone.utc)
-                ),
+                key=lambda e: e.update_time
+                or datetime.min.replace(tzinfo=timezone.utc),
                 reverse=True,
             )
             self.experiments = experiment_metadata

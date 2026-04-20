@@ -129,8 +129,8 @@ def _get_filter(
     if mce:
         # cheap way to determine if we are working with an MCE for the appropriate entity_type
         if entity_type:
-            return lambda x: (
-                MCEConstants.PROPOSED_SNAPSHOT in x
+            return (
+                lambda x: MCEConstants.PROPOSED_SNAPSHOT in x
                 and _get_field_for_entity_type_in_mce(str(entity_type))
                 in x[MCEConstants.PROPOSED_SNAPSHOT]
             )
@@ -138,9 +138,8 @@ def _get_filter(
             return lambda x: MCEConstants.PROPOSED_SNAPSHOT in x
     if mcp:
         # cheap way to determine if we are working with an MCP
-        return lambda x: (
-            MCPConstants.CHANGE_TYPE in x
-            and (x[MCPConstants.ENTITY_TYPE] == entity_type if entity_type else True)
+        return lambda x: MCPConstants.CHANGE_TYPE in x and (
+            x[MCPConstants.ENTITY_TYPE] == entity_type if entity_type else True
         )
     return lambda _: False
 

@@ -32,8 +32,8 @@ from datahub.ingestion.source.sql.db2 import _db2_get_view_qualifier, _quote_ide
 )
 def test_db2_zos_get_view_qualifier(input, expected):
     inspector = unittest.mock.MagicMock()
-    inspector.has_table.side_effect = lambda table, schema: (
-        schema == "SYSIBM" and table == "SYSVIEWS"
+    inspector.has_table.side_effect = (
+        lambda table, schema: schema == "SYSIBM" and table == "SYSVIEWS"
     )
     inspector.bind.execute.return_value.scalar.return_value = input
 

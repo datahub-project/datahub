@@ -1,5 +1,6 @@
-# Imports for metadata model classes
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+
+# Imports for metadata model classes
 from datahub.metadata.schema_classes import UpstreamLineageClass
 
 # Get the current lineage for a dataset

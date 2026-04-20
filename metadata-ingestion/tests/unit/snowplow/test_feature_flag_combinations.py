@@ -64,9 +64,7 @@ class TestEnrichmentsWithoutEventSpecProcessor:
             return_value="urn:li:container:org"
         )
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: (
-                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec_{id},PROD)"
-            )
+            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec_{id},PROD)"
         )
         deps.error_handler = Mock()
         deps.platform = "snowplow"
@@ -301,9 +299,7 @@ class TestAllEventSpecsProcessed:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: (
-                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
-            )
+            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
         )
         deps.error_handler = Mock()
         deps.ownership_builder = Mock()
@@ -394,9 +390,7 @@ class TestProcessorCoordination:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: (
-                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
-            )
+            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
         )
         deps.error_handler = Mock()
         deps.ownership_builder = Mock()
@@ -427,9 +421,7 @@ class TestProcessorCoordination:
             return_value="urn:li:container:org"
         )
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: (
-                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec_{id},PROD)"
-            )
+            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec_{id},PROD)"
         )
         deps.error_handler = Mock()
         deps.platform = "snowplow"

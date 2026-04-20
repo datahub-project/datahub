@@ -29,10 +29,10 @@ def hive_metastore_runner(docker_compose_runner, pytestconfig):
         docker_services.wait_until_responsive(
             timeout=30,
             pause=1,
-            check=lambda: (
-                requests.get("http://localhost:5300/v1/info").json()["starting"]
-                is False
-            ),
+            check=lambda: requests.get("http://localhost:5300/v1/info").json()[
+                "starting"
+            ]
+            is False,
         )
 
         yield docker_services
