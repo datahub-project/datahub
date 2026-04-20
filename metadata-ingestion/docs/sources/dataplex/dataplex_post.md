@@ -184,6 +184,16 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 ### Troubleshooting
 
+#### Expected Knowledge Catalog (Dataplex) sync latency
+
+Please be aware of the following documented delays when using this connector. These are standard Knowledge Catalog (Dataplex) behaviors and typically do not indicate an error:
+
+- Metadata Sync: Updates to metadata or new entries can take up to 10 minutes to appear due to backend caching.
+- Data Lineage: Lineage graphs are not real-time; updates typically take 30 minutes to 3 hours, but can take up to 24 hours to fully populate.
+- Data Quality Results: Results from Auto Data Quality scans may have a slight processing delay before appearing in the UI.
+
+If updates exceed these windows, check your [Cloud Logging](https://docs.cloud.google.com/dataplex/docs/logging) for specific job errors or permission issues.
+
 #### Lineage Extraction Issues
 
 **Automatic Retry Behavior:**
