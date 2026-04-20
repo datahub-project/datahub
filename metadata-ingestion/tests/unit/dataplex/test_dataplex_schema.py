@@ -2,6 +2,15 @@
 
 from unittest.mock import Mock
 
+from google.cloud import dataplex_v1
+
+from datahub.ingestion.source.dataplex.dataplex_schema import (
+    extract_field_value,
+    extract_graph_schema_from_entry_aspects,
+    extract_schema_from_entry_aspects,
+    map_aspect_type_to_datahub,
+    process_schema_field_item,
+)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -12,15 +21,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     StringTypeClass,
     TimeTypeClass,
-)
-from google.cloud import dataplex_v1
-
-from datahub.ingestion.source.dataplex.dataplex_schema import (
-    extract_field_value,
-    extract_graph_schema_from_entry_aspects,
-    extract_schema_from_entry_aspects,
-    map_aspect_type_to_datahub,
-    process_schema_field_item,
 )
 
 

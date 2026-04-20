@@ -23,6 +23,54 @@ from datahub.metadata.urns import DataPlatformUrn
 logger = logging.getLogger(__name__)
 
 
+def _create_node_field(node_name: str) -> SchemaFieldClass:
+    """Create a SchemaFieldClass for a graph node."""
+    return SchemaFieldClass(
+        fieldPath=f"[nodes].{node_name}",
+        type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        nativeDataType="NODE",
+        nullable=True,
+        recursive=False,
+    )
+
+
+def _create_edge_field(
+    edge_name: str, src_name: Optional[str], dst_name: Optional[str]
+) -> SchemaFieldClass:
+    """Create a SchemaFieldClass for a graph edge."""
+    description = f"{src_name} → {dst_name}" if src_name and dst_name else None
+    return SchemaFieldClass(
+        fieldPath=f"[edges].{edge_name}",
+        type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        nativeDataType="EDGE",
+        description=description,
+        nullable=True,
+        recursive=False,
+    )
+
+
+def _extract_proto_edge_names(
+    edge_fields: dict,
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Extract edge name and source/destination names from proto Value form."""
+    name_val = edge_fields.get("name")
+    edge_name = name_val.string_value if name_val else None
+
+    src_val = edge_fields.get("source")
+    src_name = None
+    if src_val and hasattr(src_val, "struct_value"):
+        src_name_val = dict(src_val.struct_value.fields).get("name")
+        src_name = src_name_val.string_value if src_name_val else None
+
+    dst_val = edge_fields.get("destination")
+    dst_name = None
+    if dst_val and hasattr(dst_val, "struct_value"):
+        dst_name_val = dict(dst_val.struct_value.fields).get("name")
+        dst_name = dst_name_val.string_value if dst_name_val else None
+
+    return edge_name, src_name, dst_name
+
+
 def extract_graph_schema_from_entry_aspects(
     entry: dataplex_v1.Entry, entry_id: str, platform: str
 ) -> Optional[SchemaMetadataClass]:
@@ -54,108 +102,46 @@ def extract_graph_schema_from_entry_aspects(
         nodes_data = data_dict.get("nodes")
         if nodes_data and hasattr(nodes_data, "list_value"):
             # Proto Value form
-            node_items_proto = nodes_data.list_value.values
-            for node_value in node_items_proto:
+            for node_value in nodes_data.list_value.values:
                 node_fields = dict(node_value.struct_value.fields)
                 name_val = node_fields.get("name")
                 node_name = name_val.string_value if name_val else None
                 if node_name:
-                    fields.append(
-                        SchemaFieldClass(
-                            fieldPath=f"[nodes].{node_name}",
-                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
-                            nativeDataType="NODE",
-                            nullable=True,
-                            recursive=False,
-                        )
-                    )
+                    fields.append(_create_node_field(node_name))
         elif nodes_data and hasattr(nodes_data, "__iter__"):
             # Python-native list form (proto-plus auto-marshaled Struct → dict)
             for node_item in nodes_data:
-                if isinstance(node_item, dict):
-                    node_name = node_item.get("name")
-                else:
-                    node_name = getattr(node_item, "name", None)
+                # MapComposite objects from proto-plus need dict conversion
+                node_dict = (
+                    dict(node_item) if not isinstance(node_item, dict) else node_item
+                )
+                node_name = node_dict.get("name")
                 if node_name:
-                    fields.append(
-                        SchemaFieldClass(
-                            fieldPath=f"[nodes].{node_name}",
-                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
-                            nativeDataType="NODE",
-                            nullable=True,
-                            recursive=False,
-                        )
-                    )
+                    fields.append(_create_node_field(node_name))
 
         edges_data = data_dict.get("edges")
         if edges_data and hasattr(edges_data, "list_value"):
             # Proto Value form
             for edge_value in edges_data.list_value.values:
                 edge_fields = dict(edge_value.struct_value.fields)
-
-                name_val = edge_fields.get("name")
-                edge_name = name_val.string_value if name_val else None
-
-                src_val = edge_fields.get("source")
-                src_name = None
-                if src_val and hasattr(src_val, "struct_value"):
-                    src_name_val = dict(src_val.struct_value.fields).get("name")
-                    src_name = src_name_val.string_value if src_name_val else None
-
-                dst_val = edge_fields.get("destination")
-                dst_name = None
-                if dst_val and hasattr(dst_val, "struct_value"):
-                    dst_name_val = dict(dst_val.struct_value.fields).get("name")
-                    dst_name = dst_name_val.string_value if dst_name_val else None
-
+                edge_name, src_name, dst_name = _extract_proto_edge_names(edge_fields)
                 if edge_name:
-                    description = (
-                        f"{src_name} \u2192 {dst_name}"
-                        if src_name and dst_name
-                        else None
-                    )
-                    fields.append(
-                        SchemaFieldClass(
-                            fieldPath=f"[edges].{edge_name}",
-                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
-                            nativeDataType="EDGE",
-                            description=description,
-                            nullable=True,
-                            recursive=False,
-                        )
-                    )
+                    fields.append(_create_edge_field(edge_name, src_name, dst_name))
         elif edges_data and hasattr(edges_data, "__iter__"):
             # Python-native list form (proto-plus auto-marshaled Struct → dict)
             for edge_item in edges_data:
-                if isinstance(edge_item, dict):
-                    edge_name = edge_item.get("name")
-                    src = edge_item.get("source")
-                    src_name = src.get("name") if isinstance(src, dict) else None
-                    dst = edge_item.get("destination")
-                    dst_name = dst.get("name") if isinstance(dst, dict) else None
-                else:
-                    edge_name = getattr(edge_item, "name", None)
-                    src = getattr(edge_item, "source", None)
-                    src_name = getattr(src, "name", None) if src else None
-                    dst = getattr(edge_item, "destination", None)
-                    dst_name = getattr(dst, "name", None) if dst else None
+                # MapComposite objects from proto-plus need dict conversion
+                edge_dict = (
+                    dict(edge_item) if not isinstance(edge_item, dict) else edge_item
+                )
+                edge_name = edge_dict.get("name")
+                src = edge_dict.get("source")
+                src_name = dict(src).get("name") if src else None
+                dst = edge_dict.get("destination")
+                dst_name = dict(dst).get("name") if dst else None
 
                 if edge_name:
-                    description = (
-                        f"{src_name} \u2192 {dst_name}"
-                        if src_name and dst_name
-                        else None
-                    )
-                    fields.append(
-                        SchemaFieldClass(
-                            fieldPath=f"[edges].{edge_name}",
-                            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
-                            nativeDataType="EDGE",
-                            description=description,
-                            nullable=True,
-                            recursive=False,
-                        )
-                    )
+                    fields.append(_create_edge_field(edge_name, src_name, dst_name))
 
         if not fields:
             logger.debug(
