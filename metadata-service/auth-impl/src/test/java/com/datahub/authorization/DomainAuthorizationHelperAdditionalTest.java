@@ -265,14 +265,15 @@ public class DomainAuthorizationHelperAdditionalTest {
     Map<Urn, Set<Urn>> newDomainsByEntity = new HashMap<>();
     newDomainsByEntity.put(datasetUrn, Set.of(domainUrn));
 
-    // Call with non-empty domains map but null aspectRetriever - should fall back
+    // Call with non-empty domains map but null aspectRetriever - treats entity as new,
+    // authorizes against proposed domains only
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
             opContext, mockEntityRegistry, List.of(mcp), newDomainsByEntity, null);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
-    // Should use standard auth and be authorized
+    // New entity with authorized proposed domains should pass
     assertTrue(results.get(mcp));
   }
 

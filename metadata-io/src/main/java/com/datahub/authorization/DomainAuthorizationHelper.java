@@ -95,15 +95,15 @@ public class DomainAuthorizationHelper {
       @Nonnull final Map<Urn, Set<Urn>> newDomainsByEntity,
       @Nullable final AspectRetriever aspectRetriever) {
 
+    final Map<Urn, Set<Urn>> domains =
+        newDomainsByEntity != null ? newDomainsByEntity : Collections.emptyMap();
     Map<MetadataChangeProposal, Boolean> results = new HashMap<>();
     Map<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> mcpsByOperation =
         groupMCPsByOperation(mcps, entityRegistry);
 
     if (aspectRetriever == null) {
       log.warn(
-          "AspectRetriever not available for domain-based authorization — denying all MCPs as fail-safe");
-      mcps.forEach(mcp -> results.put(mcp, false));
-      return results;
+          "AspectRetriever not available for domain-based authorization — treating all entities as new");
     }
 
     // Step 2: Get set of existing URNs (from all MCPs)
@@ -112,7 +112,8 @@ public class DomainAuthorizationHelper {
             .flatMap(List::stream)
             .map(Pair::getSecond)
             .collect(Collectors.toSet());
-    Set<Urn> existingUrns = batchGetExistingUrns(aspectRetriever, allUrns);
+    Set<Urn> existingUrns =
+        aspectRetriever != null ? batchGetExistingUrns(aspectRetriever, allUrns) : Set.of();
 
     // Process each operation
     for (Map.Entry<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> entry :
@@ -124,8 +125,8 @@ public class DomainAuthorizationHelper {
       Map<Urn, Boolean> domainChangeAuthResults = new HashMap<>();
       for (Pair<MetadataChangeProposal, Urn> pair : mcpUrnPairs) {
         Urn urn = pair.getSecond();
-        if (newDomainsByEntity.containsKey(urn)) {
-          Set<Urn> proposedDomains = newDomainsByEntity.get(urn);
+        if (domains.containsKey(urn)) {
+          Set<Urn> proposedDomains = domains.get(urn);
           boolean authorized =
               isAPIAuthorizedWithDomains(opContext, operation, urn, proposedDomains);
           domainChangeAuthResults.put(urn, authorized);
@@ -165,7 +166,7 @@ public class DomainAuthorizationHelper {
       for (Pair<MetadataChangeProposal, Urn> pair : mcpUrnPairs) {
         Urn urn = pair.getSecond();
 
-        boolean isChangingDomains = newDomainsByEntity.containsKey(urn);
+        boolean isChangingDomains = domains.containsKey(urn);
         boolean isExisting = existingUrns.contains(urn);
 
         boolean mcpAuthorized;
