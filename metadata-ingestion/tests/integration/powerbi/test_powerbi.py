@@ -761,7 +761,6 @@ def test_workspace_container(
 def test_access_token_expiry_with_long_expiry(
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -802,7 +801,6 @@ def test_access_token_expiry_with_long_expiry(
 def test_access_token_expiry_with_short_expiry(
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
