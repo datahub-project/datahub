@@ -1250,7 +1250,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
     for i in range(2):
         container_ownership_aspect = outputs[i + 5].record.aspect
         assert container_ownership_aspect
-        patch_ops = json.loads(container_ownership_aspect.value.decode("utf-8"))
+        patch_ops = json.loads(container_ownership_aspect.value.decode())["patch"]
         assert len(patch_ops) == 3
         assert patch_ops[0]["value"]["owner"] == builder.make_user_urn("person1")
         assert patch_ops[1]["value"]["owner"] == builder.make_user_urn("person2")

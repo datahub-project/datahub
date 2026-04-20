@@ -9,6 +9,14 @@ from typing import Dict, List, Optional
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
+from datahub.configuration.env_vars import (
+    get_progress_report_max_failures,
+    get_progress_report_max_infos,
+    get_progress_report_max_warnings,
+    get_report_failure_sample_size,
+    get_report_info_sample_size,
+    get_report_warning_sample_size,
+)
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
@@ -63,6 +71,62 @@ class FlagsConfig(ConfigModel):
         default=None,
         description=(
             "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
+        ),
+    )
+
+    progress_report_max_failures: int = Field(
+        ge=0,
+        default_factory=get_progress_report_max_failures,
+        description=(
+            "Maximum failure entries shown in interim progress reports (every 60 s). "
+            "Does not affect the final report. "
+            "Also settable via DATAHUB_PROGRESS_REPORT_MAX_FAILURES env var."
+        ),
+    )
+    progress_report_max_warnings: int = Field(
+        ge=0,
+        default_factory=get_progress_report_max_warnings,
+        description=(
+            "Maximum warning entries shown in interim progress reports. "
+            "Does not affect the final report. "
+            "Also settable via DATAHUB_PROGRESS_REPORT_MAX_WARNINGS env var."
+        ),
+    )
+    progress_report_max_infos: int = Field(
+        ge=0,
+        default_factory=get_progress_report_max_infos,
+        description=(
+            "Maximum info entries shown in interim progress reports. "
+            "Does not affect the final report. "
+            "Also settable via DATAHUB_PROGRESS_REPORT_MAX_INFOS env var."
+        ),
+    )
+
+    report_failure_sample_size: int = Field(
+        ge=0,
+        default_factory=get_report_failure_sample_size,
+        description=(
+            "How many failure entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
+            "Also settable via DATAHUB_REPORT_FAILURE_SAMPLE_SIZE env var."
+        ),
+    )
+    report_warning_sample_size: int = Field(
+        ge=0,
+        default_factory=get_report_warning_sample_size,
+        description=(
+            "How many warning entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
+            "Also settable via DATAHUB_REPORT_WARNING_SAMPLE_SIZE env var."
+        ),
+    )
+    report_info_sample_size: int = Field(
+        ge=0,
+        default_factory=get_report_info_sample_size,
+        description=(
+            "How many info entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
+            "Also settable via DATAHUB_REPORT_INFO_SAMPLE_SIZE env var."
         ),
     )
 

@@ -4,6 +4,7 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
@@ -18,7 +19,9 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> {
@@ -29,6 +32,13 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   protected List<ImmutableTriple<String, String, JsonNode>> pathValues = new ArrayList<>();
   protected Urn targetEntityUrn = null;
+
+  /**
+   * Per-instance override for arrayPrimaryKeys. When set, takes precedence over {@link
+   * #getArrayPrimaryKeys()}. Subclasses may set this for operations that require a non-default key
+   * ordering (e.g. {@code removeOwner} with non-contiguous null fields).
+   */
+  @Nullable protected Map<String, List<String>> arrayPrimaryKeysOverride = null;
 
   /**
    * Builder method
@@ -71,6 +81,15 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
    */
   protected abstract String getEntityType();
 
+  /**
+   * Returns the arrayPrimaryKeys map for this aspect's GenericJsonPatch envelope. When non-null,
+   * the patch payload is wrapped in {@code {"arrayPrimaryKeys": ..., "patch": [...]}}.
+   */
+  @Nullable
+  protected Map<String, List<String>> getArrayPrimaryKeys() {
+    return null;
+  }
+
   protected static String encodeValue(@Nonnull String value) {
     return value.replace("~ ", "~0").replace("/", "~1");
   }
@@ -100,9 +119,27 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
                     .put(PATH_KEY, triple.middle)
                     .set(VALUE_KEY, triple.right)));
 
+    Map<String, List<String>> apk =
+        arrayPrimaryKeysOverride != null ? arrayPrimaryKeysOverride : getArrayPrimaryKeys();
+    JsonNode payload;
+    if (apk != null) {
+      ObjectNode apkNode = instance.objectNode();
+      for (Map.Entry<String, List<String>> entry : apk.entrySet()) {
+        ArrayNode keys = instance.arrayNode();
+        entry.getValue().forEach(keys::add);
+        apkNode.set(entry.getKey(), keys);
+      }
+      ObjectNode envelope = instance.objectNode();
+      envelope.set("arrayPrimaryKeys", apkNode);
+      envelope.set("patch", patches);
+      payload = envelope;
+    } else {
+      payload = patches;
+    }
+
     GenericAspect genericAspect = new GenericAspect();
     genericAspect.setContentType("application/json-patch+json");
-    genericAspect.setValue(ByteString.copyString(patches.toString(), StandardCharsets.UTF_8));
+    genericAspect.setValue(ByteString.copyString(payload.toString(), StandardCharsets.UTF_8));
 
     return genericAspect;
   }

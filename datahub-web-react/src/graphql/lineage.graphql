@@ -935,7 +935,7 @@ query getSearchAcrossLineageCounts(
             query: "*"
             start: 0
             count: 2000
-            filters: [{ field: "degree", value: "1", values: ["1"] }]
+            orFilters: [{ and: [{ field: "degree", value: "1", values: ["1"] }] }]
             direction: UPSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
         }
@@ -953,7 +953,7 @@ query getSearchAcrossLineageCounts(
             query: "*"
             start: 0
             count: 2000
-            filters: [{ field: "degree", value: "1", values: ["1"] }]
+            orFilters: [{ and: [{ field: "degree", value: "1", values: ["1"] }] }]
             direction: DOWNSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
         }

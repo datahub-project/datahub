@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.OpenSearchException;
@@ -1422,6 +1423,90 @@ public class ESIndexBuilderTest {
     // Should NOT have submitted a reindex (0 docs)
     verify(searchClient, never())
         .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * Regression test for the concrete-index→alias migration bug. When the source index is a plain
+   * concrete index (no alias), renameReindexedIndices must use REMOVE_INDEX (delete the index) so
+   * that an alias of the same name can be created. Using REMOVE (remove alias relationship) causes
+   * OpenSearch to reject the request with invalid_alias_name_exception.
+   */
+  @Test
+  void testRenameReindexedIndices_ConcreteIndexUsesRemoveIndex() throws Exception {
+    String originalName = "tagindex_v2";
+    String newName = "tagindex_v2_v0_3_17_1000";
+
+    // Empty aliases response → originalName is a concrete index, not an alias
+    GetAliasesResponse emptyAliases = mock(GetAliasesResponse.class);
+    when(emptyAliases.getAliases()).thenReturn(Map.of());
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(emptyAliases);
+
+    AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
+    when(ack.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(ack);
+
+    ESIndexBuilder.renameReindexedIndices(
+        searchClient, originalName, null, newName, false, RequestOptions.DEFAULT);
+
+    ArgumentCaptor<IndicesAliasesRequest> captor =
+        ArgumentCaptor.forClass(IndicesAliasesRequest.class);
+    verify(searchClient).updateIndexAliases(captor.capture(), any(RequestOptions.class));
+
+    List<org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions> actions =
+        captor.getValue().getAliasActions();
+    // Exactly one REMOVE_INDEX action (deletes the concrete index) + one ADD action (creates alias)
+    long removeIndexCount =
+        actions.stream()
+            .filter(
+                a ->
+                    a.actionType()
+                        == org.opensearch.action.admin.indices.alias.IndicesAliasesRequest
+                            .AliasActions.Type.REMOVE_INDEX)
+            .count();
+    assertEquals(
+        removeIndexCount, 1L, "Expected exactly one REMOVE_INDEX action for concrete index");
+  }
+
+  @Test
+  void testRenameReindexedIndices_AliasedIndexUsesRemoveAlias() throws Exception {
+    String aliasName = "tagindex_v2";
+    String oldBacking = "tagindex_v2_v0_3_16_999";
+    String newBacking = "tagindex_v2_v0_3_17_1000";
+
+    // Non-empty aliases response → aliasName already points to a backing index
+    GetAliasesResponse existingAlias = mock(GetAliasesResponse.class);
+    when(existingAlias.getAliases()).thenReturn(Map.of(oldBacking, new HashSet<>()));
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(existingAlias);
+
+    AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
+    when(ack.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(ack);
+
+    ESIndexBuilder.renameReindexedIndices(
+        searchClient, aliasName, null, newBacking, false, RequestOptions.DEFAULT);
+
+    ArgumentCaptor<IndicesAliasesRequest> captor =
+        ArgumentCaptor.forClass(IndicesAliasesRequest.class);
+    verify(searchClient).updateIndexAliases(captor.capture(), any(RequestOptions.class));
+
+    List<org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions> actions =
+        captor.getValue().getAliasActions();
+    // Should use REMOVE (remove alias relationship), NOT REMOVE_INDEX (would delete backing data)
+    long removeAliasCount =
+        actions.stream()
+            .filter(
+                a ->
+                    a.actionType()
+                        == org.opensearch.action.admin.indices.alias.IndicesAliasesRequest
+                            .AliasActions.Type.REMOVE)
+            .count();
+    assertEquals(removeAliasCount, 1L, "Expected exactly one REMOVE action for aliased index");
   }
 
   @Test

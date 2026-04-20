@@ -12,7 +12,7 @@ import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
 import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -135,7 +135,7 @@ export const NavSidebar = () => {
     const showHomepageRedesign = useShowHomePageRedesign();
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
-    const { isUserInitializing } = useContext(OnboardingContext);
+    const { isUserInitializing, isOnboardingAvailable } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
@@ -337,6 +337,35 @@ export const NavSidebar = () => {
         ],
     };
 
+    const isProductTourAvailable = useMemo(() => {
+        if (isHomePage) return true;
+        return isOnboardingAvailable;
+    }, [isOnboardingAvailable, isHomePage]);
+
+    const productTourMenuItems: NavBarMenuDropdownItemElement[] = isProductTourAvailable
+        ? [
+              {
+                  type: NavBarMenuItemTypes.DropdownElement,
+                  title: 'Product Tour',
+                  description: 'Take a quick tour of this page',
+                  disabled: !isProductTourAvailable,
+                  key: 'helpProductTour',
+                  onClick: () => {
+                      if (isHomePage) {
+                          triggerModalTour();
+                      } else {
+                          // Track Product Tour button click for non-home pages
+                          analytics.event({
+                              type: EventType.ProductTourButtonClickEvent,
+                              originPage: location.pathname,
+                          });
+                          showOnboardingTour();
+                      }
+                  },
+              },
+          ]
+        : [];
+
     const footerMenu: NavBarMenuItems = {
         items: [
             {
@@ -357,29 +386,12 @@ export const NavSidebar = () => {
             },
             {
                 type: NavBarMenuItemTypes.Dropdown,
-                title: 'Help',
+                title: 'Resources',
                 icon: <Question />,
                 selectedIcon: <Question weight="fill" />,
                 key: 'help',
                 items: [
-                    {
-                        type: NavBarMenuItemTypes.DropdownElement,
-                        title: 'Product Tour',
-                        description: 'Take a quick tour of this page',
-                        key: 'helpProductTour',
-                        onClick: () => {
-                            if (isHomePage) {
-                                triggerModalTour();
-                            } else {
-                                // Track Product Tour button click for non-home pages
-                                analytics.event({
-                                    type: EventType.ProductTourButtonClickEvent,
-                                    originPage: location.pathname,
-                                });
-                                showOnboardingTour();
-                            }
-                        },
-                    },
+                    ...productTourMenuItems,
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'GraphQL',
