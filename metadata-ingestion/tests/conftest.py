@@ -5,6 +5,7 @@ import time
 from typing import List, Optional
 
 import pytest
+import time_machine
 
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 os.environ["DATAHUB_TEST_MODE"] = "1"
@@ -39,7 +40,19 @@ _MOCK_TIME = 1615443388.0975091  # 2021-03-11 06:16:28.097509+00:00
 
 
 @pytest.fixture
-def mock_time(monkeypatch):
+def mock_time():
+    with time_machine.travel(_MOCK_TIME, tick=False):
+        yield
+
+
+@pytest.fixture
+def mock_monotonic_time(monkeypatch):
+    # time_machine does not patch time.monotonic(), so we fall back to
+    # monkeypatch for tests that depend on monotonic time advancing (e.g. MSAL
+    # uses time.monotonic() internally to decide when cached tokens have
+    # expired and need refreshing). Using time_machine here would freeze
+    # monotonic time and prevent token-refresh logic from running.
+    # See https://github.com/adamchainz/time-machine/blob/main/docs/changelog.rst
     monkeypatch.setattr(time, "time", lambda: _MOCK_TIME)
     yield
 
