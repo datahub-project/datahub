@@ -25,11 +25,11 @@ from acryl.executor.execution.reporting_executor import (
 from acryl.executor.execution.task import TaskConfig
 from acryl.executor.request.execution_request import ExecutionRequest
 from acryl.executor.request.signal_request import SignalRequest
-from acryl.executor.secret.datahub_secret_store import DataHubSecretStoreConfig
-from acryl.executor.secret.secret_store import SecretStoreConfig
 from pydantic import BaseModel
 
 from datahub.metadata.schema_classes import MetadataChangeLogClass
+from datahub.secret.datahub_secret_store import DataHubSecretStoreConfig
+from datahub.secret.secret_store import SecretStoreConfig
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE

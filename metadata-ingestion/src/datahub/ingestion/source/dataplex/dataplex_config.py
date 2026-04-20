@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -73,7 +73,6 @@ class EntriesFilterConfig(ConfigModel):
 
     pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        validation_alias=AliasChoices("pattern", "dataset_pattern"),
         description="Regex patterns for Dataplex entry names to filter in ingestion.",
     )
     fqn_pattern: AllowDenyPattern = Field(
@@ -181,13 +180,25 @@ class DataplexConfig(
         "Higher values reduce API load but increase ingestion time. Default: 1.0.",
     )
 
-    batch_size: Optional[int] = Field(
-        default=1000,
-        description="Batch size for metadata emission and lineage extraction. "
-        "Entries are emitted in batches to prevent memory issues in large deployments. "
-        "Lower values reduce memory usage but may increase processing time. "
-        "Set to None to disable batching (process all entries at once). "
-        "Recommended: 1000 for large deployments (>10k entries), None for small deployments (<1k entries). Default: 1000.",
+    max_workers_entries: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Number of parallel worker threads for fetching entry details "
+        "(get_entry API calls). Entry detail fetching is the main bottleneck in the "
+        "entries stage because each entry requires one blocking RPC. Increasing this "
+        "value reduces wall-clock time proportionally up to the API quota limit. "
+        "Increase for large deployments (>1k entries). Default: 10.",
+    )
+
+    max_workers_lineage: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Number of parallel worker threads for lineage lookups "
+        "(search_links API calls). Lineage lookup volume scales with entries × "
+        "lineage_locations, so parallelism here has a large impact on total "
+        "ingestion time. Increase for large entry × location matrices. Default: 10.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
