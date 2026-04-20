@@ -24,51 +24,39 @@ The `informatica` module ingests metadata from Informatica Cloud (IDMC) into Dat
 
 #### Concept Mapping
 
-| IDMC concept    | DataHub entity | Subtype              |
-| --------------- | -------------- | -------------------- |
-| Project         | Container      | `Project`            |
-| Folder          | Container      | `Folder`             |
-| Taskflow        | DataFlow       | `Taskflow`           |
-| Mapping (v3)    | DataJob        | `Mapping`            |
-| Mapping Task    | DataJob        | `Mapping Task`       |
-| Source/target   | Dataset (upstream/downstream lineage) | — |
+| IDMC concept  | DataHub entity                        | Subtype        |
+| ------------- | ------------------------------------- | -------------- |
+| Project       | Container                             | `Project`      |
+| Folder        | Container                             | `Folder`       |
+| Taskflow      | DataFlow                              | `Taskflow`     |
+| Mapping (v3)  | DataJob                               | `Mapping`      |
+| Mapping Task  | DataJob                               | `Mapping Task` |
+| Source/target | Dataset (upstream/downstream lineage) | —              |
 
 Mappings are grouped under a synthetic per-project DataFlow so lineage navigation in the UI remains scoped to the project that owns them. Mapping Tasks are each attached to their own DataFlow because they schedule a single mapping with its own parameters.
 
-#### Prerequisites
+### Prerequisites
 
-##### Required Permissions
+#### Required Permissions
 
-| Capability                        | IDMC privilege                               | Notes                                                 |
-| --------------------------------- | -------------------------------------------- | ----------------------------------------------------- |
-| Authenticate                      | Any active IDMC user                         | Uses the v2 login endpoint                            |
-| List projects, folders, taskflows | `Asset - read` (or the Observer role)        | Needed for all container/flow emission                |
-| List mappings / mapping tasks     | `Asset - read`                               | Mapping Tasks are optional and skipped with a warning if 403 |
-| Extract table-level lineage       | `Asset - export`                             | Submits v3 export jobs; skip by setting `extract_lineage: false` |
-| List connections                  | `Connection - read`                          | Needed for lineage to resolve to dataset URNs         |
+| Capability                        | IDMC privilege                        | Notes                                                            |
+| --------------------------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| Authenticate                      | Any active IDMC user                  | Uses the v2 login endpoint                                       |
+| List projects, folders, taskflows | `Asset - read` (or the Observer role) | Needed for all container/flow emission                           |
+| List mappings / mapping tasks     | `Asset - read`                        | Mapping Tasks are optional and skipped with a warning if 403     |
+| Extract table-level lineage       | `Asset - export`                      | Submits v3 export jobs; skip by setting `extract_lineage: false` |
+| List connections                  | `Connection - read`                   | Needed for lineage to resolve to dataset URNs                    |
 
-##### Regional login URLs
+#### Regional login URLs
 
 Set `login_url` to your IDMC pod's regional URL (not the API runtime URL — the connector discovers that from the login response):
 
-| Region | `login_url`                                  |
-| ------ | -------------------------------------------- |
-| US     | `https://dm-us.informaticacloud.com`         |
-| US2    | `https://dm2-us.informaticacloud.com`        |
-| EMEA   | `https://dm-em.informaticacloud.com`         |
-| APAC   | `https://dm-ap.informaticacloud.com`         |
-
-#### Filtering
-
-Three filter layers can be combined, applied in order:
-
-1. **Tag-based** (`tag_filter_names`, recommended for large orgs) — an allowlist of IDMC tags; only tagged objects are ingested.
-2. **Path-based** (`project_pattern`, `folder_pattern`) — regex allow/deny on project and folder names.
-3. **Name-based** (`mapping_pattern`, `taskflow_pattern`) — regex allow/deny on mapping and taskflow names.
-
-#### Connection Type Mapping
-
-When emitting lineage, each IDMC connection is mapped to a DataHub platform (e.g. `Snowflake_Cloud_Data_Warehouse → snowflake`). The mapping is driven by `connParams["Connection Type"]`. If IDMC returns an unknown type (or a customer-specific connector), set `connection_type_overrides` to map that connection ID to a DataHub platform name. The connector will warn about unknown platforms at config-parse time.
+| Region | `login_url`                           |
+| ------ | ------------------------------------- |
+| US     | `https://dm-us.informaticacloud.com`  |
+| US2    | `https://dm2-us.informaticacloud.com` |
+| EMEA   | `https://dm-em.informaticacloud.com`  |
+| APAC   | `https://dm-ap.informaticacloud.com`  |
 
 #### References
 

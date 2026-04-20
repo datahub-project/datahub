@@ -1,3 +1,26 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Filtering
+
+Three filter layers can be combined, applied in order:
+
+1. **Tag-based** (`tag_filter_names`, recommended for large orgs) — an allowlist of IDMC tags; only tagged objects are ingested.
+2. **Path-based** (`project_pattern`, `folder_pattern`) — regex allow/deny on project and folder names.
+3. **Name-based** (`mapping_pattern`, `taskflow_pattern`) — regex allow/deny on mapping and taskflow names.
+
+#### Connection Type Mapping
+
+When emitting lineage, each IDMC connection is mapped to a DataHub platform (e.g. `Snowflake_Cloud_Data_Warehouse → snowflake`). The mapping is driven by `connParams["Connection Type"]`. If IDMC returns an unknown type (or a customer-specific connector), set `connection_type_overrides` to map that connection ID to a DataHub platform name. The connector will warn about unknown platforms at config-parse time.
+
+### Limitations
+
+- **No column-level lineage** — the v3 export gives us transformation-level source/target tables but not column mappings.
+- **No execution history** — the connector does not ingest Activity Monitor runs as DataProcessInstances.
+- **Tag extraction not yet wired** — the `extract_tags` flag is accepted for forward compatibility but tags are not emitted in this release.
+- **Single-user auth only** — service-principal / federated SSO login is not supported; use a native IDMC user.
+
 ### Troubleshooting
 
 #### `IDMC login failed` at startup
@@ -34,10 +57,3 @@ The connector emits a report warning titled "IDMC export job timed out" for each
 #### Add-On Bundles showing up
 
 IDMC ships several marketplace bundles (e.g. Cloud Data Integration templates). The connector filters these out automatically by checking `path.startswith("Add-On Bundles/")` or `updated_by == "bundle-license-notifier"`. If you see bundle mappings leaking through, open an issue with the offending object's path.
-
-### Known Limitations
-
-- **No column-level lineage** — the v3 export gives us transformation-level source/target tables but not column mappings.
-- **No execution history** — the connector does not ingest Activity Monitor runs as DataProcessInstances.
-- **Tag extraction not yet wired** — the `extract_tags` flag is accepted for forward compatibility but tags are not emitted in this release.
-- **Single-user auth only** — service-principal / federated SSO login is not supported; use a native IDMC user.
