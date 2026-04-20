@@ -1,6 +1,6 @@
 ### Overview
 
-    The `dataplex` module ingests metadata from Dataplex into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+The `dataplex` module ingests metadata from Dataplex into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
 The Dataplex connector extracts metadata from Google Dataplex using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
 
