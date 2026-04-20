@@ -524,20 +524,26 @@ class SigmaAPI:
                     else:
                         # DMs in personal folders (e.g. 'My Documents') won't resolve to a workspace.
                         # Treat as shared entities — mirror get_sigma_datasets' no-workspace branch.
-                        if self.config.data_model_pattern.allowed(data_model.name):
-                            self.report.data_models.processed(
-                                f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
-                            )
-                            data_model.columns = self.get_data_model_columns(
-                                data_model.dataModelId
-                            )
-                            data_model.sources = self.get_data_model_sources(
-                                data_model.dataModelId
-                            )
-                            data_models.append(data_model)
+                        # This treats 403 access-denied on workspace fetch identically to missing metadata.
+                        if self.config.ingest_shared_entities:
+                            if self.config.data_model_pattern.allowed(data_model.name):
+                                self.report.data_models.processed(
+                                    f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+                                )
+                                data_model.columns = self.get_data_model_columns(
+                                    data_model.dataModelId
+                                )
+                                data_model.sources = self.get_data_model_sources(
+                                    data_model.dataModelId
+                                )
+                                data_models.append(data_model)
+                            else:
+                                self.report.data_models.dropped(
+                                    f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+                                )
                         else:
                             self.report.data_models.dropped(
-                                f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+                                f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
                             )
 
                 if response_dict.get(Constant.NEXTPAGE):

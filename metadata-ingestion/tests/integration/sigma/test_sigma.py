@@ -631,7 +631,7 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
     pets_dataset_id = "8891fd40-5470-4ff2-a74f-6e61ee44d3fc"
 
     override_data: Dict[str, Dict] = {
-        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataModel": {
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
             "method": "GET",
             "status_code": 200,
             "json": {
