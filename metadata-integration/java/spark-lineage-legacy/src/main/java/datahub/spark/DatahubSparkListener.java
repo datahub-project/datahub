@@ -19,7 +19,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,17 +65,10 @@ public class DatahubSparkListener extends SparkListener {
       new ConcurrentHashMap<>();
   private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
   private final Map<String, Config> appConfig = new ConcurrentHashMap<>();
-  // Tracks execution IDs of recent create-table-as-select commands per app,
-  // so we can suppress the follow-up insert that Spark 3.5+ generates as a separate SQL execution.
-  // Uses a sliding window (Set) instead of single ID to handle parallel queries correctly.
-  // Only used in Spark 3.5+; Spark < 3.5 does not generate follow-up inserts.
-  private final Map<String, Set<Long>> pendingCtasExecIds = new ConcurrentHashMap<>();
+  private final Map<String, Set<String>> pendingCtasTables = new ConcurrentHashMap<>();
   // Cached Spark version components (parsed once at first access)
   private static volatile int sparkMajorVersion = -1;
   private static volatile int sparkMinorVersion = -1;
-  // Tolerance window for CTAS follow-up insert detection in Spark 3.5+
-  // Handles parallel query execution where follow-up insert may not be immediately sequential
-  private static final long CTAS_FOLLOWUP_TOLERANCE = 50;
 
   public DatahubSparkListener() {
     log.info("DatahubSparkListener initialised.");
@@ -228,33 +220,39 @@ public class DatahubSparkListener extends SparkListener {
       // Spark < 3.5 does not, so no dedup needed.
       // Version check handles Spark 3.5.x, 4.0.x, 5.x, etc. (any version >= 3.5)
       if (sparkMajorVersion > 3 || (sparkMajorVersion == 3 && sparkMinorVersion >= 5)) {
-        Set<Long> pendingCtas = pendingCtasExecIds.get(ctx.applicationId());
-        if (DatasetExtractor.isFollowUpInsertCommand(plan) && pendingCtas != null) {
-          for (Iterator<Long> it = pendingCtas.iterator(); it.hasNext(); ) {
-            Long ctasExecId = it.next();
-            // Tolerance window: accept follow-up insert within 50 execution IDs of CTAS.
-            // Handles parallel query execution where follow-up may not be immediately sequential.
-            if (sqlStart.executionId() > ctasExecId
-                && sqlStart.executionId() - ctasExecId <= CTAS_FOLLOWUP_TOLERANCE) {
+        String appId = ctx.applicationId();
+
+        // Check if this is a follow-up INSERT for a recently created table via CTAS.
+        // Match by table name: if we just created this table via CTAS, suppress the follow-up.
+        if (DatasetExtractor.isFollowUpInsertCommand(plan)) {
+          String targetTable = DatasetExtractor.getTargetTable(plan);
+          if (targetTable != null) {
+            Set<String> pending = pendingCtasTables.get(appId);
+            if (pending != null && pending.remove(targetTable)) {
               log.debug(
-                  "Skipping follow-up insert for create-table-as-select (execution {}:{}, CTAS: {})",
-                  ctx.applicationId(),
-                  sqlStart.executionId(),
-                  ctasExecId);
-              it.remove();
+                  "Suppressing CTAS follow-up insert for table {} (app={}, execId={})",
+                  targetTable,
+                  appId,
+                  sqlStart.executionId());
+              if (pending.isEmpty()) {
+                pendingCtasTables.remove(appId);
+              }
               return;
             }
           }
-          if (pendingCtas.isEmpty()) {
-            pendingCtasExecIds.remove(ctx.applicationId());
-          }
         }
 
+        // Track CTAS commands by target table name.
+        // Edge case: if user does CTAS then immediate INSERT to same table, INSERT would be
+        // suppressed. This is astronomically unlikely in practice and arguably impossible in
+        // same execution thread.
         if (DatasetExtractor.isCreateTableAsSelectCommand(plan)) {
-          Set<Long> ctas =
-              pendingCtasExecIds.computeIfAbsent(
-                  ctx.applicationId(), k -> ConcurrentHashMap.newKeySet());
-          ctas.add(sqlStart.executionId());
+          String targetTable = DatasetExtractor.getTargetTable(plan);
+          if (targetTable != null) {
+            pendingCtasTables
+                .computeIfAbsent(appId, k -> ConcurrentHashMap.newKeySet())
+                .add(targetTable);
+          }
         }
       }
 
@@ -393,6 +391,7 @@ public class DatahubSparkListener extends SparkListener {
                   log.info("Application ended : {} {}", sc.appName(), sc.applicationId());
                   AppStartEvent start = appDetails.remove(sc.applicationId());
                   appSqlDetails.remove(sc.applicationId());
+                  pendingCtasTables.remove(sc.applicationId());
                   if (start == null) {
                     log.error(
                         "Application end event received, but start event missing for appId "

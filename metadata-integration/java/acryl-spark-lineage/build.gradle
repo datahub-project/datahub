@@ -265,14 +265,6 @@ tasks.register('buildAllScalaVersions') {
 test {
   forkEvery = 1
   useJUnitPlatform()
-
-  def sparkJava21CompatibleJvmArgs = [
-          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-          "--add-opens=java.base/java.net=ALL-UNNAMED",
-          "--add-opens=java.base/java.nio=ALL-UNNAMED",
-          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-  ]
-  jvmArgs = sparkJava21CompatibleJvmArgs
 }
 
 assemble {

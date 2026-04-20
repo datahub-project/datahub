@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkContext;
+import org.apache.spark.sql.catalyst.catalog.CatalogTable;
 import org.apache.spark.sql.catalyst.catalog.HiveTableRelation;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.execution.FileSourceScanExec;
@@ -426,6 +427,52 @@ public class DatasetExtractor {
    */
   static boolean isFollowUpInsertCommand(LogicalPlan plan) {
     return plan instanceof InsertIntoHadoopFsRelationCommand || plan instanceof InsertIntoHiveTable;
+  }
+
+  /**
+   * Extract target table identifier from a logical plan (CTAS or follow-up insert). Returns
+   * normalized table name (lowercase, without spark_catalog. prefix) or null if extraction fails.
+   * For InsertIntoHadoopFsRelationCommand: only returns a table name if catalogTable is defined. If
+   * catalogTable is not defined (file-based insert), returns null so follow-ups aren't matched.
+   */
+  static String getTargetTable(LogicalPlan plan) {
+    if (plan instanceof CreateDataSourceTableAsSelectCommand) {
+      return getTableIdentifier(((CreateDataSourceTableAsSelectCommand) plan).table());
+    } else if (plan instanceof CreateHiveTableAsSelectCommand) {
+      return getTableIdentifier(((CreateHiveTableAsSelectCommand) plan).tableDesc());
+    } else if (plan instanceof InsertIntoHiveTable) {
+      return getTableIdentifier(((InsertIntoHiveTable) plan).table());
+    } else if (plan instanceof InsertIntoHadoopFsRelationCommand) {
+      InsertIntoHadoopFsRelationCommand cmd = (InsertIntoHadoopFsRelationCommand) plan;
+      if (cmd.catalogTable().isDefined()) {
+        return getTableIdentifier(cmd.catalogTable().get());
+      }
+      // Extract table from warehouse path: /path/to/db.db/table → db.table
+      String path = cmd.outputPath().toString();
+      String[] parts = path.split("/");
+      if (parts.length >= 2) {
+        String dbPart = parts[parts.length - 2]; // e.g., "sparktestdb.db"
+        String tablePart = parts[parts.length - 1]; // e.g., "foo4"
+        if (dbPart.endsWith(".db") && !tablePart.isEmpty()) {
+          String dbName = dbPart.substring(0, dbPart.length() - 3); // remove ".db"
+          return (dbName + "." + tablePart).toLowerCase();
+        }
+      }
+      return null;
+    }
+    return null;
+  }
+
+  /**
+   * Get normalized table identifier from CatalogTable. Strips spark_catalog. prefix and lowercases
+   * for case-insensitive matching. Used for semantic CTAS dedup.
+   */
+  private static String getTableIdentifier(CatalogTable table) {
+    String qualifiedName = table.qualifiedName();
+    if (qualifiedName.startsWith("spark_catalog.")) {
+      qualifiedName = qualifiedName.substring("spark_catalog.".length());
+    }
+    return qualifiedName.toLowerCase();
   }
 
   static Optional<? extends Collection<SparkDataset>> asDataset(
