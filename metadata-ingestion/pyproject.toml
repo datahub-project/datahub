@@ -1628,7 +1628,6 @@ dev = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "flatdict!=4.0.1",
-    "freezegun<2.0.0",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
@@ -1822,7 +1821,6 @@ docs = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "flatdict!=4.0.1",
-    "freezegun<2.0.0",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
@@ -2315,6 +2313,9 @@ ban-relative-imports = "all"
 # pydantic v2 deprecations
 "pydantic.validator" = { msg = "Use pydantic.field_validator instead of deprecated validator" }
 "pydantic.root_validator" = { msg = "Use pydantic.model_validator instead of deprecated root_validator" }
+# freezegun does not support pydantic v2: https://github.com/spulec/freezegun/issues/480
+"freezegun" = { msg = "Use time-machine instead: @time_machine.travel(TIME, tick=False). See https://github.com/spulec/freezegun/issues/480" }
+"freezegun.api" = { msg = "Use time-machine instead: @time_machine.travel(TIME, tick=False). See https://github.com/spulec/freezegun/issues/480" }
 
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
