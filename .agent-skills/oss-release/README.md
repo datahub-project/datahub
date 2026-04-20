@@ -16,17 +16,32 @@ command -v git
 
 You must be inside the `datahub-acryl` repo on a clean `master` branch.
 
-### Optional plugin: `connectors-accelerator`
+### Recommended plugin: `connectors-accelerator`
 
-If the `connectors-accelerator` plugin is installed, the agent invokes its
-`generating-datahub-changelog` skill natively to produce categorized release notes.
+The `connectors-accelerator` plugin provides the `generating-datahub-changelog`
+skill that `/oss-release rc` calls at Step 3.5 to produce categorized release
+notes. Strongly recommended for anything beyond a trivial release.
 
-If the plugin is **not** installed, the agent will ask you whether to:
+**Install** (two-step, one-time setup inside Claude Code):
+
+```bash
+# Step 1: Add the marketplace
+/plugin marketplace add acryldata/connectors-accelerator
+
+# Step 2: Install the plugin
+/plugin install connectors-accelerator@acryldata-connectors-accelerator
+```
+
+Full install docs + options (specific branches, local auto-discovery, etc.):
+<https://github.com/acryldata/connectors-accelerator/blob/main/README.md#installing-the-plugin>
+
+**If the plugin is not installed**, the `rc` workflow still completes but
+the agent will ask you whether to:
 - **Skip** — attach a minimal placeholder note to the release, or
 - **Provide a file** — point to release notes you've drafted manually
 
-Either way, the release can still be cut. The skill is kept in the plugin (not vendored here)
-because it's also used for weekly team updates and external announcements.
+The changelog skill is kept in the plugin (not vendored here) because it's
+also used for weekly team updates and external announcements.
 
 ---
 
