@@ -328,7 +328,7 @@ project.ext.externalDependency = [
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
-    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.8'
+    'javaxMail': 'com.sun.mail:jakarta.mail:2.0.2'
 ]
 
 allprojects {
