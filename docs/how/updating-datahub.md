@@ -46,6 +46,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.5+)
   - **For self-hosted deployments:** Build/compile requires Java 21 JDK. Runtime environments can use Java 8+ (DataHub produces Java 8 bytecode for compatibility). Spark lineage users must upgrade to Spark 3.5.0+ if using DataHub's Spark integration.
   - **Java 21 runtime configuration**: When running DataHub services with Java 21, add `--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED` to `JAVA_OPTS` or your JVM startup command to allow Spark lineage listener reflection-based operations. DataHub Docker images include this automatically.
+
 ### Known Issues
 
 ### Potential Downtime
