@@ -55,6 +55,7 @@ base_requirements = {
     "azure-identity==1.21.0",
     "aws-msk-iam-sasl-signer-python==1.0.2",
     "h11>=0.16",
+    "acryl-executor==0.3.11",
 }
 
 framework_common = {
@@ -77,9 +78,7 @@ plugins: Dict[str, Set[str]] = {
         "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
-    "executor": {
-        "acryl-executor==0.3.2",
-    },
+    "executor": set(),
     "slack": {
         "slack-bolt>=1.15.5",
     },
