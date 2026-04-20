@@ -1,16 +1,16 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.str_enum import StrEnum
 
 IdmcObjectType = Literal["Project", "Folder", "TASKFLOW", "DTEMPLATE"]
 
 
-class ExportJobState(str, Enum):
+class ExportJobState(StrEnum):
     QUEUED = "QUEUED"
     IN_PROGRESS = "IN_PROGRESS"
     SUCCESSFUL = "SUCCESSFUL"
