@@ -807,10 +807,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     skipped += 1
                     continue
 
+                is_dynamic_val = str(row.get("is_dynamic") or "").upper() == "YES"
                 table_cls = (
-                    SnowflakeDynamicTable
-                    if row.get("is_dynamic") == "YES"
-                    else SnowflakeTable
+                    SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
                 )
                 table = table_cls(
                     name=row["table_name"],
@@ -821,6 +820,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=int(row["row_count"]) if row.get("row_count") else None,
                     comment=row.get("comment"),
                     clustering_key=row.get("clustering_key"),
+                    is_dynamic=is_dynamic_val,
+                    is_iceberg=str(row.get("is_iceberg") or "").upper() == "YES",
+                    is_hybrid=str(row.get("is_hybrid") or "").upper() == "YES",
+                    retention_time=int(row["retention_time"])
+                    if row.get("retention_time") is not None
+                    else None,
                 )
                 tables[schema_name].append(table)
 
@@ -849,6 +854,24 @@ class SnowflakeDataDictionary(SupportsAsObj):
             db_name, table_types, table_filter
         )
         if bulk_tables is not None:
+            # Validate completeness: check if tables have required fields
+            all_tables_flat = [
+                t for tables_list in bulk_tables.values() for t in tables_list
+            ]
+            if all_tables_flat:
+                first_table = all_tables_flat[0]
+                missing_fields = []
+                if first_table.is_iceberg is None:
+                    missing_fields.append("is_iceberg")
+                if first_table.is_hybrid is None:
+                    missing_fields.append("is_hybrid")
+                if missing_fields:
+                    logger.warning(
+                        f"Bulk extraction incomplete for database {db_name} "
+                        f"(missing fields: {missing_fields}), falling back to sequential"
+                    )
+                    bulk_tables = None
+        if bulk_tables is not None:
             tables: Dict[str, List[SnowflakeTable]] = bulk_tables
             # Populate dynamic table definitions only if dynamic tables are not excluded
             if not exclude_dynamic_tables:
@@ -856,6 +879,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return tables
 
         # Fall back to sequential queries
+        logger.info(f"Bulk extraction returned incomplete results, switching to sequential for {db_name}")
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
@@ -917,6 +941,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
         # Try bulk metadata first
         bulk_tables = self._get_tables_from_bulk_metadata(db_name, schema_name)
+        if bulk_tables is not None:
+            # Validate completeness: check if tables have required fields
+            if bulk_tables:
+                first_table = bulk_tables[0]
+                missing_fields = []
+                if first_table.is_iceberg is None:
+                    missing_fields.append("is_iceberg")
+                if first_table.is_hybrid is None:
+                    missing_fields.append("is_hybrid")
+                if missing_fields:
+                    logger.warning(
+                        f"Bulk extraction incomplete for {db_name}.{schema_name} "
+                        f"(missing fields: {missing_fields}), falling back to sequential"
+                    )
+                    bulk_tables = None
         if bulk_tables is not None:
             tables: List[SnowflakeTable] = bulk_tables
 
@@ -983,9 +1022,24 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Try bulk metadata first
         bulk_views = self._get_views_from_bulk_metadata(db_name)
         if bulk_views is not None:
+            # Validate completeness: check if views have view_definition populated
+            all_views_flat = [v for views_list in bulk_views.values() for v in views_list]
+            if all_views_flat:
+                views_missing_definition = [
+                    v for v in all_views_flat if v.view_definition is None
+                ]
+                if views_missing_definition:
+                    logger.warning(
+                        f"Bulk extraction incomplete for database {db_name}: "
+                        f"{len(views_missing_definition)}/{len(all_views_flat)} views missing "
+                        f"view_definition, falling back to sequential"
+                    )
+                    bulk_views = None
+        if bulk_views is not None:
             return bulk_views
 
         # Fall back to sequential queries
+        logger.info(f"Bulk extraction returned incomplete results, switching to sequential for {db_name}")
         if self._fetch_views_from_information_schema:
             return self._get_views_for_database_using_information_schema(
                 db_name, view_filter
@@ -1881,6 +1935,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Try bulk metadata first (20-50x faster than sequential queries)
         bulk_columns = self._get_columns_from_bulk_metadata(schema_name, db_name)
         if bulk_columns is not None:
+            # Validate completeness: check if columns have required metadata fields
+            all_columns_flat = [c for cols in bulk_columns.values() for c in cols]
+            if all_columns_flat:
+                first_col = all_columns_flat[0]
+                missing_fields = []
+                if not first_col.data_type:
+                    missing_fields.append("data_type")
+                if not first_col.name:
+                    missing_fields.append("name")
+                if missing_fields:
+                    logger.warning(
+                        f"Bulk extraction incomplete for {db_name}.{schema_name} columns "
+                        f"(missing fields: {missing_fields}), falling back to sequential"
+                    )
+                    bulk_columns = None
+        if bulk_columns is not None:
             return bulk_columns
 
         # Fall back to sequential queries
@@ -1944,6 +2014,20 @@ class SnowflakeDataDictionary(SupportsAsObj):
         try:
             assert self._bulk_metadata_df is not None
             df = self._bulk_metadata_df
+
+            # Build lookup dict from VIEW_DEFINITION rows: (schema_name_upper, table_name_upper) -> (view_definition, is_secure)
+            view_def_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["metadata_source"] == "VIEW_DEFINITION")
+            ][["schema_name", "table_name", "view_definition", "is_secure"]]
+            view_def_lookup: Dict[tuple, tuple] = {
+                (r["schema_name"].upper(), r["table_name"].upper()): (
+                    r.get("view_definition"),
+                    str(r.get("is_secure") or "").upper() == "YES",
+                )
+                for _, r in view_def_df.iterrows()
+            }
+
             view_df = df[
                 (df["database_name"].str.upper() == db_name.upper())
                 & (df["table_type"] == "VIEW")
@@ -1954,23 +2038,33 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 return None
 
             views: Dict[str, List[SnowflakeView]] = {}
+            missing_view_defs = 0
             for _, row in view_df.iterrows():
                 schema_name = row["schema_name"]
                 view_name = row["table_name"]
+                view_def_tuple = view_def_lookup.get(
+                    (schema_name.upper(), view_name.upper())
+                )
                 if schema_name not in views:
                     views[schema_name] = []
+                if not view_def_tuple or not view_def_tuple[0]:
+                    missing_view_defs += 1
                 views[schema_name].append(
                     SnowflakeView(
                         name=view_name,
                         created=row.get("created"),
                         comment=row.get("comment"),
-                        view_definition=row.get("view_definition"),
+                        view_definition=view_def_tuple[0] if view_def_tuple else None,
                         last_altered=row.get("last_altered"),
                         materialized=False,  # Bulk metadata doesn't capture this
-                        is_secure=False,  # Bulk metadata doesn't capture this
+                        is_secure=view_def_tuple[1] if view_def_tuple else False,
                     )
                 )
 
+            if missing_view_defs > 0:
+                logger.warning(
+                    f"⚠️ [BULK] {db_name}: {missing_view_defs} views missing view_definition"
+                )
             logger.info(
                 f"📦 [BULK] {db_name}: "
                 f"{sum(len(v) for v in views.values())} views (from pre-extracted data)"
