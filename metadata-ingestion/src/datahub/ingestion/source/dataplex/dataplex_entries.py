@@ -520,7 +520,7 @@ class DataplexEntriesProcessor:
             if self.config.include_schema:
                 schema_metadata = extract_schema_from_entry_aspects(
                     entry, entry_name, mapping.datahub_platform
-                ) or extract_graph_schema_from_entry_aspects(
+                ) or extract_graph_schema_from_entry_aspects(  # cloud-spanner-graph entries store schema in a graph-schema aspect rather than the standard schema aspect
                     entry, entry_name, mapping.datahub_platform
                 )
 
