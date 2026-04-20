@@ -12,7 +12,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from queue import Queue
-from typing import List, Optional
+from threading import Lock
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -332,7 +333,7 @@ class BulkMetadataExtractor:
     ) -> pd.DataFrame:
         """Sequential extraction fallback (no connection config available)."""
         logger.info("Using sequential extraction (no connection pool)")
-        dfs = []
+        dfs: List[pd.DataFrame] = []
 
         for i, db in enumerate(databases, 1):
             try:
@@ -363,10 +364,10 @@ class BulkMetadataExtractor:
         self,
         work_queue: Queue[str],
         batch_size: int,
-        result_lock,
-        dfs: list,
-        extraction_stats: dict,
-        should_stop: dict,
+        result_lock: Lock,
+        dfs: List[pd.DataFrame],
+        extraction_stats: Dict[str, int],
+        should_stop: Dict[str, bool],
     ) -> None:
         """Extract a batch of databases from queue (called by worker thread)."""
         import threading
@@ -408,6 +409,7 @@ class BulkMetadataExtractor:
                     conn = None
                     try:
                         # Borrow a connection from the pool (blocks until available)
+                        assert self._connection_pool is not None
                         conn = self._connection_pool.get()
                         try:
                             extractor = BulkMetadataExtractor(
@@ -428,12 +430,14 @@ class BulkMetadataExtractor:
                                     extraction_stats["failed"] += 1
                                     logger.warning(f"{db} returned empty")
                         finally:
-                            # Return connection to pool (don't close it)
+                            # Return connection to pool (don\'t close it)
+                            assert self._connection_pool is not None
                             self._connection_pool.put(conn)
                             conn = None
                     except Exception as e:
                         # If connection was not returned to pool, return it now
                         if conn is not None:
+                            assert self._connection_pool is not None
                             self._connection_pool.put(conn)
                         with result_lock:
                             extraction_stats["failed"] += 1
@@ -479,7 +483,7 @@ class BulkMetadataExtractor:
 
         # Thread-safe result collection and interrupt flag
         result_lock = threading.Lock()
-        dfs = []
+        dfs: List[pd.DataFrame] = []
         extraction_stats = {"total": len(databases), "success": 0, "failed": 0}
         start_time = time.time()
         should_stop = {"value": False}  # Shared flag for graceful shutdown
@@ -653,6 +657,7 @@ class BulkMetadataExtractor:
             fk_rows = []
 
             try:
+                assert self._connection_pool is not None
                 conn = self._connection_pool.get()
             except Exception as e:
                 logger.warning(
@@ -707,8 +712,9 @@ class BulkMetadataExtractor:
 
                 return (db, len(pk_rows), len(fk_rows), pk_rows + fk_rows)
             finally:
-                # Return connection to pool (don't close it)
+                # Return connection to pool (don\'t close it)
                 try:
+                    assert self._connection_pool is not None
                     self._connection_pool.put(conn)
                 except Exception as e:
                     logger.error(f"Failed to return connection to pool for {db}: {e}")

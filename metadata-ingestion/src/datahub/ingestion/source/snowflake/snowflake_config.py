@@ -317,7 +317,7 @@ class SnowflakeV2Config(
     )
 
     enable_bulk_metadata_extraction: bool = Field(
-        default=False,
+        default=True,
         description="If enabled, uses bulk metadata extraction (1 server-side query + download) instead of 610+ sequential queries. "
         "This provides 20-50x speedup for large catalogs. Requires CREATE STAGE privilege (disabled by default for backward compatibility). "
         "Users must opt-in if they have CREATE STAGE privilege. "

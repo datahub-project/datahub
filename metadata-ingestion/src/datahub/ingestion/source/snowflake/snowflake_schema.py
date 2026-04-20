@@ -849,7 +849,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             db_name, table_types, table_filter
         )
         if bulk_tables is not None:
-            tables = bulk_tables
+            tables: Dict[str, List[SnowflakeTable]] = bulk_tables
             # Populate dynamic table definitions only if dynamic tables are not excluded
             if not exclude_dynamic_tables:
                 self.populate_dynamic_table_definitions(tables, db_name)
@@ -918,7 +918,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Try bulk metadata first
         bulk_tables = self._get_tables_from_bulk_metadata(db_name, schema_name)
         if bulk_tables is not None:
-            tables = bulk_tables
+            tables: List[SnowflakeTable] = bulk_tables
 
             # Apply table type filter if specified
             if table_types:
