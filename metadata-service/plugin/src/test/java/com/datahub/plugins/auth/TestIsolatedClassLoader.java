@@ -63,12 +63,13 @@ class TestIsolatedClassLoader {
 
   @BeforeClass
   public void setSecurityManager() {
-    System.setSecurityManager(new SecurityManager());
+    // SecurityManager deprecated and removed in Java 21+
+    // Plugin security is now enforced by PluginPermissionManager instead
   }
 
   @AfterClass
   public void clearSecurityManager() {
-    System.setSecurityManager(null);
+    // SecurityManager deprecated and removed in Java 21+
   }
 
   @Test

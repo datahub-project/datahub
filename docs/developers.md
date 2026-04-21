@@ -6,7 +6,7 @@ title: "Local Development"
 
 ## Requirements
 
-- [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
+- [Java 21 JDK](https://openjdk.org/projects/jdk/21/)
 - [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
@@ -20,7 +20,7 @@ On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
 ```shell
 # Install Java
-brew install openjdk@17
+brew install openjdk@21
 
 # Install Python
 brew install python@3.11  # you may need to add this to your PATH
@@ -60,7 +60,7 @@ You can verify the tools are activated correctly by running
 # Check tool versions installed
 ❯ mise ls --local
 Tool    Version  Source                             Requested
-java    17.0.2   ~/path/to/datahub/mise.toml  17
+java    21.0.2   ~/path/to/datahub/mise.toml  21
 node    22.21.1  ~/path/to/datahub/mise.toml  22
 python  3.11.14  ~/path/to/datahub/mise.toml  3.11
 yarn    4.12.0   ~/path/to/datahub/mise.toml  latest
@@ -404,11 +404,11 @@ You're probably using a Java version that's too new for gradle. Run the followin
 java --version
 ```
 
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 17](https://openjdk.org/projects/jdk/17/) (aka Java 17).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 21](https://openjdk.org/projects/jdk/21/) (aka Java 21).
 
 #### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
-Similar to the previous issue, please use Java 17 to build the project.
+Similar to the previous issue, please use Java 21 to build the project.
 You can install multiple version of Java on a single machine and switch between them using the `JAVA_HOME` environment variable. See [this document](https://docs.oracle.com/cd/E21454_01/html/821-2531/inst_jdk_javahome_t.html) for more details.
 
 #### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error
