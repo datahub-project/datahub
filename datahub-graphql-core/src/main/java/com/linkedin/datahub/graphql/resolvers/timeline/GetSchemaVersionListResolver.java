@@ -3,7 +3,10 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListInput;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListResult;
 import com.linkedin.datahub.graphql.types.timeline.mappers.SchemaVersionListMapper;
@@ -34,6 +37,7 @@ public class GetSchemaVersionListResolver
   @Override
   public CompletableFuture<GetSchemaVersionListResult> get(
       final DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final GetSchemaVersionListInput input =
         bindArgument(environment.getArgument("input"), GetSchemaVersionListInput.class);
 
@@ -41,25 +45,31 @@ public class GetSchemaVersionListResolver
     final long startTime = 0;
     final long endTime = 0;
 
+    // Parse URN and enforce view authorization synchronously so errors propagate
+    // rather than being swallowed by the generic catch inside supplyAsync.
+    final Urn datasetUrn;
+    try {
+      datasetUrn = Urn.createFromString(datasetUrnString);
+    } catch (URISyntaxException u) {
+      log.error("Invalid URN supplied to getSchemaVersionList: {}", datasetUrnString, u);
+      throw u;
+    }
+    if (!AuthorizationUtils.canView(context.getOperationContext(), datasetUrn)) {
+      throw new AuthorizationException(
+          "Unauthorized to view schema version list for entity: " + datasetUrn);
+    }
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Set<ChangeCategory> changeCategorySet = new HashSet<>();
             changeCategorySet.add(ChangeCategory.TECHNICAL_SCHEMA);
-            Urn datasetUrn = Urn.createFromString(datasetUrnString);
             List<ChangeTransaction> changeTransactionList =
                 _timelineService.getTimeline(
                     datasetUrn, changeCategorySet, startTime, endTime, null, null, false);
             return SchemaVersionListMapper.map(changeTransactionList);
-          } catch (URISyntaxException u) {
-            log.error(
-                String.format(
-                    "Failed to list schema blame data, likely due to the Urn %s being invalid",
-                    datasetUrnString),
-                u);
-            return null;
           } catch (Exception e) {
-            log.error("Failed to list schema blame data", e);
+            log.error("Failed to list schema version data", e);
             return null;
           }
         },
