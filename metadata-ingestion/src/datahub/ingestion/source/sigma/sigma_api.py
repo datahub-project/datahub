@@ -461,18 +461,24 @@ class SigmaAPI:
                         )
                         continue
 
-                    self._process_lineage_node(
-                        source_node_id,
-                        source_node,
-                        upstream_sources,
-                        queue,
-                        element,
-                        workbook,
-                    )
+                    try:
+                        self._process_lineage_node(
+                            source_node_id,
+                            source_node,
+                            upstream_sources,
+                            queue,
+                            element,
+                            workbook,
+                        )
+                    except (KeyError, AttributeError, TypeError, ValidationError) as e:
+                        self.report.warning(
+                            message="Failed to parse Sigma lineage node",
+                            context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                            exc=e,
+                        )
         except (KeyError, AttributeError, TypeError, ValidationError) as e:
-            # Structural errors in the setup phase (missing DEPENDENCIES/EDGES key,
-            # malformed edge fields, non-dict entries during seed search). Per-node
-            # errors inside the BFS loop are handled separately above.
+            # Structural errors in setup phase only (missing DEPENDENCIES/EDGES key,
+            # malformed edge fields, non-dict entries during seed search).
             self.report.warning(
                 message="Failed to parse Sigma element lineage response",
                 context=f"element={element.name}, workbook={workbook.name}",
