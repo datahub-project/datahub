@@ -171,7 +171,7 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 
 - #16829 / #16828: Spring bumped to 6.2.17 and Netty to 4.1.132.Final.
 - #16950: Patched Rhino, Logback, and Commons Lang3 for CVEs.
-- OpenTelemetry API/SDK and instrumentation upgraded (Docker images use `opentelemetry-javaagent` 2.26.1; JMX Prometheus agent unchanged at 0.20.0); addresses CVE-2026-33701.
+- OpenTelemetry API/SDK and instrumentation upgraded (Docker images use `opentelemetry-javaagent` 2.27.0; JMX Prometheus agent unchanged at 0.20.0); addresses CVE-2026-33701.
 - #16822 / #16868 / #16955: Python ingestion dependency fixes (CVE-2024-27459), raised `pyOpenSSL` floor with expanded security constraints, and LiteLLM 1.83.0 for CVE-2026-35030.
 
 ### Bug Fixes

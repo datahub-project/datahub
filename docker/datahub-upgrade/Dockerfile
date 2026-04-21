@@ -31,7 +31,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add openjdk21-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
     && mkdir -p /datahub/datahub-upgrade/lib \
-    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.26.1/opentelemetry-javaagent.jar \
+    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.27.0/opentelemetry-javaagent.jar \
     && wget --no-verbose -P /datahub/datahub-upgrade/lib ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && chmod -R a+r /datahub/datahub-upgrade/lib \
     && cp /usr/lib/jvm/java-21-openjdk/lib/security/cacerts /tmp/kafka.client.truststore.jks
