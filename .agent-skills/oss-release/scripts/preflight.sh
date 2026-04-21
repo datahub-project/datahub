@@ -75,7 +75,7 @@ cat <<EOF
 === Preflight summary ===
   HEAD              : $HEAD_SHA
   origin/master     : $ORIGIN_SHA
-  latest stable tag : ${LATEST_STABLE} @ $(git rev-parse "$LATEST_STABLE" 2>/dev/null | cut -c1-10)
+  latest stable tag : ${LATEST_STABLE} @ $(git rev-parse "${LATEST_STABLE}^{commit}" 2>/dev/null | cut -c1-10)
   commits in range  : ${RANGE_COUNT} non-merge commits since ${LATEST_STABLE}
   tags at HEAD      : ${AT_HEAD_TAGS:-(none)}
 EOF

@@ -32,9 +32,16 @@ if [ -z "$RC_TAG" ] || [ -z "$EXPECTED_SHA" ]; then
 fi
 
 # 3.5a — RC tag must still resolve to the SHA we snapshot in finish-preflight.
-CURRENT_SHA=$(git rev-parse "$RC_TAG" 2>/dev/null || echo "")
+#
+# Use `^{commit}` to dereference annotated tags to their target commit. Plain
+# `git rev-parse <tag>` on an annotated tag returns the tag-object SHA, which
+# is NOT the same as the commit SHA. cut-release.sh creates annotated tags
+# (`git tag -a`), so without the deref this guard would false-positive on
+# every RC cut by the skill — finish-preflight.sh uses `git rev-list -n 1`
+# (always returns a commit SHA), so the two would never agree.
+CURRENT_SHA=$(git rev-parse "${RC_TAG}^{commit}" 2>/dev/null || echo "")
 if [ -z "$CURRENT_SHA" ]; then
-    echo "ERROR: $RC_TAG no longer resolves to any SHA (was it deleted?)." >&2
+    echo "ERROR: $RC_TAG no longer resolves to any commit (was it deleted?)." >&2
     exit 1
 fi
 if [ "$CURRENT_SHA" != "$EXPECTED_SHA" ]; then
