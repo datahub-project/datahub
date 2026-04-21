@@ -628,11 +628,12 @@ class TestGetElementInputDetails:
 
         elementId_to_chart_urn: Dict[str, str] = {}  # missing_elem absent → None lookup
 
-        result = source._get_element_input_details(
+        dataset_inputs, chart_urns = source._get_element_input_details(
             element, workbook, elementId_to_chart_urn
         )
 
-        assert result == {}
+        assert dataset_inputs == {}
+        assert chart_urns == []
         assert source.reporter.num_filtered_sheet_upstreams == 1
 
     def test_sheet_upstream_in_map_produces_chart_entry(self) -> None:
@@ -648,12 +649,12 @@ class TestGetElementInputDetails:
         element = self._make_element_obj("elem1", "My Chart", upstream_sources)
         elementId_to_chart_urn = {"upstream_elem": "urn:li:chart:(sigma,upstream_elem)"}
 
-        result = source._get_element_input_details(
+        dataset_inputs, chart_urns = source._get_element_input_details(
             element, workbook, elementId_to_chart_urn
         )
 
-        assert "urn:li:chart:(sigma,upstream_elem)" in result
-        assert result["urn:li:chart:(sigma,upstream_elem)"] == []
+        assert dataset_inputs == {}
+        assert chart_urns == ["urn:li:chart:(sigma,upstream_elem)"]
         assert source.reporter.num_filtered_sheet_upstreams == 0
 
     def test_duplicate_sheet_nodeids_same_element_produce_one_edge(self) -> None:
@@ -668,9 +669,9 @@ class TestGetElementInputDetails:
         element = self._make_element_obj("elem1", "My Chart", upstream_sources)
         elementId_to_chart_urn = {"upstream_elem": "urn:li:chart:(sigma,upstream_elem)"}
 
-        result = source._get_element_input_details(
+        dataset_inputs, chart_urns = source._get_element_input_details(
             element, workbook, elementId_to_chart_urn
         )
 
-        assert len(result) == 1
-        assert "urn:li:chart:(sigma,upstream_elem)" in result
+        assert dataset_inputs == {}
+        assert chart_urns == ["urn:li:chart:(sigma,upstream_elem)"]
