@@ -46,6 +46,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - dbt source freshness results with status `runtime error` are similarly emitted with `AssertionResult.type = ERROR`. Freshness status `error` (meaning the `error_after` threshold was exceeded) continues to map to `FAILURE` since it represents a legitimate verdict.
   - A new optional `AssertionResult.severity` field is populated on failure results: `LOW` for dbt `warn` (only emitted as FAILURE when `test_warnings_are_errors: true`), `HIGH` for `fail` / freshness `error`.
   - Downstream consumers (alerting, dashboards, saved searches) that filter assertion runs by `result.type == FAILURE` will no longer see infrastructure-level test failures in that set; include `type == ERROR` if you want to continue capturing them.
+- #16912: Java 21 Compilation Required - DataHub now compiles with Java 21 JDK and produces Java 8 bytecode for broad runtime compatibility. All Docker images ship with Java 21 runtime. Self-hosted users must ensure their build environments use Java 21+; runtime environments require Java 8 or later.
+  - Spark integration upgraded from 3.3.4 to 3.5.0 (enables Spark 4.x forward compatibility and improves lineage handling for complex query plans)
+  - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.5+)
+  - **For self-hosted deployments:** Build/compile requires Java 21 JDK. Runtime environments can use Java 8+ (DataHub produces Java 8 bytecode for compatibility). Spark lineage users must upgrade to Spark 3.5.0+ if using DataHub's Spark integration.
+  - **Java 21 runtime configuration**: When running DataHub services with Java 21, add `--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED` to `JAVA_OPTS` or your JVM startup command to allow Spark lineage listener reflection-based operations. DataHub Docker images include this automatically.
 
 ### Known Issues
 
