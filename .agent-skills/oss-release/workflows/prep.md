@@ -73,38 +73,18 @@ If fully synced (zero OSS gap), note it and continue.
 **Step 2a — Release-range diff (this is the input to safety judgment)**
 
 The safety call must be based on what's in `<LATEST_STABLE>..HEAD`, not on
-`compare-upstream.sh` output. Run these explicitly:
+`compare-upstream.sh` output:
 
 ```bash
-LATEST_STABLE=$(git tag -l 'v*' | grep -v rc | sort -V | tail -1)
-echo "=== Commits in release range ($LATEST_STABLE..HEAD) ==="
-git log --oneline --no-merges "$LATEST_STABLE..HEAD"
-
-echo ""
-echo "=== Files changed (full) ==="
-git diff --stat "$LATEST_STABLE..HEAD"
-
-echo ""
-echo "=== Safety-relevant paths touched ==="
-git diff --name-only "$LATEST_STABLE..HEAD" | \
-    grep -E '(pyproject\.toml|setup\.py|setup\.cfg|uv\.lock|requirements.*\.txt|metadata-ingestion|datahub-actions|metadata-ingestion-modules)' \
-    || echo "(no safety-relevant paths touched)"
+.agent-skills/oss-release/scripts/release-range-diff.sh
 ```
 
-**Empty-range rendering.** If `$LATEST_STABLE..HEAD` contains zero commits,
-all three `git log` / `git diff` commands above produce no output. Don't render
-empty tables — they're confusing. Instead, print a single consolidated line and
-skip ahead:
-
-```
-=== Release range ($LATEST_STABLE..HEAD) ===
-  (empty — HEAD is at $LATEST_STABLE, nothing to release)
-```
-
-When the range is empty, Step 2b can be abbreviated: render the 5-row safety
-table with all categories marked `✅ N/A — empty range` and overall verdict
-`✅ SAFE (but nothing to ship)`, then continue to Step 3 where the empty-range
-guard will gate the actual decision.
+The script prints three sections (commits, file stats, safety-relevant paths)
+against the latest stable tag it discovers. For an **empty range** (HEAD == latest
+stable), it collapses to a single "nothing to release" line — in that case Step 2b
+can be abbreviated to the 5-row safety table with all categories marked `✅ N/A —
+empty range`, overall verdict `✅ SAFE (but nothing to ship)`, then continue to
+Step 3 where the empty-range guard gates the actual decision.
 
 **Step 2b — Apply the safety-assessment checklist**
 
@@ -173,39 +153,21 @@ even in dry-run.
 Every release needs a notes file passed to `cut-release.sh`.
 
 ```bash
-# Notes live next to the skill (gitignored via .agent-skills/oss-release/.gitignore)
-# so they survive between runs but don't clutter `git status` at the repo root.
-NOTES_DIR=".agent-skills/oss-release/notes"
-mkdir -p "$NOTES_DIR"
-NOTES_FILE="${NOTES_DIR}/release-notes-${NEXT_VERSION}.md"
+.agent-skills/oss-release/scripts/prepare-notes.sh "$NEXT_VERSION"
 ```
 
-**Stale-notes detector** — run this BEFORE generating or reusing notes. A
-`release-notes-<version>.md` may already exist from a prior `prep` run on the same
-version (e.g. you `prep`'d, walked away, the branch fast-forwarded, and you came back).
-Reusing stale notes silently publishes wrong content — this is one of the few failure
-modes of `prep` that produces a quiet data-integrity bug rather than a loud error.
+The script creates `.agent-skills/oss-release/notes/` if needed, runs the
+stale-notes detector, and prints the notes file path on stdout. Capture that
+path — you'll pass it to `cut-release.sh` in Step 4 and use it as the `Write`
+target when the changelog skill produces content.
 
-```bash
-if [ -f "$NOTES_FILE" ]; then
-    # Look for a 10+ char hex SHA in the notes file (the "Commit:" header writes one).
-    STALE_SHA=$(grep -oE '\b[0-9a-f]{10,40}\b' "$NOTES_FILE" | head -1 || true)
-    CURRENT_SHA=$(git rev-parse HEAD)
-    if [ -n "$STALE_SHA" ] && [[ "$CURRENT_SHA" != "$STALE_SHA"* ]]; then
-        echo "⚠️  STALE NOTES DETECTED"
-        echo "   File:    $NOTES_FILE"
-        echo "   Notes reference SHA: $STALE_SHA"
-        echo "   Current HEAD:        $CURRENT_SHA"
-        echo "   The existing notes were written for a different commit and almost"
-        echo "   certainly mis-describe the release. Regenerate, or explicitly"
-        echo "   confirm reuse before continuing."
-    fi
-fi
-```
+**Interpret the exit code:**
 
-If the detector fires, **default to regenerating** — only reuse if the user explicitly
-acknowledges the SHA mismatch is intentional (rare; e.g. they manually patched the notes
-to be accurate for the new HEAD).
+| Exit | Meaning                                                                                                                                                                                                                                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Fresh or no existing notes file. Proceed to generate.                                                                                                                                                                                                                                                           |
+| `2`  | Stale notes detected (existing file references a SHA that doesn't match HEAD). **Warning on stderr names the mismatch.** Default to regenerating — only reuse if the user explicitly acknowledges the SHA mismatch is intentional (rare; e.g. they manually patched the notes to be accurate for the new HEAD). |
+| `1`  | Usage error (missing `<version>` arg). Fix and retry.                                                                                                                                                                                                                                                           |
 
 **Default path — generate via the changelog skill:**
 
@@ -269,25 +231,24 @@ proceeding (honor the dry-run gate policy).
 
 ## Step 4 — Cut the RC
 
-Once version and release notes are approved:
+Once version and release notes are approved. First capture the commit SHA
+(single command, auto-allowed):
 
 ```bash
-SHA=$(git rev-parse HEAD)
-VERSION="${NEXT_VERSION#v}"   # strip leading 'v'
-
-# Pick up the dry-run flag set in Step 0 when the user invoked with --dry-run.
-# If OSS_RELEASE_DRY_RUN was NOT exported at the top of the workflow, this
-# resolves to a real release — so double-check before running in a fresh shell.
-DRY_RUN_FLAG=""
-[ "${OSS_RELEASE_DRY_RUN:-}" = "true" ] && DRY_RUN_FLAG="--dry-run"
-
-.agent-skills/oss-release/scripts/cut-release.sh \
-    "$VERSION" \
-    "$SHA" \
-    "$NOTES_FILE" \
-    --prerelease \
-    $DRY_RUN_FLAG
+git rev-parse HEAD
 ```
+
+Then invoke `cut-release.sh` as a single command, substituting the values you
+already have in hand: `$NEXT_VERSION` (strip the leading `v`), the SHA just
+captured, and `$NOTES_FILE` (from Step 3.5):
+
+```bash
+.agent-skills/oss-release/scripts/cut-release.sh <VERSION_NO_V> <SHA> <NOTES_FILE> --prerelease [--dry-run]
+```
+
+**Include `--dry-run`** if Step 0 exported `OSS_RELEASE_DRY_RUN=true`. Omit it
+for a real release. Intentionally NOT in `allowed-tools` — every `cut-release.sh`
+invocation prompts as a defense-in-depth confirmation gate.
 
 `cut-release.sh` in dry-run prints the commit range (`PRIOR_TAG..SHA`) before the
 notes preview — if the range is zero, it shows a loud warning. Use that as the last
@@ -305,13 +266,11 @@ in `acryldata/connector-tests` so a signal is available by the time `finish`
 runs. The dispatch is stateless — the resulting run is queryable from GitHub
 via `check-connector-tests.sh` as soon as its `set-version` job starts.
 
-```bash
-DRY_RUN_FLAG=""
-[ "${OSS_RELEASE_DRY_RUN:-}" = "true" ] && DRY_RUN_FLAG="--dry-run"
+Invoke as a single command — append `--dry-run` if Step 0 set
+`OSS_RELEASE_DRY_RUN=true`:
 
-.agent-skills/oss-release/scripts/dispatch-connector-tests.sh \
-    "$NEXT_VERSION" \
-    $DRY_RUN_FLAG
+```bash
+.agent-skills/oss-release/scripts/dispatch-connector-tests.sh <NEXT_VERSION> [--dry-run]
 ```
 
 **Dry-run:** the script prints the `gh workflow run` command it would
