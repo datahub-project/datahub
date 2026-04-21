@@ -5,8 +5,11 @@ first for prerequisites, dry-run gate behavior, and the subcommand overview.
 
 ## Step 0 — Repo preflight
 
-Run this block before anything else. It ensures local state is fresh so version detection
-and the changelog are based on the real current state, not stale local caches.
+Run `preflight.sh` before anything else. It performs the clean-tree check, fetches
+`origin/master` + tags, verifies `HEAD == origin/master`, detects the "already tagged"
+degenerate case, computes the commit range since the latest stable tag, and emits a
+one-block summary. Single script call — no compound bash statements to fight Claude
+Code's permission classifier.
 
 ```bash
 # If the user's invocation included --dry-run, thread it through via env var so
@@ -14,56 +17,19 @@ and the changelog are based on the real current state, not stale local caches.
 # Example: user runs "/oss-release prep --dry-run" → export this now.
 # export OSS_RELEASE_DRY_RUN=true
 
-# Ensure working tree is clean
-if ! git diff-index --quiet HEAD --; then
-    echo "ERROR: uncommitted changes detected. Commit or stash first." && exit 1
-fi
-
-# Fetch origin: tags AND master (so next-version.sh and compare-upstream see real state).
-# Tag fetch goes through safe-fetch-tags.sh which distinguishes benign "would clobber"
-# warnings on legacy 3-segment tags (irrelevant to current 4-segment release line) from
-# real failures. Quiet success when only legacy tags are skipped.
-git fetch origin master --quiet || { echo "ERROR: fetch origin master failed" >&2; exit 1; }
-.agent-skills/oss-release/scripts/safe-fetch-tags.sh
-
-# The release tag must point at origin/master exactly, not at unpushed local commits
-# or a stale position behind remote. If either side differs, abort.
-if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/master)" ]; then
-    echo "ERROR: HEAD does not match origin/master."
-    echo "  HEAD         : $(git rev-parse HEAD)"
-    echo "  origin/master: $(git rev-parse origin/master)"
-    echo "Checkout master and run 'git pull origin master' first."
-    exit 1
-fi
-
-# Detect the "already tagged" degenerate case: HEAD is pointed at by an existing
-# release tag. Cutting another release here would tag the same SHA twice, which
-# is almost always a mistake (you ran prep on a stale branch, or the last merge
-# was itself the release commit). Warn loudly and require explicit confirmation.
-AT_HEAD_TAGS=$(git tag --points-at HEAD 2>/dev/null | grep -E '^v[0-9]' || true)
-if [ -n "$AT_HEAD_TAGS" ]; then
-    echo "⚠️  WARNING: HEAD is already tagged as:"
-    echo "$AT_HEAD_TAGS" | sed 's/^/      /'
-    echo "   A new release here will tag the SAME commit under a different name."
-    echo "   This is usually not what you want. Confirm explicitly before continuing."
-fi
+.agent-skills/oss-release/scripts/preflight.sh
 ```
 
-**Print a structured preflight summary** (a single block the user can scan) before
-moving on. This replaces hunting through individual `rev-parse` calls later:
+**Interpret the exit code:**
 
-```bash
-LATEST_STABLE=$(git tag -l 'v*' | grep -v rc | sort -V | tail -1)
-RANGE_COUNT=$(git rev-list --count --no-merges "${LATEST_STABLE}..HEAD" 2>/dev/null || echo "?")
-cat <<EOF
-=== Preflight summary ===
-  HEAD              : $(git rev-parse HEAD)
-  origin/master     : $(git rev-parse origin/master)
-  latest stable tag : ${LATEST_STABLE} @ $(git rev-parse "$LATEST_STABLE" 2>/dev/null | cut -c1-10)
-  commits in range  : ${RANGE_COUNT} non-merge commits since ${LATEST_STABLE}
-  tags at HEAD      : ${AT_HEAD_TAGS:-(none)}
-EOF
-```
+| Exit | Meaning                                                                                       |
+| ---- | --------------------------------------------------------------------------------------------- |
+| `0`  | Preflight clean. Summary block emitted to stdout. Warnings (if any) printed but non-blocking. |
+| `1`  | Hard blocker: dirty tree, fetch failure, or `HEAD != origin/master`. Stop hard, both modes.   |
+
+The script does NOT apply the dry-run vs real-run policy gate for the degenerate "already
+tagged" / "empty range" warnings — it just emits the warning lines. Read those out of the
+script's output and apply the table below.
 
 **Blocker handling.** Two common degenerate states surface at this step (and often
 co-occur — HEAD being at the latest tag implies an empty range by definition):
