@@ -20,7 +20,7 @@ aiofiles==25.1.0
     # via unstructured-client
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.3
+aiohttp==3.13.5
     # via
     #   acryl-datahub
     #   aiobotocore
@@ -1268,7 +1268,7 @@ pyspark==3.5.8
     # via acryl-datahub
 pyspnego==0.12.1
     # via requests-ntlm
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   acryl-datahub
     #   pytest-asyncio

@@ -65,9 +65,10 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
-    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
-    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
-    # (not enforced here due to Airflow constraint file conflicts in CI)
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
+    # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
+    # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
+    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -866,6 +867,9 @@ mypy_stubs = {
 
 
 test_api_requirements = {
+    # Do not raise the lower bound to pytest 9.x here: airflow-plugin CI installs
+    # acryl-datahub[testing-utils] with Airflow's constraints-*.txt, which pin pytest 7.x.
+    # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
     # Missing numpy requirement in 8.0.0
