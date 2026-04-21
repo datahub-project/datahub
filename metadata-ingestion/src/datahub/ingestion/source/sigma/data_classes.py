@@ -62,7 +62,8 @@ class SheetUpstream(BaseModel):
     element_id: str
 
 
-# "table" (warehouse) and "join" (pass-through) nodes are filtered at the API layer.
+# "table" (warehouse) nodes are terminal in BFS — handled by the SQL-parse path.
+# "join" pass-through nodes are traversed by BFS but never stored as upstreams.
 ElementUpstream = Annotated[
     Union[DatasetUpstream, SheetUpstream], Field(discriminator="type")
 ]

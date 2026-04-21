@@ -299,6 +299,57 @@ class SigmaAPI:
             )
             return []
 
+    def _process_lineage_node(
+        self,
+        source_node_id: str,
+        source_node: Dict,
+        upstream_sources: Dict[str, "ElementUpstream"],
+        queue: "Deque[str]",
+        element: Element,
+        workbook: Workbook,
+    ) -> None:
+        """Dispatch one BFS node into upstream_sources or re-enqueue it (join)."""
+        source_type = source_node.get(Constant.TYPE)
+        if source_type == "dataset":
+            try:
+                upstream_sources[source_node_id] = DatasetUpstream(
+                    name=source_node.get(Constant.NAME),
+                )
+            except ValidationError:
+                self.report.warning(
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                )
+        elif source_type == "sheet":
+            element_id = source_node.get(Constant.ELEMENTID)
+            if element_id is None:
+                self.report.warning(
+                    message="Sheet upstream node missing elementId",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                )
+                return
+            try:
+                upstream_sources[source_node_id] = SheetUpstream(
+                    name=source_node.get(Constant.NAME),
+                    element_id=element_id,
+                )
+            except ValidationError:
+                self.report.warning(
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                )
+        elif source_type == "join":
+            # Pass-through node: enqueue for continued BFS traversal.
+            queue.append(source_node_id)
+        elif source_type == "table":
+            # Warehouse table: handled by SQL-parse path; terminal for BFS.
+            pass
+        else:
+            self.report.warning(
+                message="Unknown Sigma lineage node type",
+                context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
+            )
+
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
     ) -> Dict[str, ElementUpstream]:
@@ -382,51 +433,30 @@ class SigmaAPI:
                         continue
                     visited.add(source_node_id)
 
-                    source_node = dependencies[source_node_id]
-                    source_type = source_node.get(Constant.TYPE)
-
-                    if source_type == "dataset":
-                        try:
-                            upstream_sources[source_node_id] = DatasetUpstream(
-                                name=source_node.get(Constant.NAME),
-                            )
-                        except ValidationError:
-                            self.report.warning(
-                                message="Failed to parse Sigma lineage node",
-                                context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
-                            )
-                    elif source_type == "sheet":
-                        element_id = source_node.get(Constant.ELEMENTID)
-                        if element_id is None:
-                            self.report.warning(
-                                message="Sheet upstream node missing elementId",
-                                context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
-                            )
-                            continue
-                        try:
-                            upstream_sources[source_node_id] = SheetUpstream(
-                                name=source_node.get(Constant.NAME),
-                                element_id=element_id,
-                            )
-                        except ValidationError:
-                            self.report.warning(
-                                message="Failed to parse Sigma lineage node",
-                                context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
-                            )
-                    elif source_type == "join":
-                        # Pass-through node: enqueue for continued BFS traversal.
-                        queue.append(source_node_id)
-                    elif source_type == "table":
-                        # Warehouse table: handled by SQL-parse path; terminal for BFS.
-                        pass
-                    else:
+                    # Per-node isolation: one malformed node skips rather than
+                    # blanking the entire element's lineage.
+                    try:
+                        source_node = dependencies[source_node_id]
+                    except (KeyError, AttributeError, TypeError) as e:
                         self.report.warning(
-                            message="Unknown Sigma lineage node type",
-                            context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
+                            message="Failed to parse Sigma lineage node",
+                            context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                            exc=e,
                         )
-        except (KeyError, ValidationError, AttributeError, TypeError) as e:
-            # AttributeError/TypeError guard against malformed dependency values
-            # (e.g. a null node entry or a non-dict shape from a future API revision).
+                        continue
+
+                    self._process_lineage_node(
+                        source_node_id,
+                        source_node,
+                        upstream_sources,
+                        queue,
+                        element,
+                        workbook,
+                    )
+        except (KeyError, AttributeError, TypeError, ValidationError) as e:
+            # Structural errors in the setup phase (missing DEPENDENCIES/EDGES key,
+            # malformed edge fields, non-dict entries during seed search). Per-node
+            # errors inside the BFS loop are handled separately above.
             self.report.warning(
                 message="Failed to parse Sigma element lineage response",
                 context=f"element={element.name}, workbook={workbook.name}",

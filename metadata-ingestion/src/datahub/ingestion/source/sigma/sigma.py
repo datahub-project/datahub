@@ -489,9 +489,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             dataset_input_urns = [
                 urn for urn in inputs if urn.startswith("urn:li:dataset:")
             ]
-            chart_input_urns = [
+            chart_input_urns = sorted(
                 urn for urn in inputs if urn.startswith("urn:li:chart:")
-            ]
+            )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
