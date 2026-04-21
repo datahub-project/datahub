@@ -497,7 +497,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     externalUrl=element.url,
                     inputs=list(dataset_inputs.keys()),
                     inputEdges=(
-                        [EdgeClass(destinationUrn=urn) for urn in chart_input_urns]
+                        [
+                            EdgeClass(destinationUrn=urn, sourceUrn=chart_urn)
+                            for urn in chart_input_urns
+                        ]
                         if chart_input_urns
                         else None
                     ),

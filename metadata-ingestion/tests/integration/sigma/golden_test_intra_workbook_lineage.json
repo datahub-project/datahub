@@ -2056,13 +2056,14 @@
             "inputs": [],
             "inputEdges": [
                 {
+                    "sourceUrn": "urn:li:chart:(sigma,joinDownstreamElem)",
                     "destinationUrn": "urn:li:chart:(sigma,upstreamElem01)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776433488494,
+        "lastObserved": 1776809677716,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2142,13 +2143,14 @@
             "inputs": [],
             "inputEdges": [
                 {
+                    "sourceUrn": "urn:li:chart:(sigma,crossPageDownstreamElem)",
                     "destinationUrn": "urn:li:chart:(sigma,kH0MeihtGs)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776786089777,
+        "lastObserved": 1776809677718,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2479,13 +2481,14 @@
             "inputs": [],
             "inputEdges": [
                 {
+                    "sourceUrn": "urn:li:chart:(sigma,downstreamElem01)",
                     "destinationUrn": "urn:li:chart:(sigma,upstreamElem01)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776433488492,
+        "lastObserved": 1776809677715,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
