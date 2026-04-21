@@ -439,8 +439,6 @@ flatdict==4.1.0
     #   okta
 fqdn==1.5.1
     # via jsonschema
-freezegun==1.5.5
-    # via acryl-datahub
 frozenlist==1.8.0
     # via
     #   aiohttp
@@ -1300,7 +1298,6 @@ python-dateutil==2.9.0.post0
     #   arrow
     #   botocore
     #   croniter
-    #   freezegun
     #   google-cloud-bigquery
     #   jupyter-client
     #   moto

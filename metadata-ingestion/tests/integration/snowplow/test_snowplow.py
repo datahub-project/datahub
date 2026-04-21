@@ -4,7 +4,7 @@ import json
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -12,7 +12,7 @@ from datahub.testing import mce_helpers
 FROZEN_TIME = "2024-01-01 00:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
     """
@@ -106,7 +106,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_event_specs_and_tracking_plans(pytestconfig, tmp_path, mock_time):
     """
@@ -247,7 +247,7 @@ def test_snowplow_event_specs_and_tracking_plans(pytestconfig, tmp_path, mock_ti
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_tracking_plans(pytestconfig, tmp_path, mock_time):
     """
@@ -387,7 +387,7 @@ def test_snowplow_tracking_plans(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
     """
@@ -492,7 +492,7 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
     """
@@ -670,7 +670,7 @@ def iglu_server_runner(docker_compose_runner, pytestconfig):
         yield docker_services
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_iglu_autodiscovery(
     iglu_server_runner, pytestconfig, tmp_path, mock_time
@@ -744,7 +744,7 @@ def test_snowplow_config_validation():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_enrichments_without_event_spec_processor(
     pytestconfig, tmp_path, mock_time
@@ -880,7 +880,7 @@ def test_snowplow_enrichments_without_event_spec_processor(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_snowplow_all_event_specs_processed(pytestconfig, tmp_path, mock_time):
     """

@@ -1,10 +1,10 @@
 import logging
 import os
 import pathlib
-import time
 from typing import List, Optional
 
 import pytest
+import time_machine
 
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 os.environ["DATAHUB_TEST_MODE"] = "1"
@@ -35,27 +35,13 @@ from tests.test_helpers.state_helpers import (  # noqa: F401,E402
     mock_datahub_graph_instance,
 )
 
-try:
-    # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.
-    import pandas  # noqa: F401
-except ImportError:
-    pass
-
-import freezegun  # noqa: E402
-
-# The freezegun library has incomplete type annotations.
-# See https://github.com/spulec/freezegun/issues/469
-freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])  # type: ignore[attr-defined]
+_MOCK_TIME = 1615443388.0975091  # 2021-03-11 06:16:28.097509+00:00
 
 
 @pytest.fixture
-def mock_time(monkeypatch):
-    def fake_time():
-        return 1615443388.0975091  # 2021-03-11 06:16:28.097509
-
-    monkeypatch.setattr(time, "time", fake_time)
-
-    yield
+def mock_time():
+    with time_machine.travel(_MOCK_TIME, tick=False):
+        yield
 
 
 def pytest_ignore_collect(
