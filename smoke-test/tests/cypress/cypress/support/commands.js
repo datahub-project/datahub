@@ -595,7 +595,7 @@ Cypress.Commands.add("goToStructuredProperties", () => {
 });
 
 Cypress.Commands.add("createStructuredProperty", (prop) => {
-  cy.get('[data-testid="structured-props-create-button"').click();
+  cy.get('[data-testid="structured-props-create-button"]').click();
   cy.get('[data-testid="structured-props-input-name"]').click().type(prop.name);
   cy.get('[data-testid="structured-props-select-input-type"]').click();
   cy.get('[data-testid="structured-props-property-type-options-list"]')
@@ -615,7 +615,7 @@ Cypress.Commands.add("deleteStructuredProperty", (prop) => {
     .find('[data-testid="structured-props-more-options-icon"]')
     .click();
   cy.get("body .ant-dropdown-menu").contains("Delete").click();
-  cy.get('[data-testid="modal-confirm-button"').click();
+  cy.get('[data-testid="modal-confirm-button"]').click();
 });
 
 Cypress.Commands.add("setFeatureFlags", (updateFeatureFlags) => {
