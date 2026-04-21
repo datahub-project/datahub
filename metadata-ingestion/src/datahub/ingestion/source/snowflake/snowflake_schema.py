@@ -858,7 +858,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             ]
             if all_tables_flat:
                 first_table = all_tables_flat[0]
-                missing_fields = []
+                missing_fields: list[str] = []
                 if first_table.is_iceberg is None:
                     missing_fields.append("is_iceberg")
                 if first_table.is_hybrid is None:
@@ -880,7 +880,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         logger.info(
             f"Bulk extraction returned incomplete results, switching to sequential for {db_name}"
         )
-        tables: Dict[str, List[SnowflakeTable]] = {}
+        sequential_tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
                 SnowflakeQuery.tables_for_database(
@@ -898,13 +898,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return None
 
         for table in cur:
-            if table["TABLE_SCHEMA"] not in tables:
-                tables[table["TABLE_SCHEMA"]] = []
+            if table["TABLE_SCHEMA"] not in sequential_tables:
+                sequential_tables[table["TABLE_SCHEMA"]] = []
 
             is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
             table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
 
-            tables[table["TABLE_SCHEMA"]].append(
+            sequential_tables[table["TABLE_SCHEMA"]].append(
                 table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
@@ -923,9 +923,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         # Populate dynamic table definitions only if dynamic tables are not excluded
         if not exclude_dynamic_tables:
-            self.populate_dynamic_table_definitions(tables, db_name)
+            self.populate_dynamic_table_definitions(sequential_tables, db_name)
 
-        return tables
+        return sequential_tables
 
     def get_tables_for_schema(
         self,
@@ -945,7 +945,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # Validate completeness: check if tables have required fields
             if bulk_tables:
                 first_table = bulk_tables[0]
-                missing_fields = []
+                missing_fields: list[str] = []
                 if first_table.is_iceberg is None:
                     missing_fields.append("is_iceberg")
                 if first_table.is_hybrid is None:
@@ -975,7 +975,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return tables
 
         # Fall back to sequential queries
-        tables: List[SnowflakeTable] = []
+        sequential_tables: List[SnowflakeTable] = []
 
         cur = self.connection.query(
             SnowflakeQuery.tables_for_schema(
@@ -991,7 +991,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
             table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
 
-            tables.append(
+            sequential_tables.append(
                 table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
@@ -1010,10 +1010,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         # Populate dynamic table definitions for just this schema (only if dynamic tables are not excluded)
         if not exclude_dynamic_tables:
-            schema_tables = {schema_name: tables}
+            schema_tables = {schema_name: sequential_tables}
             self.populate_dynamic_table_definitions(schema_tables, db_name)
 
-        return tables
+        return sequential_tables
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(
