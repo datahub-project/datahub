@@ -259,12 +259,36 @@ chance to abort before any real tag is created.
 both real and dry-run. Use the dry-run column of the placeholder table for dry-run
 output, the real-run column for live output.
 
-## Step 5 — Dispatch connector tests
+## Step 5 — Wait for the pypi wheel
 
-Once the RC exists on GitHub, kick off the `Nightly Connector Tests` workflow
-in `acryldata/connector-tests` so a signal is available by the time `finish`
-runs. The dispatch is stateless — the resulting run is queryable from GitHub
-via `check-connector-tests.sh` as soon as its `set-version` job starts.
+The connector-tests workflow runs `pip install acryl-datahub==<version>` as
+its first step. Dispatching it before the pypi-release workflow has finished
+publishing the wheel races the publish and produces false-negative test runs.
+Gate the dispatch on `pypi-release metadata-ingestion` success:
+
+```bash
+.agent-skills/oss-release/scripts/wait-for-pypi-release.sh <NEXT_VERSION>
+```
+
+**In dry-run mode, skip this step entirely** — no real release was created,
+so there's no pypi-release run to wait on. Announce "dry-run: skipping pypi
+wait" and proceed to Step 6.
+
+**Interpret the exit code:**
+
+| Exit | Meaning                                                   | Action                                                                                                                                                |
+| ---- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | `pypi-release metadata-ingestion` succeeded.              | Proceed to Step 6 (dispatch connector-tests).                                                                                                         |
+| `2`  | No run found yet — release event hasn't scheduled it.     | Wait ~30s and re-invoke. Or set up `/loop 2m wait-for-pypi-release.sh <NEXT_VERSION> && dispatch-connector-tests.sh <NEXT_VERSION>` to auto-progress. |
+| `3`  | Run is queued or in progress. Typical end-to-end 5-10min. | Same — retry, or use `/loop` to auto-poll. Do NOT dispatch connector-tests yet.                                                                       |
+| `4`  | Run completed but not successfully (failure, cancelled…). | Do NOT dispatch connector-tests — the wheel isn't on pypi. Surface the failing run URL to the user and stop. Likely needs a new RC with a fix.        |
+
+## Step 6 — Dispatch connector tests
+
+Once `wait-for-pypi-release.sh` exits 0, kick off the `Nightly Connector Tests`
+workflow in `acryldata/connector-tests` so a signal is available by the time
+`finish` runs. The dispatch is stateless — the resulting run is queryable from
+GitHub via `check-connector-tests.sh` as soon as its `set-version` job starts.
 
 Invoke as a single command — append `--dry-run` if Step 0 set
 `OSS_RELEASE_DRY_RUN=true`:
@@ -273,11 +297,11 @@ Invoke as a single command — append `--dry-run` if Step 0 set
 .agent-skills/oss-release/scripts/dispatch-connector-tests.sh <NEXT_VERSION> [--dry-run]
 ```
 
-**Dry-run:** the script prints the `gh workflow run` command it would
-execute and exits.
+**Dry-run:** the script prints the `gh workflow run` command it would execute
+and exits.
 
-**Real run:** the script fires the dispatch and prints the resulting run
-URL (parsed from `gh workflow run`'s stdout). If cut-release in Step 4
-failed or was skipped, **do not** run this step — there's nothing to test.
+**Real run:** the script fires the dispatch and prints the resulting run URL
+(parsed from `gh workflow run`'s stdout). If cut-release in Step 4 failed or
+was skipped, **do not** run this step — there's nothing to test.
 
 Surface the run URL to the user as the final artifact of `prep`.
