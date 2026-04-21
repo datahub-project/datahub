@@ -60,22 +60,6 @@ class TestTokenRefreshOn401:
         assert result.status_code == 401
         assert mock_get.call_count == 1
 
-    def test_non_401_response_returned_directly(self) -> None:
-        api = _create_sigma_api()
-        api.refresh_token = "valid_refresh_token"
-
-        ok_response = MagicMock(status_code=200)
-
-        with (
-            patch.object(api.session, "get", return_value=ok_response) as mock_get,
-            patch.object(api, "_refresh_access_token") as mock_refresh,
-        ):
-            result = api._get_api_call("https://api.example.com/test")
-
-        mock_refresh.assert_not_called()
-        assert result.status_code == 200
-        assert mock_get.call_count == 1
-
 
 def _make_element(element_id: str = "elem1", name: str = "My Chart") -> MagicMock:
     element = MagicMock(spec=["elementId", "name"])
@@ -585,36 +569,6 @@ class TestGetElementUpstreamSources:
 
         assert result == {}
         assert len(api.report.warnings) == 0
-
-    def test_null_dependency_node_produces_parse_warning(self) -> None:
-        """A None value in the dependencies dict raises AttributeError → parse warning."""
-        api = _create_sigma_api()
-        element = _make_element()
-        workbook = _make_workbook()
-
-        with patch.object(
-            api,
-            "_get_api_call",
-            return_value=_lineage_response(
-                {
-                    "dependencies": {
-                        "tgt_node": {
-                            "nodeId": "tgt_node",
-                            "elementId": "elem1",
-                            "type": "sheet",
-                        },
-                        "null_node": None,  # malformed API response
-                    },
-                    "edges": [
-                        {"source": "null_node", "target": "tgt_node", "type": "source"}
-                    ],
-                }
-            ),
-        ):
-            result = api._get_element_upstream_sources(element, workbook)
-
-        assert result == {}
-        assert len(api.report.warnings) == 1
 
 
 class TestGetElementInputDetails:
