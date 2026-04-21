@@ -29,6 +29,8 @@ from datahub.configuration.env_vars import get_dataset_urn_to_lower
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
+    AssertionSourceClass,
+    AssertionSourceTypeClass,
     AuditStampClass,
     ChartKeyClass,
     ContainerKeyClass,
@@ -72,6 +74,7 @@ ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
+SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
 DATASET_URN_TO_LOWER: bool = get_dataset_urn_to_lower() == "true"
 
 if TYPE_CHECKING:
@@ -226,6 +229,17 @@ def datahub_guid(obj: dict) -> str:
 
 def make_assertion_urn(assertion_id: str) -> str:
     return f"urn:li:assertion:{assertion_id}"
+
+
+def make_assertion_source() -> AssertionSourceClass:
+    """Create a standard AssertionSource for ingestion-created assertions."""
+    return AssertionSourceClass(
+        type=AssertionSourceTypeClass.EXTERNAL,
+        created=AuditStampClass(
+            time=int(time.time() * 1000),
+            actor=SYSTEM_ACTOR,
+        ),
+    )
 
 
 def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:

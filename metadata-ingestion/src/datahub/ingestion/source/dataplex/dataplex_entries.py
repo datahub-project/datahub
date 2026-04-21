@@ -38,6 +38,7 @@ from datahub.ingestion.source.dataplex.dataplex_properties import (
     extract_entry_custom_properties,
 )
 from datahub.ingestion.source.dataplex.dataplex_schema import (
+    extract_graph_schema_from_entry_aspects,
     extract_schema_from_entry_aspects,
 )
 from datahub.sdk.container import Container
@@ -190,9 +191,9 @@ class DataplexEntriesProcessor:
           project with thousands of entries.
 
         * Phase 1c (sequential): run the Spanner ``search_entries`` workaround
-          for each project × location pair.  Spanner entries come back already
-          fully-fetched from the search API and require no separate
-          ``get_entry`` call, so there is nothing to parallelise here.
+          for each project × location pair.  Search results contain only stub
+          data (no aspects), so a separate ``get_entry(view=ALL)`` call is made
+          per entry to fetch full detail including schema aspects.
         """
         # Phase 1a: accumulate entry stubs across all projects and locations.
         # Wrap each (project, location) pair individually so one failing project
@@ -329,10 +330,9 @@ class DataplexEntriesProcessor:
     ) -> Iterable["Entity"]:
         """Process Spanner entries via ``search_entries`` workaround (Phase 1c).
 
-        Spanner entries are returned already fully-fetched from the search API
-        so no separate ``get_entry`` call is needed.  This phase runs
-        sequentially after the parallel Phase 1b because it uses a different
-        API surface and has nothing to parallelise.
+        ``search_entries`` returns stub entries without aspects, so a separate
+        ``get_entry(view=ALL)`` call is made per entry to fetch full detail
+        including schema aspects.
         """
         logger.info(
             f"SearchEntries spanner for project={project_id} location={location}"
@@ -350,23 +350,31 @@ class DataplexEntriesProcessor:
             self.report.report_catalog_api_call(
                 "search_entries", timer.elapsed_seconds()
             )
-            for result in search_results:
-                logger.info(f"SearchEntries result payload: {result}")
-                dataplex_entry = getattr(result, "dataplex_entry", None)
-                if dataplex_entry is None:
-                    continue
-                if not self._report_and_should_process_entry(dataplex_entry):
-                    logger.debug(
-                        "Skipping filtered spanner entry %s from search_entries",
-                        dataplex_entry.name,
-                    )
-                    continue
-                logger.debug(f"Spanner dataplex entry payload: {dataplex_entry}")
-                yield from self._build_entities_for_entry(dataplex_entry, location)
         except Exception as exc:
             logger.warning(
                 f"Spanner workaround search failed for {project_id}/{location}: {exc}"
             )
+            return
+
+        for result in search_results:
+            logger.info(f"SearchEntries result payload: {result}")
+            dataplex_entry = getattr(result, "dataplex_entry", None)
+            if dataplex_entry is None:
+                continue
+            if not self._report_and_should_process_entry(dataplex_entry):
+                logger.debug(
+                    "Skipping filtered spanner entry %s from search_entries",
+                    dataplex_entry.name,
+                )
+                continue
+            try:
+                detailed_entry = self._fetch_entry_detail(dataplex_entry.name)
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to fetch detail for Spanner entry {dataplex_entry.name}: {exc}"
+                )
+                continue
+            yield from self._build_entities_for_entry(detailed_entry, location)
 
     def _track_entry_for_lineage(
         self, dataplex_location: str, entry: dataplex_v1.Entry
@@ -510,10 +518,13 @@ class DataplexEntriesProcessor:
 
             schema_metadata = None
             if self.config.include_schema:
-                schema_metadata = extract_schema_from_entry_aspects(
-                    entry,
-                    entry_name,
-                    mapping.datahub_platform,
+                schema_metadata = (
+                    extract_schema_from_entry_aspects(
+                        entry, entry_name, mapping.datahub_platform
+                    )
+                    or extract_graph_schema_from_entry_aspects(  # cloud-spanner-graph entries store schema in a graph-schema aspect rather than the standard schema aspect
+                        entry, entry_name, mapping.datahub_platform
+                    )
                 )
 
             parent_container_key: Optional[ContainerKey] = None
