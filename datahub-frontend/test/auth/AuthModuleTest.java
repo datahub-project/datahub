@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.ActorType;
@@ -28,7 +29,6 @@ import org.junitpioneer.jupiter.ClearEnvironmentVariable;
 import org.mockito.MockedStatic;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.play.store.PlayCacheSessionStore;
-import org.pac4j.play.store.PlayCookieSessionStore;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
@@ -139,7 +139,7 @@ public class AuthModuleTest {
     // Verify SessionStore is bound
     SessionStore sessionStore = injector.getInstance(SessionStore.class);
     assertNotNull(sessionStore);
-    assertTrue(sessionStore instanceof PlayCookieSessionStore);
+    assertTrue(sessionStore instanceof DatahubPlayCookieSessionStore);
   }
 
   @Test
