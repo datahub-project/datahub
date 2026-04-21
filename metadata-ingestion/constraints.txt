@@ -92,7 +92,7 @@ attrs==25.4.0
     #   pytest-docker
     #   referencing
     #   zeep
-authlib==1.6.9
+authlib==1.7.0
     # via
     #   acryl-datahub
     #   confluent-kafka
@@ -308,6 +308,7 @@ cryptography==46.0.7
     #   azure-identity
     #   azure-storage-blob
     #   google-auth
+    #   joserfc
     #   moto
     #   msal
     #   oracledb
@@ -716,6 +717,8 @@ jmespath==1.1.0
     #   botocore
 joblib==1.5.3
     # via nltk
+joserfc==1.6.4
+    # via authlib
 jpype1==1.6.0
     # via acryl-datahub
 json5==0.13.0
@@ -1254,7 +1257,7 @@ pyparsing==3.3.2
     #   acryl-great-expectations
     #   pyiceberg
     #   rdflib
-pypdf==6.8.0
+pypdf==6.10.2
     # via unstructured-client
 pypdfium2==5.6.0
     # via unstructured-client

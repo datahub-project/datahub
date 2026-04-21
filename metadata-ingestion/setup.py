@@ -481,7 +481,8 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
+    "Authlib>=1.6.11,<2.0.0",
 }
 
 superset_common = {
