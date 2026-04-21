@@ -53,10 +53,17 @@ def parse_failed_modules(input_dir: Path) -> Optional[Set[str]]:
                     if not classname:
                         continue
 
-                    # Convert classname from dotted format to file path
-                    # Example: tests.structured_properties.test_structured_properties
-                    #       -> tests/structured_properties/test_structured_properties.py
-                    module_path = classname.replace('.', '/') + '.py'
+                    # Convert classname from dotted format to file path.
+                    # For class-based tests, pytest includes the class name in classname:
+                    #   tests.my_module.MyTestClass -> tests/my_module.py
+                    # For function-based tests, classname is just the module:
+                    #   tests.my_module -> tests/my_module.py
+                    # Python class names are PascalCase (start uppercase); module names are
+                    # snake_case (lowercase), so strip the trailing component if it's a class.
+                    parts = classname.split('.')
+                    if parts and parts[-1][0].isupper():
+                        parts = parts[:-1]
+                    module_path = '/'.join(parts) + '.py'
                     failed_modules.add(module_path)
 
         except ET.ParseError as e:
