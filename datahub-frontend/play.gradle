@@ -44,6 +44,12 @@ dependencies {
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
     }
+    implementation(externalDependency.hibernateValidator) {
+      because("CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (Hibernate Validator EL interpolation)")
+    }
+    play(externalDependency.hibernateValidator) {
+      because("CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (Hibernate Validator EL interpolation)")
+    }
     implementation(externalDependency.snappy) {
       because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
     }
