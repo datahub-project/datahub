@@ -1252,3 +1252,391 @@ def test_dm_zero_columns(tmp_path, requests_mock):
         "datasetProperties must still be emitted"
     )
     assert "subTypes" in dm_aspect_names, "subTypes aspect must still be emitted"
+
+
+# ---------------------------------------------------------------------------
+# T2.5 helpers and tests — workbook→DM and element→DM entity-level lineage
+# ---------------------------------------------------------------------------
+
+WORKBOOK_ID = "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b"
+WORKSPACE_ID = "3ee61405-3be2-4000-ba72-60d36757b95b"
+
+
+def _dm_file_entry(dm_id: str, dm_url_id: str, workspace_id: str) -> dict:
+    return {
+        "id": dm_id,
+        "urlId": dm_url_id,
+        "name": "Test DM",
+        "type": "dataModel",
+        "parentId": workspace_id,
+        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+        "permission": "edit",
+        "path": "Acryl Data",
+        "badge": None,
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-04-15T13:43:12.664Z",
+        "updatedAt": "2024-04-15T13:43:12.664Z",
+        "isArchived": False,
+    }
+
+
+def _dm_api_entry(dm_id: str) -> dict:
+    return {
+        "dataModelId": dm_id,
+        "name": "Test DM",
+        "description": "",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-04-15T13:43:12.664Z",
+        "updatedAt": "2024-04-15T13:43:12.664Z",
+        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{dm_id}",
+        "isArchived": False,
+    }
+
+
+def _make_dm_overrides(
+    dm_ids: list, dm_url_ids: list, workspace_id: str
+) -> Dict[str, Dict]:
+    """Override data registering one or more DMs (columns/sources empty)."""
+    overrides: Dict[str, Dict] = {
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    _dm_file_entry(dm_id, dm_url_id, workspace_id)
+                    for dm_id, dm_url_id in zip(dm_ids, dm_url_ids, strict=False)
+                ],
+                "total": len(dm_ids),
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [_dm_api_entry(dm_id) for dm_id in dm_ids],
+                "total": len(dm_ids),
+                "nextPage": None,
+            },
+        },
+    }
+    for dm_id in dm_ids:
+        overrides[
+            f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/columns"
+        ] = {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        }
+        overrides[
+            f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/sources"
+        ] = {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPageToken": None},
+        }
+    return overrides
+
+
+def _run_pipeline(tmp_path, requests_mock, override_data: dict, filename: str) -> tuple:
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+    output_path = str(tmp_path / filename)
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    emitted = json.loads(open(output_path).read())
+    return pipeline.source.get_report(), emitted
+
+
+@pytest.mark.integration
+def test_workbook_dm_single_upstream(tmp_path, requests_mock):
+    """T2.5 Task A: workbook with one DM upstream emits DashboardInfo.datasets."""
+    dm_id = "aaaa1111-0000-0000-0000-000000000001"
+    dm_url_id = "dmUrlId01"
+
+    override_data = _make_dm_overrides([dm_id], [dm_url_id], WORKSPACE_ID)
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{WORKBOOK_ID}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {"type": "data-model", "dataModelId": dm_id, "name": "Test DM"},
+            ]
+        },
+    }
+
+    report, emitted = _run_pipeline(
+        tmp_path, requests_mock, override_data, "wb_dm_single.json"
+    )
+
+    assert report.workbook_data_model_upstream_edges_emitted == 1
+
+    dm_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_id},PROD)"
+    workbook_urn = f"urn:li:dashboard:(sigma,{WORKBOOK_ID})"
+    dashboard_info_mcps = [
+        mcp
+        for mcp in emitted
+        if mcp.get("entityUrn") == workbook_urn
+        and mcp.get("aspectName") == "dashboardInfo"
+    ]
+    assert len(dashboard_info_mcps) == 1, "Expected exactly one dashboardInfo MCP"
+    datasets = dashboard_info_mcps[0]["aspect"]["json"].get("datasets", [])
+    assert dm_urn in datasets, f"DM URN {dm_urn} must appear in dashboardInfo.datasets"
+
+
+@pytest.mark.integration
+def test_workbook_dm_two_upstreams(tmp_path, requests_mock):
+    """T2.5 Task A: workbook with two DM upstreams emits both in DashboardInfo.datasets."""
+    dm_id_1 = "aaaa2222-0000-0000-0000-000000000001"
+    dm_id_2 = "aaaa2222-0000-0000-0000-000000000002"
+    dm_url_id_1 = "dmUrlId02a"
+    dm_url_id_2 = "dmUrlId02b"
+
+    override_data = _make_dm_overrides(
+        [dm_id_1, dm_id_2], [dm_url_id_1, dm_url_id_2], WORKSPACE_ID
+    )
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{WORKBOOK_ID}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {"type": "data-model", "dataModelId": dm_id_1, "name": "DM One"},
+                {"type": "data-model", "dataModelId": dm_id_2, "name": "DM Two"},
+            ]
+        },
+    }
+
+    report, emitted = _run_pipeline(
+        tmp_path, requests_mock, override_data, "wb_dm_two.json"
+    )
+
+    assert report.workbook_data_model_upstream_edges_emitted == 2
+
+    workbook_urn = f"urn:li:dashboard:(sigma,{WORKBOOK_ID})"
+    dashboard_info_mcps = [
+        mcp
+        for mcp in emitted
+        if mcp.get("entityUrn") == workbook_urn
+        and mcp.get("aspectName") == "dashboardInfo"
+    ]
+    assert len(dashboard_info_mcps) == 1
+    datasets = dashboard_info_mcps[0]["aspect"]["json"].get("datasets", [])
+    for dm_id in [dm_id_1, dm_id_2]:
+        dm_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_id},PROD)"
+        assert dm_urn in datasets, f"DM URN {dm_urn} must appear in datasets"
+
+
+@pytest.mark.integration
+def test_workbook_dm_phantom_dm_filtered(tmp_path, requests_mock):
+    """T2.5 Task A: workbook references DM not in ingested map → warning, no phantom URN."""
+    missing_dm_id = "ffff0000-0000-0000-0000-000000000099"
+
+    # No DM mocks — data_model_id_to_urn stays empty.
+    override_data: Dict[str, Dict] = {
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{WORKBOOK_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "type": "data-model",
+                        "dataModelId": missing_dm_id,
+                        "name": "Missing DM",
+                    }
+                ]
+            },
+        },
+    }
+
+    report, emitted = _run_pipeline(
+        tmp_path, requests_mock, override_data, "wb_dm_phantom.json"
+    )
+
+    assert report.workbook_data_model_upstream_missed_dm_id >= 1
+    assert any(
+        w.title == "Unresolved workbook Data Model upstream" for w in report.warnings
+    ), f"Expected unresolved-DM warning; got: {[w.title for w in report.warnings]}"
+
+    phantom_dm_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{missing_dm_id},PROD)"
+    all_urns = {mcp["entityUrn"] for mcp in emitted}
+    assert phantom_dm_urn not in all_urns, (
+        "Phantom DM URN must not appear in emitted MCPs"
+    )
+
+    workbook_urn = f"urn:li:dashboard:(sigma,{WORKBOOK_ID})"
+    dashboard_info_mcps = [
+        mcp
+        for mcp in emitted
+        if mcp.get("entityUrn") == workbook_urn
+        and mcp.get("aspectName") == "dashboardInfo"
+    ]
+    assert len(dashboard_info_mcps) == 1
+    datasets = dashboard_info_mcps[0]["aspect"]["json"].get("datasets") or []
+    assert phantom_dm_urn not in datasets, "Phantom URN must not appear in datasets"
+
+
+@pytest.mark.integration
+def test_element_dm_upstream_via_source_id(tmp_path, requests_mock):
+    """T2.5 Task B: element sourceIds[0] prefix matches DM urlId → element inputs includes DM URN."""
+    dm_id = "aaaa4444-0000-0000-0000-000000000001"
+    dm_url_id = "dmUrlId04"
+    # kH0MeihtGs is an element in page OSnGLBzL1i of the mock workbook.
+    element_id = "kH0MeihtGs"
+    opaque = "mdYJst_DFR"
+
+    override_data = _make_dm_overrides([dm_id], [dm_url_id], WORKSPACE_ID)
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{WORKBOOK_ID}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "type": "element",
+                    "elementId": element_id,
+                    "sourceIds": [f"{dm_url_id}/{opaque}"],
+                }
+            ]
+        },
+    }
+
+    report, emitted = _run_pipeline(
+        tmp_path, requests_mock, override_data, "element_dm_source_id.json"
+    )
+
+    assert report.element_data_model_upstream_edges_emitted >= 1
+
+    dm_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_id},PROD)"
+    chart_urn = f"urn:li:chart:(sigma,{element_id})"
+    chart_info_mcps = [
+        mcp
+        for mcp in emitted
+        if mcp.get("entityUrn") == chart_urn and mcp.get("aspectName") == "chartInfo"
+    ]
+    assert len(chart_info_mcps) == 1, "Expected exactly one chartInfo MCP for element"
+    # ChartInfo.inputs is serialized as [{"string": "urn:..."}, ...] (Avro union).
+    raw_inputs = chart_info_mcps[0]["aspect"]["json"].get("inputs", [])
+    input_urns = [
+        item["string"] if isinstance(item, dict) else item for item in raw_inputs
+    ]
+    assert dm_urn in input_urns, (
+        f"DM URN {dm_urn} must appear in element chartInfo.inputs"
+    )
+
+
+@pytest.mark.integration
+def test_element_source_id_inode_prefix(tmp_path, requests_mock):
+    """T2.5 Task B: element sourceIds[0] with inode- prefix increments warehouse counter, no edge."""
+    dm_id = "aaaa5555-0000-0000-0000-000000000001"
+    dm_url_id = "dmUrlId05"
+    element_id = "kH0MeihtGs"
+
+    override_data = _make_dm_overrides([dm_id], [dm_url_id], WORKSPACE_ID)
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{WORKBOOK_ID}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "type": "element",
+                    "elementId": element_id,
+                    # inode- prefix = warehouse table reference (T3's territory)
+                    "sourceIds": ["inode-2Fby2MBLPM5jUMfBB15On1/ADOPTIONS"],
+                }
+            ]
+        },
+    }
+
+    report, emitted = _run_pipeline(
+        tmp_path, requests_mock, override_data, "element_inode_prefix.json"
+    )
+
+    assert report.element_source_id_warehouse >= 1, (
+        "inode- prefix must increment element_source_id_warehouse"
+    )
+    assert report.element_data_model_upstream_edges_emitted == 0, (
+        "No DM edge must be emitted for inode- prefix"
+    )
+
+    dm_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_id},PROD)"
+    chart_urn = f"urn:li:chart:(sigma,{element_id})"
+    chart_info_mcps = [
+        mcp
+        for mcp in emitted
+        if mcp.get("entityUrn") == chart_urn and mcp.get("aspectName") == "chartInfo"
+    ]
+    if chart_info_mcps:
+        raw_inputs = chart_info_mcps[0]["aspect"]["json"].get("inputs", [])
+        input_urns = [
+            item["string"] if isinstance(item, dict) else item for item in raw_inputs
+        ]
+        assert dm_urn not in input_urns, (
+            "DM URN must not appear in inputs for inode- element"
+        )
+
+
+@pytest.mark.integration
+def test_element_source_id_unknown_format(tmp_path, requests_mock):
+    """T2.5 Task B: element sourceIds[0] in unknown format increments unresolved counter."""
+    dm_id = "aaaa6666-0000-0000-0000-000000000001"
+    dm_url_id = "dmUrlId06"
+    element_id = "kH0MeihtGs"
+
+    override_data = _make_dm_overrides([dm_id], [dm_url_id], WORKSPACE_ID)
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{WORKBOOK_ID}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "type": "element",
+                    "elementId": element_id,
+                    # No slash — unknown format
+                    "sourceIds": ["unknownFormatNoSlash"],
+                }
+            ]
+        },
+    }
+
+    report, emitted = _run_pipeline(
+        tmp_path, requests_mock, override_data, "element_unknown_format.json"
+    )
+
+    assert report.element_source_id_unresolved >= 1, (
+        "Unknown sourceId format must increment element_source_id_unresolved"
+    )
+    assert report.element_data_model_upstream_edges_emitted == 0

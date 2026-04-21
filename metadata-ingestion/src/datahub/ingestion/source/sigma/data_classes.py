@@ -96,6 +96,7 @@ class File(BaseModel):
     parentId: str
     path: str
     type: str
+    urlId: Optional[str] = None
     badge: Optional[str] = None
     workspaceId: Optional[str] = None
 
@@ -125,6 +126,9 @@ class SigmaDataModel(BaseModel):
     workspaceId: Optional[str] = None
     path: Optional[str] = None
     badge: Optional[str] = None
+    # Populated from file metadata urlId; used by T2.5 element→DM sourceIds prefix matching.
+    # Sigma's /workbooks/{id}/lineage element entries carry sourceIds[0] = "<dataModelUrlId>/<opaque>".
+    dataModelUrlId: Optional[str] = None
     columns: List[SigmaDataModelColumn] = []
     sources: List[SigmaDataModelSource] = []
 
