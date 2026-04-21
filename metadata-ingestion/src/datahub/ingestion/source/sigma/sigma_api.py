@@ -405,26 +405,33 @@ class SigmaAPI:
                     edge[Constant.SOURCE]
                 )
 
-            # Find the seed: the sheet node representing the queried element itself.
-            seed_node_id: Optional[str] = None
-            for node_id, node_data in dependencies.items():
-                if (
-                    node_data.get(Constant.TYPE) == "sheet"
-                    and node_data.get(Constant.ELEMENTID) == element.elementId
-                ):
-                    seed_node_id = node_id
-                    break
+            # Collect all seed nodes — sheet nodes whose elementId matches the queried
+            # element. Today Sigma returns exactly one, but the API contract is not
+            # documented; if multiple ever appear, BFS from all of them so no upstream
+            # reachable only from a secondary seed is silently dropped.
+            seed_node_ids = [
+                node_id
+                for node_id, node_data in dependencies.items()
+                if node_data.get(Constant.TYPE) == "sheet"
+                and node_data.get(Constant.ELEMENTID) == element.elementId
+            ]
 
-            if seed_node_id is None:
+            if not seed_node_ids:
                 self.report.warning(
                     message="Could not find sheet node for element in lineage response",
                     context=f"element={element.name}, workbook={workbook.name}",
                 )
                 return {}
 
-            # BFS from seed, walking edges in reverse (target → source).
-            visited: Set[str] = {seed_node_id}
-            queue: Deque[str] = deque([seed_node_id])
+            if len(seed_node_ids) > 1:
+                self.report.warning(
+                    message="Multiple seed sheet nodes found for element in lineage response",
+                    context=f"element={element.name}, workbook={workbook.name}, seed_count={len(seed_node_ids)}",
+                )
+
+            # BFS from all seeds, walking edges in reverse (target → source).
+            visited: Set[str] = set(seed_node_ids)
+            queue: Deque[str] = deque(seed_node_ids)
 
             while queue:
                 current_id = queue.popleft()
