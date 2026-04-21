@@ -900,8 +900,7 @@ base_dev_requirements = {
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
-    "freezegun<2.0.0",  # TODO: fully remove and use time-machine
-    "time-machine<4.0.0",  # better Pydantic v2 compatibility
+    "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
     "twine<7.0.0",
