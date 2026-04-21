@@ -1,0 +1,208 @@
+{
+  "urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077)": {
+    "value": {
+      "com.linkedin.metadata.snapshot.DataFlowSnapshot": {
+        "urn": "urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077)",
+        "aspects": [
+          {
+            "com.linkedin.metadata.key.DataFlowKey": {
+              "orchestrator": "spark",
+              "cluster": "spark_spark-master_7077",
+              "flowId": "JavaHiveInHiveOut"
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePaths": {
+              "paths": [
+                "/spark/spark_spark-master_7077"
+              ]
+            }
+          },
+          {
+            "com.linkedin.datajob.DataFlowInfo": {
+              "name": "JavaHiveInHiveOut",
+              "customProperties": {
+                "sparkUser": "root",
+                "appName": "JavaHiveInHiveOut"
+              }
+            }
+          },
+          {
+            "com.linkedin.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:spark"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_8)": {
+    "value": {
+      "com.linkedin.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_8)",
+        "aspects": [
+          {
+            "com.linkedin.metadata.key.DataJobKey": {
+              "jobId": "QueryExecId_8",
+              "flow": "urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077)"
+            }
+          },
+          {
+            "com.linkedin.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:spark"
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePaths": {
+              "paths": [
+                "/spark/spark_spark-master_7077"
+              ]
+            }
+          },
+          {
+            "com.linkedin.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,JavaHiveInHiveOut.foo5,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.datajob.DataJobInfo": {
+              "name": "sql at HiveInHiveOut.java:30",
+              "type": {
+                "string": "sparkJob"
+              },
+              "customProperties": {
+                "SQLQueryId": "8",
+                "appName": "JavaHiveInHiveOut",
+                "description": "sql at HiveInHiveOut.java:30",
+                "queryPlan": "CreateHiveTableAsSelectCommand [Database:JavaHiveInHiveOut, TableName: foo5, InsertIntoHiveTable]\n+- Project [a#16, b#20, c#40, d#44]\n   +- Join Inner, (id#10 = id#34)\n      :- Project [id#10, c1#11 AS a#16, c2#12 AS b#20]\n      :  +- Filter isnotnull(id#10)\n      :     +- Relation[id#10,c1#11,c2#12] csv\n      +- Project [id#34, c1#35 AS c#40, c2#36 AS d#44]\n         +- Filter isnotnull(id#34)\n            +- Relation[id#34,c1#35,c2#36] csv\n"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_9)": {
+    "value": {
+      "com.linkedin.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_9)",
+        "aspects": [
+          {
+            "com.linkedin.metadata.key.DataJobKey": {
+              "jobId": "QueryExecId_9",
+              "flow": "urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077)"
+            }
+          },
+          {
+            "com.linkedin.datajob.DataJobInfo": {
+              "name": "sql at HiveInHiveOut.java:34",
+              "type": {
+                "string": "sparkJob"
+              },
+              "customProperties": {
+                "SQLQueryId": "9",
+                "appName": "JavaHiveInHiveOut",
+                "description": "sql at HiveInHiveOut.java:34",
+                "queryPlan": "CreateHiveTableAsSelectCommand [Database:JavaHiveInHiveOut, TableName: hivetab, InsertIntoHiveTable]\n+- HiveTableRelation `javahiveinhiveout`.`foo5`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, [a#62, b#63, c#64, d#65]\n"
+              }
+            }
+          },
+          {
+            "com.linkedin.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:spark"
+            }
+          },
+          {
+            "com.linkedin.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,javahiveinhiveout.foo5,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,JavaHiveInHiveOut.hivetab,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePaths": {
+              "paths": [
+                "/spark/spark_spark-master_7077"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_10)": {
+    "value": {
+      "com.linkedin.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_10)",
+        "aspects": [
+          {
+            "com.linkedin.metadata.key.DataJobKey": {
+              "jobId": "QueryExecId_10",
+              "flow": "urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077)"
+            }
+          },
+          {
+            "com.linkedin.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,javahiveinhiveout.foo5,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,javahiveinhiveout.hivetab,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePaths": {
+              "paths": [
+                "/spark/spark_spark-master_7077"
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:spark"
+            }
+          },
+          {
+            "com.linkedin.datajob.DataJobInfo": {
+              "name": "sql at HiveInHiveOut.java:38",
+              "type": {
+                "string": "sparkJob"
+              },
+              "customProperties": {
+                "SQLQueryId": "10",
+                "appName": "JavaHiveInHiveOut",
+                "description": "sql at HiveInHiveOut.java:38",
+                "queryPlan": "InsertIntoHiveTable `javahiveinhiveout`.`hivetab`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, false, false, [a, b, c, d]\n+- HiveTableRelation `javahiveinhiveout`.`foo5`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, [a#74, b#75, c#76, d#77]\n"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_11)": {
+    "value": {
+      "com.linkedin.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077),QueryExecId_11)",
+        "aspects": [
+          {
+            "com.linkedin.metadata.key.DataJobKey": {
+              "jobId": "QueryExecId_11",
+              "flow": "urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077)"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
