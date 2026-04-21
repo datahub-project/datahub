@@ -495,6 +495,7 @@ class SigmaAPI:
                         data_model.workspaceId = file_meta.workspaceId
                         data_model.path = file_meta.path
                         data_model.badge = file_meta.badge
+                        data_model.dataModelUrlId = file_meta.urlId
 
                     workspace = None
                     if data_model.workspaceId:
@@ -564,6 +565,25 @@ class SigmaAPI:
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch sigma data models. Exception: {e}"
+            )
+            return []
+
+    def get_workbook_lineage(self, workbook_id: str) -> List[Dict[str, Any]]:
+        """Fetch /workbooks/{id}/lineage and return the entries list."""
+        try:
+            response = self._get_api_call(
+                f"{self.config.api_url}/workbooks/{workbook_id}/lineage"
+            )
+            if response.status_code in (400, 403, 404, 500):
+                logger.debug(
+                    f"Workbook lineage not available for '{workbook_id}': HTTP {response.status_code}"
+                )
+                return []
+            response.raise_for_status()
+            return response.json().get("entries", [])
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch lineage for workbook '{workbook_id}'. Exception: {e}"
             )
             return []
 

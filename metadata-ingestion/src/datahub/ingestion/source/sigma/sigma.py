@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -33,6 +33,7 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sigma.config import (
+    Constant,
     PlatformDetail,
     SigmaSourceConfig,
     SigmaSourceReport,
@@ -131,6 +132,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
+        self.data_model_id_to_urn: Dict[str, str] = {}
+        self.data_model_url_id_to_urn: Dict[str, str] = {}
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -419,6 +422,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         data_model_urn = self._gen_sigma_dataset_urn(data_model.get_urn_part())
 
+        self.data_model_id_to_urn[data_model.dataModelId] = data_model_urn
+        if data_model.dataModelUrlId:
+            self.data_model_url_id_to_urn[data_model.dataModelUrlId] = data_model_urn
+
         yield self._gen_entity_status_aspect(data_model_urn)
 
         dm_properties = DatasetProperties(
@@ -484,6 +491,74 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     tags=[TagAssociationClass(builder.make_tag_urn(data_model.badge))]
                 ),
             ).as_workunit()
+
+    def _get_workbook_dm_lineage_data(
+        self, workbook: Workbook
+    ) -> Tuple[List[str], Dict[str, str]]:
+        """
+        Returns (dm_urns_for_workbook, element_id_to_dm_urn) by calling
+        GET /workbooks/{id}/lineage once per workbook.
+
+        Skipped when ingest_data_models=False (no DM URN map to look up against).
+        Sigma type strings are uniformly kebab-case — Constant.DATA_MODEL = "data-model".
+        Using camelCase "dataModel" silently returns 0 results.
+        """
+        if not self.config.ingest_data_models:
+            return [], {}
+
+        workbook_dm_urns: List[str] = []
+        element_dm_map: Dict[str, str] = {}
+        missed_dm_ids: List[str] = []
+
+        for entry in self.sigma_api.get_workbook_lineage(workbook.workbookId):
+            entry_type = entry.get("type", "")
+
+            if entry_type == Constant.DATA_MODEL:
+                dm_id = entry.get("dataModelId", "")
+                if not dm_id:
+                    continue
+                dm_urn = self.data_model_id_to_urn.get(dm_id)
+                if dm_urn:
+                    workbook_dm_urns.append(dm_urn)
+                    self.reporter.workbook_data_model_upstream_edges_emitted += 1
+                else:
+                    missed_dm_ids.append(dm_id)
+                    self.reporter.workbook_data_model_upstream_missed_dm_id += 1
+
+            elif entry_type == "element":
+                element_id = entry.get("elementId", "")
+                if not element_id:
+                    continue
+                source_ids = entry.get("sourceIds", [])
+                if not source_ids:
+                    continue
+                source_id_0 = source_ids[0]
+                if "/" not in source_id_0:
+                    self.reporter.element_source_id_unresolved += 1
+                    continue
+                prefix, _ = source_id_0.split("/", 1)
+                if prefix.startswith("inode-"):
+                    # Warehouse table reference — T3's territory, not T2.5.
+                    self.reporter.element_source_id_warehouse += 1
+                    continue
+                dm_urn = self.data_model_url_id_to_urn.get(prefix)
+                if dm_urn:
+                    element_dm_map[element_id] = dm_urn
+                    self.reporter.element_data_model_upstream_edges_emitted += 1
+                else:
+                    self.reporter.element_source_id_unresolved += 1
+
+        if missed_dm_ids:
+            self.reporter.warning(
+                message=(
+                    f"Workbook '{workbook.name}' references Data Model ID(s) not in "
+                    f"ingested DMs; upstream edges skipped: {missed_dm_ids}"
+                ),
+                title="Unresolved workbook Data Model upstream",
+                context=workbook.workbookId,
+            )
+
+        return workbook_dm_urns, element_dm_map
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -597,6 +672,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         workbook: Workbook,
         all_input_fields: List[InputFieldClass],
         paths: List[str],
+        element_dm_map: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -618,6 +694,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             inputs: Dict[str, List[str]] = self._get_element_input_details(
                 element, workbook
             )
+
+            if element_dm_map:
+                dm_urn = element_dm_map.get(element.elementId)
+                if dm_urn and dm_urn not in inputs:
+                    inputs[dm_urn] = []
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -672,7 +753,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
-        self, workbook: Workbook, paths: List[str]
+        self,
+        workbook: Workbook,
+        paths: List[str],
+        element_dm_map: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma workbook page to Datahub dashboard
@@ -701,7 +785,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields, paths
+                page.elements, workbook, all_input_fields, paths, element_dm_map
             )
 
             yield MetadataChangeProposalWrapper(
@@ -728,6 +812,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             actor="urn:li:corpuser:datahub",
         )
 
+        workbook_dm_urns, element_dm_map = self._get_workbook_dm_lineage_data(workbook)
+
         dashboard_info_cls = DashboardInfoClass(
             title=workbook.name,
             description=workbook.description if workbook.description else "",
@@ -738,6 +824,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 for page in workbook.pages
             ],
+            datasets=workbook_dm_urns if workbook_dm_urns else None,
             externalUrl=workbook.url,
             lastModified=ChangeAuditStampsClass(
                 created=created, lastModified=lastModified
@@ -798,7 +885,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     entity_urn=dashboard_urn,
                 )
 
-        yield from self._gen_pages_workunit(workbook, paths)
+        yield from self._gen_pages_workunit(workbook, paths, element_dm_map)
 
     def _gen_sigma_dataset_upstream_lineage_workunit(
         self,
