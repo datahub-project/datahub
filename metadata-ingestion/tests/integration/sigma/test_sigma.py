@@ -1,5 +1,6 @@
 import json
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
@@ -1340,7 +1341,9 @@ def _make_dm_overrides(
     return overrides
 
 
-def _run_pipeline(tmp_path, requests_mock, override_data: dict, filename: str) -> tuple:
+def _run_pipeline(
+    tmp_path: Path, requests_mock: Any, override_data: Dict, filename: str
+) -> Tuple[SigmaSourceReport, List[Any]]:
     register_mock_api(request_mock=requests_mock, override_data=override_data)
     output_path = str(tmp_path / filename)
     pipeline = Pipeline.create(
@@ -1359,8 +1362,10 @@ def _run_pipeline(tmp_path, requests_mock, override_data: dict, filename: str) -
     )
     pipeline.run()
     pipeline.raise_from_status()
-    emitted = json.loads(open(output_path).read())
-    return pipeline.source.get_report(), emitted
+    emitted: List[Any] = json.loads(open(output_path).read())
+    report = pipeline.source.get_report()
+    assert isinstance(report, SigmaSourceReport)
+    return report, emitted
 
 
 @pytest.mark.integration
