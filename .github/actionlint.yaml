@@ -11,3 +11,7 @@ paths:
   .github/workflows/**/*.{yml,yaml}:
     ignore:
       - 'constant expression "false" in condition. remove the if: section'
+  .github/workflows/spark-smoke-test.yml:
+    ignore:
+      # Action lint does not handle dynamic outputs
+      - 'property "test_strategy" is not defined in object type {}'
