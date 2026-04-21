@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import fastavro
 import pytest
+import time_machine
 from avrogen import avrojson
-from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
@@ -29,7 +29,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 FROZEN_TIME = "2021-07-22 18:54:06"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "json_filename",
     [
@@ -76,7 +76,7 @@ def test_serde_to_json(
         "tests/unit/serde/test_serde_extra_field.json",
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_serde_to_avro(
     pytestconfig: pytest.Config,
     json_filename: str,
@@ -130,7 +130,7 @@ def test_serde_to_avro(
         "examples/mce_files/bootstrap_mce.json",
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_check_metadata_schema(pytestconfig: pytest.Config, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 

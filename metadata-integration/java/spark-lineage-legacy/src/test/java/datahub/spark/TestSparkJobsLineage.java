@@ -112,6 +112,10 @@ public class TestSparkJobsLineage {
         "file:/" + RESOURCE_DIR, "file:" + Paths.get(RESOURCE_DIR).toAbsolutePath().toString());
   }
 
+  private static String removeLocalPath(String s) {
+    return s.replace(Paths.get(RESOURCE_DIR).toAbsolutePath().toString(), "/" + RESOURCE_DIR);
+  }
+
   public static void resetBaseExpectations() {
     mockServer
         .when(

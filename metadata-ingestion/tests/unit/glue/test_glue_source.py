@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pydantic
 import pytest
+import time_machine
 from botocore.stub import Stubber
-from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
@@ -177,7 +177,7 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -352,7 +352,7 @@ def test_get_databases_filters_by_catalog():
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
         test_resources_dir
@@ -528,7 +528,7 @@ def test_glue_with_malformed_delta_schema_ingest(
         (None, "glue_mces.json", "glue_mces_golden_table_lineage.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_include_table_lineage(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -623,7 +623,7 @@ def test_glue_ingest_include_table_lineage(
         (None, "glue_mces.json", "glue_mces_golden_table_column_lineage.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_include_column_lineage(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -723,7 +723,7 @@ def test_glue_ingest_include_column_lineage(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_with_profiling(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -770,7 +770,7 @@ def test_glue_ingest_with_profiling(
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_with_lake_formation_tag_extraction(
     tmp_path: Path,
     pytestconfig: pytest.Config,

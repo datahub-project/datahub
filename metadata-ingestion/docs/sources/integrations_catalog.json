@@ -941,6 +941,7 @@
     "img_path": "img/logos/platforms/powerbi-report-server.svg"
   },
   "dataplex": {
+    "title": "Google Cloud Knowledge Catalog (Dataplex)",
     "platform_type": [
       "Metadata Systems",
       "Data Catalog"
