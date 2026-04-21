@@ -808,9 +808,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     continue
 
                 is_dynamic_val = str(row.get("is_dynamic") or "").upper() == "YES"
-                table_cls = (
-                    SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
-                )
+                table_cls = SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
                 table = table_cls(
                     name=row["table_name"],
                     type=row["table_type"],
@@ -879,7 +877,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return tables
 
         # Fall back to sequential queries
-        logger.info(f"Bulk extraction returned incomplete results, switching to sequential for {db_name}")
+        logger.info(
+            f"Bulk extraction returned incomplete results, switching to sequential for {db_name}"
+        )
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
@@ -1023,7 +1023,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
         bulk_views = self._get_views_from_bulk_metadata(db_name)
         if bulk_views is not None:
             # Validate completeness: check if views have view_definition populated
-            all_views_flat = [v for views_list in bulk_views.values() for v in views_list]
+            all_views_flat = [
+                v for views_list in bulk_views.values() for v in views_list
+            ]
             if all_views_flat:
                 views_missing_definition = [
                     v for v in all_views_flat if v.view_definition is None
@@ -1039,7 +1041,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return bulk_views
 
         # Fall back to sequential queries
-        logger.info(f"Bulk extraction returned incomplete results, switching to sequential for {db_name}")
+        logger.info(
+            f"Bulk extraction returned incomplete results, switching to sequential for {db_name}"
+        )
         if self._fetch_views_from_information_schema:
             return self._get_views_for_database_using_information_schema(
                 db_name, view_filter
@@ -1830,9 +1834,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             tables: List[SnowflakeTable] = []
             for _, row in tables_df.iterrows():
                 is_dynamic_val = str(row.get("is_dynamic") or "").upper() == "YES"
-                table_cls = (
-                    SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
-                )
+                table_cls = SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
                 table = table_cls(
                     name=row["table_name"],
                     type=row["table_type"],

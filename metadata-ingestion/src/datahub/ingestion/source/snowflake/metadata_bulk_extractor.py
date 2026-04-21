@@ -969,4 +969,3 @@ class BulkMetadataExtractor:
         except (ValueError, FileNotFoundError) as e:
             logger.error(f"Failed to parse metadata file {file_path}: {e}")
             raise
-
