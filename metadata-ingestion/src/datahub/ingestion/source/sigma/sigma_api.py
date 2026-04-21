@@ -165,9 +165,7 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for user_dict in response_dict[Constant.ENTRIES]:
-                    users[user_dict[Constant.MEMBERID]] = (
-                        f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
-                    )
+                    users[user_dict[Constant.MEMBERID]] = user_dict[Constant.EMAIL]
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{members_url}&page={response_dict[Constant.NEXTPAGE]}"
                 else:
@@ -431,6 +429,13 @@ class SigmaAPI:
                 response_dict = response.json()
                 for workbook_dict in response_dict[Constant.ENTRIES]:
                     workbook = Workbook.model_validate(workbook_dict)
+
+                    # Skip workbook if workbook name filtered out by config
+                    if not self.config.workbook_pattern.allowed(workbook.name):
+                        self.report.workbooks.dropped(
+                            f"{workbook.name} ({workbook.workbookId})"
+                        )
+                        continue
 
                     if workbook.workbookId not in workbook_files_metadata:
                         # Due to a bug in the Sigma API, it seems like the /files endpoint does not

@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
+import config.GracefulShutdownModule;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -50,16 +51,22 @@ public class Application extends Controller {
 
   private final Config config;
   private final Environment environment;
+  private final GracefulShutdownModule shutdownModule;
 
   private final String basePath;
   private final String gaTrackingId;
   private final List<String> streamingPathPrefixes;
 
   @Inject
-  public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
+  public Application(
+      HttpClient httpClient,
+      Environment environment,
+      @Nonnull Config config,
+      GracefulShutdownModule shutdownModule) {
     this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
+    this.shutdownModule = shutdownModule;
     this.basePath = config.getString("datahub.basePath");
     this.gaTrackingId =
         config.hasPath("analytics.google.tracking.id")
@@ -122,6 +129,9 @@ public class Application extends Controller {
 
   @Nonnull
   public Result healthcheck() {
+    if (shutdownModule.isShuttingDown()) {
+      return status(SERVICE_UNAVAILABLE, "Shutting down");
+    }
     return ok("GOOD");
   }
 

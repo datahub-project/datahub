@@ -1,6 +1,5 @@
 describe("tags - search bar placeholder", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

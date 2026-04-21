@@ -50,6 +50,9 @@ public class MetricUtils {
       new ConcurrentHashMap<>();
   private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
   private static final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
+  private static final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
+  private static final Map<String, DistributionSummary> micrometerDistributionCache =
+      new ConcurrentHashMap<>();
   // For state-based gauges (like throttled state)
   private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
@@ -107,6 +110,36 @@ public class MetricUtils {
     Counter counter =
         micrometerCounterCache.computeIfAbsent(cacheKey, key -> registry.counter(metricName, tags));
     counter.increment(increment);
+  }
+
+  /**
+   * Record a timer measurement using Micrometer metrics library.
+   *
+   * @param metricName The name of the metric
+   * @param durationNanos The duration in nanoseconds
+   * @param tags The tags to associate with the metric (can be empty)
+   */
+  public void recordTimer(String metricName, long durationNanos, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    Timer timer =
+        micrometerTimerCache.computeIfAbsent(
+            cacheKey, key -> Timer.builder(metricName).tags(tags).register(registry));
+    timer.record(durationNanos, TimeUnit.NANOSECONDS);
+  }
+
+  /**
+   * Record a distribution summary (histogram) using Micrometer metrics library.
+   *
+   * @param metricName The name of the metric
+   * @param value The value to record
+   * @param tags The tags to associate with the metric (can be empty)
+   */
+  public void recordDistribution(String metricName, long value, String... tags) {
+    String cacheKey = createCacheKey(metricName, tags);
+    DistributionSummary summary =
+        micrometerDistributionCache.computeIfAbsent(
+            cacheKey, key -> DistributionSummary.builder(metricName).tags(tags).register(registry));
+    summary.record(value);
   }
 
   /**

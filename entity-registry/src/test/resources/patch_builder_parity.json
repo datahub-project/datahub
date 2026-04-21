@@ -1,0 +1,504 @@
+{
+  "documentation_add": {
+    "arrayPrimaryKeys": {
+      "documentations": [
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/documentations/",
+        "value": {
+          "documentation": "Test documentation"
+        }
+      }
+    ]
+  },
+  "documentation_add_attributed": {
+    "arrayPrimaryKeys": {
+      "documentations": [
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/documentations/urn:li:dataHubAction:testSource",
+        "value": {
+          "attribution": {
+            "actor": "urn:li:corpuser:datahub",
+            "source": "urn:li:dataHubAction:testSource",
+            "sourceDetail": {},
+            "time": 0
+          },
+          "documentation": "Test documentation"
+        }
+      }
+    ]
+  },
+  "documentation_remove": {
+    "arrayPrimaryKeys": {
+      "documentations": [
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/documentations",
+        "value": {}
+      }
+    ]
+  },
+  "documentation_remove_attributed": {
+    "arrayPrimaryKeys": {
+      "documentations": [
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/documentations/urn:li:dataHubAction:testSource",
+        "value": {}
+      }
+    ]
+  },
+  "globalTags_add": {
+    "arrayPrimaryKeys": {
+      "tags": [
+        "tag",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/tags/urn:li:tag:testTag/",
+        "value": {
+          "tag": "urn:li:tag:testTag"
+        }
+      }
+    ]
+  },
+  "globalTags_add_attributed": {
+    "arrayPrimaryKeys": {
+      "tags": [
+        "tag",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/tags/urn:li:tag:testTag/urn:li:dataHubAction:testSource",
+        "value": {
+          "attribution": {
+            "actor": "urn:li:corpuser:datahub",
+            "source": "urn:li:dataHubAction:testSource",
+            "sourceDetail": {},
+            "time": 0
+          },
+          "tag": "urn:li:tag:testTag"
+        }
+      }
+    ]
+  },
+  "globalTags_add_with_context": {
+    "arrayPrimaryKeys": {
+      "tags": [
+        "tag",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/tags/urn:li:tag:testTag/",
+        "value": {
+          "context": "testContext",
+          "tag": "urn:li:tag:testTag"
+        }
+      }
+    ]
+  },
+  "globalTags_remove": {
+    "arrayPrimaryKeys": {
+      "tags": [
+        "tag",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/tags/urn:li:tag:testTag",
+        "value": {}
+      }
+    ]
+  },
+  "globalTags_remove_attributed": {
+    "arrayPrimaryKeys": {
+      "tags": [
+        "tag",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/tags/urn:li:tag:testTag/urn:li:dataHubAction:testSource",
+        "value": {}
+      }
+    ]
+  },
+  "glossaryTerms_add": {
+    "arrayPrimaryKeys": {
+      "terms": [
+        "urn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/terms/urn:li:glossaryTerm:testTerm/",
+        "value": {
+          "urn": "urn:li:glossaryTerm:testTerm"
+        }
+      }
+    ]
+  },
+  "glossaryTerms_add_attributed": {
+    "arrayPrimaryKeys": {
+      "terms": [
+        "urn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/terms/urn:li:glossaryTerm:testTerm/urn:li:dataHubAction:testSource",
+        "value": {
+          "attribution": {
+            "actor": "urn:li:corpuser:datahub",
+            "source": "urn:li:dataHubAction:testSource",
+            "sourceDetail": {},
+            "time": 0
+          },
+          "urn": "urn:li:glossaryTerm:testTerm"
+        }
+      }
+    ]
+  },
+  "glossaryTerms_add_with_context": {
+    "arrayPrimaryKeys": {
+      "terms": [
+        "urn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/terms/urn:li:glossaryTerm:testTerm/",
+        "value": {
+          "context": "testContext",
+          "urn": "urn:li:glossaryTerm:testTerm"
+        }
+      }
+    ]
+  },
+  "glossaryTerms_remove": {
+    "arrayPrimaryKeys": {
+      "terms": [
+        "urn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/terms/urn:li:glossaryTerm:testTerm",
+        "value": {}
+      }
+    ]
+  },
+  "glossaryTerms_remove_attributed": {
+    "arrayPrimaryKeys": {
+      "terms": [
+        "urn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/terms/urn:li:glossaryTerm:testTerm/urn:li:dataHubAction:testSource",
+        "value": {}
+      }
+    ]
+  },
+  "ownership_add": {
+    "arrayPrimaryKeys": {
+      "owners": [
+        "owner",
+        "type",
+        "typeUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/owners/urn:li:corpuser:testUser/DATAOWNER//",
+        "value": {
+          "owner": "urn:li:corpuser:testUser",
+          "type": "DATAOWNER"
+        }
+      }
+    ]
+  },
+  "ownership_add_attributed": {
+    "arrayPrimaryKeys": {
+      "owners": [
+        "owner",
+        "type",
+        "typeUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/owners/urn:li:corpuser:testUser/DATAOWNER//urn:li:dataHubAction:testSource",
+        "value": {
+          "attribution": {
+            "actor": "urn:li:corpuser:datahub",
+            "source": "urn:li:dataHubAction:testSource",
+            "sourceDetail": {},
+            "time": 0
+          },
+          "owner": "urn:li:corpuser:testUser",
+          "type": "DATAOWNER"
+        }
+      }
+    ]
+  },
+  "ownership_removeOwner_1": {
+    "arrayPrimaryKeys": {
+      "owners": [
+        "owner",
+        "type",
+        "typeUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/owners/urn:li:corpuser:testUser",
+        "value": {}
+      }
+    ]
+  },
+  "ownership_removeOwner_3": {
+    "arrayPrimaryKeys": {
+      "owners": [
+        "owner",
+        "type",
+        "typeUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/owners/urn:li:corpuser:testUser/DATAOWNER/urn:li:ownershipType:__system__technical_owner",
+        "value": {}
+      }
+    ]
+  },
+  "ownership_removeOwnershipType": {
+    "arrayPrimaryKeys": {
+      "owners": [
+        "owner",
+        "type",
+        "typeUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/owners/urn:li:corpuser:testUser/DATAOWNER",
+        "value": {}
+      }
+    ]
+  },
+  "ownership_remove_attributed": {
+    "arrayPrimaryKeys": {
+      "owners": [
+        "owner",
+        "type",
+        "typeUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/owners/urn:li:corpuser:testUser/DATAOWNER/urn:li:ownershipType:__system__technical_owner/urn:li:dataHubAction:testSource",
+        "value": {}
+      }
+    ]
+  },
+  "structuredProperties_add": {
+    "arrayPrimaryKeys": {
+      "properties": [
+        "propertyUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/properties/urn:li:structuredProperty:io.acryl.testProperty/",
+        "value": {
+          "propertyUrn": "urn:li:structuredProperty:io.acryl.testProperty",
+          "values": [
+            {
+              "string": "testValue"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "structuredProperties_add_attributed": {
+    "arrayPrimaryKeys": {
+      "properties": [
+        "propertyUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/properties/urn:li:structuredProperty:io.acryl.testProperty/urn:li:dataHubAction:testSource",
+        "value": {
+          "propertyUrn": "urn:li:structuredProperty:io.acryl.testProperty",
+          "values": [
+            {
+              "string": "testValue"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "structuredProperties_remove": {
+    "arrayPrimaryKeys": {
+      "properties": [
+        "propertyUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/properties/urn:li:structuredProperty:io.acryl.testProperty",
+        "value": {}
+      }
+    ]
+  },
+  "structuredProperties_remove_attributed": {
+    "arrayPrimaryKeys": {
+      "properties": [
+        "propertyUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/properties/urn:li:structuredProperty:io.acryl.testProperty/urn:li:dataHubAction:testSource",
+        "value": {}
+      }
+    ]
+  },
+  "structuredProperties_setNumber": {
+    "arrayPrimaryKeys": {
+      "properties": [
+        "propertyUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/properties/urn:li:structuredProperty:io.acryl.testProperty/",
+        "value": {
+          "propertyUrn": "urn:li:structuredProperty:io.acryl.testProperty",
+          "values": [
+            {
+              "double": 42.0
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "structuredProperties_setNumberList": {
+    "arrayPrimaryKeys": {
+      "properties": [
+        "propertyUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/properties/urn:li:structuredProperty:io.acryl.testProperty/",
+        "value": {
+          "propertyUrn": "urn:li:structuredProperty:io.acryl.testProperty",
+          "values": [
+            {
+              "double": 42.0
+            },
+            {
+              "double": 43.0
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "structuredProperties_setStringList": {
+    "arrayPrimaryKeys": {
+      "properties": [
+        "propertyUrn",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/properties/urn:li:structuredProperty:io.acryl.testProperty/",
+        "value": {
+          "propertyUrn": "urn:li:structuredProperty:io.acryl.testProperty",
+          "values": [
+            {
+              "string": "value1"
+            },
+            {
+              "string": "value2"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

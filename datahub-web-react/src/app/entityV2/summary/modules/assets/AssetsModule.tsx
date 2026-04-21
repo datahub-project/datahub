@@ -1,4 +1,5 @@
 import { InfiniteScrollList } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useState } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -32,7 +33,7 @@ export default function AssetsModule(props: ModuleProps) {
                 emptyState={
                     canAddToAssets ? (
                         <EmptyContent
-                            icon="Database"
+                            icon={Database}
                             title="No Assets"
                             description="Add assets to the parent entity to view them"
                             linkText="Add assets"

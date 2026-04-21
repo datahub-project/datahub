@@ -7,7 +7,7 @@ const TEST_ASSET_NAME = "Baz Dashboard"; // Used in the assets module
 
 describe("summary tab - data product", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     cy.goToDataProduct("urn:li:dataProduct:testing");
     utils.goToSummaryTab();

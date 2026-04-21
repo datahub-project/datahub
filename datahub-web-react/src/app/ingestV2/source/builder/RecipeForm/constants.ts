@@ -33,7 +33,6 @@ import {
     ENV,
     EXTRACT_OWNERS,
     EXTRACT_USAGE_HISTORY,
-    FieldType,
     FilterRecipeField,
     INCLUDE_LINEAGE,
     INCLUDE_TABLES,
@@ -244,6 +243,15 @@ import {
     PRESTO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/presto';
 import {
+    RDF_DIALECT,
+    RDF_ENVIRONMENT,
+    RDF_EXTENSIONS,
+    RDF_FORMAT,
+    RDF_PARENT_GLOSSARY_NODE,
+    RDF_RECURSIVE,
+    RDF_SOURCE,
+} from '@app/ingestV2/source/builder/RecipeForm/rdf';
+import {
     REDSHIFT_DATABASE,
     REDSHIFT_HOST_PORT,
     REDSHIFT_PASSWORD,
@@ -320,6 +328,7 @@ import {
     NOTION,
     OKTA,
     POWER_BI,
+    RDF,
     SAC,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
@@ -350,28 +359,6 @@ interface RecipeFields {
         hasDynamicFields?: boolean;
     };
 }
-
-export const PLATFORM: RecipeField = {
-    name: 'platform',
-    label: 'Platform',
-    helper: 'Data Platform ID in DataHub',
-    tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
-    type: FieldType.TEXT,
-    fieldPath: 'platform',
-    placeholder: 'snowflake',
-    rules: [{ required: true, message: 'Platform is required' }],
-};
-
-export const DEFAULT_DB: RecipeField = {
-    name: 'default_db',
-    label: 'Default Database',
-    helper: 'Database for assets from connection',
-    tooltip: 'The Database associated with assets from the Looker connection.',
-    type: FieldType.TEXT,
-    fieldPath: 'default_db',
-    placeholder: 'default_db',
-    rules: [{ required: true, message: 'Default Database is required' }],
-};
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
@@ -807,6 +794,20 @@ export const RECIPE_FIELDS: RecipeFields = {
             REMOVE_STALE_METADATA_ENABLED,
         ],
         hasDynamicFields: true,
+    },
+    [RDF]: {
+        fields: [RDF_SOURCE],
+        filterFields: [],
+        advancedFields: [
+            RDF_FORMAT,
+            RDF_EXTENSIONS,
+            RDF_RECURSIVE,
+            RDF_ENVIRONMENT,
+            RDF_DIALECT,
+            RDF_PARENT_GLOSSARY_NODE,
+        ],
+        connectionSectionTooltip: 'Configure the RDF source location and basic settings.',
+        advancedSectionTooltip: 'Advanced options for RDF format, file processing, and dialect selection.',
     },
 };
 

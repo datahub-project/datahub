@@ -30,15 +30,12 @@ class RateLimiter(AbstractContextManager):
 
     def __enter__(self) -> "RateLimiter":
         with self._lock:
-            # We want to ensure that no more than max_calls were run in the allowed
-            # period. For this, we store the last timestamps of each call and run
-            # the rate verification upon each __enter__ call.
             if len(self.calls) >= self.max_calls:
                 until = time.time() + self.period - self._timespan
                 sleeptime = until - time.time()
                 if sleeptime > 0:
                     time.sleep(sleeptime)
-            return self
+        return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         with self._lock:

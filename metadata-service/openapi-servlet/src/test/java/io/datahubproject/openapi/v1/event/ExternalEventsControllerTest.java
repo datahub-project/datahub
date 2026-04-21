@@ -16,11 +16,13 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.datahubusage.DataHubUsageService;
 import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchRequest;
 import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchResponse;
@@ -30,6 +32,7 @@ import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.event.ExternalEventsService;
+import io.datahubproject.event.exception.UnsupportedTopicException;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.metadata.context.OperationContext;
@@ -39,6 +42,8 @@ import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.List;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -282,23 +287,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
         .andExpect(status().isOk())
         .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(0))
         .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID));
-  }
-
-  @Test
-  public void testPollWithUnsupportedTopic() throws Exception {
-    // Setup mock authorization
-    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-
-    // Execute test with an unsupported topic
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.get("/openapi/v1/events/poll")
-                .param("topic", "UnsupportedTopic")
-                .param("limit", "100")
-                .param("pollTimeoutSeconds", "10")
-                .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -582,6 +570,143 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk());
+  }
+
+  private static final java.util.Set<PoliciesConfig.Privilege> EVENT_PRIVILEGES =
+      java.util.Set.of(
+          PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE,
+          PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS,
+          PoliciesConfig.GET_TOPIC_EVENTS_PRIVILEGE);
+
+  @Test
+  public void testPollTopicsDeniedByPrivilege() throws Exception {
+    // Selectively deny only event-related privileges (GET_PLATFORM_EVENTS,
+    // GET_METADATA_CHANGE_LOG_EVENTS, GET_TOPIC_EVENTS) while allowing all others.
+    // This ensures the 403 is caused by missing event privileges specifically,
+    // not by a blanket auth denial.
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+          .thenAnswer(invocation -> !EVENT_PRIVILEGES.contains(invocation.getArgument(1)));
+
+      String[] deniedTopics = {
+        PLATFORM_EVENT_TOPIC_NAME,
+        METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+        METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+      };
+
+      for (String topic : deniedTopics) {
+        mockMvc
+            .perform(
+                MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                    .param("topic", topic)
+                    .param("limit", "100")
+                    .param("pollTimeoutSeconds", "10")
+                    .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+      }
+    }
+  }
+
+  @Test
+  public void testGetTopicEventsPrivilegeAllowsAnyTopic() throws Exception {
+    // GET_TOPIC_EVENTS_PRIVILEGE alone should grant access to all topics,
+    // even without the topic-specific privileges.
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+          .thenAnswer(
+              invocation ->
+                  PoliciesConfig.GET_TOPIC_EVENTS_PRIVILEGE.equals(invocation.getArgument(1)));
+
+      ExternalEvents externalEvents = new ExternalEvents();
+      externalEvents.setEvents(new ArrayList<>());
+      externalEvents.setOffsetId(TEST_OFFSET_ID);
+      externalEvents.setCount(0L);
+
+      when(mockEventsService.poll(
+              any(String.class),
+              nullable(String.class),
+              anyInt(),
+              anyInt(),
+              nullable(Integer.class)))
+          .thenReturn(externalEvents);
+
+      String[] topics = {
+        PLATFORM_EVENT_TOPIC_NAME,
+        METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+        METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+      };
+
+      for (String topic : topics) {
+        mockMvc
+            .perform(
+                MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                    .param("topic", topic)
+                    .param("limit", "100")
+                    .param("pollTimeoutSeconds", "10")
+                    .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk());
+      }
+    }
+  }
+
+  @Test
+  public void testPollWithUnsupportedTopic() throws Exception {
+    // An unsupported topic without GET_TOPIC_EVENTS_PRIVILEGE should be denied.
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                  .param("topic", "UnsupportedTopic")
+                  .param("limit", "100")
+                  .param("pollTimeoutSeconds", "10")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+    }
+  }
+
+  @Test
+  public void testUnsupportedTopicReturns500() throws Exception {
+    // A topic that passes auth but is not configured in the service should return 500.
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+          .thenReturn(true);
+
+      when(mockEventsService.poll(
+              eq("UnknownTopic"),
+              nullable(String.class),
+              anyInt(),
+              anyInt(),
+              nullable(Integer.class)))
+          .thenThrow(new UnsupportedTopicException("UnknownTopic"));
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                  .param("topic", "UnknownTopic")
+                  .param("limit", "100")
+                  .param("pollTimeoutSeconds", "10")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isInternalServerError());
+    }
   }
 
   @TestConfiguration

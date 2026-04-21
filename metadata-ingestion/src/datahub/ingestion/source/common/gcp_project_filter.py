@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import FrozenSet, List, Optional, Protocol
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -10,6 +11,83 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.source import SourceReport
 
 logger = logging.getLogger(__name__)
+
+# GCP project IDs: 6-30 chars, lowercase letters/digits/hyphens, start with letter, end with letter/digit
+GCP_PROJECT_ID_PATTERN = re.compile(r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
+# GCP label format: key:value, both lowercase letters/digits/underscores/hyphens
+GCP_LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*:[a-z0-9_-]+$")
+
+
+class GCPValidationError(ValueError):
+    """Raised when GCP configuration values fail format validation."""
+
+    pass
+
+
+def validate_project_id_list(
+    project_ids: List[str], *, allow_empty: bool = True
+) -> None:
+    """Validate a list of GCP project IDs for format, duplicates, and empty values."""
+    if not project_ids:
+        if not allow_empty:
+            raise GCPValidationError(
+                "project_ids cannot be an empty list. "
+                "Either specify project IDs or omit the field to use auto-discovery."
+            )
+        return
+
+    empty_values = [pid for pid in project_ids if not pid.strip()]
+    if empty_values:
+        raise GCPValidationError(
+            "project_ids contains empty values. "
+            "Remove empty strings or omit project_ids to use auto-discovery."
+        )
+
+    seen: set = set()
+    duplicates: List[str] = []
+    for pid in project_ids:
+        if pid in seen:
+            duplicates.append(pid)
+        else:
+            seen.add(pid)
+    if duplicates:
+        raise GCPValidationError(f"project_ids contains duplicates: {duplicates}")
+
+    invalid = [pid for pid in project_ids if not GCP_PROJECT_ID_PATTERN.match(pid)]
+    if invalid:
+        raise GCPValidationError(
+            f"Invalid project_ids format: {invalid}. "
+            "Must be 6-30 chars, lowercase letters/numbers/hyphens, "
+            "start with letter, end with letter or number."
+        )
+
+
+def validate_project_label_list(project_labels: List[str]) -> None:
+    """Validate a list of GCP project labels for format and duplicates."""
+    if not project_labels:
+        return
+
+    empty_values = [label for label in project_labels if not label.strip()]
+    if empty_values:
+        raise GCPValidationError("project_labels contains empty values.")
+
+    seen: set = set()
+    duplicates: List[str] = []
+    for label in project_labels:
+        if label in seen:
+            duplicates.append(label)
+        else:
+            seen.add(label)
+    if duplicates:
+        raise GCPValidationError(f"project_labels contains duplicates: {duplicates}")
+
+    invalid = [label for label in project_labels if not GCP_LABEL_PATTERN.match(label)]
+    if invalid:
+        raise GCPValidationError(
+            f"Invalid project_labels format: {invalid}. "
+            "Must be 'key:value' format with lowercase letters, digits, underscores, or hyphens. "
+            "Example: env:prod"
+        )
 
 
 class GcpProject(BaseModel):

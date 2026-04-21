@@ -20,7 +20,7 @@ export default function LineageModule(props: ModuleProps) {
         <LargeModule
             {...props}
             onClickViewAll={navigateToLineageTab}
-            viewAllText="View All in Lineage"
+            viewAllText="View in Lineage"
             dataTestId="lineage-module"
         >
             <LineageGraphContext.Provider value={{ isDAGView: false, isModuleView: true }}>

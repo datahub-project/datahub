@@ -64,7 +64,7 @@ function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: Enti
     return placeholderText;
 }
 
-export function existsInEntitiesToAdd(result: Entity, entitiesAlreadyAdded: Entity[]) {
+function existsInEntitiesToAdd(result: Entity, entitiesAlreadyAdded: Entity[]) {
     return !!entitiesAlreadyAdded.find((entity) => entity.urn === result.urn);
 }
 

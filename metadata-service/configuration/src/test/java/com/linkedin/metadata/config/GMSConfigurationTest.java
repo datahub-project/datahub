@@ -42,6 +42,17 @@ public class GMSConfigurationTest {
     assertEquals("password", gmsConfig.getTruststore().getPassword());
     assertEquals("PKCS12", gmsConfig.getTruststore().getType());
 
+    GMSConfiguration.KeystoreConfiguration keystore = new GMSConfiguration.KeystoreConfiguration();
+    keystore.setPath("/path/to/keystore");
+    keystore.setPassword("kspass");
+    keystore.setType("PKCS12");
+    keystore.setKeyPassword("keypass");
+    gmsConfig.setKeystore(keystore);
+    assertEquals("/path/to/keystore", gmsConfig.getKeystore().getPath());
+    assertEquals("kspass", gmsConfig.getKeystore().getPassword());
+    assertEquals("PKCS12", gmsConfig.getKeystore().getType());
+    assertEquals("keypass", gmsConfig.getKeystore().getKeyPassword());
+
     // Test async configuration
     GMSConfiguration.AsyncConfiguration async = new GMSConfiguration.AsyncConfiguration();
     async.setRequestTimeoutMs(60000L);

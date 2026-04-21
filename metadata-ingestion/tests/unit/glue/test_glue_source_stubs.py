@@ -18,7 +18,9 @@ target_database_tables = [
         "Name": "transactions",
         "DatabaseName": "test-database",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+        ),
         "Retention": 0,
         "StorageDescriptor": {
             "Columns": [
@@ -102,7 +104,9 @@ tables_1 = [
         "DatabaseName": "flights-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -173,7 +177,9 @@ tables_2 = [
         "DatabaseName": "test-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
-        "UpdateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 2, 12, 6, 59, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
         "Retention": 0,
         "StorageDescriptor": {
@@ -231,7 +237,9 @@ tables_2 = [
         "DatabaseName": "test-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
-        "UpdateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 1, 16, 14, 53, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
         "Retention": 0,
         "StorageDescriptor": {
@@ -283,6 +291,75 @@ tables_2 = [
         "CreatedBy": "arn:aws:sts::795586375822:assumed-role/AWSGlueServiceRole-test-crawler/AWS-Crawler",
         "IsRegisteredWithLakeFormation": False,
         "CatalogId": "795586375822",
+    },
+    {
+        "Name": "test_iceberg",
+        "DatabaseName": "test-database",
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "UpdateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "LastAccessTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "yr",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "1",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "quarter",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "2",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "month",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "3",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "dayofmonth",
+                    "Type": "int",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "4",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+            ],
+            "Location": "s3://crawler-public-us-west-2/flight/iceberg/",
+            "AdditionalLocations": [
+                "s3://crawler-public-us-west-2/flight/iceberg/data",
+            ],
+            "Compressed": False,
+            "NumberOfBuckets": 0,
+            "SortColumns": [],
+            "StoredAsSubDirectories": False,
+        },
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {
+            "previous_metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00006-1cbe9a83-a663-4494-a97d-925660cf7780.metadata.json",
+            "target_table_region": "us-east-1",
+            "metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00007-4041d9f9-51f7-4887-8801-26a5d003d3d5.metadata.json",
+            "table_type": "ICEBERG",
+        },
+        "CreatedBy": "arn:aws:sts::795586375822:assumed-role/AWSGlueServiceRole-test-crawler/AWS-Crawler",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "795586375822",
+        "VersionId": "7",
+        "IsMultiDialectView": False,
     },
 ]
 get_tables_response_2 = {"TableList": tables_2}
@@ -828,7 +905,9 @@ delta_tables_1 = [
         "DatabaseName": "delta-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -858,7 +937,9 @@ delta_tables_2 = [
         "DatabaseName": "delta-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -906,7 +987,9 @@ tables_lineage_1 = [
         "DatabaseName": "flights-database-lineage",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -999,7 +1082,9 @@ tables_profiling_1 = [
         "DatabaseName": "flights-database-profiling",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {

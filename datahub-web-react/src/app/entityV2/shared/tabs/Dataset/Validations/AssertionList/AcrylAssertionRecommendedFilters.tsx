@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-
 interface FilterItem {
     name: string;
     displayName: string;
@@ -34,13 +32,12 @@ const FilterItemRow = styled.div<{ selected: boolean }>`
     border-radius: 20px;
     min-width: fit-content;
     cursor: pointer;
-    color: ${({ selected }) => (selected ? REDESIGN_COLORS.WHITE : REDESIGN_COLORS.BODY_TEXT_GREY)};
-    background-color: ${({ selected }) =>
-        selected ? REDESIGN_COLORS.BACKGROUND_PRIMARY_1 : REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    color: ${({ selected, theme }) => (selected ? theme.colors.bg : theme.colors.textSecondary)};
+    background-color: ${({ selected, theme }) => (selected ? theme.colors.buttonFillBrand : theme.colors.bgSurface)};
 
     &:hover {
-        background-color: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};
-        color: ${REDESIGN_COLORS.WHITE};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
+        color: ${(props) => props.theme.colors.bg};
         box-shadow: none;
     }
     box-shadow: none;

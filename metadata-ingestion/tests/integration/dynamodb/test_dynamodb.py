@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import boto3
 import pytest
-from freezegun import freeze_time
-from moto import mock_dynamodb
+import time_machine
+from moto import mock_aws
 from mypy_boto3_dynamodb.type_defs import TagTypeDef
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
@@ -22,8 +22,8 @@ test_resources_dir = pathlib.Path(__file__).parent
 FROZEN_TIME = "2023-08-30 12:00:00"
 
 
-@freeze_time(FROZEN_TIME)
-@mock_dynamodb
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock_aws
 @pytest.mark.integration
 def test_dynamodb(pytestconfig, tmp_path):
     boto3.setup_default_session()

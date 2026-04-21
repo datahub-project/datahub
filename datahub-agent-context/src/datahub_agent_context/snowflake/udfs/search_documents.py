@@ -16,13 +16,21 @@ def generate_search_documents_udf() -> str:
     Parameters:
         search_query (STRING): Search query string (use /q prefix for structured queries)
         num_results (NUMBER): Number of results to return (max 50, default: 10)
+        filter (STRING): Optional SQL-like filter string, e.g.:
+                         'platform = notion'
+                         'subtype = Runbook AND platform IN (notion, confluence)'
+                         'domain = urn:li:domain:engineering AND tag = urn:li:tag:critical'
+                         Pass NULL to search without filters.
 
     Returns:
         VARIANT: Dictionary with search results and facets showing document metadata
 
     Examples:
-        - Find deployment docs: SEARCH_DOCUMENTS('deployment', 10)
-        - Structured search: SEARCH_DOCUMENTS('/q kubernetes OR k8s', 20)
+        - Find deployment docs: SEARCH_DOCUMENTS('deployment', 10, NULL)
+        - Structured search: SEARCH_DOCUMENTS('/q kubernetes OR k8s', 20, NULL)
+        - Filter by platform: SEARCH_DOCUMENTS('deployment', 10, 'platform = notion')
+        - Filter by subtype: SEARCH_DOCUMENTS('*', 20, 'subtype = Runbook')
+        - Combined filter: SEARCH_DOCUMENTS('*', 10, 'subtype = Runbook AND platform IN (notion, confluence)')
     """
     function_body = """from datahub_agent_context.mcp_tools import search_documents
 try:
@@ -35,7 +43,8 @@ try:
     with DataHubContext(client):
         return search_documents(
             query=search_query,
-            num_results=int(num_results) if num_results else 10
+            num_results=int(num_results) if num_results else 10,
+            filter=filter if filter else None
         )
 
 except Exception as e:
@@ -50,6 +59,7 @@ except Exception as e:
         parameters=[
             ("search_query", "STRING"),
             ("num_results", "NUMBER"),
+            ("filter", "STRING"),
         ],
         return_type="VARIANT",
         function_body=function_body,

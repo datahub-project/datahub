@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional
 from pydantic import BaseModel, field_validator
 
 from datahub.emitter.mce_builder import (
+    make_assertion_source,
     make_assertion_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -30,8 +31,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
-    AssertionSourceClass,
-    AssertionSourceTypeClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
 )
@@ -164,9 +163,7 @@ class SnowflakeAssertionsHandler:
                 entity=dataset_urn,
                 field=field_urn,
             ),
-            source=AssertionSourceClass(
-                type=AssertionSourceTypeClass.EXTERNAL,
-            ),
+            source=make_assertion_source(),
             description=f"External Snowflake DMF: {dmf_name}",
             customProperties=custom_properties,
         )

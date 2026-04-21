@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { NodeProps, NodeResizer } from 'reactflow';
 import styled from 'styled-components';
@@ -21,7 +20,7 @@ export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
 
 const StyledNodeWrapper = styled(NodeWrapper)`
-    background-color: ${colors.violet[0]}50;
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand}50;
     border-top-left-radius: 0;
 
     align-items: start;
@@ -35,7 +34,7 @@ const CardWrapper = styled(NodeWrapper)`
     box-shadow: none;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
-    ${({ selected }) => selected && `border-bottom: 1px solid ${colors.gray[100]};`};
+    ${({ selected, theme }) => selected && `border-bottom: 1px solid ${theme.colors.border};`};
 
     position: absolute;
     left: 0;

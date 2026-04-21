@@ -122,6 +122,8 @@ query appConfig {
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
+            glossaryBasedPoliciesEnabled
+            multipleDataProductsPerAsset
         }
         chromeExtensionConfig {
             enabled

@@ -64,7 +64,7 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
     if (!views.length) {
         return (
             <EmptyContainer>
-                <Text size="md" color="gray" weight="bold">
+                <Text size="md" weight="bold">
                     No results!
                 </Text>
             </EmptyContainer>

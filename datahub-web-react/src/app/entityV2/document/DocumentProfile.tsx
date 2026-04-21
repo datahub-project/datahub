@@ -1,5 +1,4 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
@@ -21,8 +20,8 @@ const LoadingWrapper = styled.div`
     border-radius: 12px;
     padding: 20px;
     margin: 4px;
-    background-color: #ffffff;
-    box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
+    background-color: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 /**
@@ -53,7 +52,7 @@ export const DocumentProfile = ({ urn }: { urn: string }): JSX.Element => {
     if (loading || !document) {
         return (
             <LoadingWrapper>
-                <LoadingOutlined style={{ fontSize: 36, color: colors.gray[200] }} />
+                <LoadingOutlined style={{ fontSize: 36 }} />
             </LoadingWrapper>
         );
     }

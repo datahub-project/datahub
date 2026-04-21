@@ -166,7 +166,15 @@ public class V2MappingsBuilder implements MappingsBuilder {
               ((Map<String, Object>) mappings.get(PROPERTIES))
                   .computeIfAbsent(
                       STRUCTURED_PROPERTY_MAPPING_FIELD,
-                      (key) -> new HashMap<>(Map.of(PROPERTIES, new HashMap<>())));
+                      (key) ->
+                          new HashMap<>(
+                              Map.of(
+                                  TYPE,
+                                  ESUtils.OBJECT_FIELD_TYPE,
+                                  "dynamic",
+                                  true,
+                                  PROPERTIES,
+                                  new HashMap<>())));
 
       props.merge(
           PROPERTIES,
@@ -334,6 +342,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
       mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
     } else if (OBJECT_FIELD_TYPES.contains(fieldType)) {
       mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
+      mappingForField.put("dynamic", true);
     } else if (fieldType == FieldType.DOUBLE) {
       mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
     } else {

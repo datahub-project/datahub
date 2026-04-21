@@ -1,4 +1,4 @@
-import { FolderOpen } from '@phosphor-icons/react';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';

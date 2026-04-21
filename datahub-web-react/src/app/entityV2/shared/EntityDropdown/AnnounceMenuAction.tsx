@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import { MegaphoneSimple } from '@phosphor-icons/react';
+import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
 import React, { useState } from 'react';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';

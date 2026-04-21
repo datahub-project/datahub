@@ -16,7 +16,7 @@ import ExternalLink from '@images/link-out.svg?react';
 
 const Linkicon = styled(Icon)<{ $isSelected: boolean }>`
     && {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.iconBrand};
         ${(props) => !props.$isSelected && 'display: none;'}
         ${ExpandableNode.SelectableHeader}:hover & {
             display: inherit;

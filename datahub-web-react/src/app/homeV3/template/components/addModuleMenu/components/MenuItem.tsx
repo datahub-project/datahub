@@ -1,4 +1,5 @@
-import { Icon, IconNames, Text, Tooltip } from '@components';
+import { Icon, Text, Tooltip } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -28,7 +29,7 @@ const SpaceFiller = styled.div`
 `;
 
 interface Props {
-    icon: IconNames;
+    icon: React.ComponentType<any>;
     title: string;
     description?: string;
     hasChildren?: boolean;
@@ -50,7 +51,7 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
     const content = (
         <Wrapper>
             <IconWrapper>
-                <Icon icon={icon} source="phosphor" color="gray" colorLevel={iconColorLevel} size="2xl" />
+                <Icon icon={icon} color="gray" colorLevel={iconColorLevel} size="2xl" />
             </IconWrapper>
 
             <Container>
@@ -66,9 +67,7 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
 
             <SpaceFiller />
 
-            {hasChildren && (
-                <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={iconColorLevel} size="lg" />
-            )}
+            {hasChildren && <Icon icon={CaretRight} color="gray" colorLevel={iconColorLevel} size="lg" />}
         </Wrapper>
     );
 

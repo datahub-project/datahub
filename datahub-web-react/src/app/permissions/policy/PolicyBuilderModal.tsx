@@ -22,10 +22,21 @@ type Props = {
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
 
-const StepsContainer = styled.div`
+const StepsWrapper = styled.div`
+    padding: 0px 20px;
+`;
+
+const StepContent = styled.div`
+    padding: 0px 20px;
+    max-height: 75vh;
+    overflow-y: auto;
+`;
+
+const StepsControls = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
+    padding: 0px 20px;
 `;
 
 const PrevButtonContainer = styled.div`
@@ -164,14 +175,20 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 closable
                 width={750}
                 buttons={[]}
+                bodyStyle={{
+                    paddingLeft: '0px',
+                    paddingRight: '0px',
+                }}
             >
-                <Steps current={activeStepIndex}>
-                    {policySteps.map((item) => (
-                        <Steps.Step key={item.title} title={item.title} />
-                    ))}
-                </Steps>
-                <div className="steps-content">{activeStep.content}</div>
-                <StepsContainer>
+                <StepsWrapper>
+                    <Steps current={activeStepIndex}>
+                        {policySteps.map((item) => (
+                            <Steps.Step key={item.title} title={item.title} />
+                        ))}
+                    </Steps>
+                </StepsWrapper>
+                <StepContent>{activeStep.content}</StepContent>
+                <StepsControls>
                     <PrevButtonContainer>
                         {activeStepIndex > 0 && (
                             <Button variant="outline" color="gray" onClick={() => prev()}>
@@ -191,7 +208,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                             </Button>
                         )}
                     </NextButtonContainer>
-                </StepsContainer>
+                </StepsControls>
             </Modal>
             <ConfirmationModal
                 isOpen={showConfirmationModal}

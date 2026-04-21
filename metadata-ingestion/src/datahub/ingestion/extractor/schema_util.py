@@ -635,6 +635,7 @@ def avro_schema_to_mce_fields(
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :param swallow_exceptions: True if the caller wants exceptions to be suppressed
     :param action_processor: Optional OperationProcessor to be used for meta mappings
+    :param validate_names: If False, allows names that are not valid Avro names (e.g., containing hyphens).
     :return: The list of MCE compatible SchemaFields.
     """
 

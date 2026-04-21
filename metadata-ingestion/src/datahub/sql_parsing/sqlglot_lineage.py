@@ -30,6 +30,7 @@ import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
+from sqlglot.optimizer.scope import find_all_in_scope
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
@@ -71,6 +72,7 @@ from datahub.sql_parsing.sqlglot_utils import (
 )
 from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
+    cooperate,
     cooperative_timeout,
 )
 from datahub.utilities.ordered_set import OrderedSet
@@ -439,7 +441,7 @@ _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
 
 
 def _clickhouse_extract_dictget_tables(
-    statement: sqlglot.Expression,
+    statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
     """Extract dictionary references from ClickHouse dictGet() function calls.
@@ -497,7 +499,7 @@ def _clickhouse_extract_dictget_tables(
 
 
 def _clickhouse_extract_to_tables(
-    statement: sqlglot.Expression,
+    statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
     """Extract TO tables from ClickHouse CREATE MATERIALIZED VIEW ... TO statements.
@@ -596,7 +598,7 @@ def _clickhouse_filter_column_lineage(
 
 
 def _build_tsql_update_alias_map(
-    statement: sqlglot.Expression,
+    statement: sqlglot.exp.Expression,
 ) -> Dict[str, sqlglot.exp.Table]:
     """Build alias → table mapping for TSQL UPDATE/DELETE statements.
 
@@ -681,7 +683,7 @@ def _resolve_tsql_update_alias(
 
 
 def _table_level_lineage(
-    statement: sqlglot.Expression, dialect: sqlglot.Dialect
+    statement: sqlglot.exp.Expression, dialect: sqlglot.Dialect
 ) -> Tuple[AbstractSet[_TableName], AbstractSet[_TableName]]:
     # TSQL-specific: Build alias → table mapping for UPDATE/DELETE statements.
     # TSQL syntax "UPDATE dst FROM target_table dst" places only the alias in the
@@ -694,7 +696,7 @@ def _table_level_lineage(
         tsql_alias_map = _build_tsql_update_alias_map(statement)
 
     def _maybe_resolve_tsql_alias(
-        expr: sqlglot.Expression,
+        expr: sqlglot.exp.Expr,
     ) -> sqlglot.exp.Table:
         """Resolve TSQL UPDATE/DELETE alias if applicable."""
         table = expr.this
@@ -930,7 +932,7 @@ def _prepare_query_columns(
             # - running the full pre-type annotation optimizer
 
             # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
-            statement = sqlglot.optimizer.optimizer.optimize(
+            optimized = sqlglot.optimizer.optimizer.optimize(
                 statement,
                 dialect=dialect,
                 schema=sqlglot_db_schema,
@@ -943,6 +945,11 @@ def _prepare_query_columns(
                 db=default_schema,
                 rules=_OPTIMIZE_RULES,
             )
+            if not isinstance(optimized, sqlglot.exp.Expression):
+                raise SqlUnderstandingError(
+                    f"Expected Expression from optimizer, got {type(optimized)}"
+                )
+            statement = optimized
         except (sqlglot.errors.OptimizeError, ValueError) as e:
             raise SqlUnderstandingError(
                 f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
@@ -1030,6 +1037,7 @@ def _select_statement_cll(
         logger.debug("output columns: %s", [col[0] for col in output_columns])
 
         for output_col, _original_col_expression in output_columns:
+            cooperate()
             if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -1052,6 +1060,7 @@ def _select_statement_cll(
                     dialect=dialect,
                     scope=root_scope,
                     trim_selects=False,
+                    copy=False,
                     # We don't need to pass the schema in here, since we've already qualified the columns.
                 )
             except Exception as e:
@@ -1235,6 +1244,7 @@ def _get_direct_raw_col_upstreams(
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
 
     for node in lineage_node.walk():
+        cooperate()
         if node.downstream:
             # We only want the leaf nodes.
             pass
@@ -1316,7 +1326,7 @@ def _get_direct_raw_col_upstreams(
 
 
 def _is_single_column_expression(
-    expression: sqlglot.exp.Expression,
+    expression: sqlglot.exp.Expr,
 ) -> bool:
     # Check if the expression is trivial, i.e. it's just a single column.
     # Things like count(*) or coalesce(col, 0) are not single columns.
@@ -1363,28 +1373,60 @@ def _get_column_transformation(
         )
 
 
+def _collect_tables_from_scope(
+    scope: sqlglot.optimizer.Scope,
+    dialect: sqlglot.Dialect,
+) -> OrderedSet[_TableName]:
+    """Collect physical tables from a scope by walking scope.sources.
+
+    Recurses into subquery/derived-table scopes (inline wrappers from
+    qualification) to find actual Table nodes. For CTE scopes, only follows
+    those that are actually referenced in the scope's FROM/JOIN clauses — not
+    sibling CTEs that are merely visible from the same WITH clause. Skips
+    UDTF scopes (LATERAL/UNNEST) since those include correlated references.
+    """
+    tables: OrderedSet[_TableName] = OrderedSet()
+
+    # Determine which source names are actually used as FROM/JOIN targets
+    # in this scope's expression, so we can skip unreferenced CTE sources.
+    referenced_names: Optional[Set[str]] = None
+
+    for name, source in scope.sources.items():
+        if isinstance(source, sqlglot.exp.Table):
+            tables.add(_table_name_from_sqlglot_table(source, dialect))
+        elif isinstance(source, sqlglot.optimizer.Scope):
+            if source.scope_type == source.scope_type.UDTF:
+                continue
+            if source.scope_type == source.scope_type.CTE:
+                # Lazily compute referenced names only when we encounter a CTE.
+                if referenced_names is None:
+                    referenced_names = {
+                        t.alias_or_name
+                        for t in find_all_in_scope(scope.expression, sqlglot.exp.Table)
+                    }
+                if name not in referenced_names:
+                    continue
+            tables.update(_collect_tables_from_scope(source, dialect))
+    return tables
+
+
 def _get_join_side_tables(
     target: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
     scope: sqlglot.optimizer.Scope,
 ) -> OrderedSet[_TableName]:
     target_alias_or_name = target.alias_or_name
-    if (source := scope.sources.get(target_alias_or_name)) and isinstance(
-        source, sqlglot.exp.Table
-    ):
-        # If the source is a Scope, we need to do some resolution work.
+    source = scope.sources.get(target_alias_or_name)
+    if isinstance(source, sqlglot.exp.Table):
         return OrderedSet([_table_name_from_sqlglot_table(source, dialect)])
-
-    column = sqlglot.exp.Column(
-        this=sqlglot.exp.Star(),
-        table=sqlglot.exp.Identifier(this=target.alias_or_name),
-    )
-    columns_used = _get_raw_col_upstreams_for_expression(
-        select=column,
-        dialect=dialect,
-        scope=scope,
-    )
-    return OrderedSet(col.table for col in columns_used)
+    elif isinstance(source, sqlglot.optimizer.Scope):
+        if source.scope_type == source.scope_type.UDTF:
+            # UDTF scopes (LATERAL, UNNEST) include correlated references as
+            # direct Table sources, which would pollute results. These are
+            # handled by the dedicated LATERAL section in _list_joins.
+            return OrderedSet()
+        return _collect_tables_from_scope(source, dialect)
+    return OrderedSet()
 
 
 def _get_raw_col_upstreams_for_expression(
@@ -1397,11 +1439,14 @@ def _get_raw_col_upstreams_for_expression(
         # So this line should basically never happen.
         return OrderedSet()
 
-    original_expression = scope.expression
-    updated_expression = scope.expression.select(select, append=False, copy=True)
+    # Temporarily swap the selects list to contain only the target expression,
+    # avoiding a full deep copy of the entire AST that .select(copy=True) would do.
+    # This is safe because to_node() only reads from the expression tree.
+    original_selects = scope.expression.args.get("expressions", [])
 
     try:
-        scope.expression = updated_expression
+        scope.expression.args["expressions"] = [select]
+        cooperate()
         node = sqlglot.lineage.to_node(
             column=0,
             scope=scope,
@@ -1411,7 +1456,7 @@ def _get_raw_col_upstreams_for_expression(
 
         return _get_direct_raw_col_upstreams(node, dialect, None, None)
     finally:
-        scope.expression = original_expression
+        scope.expression.args["expressions"] = original_selects
 
 
 def _list_joins(
@@ -1424,19 +1469,24 @@ def _list_joins(
 
     scope: sqlglot.optimizer.Scope
     for scope in root_scope.traverse():
+        cooperate()
         # PART 1: Handle regular explicit JOINs (updated API)
-        join: sqlglot.exp.Join
-        for join in scope.expression.find_all(sqlglot.exp.Join):
-            left_side_tables: OrderedSet[_TableName] = OrderedSet()
-            from_clause: sqlglot.exp.From
-            for from_clause in scope.find_all(sqlglot.exp.From):
-                left_side_tables.update(
-                    _get_join_side_tables(
-                        target=from_clause.this,
-                        dialect=dialect,
-                        scope=scope,
-                    )
+        # Hoist FROM clause table resolution outside the join loop — the FROM
+        # tables are the same for every join in this scope.
+        from_tables: OrderedSet[_TableName] = OrderedSet()
+        from_clause: sqlglot.exp.From
+        for from_clause in scope.find_all(sqlglot.exp.From):
+            from_tables.update(
+                _get_join_side_tables(
+                    target=from_clause.this,
+                    dialect=dialect,
+                    scope=scope,
                 )
+            )
+
+        join: sqlglot.exp.Join
+        for join in find_all_in_scope(scope.expression, sqlglot.exp.Join):
+            left_side_tables = OrderedSet(from_tables)
 
             right_side_tables: OrderedSet[_TableName] = OrderedSet()
             if join_target := join.this:
@@ -1453,8 +1503,8 @@ def _list_joins(
                 joined_columns = _get_raw_col_upstreams_for_expression(
                     select=on_clause, dialect=dialect, scope=scope
                 )
-
                 unique_tables = OrderedSet(col.table for col in joined_columns)
+
                 if not unique_tables:
                     if logger.getEffectiveLevel() <= logging.DEBUG:
                         logger.debug(
@@ -1741,13 +1791,16 @@ def _try_extract_select(
         statement = _extract_select_from_create(statement)
 
     if isinstance(statement, sqlglot.exp.Subquery):
-        statement = statement.unnest()
+        unnested = statement.unnest()
+        if not isinstance(unnested, sqlglot.exp.Expression):
+            raise TypeError(f"Expected Expression from unnest(), got {type(unnested)}")
+        statement = unnested
 
     return statement
 
 
 def _translate_sqlglot_type(
-    sqlglot_type: sqlglot.exp.DataType.Type,
+    sqlglot_type: sqlglot.exp.DataType.Type,  # type: ignore[valid-type]
 ) -> Optional[SchemaFieldDataTypeClass]:
     TypeClass: Any
     if sqlglot_type in sqlglot.exp.DataType.TEXT_TYPES:
@@ -1949,7 +2002,7 @@ def _sqlglot_lineage_inner(
     # This only works for Unionable statements. For other types of statements,
     # we have to do it manually afterwards, but that's slightly lower accuracy
     # because of CTEs.
-    statement = sqlglot.optimizer.qualify.qualify(
+    qualified = sqlglot.optimizer.qualify.qualify(
         statement,
         dialect=dialect,
         # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
@@ -1962,6 +2015,9 @@ def _sqlglot_lineage_inner(
         # Only insert quotes where necessary.
         identify=False,
     )
+    if not isinstance(qualified, sqlglot.exp.Expression):
+        raise TypeError(f"Expected Expression from qualify(), got {type(qualified)}")
+    statement = qualified
 
     # Generate table-level lineage.
     tables, modified = _table_level_lineage(statement, dialect=dialect)
