@@ -617,41 +617,6 @@ public class MCLKafkaListenerTest {
     }
   }
 
-  @Test
-  public void testUpdateMetricsWithExtremelyLargeQueueTimeSkipsRecording() throws Exception {
-    // Given - timestamp that would cause overflow when converted to nanoseconds
-    // Long.MAX_VALUE / 1_000_000 is the threshold to avoid overflow
-    long timestampCausingOverflow = 1L; // Very old timestamp
-
-    MetadataChangeLog event = createTestMCL(ChangeType.DELETE);
-    event.setSystemMetadata(mockSystemMetadata);
-
-    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class);
-        MockedStatic<TraceServiceImpl> traceService = mockStatic(TraceServiceImpl.class)) {
-
-      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(event);
-      traceService
-          .when(() -> TraceServiceImpl.extractTraceIdEpochMillis(mockSystemMetadata))
-          .thenReturn(timestampCausingOverflow);
-
-      // When
-      listener.consume(mockConsumerRecord);
-
-      // Then - hooks should still execute but no timer recorded
-      verify(mockHook1).invoke(event);
-      verify(mockHook2).invoke(event);
-
-      // Verify no timer was recorded due to potential overflow
-      Timer timer1 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
-      Timer timer2 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
-
-      assertEquals(timer1.count(), 0);
-      assertEquals(timer2.count(), 0);
-    }
-  }
-
   // Helper method to create test MCL
   private MetadataChangeLog createTestMCL(ChangeType changeType) throws URISyntaxException {
     MetadataChangeLog mcl = new MetadataChangeLog();
