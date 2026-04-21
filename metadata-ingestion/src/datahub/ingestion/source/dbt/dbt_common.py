@@ -500,6 +500,13 @@ class DBTCommonConfig(
     IncrementalLineageConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Whether to convert dataset urns to lowercase. Default True to match "
+        "historical dbt behavior. Set to False for case-sensitive platforms like BigQuery "
+        "if you need to preserve original identifier casing in URNs.",
+    )
+
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -1061,7 +1068,7 @@ class DBTNode:
         data_platform_instance: Optional[str],
     ) -> str:
         db_fqn = self.get_db_fqn()
-        if target_platform != DBT_PLATFORM or self.convert_urns_to_lowercase:
+        if self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
             platform=target_platform,
