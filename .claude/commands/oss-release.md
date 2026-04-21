@@ -1,6 +1,7 @@
 ---
 description: Cut an RC or stable release of the acryl-datahub OSS CLI, or check its status
 argument-hint: [rc|stable|status] [patch|minor|major|fourth] [--dry-run]
+allowed-tools: Bash(.agent-skills/oss-release/scripts/safe-fetch-tags.sh:*), Bash(.agent-skills/oss-release/scripts/next-version.sh:*), Bash(.agent-skills/oss-release/scripts/compare-upstream.sh:*), Bash(.agent-skills/oss-release/scripts/check-ci.sh:*), Bash(.agent-skills/oss-release/scripts/check-connector-tests.sh:*), Bash(.agent-skills/oss-release/tests/run-all.sh:*), Bash(git fetch:*), Bash(git diff-index:*), Bash(mkdir -p:*)
 ---
 
 # OSS CLI Release
