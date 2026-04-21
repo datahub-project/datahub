@@ -360,9 +360,21 @@ class SnowplowSourceConfig(
     deployment_environment: Optional[str] = Field(
         default=None,
         description="Filter schemas by Snowplow deployment environment. "
-        "Only schemas deployed to this environment will be ingested. "
-        "Common values from BDP API: 'PROD', 'DEV'. "
+        "Matches the `env` field on a data structure deployment "
+        "(e.g. `PROD`, `DEV`). "
+        "Only schemas with a matching deployment will be ingested; schemas "
+        "with no deployment info (e.g. drafts) are included. "
         "Case-insensitive. When not set, schemas from all environments are included.",
+    )
+
+    pipeline_label: Optional[str] = Field(
+        default=None,
+        description="Filter Snowplow pipelines by their `label` field in the BDP "
+        "API. The label is free-form text set by the operator (commonly the "
+        "deployment env, e.g. `prod` or `dev`, but not enforced by Snowplow). "
+        "Only pipelines matching this label will be ingested; pipelines with "
+        "no label are included by default. "
+        "Case-insensitive. When not set, all pipelines are included.",
     )
 
     event_spec_statuses: Optional[List[str]] = Field(
@@ -537,10 +549,10 @@ class SnowplowSourceConfig(
                 )
         return v
 
-    @field_validator("deployment_environment", mode="after")
+    @field_validator("deployment_environment", "pipeline_label", mode="after")
     @classmethod
-    def validate_deployment_environment(cls, v: Optional[str]) -> Optional[str]:
-        """Normalize deployment environment: strip whitespace, uppercase, reject empty."""
+    def _normalize_env_filter(cls, v: Optional[str]) -> Optional[str]:
+        """Strip whitespace, uppercase, and treat empty strings as None."""
         if v is not None:
             v = v.strip().upper()
             if not v:

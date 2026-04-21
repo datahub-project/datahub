@@ -197,8 +197,8 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
     # Environment filtering stats
     num_schemas_filtered_by_env: int = 0
     filtered_schemas_by_env: List[str] = field(default_factory=list)
-    num_pipelines_filtered_by_env: int = 0
-    filtered_pipelines_by_env: List[str] = field(default_factory=list)
+    num_pipelines_filtered_by_label: int = 0
+    filtered_pipelines_by_label: List[str] = field(default_factory=list)
 
     # Hidden schemas
     num_hidden_schemas: int = 0
@@ -298,10 +298,10 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
         self.num_schemas_filtered_by_env += 1
         self.filtered_schemas_by_env.append(schema_name)
 
-    def report_pipeline_filtered_by_env(self, pipeline_name: str) -> None:
-        """Record that a pipeline was filtered out by environment label."""
-        self.num_pipelines_filtered_by_env += 1
-        self.filtered_pipelines_by_env.append(pipeline_name)
+    def report_pipeline_filtered_by_label(self, pipeline_name: str) -> None:
+        """Record that a pipeline was filtered out because its label didn't match pipeline_label."""
+        self.num_pipelines_filtered_by_label += 1
+        self.filtered_pipelines_by_label.append(pipeline_name)
 
     def report_warehouse_lineage_extracted(self) -> None:
         """Record that warehouse lineage was extracted."""
