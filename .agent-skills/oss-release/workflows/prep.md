@@ -254,6 +254,12 @@ otherwise) — do not produce output from the surrounding prose alone. Template 
 non-negotiable: mismatches between the promised format and the delivered notes create work
 downstream (release page edits, customer comms regeneration).
 
+**Scope the changelog to what actually ships.** When invoking the changelog skill, pass a
+filter that matches what the OSS CLI actually ships — typically
+`filter:custom:metadata-ingestion/,metadata-ingestion-modules/,docs/`. Frontend, backend,
+and web-react changes do not appear in the `acryl-datahub` Python wheel and should not
+appear in the notes.
+
 After the changelog skill produces output, you MUST prepend the standard **Release Info
 header**. Read `.agent-skills/oss-release/templates/release-info-header.md` for the
 exact template, substitution table, and trailing installation block. Then use your `Write`
