@@ -205,7 +205,11 @@ class TestDataplexEntriesProcessorDesign:
             ),
             patch(
                 "datahub.ingestion.source.dataplex.dataplex_entries.extract_schema_from_entry_aspects",
-                return_value=[],
+                return_value=None,
+            ),
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_entries.extract_graph_schema_from_entry_aspects",
+                return_value=None,
             ),
         ):
             dataset_entity = processor.build_entity_for_entry(dataset_entry)

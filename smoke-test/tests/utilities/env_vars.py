@@ -24,19 +24,6 @@ def get_gms_url() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_URL")
 
 
-def get_direct_gms_url() -> Optional[str]:
-    """Direct GMS base URL only (``DATAHUB_GMS_URL``).
-
-    Does not infer ``{frontend}/gms``. Used for readiness probes against GMS without the gateway.
-    """
-    return os.getenv("DATAHUB_GMS_URL")
-
-
-def get_gms_health_url() -> Optional[str]:
-    """Full URL for GMS readiness GET (``DATAHUB_GMS_HEALTH_URL``), overriding probe inference."""
-    return os.getenv("DATAHUB_GMS_HEALTH_URL")
-
-
 def get_gms_management_url() -> Optional[str]:
     """Override base URL for Spring Actuator / Micrometer (e.g. `http://localhost:4319`).
 
