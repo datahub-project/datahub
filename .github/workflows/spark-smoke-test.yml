@@ -9,7 +9,6 @@ on:
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/spark-lineage"
       - ".github/workflows/spark-smoke-test.yml"
   pull_request:
     branches:
@@ -17,7 +16,6 @@ on:
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/spark-lineage"
       - ".github/workflows/spark-smoke-test.yml" # Uncomment once test issues are fixed.
   release:
     types: [published]
@@ -51,8 +49,7 @@ jobs:
         run: df -h . && docker images
       - name: Smoke test
         run: |
-          ./gradlew :metadata-integration:java:spark-lineage:integrationTest \
-             -x :datahub-web-react:yarnTest \
+          ./gradlew :datahub-web-react:yarnTest \
              -x :datahub-web-react:yarnLint \
              -x :datahub-web-react:yarnGenerate \
              -x :datahub-web-react:yarnInstall \

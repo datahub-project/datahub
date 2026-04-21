@@ -102,28 +102,6 @@ jobs:
           echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish
           ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
-      - name: publish datahub-spark-lineage snapshot jar
-        if: ${{ github.event_name != 'release' }}
-        env:
-          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
-          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-        run: |
-          echo "signingKey=$SIGNING_KEY" >> gradle.properties
-          ./gradlew :metadata-integration:java:spark-lineage:printVersion
-          ./gradlew :metadata-integration:java:spark-lineage:publish
-      - name: release datahub-spark-lineage jar
-        if: ${{ github.event_name == 'release' }}
-        env:
-          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
-          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-        run: |
-          echo "signingKey=$SIGNING_KEY" >> gradle.properties
-          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:spark-lineage:publish
-          ./gradlew :metadata-integration:java:spark-lineage:closeAndReleaseRepository --info
       - name: publish datahub-protobuf snapshot jar
         if: ${{ github.event_name != 'release' }}
         env:
