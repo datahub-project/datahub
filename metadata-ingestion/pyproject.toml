@@ -1699,7 +1699,7 @@ dev = [
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "pytest-timeout<3.0.0",
-    "pytest>=9.0.3,<10.0.0",
+    "pytest>=6.2.2,<10.0.0",
     "python-dateutil>=2.8.0,<3.0.0",
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
@@ -1892,7 +1892,7 @@ docs = [
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "pytest-timeout<3.0.0",
-    "pytest>=9.0.3,<10.0.0",
+    "pytest>=6.2.2,<10.0.0",
     "python-dateutil>=2.8.0,<3.0.0",
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
@@ -1976,7 +1976,7 @@ testing-utils = [
     "orderly-set!=5.4.0,<6.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
     "pytest-timeout<3.0.0",
-    "pytest>=9.0.3,<10.0.0",
+    "pytest>=6.2.2,<10.0.0",
     "PyYAML<7.0.0",
 ]
 

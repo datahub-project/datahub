@@ -867,7 +867,10 @@ mypy_stubs = {
 
 
 test_api_requirements = {
-    "pytest>=9.0.3,<10.0.0",
+    # Do not raise the lower bound to pytest 9.x here: airflow-plugin CI installs
+    # acryl-datahub[testing-utils] with Airflow's constraints-*.txt, which pin pytest 7.x.
+    # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
+    "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
     # Missing numpy requirement in 8.0.0
     "deepdiff!=8.0.0,<9.0.0",
