@@ -37,7 +37,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && cp /usr/lib/jvm/java-21-openjdk/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 
-ENV KUBECTL_VERSION=v1.34.5
+ENV KUBECTL_VERSION=v1.35.4
 RUN set -x \
   && APK_ARCH="$(cat /etc/apk/arch)" \
   && case "$APK_ARCH" in \
