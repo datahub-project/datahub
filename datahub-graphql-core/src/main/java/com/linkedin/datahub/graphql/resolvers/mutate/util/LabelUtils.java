@@ -121,7 +121,7 @@ public class LabelUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddTagsProposal(opContext, tagUrns, resource, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, true);
   }
 
   public static void removeTermsFromResources(

@@ -62,11 +62,6 @@ post-workflow-validation-summary.md
 **/spark-lineage/**/out*.csv/
 **/spark-lineage/coalesce-test/
 
-#spark-lineage-legacy (test output; avoid "location already exists" in CI)
-**/spark-lineage-legacy/**/derby.log
-**/spark-lineage-legacy/**/hive/
-**/spark-lineage-legacy/**/out*.csv/
-
 #VS Code
 .vscode
 .devcontainer

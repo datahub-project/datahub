@@ -38,13 +38,13 @@ if [[ "${KAFKA_SCHEMAREGISTRY_URL:-}" && ${SKIP_SCHEMA_REGISTRY_CHECK:-false} !=
   dockerize_args+=("-wait" "$KAFKA_SCHEMAREGISTRY_URL")
 fi
 
-JAVA_TOOL_OPTIONS="${JDK_JAVA_OPTIONS:-}${JAVA_OPTS:+ $JAVA_OPTS}${JMX_OPTS:+ $JMX_OPTS}"
-if [[ ${ENABLE_OTEL:-false} == true ]]; then
-  JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:opentelemetry-javaagent.jar"
-fi
-if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
-  JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml"
-fi
+# JAVA_TOOL_OPTIONS="${JDK_JAVA_OPTIONS:-}${JAVA_OPTS:+ $JAVA_OPTS}${JMX_OPTS:+ $JMX_OPTS}"
+# if [[ ${ENABLE_OTEL:-false} == true ]]; then
+#   JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:opentelemetry-javaagent.jar"
+# fi
+# if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
+#   JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml"
+# fi
 
 export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
 
@@ -149,5 +149,5 @@ fi
 # some environments parse module flags incorrectly when supplied only via JAVA_TOOL_OPTIONS.
 HAZELCAST_JVM_OPTS="--add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED"
 
-export JAVA_TOOL_OPTIONS
+# export JAVA_TOOL_OPTIONS
 exec dockerize "${dockerize_args[@]}" java $HAZELCAST_JVM_OPTS $JAR_EXTRACTION_OPTS
