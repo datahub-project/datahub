@@ -399,11 +399,20 @@ class SigmaAPI:
             dependencies = response_dict[Constant.DEPENDENCIES]
 
             # Build reverse adjacency: target nodeId → list of source nodeIds.
+            # Per-edge isolation: a malformed edge skips only itself; valid edges
+            # before and after it still populate the adjacency map.
             edges_by_target: Dict[str, List[str]] = {}
             for edge in response_dict[Constant.EDGES]:
-                edges_by_target.setdefault(edge["target"], []).append(
-                    edge[Constant.SOURCE]
-                )
+                try:
+                    edges_by_target.setdefault(edge["target"], []).append(
+                        edge[Constant.SOURCE]
+                    )
+                except (KeyError, TypeError) as e:
+                    self.report.warning(
+                        message="Skipping malformed Sigma lineage edge",
+                        context=f"edge={edge!r}, element={element.name}, workbook={workbook.name}",
+                        exc=e,
+                    )
 
             # Collect all seed nodes — sheet nodes whose elementId matches the queried
             # element. Today Sigma returns exactly one, but the API contract is not

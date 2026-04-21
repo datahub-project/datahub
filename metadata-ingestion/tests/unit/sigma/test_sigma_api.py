@@ -522,6 +522,42 @@ class TestGetElementUpstreamSources:
         assert "My Chart" in api.report.warnings[0].context[0]
         assert "My Workbook" in api.report.warnings[0].context[0]
 
+    def test_one_malformed_edge_skips_only_itself(self) -> None:
+        """A missing 'target' key on one edge must not wipe the adjacency built from valid edges."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "good_ds": {
+                            "nodeId": "good_ds",
+                            "name": "GOOD",
+                            "type": "dataset",
+                        },
+                    },
+                    "edges": [
+                        {"source": "good_ds", "target": "tgt_node"},
+                        {"source": "orphan_ds"},  # missing "target" — malformed
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert "good_ds" in result
+        assert isinstance(result["good_ds"], DatasetUpstream)
+        assert len(api.report.warnings) == 1  # malformed-edge warning only
+
     def test_request_exception_is_reported_and_returns_empty(self) -> None:
         api = _create_sigma_api()
         element = _make_element()
