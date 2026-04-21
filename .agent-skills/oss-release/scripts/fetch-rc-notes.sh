@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 # fetch-rc-notes.sh <RC_TAG> <STABLE_VERSION>
 #
+# ⚠️  SINGLE-RC CYCLES ONLY. See warning near the bottom and workflows/finish.md
+#     Step 5 for the correct default path (regenerate from LAST_STABLE..RC_SHA).
+#
 # Fetches the RC's release body from GitHub, rewrites every occurrence of
 # the RC version to the stable version, and writes the result to the stable
 # release's notes file. Prints the notes file path on stdout.
 #
-# Stable tags the same commit as the RC, so reusing the RC's changelog body
-# is the default path. BUT the body contains the RC tag/version in several
-# places (Release Info header, title, install command, sometimes body links)
-# — without substitution the stable release would ship notes that say
-# `v1.5.0.14rc1` throughout. This script rewrites them in-place before
-# saving so the file is ready to feed `cut-release.sh`.
+# When the release cycle had exactly ONE RC, the RC's changelog already
+# covers the full LAST_STABLE..RC_SHA range — reusing it is equivalent to
+# regenerating. This script automates that equivalence (and rewrites the
+# version strings in the body).
 #
-# Operators can still Read + edit the saved file before invoking
-# cut-release.sh if they want to regenerate via the changelog skill.
+# For multi-RC cycles, each RC body only covers the narrow previous-RC →
+# this-RC delta produced by the changelog skill. Reusing the final RC's
+# body in that case would DROP every earlier RC's contribution from the
+# stable notes. Use the regenerate flow in workflows/finish.md Step 5
+# instead.
 #
 # Usage:
 #   .agent-skills/oss-release/scripts/fetch-rc-notes.sh v1.5.0.13rc2 v1.5.0.13
@@ -35,6 +39,14 @@ if [ -z "$RC_TAG" ] || [ -z "$STABLE_VERSION" ]; then
     echo "Usage: $0 <rc-tag> <stable-version>" >&2
     exit 1
 fi
+
+# Loud warning — easy to misuse this script in a multi-RC cycle.
+{
+    echo "⚠️  fetch-rc-notes.sh reuses the RC body as-is (with version rewriting)."
+    echo "   Only correct when there was ONE RC in this release cycle. For multi-RC"
+    echo "   cycles, regenerate from LAST_STABLE..RC_SHA instead — see finish.md Step 5."
+    echo ""
+} >&2
 
 # Normalize: always tag with leading v, version without
 RC_TAG="v${RC_TAG#v}"

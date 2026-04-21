@@ -95,24 +95,52 @@ Present to user:
 Dry-run: announce the gate ("In a real run I would block here for explicit
 confirmation"), then proceed without blocking.
 
-## Step 5 — Fetch RC notes + cut stable
+## Step 5 — Regenerate stable notes + cut stable
 
-Fetch the RC's release body from GitHub into the stable notes file — stable tags the same
-commit as the RC, so reusing the RC's notes verbatim is the default path:
+**Stable notes must be regenerated from `LAST_STABLE..RC_SHA`, not copied from the final
+RC's body.** The changelog skill produces narrow RC-to-RC deltas (each RC's body covers
+only new commits since the previous RC or stable), so reusing the final RC's body would
+drop every earlier RC's contribution. For a cycle with `v1.5.0.14rc1` … `v1.5.0.14rc15`
+promoted to `v1.5.0.14`, the stable release must include **all 15 RCs' worth of changes**.
+
+### Generate the notes
+
+Set up the notes path and run the stale-notes detector (same script `prep` uses):
+
+```bash
+.agent-skills/oss-release/scripts/prepare-notes.sh <STABLE_VERSION>
+```
+
+Capture the printed path as the notes file.
+
+Invoke the changelog skill with the full cumulative range.
+`connectors-accelerator:generating-datahub-changelog` is the skill name in Claude Code.
+Pass **the range `<LAST_STABLE>..<RC_SHA>`** (use `LAST_STABLE` from the preflight summary
+and `RC_SHA` from Step 0) plus the same custom path filter the `prep` workflow uses. If
+the changelog skill is unavailable, fall back to skip-with-placeholder or user-provided
+file per `prep` Step 3.5's fallback instructions.
+
+Your first action inside the invoked skill MUST be to `Read` the template file that
+matches the audience mode (`changelog-external.md` for public release notes) —
+template fidelity is non-negotiable.
+
+After the changelog skill produces output, prepend the standard **Release Info header**
+per `.agent-skills/oss-release/templates/release-info-header.md` (substituting the stable
+version, not the RC), and `Write` the assembled body to the notes file path.
+
+### Shortcut: single-RC cycles only
+
+If this release cycle had **exactly one RC** (so the RC's body already covers
+`LAST_STABLE..RC_SHA`), you can reuse the RC body verbatim — equivalent to regenerating
+from the full range. `fetch-rc-notes.sh` automates that path and also rewrites
+`v<rc-version>` → `v<stable-version>` references in the body:
 
 ```bash
 .agent-skills/oss-release/scripts/fetch-rc-notes.sh <RC_TAG> <STABLE_VERSION>
 ```
 
-The script prints the saved notes file path on stdout (e.g.
-`.agent-skills/oss-release/notes/release-notes-v1.5.0.13.md`). Capture it.
-
-Show the notes contents to the user and ask whether to reuse as-is or regenerate. If
-regenerate, follow the same flow as `prep` Step 3.5: invoke
-`connectors-accelerator:generating-datahub-changelog` via your native skill tool if
-available (same custom path filter as `prep`), or fall back to skip/provide-file if it
-isn't. Apply the standard Release Info header per
-`.agent-skills/oss-release/templates/release-info-header.md`.
+**Do NOT use this shortcut for multi-RC cycles** — it will ship incomplete notes. If in
+doubt, regenerate.
 
 Then invoke `cut-release.sh` as a single command, substituting values inline:
 

@@ -58,12 +58,20 @@ if [ "$RC_SHA" != "$MASTER_SHA" ]; then
     AHEAD=$(git rev-list "$RC_SHA..origin/master" --count 2>/dev/null || echo "?")
 fi
 
+# Latest stable (filter out RC tags). The stable-notes changelog must be
+# regenerated against LAST_STABLE..RC_SHA — individual RC notes only carry
+# the narrow RC-to-RC delta produced by the changelog skill, so reusing a
+# single RC's body would lose every earlier RC's contribution.
+LAST_STABLE=$(git tag -l 'v*' | grep -v rc | sort -V | tail -1)
+LAST_STABLE_DISPLAY="${LAST_STABLE:-(none — first release in this line)}"
+
 cat <<EOF
 === Finish preflight ===
   LATEST_RC         : $LATEST_RC
   RC_SHA            : $RC_SHA
   origin/master SHA : $MASTER_SHA
   master ahead by   : $AHEAD commit(s) since $LATEST_RC
+  LAST_STABLE       : $LAST_STABLE_DISPLAY
 EOF
 
 # Soft warning — agent decides whether master-ahead should block promotion.
