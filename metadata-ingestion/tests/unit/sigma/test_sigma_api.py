@@ -655,3 +655,22 @@ class TestGetElementInputDetails:
         assert "urn:li:chart:(sigma,upstream_elem)" in result
         assert result["urn:li:chart:(sigma,upstream_elem)"] == []
         assert source.reporter.num_filtered_sheet_upstreams == 0
+
+    def test_duplicate_sheet_nodeids_same_element_produce_one_edge(self) -> None:
+        """Two distinct nodeIds pointing to the same elementId collapse to one inputEdge."""
+        source = self._make_source()
+        workbook = self._make_workbook_obj()
+
+        upstream_sources: Dict = {
+            "node_a": SheetUpstream(element_id="upstream_elem", name="Node A"),
+            "node_b": SheetUpstream(element_id="upstream_elem", name="Node B"),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+        elementId_to_chart_urn = {"upstream_elem": "urn:li:chart:(sigma,upstream_elem)"}
+
+        result = source._get_element_input_details(
+            element, workbook, elementId_to_chart_urn
+        )
+
+        assert len(result) == 1
+        assert "urn:li:chart:(sigma,upstream_elem)" in result

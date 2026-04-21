@@ -443,11 +443,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     logger.debug(
                         f"Upstream elementId {upstream.element_id} not in element map "
                         f"for element {element.name}; likely filtered by get_page_elements "
-                        f"(allowlist: table, visualization) — enable DEBUG logs for details"
+                        f"(allowlist: table, visualization)"
                     )
                     self.reporter.num_filtered_sheet_upstreams += 1
                     continue
-                inputs[chart_urn] = []
+                inputs.setdefault(chart_urn, [])
 
         # Add remaining sql parser in_tables as direct input of element
         for in_table_urn in sql_parser_in_tables:

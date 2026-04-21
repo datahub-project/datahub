@@ -1,7 +1,8 @@
 import functools
 import logging
 import sys
-from typing import Any, Dict, List, Optional, Set
+from collections import deque
+from typing import Any, Deque, Dict, List, Optional, Set
 
 import requests
 from pydantic import ValidationError
@@ -372,10 +373,10 @@ class SigmaAPI:
 
             # BFS from seed, walking edges in reverse (target → source).
             visited: Set[str] = {seed_node_id}
-            queue: List[str] = [seed_node_id]
+            queue: Deque[str] = deque([seed_node_id])
 
             while queue:
-                current_id = queue.pop(0)
+                current_id = queue.popleft()
                 for source_node_id in edges_by_target.get(current_id, []):
                     if source_node_id in visited:
                         continue
@@ -413,7 +414,7 @@ class SigmaAPI:
                                 context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                             )
                     elif source_type == "join":
-                        # Pass-through node: continue BFS through it to find real upstreams.
+                        # Pass-through node: enqueue for continued BFS traversal.
                         queue.append(source_node_id)
                     elif source_type == "table":
                         # Warehouse table: handled by SQL-parse path; terminal for BFS.
