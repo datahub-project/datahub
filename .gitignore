@@ -55,9 +55,20 @@ post-workflow-validation-summary.md
 **/.mise.local.toml
 .mise/**
 
+#spark-lineage
+**/acryl-spark-lineage/metastore_db/
+**/acryl-spark-lineage/**/derby.log
+**/acryl-spark-lineage/**/hive/
+**/acryl-spark-lineage/**/out*.csv/
+**/acryl-spark-lineage/coalesce-test/
+
 #VS Code
 .vscode
 .devcontainer
+
+#spark smoke test
+smoke-test/spark-smoke-test/docker/workspace/
+smoke-test/spark-smoke-test/__pycache__/
 
 # cypress integration test generated files
 **/cypress/videos
