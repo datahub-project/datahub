@@ -26,7 +26,6 @@ class DatasetSubTypes(StrEnum):
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
-    SIGMA_DATA_MODEL = "Sigma Data Model"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"

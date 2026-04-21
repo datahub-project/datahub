@@ -6,7 +6,6 @@ This source extracts the following:
 
 - Workspaces and workbooks within that workspaces as Container.
 - Sigma Datasets as Datahub Datasets.
-- Sigma Data Models as Datahub Datasets (subtype `Sigma Data Model`) with schema and lineage. Default enabled — set `ingest_data_models: false` to opt out.
 - Pages as Datahub dashboards and elements present inside pages as charts.
 
 ### Prerequisites

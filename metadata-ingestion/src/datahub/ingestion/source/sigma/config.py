@@ -48,8 +48,6 @@ class Constant:
     WORKBOOK = "workbook"
     BADGE = "badge"
     NEXTPAGE = "nextPage"
-    NEXTPAGETOKEN = "nextPageToken"
-    DATA_MODEL = "data-model"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
@@ -60,7 +58,6 @@ class WorkspaceCounts(BaseModel):
     datasets_count: int = 0
     elements_count: int = 0
     pages_count: int = 0
-    data_models_count: int = 0
 
     def is_empty(self) -> bool:
         return (
@@ -68,7 +65,6 @@ class WorkspaceCounts(BaseModel):
             and self.datasets_count == 0
             and self.elements_count == 0
             and self.pages_count == 0
-            and self.data_models_count == 0
         )
 
     def as_obj(self) -> dict:
@@ -77,7 +73,6 @@ class WorkspaceCounts(BaseModel):
             "datasets_count": self.datasets_count,
             "elements_count": self.elements_count,
             "pages_count": self.pages_count,
-            "data_models_count": self.data_models_count,
         }
 
 
@@ -109,11 +104,6 @@ class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
             self.workspace_counts[workspace_id] = WorkspaceCounts()
         self.workspace_counts[workspace_id].pages_count += 1
 
-    def increment_data_models_count(self, workspace_id: str) -> None:
-        if workspace_id not in self.workspace_counts:
-            self.workspace_counts[workspace_id] = WorkspaceCounts()
-        self.workspace_counts[workspace_id].data_models_count += 1
-
     def as_obj(self) -> dict:
         return {
             "filtered": self.dropped_entities.as_obj(),
@@ -136,9 +126,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     workbooks: EntityFilterReport = EntityFilterReport.field(type="workbook")
     workbooks_without_workspace: int = 0
-
-    data_models: EntityFilterReport = EntityFilterReport.field(type="data_model")
-    skipped_warehouse_table_upstreams: int = 0
 
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
@@ -203,12 +190,4 @@ class SigmaSourceConfig(
     workbook_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
-    )
-    ingest_data_models: bool = pydantic.Field(
-        default=True,
-        description="Whether to ingest Sigma Data Models as Dataset entities.",
-    )
-    data_model_pattern: AllowDenyPattern = pydantic.Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter Sigma Data Model names in ingestion.",
     )

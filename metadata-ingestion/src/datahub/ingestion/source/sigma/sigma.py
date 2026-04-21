@@ -41,7 +41,6 @@ from datahub.ingestion.source.sigma.config import (
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
     Page,
-    SigmaDataModel,
     SigmaDataset,
     Workbook,
     WorkbookKey,
@@ -83,8 +82,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
-    SchemalessClass,
-    SchemaMetadataClass,
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
@@ -330,158 +327,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=dataset_urn,
                 aspect=GlobalTagsClass(
                     tags=[TagAssociationClass(builder.make_tag_urn(dataset.badge))]
-                ),
-            ).as_workunit()
-
-    def _gen_data_model_schema_aspect(
-        self, data_model: SigmaDataModel
-    ) -> Optional[MetadataWorkUnit]:
-        if not data_model.columns:
-            return None
-        fields = [
-            SchemaFieldClass(
-                fieldPath=col.name,
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="String",
-                description=col.label if col.label else None,
-            )
-            for col in data_model.columns
-        ]
-        return MetadataChangeProposalWrapper(
-            entityUrn=self._gen_sigma_dataset_urn(data_model.get_urn_part()),
-            aspect=SchemaMetadataClass(
-                schemaName=data_model.name,
-                platform=builder.make_data_platform_urn(self.platform),
-                version=0,
-                hash="",
-                platformSchema=SchemalessClass(),
-                fields=fields,
-            ),
-        ).as_workunit()
-
-    def _gen_data_model_upstream_lineage(
-        self, data_model: SigmaDataModel
-    ) -> Optional[MetadataWorkUnit]:
-        upstreams = []
-        unresolved_dataset_ids = set()
-        skipped_warehouse_tables = False
-        for source in data_model.sources:
-            if source.type == "dataset" and source.datasetId:
-                # /sources gives the UUID; existing dataset entities use the URL-based
-                # ID — look it up in the mapping populated during dataset ingestion.
-                urn_part = self.sigma_api.dataset_id_to_urn_part.get(source.datasetId)
-                if urn_part is None:
-                    unresolved_dataset_ids.add(source.datasetId)
-                    continue
-                upstream_urn = self._gen_sigma_dataset_urn(urn_part)
-                upstreams.append(
-                    Upstream(dataset=upstream_urn, type=DatasetLineageType.COPY)
-                )
-            elif source.type == "dataModel" and source.dataModelId:
-                upstream_urn = self._gen_sigma_dataset_urn(source.dataModelId)
-                upstreams.append(
-                    Upstream(dataset=upstream_urn, type=DatasetLineageType.COPY)
-                )
-            elif source.type == "table":
-                # Warehouse table sources from /sources provide only Sigma internal
-                # inodeId — not enough to generate a warehouse URN without SQL parsing.
-                logger.debug(
-                    f"Skipping warehouse table upstream for data model '{data_model.name}': "
-                    f"inodeId-only reference cannot be resolved to a warehouse URN without SQL parsing."
-                )
-                skipped_warehouse_tables = True
-            else:
-                logger.debug(
-                    f"Unknown source type '{source.type}' for data model '{data_model.name}', skipping."
-                )
-        if unresolved_dataset_ids:
-            self.reporter.warning(
-                message=f"Data model '{data_model.name}' references datasetId(s) not in ingested datasets; upstream edges skipped.",
-                title="Unresolved Sigma dataset upstream",
-                context=data_model.dataModelId,
-            )
-        if skipped_warehouse_tables:
-            self.reporter.warning(
-                message=f"Data model '{data_model.name}' has warehouse table source(s); upstream edges skipped (inodeId cannot be resolved to a warehouse URN without SQL parsing).",
-                title="Warehouse table upstream skipped",
-                context=data_model.dataModelId,
-            )
-            self.reporter.skipped_warehouse_table_upstreams += 1
-        if not upstreams:
-            return None
-        return MetadataChangeProposalWrapper(
-            entityUrn=self._gen_sigma_dataset_urn(data_model.get_urn_part()),
-            aspect=UpstreamLineage(upstreams=upstreams),
-        ).as_workunit()
-
-    def _gen_data_model_workunit(
-        self, data_model: SigmaDataModel
-    ) -> Iterable[MetadataWorkUnit]:
-        data_model_urn = self._gen_sigma_dataset_urn(data_model.get_urn_part())
-
-        yield self._gen_entity_status_aspect(data_model_urn)
-
-        dm_properties = DatasetProperties(
-            name=data_model.name,
-            description=data_model.description,
-            qualifiedName=data_model.name,
-            externalUrl=data_model.url,
-            created=TimeStamp(time=int(data_model.createdAt.timestamp() * 1000)),
-            lastModified=TimeStamp(time=int(data_model.updatedAt.timestamp() * 1000)),
-            customProperties={"dataModelId": data_model.dataModelId},
-        )
-        if data_model.path:
-            dm_properties.customProperties["path"] = data_model.path
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_model_urn, aspect=dm_properties
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_model_urn,
-            aspect=SubTypes(typeNames=[DatasetSubTypes.SIGMA_DATA_MODEL]),
-        ).as_workunit()
-
-        schema_wu = self._gen_data_model_schema_aspect(data_model)
-        if schema_wu:
-            yield schema_wu
-
-        upstream_wu = self._gen_data_model_upstream_lineage(data_model)
-        if upstream_wu:
-            yield upstream_wu
-
-        if data_model.workspaceId:
-            self.reporter.workspaces.increment_data_models_count(data_model.workspaceId)
-            yield from add_entity_to_container(
-                container_key=self._gen_workspace_key(data_model.workspaceId),
-                entity_type="dataset",
-                entity_urn=data_model_urn,
-            )
-
-        dpi_aspect = self._gen_dataplatform_instance_aspect(data_model_urn)
-        if dpi_aspect:
-            yield dpi_aspect
-
-        if data_model.createdBy:
-            owner_username = self.sigma_api.get_user_name(data_model.createdBy)
-            if self.config.ingest_owner and owner_username:
-                yield self._gen_entity_owner_aspect(data_model_urn, owner_username)
-
-        if data_model.path and data_model.workspaceId:
-            paths = data_model.path.split("/")[1:]
-            if paths:
-                yield self._gen_entity_browsepath_aspect(
-                    entity_urn=data_model_urn,
-                    parent_entity_urn=builder.make_container_urn(
-                        self._gen_workspace_key(data_model.workspaceId)
-                    ),
-                    paths=paths,
-                )
-
-        if data_model.badge:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=data_model_urn,
-                aspect=GlobalTagsClass(
-                    tags=[TagAssociationClass(builder.make_tag_urn(data_model.badge))]
                 ),
             ).as_workunit()
 
@@ -828,11 +673,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         for dataset in self.sigma_api.get_sigma_datasets():
             yield from self._gen_dataset_workunit(dataset)
-
-        if self.config.ingest_data_models:
-            for data_model in self.sigma_api.get_data_models():
-                yield from self._gen_data_model_workunit(data_model)
-
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 

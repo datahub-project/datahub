@@ -98,38 +98,3 @@ class File(BaseModel):
     type: str
     badge: Optional[str] = None
     workspaceId: Optional[str] = None
-
-
-class SigmaDataModelColumn(BaseModel):
-    columnId: str
-    name: str
-    label: Optional[str] = None
-    formula: Optional[str] = None
-
-
-class SigmaDataModelSource(BaseModel):
-    type: str  # "dataset", "table", or "dataModel"
-    datasetId: Optional[str] = None
-    inodeId: Optional[str] = None
-    dataModelId: Optional[str] = None
-
-
-class SigmaDataModel(BaseModel):
-    dataModelId: str
-    name: str
-    description: Optional[str] = None
-    createdBy: Optional[str] = None
-    createdAt: datetime
-    updatedAt: datetime
-    url: Optional[str] = None
-    workspaceId: Optional[str] = None
-    path: Optional[str] = None
-    badge: Optional[str] = None
-    columns: List[SigmaDataModelColumn] = []
-    sources: List[SigmaDataModelSource] = []
-
-    def get_urn_part(self) -> str:
-        # dataModelId equals the URL slug in the current Sigma API; URN stability
-        # depends on this invariant. Revisit if Sigma decouples the two (as happened
-        # with SigmaDataset, which now uses url.split('/')[-1]).
-        return self.dataModelId
