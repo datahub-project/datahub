@@ -399,6 +399,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Returns dict keyed by upstream URN. Values are SQL-parsed warehouse URNs
         (non-empty only for Sigma Dataset upstreams matched against the SQL query).
         Chart URNs from intra-workbook sheet upstreams are included with empty lists.
+        Unmatched SQL-parsed warehouse-table URNs are also included with empty lists.
         """
         inputs: Dict[str, List[str]] = {}
         sql_parser_in_tables: List[str] = []
@@ -556,6 +557,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         # Build once at workbook scope — intra-workbook lineage can cross pages so
         # this map must cover all elements before any individual page is processed.
+        # Keys intentionally mirror the chart-emission allow-list in get_page_elements
+        # (type in {"table","visualization"}), so filtered element types (pivot-table,
+        # input-table, etc.) are absent from both the map and the emitted chart entities.
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,

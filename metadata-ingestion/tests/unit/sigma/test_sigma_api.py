@@ -334,6 +334,48 @@ class TestGetElementUpstreamSources:
         assert result["sheet_A"].element_id == "upstream_elem_A"
         assert len(api.report.warnings) == 0
 
+    def test_multi_hop_join_chain_exposes_sheet_upstream(self) -> None:
+        """BFS walks through chained join nodes (join_1 → join_2 → sheet_B → tgt)."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "join_1": {"nodeId": "join_1", "type": "join"},
+                        "join_2": {"nodeId": "join_2", "type": "join"},
+                        "sheet_B": {
+                            "nodeId": "sheet_B",
+                            "elementId": "upstream_elem_B",
+                            "name": "Sheet B",
+                            "type": "sheet",
+                        },
+                    },
+                    "edges": [
+                        {"source": "sheet_B", "target": "join_2", "type": "source"},
+                        {"source": "join_2", "target": "join_1", "type": "source"},
+                        {"source": "join_1", "target": "tgt_node", "type": "source"},
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert len(result) == 1
+        assert "sheet_B" in result
+        assert isinstance(result["sheet_B"], SheetUpstream)
+        assert result["sheet_B"].element_id == "upstream_elem_B"
+        assert len(api.report.warnings) == 0
+
     def test_unrelated_edge_is_not_attributed(self) -> None:
         """BFS must not capture sources of edges not reachable from the seed node."""
         api = _create_sigma_api()
@@ -507,6 +549,36 @@ class TestGetElementUpstreamSources:
 
         assert result == {}
         assert len(api.report.warnings) == 0
+
+    def test_null_dependency_node_produces_parse_warning(self) -> None:
+        """A None value in the dependencies dict raises AttributeError → parse warning."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "null_node": None,  # malformed API response
+                    },
+                    "edges": [
+                        {"source": "null_node", "target": "tgt_node", "type": "source"}
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert result == {}
+        assert len(api.report.warnings) == 1
 
 
 class TestGetElementInputDetails:

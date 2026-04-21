@@ -423,7 +423,9 @@ class SigmaAPI:
                             message="Unknown Sigma lineage node type",
                             context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
                         )
-        except (KeyError, ValidationError) as e:
+        except (KeyError, ValidationError, AttributeError, TypeError) as e:
+            # AttributeError/TypeError guard against malformed dependency values
+            # (e.g. a null node entry or a non-dict shape from a future API revision).
             self.report.warning(
                 message="Failed to parse Sigma element lineage response",
                 context=f"element={element.name}, workbook={workbook.name}",
