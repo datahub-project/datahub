@@ -61,6 +61,11 @@ dependencies {
   implementation externalDependency.json
   implementation project(':metadata-integration:java:openlineage-converter')
   implementation project(path: ':metadata-integration:java:datahub-client')
+
+  // Jackson BOM for version alignment across all jackson modules
+  implementation platform(externalDependency.jacksonBom)
+  implementation externalDependency.jacksonCore
+  implementation externalDependency.jacksonDataBind
   implementation project(path: ':metadata-integration:java:openlineage-converter')
   compileOnly("io.delta:delta-core_2.12:1.0.0")
 
