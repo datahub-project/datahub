@@ -606,7 +606,13 @@ class DBTCommonConfig(
     )
     test_warnings_are_errors: bool = Field(
         default=False,
-        description="When enabled, dbt test warnings will be treated as failures.",
+        description=(
+            "When enabled, dbt test warnings will be treated as failures "
+            "(emitted as ``AssertionResult.type = FAILURE`` with ``severity = LOW``). "
+            "The default will change to ``true`` in a future release once assertion "
+            "result consumers can filter by severity; set ``true`` today to adopt the "
+            "forthcoming behavior."
+        ),
     )
     infer_dbt_schemas: bool = Field(
         default=True,

@@ -39,12 +39,15 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessCriteria,
     DBTFreshnessInfo,
     DBTTest,
+    DBTTestResult,
     make_assertion_from_freshness,
     make_assertion_result_from_freshness,
+    make_assertion_result_from_test,
     parse_freshness_criteria,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionTypeClass,
@@ -1913,16 +1916,30 @@ def test_make_assertion_from_freshness() -> None:
 
 
 @pytest.mark.parametrize(
-    ("status", "warnings_are_errors", "expected_success"),
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
-        ("pass", False, True),
-        ("warn", False, True),
-        ("warn", True, False),
-        ("error", False, False),
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "error",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
     ],
 )
 def test_make_assertion_result_from_freshness(
-    status: str, warnings_are_errors: bool, expected_success: bool
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
 ) -> None:
     node = DBTNode(
         database="raw_db",
@@ -1958,15 +1975,81 @@ def test_make_assertion_result_from_freshness(
         node, "urn:li:assertion:test", "urn:li:dataset:test", warnings_are_errors
     )
 
-    expected = (
-        AssertionResultTypeClass.SUCCESS
-        if expected_success
-        else AssertionResultTypeClass.FAILURE
-    )
     assert mcp.aspect is not None
     assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result is not None
-    assert mcp.aspect.result.type == expected
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
+
+
+@pytest.mark.parametrize(
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
+    [
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("success", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "fail",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("error", False, AssertionResultTypeClass.ERROR, None),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
+    ],
+)
+def test_make_assertion_result_from_test(
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
+) -> None:
+    node = DBTNode(
+        database="analytics",
+        schema="dbt",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.some_test",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    test_result = DBTTestResult(
+        invocation_id="test-123",
+        status=status,
+        execution_time=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+    mcp = make_assertion_result_from_test(
+        node,
+        test_result,
+        "urn:li:assertion:test",
+        "urn:li:dataset:test",
+        warnings_are_errors,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionRunEventClass)
+    assert mcp.aspect.result is not None
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
 
 
 def test_parse_freshness_criteria_with_null_fields() -> None:
