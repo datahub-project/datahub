@@ -31,7 +31,6 @@ on:
       - "Python Build"
       - "Quickstart Test"
       - "Frontend Preview"
-      - "spark smoke test"
       - "Verify Quickstart Compose"
     types:
       - completed
