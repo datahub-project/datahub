@@ -1,7 +1,7 @@
 import functools
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import requests
 from pydantic import ValidationError
@@ -306,6 +306,11 @@ class SigmaAPI:
         (type="dataset") and intra-workbook element nodes (type="sheet"). Walks
         through join pass-through nodes transparently. Warehouse table nodes
         (type="table") are skipped here — their lineage comes from the SQL-parse path.
+
+        Uses BFS from the queried element's own sheet node, following edges in
+        reverse (target→source), so only nodes reachable on the actual upstream
+        path are captured. This prevents spurious attribution from sibling edges
+        that happen to appear in the same response payload.
         """
         upstream_sources: Dict[str, ElementUpstream] = {}
 
@@ -341,37 +346,83 @@ class SigmaAPI:
         try:
             dependencies = response_dict[Constant.DEPENDENCIES]
 
+            # Build reverse adjacency: target nodeId → list of source nodeIds.
+            edges_by_target: Dict[str, List[str]] = {}
             for edge in response_dict[Constant.EDGES]:
-                source_node_id = edge[Constant.SOURCE]
-                source_node = dependencies[source_node_id]
-                source_type = source_node[Constant.TYPE]
+                edges_by_target.setdefault(edge["target"], []).append(
+                    edge[Constant.SOURCE]
+                )
 
-                if source_type == "dataset":
-                    upstream_sources[source_node_id] = DatasetUpstream(
-                        name=source_node.get(Constant.NAME, ""),
-                    )
-                elif source_type == "sheet":
-                    element_id = source_node.get(Constant.ELEMENTID)
-                    if element_id is None:
-                        self.report.warning(
-                            message="Sheet upstream node missing elementId",
-                            context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
-                        )
+            # Find the seed: the sheet node representing the queried element itself.
+            seed_node_id: Optional[str] = None
+            for node_id, node_data in dependencies.items():
+                if (
+                    node_data.get(Constant.TYPE) == "sheet"
+                    and node_data.get(Constant.ELEMENTID) == element.elementId
+                ):
+                    seed_node_id = node_id
+                    break
+
+            if seed_node_id is None:
+                self.report.warning(
+                    message="Could not find sheet node for element in lineage response",
+                    context=f"element={element.name}, workbook={workbook.name}",
+                )
+                return {}
+
+            # BFS from seed, walking edges in reverse (target → source).
+            visited: Set[str] = {seed_node_id}
+            queue: List[str] = [seed_node_id]
+
+            while queue:
+                current_id = queue.pop(0)
+                for source_node_id in edges_by_target.get(current_id, []):
+                    if source_node_id in visited:
                         continue
-                    upstream_sources[source_node_id] = SheetUpstream(
-                        name=source_node.get(Constant.NAME),
-                        element_id=element_id,
-                    )
-                elif source_type in ("table", "join"):
-                    # "table" = warehouse table, handled by SQL-parse path.
-                    # "join" = graph-only pass-through: its upstreams appear as
-                    # separate edges in the same response and are processed there.
-                    pass
-                else:
-                    self.report.warning(
-                        message="Unknown Sigma lineage node type",
-                        context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
-                    )
+                    visited.add(source_node_id)
+
+                    source_node = dependencies[source_node_id]
+                    source_type = source_node.get(Constant.TYPE)
+
+                    if source_type == "dataset":
+                        try:
+                            upstream_sources[source_node_id] = DatasetUpstream(
+                                name=source_node.get(Constant.NAME),
+                            )
+                        except ValidationError:
+                            self.report.warning(
+                                message="Failed to parse Sigma lineage node",
+                                context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                            )
+                    elif source_type == "sheet":
+                        element_id = source_node.get(Constant.ELEMENTID)
+                        if element_id is None:
+                            self.report.warning(
+                                message="Sheet upstream node missing elementId",
+                                context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                            )
+                            continue
+                        try:
+                            upstream_sources[source_node_id] = SheetUpstream(
+                                name=source_node.get(Constant.NAME),
+                                element_id=element_id,
+                            )
+                        except ValidationError:
+                            self.report.warning(
+                                message="Failed to parse Sigma lineage node",
+                                context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                            )
+                    elif source_type == "join":
+                        # Pass-through node: continue BFS through it to find real upstreams.
+                        queue.append(source_node_id)
+                    elif source_type == "table":
+                        # Warehouse table: handled by SQL-parse path; terminal for BFS.
+                        pass
+                    else:
+                        self.report.warning(
+                            message="Unknown Sigma lineage node type",
+                            context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
+                        )
         except (KeyError, ValidationError) as e:
             self.report.warning(
                 message="Failed to parse Sigma element lineage response",

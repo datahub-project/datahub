@@ -444,6 +444,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         f"for element {element.name}; likely filtered by get_page_elements "
                         f"(allowlist: table, visualization) — enable DEBUG logs for details"
                     )
+                    self.reporter.num_filtered_sheet_upstreams += 1
                     continue
                 inputs[chart_urn] = []
 
