@@ -55,6 +55,8 @@ class TestPipelineProcessorIsEnabled:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = False
         deps.bdp_client = Mock()
@@ -105,6 +107,8 @@ class TestPipelineProcessorExtract:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = False
         deps.config.bdp_connection = Mock()
@@ -169,6 +173,8 @@ class TestPipelineProcessorEnrichments:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = False
         deps.config.extract_enrichments = True
         deps.config.bdp_connection = Mock()
@@ -216,6 +222,8 @@ class TestPipelineProcessorDataFlowCreation:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = False
         deps.config.env = "PROD"
@@ -380,6 +388,8 @@ class TestExpandFieldUrnsToAllEventSpecs:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = True
         deps.bdp_client = Mock()
@@ -614,6 +624,8 @@ class TestFieldMatches:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = True
         deps.bdp_client = Mock()
@@ -681,6 +693,8 @@ class TestFindEventSpecsWithField:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = True
         deps.bdp_client = Mock()
@@ -799,6 +813,8 @@ class TestExtractFieldNameFromUrn:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = True
         deps.bdp_client = Mock()
@@ -852,6 +868,8 @@ class TestEmitCollectorDataJob:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = True
         deps.bdp_client = Mock()

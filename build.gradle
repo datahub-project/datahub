@@ -2,8 +2,8 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 
 buildscript {
-  ext.jdkVersionDefault = 17
-  ext.javaClassVersionDefault = 17
+  ext.jdkVersionDefault = 21
+  ext.javaClassVersionDefault = 21
 
   def springModules = ['mae-consumer', 'mce-consumer', 'pe-consumer']
 
@@ -68,7 +68,8 @@ buildscript {
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
   ext.nettyVersion = '4.1.132.Final' // align all io.netty modules; CVE-2026-33870
   // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
-  // 1.80.0 -> shaded netty-common 4.1.130.Final (CVE-2026-33870: fixed in Netty 4.1.132+; upgrade grpc when a release bundles patched Netty).
+  // 1.77.x embeds Netty 4.1.127 (affected by CVE-2025-67735); use 1.79+ (1.80.0 -> shaded 4.1.130.Final).
+  // CVE-2026-33870 needs Netty 4.1.132+ inside the shaded jar; upgrade grpc when Maven has a release that bundles it (see grpc-java SECURITY.md table).
   ext.grpcVersion = '1.80.0'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
@@ -178,6 +179,8 @@ project.ext.externalDependency = [
     'hazelcastSpring':"com.hazelcast:hazelcast-spring:$hazelcastVersion",
     'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
+    // CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (EL in constraint violation messages); Play java-forms pulls 6.1.x otherwise
+    'hibernateValidator': 'org.hibernate.validator:hibernate-validator:6.2.5.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
      // The jacksonBom controls the version of other jackson modules, pin the version once
@@ -227,17 +230,16 @@ project.ext.externalDependency = [
     'lombok': 'org.projectlombok:lombok:1.18.42',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
-    'mockito': 'org.mockito:mockito-core:4.11.0',
-    'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
-    'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
-    'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
+    'mockito': 'org.mockito:mockito-core:5.20.0',
+    'mockServer': 'org.mock-server:mockserver-netty:5.15.0',
+    'mockServerClient': 'org.mock-server:mockserver-client-java:5.15.0',
     'mysqlConnector': 'com.mysql:mysql-connector-j:9.4.0',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.7.12',
     'gcpCloudSqlConnector': 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.25.3',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
-    'nettyReactor': 'io.projectreactor.netty:reactor-netty-http:1.2.13',
-    'nettyCore': 'io.projectreactor.netty:reactor-netty-core:1.2.13',
+    'nettyReactor': 'io.projectreactor.netty:reactor-netty-http:1.2.17',
+    'nettyCore': 'io.projectreactor.netty:reactor-netty-core:1.2.17',
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
@@ -267,8 +269,8 @@ project.ext.externalDependency = [
     'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
     'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
     'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.1.2',
-    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
+    'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
+    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.1-PLAY2.8",
     'postgresql': 'org.postgresql:postgresql:42.7.8',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
@@ -278,10 +280,11 @@ project.ext.externalDependency = [
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
-    'shiroCore': 'org.apache.shiro:shiro-core:1.13.0',
+    // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+ (see shiro.apache.org/security-reports.html)
+    'shiroCore': 'org.apache.shiro:shiro-core:2.1.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
-    'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.3.4',
-    'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.3.4',
+    'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.5.0',
+    'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.5.0',
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
@@ -645,8 +648,8 @@ subprojects {
         implementation("io.netty:netty-transport-native-epoll:${rootProject.ext.nettyVersion}")
         implementation("io.netty:netty-transport-native-kqueue:${rootProject.ext.nettyVersion}")
         implementation("io.netty:netty-transport-native-unix-common:${rootProject.ext.nettyVersion}")
-        implementation('io.projectreactor.netty:reactor-netty-core:1.2.13')
-        implementation('io.projectreactor.netty:reactor-netty-http:1.2.13')
+        implementation('io.projectreactor.netty:reactor-netty-core:1.2.17')
+        implementation('io.projectreactor.netty:reactor-netty-http:1.2.17')
         implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
         implementation('org.jline:jline:3.25.1') // CVE-2023-50572: OOM in GroovyEngine.execute

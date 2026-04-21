@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
@@ -153,7 +153,7 @@ def register_mock_api_state2(request_mock):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_create_corp_user(
     pytestconfig,

@@ -600,5 +600,16 @@
         "description": "Import glossary terms, term groups, and relationships from RDF/OWL ontologies (SKOS, Turtle, RDF/XML).",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/rdf",
         "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary"
+    },
+    {
+        "urn": "urn:li:dataPlatform:snowplow",
+        "name": "snowplow",
+        "displayName": "Snowplow",
+        "description": "Import Schemas, Event Specifications, Tracking Plans, Pipelines, and Enrichments from Snowplow BDP.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/snowplow",
+        "recipe": "source:\n  type: snowplow\n  config:\n    # BDP Console API connection\n    bdp_connection:\n      organization_id: \"YOUR_ORG_UUID\"\n      api_key_id: \"${SNOWPLOW_API_KEY_ID}\"\n      api_key: \"${SNOWPLOW_API_KEY}\"\n\n    # Optional: Filter by Snowplow deployment environment (PROD, DEV)\n    # deployment_environment: PROD\n\n    # Optional: Filter event specifications by status\n    # event_spec_statuses:\n    #   - published\n\n    # Optional: Filter schemas by vendor/name pattern\n    # schema_pattern:\n    #   allow:\n    #     - \"com\\\\.mycompany\\\\..*\"\n\n    stateful_ingestion:\n      enabled: true",
+        "category": "Data Collector",
+        "isPopular": false,
+        "isNew": true
     }
 ]

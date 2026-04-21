@@ -15,12 +15,12 @@ pyopenssl>=26.0.0
 pyasn1>=0.6.3
 # protobuf (6.x): CVE-2026-0994
 protobuf>=6.33.5,<7.0.0
-# CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
+# CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; keep current patch floor
 # Note: Airflow 2.x constraints pin aiohttp==3.10.10 and 3.x pins 3.12.15, creating a
 # conflict when installing acryl-datahub with Airflow. The airflow-plugin CI accepts the
 # older version; this constraint is safe for Docker images which don't coexist with
 # Airflow's pinned dependencies.
-aiohttp>=3.13.3
+aiohttp>=3.13.4
 pillow>=12.1.1
 setuptools>=80.10.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
