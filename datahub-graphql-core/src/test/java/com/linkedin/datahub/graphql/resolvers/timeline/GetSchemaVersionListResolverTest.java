@@ -23,7 +23,7 @@ public class GetSchemaVersionListResolverTest {
     TimelineService mockTimelineService = mock(TimelineService.class);
     GetSchemaVersionListResolver resolver = new GetSchemaVersionListResolver(mockTimelineService);
 
-    QueryContext denyContext = getMockDenyContextWithViewAuth();
+    QueryContext denyContext = getMockDenyContextWithOperationContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     when(mockEnv.getContext()).thenReturn(denyContext);
 

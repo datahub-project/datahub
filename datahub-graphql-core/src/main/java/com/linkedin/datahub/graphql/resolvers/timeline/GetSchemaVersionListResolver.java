@@ -2,9 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListInput;
@@ -15,7 +16,6 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,14 +47,8 @@ public class GetSchemaVersionListResolver
 
     // Parse URN and enforce view authorization synchronously so errors propagate
     // rather than being swallowed by the generic catch inside supplyAsync.
-    final Urn datasetUrn;
-    try {
-      datasetUrn = Urn.createFromString(datasetUrnString);
-    } catch (URISyntaxException u) {
-      log.error("Invalid URN supplied to getSchemaVersionList: {}", datasetUrnString, u);
-      throw u;
-    }
-    if (!AuthorizationUtils.canView(context.getOperationContext(), datasetUrn)) {
+    final Urn datasetUrn = UrnUtils.getUrn(datasetUrnString);
+    if (!AuthUtil.canViewEntity(context.getOperationContext(), datasetUrn)) {
       throw new AuthorizationException(
           "Unauthorized to view schema version list for entity: " + datasetUrn);
     }

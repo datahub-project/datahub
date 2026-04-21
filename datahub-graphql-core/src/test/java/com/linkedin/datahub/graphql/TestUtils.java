@@ -9,7 +9,6 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,8 +19,6 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.OperationContextConfig;
-import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -123,20 +120,20 @@ public class TestUtils {
   }
 
   /**
-   * Returns a deny {@link QueryContext} whose {@link OperationContext} has view authorization
-   * enabled ({@code viewAuthorizationConfiguration.enabled=true}) and system authentication
-   * disabled ({@code allowSystemAuthentication=false}).
+   * Returns a deny {@link QueryContext} backed by a real {@link OperationContext} so authorization
+   * checks that route through {@code OperationContext.authorize(...)} (e.g. {@code
+   * AuthUtil.canViewEntity}) actually enforce the deny decision.
    *
-   * <p>This is necessary because the default {@link TestOperationContexts} contexts use {@code
-   * enabled=false}, which causes {@code AuthorizationUtils.canView} to short-circuit to {@code
-   * true} regardless of the authorizer's decision. Use this helper in tests that need {@code
-   * canView} to actually enforce the deny decision.
+   * <p>The plain {@link #getMockDenyContext()} only mocks {@code QueryContext.getAuthorizer()} and
+   * leaves {@code getOperationContext()} unset; that works for checks that resolve via {@code
+   * QueryContext.getAuthorizer()} but NPEs for checks that go through {@code OperationContext}.
    */
-  public static QueryContext getMockDenyContextWithViewAuth() {
-    return getMockDenyContextWithViewAuth("urn:li:corpuser:test");
+  public static QueryContext getMockDenyContextWithOperationContext() {
+    return getMockDenyContextWithOperationContext("urn:li:corpuser:test");
   }
 
-  public static QueryContext getMockDenyContextWithViewAuth(@Nonnull final String actorUrn) {
+  public static QueryContext getMockDenyContextWithOperationContext(
+      @Nonnull final String actorUrn) {
     Authorizer denyAuthorizer = mock(Authorizer.class);
     AuthorizationResult denyResult = mock(AuthorizationResult.class);
     when(denyResult.getType()).thenReturn(AuthorizationResult.Type.DENY);
@@ -145,18 +142,8 @@ public class TestUtils {
     Authentication authentication =
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
 
-    OperationContextConfig config =
-        OperationContextConfig.builder()
-            .viewAuthorizationConfiguration(
-                ViewAuthorizationConfiguration.builder().enabled(true).build())
-            .allowSystemAuthentication(false)
-            .build();
-
     OperationContext operationContext =
-        TestOperationContexts.Builder.builder()
-            .configSupplier(() -> config)
-            .buildSystemContext()
-            .asSession(RequestContext.TEST, denyAuthorizer, authentication);
+        TestOperationContexts.userContextNoSearchAuthorization(denyAuthorizer, authentication);
 
     QueryContext mockContext = mock(QueryContext.class);
     when(mockContext.getActorUrn()).thenReturn(actorUrn);

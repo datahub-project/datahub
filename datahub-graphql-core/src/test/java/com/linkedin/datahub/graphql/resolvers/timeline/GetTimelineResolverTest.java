@@ -47,7 +47,7 @@ public class GetTimelineResolverTest {
     TimelineService mockTimelineService = mock(TimelineService.class);
     GetTimelineResolver resolver = new GetTimelineResolver(mockTimelineService);
 
-    QueryContext denyContext = getMockDenyContextWithViewAuth();
+    QueryContext denyContext = getMockDenyContextWithOperationContext();
 
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     when(mockEnv.getContext()).thenReturn(denyContext);

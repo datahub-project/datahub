@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ChangeCategoryType;
@@ -48,7 +48,7 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
     // Parse URN and enforce view authorization synchronously so errors propagate
     // rather than being swallowed by the generic catch inside supplyAsync.
     final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
-    if (!AuthorizationUtils.canView(context.getOperationContext(), entityUrn)) {
+    if (!AuthUtil.canViewEntity(context.getOperationContext(), entityUrn)) {
       throw new AuthorizationException(
           "Unauthorized to view change history for entity: " + entityUrn);
     }

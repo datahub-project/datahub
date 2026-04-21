@@ -23,7 +23,7 @@ public class GetSchemaBlameResolverTest {
     TimelineService mockTimelineService = mock(TimelineService.class);
     GetSchemaBlameResolver resolver = new GetSchemaBlameResolver(mockTimelineService);
 
-    QueryContext denyContext = getMockDenyContextWithViewAuth();
+    QueryContext denyContext = getMockDenyContextWithOperationContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     when(mockEnv.getContext()).thenReturn(denyContext);
 
