@@ -39,8 +39,10 @@ from datahub.ingestion.source.sigma.config import (
     WorkspaceCounts,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DatasetUpstream,
     Element,
     Page,
+    SheetUpstream,
     SigmaDataset,
     Workbook,
     WorkbookKey,
@@ -420,12 +422,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 logger.debug(f"Unable to parse query of element {element.name}")
 
         for node_id, upstream in element.upstream_sources.items():
-            if upstream.type == "dataset":
+            if isinstance(upstream, DatasetUpstream):
                 sigma_dataset_id = node_id.split("-")[-1]
                 for in_table_urn in list(sql_parser_in_tables):
                     if (
                         DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
-                        in (upstream.name or "").lower()
+                        in upstream.name.lower()
                     ):
                         dataset_urn = self._gen_sigma_dataset_urn(sigma_dataset_id)
                         if dataset_urn not in inputs:
@@ -433,18 +435,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         else:
                             inputs[dataset_urn].append(in_table_urn)
                         sql_parser_in_tables.remove(in_table_urn)
-            elif upstream.type == "sheet":
-                if upstream.element_id is None:
-                    logger.debug(
-                        f"Sheet upstream missing elementId for element {element.name}, skipping"
-                    )
-                    continue
+            elif isinstance(upstream, SheetUpstream):
                 chart_urn = elementId_to_chart_urn.get(upstream.element_id)
                 if chart_urn is None:
                     # Target element type not in our allow-list (e.g. pivot-table).
                     logger.debug(
                         f"Upstream elementId {upstream.element_id} not in element map "
-                        f"for element {element.name} (possibly a filtered element type)"
+                        f"for element {element.name}; likely filtered by get_page_elements "
+                        f"(allowlist: table, visualization) — enable DEBUG logs for details"
                     )
                     continue
                 inputs[chart_urn] = []

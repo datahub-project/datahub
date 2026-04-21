@@ -4,6 +4,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -13,10 +14,12 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DatasetUpstream,
     Element,
     ElementUpstream,
     File,
     Page,
+    SheetUpstream,
     SigmaDataset,
     Workbook,
     Workspace,
@@ -304,8 +307,9 @@ class SigmaAPI:
         through join pass-through nodes transparently. Warehouse table nodes
         (type="table") are skipped here — their lineage comes from the SQL-parse path.
         """
+        upstream_sources: Dict[str, ElementUpstream] = {}
+
         try:
-            upstream_sources: Dict[str, ElementUpstream] = {}
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/lineage/elements/{element.elementId}"
             )
@@ -324,9 +328,17 @@ class SigmaAPI:
                     f"Lineage not supported for element {element.name} of workbook '{workbook.name}' (400 Bad Request)"
                 )
                 return upstream_sources
-
             response.raise_for_status()
             response_dict = response.json()
+        except requests.exceptions.RequestException as e:
+            self.report.warning(
+                message="Failed to fetch Sigma element lineage",
+                context=f"element={element.name}, workbook={workbook.name}",
+                exc=e,
+            )
+            return {}
+
+        try:
             dependencies = response_dict[Constant.DEPENDENCIES]
 
             for edge in response_dict[Constant.EDGES]:
@@ -335,17 +347,20 @@ class SigmaAPI:
                 source_type = source_node[Constant.TYPE]
 
                 if source_type == "dataset":
-                    upstream_sources[source_node_id] = ElementUpstream(
-                        node_id=source_node_id,
-                        type="dataset",
-                        name=source_node.get(Constant.NAME),
+                    upstream_sources[source_node_id] = DatasetUpstream(
+                        name=source_node.get(Constant.NAME, ""),
                     )
                 elif source_type == "sheet":
-                    upstream_sources[source_node_id] = ElementUpstream(
-                        node_id=source_node_id,
-                        type="sheet",
+                    element_id = source_node.get(Constant.ELEMENTID)
+                    if element_id is None:
+                        self.report.warning(
+                            message="Sheet upstream node missing elementId",
+                            context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                        )
+                        continue
+                    upstream_sources[source_node_id] = SheetUpstream(
                         name=source_node.get(Constant.NAME),
-                        element_id=source_node.get(Constant.ELEMENTID),
+                        element_id=element_id,
                     )
                 elif source_type in ("table", "join"):
                     # "table" = warehouse table, handled by SQL-parse path.
@@ -353,17 +368,19 @@ class SigmaAPI:
                     # separate edges in the same response and are processed there.
                     pass
                 else:
-                    logger.debug(
-                        f"Skipping unknown lineage node type '{source_type}' "
-                        f"for element {element.name} of workbook '{workbook.name}'"
+                    self.report.warning(
+                        message="Unknown Sigma lineage node type",
+                        context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
                     )
-
-            return upstream_sources
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch lineage for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
+        except (KeyError, ValidationError) as e:
+            self.report.warning(
+                message="Failed to parse Sigma element lineage response",
+                context=f"element={element.name}, workbook={workbook.name}",
+                exc=e,
             )
             return {}
+
+        return upstream_sources
 
     def _get_element_sql_query(
         self, element: Element, workbook: Workbook

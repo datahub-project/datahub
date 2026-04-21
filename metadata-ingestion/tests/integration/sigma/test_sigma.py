@@ -560,8 +560,37 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "columns": ["Col A"],
                         "vizualizationType": "bar",
                     },
+                    {
+                        # Filtered by get_page_elements (not in allowlist) — never
+                        # enters the elementId→chart_urn map.
+                        "elementId": "pivotElem01",
+                        "type": "pivot-table",
+                        "name": "Pivot Table Element",
+                        "columns": ["Col A"],
+                        "vizualizationType": "pivot",
+                    },
+                    {
+                        # References pivotElem01 as upstream — chart_urn lookup returns
+                        # None, so no inputEdges should be emitted for this element.
+                        "elementId": "filteredUpstreamElem",
+                        "type": "visualization",
+                        "name": "Downstream Of Filtered Element",
+                        "columns": ["Col A"],
+                        "vizualizationType": "bar",
+                    },
+                    {
+                        # Cross-page reference: upstream is kH0MeihtGs on Page 1.
+                        # Verifies that elementId→chart_urn is built at workbook scope,
+                        # not page scope — a page-scoped map would miss Page 1 elements
+                        # while processing Page 3 and produce no inputEdges here.
+                        "elementId": "crossPageDownstreamElem",
+                        "type": "visualization",
+                        "name": "Cross-Page Downstream Chart",
+                        "columns": ["Col A"],
+                        "vizualizationType": "bar",
+                    },
                 ],
-                "total": 3,
+                "total": 6,
                 "nextPage": None,
             },
         },
@@ -671,6 +700,76 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
             "json": {},
         },
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/joinDownstreamElem/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # filteredUpstreamElem: sheet upstream points to pivotElem01, which was
+        # filtered by get_page_elements and is absent from the chart map.
+        # The chart should be emitted with no inputEdges.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/filteredUpstreamElem": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_node_filtered": {
+                        "nodeId": "tgt_node_filtered",
+                        "elementId": "filteredUpstreamElem",
+                        "name": "Downstream Of Filtered Element",
+                        "type": "sheet",
+                    },
+                    "src_node_pivot": {
+                        "nodeId": "src_node_pivot",
+                        "elementId": "pivotElem01",
+                        "name": "Pivot Table Element",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_node_pivot",
+                        "target": "tgt_node_filtered",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/filteredUpstreamElem/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # crossPageDownstreamElem: sheet upstream is kH0MeihtGs on Page 1.
+        # inputEdges must point to urn:li:chart:(sigma,kH0MeihtGs), proving the
+        # elementId→chart_urn map is workbook-scoped (page-scoped would miss it).
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/crossPageDownstreamElem": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_node_cross_page": {
+                        "nodeId": "tgt_node_cross_page",
+                        "elementId": "crossPageDownstreamElem",
+                        "name": "Cross-Page Downstream Chart",
+                        "type": "sheet",
+                    },
+                    "src_node_page1_adoptions": {
+                        "nodeId": "src_node_page1_adoptions",
+                        "elementId": "kH0MeihtGs",
+                        "name": "ADOPTIONS",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_node_page1_adoptions",
+                        "target": "tgt_node_cross_page",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/crossPageDownstreamElem/query": {
             "method": "GET",
             "status_code": 404,
             "json": {},

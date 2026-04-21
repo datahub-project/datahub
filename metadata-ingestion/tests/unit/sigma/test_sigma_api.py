@@ -69,3 +69,68 @@ class TestTokenRefreshOn401:
         mock_refresh.assert_not_called()
         assert result.status_code == 200
         assert mock_get.call_count == 1
+
+
+class TestGetElementUpstreamSources:
+    def test_sheet_node_missing_element_id_is_skipped_with_warning(self) -> None:
+        api = _create_sigma_api()
+        element = MagicMock(elementId="elem1", name="My Chart")
+        workbook = MagicMock(workbookId="wb1", name="My Workbook")
+
+        lineage_response = MagicMock(status_code=200)
+        lineage_response.json.return_value = {
+            "dependencies": {
+                "tgt_node": {
+                    "nodeId": "tgt_node",
+                    "elementId": "elem1",
+                    "name": "My Chart",
+                    "type": "sheet",
+                },
+                "bad_sheet_node": {
+                    "nodeId": "bad_sheet_node",
+                    # no elementId key — API contract violation
+                    "name": "Upstream Without Id",
+                    "type": "sheet",
+                },
+            },
+            "edges": [
+                {"source": "bad_sheet_node", "target": "tgt_node", "type": "source"}
+            ],
+        }
+
+        with patch.object(api, "_get_api_call", return_value=lineage_response):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert result == {}
+        assert len(api.report.warnings) == 1
+
+    def test_unknown_node_type_is_skipped_with_warning(self) -> None:
+        api = _create_sigma_api()
+        element = MagicMock(elementId="elem1", name="My Chart")
+        workbook = MagicMock(workbookId="wb1", name="My Workbook")
+
+        lineage_response = MagicMock(status_code=200)
+        lineage_response.json.return_value = {
+            "dependencies": {
+                "tgt_node": {
+                    "nodeId": "tgt_node",
+                    "elementId": "elem1",
+                    "name": "My Chart",
+                    "type": "sheet",
+                },
+                "unknown_node": {
+                    "nodeId": "unknown_node",
+                    "name": "Future Node Type",
+                    "type": "formula",  # hypothetical future Sigma node type
+                },
+            },
+            "edges": [
+                {"source": "unknown_node", "target": "tgt_node", "type": "source"}
+            ],
+        }
+
+        with patch.object(api, "_get_api_call", return_value=lineage_response):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert result == {}
+        assert len(api.report.warnings) == 1

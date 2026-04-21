@@ -1,8 +1,8 @@
 from copy import deepcopy
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 
@@ -50,13 +50,22 @@ class SigmaDataset(BaseModel):
         return self.url.split("/")[-1]
 
 
-class ElementUpstream(BaseModel):
-    node_id: str
-    # "dataset" = Sigma Dataset node; "sheet" = Sigma element (any element.type).
-    # "table" (warehouse) and "join" (graph-only pass-through) are filtered at the API layer.
-    type: Literal["dataset", "sheet"]
+class DatasetUpstream(BaseModel):
+    type: Literal["dataset"] = "dataset"
+    # Required: used by sigma.py to correlate with SQL-parsed warehouse table names.
+    name: str
+
+
+class SheetUpstream(BaseModel):
+    type: Literal["sheet"] = "sheet"
     name: Optional[str] = None
-    element_id: Optional[str] = None  # populated only when type == "sheet"
+    element_id: str
+
+
+# "table" (warehouse) and "join" (pass-through) nodes are filtered at the API layer.
+ElementUpstream = Annotated[
+    Union[DatasetUpstream, SheetUpstream], Field(discriminator="type")
+]
 
 
 class Element(BaseModel):

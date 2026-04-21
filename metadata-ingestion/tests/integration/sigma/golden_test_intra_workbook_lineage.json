@@ -1893,14 +1893,16 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "ElementsCount": "3"
+                "ElementsCount": "5"
             },
             "title": "Page 3",
             "description": "",
             "charts": [
                 "urn:li:chart:(sigma,upstreamElem01)",
                 "urn:li:chart:(sigma,downstreamElem01)",
-                "urn:li:chart:(sigma,joinDownstreamElem)"
+                "urn:li:chart:(sigma,joinDownstreamElem)",
+                "urn:li:chart:(sigma,filteredUpstreamElem)",
+                "urn:li:chart:(sigma,crossPageDownstreamElem)"
             ],
             "datasets": [],
             "dashboards": [],
@@ -1917,7 +1919,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776433488490,
+        "lastObserved": 1776786089773,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1958,6 +1960,55 @@
     },
     "systemMetadata": {
         "lastObserved": 1718003275669,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,filteredUpstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776784709543,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,filteredUpstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "bar",
+                "type": "visualization"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=filteredUpstreamElem&:fullScreen=true",
+            "title": "Downstream Of Filtered Element",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776784709543,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2018,6 +2069,148 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,crossPageDownstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776786089777,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,filteredUpstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,filteredUpstreamElem),Col A)",
+                    "schemaField": {
+                        "fieldPath": "Col A",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776784709543,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,crossPageDownstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "bar",
+                "type": "visualization"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=crossPageDownstreamElem&:fullScreen=true",
+            "title": "Cross-Page Downstream Chart",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [],
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(sigma,kH0MeihtGs)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776786089777,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,crossPageDownstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,crossPageDownstreamElem),Col A)",
+                    "schemaField": {
+                        "fieldPath": "Col A",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776786089778,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,filteredUpstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776784709543,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,joinDownstreamElem)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
@@ -2044,6 +2237,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1776433488494,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,crossPageDownstreamElem)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776786089778,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2131,12 +2348,42 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,filteredUpstreamElem),Col A)",
+                    "schemaField": {
+                        "fieldPath": "Col A",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,crossPageDownstreamElem),Col A)",
+                    "schemaField": {
+                        "fieldPath": "Col A",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776433488495,
+        "lastObserved": 1776786089778,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
