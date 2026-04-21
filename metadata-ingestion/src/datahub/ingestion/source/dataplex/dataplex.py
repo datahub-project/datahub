@@ -54,7 +54,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-@platform_name("Dataplex", id="dataplex")
+@platform_name("Google Cloud Knowledge Catalog (Dataplex)", id="dataplex")
 @config_class(DataplexConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(
