@@ -623,6 +623,10 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
         },
         # downstreamElem01: direct sheet upstream; nodeId ("src_node_upstream") !=
         # elementId ("upstreamElem01") — the critical fixture-fiction guard.
+        # Also includes an unrelated edge (unrelated_sheet_node → unrelated_target)
+        # that is NOT reachable from tgt_node_downstream via reverse BFS. With the
+        # old scrape-every-edge-source approach this would add a spurious upstream_sources
+        # entry; the BFS implementation correctly excludes it.
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/downstreamElem01": {
             "method": "GET",
             "status_code": 200,
@@ -640,13 +644,30 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "name": "Upstream Table Element",
                         "type": "sheet",
                     },
+                    "unrelated_sheet_node": {
+                        "nodeId": "unrelated_sheet_node",
+                        "elementId": "upstreamElem01",
+                        "name": "Upstream Table Element",
+                        "type": "sheet",
+                    },
+                    "unrelated_target_node": {
+                        "nodeId": "unrelated_target_node",
+                        "name": "Some Unrelated Target",
+                        "type": "table",
+                    },
                 },
                 "edges": [
                     {
                         "source": "src_node_upstream",
                         "target": "tgt_node_downstream",
                         "type": "lookup",
-                    }
+                    },
+                    {
+                        # This edge's source is not reachable from tgt_node_downstream.
+                        "source": "unrelated_sheet_node",
+                        "target": "unrelated_target_node",
+                        "type": "source",
+                    },
                 ],
             },
         },
