@@ -42,11 +42,24 @@ export SHORT_SHA="${SHA:0:10}"
 echo "=== CI Status: ${SHORT_SHA} (${REPO}) ==="
 echo ""
 
-gh run list --repo "$REPO" --limit 60 --json name,status,conclusion,url,headSha,event \
-  | python3 - << 'PYEOF'
-import json, sys, os
+# Filter server-side to event=release so the limit applies to *release-triggered*
+# runs, not any recent run. acryldata/datahub is busy enough that 60 mixed-event
+# runs cover only ~9 hours of wall time, so a release older than that would
+# otherwise age out of the window even though its release-triggered CI runs
+# still exist on GitHub.
+#
+# Also: pass JSON via env var instead of pipeline. A `gh ... | python3 - <<EOF`
+# heredoc takes over stdin (to deliver the program), so the upstream JSON never
+# reaches `sys.stdin.read()`. Capturing to a variable and handing off via env
+# sidesteps the collision and keeps pipefail useful for catching gh failures.
+RUNS_JSON=$(gh run list --repo "$REPO" --event release --limit 60 \
+              --json name,status,conclusion,url,headSha,event)
+export RUNS_JSON
 
-runs = json.loads(sys.stdin.read())
+python3 << 'PYEOF'
+import json, os, sys
+
+runs = json.loads(os.environ["RUNS_JSON"])
 sha_prefix = os.environ["SHORT_SHA"]
 
 release_runs = [
