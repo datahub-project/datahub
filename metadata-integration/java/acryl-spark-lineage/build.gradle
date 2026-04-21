@@ -210,7 +210,7 @@ scalaVersions.each { sv ->
     relocate 'ch.randelshofer', 'io.acryl.shaded.ch.randelshofer'
     relocate 'ch.qos', 'io.acryl.shaded.ch.qos'
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
-    relocate 'io/openlineage/spark/shaded/jackson', 'io.acryl.shaded.jackson'
+    relocate 'io.openlineage.spark.shaded.com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
