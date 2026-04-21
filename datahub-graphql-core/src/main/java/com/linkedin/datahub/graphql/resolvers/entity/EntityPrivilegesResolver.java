@@ -137,6 +137,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     // Schema Field Edits are a bit of a hack.
+    result.setCanViewQueries(
+        AuthorizationUtils.canViewEntityQueries(ImmutableList.of(urn), context));
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     result.setCanEditSchemaFieldTags(
         LabelUtils.isAuthorizedToUpdateTags(
@@ -157,6 +159,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    result.setCanViewQueries(
+        AuthorizationUtils.canViewEntityQueries(ImmutableList.of(urn), context));
     addCommonPrivileges(result, urn, context);
     return result;
   }
@@ -170,6 +174,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
+    result.setCanViewQueries(
+        AuthorizationUtils.canViewEntityQueries(ImmutableList.of(urn), context));
     addCommonPrivileges(result, urn, context);
     return result;
   }

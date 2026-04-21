@@ -329,7 +329,7 @@ These privileges are not generalizable.
 | Dataset      | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                         |
 | Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
 | Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
-| Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
+| Dataset      | Edit Dataset Queries                      | Allow actor to edit Queries for a Dataset.                                                                                                                                        |
 | Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                      |
 | Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
 | Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
@@ -340,6 +340,12 @@ These privileges are not generalizable.
 | Domain       | Manage Data Products                      | Allow actor to create, edit, and delete Data Products within a Domain                                                                                                             |
 | GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                              |
 | GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                               |
+
+#### Queries
+
+| Entity                   | Privilege           | Description                                                    |
+| ------------------------ | ------------------- | -------------------------------------------------------------- |
+| Dataset, Chart, Data Job | View Entity Queries | Allow actor to view Queries for a Dataset, Chart, or Data Job. |
 
 #### Misc
 

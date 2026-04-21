@@ -64,6 +64,7 @@ const StyledInfoOutlined = styled(InfoCircleOutlined)`
 
 interface Props {
     sectionName?: string;
+    emptyText?: string;
     showButton: boolean;
     buttonLabel?: string;
     isButtonDisabled?: boolean;
@@ -74,6 +75,7 @@ interface Props {
 
 export default function EmptyQueriesSection({
     sectionName,
+    emptyText,
     showButton = false,
     buttonLabel,
     isButtonDisabled,
@@ -81,6 +83,8 @@ export default function EmptyQueriesSection({
     tooltip,
     tooltipPosition,
 }: Props) {
+    const description = emptyText || 'No highlighted queries yet';
+
     return (
         <SectionWrapper>
             <div>
@@ -93,7 +97,7 @@ export default function EmptyQueriesSection({
             </div>
             <ContentContainer>
                 <LeftContainer>
-                    <StyledEmpty description={<Description>No highlighted queries yet</Description>} image={NoDocs} />
+                    <StyledEmpty description={<Description>{description}</Description>} image={NoDocs} />
                 </LeftContainer>
                 <RightContainer>
                     {showButton && (

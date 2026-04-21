@@ -307,6 +307,11 @@ type EntityPrivileges {
   canEditEmbed: Boolean
 
   """
+  Whether or not a user can view the Queries for the entity (e.g. dataset, chart, datajob)
+  """
+  canViewQueries: Boolean
+
+  """
   Whether or not a user can update the Queries for the entity (e.g. dataset)
   """
   canEditQueries: Boolean
