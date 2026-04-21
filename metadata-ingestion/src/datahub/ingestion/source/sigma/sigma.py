@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -404,7 +404,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         chart_input_urns: sorted list of chart URNs from intra-workbook sheet upstreams.
         """
         dataset_inputs: Dict[str, List[str]] = {}
-        chart_input_urns_set: List[str] = []
+        chart_input_urns: Set[str] = set()
         sql_parser_in_tables: List[str] = []
 
         data_source_platform_details = self._get_element_data_source_platform_details(
@@ -450,13 +450,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     self.reporter.num_filtered_sheet_upstreams += 1
                     continue
-                chart_input_urns_set.append(chart_urn)
+                chart_input_urns.add(chart_urn)
 
         # Unmatched SQL-parsed warehouse tables become direct dataset inputs.
         for in_table_urn in sql_parser_in_tables:
             dataset_inputs[in_table_urn] = []
 
-        return dataset_inputs, sorted(set(chart_input_urns_set))
+        return dataset_inputs, sorted(chart_input_urns)
 
     def _gen_elements_workunit(
         self,

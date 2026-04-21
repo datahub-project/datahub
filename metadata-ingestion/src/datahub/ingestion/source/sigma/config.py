@@ -36,6 +36,7 @@ class Constant:
     EDGES = "edges"
     DEPENDENCIES = "dependencies"
     SOURCE = "source"
+    TARGET = "target"
     WORKSPACEID = "workspaceId"
     PATH = "path"
     NAME = "name"

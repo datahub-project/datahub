@@ -315,10 +315,11 @@ class SigmaAPI:
                 upstream_sources[source_node_id] = DatasetUpstream(
                     name=source_node.get(Constant.NAME),
                 )
-            except ValidationError:
+            except ValidationError as e:
                 self.report.warning(
                     message="Failed to parse Sigma lineage node",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
                 )
         elif source_type == "sheet":
             element_id = source_node.get(Constant.ELEMENTID)
@@ -333,10 +334,11 @@ class SigmaAPI:
                     name=source_node.get(Constant.NAME),
                     element_id=element_id,
                 )
-            except ValidationError:
+            except ValidationError as e:
                 self.report.warning(
                     message="Failed to parse Sigma lineage node",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
                 )
         elif source_type == "join":
             # Pass-through node: enqueue for continued BFS traversal.
@@ -404,7 +406,7 @@ class SigmaAPI:
             edges_by_target: Dict[str, List[str]] = {}
             for edge in response_dict[Constant.EDGES]:
                 try:
-                    edges_by_target.setdefault(edge["target"], []).append(
+                    edges_by_target.setdefault(edge[Constant.TARGET], []).append(
                         edge[Constant.SOURCE]
                     )
                 except (KeyError, TypeError) as e:
@@ -471,6 +473,9 @@ class SigmaAPI:
                             workbook,
                         )
                     except (KeyError, AttributeError, TypeError, ValidationError) as e:
+                        # ValidationError is caught inside _process_lineage_node for
+                        # pydantic construction failures; this outer catch is defence-in-depth
+                        # for any unexpected ValidationError that escapes the helper.
                         self.report.warning(
                             message="Failed to parse Sigma lineage node",
                             context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
