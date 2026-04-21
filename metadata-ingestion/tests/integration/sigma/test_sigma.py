@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sigma.config import SigmaSourceReport
 from datahub.testing import mce_helpers
 
 
@@ -1031,6 +1032,7 @@ def test_dm_personal_folder_ingest_shared_entities_false(tmp_path, requests_mock
     pipeline.run()
 
     report = pipeline.source.get_report()
+    assert isinstance(report, SigmaSourceReport)
     dropped = [str(e) for e in report.data_models.dropped_entities]
     assert any(dm_id in d for d in dropped), (
         f"Expected personal-folder DM {dm_id} to be dropped; dropped list: {dropped}"
@@ -1134,6 +1136,7 @@ def test_dm_warehouse_table_upstream_warning(tmp_path, requests_mock):
     pipeline.run()
 
     report = pipeline.source.get_report()
+    assert isinstance(report, SigmaSourceReport)
     assert report.skipped_warehouse_table_upstreams >= 1, (
         f"Expected skipped_warehouse_table_upstreams >= 1; got {report.skipped_warehouse_table_upstreams}"
     )
