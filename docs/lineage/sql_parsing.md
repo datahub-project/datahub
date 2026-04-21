@@ -17,7 +17,7 @@ We've published a blog post on some of the technical details of the parser: [Ext
 If you're using a tool that DataHub already [integrates with](https://docs.datahub.com/integrations), check the documentation for that specific integration.
 Most of our integrations, including Snowflake, BigQuery, Redshift, dbt, Looker, PowerBI, Airflow, etc, use the SQL parser to generate column-level lineage and usage statistics.
 
-If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, the [SQL queries](../generated/ingestion/sources/sql-queries.md) connector can generate column-level lineage and table/column usage statistics from the query log.
+If you're using a different database system for which we don't support column-level lineage out of the box, but you do have a database query log available, the [SQL queries](../generated/ingestion/sources/sql-queries.md) connector can generate column-level lineage and table/column usage statistics from the query log.
 
 ## SDK Support
 
@@ -63,3 +63,33 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 - We sometimes trip over BigQuery queries that use the `_partitiontime` and `_partitiondate` pseudo-columns with a table name prefix e.g. `my_table._partitiontime` fails. However, unqualified references like `_partitiontime` and `_partitiondate` will be fine.
 - We do not consider columns referenced in filtering or organizational clauses such as `WHERE`, `GROUP BY`, `ORDER BY`, `JOIN`, `HAVING`, or `PARTITION BY` to be part of lineage. For example, `SELECT col1, col2 FROM upstream_table WHERE col3 = 3` will not generate any lineage related to `col3`.
 - We generally only analyze static table references. For example, this Snowflake query will not generate any lineage: `SELECT * FROM identifier('my_db.my_schema.my_table')`, since the `identifier` function is resolved at SQL runtime.
+
+## Community SQL Lineage Tools
+
+If the built-in SQL parser does not cover your SQL dialect or you need broader coverage for complex enterprise SQL, community-maintained tools can supplement DataHub's lineage extraction.
+
+### gsp-datahub-sidecar
+
+[gsp-datahub-sidecar](https://pypi.org/project/gsp-datahub-sidecar/) is a companion tool by [Gudu Software](https://www.gudusoft.com) that recovers SQL lineage DataHub's built-in parser misses. It re-parses SQL statements that fell back to `Command` type using the [Gudu SQLFlow](https://sqlflow.gudusoft.com) engine, then emits the recovered lineage to DataHub via the REST API.
+
+**Use cases it addresses:**
+
+- BigQuery procedural SQL (`DECLARE`, `IF/THEN`, `CREATE TEMP TABLE`) — see [#11654](https://github.com/datahub-project/datahub/issues/11654)
+- BigQuery dbt deduplication macros with `ARRAY_AGG()[OFFSET(0)]` — see [#11670](https://github.com/datahub-project/datahub/issues/11670)
+- MSSQL stored procedures with `CASE...END` — see [#12606](https://github.com/datahub-project/datahub/issues/12606)
+- MSSQL identifier casing issues — see [#13792](https://github.com/datahub-project/datahub/issues/13792)
+- Power BI queries where SQL comments break lineage — see [#11251](https://github.com/datahub-project/datahub/issues/11251)
+- `MERGE INTO` column-level lineage
+- Multi-statement SQL / SQL scripting
+
+**Install:**
+
+```bash
+pip install gsp-datahub-sidecar
+```
+
+See the [gsp-datahub-sidecar README](https://github.com/gudusoftware/gsp-datahub-sidecar) for configuration options and quick-start examples.
+
+:::note
+This is a community-maintained tool and is not officially supported by the DataHub team. For issues specific to this tool, please file them in the [gsp-datahub-sidecar issue tracker](https://github.com/gudusoftware/gsp-datahub-sidecar/issues).
+:::
