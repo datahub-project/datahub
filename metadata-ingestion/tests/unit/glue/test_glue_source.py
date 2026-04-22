@@ -1483,7 +1483,7 @@ def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
         "aws_secret_access_key",
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_redact_job_script_secret_fields(secret_name):
     secret_value = "kjdsg8uh834jksdnj"
 
