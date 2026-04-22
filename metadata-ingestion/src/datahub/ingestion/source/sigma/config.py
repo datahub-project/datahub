@@ -36,6 +36,7 @@ class Constant:
     EDGES = "edges"
     DEPENDENCIES = "dependencies"
     SOURCE = "source"
+    TARGET = "target"
     WORKSPACEID = "workspaceId"
     PATH = "path"
     NAME = "name"
@@ -129,6 +130,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
+
+    # Sheet upstreams skipped because the upstream element was filtered out of
+    # the chart map (e.g. a pivot-table blocked by get_page_elements's allowlist).
+    num_filtered_sheet_upstreams: int = 0
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
