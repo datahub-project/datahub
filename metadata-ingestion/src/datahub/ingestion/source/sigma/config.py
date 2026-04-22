@@ -208,6 +208,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_external_reference_unresolved: int = 0
     data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
 
+    # /columns entries with ``elementId = None`` (DM-global calculations).
+    # Dropped because there is no element Dataset to attach them to, but
+    # counted so a user reporting "missing field" can distinguish "column
+    # never existed" from "column silently dropped here".
+    data_model_columns_without_element_dropped: int = 0
+
     # Workbook → DM element bridge counters. See sigma.py for the resolution
     # algorithm; the DM element is matched by name (Sigma coalesces same-named
     # DM element references at the API contract level, so name is sufficient).
@@ -309,9 +315,13 @@ class SigmaSourceConfig(
         description="Regex patterns to filter Sigma workbook names in ingestion.",
     )
     ingest_data_models: bool = pydantic.Field(
-        default=True,
+        default=False,
         description="Whether to ingest Sigma Data Models. Each Data Model is emitted "
-        "as a Container with one Dataset per element inside it.",
+        "as a Container with one Dataset per element inside it (plus per-element "
+        "``SchemaMetadata`` and ``UpstreamLineage``). Default is ``False`` because "
+        "enabling this introduces a new entity class to the graph — existing tenants "
+        "will see new Containers and Datasets appear on first ingest and will need "
+        "to factor those into any soft-delete policy if they later disable this flag.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

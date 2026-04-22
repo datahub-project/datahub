@@ -378,31 +378,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
         )
 
-    def _resolve_dm_element_external_upstream(
-        self, source_id: str, data_model: SigmaDataModel
-    ) -> Optional[str]:
+    def _resolve_dm_element_external_upstream(self, source_id: str) -> Optional[str]:
         """
         Resolve a DM element source_id of shape ``inode-<suffix>`` to an
-        upstream URN. If the suffix matches a known Sigma Dataset url_id,
-        we return the SigmaDataset URN; otherwise (warehouse table / unknown)
-        we return None. Warehouse-table upstreams currently require SQL parsing
-        that the DM API does not expose, so they are counted as unresolved
-        rather than emitted as phantom URNs.
+        upstream URN. Returns the Sigma Dataset URN if the suffix matches a
+        Sigma Dataset that was actually ingested in this run; returns ``None``
+        otherwise.
+
+        A previous revision of this method also synthesized a Sigma Dataset
+        URN for any ``type: dataset`` lineage entry whose ``inode-<suffix>``
+        did not match an ingested dataset (filtered out by ``dataset_pattern``
+        / ``workspace_pattern`` / ``ingest_shared_entities=False``). That
+        shape was a dangling node in the graph — the URN carried no schema,
+        no owners, no other aspects — and it surfaced as an empty stub in
+        the UI. Code review flagged this, so we now treat the "dataset
+        reference exists but we chose not to ingest it" case the same as
+        any other unresolved upstream: count it and skip.
+
+        Warehouse-table upstreams (``type: table``) similarly require SQL
+        parsing that the DM API does not expose, so they also return None.
         """
         if not source_id.startswith("inode-"):
             return None
         suffix = source_id[len("inode-") :]
-        # Case 1: matches a previously-emitted Sigma Dataset url_id.
-        sigma_dataset_urn = self.sigma_dataset_urn_by_url_id.get(suffix)
-        if sigma_dataset_urn:
-            return sigma_dataset_urn
-        # Case 2: lineage /entries recorded a ``type: dataset`` entry for this
-        # nodeId — treat as a Sigma Dataset URL-id even if it wasn't processed
-        # through get_sigma_datasets (e.g. filtered out).
-        ext = data_model.external_sources.get(source_id)
-        if ext and ext.get("type") == "dataset":
-            return self._gen_sigma_dataset_urn(suffix)
-        return None
+        return self.sigma_dataset_urn_by_url_id.get(suffix)
 
     def _resolve_dm_element_cross_dm_upstream(
         self,
@@ -458,9 +457,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # If the producer DM has exactly one element total, the reference is
             # unambiguous regardless of name — Sigma itself cannot point at any
             # other element because there is no other element.
-            all_urns: List[str] = [
-                urn for urns in name_map.values() for urn in urns
-            ]
+            all_urns: List[str] = [urn for urns in name_map.values() for urn in urns]
             if len(all_urns) == 1:
                 self.reporter.data_model_element_cross_dm_upstreams_single_element_fallback += 1
                 return all_urns[0]
@@ -493,9 +490,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_urn = elementId_to_dataset_urn[source_id]
                 self.reporter.data_model_element_intra_upstreams += 1
             elif source_id.startswith("inode-"):
-                upstream_urn = self._resolve_dm_element_external_upstream(
-                    source_id, data_model
-                )
+                upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 if upstream_urn:
                     self.reporter.data_model_element_external_upstreams += 1
                 else:
@@ -639,19 +634,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # must appear as a typed entry so UI breadcrumbs are clickable
             # and navigate to the Data Model Container entity page;
             # plain-string segments render as inert folders.
-            browse_parent_urn = (
-                workspace_container_urn
-                if workspace_container_urn
-                else data_model_container_urn
-            )
-            browse_entries = [
-                BrowsePathEntryClass(id=browse_parent_urn, urn=browse_parent_urn),
-                *[BrowsePathEntryClass(id=path) for path in paths],
+            #
+            # Orphan / personal-space DMs have no workspace container. Skip
+            # the workspace-parent entry entirely in that case — emitting the
+            # DM Container URN twice (once as parent, once as leaf) breaks
+            # parentage semantics in the UI breadcrumb.
+            browse_entries: List[BrowsePathEntryClass] = []
+            if workspace_container_urn:
+                browse_entries.append(
+                    BrowsePathEntryClass(
+                        id=workspace_container_urn, urn=workspace_container_urn
+                    )
+                )
+            browse_entries.extend(BrowsePathEntryClass(id=path) for path in paths)
+            browse_entries.append(
                 BrowsePathEntryClass(
                     id=data_model_container_urn, urn=data_model_container_urn
-                ),
-                BrowsePathEntryClass(id=element.name),
-            ]
+                )
+            )
+            browse_entries.append(BrowsePathEntryClass(id=element.name))
             yield MetadataChangeProposalWrapper(
                 entityUrn=element_dataset_urn,
                 aspect=BrowsePathsV2Class(browse_entries),
@@ -696,6 +697,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         bridge_keys = {dm_url_id, data_model.dataModelId}
         for key in bridge_keys:
+            # ``urlId`` is a short slug with documented collision history in
+            # older Sigma tenants (same slug reissued after an asset is
+            # deleted and another created). A second DM claiming an already-
+            # registered key would silently overwrite the first, producing
+            # mis-routed cross-DM lineage. Detect the collision, keep the
+            # first registration, and warn so operators can inspect the
+            # tenant. ``dataModelId`` (UUID) collisions are structurally
+            # impossible and the same-key-same-urn case (re-registering the
+            # same DM) is benign — only warn on a true URN mismatch.
+            existing = self.dm_container_urn_by_url_id.get(key)
+            if existing is not None and existing != data_model_container_urn:
+                logger.warning(
+                    "Sigma DM bridge key %r already registered to %s; new DM "
+                    "%s (%s) claims the same key but resolves to %s — keeping "
+                    "the first registration. Cross-DM lineage referring to %r "
+                    "may be mis-routed until the collision is resolved.",
+                    key,
+                    existing,
+                    data_model.name,
+                    data_model.dataModelId,
+                    data_model_container_urn,
+                    key,
+                )
+                continue
             self.dm_container_urn_by_url_id[key] = data_model_container_urn
 
         name_map: Dict[str, List[str]] = {}
@@ -711,6 +736,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     element_dataset_urn
                 )
         for key in bridge_keys:
+            # Same collision guard as the container map above — keep the
+            # first registration on a bridge key conflict, warn otherwise.
+            if (
+                key in self.dm_element_urn_by_name
+                and self.dm_element_urn_by_name[key] is not name_map
+                and self.dm_container_urn_by_url_id.get(key) != data_model_container_urn
+            ):
+                continue
             self.dm_element_urn_by_name[key] = name_map
 
         return elementId_to_dataset_urn
@@ -775,9 +808,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             extra_properties["path"] = data_model.path
         # Flag personal-space / unlisted DMs so operators can distinguish them
         # from workspace-listed DMs in DataHub. Presence of the flag is informational
-        # only; no UI logic depends on it in this release.
+        # only; no UI logic depends on it in this release. Value follows the
+        # ``str(bool(True))`` convention ("True" / "False") that other DataHub
+        # sources use for boolean custom properties — keep the casing aligned
+        # here so downstream filters can assume a single normalized form.
         if not data_model.workspaceId:
-            extra_properties["isPersonalDataModel"] = "true"
+            extra_properties["isPersonalDataModel"] = str(True)
 
         yield from gen_containers(
             container_key=data_model_key,
@@ -1269,7 +1305,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # and Sigma does not order ``/dataModels`` by dependency, so a
         # naive single-pass would miss any forward reference.
         if self.config.ingest_data_models:
-            data_models = self.sigma_api.get_data_models()
+            # ``all_data_models`` accumulates every DM that will eventually emit
+            # workunits: the workspace-listed DMs from /v2/dataModels plus any
+            # personal-space / unlisted DMs reached via the discovery loop below.
+            # Kept separate from the per-iteration ``pending`` set so the
+            # invariant "bridges are populated for every DM before any emit"
+            # stays explicit at the call site.
+            all_data_models: List[SigmaDataModel] = self.sigma_api.get_data_models()
             elementId_maps_by_dm: Dict[str, Dict[str, str]] = {}
 
             # Discovery loop — prepopulate bridges for every known DM, then fetch any
@@ -1279,13 +1321,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # unresolved set) or counts the prefix as unreachable (400/403/404).
             # Bounded by the number of reachable personal-space DMs per tenant.
             already_discovered: Set[str] = set()
-            pending = list(data_models)
+            pending = list(all_data_models)
             while pending:
                 for dm in pending:
                     elementId_maps_by_dm[dm.dataModelId] = (
                         self._prepopulate_dm_bridge_maps(dm)
                     )
-                unresolved = self._collect_unresolved_cross_dm_prefixes(data_models)
+                unresolved = self._collect_unresolved_cross_dm_prefixes(all_data_models)
                 pending = []
                 for prefix in unresolved:
                     if prefix in already_discovered:
@@ -1295,11 +1337,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if dm is None:
                         self.reporter.data_model_external_reference_unresolved += 1
                         continue
+                    # Orphan DMs are by definition outside the workspace-scoped
+                    # /v2/dataModels listing, so get_data_models' gating never
+                    # saw them. Apply the same gates here — otherwise users who
+                    # set ``ingest_shared_entities=False`` or a
+                    # ``data_model_pattern.deny`` would still see personal-space
+                    # DMs leak into DataHub through this path. Workspace pattern
+                    # is intentionally not applied because orphan DMs have
+                    # ``workspaceId = None`` by construction and no workspace
+                    # name to match against; they are gated by
+                    # ``ingest_shared_entities`` instead, matching how
+                    # ``get_data_models`` treats workspace-less listings.
+                    if not self.config.data_model_pattern.allowed(dm.name):
+                        self.reporter.data_models.dropped(
+                            f"{dm.name} ({dm.dataModelId}) (personal-space, filtered by data_model_pattern)"
+                        )
+                        continue
+                    if not self.config.ingest_shared_entities:
+                        self.reporter.data_models.dropped(
+                            f"{dm.name} ({dm.dataModelId}) (personal-space, ingest_shared_entities=False)"
+                        )
+                        continue
                     self.reporter.data_model_external_references_discovered += 1
-                    data_models.append(dm)
+                    all_data_models.append(dm)
                     pending.append(dm)
 
-            for data_model in data_models:
+            for data_model in all_data_models:
                 yield from self._gen_data_model_workunit(
                     data_model, elementId_maps_by_dm[data_model.dataModelId]
                 )

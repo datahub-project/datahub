@@ -1234,6 +1234,7 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
                 "config": {
                     "client_id": "CLIENTID",
                     "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
                     "chart_sources_platform_mapping": {
                         "Acryl Data/Acryl Workbook": {
                             "data_source_platform": "snowflake"
@@ -1282,6 +1283,7 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
                 "config": {
                     "client_id": "CLIENTID",
                     "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
                     "data_model_pattern": {"deny": ["My Data Model.*"]},
                     "chart_sources_platform_mapping": {
                         "Acryl Data/Acryl Workbook": {
@@ -1506,19 +1508,23 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
 
 
 def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:
+    # Every caller of this helper is a DM-focused test; set
+    # ``ingest_data_models: True`` here (the source default is False per the
+    # opt-in release behavior) so the tests don't have to repeat the flag.
+    # Callers that want to override it can still pass ingest_data_models=False
+    # via ``**extra``.
+    config: Dict[str, Any] = {
+        "client_id": "CLIENTID",
+        "client_secret": "CLIENTSECRET",
+        "chart_sources_platform_mapping": {
+            "Acryl Data/Acryl Workbook": {"data_source_platform": "snowflake"},
+        },
+        "ingest_data_models": True,
+    }
+    config.update(extra)
     return {
         "run_id": "sigma-test",
-        "source": {
-            "type": "sigma",
-            "config": {
-                "client_id": "CLIENTID",
-                "client_secret": "CLIENTSECRET",
-                "chart_sources_platform_mapping": {
-                    "Acryl Data/Acryl Workbook": {"data_source_platform": "snowflake"},
-                },
-                **extra,
-            },
-        },
+        "source": {"type": "sigma", "config": config},
         "sink": {"type": "file", "config": {"filename": output_path}},
     }
 
@@ -1527,11 +1533,19 @@ def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, 
 def test_sigma_ingest_data_models_external_dataset_not_ingested(
     pytestconfig, tmp_path, requests_mock
 ):
-    """Case 2 of ``_resolve_dm_element_external_upstream``: DM /lineage
-    records a ``type: dataset`` node whose ``inode-<urlId>`` does *not* match
-    any ingested SigmaDataset (e.g. filtered out). The resolver should
-    synthesize a Sigma Dataset URN from the suffix rather than dropping the
-    edge or falling through to None."""
+    """Previously-synthesized Sigma Dataset URN path is **not** taken anymore.
+
+    Previously, when DM /lineage recorded a ``type: dataset`` node whose
+    ``inode-<urlId>`` did not match any Sigma Dataset ingested in the same
+    run (filtered out by ``dataset_pattern`` / ``workspace_pattern`` /
+    ``ingest_shared_entities=False``), the resolver fabricated a Sigma
+    Dataset URN from the suffix. Code review flagged this as a source of
+    dangling nodes in the graph (the URN had no schema, no owners, no other
+    aspects). This test now pins the correct behavior: **no** upstream edge
+    is emitted for such references, and the ``data_model_element_upstreams_unresolved``
+    counter is bumped once so operators can still observe the drop in
+    ingestion telemetry.
+    """
 
     override_data = get_mock_data_model_api()
     # Replace the lineage so element 2 (``xloKCITNsP``) sources from an
@@ -1587,28 +1601,42 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
     with open(output_path) as f:
         mces = json.load(f)
 
-    # The xloKCITNsP element should carry a synthesized Sigma Dataset URN as
-    # its upstream — built from ``inode-unregDs000000001`` suffix.
-    expected_synth_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:sigma,unregDs000000001,PROD)"
-    )
+    # The xloKCITNsP element references inode-unregDs000000001, a dataset
+    # node that was not ingested this run. Previously the resolver fabricated
+    # a Sigma Dataset URN from the suffix; that behavior was removed to
+    # avoid emitting dangling graph nodes. No UpstreamLineage edge should
+    # point at the fabricated URN, and the unresolved counter should capture
+    # the drop.
+    phantom_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,unregDs000000001,PROD)"
     element2_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:sigma,"
         "147a4d09-a686-4eea-b183-9b82aa0f7beb.xloKCITNsP,PROD)"
     )
-    found_edge = False
     for mce in mces:
         if (
             mce.get("entityUrn") == element2_urn
             and mce.get("aspectName") == "upstreamLineage"
         ):
             aspect_json = mce.get("aspect", {}).get("json", mce.get("aspect", {}))
-            for up in aspect_json.get("upstreams", []):
-                if up.get("dataset") == expected_synth_urn:
-                    found_edge = True
-    assert found_edge, (
-        f"expected synthesized Sigma Dataset URN {expected_synth_urn} "
-        f"as upstream of {element2_urn}"
+            assert all(
+                up.get("dataset") != phantom_urn
+                for up in aspect_json.get("upstreams", [])
+            ), (
+                f"fabricated Sigma Dataset URN {phantom_urn} should no longer "
+                f"appear as upstream of {element2_urn}"
+            )
+
+    # The phantom URN must also not appear as the ``entityUrn`` of any
+    # emitted MCE — dangling entities are precisely what this fix prevents.
+    assert all(mce.get("entityUrn") != phantom_urn for mce in mces), (
+        f"no entity should be emitted for the un-ingested dataset {phantom_urn}"
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_upstreams_unresolved >= 1, (
+        f"expected the un-ingested dataset reference to bump the unresolved "
+        f"counter, got data_model_element_upstreams_unresolved="
+        f"{report.data_model_element_upstreams_unresolved}"
     )
 
 
@@ -2434,6 +2462,10 @@ def test_sigma_ingest_data_models_cross_dm_upstream(
     )
     assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 0
     assert report.data_model_element_cross_dm_upstreams_dm_unknown == 0
+    # Baseline case has one producer element named "Test Data" and one
+    # consumer element; name-bridge must not trip the ambiguous branch.
+    assert report.data_model_element_cross_dm_upstreams_ambiguous == 0
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
 
     import json
 
@@ -2495,7 +2527,7 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
     unambiguously.
 
     Assertions:
-    1. Producer Container emitted with isPersonalDataModel="true" and path.
+    1. Producer Container emitted with isPersonalDataModel="True" and path.
     2. Producer element Dataset emitted with SchemaMetadata + correct subtype.
     3. Consumer element Dataset has UpstreamLineage pointing at producer element.
     4. Reporter counters: discovered=1, unresolved=0, single_element_fallback=1,
@@ -2744,16 +2776,20 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
         mce
         for mce in mces
         if mce.get("aspectName") == "containerProperties"
-        and mce.get("aspect", {}).get("json", {}).get("customProperties", {}).get("dataModelId") == producer_dm_id
+        and mce.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+        .get("dataModelId")
+        == producer_dm_id
     ]
     assert len(container_props_mces) == 1, (
         f"expected 1 containerProperties for producer DM, got {len(container_props_mces)}"
     )
-    producer_container_custom_props = (
-        container_props_mces[0]["aspect"]["json"]["customProperties"]
-    )
-    assert producer_container_custom_props.get("isPersonalDataModel") == "true", (
-        f"producer Container should have isPersonalDataModel=true, got "
+    producer_container_custom_props = container_props_mces[0]["aspect"]["json"][
+        "customProperties"
+    ]
+    assert producer_container_custom_props.get("isPersonalDataModel") == "True", (
+        f"producer Container should have isPersonalDataModel='True', got "
         f"{producer_container_custom_props}"
     )
     assert producer_container_custom_props.get("path") == "My Documents", (
@@ -2789,6 +2825,37 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
         f"consumer element should have upstream {producer_element_urn}, got {upstream_urns}"
     )
 
+    # --- Assertion 4: producer element BrowsePathsV2 references the DM
+    # Container URN exactly once. Regression pin for the "duplicate DM
+    # Container in browse path" bug: when a DM has no workspace, the
+    # browse-path builder previously added the DM Container once as the
+    # parent fallback and a second time as the typed leaf, breaking
+    # breadcrumbs in the UI.
+    producer_browse_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == producer_element_urn
+        and mce.get("aspectName") == "browsePathsV2"
+    ]
+    assert len(producer_browse_mces) == 1, (
+        f"expected 1 browsePathsV2 aspect on producer element, got "
+        f"{len(producer_browse_mces)}"
+    )
+    browse_path_entries = (
+        producer_browse_mces[0]["aspect"]
+        .get("json", producer_browse_mces[0]["aspect"])
+        .get("path", [])
+    )
+    typed_container_urns = [
+        entry.get("urn")
+        for entry in browse_path_entries
+        if entry.get("urn") and "container" in entry.get("urn", "")
+    ]
+    assert len(typed_container_urns) == len(set(typed_container_urns)), (
+        f"producer element browse path should not repeat any Container URN, "
+        f"got {typed_container_urns}"
+    )
+
     # --- Assertion 5: producer Container has no workspace parent Container ---
     # The producer Container entity URN is derived from DataModelKey(producer_dm_id).
     # We verify no containerKey aspect on the producer Container references a
@@ -2798,7 +2865,11 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
             mce["entityUrn"]
             for mce in mces
             if mce.get("aspectName") == "containerProperties"
-            and mce.get("aspect", {}).get("json", {}).get("customProperties", {}).get("dataModelId") == producer_dm_id
+            and mce.get("aspect", {})
+            .get("json", {})
+            .get("customProperties", {})
+            .get("dataModelId")
+            == producer_dm_id
         ),
         None,
     )
@@ -3023,12 +3094,465 @@ def test_sigma_ingest_data_models_orphan_dm_unreachable(
 
     # --- Assertion 4: no producer Container / Dataset URNs in the stream ---
     producer_prefix = producer_dm_id
-    producer_mces = [
-        mce
-        for mce in mces
-        if producer_prefix in mce.get("entityUrn", "")
-    ]
+    producer_mces = [mce for mce in mces if producer_prefix in mce.get("entityUrn", "")]
     assert len(producer_mces) == 0, (
         f"no producer entities should be emitted when DM is 403, "
         f"got {len(producer_mces)}"
     )
+
+
+def _orphan_dm_mock_fixture() -> Dict[str, Dict[str, Any]]:
+    """Build the orphan-DM discovery mock fixture: one workspace-listed
+    consumer DM that references an element in a personal-space producer DM
+    reachable by urlId. Returned as an ``override_data`` dict so callers can
+    add/override entries before passing it to ``register_mock_api``.
+
+    Used by the orphan-DM discovery tests to exercise the filter-bypass
+    regressions (``ingest_shared_entities`` / ``data_model_pattern``).
+    """
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
+    consumer_element_id = "1DYf5I08WO"
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    producer_element_id = "wcUd3nEUAv"
+    cross_dm_suffix = "vACRd1GzJS"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+
+    return {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "description": "Consumer DM",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "type": "data-model",
+                        "dataModelId": producer_dm_id,
+                        "name": "data.csv",
+                        "connectionId": "1aff342f-6157-4589-ab9b-947c16b0bd7e",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [f"{producer_dm_url_id}/{cross_dm_suffix}"],
+                        "dataSourceIds": [f"{producer_dm_url_id}/{cross_dm_suffix}"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_url_id}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dataModelId": producer_dm_id,
+                "dataModelUrlId": producer_dm_url_id,
+                "name": "My Personal DM",
+                "url": f"https://app.sigmacomputing.com/acryldata/data-model/{producer_dm_url_id}",
+                "path": "My Documents",
+                "latestVersion": 2,
+                "ownerId": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdAt": "2026-04-16T18:57:31.928Z",
+                "updatedAt": "2026-04-16T19:02:22.085Z",
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": producer_element_id,
+                        "name": "data.csv",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_default_off(pytestconfig, tmp_path, requests_mock):
+    """Regression pin for the default value of ``ingest_data_models``.
+
+    The default is ``False`` (opt-in) per the release classification. This
+    test instantiates the source with **no** explicit ``ingest_data_models``
+    flag, runs against a full fixture that includes DM mocks, and asserts
+    that neither the DM listing nor any per-DM endpoint is hit. If the
+    default ever flips back to ``True``, this test fails fast so the change
+    is intentional and gets a Breaking-Changes release note.
+    """
+    import json
+
+    # Use the DM-enabled baseline fixture so an accidental flip to ``True``
+    # would actually make requests.
+    override_data = get_mock_data_model_api()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_default_off_mces.json"
+    # Construct the config without the helper (the helper injects
+    # ``ingest_data_models: True`` — this test specifically exercises the
+    # unset / default path).
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    dm_endpoint_hits = [
+        req
+        for req in requests_mock.request_history
+        if "/v2/dataModels" in req.url or "typeFilters=data-model" in req.url
+    ]
+    assert dm_endpoint_hits == [], (
+        f"expected ingest_data_models default=False to short-circuit DM fetch, "
+        f"but got {len(dm_endpoint_hits)} requests: "
+        f"{[r.url for r in dm_endpoint_hits]}"
+    )
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    # No DM-Container or DM-element URNs should appear in the output.
+    assert not any(
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
+        for mce in mces
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_orphan_dm_blocked_by_ingest_shared_entities(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for the orphan-DM filter-bypass review finding.
+
+    Personal-space DMs (``workspaceId=None``) live outside the workspace
+    listing and used to be ingested unconditionally by the discovery loop —
+    even when ``ingest_shared_entities=False`` (which is the default). This
+    test asserts that with ``ingest_shared_entities=False`` the discovered
+    orphan DM is dropped before any entity emission, its Container /
+    Datasets never appear, and the cross-DM lineage edge degrades to
+    ``data_model_element_cross_dm_upstreams_dm_unknown`` (the producer
+    bridge was never registered).
+    """
+    import json
+
+    override_data = _orphan_dm_mock_fixture()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_orphan_filter_shared_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=False)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # Orphan was fetched (we observed the prefix) but then dropped by filter;
+    # discovered counter must NOT increment (matches get_data_models' gating
+    # behavior, which bumps ``dropped`` instead).
+    assert report.data_model_external_references_discovered == 0, (
+        f"expected 0 orphan DMs discovered with ingest_shared_entities=False, "
+        f"got {report.data_model_external_references_discovered}"
+    )
+    # And the cross-DM edge should surface as "DM unknown" — the producer
+    # bridge was never registered, so no name match is possible.
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 1, (
+        f"expected 1 dm_unknown (filter-gated producer), got "
+        f"{report.data_model_element_cross_dm_upstreams_dm_unknown}"
+    )
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_entities = [
+        mce for mce in mces if producer_dm_id in mce.get("entityUrn", "")
+    ]
+    assert producer_entities == [], (
+        f"no producer (orphan) entities should be emitted when filtered out, "
+        f"got {len(producer_entities)}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_orphan_dm_blocked_by_data_model_pattern(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for the orphan-DM filter-bypass review finding (part 2).
+
+    With ``ingest_shared_entities=True`` and ``data_model_pattern.deny``
+    matching the personal-space DM's name, the discovered orphan DM must
+    be dropped before any entity emission. Before the gate fix, the DM
+    would slip through since discovery bypassed all filters.
+    """
+    import json
+
+    override_data = _orphan_dm_mock_fixture()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_orphan_filter_pattern_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_shared_entities=True,
+            data_model_pattern={"deny": ["My Personal.*"]},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_external_references_discovered == 0, (
+        f"expected 0 orphan DMs discovered when name is denied by "
+        f"data_model_pattern, got {report.data_model_external_references_discovered}"
+    )
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 1
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_entities = [
+        mce for mce in mces if producer_dm_id in mce.get("entityUrn", "")
+    ]
+    assert producer_entities == [], (
+        f"no producer entities should be emitted when filtered by pattern, "
+        f"got {len(producer_entities)}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_elements_http_error(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Partial-failure regression: ``/dataModels/{id}/elements`` returning 500
+    leaves the rest of the run healthy. The DM Container should still be
+    emitted with zero elements, and the pipeline must not raise.
+    """
+    import json
+
+    override_data = get_mock_data_model_api()
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/elements"
+    ] = {"method": "GET", "status_code": 500, "json": {}}
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_elements_5xx_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    # Must not raise — _paginated_entries swallows and returns [].
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    dm_id = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
+    # The DM Container should still be emitted.
+    container_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityType") == "container"
+        and mce.get("aspectName") == "containerProperties"
+        and mce.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+        .get("dataModelId")
+        == dm_id
+    ]
+    assert len(container_mces) == 1, (
+        f"DM Container should still be emitted on /elements 5xx, got "
+        f"{len(container_mces)}"
+    )
+    # No element Dataset URNs should have been emitted (elements list is empty).
+    element_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityType") == "dataset"
+        and f"{dm_id}." in mce.get("entityUrn", "")
+    ]
+    assert element_mces == [], (
+        f"no DM-element Datasets should be emitted on /elements 5xx, "
+        f"got {len(element_mces)}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_self_reference_guarded(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A ``sourceId`` of shape ``<selfUrlId>/<suffix>`` — i.e. a DM element
+    that references its own DM by urlId prefix — is defensively treated as
+    unresolved rather than resolving to the same DM. This shape is not
+    expected from the real API but the guard at
+    ``_resolve_dm_element_cross_dm_upstream`` exists to protect against a
+    malformed response. Pin the behavior here so the guard cannot be
+    silently removed.
+    """
+    self_dm_id = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
+    self_dm_url_id = "CDJLIyOhUoKBSEVI8Wr4n"
+    self_element_id = "0ui59vLc38"
+
+    override_data = get_mock_data_model_api()
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{self_dm_id}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "type": "element",
+                    "elementId": self_element_id,
+                    "sourceIds": [f"{self_dm_url_id}/fakeSelfSuffix"],
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_self_reference_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # Self-reference must not resolve as a cross-DM upstream.
+    assert report.data_model_element_cross_dm_upstreams_resolved == 0
+    # And must bump the standard unresolved counter (neither intra nor
+    # external nor valid cross-DM).
+    assert report.data_model_element_upstreams_unresolved >= 1

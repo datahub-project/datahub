@@ -375,6 +375,18 @@ class SigmaAPI:
                 )
                 return
             try:
+                # Name source: API-reported name on the DM-side node
+                # (``source_node[Constant.NAME]``). This is the DM element
+                # name as Sigma tracked it at the time of the workbook
+                # reference. The edge-only synthesis path below (line ~530)
+                # uses the *workbook* element's own name instead — the two
+                # diverge iff the workbook element was renamed after the
+                # DM element was linked. If Sigma switches a reference
+                # between the two API shapes at runtime (both observed on
+                # live tenants), a rename will silently degrade on only one
+                # of the two paths for the same underlying edge. Treat this
+                # as a known limitation — surface the failure via the
+                # ``element_dm_edge_name_unmatched_but_dm_known`` counter.
                 upstream_sources[source_node_id] = DataModelElementUpstream(
                     name=source_node.get(Constant.NAME),
                     data_model_url_id=dm_url_id,
@@ -528,6 +540,15 @@ class SigmaAPI:
                         dm_url_id, _, suffix = source_node_id.partition("/")
                         if dm_url_id and suffix:
                             try:
+                                # Name source divergence with the
+                                # dependencies-branch resolver above: that
+                                # path uses the API-reported ``source_node.name``
+                                # (DM-side name); this path uses the consuming
+                                # workbook element's own ``element.name``
+                                # because the edge carries no DM-side name.
+                                # Diverges iff the workbook element was renamed
+                                # after the DM link — a known limitation
+                                # documented in the resolver docstring.
                                 upstream_sources[source_node_id] = (
                                     DataModelElementUpstream(
                                         name=element.name,
@@ -771,7 +792,9 @@ class SigmaAPI:
                 # Columns without an elementId are unusual but possible (e.g.
                 # on DM-global calculations). Skip — we have no element to
                 # attach them to, and dropping them is safer than producing a
-                # phantom orphan.
+                # phantom orphan. Count dropped so "missing field" triage can
+                # distinguish this path from "column never existed upstream".
+                self.report.data_model_columns_without_element_dropped += 1
                 continue
             columns_by_element.setdefault(column.elementId, []).append(column)
 
@@ -866,8 +889,15 @@ class SigmaAPI:
 
                     file_meta = data_model_files_metadata.get(data_model.dataModelId)
 
-                    # Skip DMs whose name is filtered out by config first —
-                    # avoid fetching elements/columns/lineage for filtered DMs.
+                    # Intentional ordering: ``data_model_pattern`` first, then
+                    # workspace. ``get_sigma_workbooks`` / ``get_sigma_datasets``
+                    # evaluate workspace first because their payloads already
+                    # carry everything needed to emit; DM entries require three
+                    # additional round trips (/elements, /columns, /lineage)
+                    # per entry, and short-circuiting on the cheap name regex
+                    # avoids them entirely for filtered DMs. If this ever gets
+                    # "consistency-fixed" to workspace-first, performance
+                    # regresses sharply on tenants with many filtered DMs.
                     if not self.config.data_model_pattern.allowed(data_model.name):
                         self.report.data_models.dropped(
                             f"{data_model.name} ({data_model.dataModelId})"
