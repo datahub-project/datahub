@@ -1991,7 +1991,13 @@ def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
     )
 
     report = _sigma_report(pipeline)
-    assert report.element_dm_edge_ambiguous >= 1
+    # One ambiguous chart→DM edge ⇒ counter bumps exactly once. The
+    # diamond-pattern test
+    # (``test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamond``)
+    # pins the no-over-count behavior for repeated sourceIds.
+    assert report.element_dm_edge_ambiguous == 1, (
+        f"expected element_dm_edge_ambiguous=1, got {report.element_dm_edge_ambiguous}"
+    )
 
 
 @pytest.mark.integration
@@ -3870,3 +3876,193 @@ def test_sigma_ingest_data_models_cross_dm_consumer_blank_name(
     )
     assert report.data_model_element_cross_dm_upstreams_resolved == 0
     assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_columns_http_error(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Partial-failure regression: ``/dataModels/{id}/columns`` returning 500
+    leaves the rest of the run healthy. The DM Container and element
+    Datasets are still emitted; element ``SchemaMetadata`` is simply empty
+    (no columns). The pipeline must not raise.
+
+    Parallel to the ``/elements 500`` and ``/lineage 500`` coverage —
+    confirms the third DM-sub-endpoint failure shape is handled via the
+    same ``_paginated_entries`` swallow path rather than crashing the run.
+    """
+    import json
+
+    override_data = get_mock_data_model_api()
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/columns"
+    ] = {"method": "GET", "status_code": 500, "json": {}}
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_columns_5xx_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    dm_id = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
+    container_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityType") == "container"
+        and mce.get("aspectName") == "containerProperties"
+        and mce.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+        .get("dataModelId")
+        == dm_id
+    ]
+    assert len(container_mces) == 1, (
+        f"DM Container should still be emitted on /columns 5xx, got "
+        f"{len(container_mces)}"
+    )
+    element_datasets = [
+        mce
+        for mce in mces
+        if mce.get("entityType") == "dataset"
+        and f"{dm_id}." in mce.get("entityUrn", "")
+        and mce.get("aspectName") == "datasetProperties"
+    ]
+    assert len(element_datasets) >= 1, (
+        "DM-element Datasets should still be emitted even when /columns fails"
+    )
+    # SchemaMetadata aspects should have empty fields because columns
+    # endpoint returned [] — pin the degraded-but-healthy shape.
+    schema_metas = [
+        mce
+        for mce in mces
+        if mce.get("entityType") == "dataset"
+        and f"{dm_id}." in mce.get("entityUrn", "")
+        and mce.get("aspectName") == "schemaMetadata"
+    ]
+    for sm in schema_metas:
+        aspect = sm.get("aspect", {}).get("json", sm.get("aspect", {}))
+        assert aspect.get("fields", []) == [], (
+            f"schemaMetadata should have no fields on /columns 5xx, "
+            f"got {aspect.get('fields')} on {sm.get('entityUrn')}"
+        )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamond(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Diamond-pattern ambiguity: a single workbook chart references an
+    ambiguous-named DM element via **multiple** ``data-model`` lineage
+    nodes (same DM, same name, different opaque suffixes). All nodes
+    resolve to the same DM element URN, so only the first becomes a
+    ``ChartInfo.inputs`` entry and the rest hit the dedupe branch.
+
+    Regression pin for M3 fix: ``element_dm_edge_ambiguous`` should bump
+    **once** (the ambiguity is a DM-side property — one ambiguous DM
+    element reached from one chart), not once per sourceId — otherwise
+    report triage over-counts and the ambiguity-warning log spams.
+    """
+    import json
+
+    override_data = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
+
+    # Two DM elements share the ambiguous name "random data model".
+    # dmRefElem02 reaches *both* via 3 diamond-pattern data-model nodes —
+    # all 3 resolve to the sorted-smallest elementId (``0ui59vLc38``).
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem02"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "dependencies": {
+                "tgt_dmref_02": {
+                    "nodeId": "tgt_dmref_02",
+                    "elementId": "dmRefElem02",
+                    "name": "Uses random model",
+                    "type": "sheet",
+                },
+                "CDJLIyOhUoKBSEVI8Wr4n/diamond_a": {
+                    "nodeId": "CDJLIyOhUoKBSEVI8Wr4n/diamond_a",
+                    "type": "data-model",
+                    "name": "random data model",
+                },
+                "CDJLIyOhUoKBSEVI8Wr4n/diamond_b": {
+                    "nodeId": "CDJLIyOhUoKBSEVI8Wr4n/diamond_b",
+                    "type": "data-model",
+                    "name": "random data model",
+                },
+                "CDJLIyOhUoKBSEVI8Wr4n/diamond_c": {
+                    "nodeId": "CDJLIyOhUoKBSEVI8Wr4n/diamond_c",
+                    "type": "data-model",
+                    "name": "random data model",
+                },
+            },
+            "edges": [
+                {
+                    "source": "CDJLIyOhUoKBSEVI8Wr4n/diamond_a",
+                    "target": "tgt_dmref_02",
+                    "type": "source",
+                },
+                {
+                    "source": "CDJLIyOhUoKBSEVI8Wr4n/diamond_b",
+                    "target": "tgt_dmref_02",
+                    "type": "source",
+                },
+                {
+                    "source": "CDJLIyOhUoKBSEVI8Wr4n/diamond_c",
+                    "target": "tgt_dmref_02",
+                    "type": "source",
+                },
+            ],
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_diamond_ambig_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # One chart→DM-element edge should land (the dedupe collapses the
+    # 3 diamond sourceIds into 1 ChartInfo.inputs entry).
+    dm_uuid = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
+    expected_resolved_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_uuid}.0ui59vLc38,PROD)"
+    )
+    chart_info = next(
+        mce
+        for mce in mces
+        if mce.get("entityUrn", "").endswith("dmRefElem02)")
+        and mce.get("aspectName") == "chartInfo"
+    )
+    aspect_json = chart_info.get("aspect", {}).get("json", chart_info.get("aspect", {}))
+    resolved_urns = [inp.get("string", "") for inp in aspect_json.get("inputs", [])]
+    # Exactly one occurrence of the resolved DM URN — no diamond duplication.
+    assert resolved_urns.count(expected_resolved_urn) == 1, (
+        f"expected exactly 1 inputs entry for ambiguous DM element, got "
+        f"{resolved_urns.count(expected_resolved_urn)}"
+    )
+
+    report = _sigma_report(pipeline)
+    # Ambiguity is a property of the DM element (not per-sourceId), so
+    # the counter must bump exactly once for this chart→DM edge.
+    assert report.element_dm_edge_ambiguous == 1, (
+        f"expected element_dm_edge_ambiguous=1 (per-unique-chart→DM-edge), "
+        f"got {report.element_dm_edge_ambiguous}"
+    )
+    # The other two diamond paths are dedupe hits.
+    assert report.element_dm_edges_deduped >= 2, (
+        f"expected ≥2 element_dm_edges_deduped hits on a 3-way diamond, "
+        f"got {report.element_dm_edges_deduped}"
+    )
+    assert report.element_dm_edges_resolved == 1
