@@ -447,10 +447,23 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+        # Resolve display name: API name > UUID fallback
+        display_label = org_id
+        if self.bdp_client:
+            try:
+                org = self.bdp_client.get_organization()
+                if org and org.name:
+                    display_label = org.name
+            except Exception as e:
+                logger.warning(
+                    f"Failed to resolve organization name for {org_id}, "
+                    f"falling back to organization ID: {e}"
+                )
+
         # Use gen_containers to emit all container aspects properly
         yield from gen_containers(
             container_key=org_key,
-            name=f"Snowplow Organization ({org_id})",
+            name=f"Snowplow Organization ({display_label})",
             sub_types=[DatasetContainerSubTypes.DATABASE],
             description="Snowplow BDP organization containing event and entity schemas",
             extra_properties={
