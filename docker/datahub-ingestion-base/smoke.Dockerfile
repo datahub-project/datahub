@@ -1,4 +1,4 @@
-FROM acryldata/datahub-ingestion-base as base
+FROM acryldata/datahub-ingestion:head-slim AS base
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     sudo \
@@ -7,10 +7,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libgtk-3-0 \
     libgbm-dev \
     libnotify-dev \
-    libgconf-2-4 \
     libnss3 \
     libxss1 \
-    libasound2 \
+    libasound2t64 \
     libxtst6 \
     xauth \
     xvfb \
