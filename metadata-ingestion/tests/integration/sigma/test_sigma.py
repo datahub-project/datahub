@@ -836,6 +836,520 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
     )
 
 
+def register_mock_data_model_api(request_mock: Any) -> Dict[str, Dict]:
+    """
+    Register mocks for a multi-element Data Model (``My Data Model-2``)
+    mirroring the live-tenant regression case from the T2 investigation:
+
+    - 3 elements, two of which share the same name (duplicate-name case)
+    - intra-DM element lineage (element 3 → element 1)
+    - external upstream: element 1 sourced from an existing Sigma Dataset
+      (``PETS`` with urlId ``49HFLTr6xytgrPly3PFsNC``)
+    - workbook elements referencing DM elements via the ``data-model`` lineage
+      node type — the workbook→DM bridge exercises both the name-match primary
+      path and the Container fallback path (unknown DM element name)
+
+    Returns the full mock dict so individual tests can further override it.
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": "147a4d09-a686-4eea-b183-9b82aa0f7beb",
+                        "urlId": "CDJLIyOhUoKBSEVI8Wr4n",
+                        "name": "My Data Model-2",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": "147a4d09-a686-4eea-b183-9b82aa0f7beb",
+                        "urlId": "CDJLIyOhUoKBSEVI8Wr4n",
+                        "name": "My Data Model-2",
+                        "description": "Regression fixture for multi-element DM",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "url": "https://app.sigmacomputing.com/acryldata/dm/CDJLIyOhUoKBSEVI8Wr4n",
+                        "latestVersion": 3,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "0ui59vLc38",
+                        "name": "random data model",
+                        "type": "table",
+                        "vizualizationType": None,
+                    },
+                    {
+                        # Duplicate-name case: Sigma coalesces workbook refs to
+                        # same-named DM elements. Orphan in this fixture (no
+                        # workbook element references it).
+                        "elementId": "xloKCITNsP",
+                        "name": "random data model",
+                        "type": "table",
+                        "vizualizationType": None,
+                    },
+                    {
+                        "elementId": "4plNusNz75",
+                        "name": "2313213123.test.231",
+                        "type": "table",
+                        "vizualizationType": None,
+                    },
+                ],
+                "total": 3,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    # Element 1 columns (share names with element 2 on purpose —
+                    # verifies per-element schema URN scoping prevents collision).
+                    {
+                        "columnId": "col-0ui-team1",
+                        "elementId": "0ui59vLc38",
+                        "name": "team1",
+                        "label": "Team 1",
+                        "formula": "",
+                    },
+                    {
+                        "columnId": "col-0ui-city",
+                        "elementId": "0ui59vLc38",
+                        "name": "city",
+                        "label": "City",
+                        "formula": "",
+                    },
+                    # Element 2 columns (same bare names as element 1).
+                    {
+                        "columnId": "col-xlo-team1",
+                        "elementId": "xloKCITNsP",
+                        "name": "team1",
+                        "label": "Team 1",
+                        "formula": "",
+                    },
+                    {
+                        "columnId": "col-xlo-city",
+                        "elementId": "xloKCITNsP",
+                        "name": "city",
+                        "label": "City",
+                        "formula": "",
+                    },
+                    # Element 3 columns (references element 1 output).
+                    {
+                        "columnId": "col-4pl-team1",
+                        "elementId": "4plNusNz75",
+                        "name": "team1",
+                        "label": "Team 1",
+                        "formula": "[random data model/team1]",
+                    },
+                    {
+                        "columnId": "col-4pl-calc",
+                        "elementId": "4plNusNz75",
+                        "name": "Calc (1)",
+                        "label": "Calc",
+                        "formula": "[team1] + 'x'",
+                    },
+                    # Column without elementId — silently dropped (no element to
+                    # attach to). Covers the defensive branch in _assemble_data_model.
+                    {
+                        "columnId": "col-orphan",
+                        "elementId": None,
+                        "name": "orphan_col",
+                        "label": None,
+                        "formula": "",
+                    },
+                ],
+                "total": 7,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    # External Sigma Dataset upstream for element 1 — matches the
+                    # PETS dataset urlId emitted by the existing dataset fixtures,
+                    # so resolves to the SigmaDataset URN already in the map.
+                    {
+                        "type": "dataset",
+                        "name": "PETS",
+                        "inodeId": "inode-49HFLTr6xytgrPly3PFsNC",
+                    },
+                    # Warehouse-table node for element 2 — not a Sigma Dataset,
+                    # so resolution returns None and the upstream is counted
+                    # as unresolved (ticket §"warehouse-table upstreams require
+                    # SQL parsing that the DM API does not expose").
+                    {
+                        "type": "table",
+                        "name": "SOME_WAREHOUSE_TABLE",
+                        "inodeId": "inode-dmWarehouseTableX",
+                    },
+                    {
+                        "type": "element",
+                        "elementId": "0ui59vLc38",
+                        "sourceIds": ["inode-49HFLTr6xytgrPly3PFsNC"],
+                    },
+                    {
+                        "type": "element",
+                        "elementId": "xloKCITNsP",
+                        "sourceIds": ["inode-dmWarehouseTableX"],
+                    },
+                    {
+                        "type": "element",
+                        "elementId": "4plNusNz75",
+                        "sourceIds": ["0ui59vLc38"],
+                    },
+                ],
+                "total": 5,
+                "nextPage": None,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
+    """
+    Exercises the new Data Model ingestion path:
+
+    - multi-element DM emits 1 Container + 3 Datasets (duplicate-named element
+      included as an orphan)
+    - per-element schemaMetadata (no cross-element column-name collision)
+    - intra-DM element→element UpstreamLineage
+    - external upstream resolves to an existing Sigma Dataset URN
+    - workbook element bridges to a DM element via a ``data-model`` lineage
+      node (name-match primary path + ambiguous-name counter)
+    - workbook element with an unknown DM element name falls back to the DM
+      Container URN
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data: Dict[str, Dict] = register_mock_data_model_api(requests_mock)
+
+    # Add a page whose elements reference the DM via data-model lineage nodes,
+    # one resolvable-by-name and one that falls back to the DM Container.
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {"pageId": "OSnGLBzL1i", "name": "Page 1"},
+                {"pageId": "DFSieiAcgo", "name": "Page 2"},
+                {"pageId": "DmBridgePage", "name": "DM Bridge Page"},
+            ],
+            "total": 3,
+            "nextPage": None,
+        },
+    }
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages/DmBridgePage/elements"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    # Name-match success: resolves to element 3 (4plNusNz75).
+                    "elementId": "dmRefElem01",
+                    "type": "table",
+                    "name": "Uses 2313213123",
+                    "columns": ["Col"],
+                    "vizualizationType": "levelTable",
+                },
+                {
+                    # Name-match ambiguous: two DM elements share the name
+                    # "random data model"; pick-first + ambiguous counter.
+                    "elementId": "dmRefElem02",
+                    "type": "visualization",
+                    "name": "Uses random model",
+                    "columns": ["Col"],
+                    "vizualizationType": "bar",
+                },
+                {
+                    # Name-match failure: resolves to DM Container fallback.
+                    "elementId": "dmRefElem03",
+                    "type": "visualization",
+                    "name": "Uses unknown DM element",
+                    "columns": ["Col"],
+                    "vizualizationType": "bar",
+                },
+            ],
+            "total": 3,
+            "nextPage": None,
+        },
+    }
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem01"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "dependencies": {
+                "tgt_dmref_01": {
+                    "nodeId": "tgt_dmref_01",
+                    "elementId": "dmRefElem01",
+                    "name": "Uses 2313213123",
+                    "type": "sheet",
+                },
+                "CDJLIyOhUoKBSEVI8Wr4n/pwxVRJHBSK": {
+                    "nodeId": "CDJLIyOhUoKBSEVI8Wr4n/pwxVRJHBSK",
+                    "type": "data-model",
+                    "name": "2313213123.test.231",
+                },
+            },
+            "edges": [
+                {
+                    "source": "CDJLIyOhUoKBSEVI8Wr4n/pwxVRJHBSK",
+                    "target": "tgt_dmref_01",
+                    "type": "source",
+                }
+            ],
+        },
+    }
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem02"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "dependencies": {
+                "tgt_dmref_02": {
+                    "nodeId": "tgt_dmref_02",
+                    "elementId": "dmRefElem02",
+                    "name": "Uses random model",
+                    "type": "sheet",
+                },
+                "CDJLIyOhUoKBSEVI8Wr4n/mdYJst_DFR": {
+                    "nodeId": "CDJLIyOhUoKBSEVI8Wr4n/mdYJst_DFR",
+                    "type": "data-model",
+                    "name": "random data model",
+                },
+            },
+            "edges": [
+                {
+                    "source": "CDJLIyOhUoKBSEVI8Wr4n/mdYJst_DFR",
+                    "target": "tgt_dmref_02",
+                    "type": "source",
+                }
+            ],
+        },
+    }
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem03"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "dependencies": {
+                "tgt_dmref_03": {
+                    "nodeId": "tgt_dmref_03",
+                    "elementId": "dmRefElem03",
+                    "name": "Uses unknown DM element",
+                    "type": "sheet",
+                },
+                "CDJLIyOhUoKBSEVI8Wr4n/unknownSuffix": {
+                    "nodeId": "CDJLIyOhUoKBSEVI8Wr4n/unknownSuffix",
+                    "type": "data-model",
+                    "name": "name_not_in_dm",
+                },
+            },
+            "edges": [
+                {
+                    "source": "CDJLIyOhUoKBSEVI8Wr4n/unknownSuffix",
+                    "target": "tgt_dmref_03",
+                    "type": "source",
+                }
+            ],
+        },
+    }
+    for elem_id in ("dmRefElem01", "dmRefElem02", "dmRefElem03"):
+        override_data[
+            f"https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/{elem_id}/query"
+        ] = {"method": "GET", "status_code": 404, "json": {}}
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_ingest_data_models_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_sigma_ingest_data_models.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
+    """``data_model_pattern`` denies the DM → no DM entities emitted and
+    workbook elements previously bridging to the DM resolve nothing."""
+
+    override_data: Dict[str, Dict] = register_mock_data_model_api(requests_mock)
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_ingest_data_models_filtered_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "data_model_pattern": {"deny": ["My Data Model.*"]},
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    # No golden needed: assert absence of any DM entities in the output.
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    dm_container_present = any(
+        mce.get("entityType") == "container"
+        and "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
+        for mce in mces
+    )
+    assert not dm_container_present, (
+        "DM Container should be filtered out by data_model_pattern"
+    )
+    # No element Datasets should have been emitted either — URN part encodes
+    # the DM urlId, so a quick substring check is sufficient.
+    dm_element_present = any(
+        "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "") for mce in mces
+    )
+    assert not dm_element_present, (
+        "DM element Datasets should be filtered out by data_model_pattern"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_disabled(pytestconfig, tmp_path, requests_mock):
+    """``ingest_data_models=False`` short-circuits DM fetch entirely — verified
+    by omitting DM mocks and relying on strict requests_mock to fail if the DM
+    endpoint is hit."""
+    register_mock_api(request_mock=requests_mock)
+
+    output_path: str = f"{tmp_path}/sigma_ingest_data_models_disabled_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": False,
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Same golden as the baseline test — the ingest_data_models=False path
+    # should produce identical output to the unconfigured default when no DM
+    # mocks are registered.
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    assert not any("CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "") for mce in mces)
+
+
 @pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"

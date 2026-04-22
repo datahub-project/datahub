@@ -7,6 +7,16 @@ This source extracts the following:
 - Workspaces and workbooks within that workspaces as Container.
 - Sigma Datasets as Datahub Datasets.
 - Pages as Datahub dashboards and elements present inside pages as charts.
+- Sigma Data Models as Datahub Containers, with each Data Model element
+  emitted as a Datahub Dataset inside that Container. Intra-Data-Model
+  lineage (element→element) and external upstreams (warehouse tables /
+  Sigma Datasets) are wired via `UpstreamLineage` on each element Dataset.
+  Workbook chart elements that reference a Data Model element (via the
+  Sigma app's "use data model" action) resolve to the specific element
+  Dataset URN by name; if the DM element name cannot be resolved the edge
+  falls back to the Data Model Container URN. Set `ingest_data_models:
+  false` to skip Data Model ingestion, and use `data_model_pattern` to
+  allow/deny individual Data Models by name.
 
 ### Prerequisites
 

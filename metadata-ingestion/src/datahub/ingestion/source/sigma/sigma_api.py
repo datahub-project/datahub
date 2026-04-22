@@ -15,12 +15,16 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DataModelElementUpstream,
     DatasetUpstream,
     Element,
     ElementUpstream,
     File,
     Page,
     SheetUpstream,
+    SigmaDataModel,
+    SigmaDataModelColumn,
+    SigmaDataModelElement,
     SigmaDataset,
     Workbook,
     Workspace,
@@ -340,6 +344,28 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
+        elif source_type == "data-model":
+            # DM element referenced from a workbook element. The node id has
+            # shape "<dataModelUrlId>/<opaque_suffix>"; the suffix is not
+            # resolvable via any public endpoint (2026-04-21 probe), so we
+            # carry the dataModelUrlId (prefix) and the DM element ``name``
+            # for name-based matching at emit time.
+            dm_url_id = (
+                source_node_id.split("/")[0]
+                if "/" in source_node_id
+                else source_node_id
+            )
+            try:
+                upstream_sources[source_node_id] = DataModelElementUpstream(
+                    name=source_node.get(Constant.NAME),
+                    data_model_url_id=dm_url_id,
+                )
+            except ValidationError as e:
+                self.report.warning(
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
+                )
         elif source_type == "join":
             # Pass-through node: enqueue for continued BFS traversal.
             queue.append(source_node_id)
@@ -569,6 +595,211 @@ class SigmaAPI:
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
+            )
+            return []
+
+    def _get_data_model_elements(
+        self, data_model_id: str
+    ) -> List[SigmaDataModelElement]:
+        logger.debug(f"Fetching elements for data model '{data_model_id}'.")
+        base_url = url = f"{self.config.api_url}/dataModels/{data_model_id}/elements"
+        try:
+            elements: List[SigmaDataModelElement] = []
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for element_dict in response_dict.get(Constant.ENTRIES, []):
+                    elements.append(SigmaDataModelElement.model_validate(element_dict))
+                if response_dict.get(Constant.NEXTPAGE):
+                    url = f"{base_url}?page={response_dict[Constant.NEXTPAGE]}"
+                else:
+                    break
+            return elements
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch elements for data model '{data_model_id}'. Exception: {e}"
+            )
+            return []
+
+    def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
+        logger.debug(f"Fetching columns for data model '{data_model_id}'.")
+        base_url = url = f"{self.config.api_url}/dataModels/{data_model_id}/columns"
+        try:
+            columns: List[SigmaDataModelColumn] = []
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for col_dict in response_dict.get(Constant.ENTRIES, []):
+                    columns.append(SigmaDataModelColumn.model_validate(col_dict))
+                if response_dict.get(Constant.NEXTPAGE):
+                    url = f"{base_url}?page={response_dict[Constant.NEXTPAGE]}"
+                else:
+                    break
+            return columns
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch columns for data model '{data_model_id}'. Exception: {e}"
+            )
+            return []
+
+    def _get_data_model_lineage_entries(
+        self, data_model_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Returns the raw entries from the DM /lineage endpoint. Each entry has a
+        ``type`` field (``element``, ``dataset``, ``table``, ``join``...). For
+        ``element`` entries, ``sourceIds`` holds either another elementId in
+        the same DM (intra-DM lineage) or ``inode-<suffix>`` strings for
+        external upstreams (warehouse tables or Sigma Datasets).
+        """
+        logger.debug(f"Fetching lineage for data model '{data_model_id}'.")
+        url = f"{self.config.api_url}/dataModels/{data_model_id}/lineage"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code in (400, 403, 404, 500):
+                logger.debug(
+                    f"Lineage not available for data model '{data_model_id}' "
+                    f"(status {response.status_code})."
+                )
+                return []
+            response.raise_for_status()
+            response_dict = response.json()
+            entries = response_dict.get(Constant.ENTRIES, [])
+            return [entry for entry in entries if isinstance(entry, dict)]
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch lineage for data model '{data_model_id}'. Exception: {e}"
+            )
+            return []
+
+    def _assemble_data_model(
+        self, data_model: SigmaDataModel, file_meta: Optional[File]
+    ) -> None:
+        """Fetch and attach elements, per-element columns, and per-element sourceIds."""
+        if file_meta is not None:
+            data_model.workspaceId = file_meta.workspaceId
+            data_model.path = file_meta.path
+            data_model.badge = file_meta.badge
+            if file_meta.urlId and not data_model.urlId:
+                data_model.urlId = file_meta.urlId
+
+        elements = self._get_data_model_elements(data_model.dataModelId)
+        columns = self._get_data_model_columns(data_model.dataModelId)
+        lineage_entries = self._get_data_model_lineage_entries(data_model.dataModelId)
+
+        columns_by_element: Dict[str, List[SigmaDataModelColumn]] = {}
+        for column in columns:
+            if column.elementId is None:
+                # Columns without an elementId are unusual but possible (e.g.
+                # on DM-global calculations). Skip — we have no element to
+                # attach them to, and dropping them is safer than producing a
+                # phantom orphan.
+                continue
+            columns_by_element.setdefault(column.elementId, []).append(column)
+
+        source_ids_by_element: Dict[str, List[str]] = {}
+        external_sources: Dict[str, Dict[str, str]] = {}
+        for entry in lineage_entries:
+            entry_type = entry.get(Constant.TYPE)
+            if entry_type == "element":
+                element_id = entry.get(Constant.ELEMENTID)
+                source_ids = entry.get("sourceIds") or []
+                if element_id and isinstance(source_ids, list):
+                    source_ids_by_element[element_id] = [
+                        s for s in source_ids if isinstance(s, str)
+                    ]
+            elif entry_type in ("dataset", "table"):
+                inode_id = entry.get("inodeId") or entry.get("nodeId")
+                if inode_id:
+                    external_sources[inode_id] = {
+                        Constant.TYPE: entry_type,
+                        Constant.NAME: entry.get(Constant.NAME) or "",
+                    }
+
+        for element in elements:
+            element.columns = columns_by_element.get(element.elementId, [])
+            element.source_ids = source_ids_by_element.get(element.elementId, [])
+
+        data_model.elements = elements
+        data_model.external_sources = external_sources
+
+    def get_data_models(self) -> List[SigmaDataModel]:
+        logger.debug("Fetching all accessible data models metadata.")
+        base_url = url = f"{self.config.api_url}/dataModels"
+        data_model_files_metadata = self._get_files_metadata(
+            file_type=Constant.DATA_MODEL
+        )
+        try:
+            data_models: List[SigmaDataModel] = []
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for dm_dict in response_dict.get(Constant.ENTRIES, []):
+                    try:
+                        data_model = SigmaDataModel.model_validate(dm_dict)
+                    except ValidationError as e:
+                        self.report.warning(
+                            message="Failed to parse Sigma Data Model payload",
+                            context=f"entry={dm_dict!r}",
+                            exc=e,
+                        )
+                        continue
+
+                    file_meta = data_model_files_metadata.get(data_model.dataModelId)
+
+                    # Skip DMs whose name is filtered out by config first —
+                    # avoid fetching elements/columns/lineage for filtered DMs.
+                    if not self.config.data_model_pattern.allowed(data_model.name):
+                        self.report.data_models.dropped(
+                            f"{data_model.name} ({data_model.dataModelId})"
+                        )
+                        continue
+
+                    workspace = None
+                    candidate_workspace_id = (
+                        file_meta.workspaceId if file_meta else None
+                    )
+                    if candidate_workspace_id:
+                        workspace = self.get_workspace(candidate_workspace_id)
+
+                    if workspace:
+                        if self.config.workspace_pattern.allowed(workspace.name):
+                            self.report.data_models.processed(
+                                f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                            )
+                            self._assemble_data_model(data_model, file_meta)
+                            data_models.append(data_model)
+                        else:
+                            self.report.data_models.dropped(
+                                f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                            )
+                    elif self.config.ingest_shared_entities:
+                        self.report.data_models_without_workspace += 1
+                        self.report.data_models.processed(
+                            f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+                        )
+                        self._assemble_data_model(data_model, file_meta)
+                        data_models.append(data_model)
+                    else:
+                        self.report.data_models.dropped(
+                            f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
+                        )
+
+                next_page = response_dict.get(Constant.NEXTPAGE)
+                next_token = response_dict.get(Constant.NEXTPAGETOKEN)
+                if next_page:
+                    url = f"{base_url}?page={next_page}"
+                elif next_token:
+                    url = f"{base_url}?nextPageToken={next_token}"
+                else:
+                    break
+            return data_models
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch sigma data models. Exception: {e}"
             )
             return []
 

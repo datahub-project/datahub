@@ -15,6 +15,12 @@ class WorkbookKey(ContainerKey):
     workbookId: str
 
 
+class DataModelKey(ContainerKey):
+    # Use UUID (immutable across renames) rather than urlId for the container key.
+    # dataModelUrlId is still captured on the Container's customProperties.
+    dataModelId: str
+
+
 class Workspace(BaseModel):
     workspaceId: str
     name: str
@@ -62,10 +68,26 @@ class SheetUpstream(BaseModel):
     element_id: str
 
 
+class DataModelElementUpstream(BaseModel):
+    """
+    Upstream node representing a Sigma Data Model element referenced from a
+    workbook. Sigma's lineage API exposes these with a ``data-model`` type and
+    a nodeId of shape ``<dataModelUrlId>/<opaque_suffix>``. The opaque suffix
+    is not resolvable via any public endpoint (2026-04-21 probe), so bridging
+    to a specific DM element URN is done at emit time via the ``name`` field
+    (the DM element's own name, confirmed stable and carried on the node).
+    """
+
+    type: Literal["data-model"] = "data-model"
+    name: Optional[str] = None
+    data_model_url_id: str
+
+
 # "table" (warehouse) nodes are terminal in BFS — handled by the SQL-parse path.
 # "join" pass-through nodes are traversed by BFS but never stored as upstreams.
 ElementUpstream = Annotated[
-    Union[DatasetUpstream, SheetUpstream], Field(discriminator="type")
+    Union[DatasetUpstream, SheetUpstream, DataModelElementUpstream],
+    Field(discriminator="type"),
 ]
 
 
@@ -115,5 +137,73 @@ class File(BaseModel):
     parentId: str
     path: str
     type: str
+    urlId: Optional[str] = None
     badge: Optional[str] = None
     workspaceId: Optional[str] = None
+
+
+class SigmaDataModelColumn(BaseModel):
+    columnId: str
+    name: str
+    # elementId scopes this column to a specific DM element (DM columns
+    # endpoint returns all columns across all elements in one flat list).
+    elementId: Optional[str] = None
+    label: Optional[str] = None
+    formula: Optional[str] = None
+
+
+class SigmaDataModelElement(BaseModel):
+    """
+    A single element inside a Sigma Data Model. DM elements are all
+    transformation tables (no visualizations) — Sigma's /elements endpoint
+    returns them with the same shape as workbook elements.
+    """
+
+    elementId: str
+    name: str
+    type: Optional[str] = None
+    vizualizationType: Optional[str] = None
+    columns: List[SigmaDataModelColumn] = []
+    # sourceIds from /lineage, filtered to this element. Entries are either
+    # another elementId in the same DM (intra-DM lineage) or an
+    # ``inode-<suffix>`` string resolving to a warehouse table or Sigma Dataset.
+    source_ids: List[str] = []
+
+
+class SigmaDataModel(BaseModel):
+    dataModelId: str  # UUID — stable across renames
+    name: str
+    description: Optional[str] = None
+    createdBy: Optional[str] = None
+    createdAt: datetime
+    updatedAt: datetime
+    url: Optional[str] = None
+    # urlId is the human-readable slug used in Sigma URLs. Sigma references
+    # DMs from workbook lineage by urlId (the ``<dataModelUrlId>/<suffix>``
+    # prefix in workbook sourceIds), so we need it for the workbook→DM bridge.
+    urlId: Optional[str] = None
+    latestVersion: Optional[int] = None
+    workspaceId: Optional[str] = None
+    path: Optional[str] = None
+    badge: Optional[str] = None
+    elements: List[SigmaDataModelElement] = []
+    # Map of inode node id → external source name/type (lineage /entries with
+    # ``type: dataset`` or ``type: table``). Used to resolve element source_ids
+    # that start with ``inode-`` to external upstream URNs.
+    external_sources: Dict[str, Dict[str, str]] = {}
+
+    def get_url_id(self) -> str:
+        """
+        Resolve the DM's URL-based identifier. Prefer the explicit ``urlId``
+        field (populated from /files metadata); fall back to parsing the last
+        path segment of the DM url; finally fall back to the UUID.
+        """
+        if self.urlId:
+            return self.urlId
+        if self.url:
+            return self.url.split("/")[-1]
+        return self.dataModelId
+
+    def get_element_urn_part(self, element: SigmaDataModelElement) -> str:
+        # ``<dataModelUrlId>.<elementId>`` — DM-scoped and human-readable.
+        return f"{self.get_url_id()}.{element.elementId}"
