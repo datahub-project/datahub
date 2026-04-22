@@ -40,7 +40,6 @@ dependencies {
   testImplementation project(':metadata-utils')
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
-  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.assertJ
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok

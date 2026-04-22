@@ -18,8 +18,8 @@ const URL_KEY = 'url';
 
 const ContentWrapper = styled.div`
     width: 300px;
-    background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => props.theme.colors.shadowLg};
+    background-color: ${({ theme }) => theme.colors.bg};
+    box-shadow: ${({ theme }) => theme.colors.shadowMd};
     display: flex;
     flex-direction: column;
     padding: 8px;
@@ -66,9 +66,10 @@ function ImageUrlInput({ form, hideDropdown }: { form: FormInstance<any>; hideDr
 }
 
 export const AddImageButtonV2 = () => {
-    const theme = useTheme();
     const [showDropdown, setShowDropdown] = useState(false);
     const [form] = Form.useForm();
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const tabs = [
         {
@@ -102,7 +103,7 @@ export const AddImageButtonV2 = () => {
             >
                 <CommandButton
                     active={false}
-                    icon={<Image size={20} color={theme.colors.text} />}
+                    icon={<Image size={20} color={iconColor} />}
                     commandName="insertImage"
                     onClick={handleButtonClick}
                 />

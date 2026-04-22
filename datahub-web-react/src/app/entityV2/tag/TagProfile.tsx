@@ -10,7 +10,7 @@ import { useGetTagQuery } from '@graphql/tag.generated';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
 `;
 

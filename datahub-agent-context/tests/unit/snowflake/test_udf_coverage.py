@@ -134,7 +134,7 @@ class TestUdfCoverage:
         excluded = set(_TOOLS_WITHOUT_UDFS)
         tools_needing_udfs = all_tools - excluded
 
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         udf_names = set(udfs.keys())
 
         missing_udfs = {
@@ -161,7 +161,7 @@ class TestUdfCoverage:
         all_tools = set(mcp_tools_module.__all__)
         all_expected_udf_names = {_expected_udf_name(t) for t in all_tools}
 
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         unexpected = set(udfs.keys()) - all_expected_udf_names
 
         assert not unexpected, (
@@ -180,7 +180,7 @@ class TestUdfPythonSyntax:
         This catches typos, missing colons, mismatched parens, etc. that would
         cause the UDF to fail at CREATE time in Snowflake.
         """
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         errors: list[str] = []
 
         for udf_name, udf_sql in udfs.items():
@@ -201,7 +201,7 @@ class TestUdfPythonSyntax:
         Verifies the import statement is present so the function will be
         resolvable at Snowflake UDF runtime.
         """
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         all_tools = set(mcp_tools_module.__all__)
         excluded = set(_TOOLS_WITHOUT_UDFS)
         tools_with_udfs = all_tools - excluded
@@ -251,6 +251,10 @@ class TestUdfParameterCoercions:
         # LIST_SCHEMA_FIELDS passes limit directly from NUMBER (Snowflake already
         # delivers it as a Python int; no explicit int() cast is needed here).
         "LIST_SCHEMA_FIELDS": {"limit", "offset"},
+        # ASK_DATAHUB_CHAT: conversation_urn is optional (for follow-ups) but
+        # Snowflake UDFs treat all params as required, so the UDF only takes
+        # message and always creates a new conversation.
+        "ASK_DATAHUB_CHAT": {"conversation_urn"},
     }
 
     def _tools_with_udfs(self) -> set[str]:
@@ -277,7 +281,7 @@ class TestUdfParameterCoercions:
         List/Dict parameters arrive from Snowflake as JSON strings (e.g. '["a","b"]').
         The UDF body must deserialize them with json.loads before passing to the tool.
         """
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         errors: list[str] = []
 
         for tool_name in sorted(self._tools_with_udfs()):
@@ -307,7 +311,7 @@ class TestUdfParameterCoercions:
 
         Snowflake NUMBER values may arrive as floats; int() ensures correct typing.
         """
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         errors: list[str] = []
 
         for tool_name in sorted(self._tools_with_udfs()):
@@ -336,7 +340,7 @@ class TestUdfParameterCoercions:
 
         Snowflake passes booleans as NUMBER (1/0); bool() converts them correctly.
         """
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         errors: list[str] = []
 
         for tool_name in sorted(self._tools_with_udfs()):
@@ -377,7 +381,7 @@ class TestUdfParameterCoercions:
         If a parameter type changes (e.g. int → str, or list added), the corresponding
         UDF kwarg won't have the right coercion and this test will catch it.
         """
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         errors: list[str] = []
 
         for tool_name in sorted(self._tools_with_udfs()):
@@ -471,7 +475,7 @@ class TestUdfParameterCoercions:
         )
 
         # The UDF body must call get_entities with a list literal wrapping the string param.
-        udfs = generate_all_udfs(include_mutations=True)
+        udfs = generate_all_udfs(include_mutations=True, include_cloud=True)
         python_body = _extract_python_body(udfs["GET_ENTITIES"])
         tree = ast.parse(python_body)
 

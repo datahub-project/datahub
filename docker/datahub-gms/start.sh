@@ -53,6 +53,8 @@ if [[ $ENABLE_PROMETHEUS == true ]]; then
   PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-gms/scripts/prometheus-config.yaml "
 fi
 
+export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
+
 # JAR extraction optimization - extract to tmpfs for faster class loading
 JAR_EXTRACTION_OPTS=""
 if [[ $EXTRACT_JAR_ENABLED == true ]]; then
@@ -146,13 +148,16 @@ else
   JAR_EXTRACTION_OPTS="-jar /datahub/datahub-gms/bin/war.war"
 fi
 
+# Hazelcast 5.x on Java 9+ needs JPMS access for JDK internals (performance; avoids startup warning).
+HAZELCAST_JVM_OPTS="--add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED"
+
 COMMON="
     $WAIT_FOR_EBEAN \
     $WAIT_FOR_CASSANDRA \
     $WAIT_FOR_KAFKA \
     $WAIT_FOR_NEO4J \
     -timeout 240s \
-    java $JAVA_OPTS $JMX_OPTS \
+    java $HAZELCAST_JVM_OPTS $JAVA_OPTS $JMX_OPTS \
     $SPRING_PROFILE_OPTS \
     $OTEL_AGENT \
     $PROMETHEUS_AGENT \

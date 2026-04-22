@@ -2,6 +2,7 @@
 .project
 .settings
 .classpath
+.factorypath
 .gradle
 .idea
 *.iml
@@ -122,6 +123,9 @@ skills-lock.json
 !.claude/settings.json
 **/.claude/settings.local.json
 
+# Kiro Ignores
+.kiro
+
 # Environment files with credentials
 .env*
 *.env
@@ -171,4 +175,3 @@ test-models/bin/
 
 # Git Worktree management (wtp)
 .wtp.yml
-.worktrees/

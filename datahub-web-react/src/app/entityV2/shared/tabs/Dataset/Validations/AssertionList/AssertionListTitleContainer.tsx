@@ -18,7 +18,7 @@ const AssertionListTitle = styled(Typography.Title)`
 
 const SubTitle = styled(Typography.Text)`
     font-size: 14px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const AssertionListTitleContainer = () => {

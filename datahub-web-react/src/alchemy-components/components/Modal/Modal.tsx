@@ -1,4 +1,4 @@
-import { Button, ButtonProps, Heading, Icon, Text, typography } from '@components';
+import { Button, ButtonProps, Icon, Text, typography } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
@@ -10,7 +10,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        box-shadow: ${(props) => props.theme.colors.shadowLg};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
         border-radius: 12px;
     }
 
@@ -18,7 +18,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
         //margin-bottom: 24px;
         padding: 12px 20px;
         border-radius: ${({ hasChildren }) => (hasChildren ? '12px 12px 0 0' : '12px')};
-        border-bottom: ${({ hasChildren, theme }) => (hasChildren ? `1px solid ${theme.colors.border}` : '0')};
+        border-bottom: ${(props) => (props.hasChildren ? `1px solid ${props.theme.colors.border}` : '0')};
     }
 
     .ant-modal-body {
@@ -38,6 +38,20 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
             width: 24px;
         }
     }
+`;
+
+const ModalTitle = styled.h1`
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0;
+    color: ${(props) => props.theme.colors.text};
+`;
+
+const ModalSubtitle = styled.span`
+    font-size: 14px;
+    font-weight: 500;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ModalHeader = styled.div<{ hasChildren: boolean }>`
@@ -103,16 +117,10 @@ export function Modal({
                 typeof title === 'string' ? (
                     <ModalHeader hasChildren={!!children}>
                         <TitleRow>
-                            <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
-                                {title}
-                            </Heading>
+                            <ModalTitle>{title}</ModalTitle>
                             {titlePill}
                         </TitleRow>
-                        {!!subtitle && (
-                            <Text type="span" color="gray" colorLevel={1700} weight="medium">
-                                {subtitle}
-                            </Text>
-                        )}
+                        {!!subtitle && <ModalSubtitle>{subtitle}</ModalSubtitle>}
                     </ModalHeader>
                 ) : (
                     <div style={{ marginRight: closable ? '20px' : '0' }}>{title}</div>
