@@ -700,7 +700,20 @@ class SigmaAPI:
         (opaque cursor, /dataModels and newer endpoints) — see
         ``get_data_models`` for the same pattern applied inline. Swallows
         HTTP/JSON errors so a broken page does not abort the containing
-        ingestion loop, matching the existing pattern in this module."""
+        ingestion loop, matching the existing pattern in this module.
+
+        ``base_url`` must not contain an existing query string — the
+        pagination shape below appends ``?page=...`` / ``?nextPageToken=...``
+        without URL-escaping or merging existing params. A future caller
+        passing e.g. ``/endpoint?permissionFilter=X`` would silently drop
+        that param on page 2. Callers needing query params should compose
+        them via ``urllib.parse.urlencode`` and keep the pagination logic
+        here param-free, or switch this helper to ``urlencode``-based
+        composition.
+        """
+        assert "?" not in base_url, (
+            f"_paginated_entries requires a bare path (no query string); got {base_url!r}"
+        )
         url = base_url
         results: List[T] = []
         try:

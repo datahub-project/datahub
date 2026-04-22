@@ -171,9 +171,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # resolution falls back to the name-bridge using the consuming element's
     # own ``name`` (Sigma's default: element name mirrors the source element).
     # ``data_model_element_cross_dm_upstreams_resolved`` : edge emitted to
-    #   the referenced DM element Dataset URN.
+    #   the referenced DM element Dataset URN. Ambiguous resolutions also
+    #   increment this counter — ``_ambiguous`` is a sub-shape of
+    #   ``_resolved``, not a disjoint outcome. Triage formula:
+    #   clean = _resolved − _ambiguous; ambiguous = _ambiguous.
     # ``data_model_element_cross_dm_upstreams_ambiguous`` : multiple DM
     #   elements share the name; deterministic pick-lowest-elementId used.
+    #   Always also counted under ``_resolved`` (see above).
     # ``data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known``:
     #   referenced DM was ingested but its element names do not include the
     #   consuming element's name (user likely renamed the consuming element).
@@ -221,6 +225,21 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # never existed" from "column silently dropped here".
     data_model_columns_without_element_dropped: int = 0
 
+    # Two DMs claimed the same ``urlId`` bridge key. The first wins the
+    # bridge registration (cross-DM lineage and workbook→DM refs resolve to
+    # it); the second is skipped at emit time so it cannot produce an
+    # orphan Container + Datasets the graph cannot link to. Non-zero here
+    # indicates a Sigma tenant with a slug reissued after an asset was
+    # deleted and another created — operators should inspect the warning
+    # log for the colliding ``(dataModelId, urlId)`` pairs.
+    data_models_bridge_key_collision: int = 0
+
+    # Duplicate ``column.name`` on a single DM element. Dropped to avoid
+    # emitting a ``SchemaMetadata`` with duplicate ``fieldPath`` values
+    # (GMS rejects / dedupes these non-deterministically). Counter
+    # surfaces partial schema visibility for report triage.
+    data_model_element_columns_duplicate_fieldpath_dropped: int = 0
+
     # Workbook → DM element bridge counters. See sigma.py for the resolution
     # algorithm; the DM element is matched by name (Sigma coalesces same-named
     # DM element references at the API contract level, so name is sufficient).
@@ -248,6 +267,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     element_dm_edges_deduped: int = 0
     element_dm_edge_ambiguous: int = 0
     element_dm_edge_name_unmatched_but_dm_known: int = 0
+    # Sigma lineage node had no ``name`` field (the bridge cannot be
+    # attempted). Distinct from ``_name_unmatched_but_dm_known`` (DM
+    # known but a user-renamed element broke the match) — mirrors the
+    # cross-DM ``_consumer_name_missing`` counter so triage can tell
+    # "API didn't give us a name" from "rename broke the bridge".
+    element_dm_edge_upstream_name_missing: int = 0
     element_dm_edge_unresolved: int = 0
     # Sigma's live API shape (probed 2026-04-22 on a real tenant) places the
     # DM-reference node ``<dmUrlId>/<suffix>`` ONLY in ``edges[].source`` and

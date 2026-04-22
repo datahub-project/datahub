@@ -7,77 +7,28 @@ This source extracts the following:
 - Workspaces and workbooks within that workspaces as Container.
 - Sigma Datasets as Datahub Datasets.
 - Pages as Datahub dashboards and elements present inside pages as charts.
-- Sigma Data Models as Datahub Containers, with each Data Model element
-  emitted as a Datahub Dataset inside that Container. The following
-  `UpstreamLineage` shapes are wired on each element Dataset:
-  - **Intra-Data-Model** (element → sibling element in the same Data
-    Model).
-  - **External upstreams** — warehouse tables and Sigma Datasets.
-  - **Cross-Data-Model** (element → element in a *different* Data Model,
-    e.g. when one Data Model imports a table from another). Resolved via
-    the same name-based bridge used for workbook references; surfaced
-    through the counters
-    `data_model_element_cross_dm_upstreams_resolved`,
-    `..._ambiguous`, `..._name_unmatched_but_dm_known`, and
-    `..._dm_unknown`.
+- Sigma Data Models as Containers, with each element as a Dataset
+  inside the Container (opt-in via `ingest_data_models: true`; default
+  `false`). `UpstreamLineage` is emitted on each element for intra-DM,
+  cross-DM, external (warehouse / Sigma Dataset), and workbook→DM
+  references. Personal-space DMs referenced from ingested DMs are
+  discovered on demand and gated by `ingest_shared_entities` and
+  `data_model_pattern`. Report counters under
+  `data_model_*` / `element_dm_*` surface per-shape resolution outcomes.
 
-    Cross-Data-Model references whose producer Data Model is not returned by
-    `/v2/dataModels` (typically a personal-space DM with `path: "My Documents"`
-    and no workspace) are **discovered on demand** via a direct
-    `GET /v2/dataModels/{urlId}` call. Discovered personal-space DMs are
-    emitted as full Container + element Dataset entities and flagged with
-    `customProperties.isPersonalDataModel = "true"` (lowercase, matching
-    the JSON boolean convention used by most DataHub connectors). If the
-    service-account
-    client cannot reach the personal-space DM (HTTP 403 / 404), the edge is
-    suppressed and counted under `data_model_external_reference_unresolved`.
-
-  Workbook chart elements that reference a Data Model element (via the
-  Sigma app's "use data model" action) resolve to the specific element
-  Dataset URN by name. If the DM element name cannot be matched, **no
-  lineage edge is emitted** for that reference — `ChartInfo.inputs`
-  accepts only Dataset URNs, so a Container URN cannot substitute. The
-  occurrence is surfaced through the report counters
-  `element_dm_edge_name_unmatched_but_dm_known` (DM was ingested but the
-  specific element name did not match) and `element_dm_edge_unresolved`
-  (DM itself is not tracked in this run). Data Model ingestion is **opt-in**:
-  set `ingest_data_models: true` in the recipe to enable it (default is
-  `false`), and use `data_model_pattern` to allow/deny individual Data
-  Models by name.
-
-  Schema caveat: Sigma's Data Model `/columns` API does not return a
-  per-column type, so every Data Model element Dataset is emitted with
-  `SchemaField.type = String` / `nativeDataType = "String"`. This is a
-  known Sigma API limitation, not a modeling choice on the DataHub side —
-  type information will materialize once Sigma exposes it on the columns
-  payload (or once column-level lineage resolves back to a typed upstream).
-
-  Column-level lineage (CLL / `FineGrainedLineage`) is **not yet emitted**
-  on Data Model element `UpstreamLineage`. Each element Dataset already
-  carries its own `SchemaMetadata`, so adding CLL in a follow-up release
-  will not require re-ingestion. Sigma column `formula` values are in
-  Sigma's own expression DSL (not SQL); name-matched CLL for cross-DM and
-  Sigma-Dataset upstreams, and later formula-parsed CLL for intra-DM
-  transformations, are tracked as staged follow-ups.
-
-  Element Dataset URNs are keyed by the **immutable** Data Model UUID
-  (`urn:li:dataset:(sigma,<dataModelId>.<elementId>,env)`) so DataHub-side
-  attachments (owners, glossary terms, lineage, docs) survive a Sigma
-  `urlId` slug rotation. The human-readable slug is still captured on the
-  Container's and element's `customProperties` as `dataModelUrlId`.
-
-  A note on external upstreams: when a Data Model's `/lineage` API reports
-  a `type: dataset` entry whose Sigma Dataset was **not** fetched in this
-  ingestion run (e.g. filtered out by `workspace_pattern`,
-  `dataset_pattern`, or `ingest_shared_entities=False`), the DM element's
-  `UpstreamLineage` **suppresses** the edge rather than fabricating a
-  dangling Sigma Dataset URN. The drop is counted under the
-  `data_model_element_upstreams_unresolved` report counter, matching how
-  unresolved warehouse-table references (`type: table`, which require
-  SQL parsing not exposed by the DM API) are already handled. To see
-  these edges in the graph, include the owning workspace / dataset in
-  your ingestion patterns; the edge will be re-created on the next run
-  once the target Dataset is actually emitted.
+  Notes:
+  - Element Dataset URNs are keyed by the immutable Data Model UUID
+    (`urn:li:dataset:(sigma,<dataModelId>.<elementId>,env)`) so
+    attachments survive Sigma slug rotation; the slug is captured on
+    `customProperties.dataModelUrlId`.
+  - Column types are emitted as `String` — Sigma's `/columns` API does
+    not return per-column types.
+  - Column-level lineage is not emitted yet; `SchemaMetadata` is
+    present, so CLL can be added later without re-ingestion.
+  - Unresolved upstream references (Sigma Dataset not ingested, DM not
+    reachable, element name not matched) are suppressed rather than
+    fabricated as dangling URNs. Re-run with broader patterns to
+    materialize them.
 
 ### Prerequisites
 

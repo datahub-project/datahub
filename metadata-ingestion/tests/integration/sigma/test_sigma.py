@@ -1862,10 +1862,11 @@ def test_sigma_ingest_data_models_workspace_pattern_deny(
 def test_sigma_ingest_data_models_lineage_node_missing_name(
     pytestconfig, tmp_path, requests_mock
 ):
-    """Workbook lineage ``data-model`` node without a ``name`` field: the
-    resolver's ``if name_map and upstream.name`` guard should skip the
-    name-match branch and book it as
-    ``element_dm_edge_name_unmatched_but_dm_known``."""
+    """Workbook lineage ``data-model`` node without a ``name`` field counts
+    under ``element_dm_edge_upstream_name_missing`` (not
+    ``_name_unmatched_but_dm_known``). This mirrors the cross-DM path's
+    ``_consumer_name_missing`` split so triage can distinguish "API gave
+    us no name" from "a user renamed the DM element after linking"."""
 
     override_data = get_mock_data_model_api()
     _apply_dm_bridge_workbook_overrides(override_data)
@@ -1909,10 +1910,16 @@ def test_sigma_ingest_data_models_lineage_node_missing_name(
     pipeline.raise_from_status()
 
     report = _sigma_report(pipeline)
-    # dmRefElem01 misses, dmRefElem02 resolves (name="random data model",
-    # ambiguous but resolved), dmRefElem03 misses (unknown element name).
-    assert report.element_dm_edge_name_unmatched_but_dm_known == 2, (
-        f"expected 2 name-unmatched edges, got "
+    # dmRefElem01: DM node has no name → element_dm_edge_upstream_name_missing.
+    # dmRefElem02: name="random data model", resolves (ambiguous, but a hit).
+    # dmRefElem03: name="name_not_in_dm", DM known but no matching element
+    #              → element_dm_edge_name_unmatched_but_dm_known.
+    assert report.element_dm_edge_upstream_name_missing == 1, (
+        f"expected 1 upstream_name_missing, got "
+        f"{report.element_dm_edge_upstream_name_missing}"
+    )
+    assert report.element_dm_edge_name_unmatched_but_dm_known == 1, (
+        f"expected 1 name_unmatched_but_dm_known, got "
         f"{report.element_dm_edge_name_unmatched_but_dm_known}"
     )
     assert report.element_dm_edges_resolved == 1
@@ -3713,10 +3720,15 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
     """Regression pin for the ``_prepopulate_dm_bridge_maps`` collision
     branch: two DMs claiming the same ``urlId`` (a documented corner case
     on older Sigma tenants where a slug is reissued after the original
-    asset is deleted) must keep the first registration and warn about the
-    conflict. A flipped-direction regression ("overwrite" instead of
-    "keep first") would silently mis-route cross-DM lineage to the
-    latest-seen DM.
+    asset is deleted).
+
+    Behavior: the first registration wins the bridge key, and the second
+    DM is **skipped from emission entirely**. Previously, the second DM
+    would emit a Container + element Datasets that cross-DM and workbook→DM
+    references could never link to (every lineage edge routes to the
+    first DM by the bridge key), quietly polluting the graph with an
+    orphan DM. The ``data_models_bridge_key_collision`` counter must
+    bump so operators can audit affected tenants.
     """
     import json
 
@@ -3787,9 +3799,6 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
     pipeline.run()
     pipeline.raise_from_status()
 
-    # The pipeline must not crash, and both DMs should emit Container
-    # entities (the collision is only for the bridge map, not entity
-    # emission — both are still valid DMs in the graph).
     with open(output_path) as f:
         mces = json.load(f)
     original_container = [
@@ -3802,11 +3811,11 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
         .get("dataModelId")
         == "147a4d09-a686-4eea-b183-9b82aa0f7beb"
     ]
-    duplicate_container = [
+    duplicate_entities = [
         mce
         for mce in mces
-        if mce.get("aspectName") == "containerProperties"
-        and mce.get("aspect", {})
+        if duplicate_dm_id in mce.get("entityUrn", "")
+        or mce.get("aspect", {})
         .get("json", {})
         .get("customProperties", {})
         .get("dataModelId")
@@ -3815,8 +3824,17 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
     assert len(original_container) == 1, (
         "original DM container should still be emitted despite bridge collision"
     )
-    assert len(duplicate_container) == 1, (
-        "duplicate-urlId DM container should still be emitted despite bridge collision"
+    assert duplicate_entities == [], (
+        "colliding DM must not emit any entities — it cannot be linked by "
+        "cross-DM or workbook→DM lineage (the first DM owns the bridge "
+        f"key), so emitting it would create an orphan node. Got: "
+        f"{[mce.get('entityUrn') for mce in duplicate_entities]}"
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.data_models_bridge_key_collision == 1, (
+        f"expected collision counter to increment, got "
+        f"{report.data_models_bridge_key_collision}"
     )
 
 
@@ -4066,3 +4084,402 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
         f"got {report.element_dm_edges_deduped}"
     )
     assert report.element_dm_edges_resolved == 1
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_workspace_bypass_via_discovery(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for the discovery-path workspace_pattern bypass.
+
+    A workspace-scoped DM in a workspace denied by ``workspace_pattern``
+    is not returned by ``get_data_models`` (which gates on workspace
+    before bridge registration). When an allowed DM cross-references an
+    element in the denied-workspace DM, the discovery loop previously
+    fetched the DM by ``urlId`` (``/v2/dataModels/{urlId}``) and emitted
+    it unconditionally — workspace_pattern was never re-applied.
+
+    After the fix, the discovery branch mirrors ``get_data_models``'s
+    gating: if the fetched DM has a ``workspaceId`` and the workspace is
+    denied, drop it. Emitted entities for the denied DM must stay empty
+    and the cross-DM edge degrades to ``dm_unknown``.
+    """
+    import json
+
+    override_data = _orphan_dm_mock_fixture()
+
+    # Promote the producer from orphan (workspaceId=None, "My Documents")
+    # to a real workspace-scoped DM that workspace_pattern would deny.
+    denied_workspace_id = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/3BtEwqctAlmKlYTJIQ8QFC"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "dataModelId": "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624",
+            "dataModelUrlId": "3BtEwqctAlmKlYTJIQ8QFC",
+            "name": "Workspace-scoped producer",
+            "url": "https://app.sigmacomputing.com/acryldata/data-model/3BtEwqctAlmKlYTJIQ8QFC",
+            "path": "Denied Workspace",
+            "latestVersion": 2,
+            "ownerId": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+            "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+            "createdAt": "2026-04-16T18:57:31.928Z",
+            "updatedAt": "2026-04-16T19:02:22.085Z",
+            "workspaceId": denied_workspace_id,
+        },
+    }
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workspaces/{denied_workspace_id}"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaceId": denied_workspace_id,
+            "name": "Denied Workspace",
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2024-05-10T09:00:00.000Z",
+            "updatedAt": "2024-05-12T10:00:00.000Z",
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_workspace_bypass_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_shared_entities=True,
+            workspace_pattern={"deny": ["Denied Workspace"]},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_external_references_discovered == 0, (
+        f"workspace_pattern must gate discovered DMs, got "
+        f"{report.data_model_external_references_discovered} "
+        f"discovered in a denied workspace"
+    )
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_entities = [
+        mce for mce in mces if producer_dm_id in mce.get("entityUrn", "")
+    ]
+    assert producer_entities == [], (
+        f"producer DM in workspace-denied workspace must not emit any "
+        f"entities via the discovery backdoor; got "
+        f"{[m.get('entityUrn') for m in producer_entities]}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_discovery_order_deterministic(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for hash-randomized discovery ordering.
+
+    ``_collect_unresolved_cross_dm_prefixes`` returns a ``Set[str]`` that
+    the discovery loop iterates. Python set iteration is hash-randomized
+    across interpreter runs, so two personal-space DMs discovered in the
+    same iteration previously landed in ``all_data_models`` in
+    run-to-run-varying order. That ordering flows straight into workunit
+    emission, affecting golden files and any first-write-wins downstream
+    behavior. Fix: ``sorted(unresolved)``.
+
+    This test builds two orphan DMs with lexicographic-inverse urlIds
+    (``Aaa…`` < ``Zzz…``) and asserts the ``A`` DM's container workunit
+    is emitted before the ``Z`` DM's — which only holds if the loop
+    iterates sorted.
+    """
+    import json
+
+    consumer_dm_id = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+    consumer_url_id = "ConsumerUrlId000000"
+
+    orphan_a_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    orphan_a_url_id = "AaaOrderedOrphan000"
+    orphan_z_id = "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
+    orphan_z_url_id = "ZzzOrderedOrphan000"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+
+    def _orphan_endpoints(dm_id: str, url_id: str, name: str) -> Dict[str, Any]:
+        return {
+            f"https://aws-api.sigmacomputing.com/v2/dataModels/{url_id}": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "dataModelId": dm_id,
+                    "dataModelUrlId": url_id,
+                    "name": name,
+                    "url": f"https://app.sigmacomputing.com/acryldata/data-model/{url_id}",
+                    "path": "My Documents",
+                    "latestVersion": 1,
+                    "ownerId": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                    "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                    "createdAt": "2026-04-16T18:57:31.928Z",
+                    "updatedAt": "2026-04-16T19:02:22.085Z",
+                },
+            },
+            f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/elements": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "entries": [
+                        {
+                            "elementId": "elem01",
+                            "name": name,
+                            "type": "table",
+                            "vizualizationType": "levelTable",
+                            "columns": [],
+                        }
+                    ],
+                    "total": 1,
+                    "nextPage": None,
+                },
+            },
+            f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/columns": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {"entries": [], "total": 0, "nextPage": None},
+            },
+            f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/lineage": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {"entries": [], "total": 0, "nextPage": None},
+            },
+        }
+
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workspaces/{workspace_json['workspaceId']}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_url_id,
+                        "name": "Consumer DM",
+                        "description": "",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{consumer_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": workspace_json["workspaceId"],
+                        "path": "Acryl Data",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "consumerElemA",
+                        "name": "AaaOrderedOrphan000",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    },
+                    {
+                        "elementId": "consumerElemZ",
+                        "name": "ZzzOrderedOrphan000",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "consumerElemA",
+                        "type": "element",
+                        "sourceIds": [f"{orphan_a_url_id}/suffixA"],
+                        "dataSourceIds": [f"{orphan_a_url_id}/suffixA"],
+                    },
+                    {
+                        "elementId": "consumerElemZ",
+                        "type": "element",
+                        "sourceIds": [f"{orphan_z_url_id}/suffixZ"],
+                        "dataSourceIds": [f"{orphan_z_url_id}/suffixZ"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+    override_data.update(
+        _orphan_endpoints(orphan_a_id, orphan_a_url_id, "AaaOrderedOrphan000")
+    )
+    override_data.update(
+        _orphan_endpoints(orphan_z_id, orphan_z_url_id, "ZzzOrderedOrphan000")
+    )
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_discovery_order_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # Emission order in the MCE stream for the two orphan Containers.
+    orphan_container_emission: List[str] = []
+    for mce in mces:
+        if mce.get("aspectName") != "containerProperties":
+            continue
+        custom = mce.get("aspect", {}).get("json", {}).get("customProperties", {})
+        dm_id = custom.get("dataModelId")
+        if dm_id == orphan_a_id:
+            orphan_container_emission.append("A")
+        elif dm_id == orphan_z_id:
+            orphan_container_emission.append("Z")
+
+    assert orphan_container_emission == ["A", "Z"], (
+        f"discovered DMs must emit in sorted(urlId) order, got "
+        f"{orphan_container_emission}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_schema_duplicate_fieldpath_dropped(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for SchemaMetadata duplicate-fieldPath dedup.
+
+    A DM element with two columns sharing the same ``name`` (e.g. a
+    calculated field shadowing a native column of the same label) would
+    previously produce a ``SchemaMetadata`` with two ``fieldPath`` values
+    pointing at the same path — GMS rejects or non-deterministically
+    dedupes these. Dedup the columns at emit time (keeping the first
+    occurrence) and bump
+    ``data_model_element_columns_duplicate_fieldpath_dropped``.
+    """
+    import json
+
+    override_data = get_mock_data_model_api()
+    # Baseline fixture DM "random data model" has elementId "0ui59vLc38".
+    # Replace its /columns payload with two same-named columns.
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "columnId": "col01",
+                    "elementId": "0ui59vLc38",
+                    "name": "duplicated_name",
+                    "label": "First occurrence",
+                },
+                {
+                    "columnId": "col02",
+                    "elementId": "0ui59vLc38",
+                    "name": "duplicated_name",
+                    "label": "Second occurrence",
+                },
+                {
+                    "columnId": "col03",
+                    "elementId": "0ui59vLc38",
+                    "name": "unique_name",
+                    "label": "Not duplicated",
+                },
+            ],
+            "total": 3,
+            "nextPage": None,
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_schema_dedup_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_columns_duplicate_fieldpath_dropped == 1, (
+        f"expected 1 duplicate column drop, got "
+        f"{report.data_model_element_columns_duplicate_fieldpath_dropped}"
+    )
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    element_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,147a4d09-a686-4eea-b183-9b82aa0f7beb.0ui59vLc38,PROD)"
+    schema_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "schemaMetadata"
+    ]
+    assert len(schema_mces) == 1
+    fields = schema_mces[0].get("aspect", {}).get("json", {}).get("fields", [])
+    field_paths = [f.get("fieldPath") for f in fields]
+    assert field_paths.count("duplicated_name") == 1, (
+        f"duplicate fieldPath must be deduped, got {field_paths}"
+    )
+    assert set(field_paths) == {"duplicated_name", "unique_name"}

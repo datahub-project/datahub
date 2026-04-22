@@ -164,6 +164,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # because blank-named elements don't appear in it (see
         # ``_prepopulate_dm_bridge_maps``).
         self.dm_total_element_count_by_url_id: Dict[str, int] = {}
+        # Set of ``dataModelId``s whose bridge key collided with an earlier
+        # DM's registration. The emit loop skips these so the graph does
+        # not gain an orphan Container + element Datasets that cross-DM
+        # and workbook→DM refs would never link to (the first DM wins the
+        # bridge key; every lineage edge routes to it).
+        self.dm_collided_data_model_ids: Set[str] = set()
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -567,17 +573,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self, element_dataset_urn: str, element: SigmaDataModelElement
     ) -> MetadataWorkUnit:
         # Columns are scoped to this element's Dataset URN, so bare column
-        # names are safe — no cross-element collision possible.
-        fields = [
-            SchemaFieldClass(
-                fieldPath=column.name,
-                type=SchemaFieldDataTypeClass(StringTypeClass()),
-                nativeDataType="String",
-                description=column.label or None,
+        # names are safe against cross-element collision. Dedup by
+        # ``fieldPath`` within the element: Sigma can technically return
+        # two columns with the same name (e.g. a calculated field
+        # shadowing a native column of the same label), and GMS rejects
+        # or non-deterministically dedupes SchemaMetadata with duplicate
+        # fieldPaths. Keep the first occurrence; count the rest.
+        seen_field_paths: Set[str] = set()
+        fields: List[SchemaFieldClass] = []
+        for column in element.columns:
+            if not column.name:
+                continue
+            if column.name in seen_field_paths:
+                self.reporter.data_model_element_columns_duplicate_fieldpath_dropped += 1
+                continue
+            seen_field_paths.add(column.name)
+            fields.append(
+                SchemaFieldClass(
+                    fieldPath=column.name,
+                    type=SchemaFieldDataTypeClass(StringTypeClass()),
+                    nativeDataType="String",
+                    description=column.label or None,
+                )
             )
-            for column in element.columns
-            if column.name
-        ]
         schema_metadata = SchemaMetadataClass(
             schemaName=element.name,
             platform=builder.make_data_platform_urn(self.platform),
@@ -736,15 +754,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(
                 "Sigma DM bridge key %r already registered to %s; new DM "
                 "%s (%s) claims the same key but resolves to %s — keeping "
-                "the first registration. Cross-DM lineage referring to %r "
-                "may be mis-routed until the collision is resolved.",
+                "the first registration and skipping emission of the "
+                "colliding DM (would otherwise be orphaned in lineage).",
                 bridge_key,
                 existing_container,
                 data_model.name,
                 data_model.dataModelId,
                 data_model_container_urn,
-                bridge_key,
             )
+            self.reporter.data_models_bridge_key_collision += 1
+            self.dm_collided_data_model_ids.add(data_model.dataModelId)
 
         name_map: Dict[str, List[str]] = {}
         elementId_to_dataset_urn: Dict[str, str] = {}
@@ -943,48 +962,59 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _resolve_dm_element_upstream_urn(
         self, upstream: DataModelElementUpstream
-    ) -> Tuple[Optional[str], bool]:
+    ) -> Tuple[Optional[str], List[str]]:
         """
         Resolve a workbook element's DM upstream (from a ``data-model`` lineage
-        node) to a DM element **Dataset** URN. Returns ``(urn, was_ambiguous)``
-        where ``urn`` is None when the DM element name cannot be matched —
-        ``ChartInfo.inputs`` is schema-typed to accept only Dataset URNs, so
-        no lineage edge is emitted in the unmatched case. Counters surface
-        the different failure shapes for report triage:
+        node) to a DM element **Dataset** URN. Returns ``(urn, candidates)``:
 
-        - ``element_dm_edge_name_unmatched_but_dm_known``: DM was ingested, but
-          the specific element name did not match any emitted DM element.
-        - ``element_dm_edge_unresolved``: DM itself is not tracked by this
-          ingestion run (filtered by pattern, or never fetched).
+        - ``urn`` is None when the DM element name cannot be matched —
+          ``ChartInfo.inputs`` is schema-typed to accept only Dataset URNs,
+          so no lineage edge is emitted in the unmatched case.
+        - ``candidates`` is the list of URNs that matched by name. Length
+          0 on miss, 1 on unambiguous match, ≥2 on ambiguity. The caller
+          inspects this to bump ``element_dm_edge_ambiguous`` (exactly
+          once per unique chart→DM edge, not per sourceId — ambiguity is
+          a DM-side property that doesn't multiply on diamond refs).
 
-        Name-based match: Sigma coalesces workbook references to same-named DM
-        elements into the first-by-creation match at the API contract level, so
-        name-based matching is sufficient (see ticket §"Same-named DM elements").
-        Candidates are sorted deterministically (by ``elementId``) to avoid
-        run-to-run drift driven by the ordering of ``/elements`` responses.
+        Failure counters surfaced here:
 
-        The ``was_ambiguous`` flag lets the caller bump
-        ``element_dm_edge_ambiguous`` exactly once per **unique** chart→DM
-        edge rather than once per sourceId (workbook charts often reference
-        the same DM element through multiple diamond-pattern sourceIds; the
-        ambiguity is a DM-side property that doesn't multiply).
+        - ``element_dm_edge_upstream_name_missing``: API lineage node
+          had no ``name`` — the name-bridge cannot even be attempted.
+        - ``element_dm_edge_name_unmatched_but_dm_known``: DM was ingested,
+          but a user rename broke the name match.
+        - ``element_dm_edge_unresolved``: DM itself is not in this run.
 
-        The caller is also responsible for the ``element_dm_edges_resolved``
-        / ``element_dm_edges_deduped`` counters, since dedup happens one
-        level up.
+        Name-based match: Sigma coalesces workbook references to same-named
+        DM elements into the first-by-creation match at the API contract
+        level, so name-based matching is sufficient (see ticket §"Same-
+        named DM elements"). Candidates are sorted deterministically (by
+        elementId) to avoid run-to-run drift from ``/elements`` ordering.
         """
+        dm_known = upstream.data_model_url_id in self.dm_container_urn_by_url_id
         name_map = self.dm_element_urn_by_name.get(upstream.data_model_url_id)
-        if name_map and upstream.name:
-            candidates = name_map.get(upstream.name.lower())
-            if candidates:
-                was_ambiguous = len(candidates) > 1
-                return sorted(candidates)[0], was_ambiguous
 
-        if upstream.data_model_url_id in self.dm_container_urn_by_url_id:
+        if not upstream.name:
+            # Distinct from "rename broke the bridge" — counted separately
+            # so triage can tell "API didn't give us a name" from the
+            # DM-side rename case. Mirrors ``data_model_element_cross_dm
+            # _upstreams_consumer_name_missing`` on the cross-DM path.
+            if dm_known:
+                self.reporter.element_dm_edge_upstream_name_missing += 1
+            else:
+                self.reporter.element_dm_edge_unresolved += 1
+            return None, []
+
+        if name_map:
+            raw_candidates = name_map.get(upstream.name.lower())
+            if raw_candidates:
+                candidates = sorted(raw_candidates)
+                return candidates[0], candidates
+
+        if dm_known:
             self.reporter.element_dm_edge_name_unmatched_but_dm_known += 1
         else:
             self.reporter.element_dm_edge_unresolved += 1
-        return None, False
+        return None, []
 
     def _get_element_input_details(
         self,
@@ -1062,7 +1092,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # union[DatasetUrn] — the resolver returns only DM element
                 # Dataset URNs; failures (DM unknown or name unmatched) are
                 # surfaced through report counters.
-                dm_urn, was_ambiguous = self._resolve_dm_element_upstream_urn(upstream)
+                dm_urn, candidates = self._resolve_dm_element_upstream_urn(upstream)
                 if dm_urn is not None:
                     if dm_urn in dataset_inputs:
                         # Diamond reference — same DM element reached via
@@ -1079,11 +1109,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         # should surface as a *single* ambiguity signal,
                         # not one per sourceId — otherwise report triage
                         # over-counts and the logs spam.
-                        if was_ambiguous:
+                        if len(candidates) > 1:
                             self.reporter.element_dm_edge_ambiguous += 1
-                            candidates = self.dm_element_urn_by_name.get(
-                                upstream.data_model_url_id, {}
-                            ).get((upstream.name or "").lower(), [])
                             logger.warning(
                                 "Ambiguous DM element name %r in DM %s — "
                                 "%d candidates (%s). Picked lowest "
@@ -1381,65 +1408,85 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_data_models: List[SigmaDataModel] = self.sigma_api.get_data_models()
             elementId_maps_by_dm: Dict[str, Dict[str, str]] = {}
 
-            # Discovery loop — prepopulate bridges for every known DM, then fetch any
-            # cross-DM <prefix> that's still unresolved (personal-space DMs not
-            # returned by /v2/dataModels), add them to the list, and repeat until
-            # stable. Each iteration either registers a new DM (shrinking the
-            # unresolved set) or counts the prefix as unreachable (400/403/404).
-            # Bounded by the number of reachable personal-space DMs per tenant.
+            # Discovery loop — prepopulate bridges for every known DM, then
+            # fetch any cross-DM ``<prefix>`` that's still unresolved (personal-
+            # space DMs not returned by /v2/dataModels, or workspace-scoped
+            # DMs whose listing was filtered / failed), add them to the list,
+            # and repeat until stable. Each iteration either registers a new
+            # DM (shrinking the unresolved set) or counts the prefix as
+            # unreachable (400/403/404). Bounded by the number of reachable
+            # DMs per tenant.
             #
             # Scan only ``pending`` (newly-added DMs) for cross-DM prefixes
             # each iteration — scanning ``all_data_models`` every pass would
             # re-walk every already-processed DM's source_ids, making the
-            # loop O(N * rounds). ``unresolved_seen`` accumulates prefixes
-            # already attempted so a failed discovery doesn't trigger a
-            # second fetch on the next iteration.
+            # loop O(N * rounds). First iteration walks every initial DM
+            # because ``pending`` is seeded from ``all_data_models``; later
+            # iterations walk only the delta. Amortized O(N) in DMs scanned.
             #
-            # First iteration walks every DM because ``pending`` is
-            # initialized from ``all_data_models``; subsequent iterations
-            # walk only the delta of personal-space DMs just discovered.
-            # This keeps the amortized cost O(N) in DMs scanned for
-            # source_ids even when many levels of personal-space chaining
-            # exist in a tenant.
-            already_discovered: Set[str] = set()
+            # ``unresolved_seen`` accumulates every prefix ever attempted so
+            # a failed fetch doesn't retry on subsequent iterations.
             unresolved_seen: Set[str] = set()
             pending = list(all_data_models)
             while pending:
                 for dm in pending:
+                    # Defensive: a DM could in principle be re-enqueued if
+                    # cross-DM discovery returns the same dataModelId via a
+                    # different urlId. Keep the first registration so the
+                    # bridge map and the per-emit elementId map stay
+                    # internally consistent.
+                    if dm.dataModelId in elementId_maps_by_dm:
+                        continue
                     elementId_maps_by_dm[dm.dataModelId] = (
                         self._prepopulate_dm_bridge_maps(dm)
                     )
+
+                # Short-circuit: when ``ingest_shared_entities=False``, the
+                # discovery loop cannot produce any emittable DM. Every
+                # prefix reaching discovery is either a personal-space DM
+                # (rejected by the flag) or a workspace-scoped DM whose
+                # workspace is not in ``workspace_pattern`` (rejected
+                # below). Skip the 4-HTTP-call fetch per unresolved prefix
+                # entirely rather than round-trip them just to drop the
+                # result. The cross-DM name-bridge on already-listed DMs is
+                # unaffected — bridges were populated in the prepopulate
+                # step above.
+                if not self.config.ingest_shared_entities:
+                    break
+
                 new_unresolved = self._collect_unresolved_cross_dm_prefixes(pending)
-                unresolved = new_unresolved - unresolved_seen
+                # Sort for deterministic discovery order. Set iteration is
+                # hash-randomized across Python interpreter runs, which
+                # would otherwise re-order workunit emission for tenants
+                # with 2+ personal-space DMs discovered in the same
+                # iteration (affecting golden tests, change-audit-stamps,
+                # and any first-write-wins downstream behavior).
+                unresolved = sorted(new_unresolved - unresolved_seen)
                 unresolved_seen |= new_unresolved
                 pending = []
                 for prefix in unresolved:
-                    if prefix in already_discovered:
-                        continue
-                    already_discovered.add(prefix)
                     dm = self.sigma_api.get_data_model_by_url_id(prefix)
                     if dm is None:
                         self.reporter.data_model_external_reference_unresolved += 1
                         continue
-                    # Orphan DMs are by definition outside the workspace-scoped
-                    # /v2/dataModels listing, so get_data_models' gating never
-                    # saw them. Apply the same gates here — otherwise users who
-                    # set ``ingest_shared_entities=False`` or a
-                    # ``data_model_pattern.deny`` would still see personal-space
-                    # DMs leak into DataHub through this path. Workspace pattern
-                    # is intentionally not applied because orphan DMs have
-                    # ``workspaceId = None`` by construction and no workspace
-                    # name to match against; they are gated by
-                    # ``ingest_shared_entities`` instead, matching how
-                    # ``get_data_models`` treats workspace-less listings.
+                    # Workspace-scoped DM reached via the discovery backdoor
+                    # (workspace filtered by ``workspace_pattern`` in
+                    # ``get_data_models``, or listing transiently failed).
+                    # Re-apply ``workspace_pattern`` so a denied workspace
+                    # cannot leak DMs via cross-DM references.
+                    if dm.workspaceId:
+                        workspace = self.sigma_api.get_workspace(dm.workspaceId)
+                        if workspace and not self.config.workspace_pattern.allowed(
+                            workspace.name
+                        ):
+                            self.reporter.data_models.dropped(
+                                f"{dm.name} ({dm.dataModelId}) in {workspace.name} "
+                                f"(discovered, workspace_pattern denied)"
+                            )
+                            continue
                     if not self.config.data_model_pattern.allowed(dm.name):
                         self.reporter.data_models.dropped(
-                            f"{dm.name} ({dm.dataModelId}) (personal-space, filtered by data_model_pattern)"
-                        )
-                        continue
-                    if not self.config.ingest_shared_entities:
-                        self.reporter.data_models.dropped(
-                            f"{dm.name} ({dm.dataModelId}) (personal-space, ingest_shared_entities=False)"
+                            f"{dm.name} ({dm.dataModelId}) (discovered, filtered by data_model_pattern)"
                         )
                         continue
                     self.reporter.data_model_external_references_discovered += 1
@@ -1447,6 +1494,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     pending.append(dm)
 
             for data_model in all_data_models:
+                if data_model.dataModelId in self.dm_collided_data_model_ids:
+                    # Colliding bridge key; a different DM already owns the
+                    # URN-bridge. Emitting this one would create an orphan
+                    # Container + Datasets that no lineage edge resolves to.
+                    # Counter bumped in ``_prepopulate_dm_bridge_maps``.
+                    continue
                 yield from self._gen_data_model_workunit(
                     data_model, elementId_maps_by_dm[data_model.dataModelId]
                 )
