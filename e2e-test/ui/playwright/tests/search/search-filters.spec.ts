@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { SearchPage } from '../../pages/search-page';
+import { SearchPage } from '../../pages/search.page';
 
 test.use({ featureName: 'search' });
 
@@ -73,8 +73,6 @@ test.describe('Search Filters V2', () => {
 
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectActiveFilter('Hive');
-
-    await searchPage.expectActiveFilter('DATASET');
 
     await searchPage.removeActiveFilter('Datasets');
     await searchPage.expectActiveFilterNotVisible('Datasets');

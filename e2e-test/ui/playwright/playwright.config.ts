@@ -5,11 +5,17 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: [
-    ['html'],
-    ['junit', { outputFile: 'test-results/junit.xml' }],
-  ],
+  workers: process.env.CI ? 1 : 4,
+  reporter: process.env.CI
+    ? [
+        ['blob'],
+        ['html'],
+        ['junit', { outputFile: 'test-results/junit.xml' }],
+      ]
+    : [
+        ['html'],
+        ['junit', { outputFile: 'test-results/junit.xml' }],
+      ],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:9002',
     trace: 'on-first-retry',
