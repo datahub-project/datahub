@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
 # Sets up a new development environment for DataHub.
 #
+# Can be run BEFORE cloning the repository — does not depend on mise.toml.
+#
 # Installs (via mise):  Java 21, Python 3.11, Node 22, Yarn 1.22.22
 # Installs separately:  uv (required by datahub-dev.sh), Docker + Docker Compose
 #
-# Usage: scripts/dev/setup.sh [--no-docker]
+# Usage: curl -fsSL <url>/scripts/dev/setup.sh | bash
+#        scripts/dev/setup.sh [--no-docker]
 #
 # Supports: Ubuntu/Debian, macOS (Homebrew)
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Tool versions — kept in sync with mise.toml
+JAVA_VERSION="21"
+PYTHON_VERSION="3.11"
+NODE_VERSION="22"
+YARN_VERSION="1.22.22"
+
 NO_DOCKER=false
 
 for arg in "$@"; do
     case "$arg" in
         --no-docker) NO_DOCKER=true ;;
         -h|--help)
-            echo "Usage: scripts/dev/setup.sh [--no-docker]"
+            echo "Usage: setup.sh [--no-docker]"
             echo ""
             echo "Options:"
             echo "  --no-docker   Skip Docker installation"
@@ -89,11 +97,13 @@ install_mise() {
     success "mise installed ($(mise --version))"
 }
 
-configure_mise() {
-    info "Trusting repo mise.toml and installing tools (Java 21, Python 3.11, Node 22, Yarn)..."
-    cd "$REPO_ROOT"
-    mise trust --yes
-    mise install
+install_mise_tools() {
+    info "Installing tools via mise: Java $JAVA_VERSION, Python $PYTHON_VERSION, Node $NODE_VERSION, Yarn $YARN_VERSION..."
+    # --global installs into ~/.local/share/mise — no repo checkout needed
+    mise use --global "java@$JAVA_VERSION"
+    mise use --global "python@$PYTHON_VERSION"
+    mise use --global "node@$NODE_VERSION"
+    mise use --global "yarn@$YARN_VERSION"
     success "mise tools installed"
     mise ls --current
 }
@@ -205,7 +215,8 @@ print_shell_setup() {
     echo "   uv --version"
     echo "   docker --version"
     echo ""
-    echo "Start DataHub:"
+    echo "Clone and start DataHub:"
+    echo "   git clone https://github.com/datahub-project/datahub.git && cd datahub"
     echo "   scripts/dev/datahub-dev.sh start"
     echo "──────────────────────────────────────────────────────────"
 }
@@ -223,7 +234,7 @@ main() {
     fi
 
     install_mise
-    configure_mise
+    install_mise_tools
     install_uv
     install_docker
 
