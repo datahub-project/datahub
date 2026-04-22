@@ -3566,9 +3566,274 @@ def test_sigma_ingest_data_models_cross_dm_self_reference_guarded(
     report = _sigma_report(pipeline)
     # Self-reference must not resolve as a cross-DM upstream.
     assert report.data_model_element_cross_dm_upstreams_resolved == 0
+    # Dedicated self-reference counter distinguishes this API-payload anomaly
+    # from a generic unresolved failure (triage signal would otherwise be
+    # lost in the shared unresolved bucket).
+    assert report.data_model_element_cross_dm_upstreams_self_reference == 1
     # And must bump the standard unresolved counter (neither intra nor
     # external nor valid cross-DM).
     assert report.data_model_element_upstreams_unresolved >= 1
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_diamond_counter_not_inflated(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for M1 (DM-element side): when a consumer DM element's
+    ``sourceIds`` contains multiple entries that all resolve to the same
+    cross-DM producer element URN (a "diamond"), the success counters must
+    count the edge once, not once per ``sourceId``.
+
+    Before the dedup-gating fix, two source_ids sharing the same resolved
+    URN would bump ``data_model_element_cross_dm_upstreams_resolved`` twice
+    even though the emitted ``UpstreamLineage`` (deduped via ``seen``)
+    carries only one ``Upstream`` entry, breaking the operator-facing
+    "edges emitted" signal and the ``_resolved − _ambiguous`` arithmetic
+    in config.py.
+
+    Construction: consumer DM has one element whose ``sourceIds`` carry two
+    distinct cross-DM suffixes against the same producer DM. The name-bridge
+    resolves both to the same producer element URN.
+    """
+    producer_dm_id = "aaaa1111-aaaa-1111-aaaa-1111aaaa1111"
+    producer_dm_url_id = "ProducerDMurlId00000"
+    producer_element_id = "1DYf5I08WO"
+
+    consumer_dm_id = "bbbb2222-bbbb-2222-bbbb-2222bbbb2222"
+    consumer_dm_url_id = "ConsumerDMurlId00000"
+    consumer_element_id = "HdbgI9D-Ci"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Consumer DM",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "isArchived": False,
+                    },
+                    {
+                        "id": producer_dm_id,
+                        "urlId": producer_dm_url_id,
+                        "name": "Producer DM",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Consumer DM",
+                        "description": "",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/dm/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                    {
+                        "dataModelId": producer_dm_id,
+                        "urlId": producer_dm_url_id,
+                        "name": "Producer DM",
+                        "description": "",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/dm/{producer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": producer_element_id,
+                        "name": "Shared Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": ["id"],
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Shared Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": ["id"],
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Consumer element has TWO distinct cross-DM sourceIds against the
+        # same producer DM. The name-bridge resolves both to the same URN.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [
+                            f"{producer_dm_url_id}/suffixOne",
+                            f"{producer_dm_url_id}/suffixTwo",
+                        ],
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_diamond_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # Two source_ids collapsed to one URN. Counter must bump once, not twice.
+    assert report.data_model_element_cross_dm_upstreams_resolved == 1, (
+        f"diamond source_ids must dedupe to a single _resolved bump; got "
+        f"{report.data_model_element_cross_dm_upstreams_resolved}"
+    )
+    # Baseline producer has one element named "Shared Data" matching
+    # consumer name; neither sub-shape (ambiguous / single_element_fallback)
+    # should fire.
+    assert report.data_model_element_cross_dm_upstreams_ambiguous == 0
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
+
+    import json
+
+    consumer_element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        f"{consumer_dm_id}.{consumer_element_id},PROD)"
+    )
+    expected_upstream_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        f"{producer_dm_id}.{producer_element_id},PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    upstream_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == consumer_element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(upstream_mces) == 1
+    aspect_json = (
+        upstream_mces[0]
+        .get("aspect", {})
+        .get("json", upstream_mces[0].get("aspect", {}))
+    )
+    upstream_urns = [u.get("dataset") for u in aspect_json.get("upstreams", [])]
+    # Emitted lineage must carry exactly one upstream (already deduped via
+    # ``seen``); the test pins that the counter matches the emitted shape.
+    assert upstream_urns == [expected_upstream_urn], (
+        f"consumer element should carry a single deduped upstream; got {upstream_urns}"
+    )
 
 
 @pytest.mark.integration

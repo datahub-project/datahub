@@ -163,30 +163,34 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_external_upstreams: int = 0
     data_model_element_upstreams_unresolved: int = 0
 
-    # Cross-DM element references (DM-A element pulls from DM-B).
-    # ``_resolved``: edge emitted to a DM element Dataset URN. Ambiguous
-    #   resolutions are a sub-shape of ``_resolved`` and also increment
-    #   ``_ambiguous`` (clean = _resolved - _ambiguous).
-    # ``_name_unmatched_but_dm_known``: referenced DM ingested but no element
-    #   name matched (typically a consumer-side rename).
-    # ``_dm_unknown``: referenced DM not in this run.
-    # Unresolved outcomes also bump ``data_model_element_upstreams_unresolved``.
+    # Cross-DM element references (DM-A element pulls from DM-B). Success
+    # counters bump once per unique upstream URN (diamonds deduped).
+    # ``_resolved = _strict + _ambiguous + _single_element_fallback``
+    # (``_ambiguous`` and ``_single_element_fallback`` are sub-shapes of
+    # ``_resolved``; clean strict-name-match = _resolved - _ambiguous -
+    # _single_element_fallback).
+    # Failure counters bump per source_id (each is a distinct missing ref)
+    # and also bump ``data_model_element_upstreams_unresolved``:
+    # ``_name_unmatched_but_dm_known``: producer DM ingested, no name match
+    #   (typically a consumer-side rename).
+    # ``_dm_unknown``: producer DM not in this run.
+    # ``_consumer_name_missing``: consumer element had a blank name; the
+    #   name-bridge was never attempted.
+    # ``_self_reference``: producer prefix matches the consuming DM (API
+    #   payload anomaly; defensively skipped).
     data_model_element_cross_dm_upstreams_resolved: int = 0
     data_model_element_cross_dm_upstreams_ambiguous: int = 0
+    data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
     data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
     data_model_element_cross_dm_upstreams_dm_unknown: int = 0
+    data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
+    data_model_element_cross_dm_upstreams_self_reference: int = 0
 
     # Personal-space / unlisted DMs discovered via /v2/dataModels/{urlId}.
     # ``_discovered``: an unlisted DM was fetched and added to the run.
     # ``_unresolved``: fetch returned non-200 (usually 403).
-    # ``_single_element_fallback``: cross-DM name-bridge miss resolved by
-    #   picking the producer's sole element (common for CSV-upload DMs).
     data_model_external_references_discovered: int = 0
     data_model_external_reference_unresolved: int = 0
-    data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
-    # Consuming DM element had a blank name, so the name-bridge was never
-    # attempted (distinct from ``_name_unmatched_but_dm_known``).
-    data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
 
     # /columns entries with ``elementId = None`` (DM-global calculations),
     # dropped because there is no element Dataset to attach them to.
