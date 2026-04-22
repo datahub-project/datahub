@@ -207,10 +207,6 @@ class SigmaDataModel(BaseModel):
     path: Optional[str] = None
     badge: Optional[str] = None
     elements: List[SigmaDataModelElement] = []
-    # Map of inode node id → external source name/type (lineage /entries with
-    # ``type: dataset`` or ``type: table``). Used to resolve element source_ids
-    # that start with ``inode-`` to external upstream URNs.
-    external_sources: Dict[str, Dict[str, str]] = {}
 
     def get_url_id(self) -> str:
         """

@@ -207,6 +207,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_external_references_discovered: int = 0
     data_model_external_reference_unresolved: int = 0
     data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
+    # ``data_model_element_cross_dm_upstreams_consumer_name_missing`` : the
+    #   *consuming* DM element has a blank name, so the name-bridge cannot
+    #   even be attempted. Distinct from ``_name_unmatched_but_dm_known``
+    #   (which means the DM is registered but no element matches the
+    #   consumer's name) — conflating the two makes triage mis-diagnose
+    #   "DM element rename broke the bridge" vs "consumer has no name".
+    data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
 
     # /columns entries with ``elementId = None`` (DM-global calculations).
     # Dropped because there is no element Dataset to attach them to, but

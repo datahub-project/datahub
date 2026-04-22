@@ -156,6 +156,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # for workbook elements that reference a DM without a resolvable
         # element name.
         self.dm_container_urn_by_url_id: Dict[str, str] = {}
+        # Maps DM urlId → total element count (including elements with blank
+        # names, which are excluded from ``dm_element_urn_by_name``). Used by
+        # the cross-DM single-element fallback to verify the producer DM
+        # truly has exactly one element before attributing an unmatched-name
+        # reference to it — the name-bridge map alone is insufficient
+        # because blank-named elements don't appear in it (see
+        # ``_prepopulate_dm_bridge_maps``).
+        self.dm_total_element_count_by_url_id: Dict[str, int] = {}
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -382,21 +390,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Resolve a DM element source_id of shape ``inode-<suffix>`` to an
         upstream URN. Returns the Sigma Dataset URN if the suffix matches a
-        Sigma Dataset that was actually ingested in this run; returns ``None``
-        otherwise.
-
-        A previous revision of this method also synthesized a Sigma Dataset
-        URN for any ``type: dataset`` lineage entry whose ``inode-<suffix>``
-        did not match an ingested dataset (filtered out by ``dataset_pattern``
-        / ``workspace_pattern`` / ``ingest_shared_entities=False``). That
-        shape was a dangling node in the graph — the URN carried no schema,
-        no owners, no other aspects — and it surfaced as an empty stub in
-        the UI. Code review flagged this, so we now treat the "dataset
-        reference exists but we chose not to ingest it" case the same as
-        any other unresolved upstream: count it and skip.
-
-        Warehouse-table upstreams (``type: table``) similarly require SQL
-        parsing that the DM API does not expose, so they also return None.
+        Sigma Dataset ingested in this run; returns ``None`` otherwise
+        (un-ingested Sigma Datasets and warehouse-table upstreams both fall
+        through to the caller's unresolved counter — we deliberately do
+        not fabricate dangling URNs for targets we didn't actually emit).
         """
         if not source_id.startswith("inode-"):
             return None
@@ -438,10 +435,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         if not consuming_element.name:
-            if other_dm_url_id in self.dm_container_urn_by_url_id:
-                self.reporter.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known += 1
-            else:
+            # Consumer has no name to match — the bridge can't be attempted.
+            # This is a distinct failure mode from "DM is known but name didn't
+            # match" (which means the DM-side element was renamed); conflating
+            # the two makes report triage mis-diagnose the root cause. ``dm_unknown``
+            # still fires if the producer DM itself isn't in the bridge, since
+            # that's a strictly stronger failure than a blank consumer name.
+            if other_dm_url_id not in self.dm_container_urn_by_url_id:
                 self.reporter.data_model_element_cross_dm_upstreams_dm_unknown += 1
+            else:
+                self.reporter.data_model_element_cross_dm_upstreams_consumer_name_missing += 1
             return None
 
         name_map = self.dm_element_urn_by_name.get(other_dm_url_id)
@@ -454,13 +457,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Single-element fallback: common for CSV-upload / personal-space DMs
             # where the producer has exactly one element and the consumer element
             # has been renamed (e.g. consumer "Test Data" ← producer "data.csv").
-            # If the producer DM has exactly one element total, the reference is
-            # unambiguous regardless of name — Sigma itself cannot point at any
-            # other element because there is no other element.
-            all_urns: List[str] = [urn for urns in name_map.values() for urn in urns]
-            if len(all_urns) == 1:
+            # If the producer DM has exactly one element total, the reference
+            # is unambiguous regardless of name — Sigma itself cannot point at
+            # any other element because there is no other element.
+            #
+            # Check both ``len(data_model.elements) == 1`` (via the total-count
+            # bridge map) *and* ``len(all_named_urns) == 1``. The name-map
+            # alone is insufficient: blank-named elements are intentionally
+            # excluded from ``dm_element_urn_by_name`` to keep the
+            # ambiguous-name counter accurate, so a DM with 1 named + N
+            # blank-named elements would otherwise spuriously hit the
+            # fallback even though Sigma could legitimately point at any of
+            # the anonymous ones.
+            total_elements = self.dm_total_element_count_by_url_id.get(other_dm_url_id)
+            all_named_urns: List[str] = [
+                urn for urns in name_map.values() for urn in urns
+            ]
+            if total_elements == 1 and len(all_named_urns) == 1:
                 self.reporter.data_model_element_cross_dm_upstreams_single_element_fallback += 1
-                return all_urns[0]
+                return all_named_urns[0]
             self.reporter.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known += 1
             return None
 
@@ -534,6 +549,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         if not upstream_urns:
             return None
+        # Sort for deterministic emission order. Sigma's /lineage API does
+        # not document ordering of entries / sourceIds, and goldens pinned
+        # against first-seen order would drift across runs when the API
+        # re-orders. Sorted URN order is stable across runs and still
+        # produces a valid UpstreamLineage (order is not semantically
+        # significant for Upstream entries).
+        upstream_urns.sort()
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
@@ -745,6 +767,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 continue
             self.dm_element_urn_by_name[key] = name_map
+            # Track the total element count (including blank-named elements,
+            # which are excluded from ``name_map``) so the cross-DM
+            # single-element fallback can verify the producer DM genuinely
+            # has exactly one element before attributing an unmatched-name
+            # reference. Without this, a DM with 1 named + N blank-named
+            # elements would spuriously hit the fallback.
+            self.dm_total_element_count_by_url_id[key] = len(data_model.elements)
 
         return elementId_to_dataset_urn
 
@@ -813,7 +842,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # sources use for boolean custom properties — keep the casing aligned
         # here so downstream filters can assume a single normalized form.
         if not data_model.workspaceId:
-            extra_properties["isPersonalDataModel"] = str(True)
+            extra_properties["isPersonalDataModel"] = "true"
 
         yield from gen_containers(
             container_key=data_model_key,
@@ -1320,14 +1349,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # stable. Each iteration either registers a new DM (shrinking the
             # unresolved set) or counts the prefix as unreachable (400/403/404).
             # Bounded by the number of reachable personal-space DMs per tenant.
+            #
+            # Scan only ``pending`` (newly-added DMs) for cross-DM prefixes
+            # each iteration — scanning ``all_data_models`` every pass would
+            # re-walk every already-processed DM's source_ids, making the
+            # loop O(N * rounds). ``unresolved_seen`` accumulates prefixes
+            # already attempted so a failed discovery doesn't trigger a
+            # second fetch on the next iteration.
             already_discovered: Set[str] = set()
+            unresolved_seen: Set[str] = set()
             pending = list(all_data_models)
             while pending:
                 for dm in pending:
                     elementId_maps_by_dm[dm.dataModelId] = (
                         self._prepopulate_dm_bridge_maps(dm)
                     )
-                unresolved = self._collect_unresolved_cross_dm_prefixes(all_data_models)
+                new_unresolved = self._collect_unresolved_cross_dm_prefixes(pending)
+                unresolved = new_unresolved - unresolved_seen
+                unresolved_seen |= new_unresolved
                 pending = []
                 for prefix in unresolved:
                     if prefix in already_discovered:

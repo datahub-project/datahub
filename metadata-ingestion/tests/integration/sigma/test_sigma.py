@@ -2527,7 +2527,7 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
     unambiguously.
 
     Assertions:
-    1. Producer Container emitted with isPersonalDataModel="True" and path.
+    1. Producer Container emitted with isPersonalDataModel="true" and path.
     2. Producer element Dataset emitted with SchemaMetadata + correct subtype.
     3. Consumer element Dataset has UpstreamLineage pointing at producer element.
     4. Reporter counters: discovered=1, unresolved=0, single_element_fallback=1,
@@ -2788,8 +2788,8 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
     producer_container_custom_props = container_props_mces[0]["aspect"]["json"][
         "customProperties"
     ]
-    assert producer_container_custom_props.get("isPersonalDataModel") == "True", (
-        f"producer Container should have isPersonalDataModel='True', got "
+    assert producer_container_custom_props.get("isPersonalDataModel") == "true", (
+        f"producer Container should have isPersonalDataModel='true', got "
         f"{producer_container_custom_props}"
     )
     assert producer_container_custom_props.get("path") == "My Documents", (
@@ -3556,3 +3556,317 @@ def test_sigma_ingest_data_models_cross_dm_self_reference_guarded(
     # And must bump the standard unresolved counter (neither intra nor
     # external nor valid cross-DM).
     assert report.data_model_element_upstreams_unresolved >= 1
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_total_count(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for M3: the single-element fallback must require the
+    producer DM to have exactly one element **total**, not just one *named*
+    element. Blank-named elements are excluded from
+    ``dm_element_urn_by_name`` (see ``_prepopulate_dm_bridge_maps``), so a
+    DM with 1 named + N blank-named elements would previously have
+    spuriously triggered the fallback and attributed a cross-DM edge to
+    the single named element even though Sigma could legitimately be
+    pointing at any of the anonymous ones.
+
+    Construction: producer DM with 1 named element ("data.csv") and 1
+    blank-named element. Consumer element name "Test Data" does not match.
+    The fallback must refuse (name_unmatched_but_dm_known, not
+    single_element_fallback) because the producer has 2 elements.
+    """
+    import json
+
+    override_data = _orphan_dm_mock_fixture()
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    # Add a second, blank-named element to the producer DM. The fallback
+    # must refuse to pick the single named element because the producer
+    # genuinely has two elements; Sigma could be pointing at either.
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/elements"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": "wcUd3nEUAv",
+                    "name": "data.csv",
+                    "type": "table",
+                    "vizualizationType": "levelTable",
+                    "columns": [],
+                },
+                {
+                    "elementId": "anonBlank001",
+                    "name": "",
+                    "type": "table",
+                    "vizualizationType": None,
+                    "columns": [],
+                },
+            ],
+            "total": 2,
+            "nextPage": None,
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_fallback_total_count_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # Fallback must NOT fire — producer has 2 elements total.
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0, (
+        f"single-element fallback must refuse when DM has >1 element total "
+        f"(even if only 1 is named); got "
+        f"{report.data_model_element_cross_dm_upstreams_single_element_fallback}"
+    )
+    # Degrades to name_unmatched_but_dm_known instead.
+    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 1
+
+    # And no upstream edge should point at the producer element.
+    consumer_element_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        "b584ddca-cfd6-4b72-97da-367fc0a5606d.1DYf5I08WO,PROD)"
+    )
+    producer_element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{producer_dm_id}.wcUd3nEUAv,PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    for mce in mces:
+        if (
+            mce.get("entityUrn") == consumer_element_urn
+            and mce.get("aspectName") == "upstreamLineage"
+        ):
+            aspect_json = mce.get("aspect", {}).get("json", mce.get("aspect", {}))
+            for up in aspect_json.get("upstreams", []):
+                assert up.get("dataset") != producer_element_urn, (
+                    f"fallback must not attribute cross-DM edge to single named "
+                    f"element when DM has blank-named siblings; got edge "
+                    f"{consumer_element_urn} -> {producer_element_urn}"
+                )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_isPersonalDataModel_lowercase(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for M4: ``customProperties.isPersonalDataModel`` is
+    emitted as the lowercase string ``"true"`` (JSON boolean convention
+    used elsewhere in DataHub). Previous revisions flipped between ``"True"``
+    and ``"true"`` across doc and code; this test locks the current
+    contract so future drift is caught at CI time.
+    """
+    import json
+
+    override_data = _orphan_dm_mock_fixture()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_personal_lowercase_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_container_props = next(
+        mce
+        for mce in mces
+        if mce.get("aspectName") == "containerProperties"
+        and mce.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+        .get("dataModelId")
+        == producer_dm_id
+    )
+    custom_props = (
+        producer_container_props.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+    )
+    # Exact value and exact casing — both matter (previous drift emitted "True").
+    assert custom_props.get("isPersonalDataModel") == "true", (
+        f"isPersonalDataModel must be exact lowercase 'true' (JSON convention); "
+        f"got {custom_props.get('isPersonalDataModel')!r}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for the ``_prepopulate_dm_bridge_maps`` collision
+    branch: two DMs claiming the same ``urlId`` (a documented corner case
+    on older Sigma tenants where a slug is reissued after the original
+    asset is deleted) must keep the first registration and warn about the
+    conflict. A flipped-direction regression ("overwrite" instead of
+    "keep first") would silently mis-route cross-DM lineage to the
+    latest-seen DM.
+    """
+    import json
+
+    override_data = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
+
+    # Inject a second DM listing that reuses the same urlId as the
+    # baseline fixture's DM ("CDJLIyOhUoKBSEVI8Wr4n"). Different UUID,
+    # different name, but identical urlId. The second registration
+    # should be rejected (first wins).
+    duplicate_dm_id = "ddddddd-dddd-dddd-dddd-dddddddddddd"
+    existing_listing_url = "https://aws-api.sigmacomputing.com/v2/dataModels"
+    existing_listing = override_data[existing_listing_url]["json"]
+    existing_listing["entries"].append(
+        {
+            "dataModelId": duplicate_dm_id,
+            "urlId": "CDJLIyOhUoKBSEVI8Wr4n",
+            "name": "Reissued Slug DM",
+            "description": "Same urlId, different UUID",
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2026-04-16T18:57:31.928Z",
+            "updatedAt": "2026-04-16T19:02:22.085Z",
+            "url": "https://app.sigmacomputing.com/acryldata/data-model/CDJLIyOhUoKBSEVI8Wr4n",
+            "latestVersion": 1,
+            "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+            "path": "Acryl Data",
+        }
+    )
+    existing_listing["total"] = len(existing_listing["entries"])
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{duplicate_dm_id}/elements"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": "dupElemId00",
+                    "name": "dup element",
+                    "type": "table",
+                    "vizualizationType": None,
+                    "columns": [],
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{duplicate_dm_id}/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{duplicate_dm_id}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_collision_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # The pipeline must not crash, and both DMs should emit Container
+    # entities (the collision is only for the bridge map, not entity
+    # emission — both are still valid DMs in the graph).
+    with open(output_path) as f:
+        mces = json.load(f)
+    original_container = [
+        mce
+        for mce in mces
+        if mce.get("aspectName") == "containerProperties"
+        and mce.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+        .get("dataModelId")
+        == "147a4d09-a686-4eea-b183-9b82aa0f7beb"
+    ]
+    duplicate_container = [
+        mce
+        for mce in mces
+        if mce.get("aspectName") == "containerProperties"
+        and mce.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+        .get("dataModelId")
+        == duplicate_dm_id
+    ]
+    assert len(original_container) == 1, (
+        "original DM container should still be emitted despite bridge collision"
+    )
+    assert len(duplicate_container) == 1, (
+        "duplicate-urlId DM container should still be emitted despite bridge collision"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_consumer_blank_name(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for M5: a consuming DM element with a blank name
+    bumps a **distinct** counter (``consumer_name_missing``) rather than
+    the rename-adjacent ``name_unmatched_but_dm_known`` counter. The
+    separation exists so report triage can distinguish "consumer element
+    has no name at all" from "DM element rename broke the bridge".
+    """
+    override_data = _orphan_dm_mock_fixture()
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    # Flip the consumer element's name to blank — the cross-DM ref will
+    # short-circuit at the ``not consuming_element.name`` branch.
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": "1DYf5I08WO",
+                    "name": "",
+                    "type": "table",
+                    "vizualizationType": "levelTable",
+                    "columns": [],
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_blank_consumer_name_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # Distinct counter must bump, and the rename-adjacent counter must NOT.
+    assert report.data_model_element_cross_dm_upstreams_consumer_name_missing == 1, (
+        f"expected 1 consumer_name_missing, got "
+        f"{report.data_model_element_cross_dm_upstreams_consumer_name_missing}"
+    )
+    assert (
+        report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 0
+    ), (
+        f"name_unmatched_but_dm_known must not conflate blank-consumer case; "
+        f"got {report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known}"
+    )
+    assert report.data_model_element_cross_dm_upstreams_resolved == 0
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0

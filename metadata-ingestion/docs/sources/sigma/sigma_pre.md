@@ -26,7 +26,9 @@ This source extracts the following:
     and no workspace) are **discovered on demand** via a direct
     `GET /v2/dataModels/{urlId}` call. Discovered personal-space DMs are
     emitted as full Container + element Dataset entities and flagged with
-    `customProperties.isPersonalDataModel = "true"`. If the service-account
+    `customProperties.isPersonalDataModel = "true"` (lowercase, matching
+    the JSON boolean convention used by most DataHub connectors). If the
+    service-account
     client cannot reach the personal-space DM (HTTP 403 / 404), the edge is
     suppressed and counted under `data_model_external_reference_unresolved`.
 
@@ -57,15 +59,17 @@ This source extracts the following:
   Container's and element's `customProperties` as `dataModelUrlId`.
 
   A note on external upstreams: when a Data Model's `/lineage` API reports
-  a `type: dataset` entry whose Sigma Dataset is **not** fetched in this
-  ingestion run (e.g. filtered out by `workspace_pattern` or
-  `ingest_shared_entities=False`), the DM element's `UpstreamLineage`
-  still emits a synthesized Sigma Dataset URN for that reference. The
-  URN itself will have no `DatasetProperties`/`Status` in this run, so
-  it will appear as a link-only target in the graph until a subsequent
-  run ingests the owning workspace. If you prefer to drop such edges
-  entirely, restrict your Data Model and workspace patterns to the same
-  scope.
+  a `type: dataset` entry whose Sigma Dataset was **not** fetched in this
+  ingestion run (e.g. filtered out by `workspace_pattern`,
+  `dataset_pattern`, or `ingest_shared_entities=False`), the DM element's
+  `UpstreamLineage` **suppresses** the edge rather than fabricating a
+  dangling Sigma Dataset URN. The drop is counted under the
+  `data_model_element_upstreams_unresolved` report counter, matching how
+  unresolved warehouse-table references (`type: table`, which require
+  SQL parsing not exposed by the DM API) are already handled. To see
+  these edges in the graph, include the owning workspace / dataset in
+  your ingestion patterns; the edge will be re-created on the next run
+  once the target Dataset is actually emitted.
 
 ### Prerequisites
 

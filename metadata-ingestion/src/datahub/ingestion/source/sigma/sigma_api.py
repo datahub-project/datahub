@@ -799,7 +799,6 @@ class SigmaAPI:
             columns_by_element.setdefault(column.elementId, []).append(column)
 
         source_ids_by_element: Dict[str, List[str]] = {}
-        external_sources: Dict[str, Dict[str, str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
             if entry_type == "element":
@@ -809,20 +808,20 @@ class SigmaAPI:
                     source_ids_by_element[element_id] = [
                         s for s in source_ids if isinstance(s, str)
                     ]
-            elif entry_type in ("dataset", "table"):
-                inode_id = entry.get("inodeId") or entry.get("nodeId")
-                if inode_id:
-                    external_sources[inode_id] = {
-                        Constant.TYPE: entry_type,
-                        Constant.NAME: entry.get(Constant.NAME) or "",
-                    }
+            # ``type: dataset`` and ``type: table`` entries describe external
+            # nodes that DM elements may reference via ``inode-<id>`` source
+            # ids. Per the external-upstream resolver, ``type: dataset`` is
+            # resolved against ``sigma_dataset_urn_by_url_id`` (only Sigma
+            # Datasets ingested in this run produce an edge); ``type: table``
+            # would require SQL parsing that the DM API does not expose.
+            # Neither needs to be stashed on the DM — the resolver consults
+            # the cross-run sigma_dataset bridge map directly.
 
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])
             element.source_ids = source_ids_by_element.get(element.elementId, [])
 
         data_model.elements = elements
-        data_model.external_sources = external_sources
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
         """
