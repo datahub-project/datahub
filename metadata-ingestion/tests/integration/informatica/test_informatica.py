@@ -18,7 +18,7 @@ from typing import Iterator, List, Optional
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.informatica.models import (
@@ -283,7 +283,7 @@ def _run_pipeline(
     return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_informatica_ingestion(pytestconfig, tmp_path):
     golden_dir = pytestconfig.rootpath / "tests/integration/informatica/golden"
@@ -308,7 +308,7 @@ class _FailedExportClient(_StubClient):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_failed_export_emits_entities_without_lineage(tmp_path):
     """When IDMC's export job fails, entity metadata still ingests but no
@@ -355,7 +355,7 @@ class _V2MappletFallbackClient(_StubClient):
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_v2_mapplet_fallback_emits_mapplet_when_v3_empty(tmp_path):
     """v3 MAPPLET query returns nothing; the v2 fallback surfaces the mapplet
