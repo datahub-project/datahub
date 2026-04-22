@@ -9,6 +9,7 @@ import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarRelatedAssetsSection } from '@app/entityV2/shared/containers/profile/sidebar/RelatedAssets/SidebarRelatedAssetsSection';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
@@ -107,6 +108,12 @@ const sidebarSections = [
     },
     {
         component: DataProductSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: SidebarRelatedAssetsSection,
         display: {
             visible: () => true,
         },
