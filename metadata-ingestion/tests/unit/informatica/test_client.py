@@ -36,7 +36,7 @@ def _build_response(
 
 @pytest.fixture
 def client() -> InformaticaClient:
-    config = InformaticaSourceConfig.parse_obj(
+    config = InformaticaSourceConfig.model_validate(
         {
             "username": "svc",
             "password": "pw",
@@ -94,6 +94,21 @@ class TestLogin:
         ):
             client.login()
 
+    def test_login_non_json_body_raises_typed(self, client):
+        # 200 with an HTML/empty body (observed when a reverse proxy sits in
+        # front of IDMC) must raise InformaticaLoginError rather than crash
+        # with an uncaught JSONDecodeError.
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.text = "<html>Maintenance</html>"
+        resp.url = "https://dm-us/login"
+        resp.json.side_effect = json.JSONDecodeError("x", "", 0)
+        with (
+            patch.object(client._session, "post", return_value=resp),
+            pytest.raises(InformaticaLoginError, match="non-JSON body"),
+        ):
+            client.login()
+
 
 class TestAuthFailureDetection:
     def test_401_is_auth_failure(self):
@@ -109,6 +124,25 @@ class TestAuthFailureDetection:
 
     def test_200_is_not_auth_failure(self):
         assert InformaticaClient._is_auth_failure(_build_response(200)) is False
+
+
+class TestDecodeJson:
+    def test_raises_informatica_api_error_on_invalid_json(self):
+        # 200 with a non-JSON body (e.g., HTML error page, empty response)
+        # must be converted to InformaticaApiError so the pipeline reports
+        # a clean warning instead of crashing with JSONDecodeError.
+        resp = MagicMock()
+        resp.json.side_effect = __import__("json").JSONDecodeError("x", "", 0)
+        resp.text = "<html>Server Error</html>"
+        resp.status_code = 200
+        resp.url = "https://pod/api/v2/thing"
+
+        with pytest.raises(InformaticaApiError, match="non-JSON body"):
+            InformaticaClient._decode_json(resp)
+
+    def test_passes_through_valid_json(self):
+        resp = _build_response(200, payload={"key": "value"})
+        assert InformaticaClient._decode_json(resp) == {"key": "value"}
 
 
 class TestRequestRetryOnAuthFailure:
@@ -211,17 +245,42 @@ class TestListObjectsPagination:
             results = list(client.list_objects("Project"))
         assert len(results) == 2
 
-    def test_tag_filter_adds_to_query(self, client):
+    def test_tag_filter_is_not_sent_to_server(self, client):
+        # IDMC's v3 objects API rejects `tag==` in the server-side `q` query,
+        # so filtering must be done client-side.
         client._session_id = "s"
         client._base_url = "https://pod/saas"
         client._session_last_validated_at = 1e12
 
         resp = _build_response(200, {"objects": []})
         with patch.object(client._session, "request", return_value=resp) as req:
-            list(client.list_objects("Project", tag="pii"))
+            list(client.list_objects("TASKFLOW", tag="pii"))
         params = req.call_args.kwargs["params"]
-        assert "type=='Project'" in params["q"]
-        assert "tag=='pii'" in params["q"]
+        assert params["q"] == "type=='TASKFLOW'"
+
+    def test_tag_filter_applied_client_side(self, client):
+        # page_size=2 in the fixture — returning 3 items on a single page
+        # would leave the pagination loop unable to terminate (len >= limit),
+        # so cap the first page to 2 and signal end-of-data with an empty page.
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        first_page = _build_response(
+            200,
+            {
+                "objects": [
+                    {"id": "1", "name": "a", "path": "/Explore/P", "tags": ["pii"]},
+                    {"id": "2", "name": "b", "path": "/Explore/P", "tags": ["other"]},
+                ]
+            },
+        )
+        empty_page = _build_response(200, {"objects": []})
+        with patch.object(
+            client._session, "request", side_effect=[first_page, empty_page]
+        ):
+            results = list(client.list_objects("TASKFLOW", tag="pii"))
+        assert [o.id for o in results] == ["1"]
 
 
 class TestParseV3Object:
@@ -238,6 +297,140 @@ class TestParseV3Object:
         )
         assert obj.id == "p1"
         assert obj.object_type == "DTEMPLATE"
+
+    def test_derives_name_from_path_when_name_missing(self):
+        # IDMC sometimes returns objects with no name field at all; the last
+        # path component is a reliable fallback so the entity gets a usable name.
+        obj = InformaticaClient._parse_v3_object(
+            {"id": "tf-1", "path": "/Explore/Sales/my_flow"},
+            "TASKFLOW",
+        )
+        assert obj.name == "my_flow"
+
+    def test_properties_style_falls_back_to_top_level_name_and_path(self):
+        # Informatica v3 API can return name/path at the top level even when a
+        # properties array is present. Without the fallback, obj.name and obj.path
+        # are empty, causing DataHub to display the v3 GUID as the entity name.
+        obj = InformaticaClient._parse_v3_object(
+            {
+                "id": "abc123",
+                "name": "My Mapping",
+                "path": "/Explore/Sales/Mappings",
+                "properties": [
+                    {"name": "id", "value": "abc123"},
+                    {"name": "description", "value": "some desc"},
+                ],
+            },
+            "DTEMPLATE",
+        )
+        assert obj.name == "My Mapping"
+        assert obj.path == "/Explore/Sales/Mappings"
+
+
+class TestListMappletsV2Fallback:
+    def test_probes_endpoints_in_order_and_returns_first_success(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        call_log = []
+
+        def fake_request(method, url, *args, **kwargs):
+            call_log.append(url)
+            if url.endswith("/api/v2/mapplet"):
+                # First probe fails — matches the reported behavior on
+                # use4.dm-us.informaticacloud.com.
+                return _build_response(
+                    404, payload={"error": "Not Found"}, raw_bytes=b""
+                )
+            if url.endswith("/api/v2/mapplets"):
+                return _build_response(
+                    200,
+                    payload=[
+                        {
+                            "id": "01XXX",
+                            "name": "Mapplet1",
+                            "location": "Default/develop_test",
+                            "assetFrsGuid": "v3-guid",
+                        }
+                    ],
+                )
+            return _build_response(404)
+
+        # Override raise_for_status to actually raise on 404 so the caller
+        # exception path runs.
+        def request_wrapper(method, url, *args, **kwargs):
+            resp = fake_request(method, url, *args, **kwargs)
+            if resp.status_code >= 400:
+                import requests
+
+                http_err = requests.HTTPError(
+                    f"{resp.status_code} Client Error: Not Found for url: {url}"
+                )
+                resp.raise_for_status = MagicMock(side_effect=http_err)
+            return resp
+
+        with patch.object(client, "_request", side_effect=request_wrapper):
+            mapplets = client.list_mapplets_v2()
+
+        # Verify we stopped after the successful probe.
+        assert len([u for u in call_log if "mapplet" in u.lower()]) == 2
+        assert len(mapplets) == 1
+        assert mapplets[0].name == "Mapplet1"
+        assert mapplets[0].id == "v3-guid"
+        assert mapplets[0].path == "Default/develop_test/Mapplet1"
+
+    def test_returns_empty_when_all_probes_fail(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        def always_404(method, url, *args, **kwargs):
+            resp = _build_response(404)
+            import requests
+
+            resp.raise_for_status = MagicMock(
+                side_effect=requests.HTTPError(f"404 for {url}")
+            )
+            return resp
+
+        with patch.object(client, "_request", side_effect=always_404):
+            mapplets = client.list_mapplets_v2()
+
+        # No endpoint worked — caller handles the empty list at info level.
+        assert mapplets == []
+
+
+class TestParseInnerDtemplateZip:
+    @staticmethod
+    def _make_inner_zip(bin_bytes: bytes) -> zipfile.ZipFile:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("bin/@3.bin", bin_bytes)
+        buf.seek(0)
+        return zipfile.ZipFile(buf)
+
+    def test_invalid_json_body_reports_to_source(self, client):
+        # Corrupted @3.bin payload (valid UTF-8 but truncated JSON): the
+        # decoder must land a failure in the report so it shows up in the
+        # ingestion summary rather than disappearing into debug logs.
+        inner = self._make_inner_zip(b'{"content": {"name": "m"')
+
+        result = client._parse_inner_dtemplate_zip(inner, "Sales__Map.zip", "g-1")
+
+        assert result is None
+        assert any(
+            "Sales__Map.zip" in entry for entry in client.report.objects_failed
+        ), f"expected failure reported; got {list(client.report.objects_failed)}"
+
+    def test_invalid_utf8_body_reports_to_source(self, client):
+        # Same contract for a UnicodeDecodeError (binary garbage in @3.bin).
+        inner = self._make_inner_zip(b"\xff\xfe\xff\xfe\xff")
+
+        result = client._parse_inner_dtemplate_zip(inner, "Sales__Map.zip", "g-1")
+
+        assert result is None
+        assert any("Sales__Map.zip" in entry for entry in client.report.objects_failed)
 
 
 class TestWaitForExport:

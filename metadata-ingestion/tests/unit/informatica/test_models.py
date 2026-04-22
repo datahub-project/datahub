@@ -31,7 +31,7 @@ class TestIdmcConnection:
         assert conn.federated_id == "fed-123"
         assert conn.host == "acme.snowflakecomputing.com"
         assert conn.database == "ANALYTICS"
-        assert conn.schema == "PUBLIC"
+        assert conn.db_schema == "PUBLIC"
 
     def test_from_api_response_falls_back_to_top_level_fields(self):
         conn = IdmcConnection.from_api_response(
@@ -45,7 +45,7 @@ class TestIdmcConnection:
         )
         assert conn.host == "legacy-host"
         assert conn.database == "DB"
-        assert conn.schema == "S"
+        assert conn.db_schema == "S"
         assert conn.conn_type == ""
 
     def test_from_api_response_handles_missing_fields(self):
@@ -92,6 +92,45 @@ class TestIdmcObjectParsing:
         assert obj.path == "/Explore/Foo"
         assert obj.object_type == "DTEMPLATE"
 
+    def test_from_flat_builds_path_from_location_and_name(self):
+        # Some IDMC v3 responses (notably TASKFLOW) return a folder path in
+        # `location` instead of the canonical `path` field. The parser
+        # combines `location` + `name` so the taskflow still nests under its
+        # IDMC folder in the DataHub navigate tree.
+        obj = IdmcObject.from_flat(
+            {
+                "id": "tf-1",
+                "name": "Taskflow1",
+                "location": "/Explore/Default/develop_test",
+                "documentType": "TASKFLOW",
+            },
+            fallback_type="TASKFLOW",
+        )
+        assert obj.path == "/Explore/Default/develop_test/Taskflow1"
+
+    def test_from_flat_uses_full_path_field_when_present(self):
+        obj = IdmcObject.from_flat(
+            {"id": "x", "name": "Y", "fullPath": "/Explore/P/F/Y"},
+            fallback_type="TASKFLOW",
+        )
+        assert obj.path == "/Explore/P/F/Y"
+
+    def test_from_flat_direct_path_wins_over_alternatives(self):
+        obj = IdmcObject.from_flat(
+            {
+                "id": "x",
+                "name": "Y",
+                "path": "/Explore/P/F/Y",
+                "location": "ignored-because-path-is-authoritative",
+            },
+            fallback_type="TASKFLOW",
+        )
+        assert obj.path == "/Explore/P/F/Y"
+
+    def test_from_flat_empty_path_when_no_source_available(self):
+        obj = IdmcObject.from_flat({"id": "x", "name": "Y"}, fallback_type="TASKFLOW")
+        assert obj.path == ""
+
 
 class TestIdmcMappingParsing:
     def test_from_api_response(self):
@@ -124,6 +163,47 @@ class TestIdmcMappingTaskParsing:
         assert mt.v2_id == "mt-1"
         assert mt.mapping_id == "m-1"
         assert mt.connection_id == "c-1"
+        assert mt.created_by == "alice"
+
+    def test_from_v3_object(self):
+        mt = IdmcMappingTask.from_v3_object(
+            {
+                "id": "mt-1",
+                "name": "nightly",
+                "path": "/Explore/Sales/ETL/nightly",
+                "createdBy": "alice",
+                "lastUpdatedBy": "bob",
+            }
+        )
+        assert mt.v2_id == "mt-1"
+        assert mt.name == "nightly"
+        assert mt.path == "/Explore/Sales/ETL/nightly"
+        assert mt.created_by == "alice"
+        assert mt.updated_by == "bob"
+
+    def test_from_v3_object_name_falls_back_to_path(self):
+        mt = IdmcMappingTask.from_v3_object(
+            {"id": "mt-1", "name": "", "path": "/Explore/Sales/ETL/nightly"}
+        )
+        assert mt.name == "nightly"
+
+    def test_from_v3_object_parses_properties_style_response(self):
+        # IDMC v3 can return MTT entries in nested `properties` shape; without
+        # dual-format handling, name/path come back empty and folder structure
+        # is lost.
+        mt = IdmcMappingTask.from_v3_object(
+            {
+                "properties": [
+                    {"name": "id", "value": "mt-1"},
+                    {"name": "name", "value": "nightly"},
+                    {"name": "path", "value": "/Explore/Sales/ETL/nightly"},
+                    {"name": "createdBy", "value": "alice"},
+                ]
+            }
+        )
+        assert mt.v2_id == "mt-1"
+        assert mt.name == "nightly"
+        assert mt.path == "/Explore/Sales/ETL/nightly"
         assert mt.created_by == "alice"
 
 

@@ -12,56 +12,56 @@ def _base_config(**overrides):
 
 class TestInformaticaSourceConfig:
     def test_login_url_trailing_slash_is_stripped(self):
-        config = InformaticaSourceConfig.parse_obj(
+        config = InformaticaSourceConfig.model_validate(
             _base_config(login_url="https://dm-em.informaticacloud.com/")
         )
         assert config.login_url == "https://dm-em.informaticacloud.com"
 
     def test_login_url_rejects_non_https(self):
         with pytest.raises(ValidationError, match="login_url must start with https"):
-            InformaticaSourceConfig.parse_obj(
+            InformaticaSourceConfig.model_validate(
                 _base_config(login_url="http://dm-us.informaticacloud.com")
             )
 
     def test_page_size_bounds(self):
         with pytest.raises(ValidationError):
-            InformaticaSourceConfig.parse_obj(_base_config(page_size=0))
+            InformaticaSourceConfig.model_validate(_base_config(page_size=0))
         with pytest.raises(ValidationError):
-            InformaticaSourceConfig.parse_obj(_base_config(page_size=201))
+            InformaticaSourceConfig.model_validate(_base_config(page_size=201))
 
     def test_export_batch_size_bounds(self):
         with pytest.raises(ValidationError):
-            InformaticaSourceConfig.parse_obj(_base_config(export_batch_size=0))
+            InformaticaSourceConfig.model_validate(_base_config(export_batch_size=0))
         with pytest.raises(ValidationError):
-            InformaticaSourceConfig.parse_obj(_base_config(export_batch_size=1001))
+            InformaticaSourceConfig.model_validate(_base_config(export_batch_size=1001))
 
     def test_poll_interval_must_be_less_than_timeout(self):
         with pytest.raises(ValidationError, match="interval_secs must be less"):
-            InformaticaSourceConfig.parse_obj(
+            InformaticaSourceConfig.model_validate(
                 _base_config(export_poll_timeout_secs=30, export_poll_interval_secs=30)
             )
 
     def test_connection_type_overrides_rejects_empty_platform(self):
         with pytest.raises(ValidationError, match="empty platform name"):
-            InformaticaSourceConfig.parse_obj(
+            InformaticaSourceConfig.model_validate(
                 _base_config(connection_type_overrides={"01A": ""})
             )
 
     def test_connection_type_overrides_warns_on_unknown_platform(self, caplog):
         with caplog.at_level("WARNING"):
-            InformaticaSourceConfig.parse_obj(
+            InformaticaSourceConfig.model_validate(
                 _base_config(connection_type_overrides={"01A": "snowflak_typo"})
             )
         assert any("snowflak_typo" in r.message for r in caplog.records)
 
     def test_connection_type_overrides_accepts_known_platform(self):
-        config = InformaticaSourceConfig.parse_obj(
+        config = InformaticaSourceConfig.model_validate(
             _base_config(connection_type_overrides={"01B": "snowflake"})
         )
         assert config.connection_type_overrides == {"01B": "snowflake"}
 
     def test_tag_and_pattern_filters(self):
-        config = InformaticaSourceConfig.parse_obj(
+        config = InformaticaSourceConfig.model_validate(
             _base_config(
                 tag_filter_names=["pii", "critical"],
                 project_pattern={"allow": ["Prod.*"]},

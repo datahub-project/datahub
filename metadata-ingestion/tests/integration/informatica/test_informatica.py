@@ -12,6 +12,8 @@ builds a stubbed ``InformaticaClient`` with canned fixture data covering:
 The resulting MCE stream is compared against a checked-in golden file.
 """
 
+import json
+from pathlib import Path
 from typing import Iterator, List, Optional
 from unittest import mock
 
@@ -72,6 +74,13 @@ _FOLDERS: List[IdmcObject] = [
         object_type="Folder",
         updated_by="alice@acme.com",
     ),
+    IdmcObject(
+        id="folder-sales-mapping-tasks",
+        name="MappingTasks",
+        path="/Explore/Sales/MappingTasks",
+        object_type="Folder",
+        updated_by="alice@acme.com",
+    ),
 ]
 
 _TASKFLOWS: List[IdmcObject] = [
@@ -126,6 +135,7 @@ _MAPPING_TASKS: List[IdmcMappingTask] = [
     IdmcMappingTask(
         v2_id="mttask-1",
         name="nightly_copy_orders",
+        path="/Explore/Sales/MappingTasks/nightly_copy_orders",
         description="Scheduled runner for copy_orders_to_dw",
         mapping_id="v2-map-1",
         mapping_name="copy_orders_to_dw",
@@ -142,7 +152,7 @@ _CONNECTIONS: List[IdmcConnection] = [
         conn_type="Snowflake_Cloud_Data_Warehouse",
         federated_id="fed-sf-prod",
         database="DWH",
-        schema="ANALYTICS",
+        db_schema="ANALYTICS",
     ),
     IdmcConnection(
         id="conn-oracle-oltp",
@@ -150,7 +160,7 @@ _CONNECTIONS: List[IdmcConnection] = [
         conn_type="Oracle",
         federated_id="fed-oracle-oltp",
         database="OLTP",
-        schema="APPS",
+        db_schema="APPS",
     ),
 ]
 
@@ -222,6 +232,11 @@ class _StubClient:
     def list_mappings(self):
         return _V2_MAPPINGS
 
+    def list_mapplets_v2(self):
+        # Fixture instance returns mapplets via the v3 MAPPLET path already
+        # (there are none here), so the v2 fallback stays a no-op.
+        return []
+
     def list_mapping_tasks(self):
         return _MAPPING_TASKS
 
@@ -238,6 +253,36 @@ class _StubClient:
         return iter(_LINEAGE_INFOS)
 
 
+def _run_pipeline(
+    stub_client_cls: type,
+    output_path: Path,
+    extra_config: Optional[dict] = None,
+) -> Pipeline:
+    """Shared pipeline runner for parametrized integration scenarios."""
+    config = {
+        "login_url": "https://dm-us.informaticacloud.com",
+        "username": "test-user",
+        "password": "test-password",
+        "platform_instance": "idmc_test",
+    }
+    if extra_config:
+        config.update(extra_config)
+    with mock.patch(
+        "datahub.ingestion.source.informatica.source.InformaticaClient",
+        stub_client_cls,
+    ):
+        pipeline = Pipeline.create(
+            {
+                "pipeline_name": "test-informatica",
+                "source": {"type": "informatica", "config": config},
+                "sink": {"type": "file", "config": {"filename": str(output_path)}},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+    return pipeline
+
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_informatica_ingestion(pytestconfig, tmp_path):
@@ -245,33 +290,87 @@ def test_informatica_ingestion(pytestconfig, tmp_path):
     golden_path = golden_dir / "informatica_mces_golden.json"
     output_path = tmp_path / "informatica_mces.json"
 
-    with mock.patch(
-        "datahub.ingestion.source.informatica.source.InformaticaClient",
-        _StubClient,
-    ):
-        pipeline = Pipeline.create(
-            {
-                "pipeline_name": "test-informatica",
-                "source": {
-                    "type": "informatica",
-                    "config": {
-                        "login_url": "https://dm-us.informaticacloud.com",
-                        "username": "test-user",
-                        "password": "test-password",
-                        "platform_instance": "idmc_test",
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {"filename": str(output_path)},
-                },
-            }
-        )
-        pipeline.run()
-        pipeline.raise_from_status()
+    _run_pipeline(_StubClient, output_path)
 
     mce_helpers.check_golden_file(
         pytestconfig=pytestconfig,
         output_path=output_path,
         golden_path=golden_path,
+    )
+
+
+class _FailedExportClient(_StubClient):
+    """Client stub that reports an unsuccessful export job state."""
+
+    def wait_for_export(self, job_id):
+        return ExportJobStatus(
+            job_id=job_id, state=ExportJobState.FAILED, message="export job failed"
+        )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_failed_export_emits_entities_without_lineage(tmp_path):
+    """When IDMC's export job fails, entity metadata still ingests but no
+    lineage MCPs are emitted — and the source report records a warning so
+    users aren't left guessing why lineage is missing.
+    """
+    output_path = tmp_path / "informatica_no_lineage.json"
+    pipeline = _run_pipeline(_FailedExportClient, output_path)
+
+    # Entities still emitted (containers + dataflows + datajobs).
+    with open(output_path) as f:
+        records = json.load(f)
+    entity_types = {r.get("entityType") for r in records}
+    assert "container" in entity_types
+    assert "dataFlow" in entity_types
+    assert "dataJob" in entity_types
+    # No dataJobInputOutput aspect was emitted because the export failed.
+    lineage_aspects = [
+        r for r in records if r.get("aspectName") == "dataJobInputOutput"
+    ]
+    assert lineage_aspects == []
+    # Report carries a warning so the failure is discoverable.
+    source_report = pipeline.source.get_report()
+    assert any(
+        w.title and "export" in w.title.lower() for w in source_report.warnings
+    ), f"expected an export-related warning, got: {source_report.warnings}"
+
+
+class _V2MappletFallbackClient(_StubClient):
+    """Client stub simulating an IDMC pod where v3 MAPPLET returns empty and
+    mapplets are only reachable via the v2 /api/v2/mapplet fallback.
+    """
+
+    def list_mapplets_v2(self):
+        return [
+            IdmcObject(
+                id="mpl-guid-1",
+                name="reusable_logic",
+                path="/Explore/Sales/Mapplets/reusable_logic",
+                object_type="MAPPLET",
+                description="Shared lookup mapplet",
+                updated_by="alice@acme.com",
+            )
+        ]
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_v2_mapplet_fallback_emits_mapplet_when_v3_empty(tmp_path):
+    """v3 MAPPLET query returns nothing; the v2 fallback surfaces the mapplet
+    and the pipeline emits it as a DataFlow with subtype=Mapplet.
+    """
+    output_path = tmp_path / "informatica_v2_fallback.json"
+    _run_pipeline(_V2MappletFallbackClient, output_path)
+
+    with open(output_path) as f:
+        records = json.load(f)
+    mapplet_flow_names = [
+        r.get("aspect", {}).get("json", {}).get("name")
+        for r in records
+        if r.get("aspectName") == "dataFlowInfo"
+    ]
+    assert "reusable_logic" in mapplet_flow_names, (
+        f"mapplet from v2 fallback missing; got names: {mapplet_flow_names}"
     )

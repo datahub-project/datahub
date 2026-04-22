@@ -17,22 +17,103 @@ logger = logging.getLogger(__name__)
 
 ORCHESTRATOR = "informatica"
 
-# IDMC connParams["Connection Type"] → DataHub platform.
+# IDMC connParams["Connection Type"] → DataHub platform. Informatica doesn't
+# publish the canonical list, so entries cover observed native connectors
+# (CamelCase/Snake_Case), legacy CDK connectors (``TOOLKIT_CCI_*``), and
+# versioned variants (``_v2`` / ``V2``). Unknown types surface as unresolved
+# — users can extend via ``connection_type_platform_map`` in the recipe.
 CONNECTION_TYPE_MAP: Dict[str, str] = {
+    # --- Relational databases ---
     "Oracle": "oracle",
-    "Snowflake_Cloud_Data_Warehouse": "snowflake",
-    "SqlServer_ODBC": "mssql",
+    "Oracle_CDC": "oracle",
     "MySql": "mysql",
+    "MySql_CDC": "mysql",
     "PostgreSql": "postgres",
-    "Redshift": "redshift",
+    "PostgreSql_CDC": "postgres",
+    "SqlServer": "mssql",
+    "SqlServer_ODBC": "mssql",
+    "SqlServer_CDC": "mssql",
     "TOOLKIT_CCI_DB2": "db2",
+    "DB2": "db2",
+    "IBM_DB2": "db2",
     "TOOLKIT_CCI_SAP_HANA": "hana",
-    "S3": "s3",
-    "TOOLKIT_CCI_GOOGLE_BIG_QUERY": "bigquery",
-    "TOOLKIT_CCI_AZURE_SQL": "mssql",
-    "TOOLKIT_CCI_AZURE_SYNAPSE": "mssql",
-    "TOOLKIT_CCI_DATABRICKS": "databricks",
+    "SAP_HANA": "hana",
     "TOOLKIT_CCI_TERADATA": "teradata",
+    "Teradata": "teradata",
+    "Teradata_PT": "teradata",
+    "Greenplum": "greenplum",
+    "Vertica": "vertica",
+    "Sybase": "sybase",
+    # --- Cloud data warehouses ---
+    "Snowflake_Cloud_Data_Warehouse": "snowflake",
+    "Snowflake_Cloud_Data_Warehouse_v2": "snowflake",
+    "Snowflake_Data_Cloud": "snowflake",
+    "Redshift": "redshift",
+    "Redshift_v2": "redshift",
+    "Amazon_Redshift_v2": "redshift",
+    "TOOLKIT_CCI_GOOGLE_BIG_QUERY": "bigquery",
+    "Google_BigQuery": "bigquery",
+    "Google_BigQuery_v2": "bigquery",
+    "GoogleBigQuery": "bigquery",
+    "GoogleBigQuery_v2": "bigquery",
+    "TOOLKIT_CCI_AZURE_SQL": "mssql",
+    "Azure_SQL_Database": "mssql",
+    "Azure_SQL": "mssql",
+    "TOOLKIT_CCI_AZURE_SYNAPSE": "mssql",
+    "Azure_Synapse_SQL": "mssql",
+    "Azure_Synapse_Analytics": "mssql",
+    "TOOLKIT_CCI_DATABRICKS": "databricks",
+    "Databricks": "databricks",
+    "Databricks_Delta": "databricks",
+    "Databricks_Lakehouse": "databricks",
+    # --- Cloud object storage ---
+    "S3": "s3",
+    "Amazon_S3": "s3",
+    "Amazon_S3_v2": "s3",
+    "AmazonS3": "s3",
+    "AmazonS3_v2": "s3",
+    "Google_Cloud_Storage": "gcs",
+    "Google_Cloud_Storage_v2": "gcs",
+    "GoogleCloudStorage": "gcs",
+    "GoogleCloudStorage_v2": "gcs",
+    "Azure_Blob_Storage": "abs",
+    "Azure_Blob_Storage_v2": "abs",
+    "Azure_Data_Lake_Store": "abs",
+    "Azure_Data_Lake_Store_Gen2": "abs",
+    "Azure_Data_Lake_Store_V2": "abs",
+    "ADLS_Gen2": "abs",
+    # --- NoSQL and big data ---
+    "MongoDB": "mongodb",
+    "MongoDB_v2": "mongodb",
+    "Cassandra": "cassandra",
+    "Hive": "hive",
+    "Apache_Hive": "hive",
+    "HDFS": "hdfs",
+    "Hadoop_HDFS": "hdfs",
+    "ElasticSearch": "elasticsearch",
+    "Elasticsearch": "elasticsearch",
+    "Kafka": "kafka",
+    "Apache_Kafka": "kafka",
+    # --- Flat / semi-structured ---
+    "FlatFile": "file",
+    "CSVFile": "file",
+    "FTP": "file",
+    "SFTP": "file",
+    # --- SaaS apps (lineage emitted but dataset side is usually external) ---
+    "Salesforce": "salesforce",
+    "NetSuite": "netsuite",
+    "Workday": "workday",
+    "Workday_v2": "workday",
+    # --- Short-name aliases for name-substring inference ---
+    # Catches connections where conn_type is empty and only the human name
+    # hints at the platform (e.g. "Sample Snowflake Connection"). Longer keys
+    # above still win via longest-match.
+    "Snowflake": "snowflake",
+    "BigQuery": "bigquery",
+    "PostgreSQL": "postgres",
+    "Postgres": "postgres",
+    "SQL_Server": "mssql",
+    "SQLServer": "mssql",
 }
 
 # Default login URLs per IDMC region.
@@ -144,13 +225,30 @@ class InformaticaSourceConfig(
         description="Whether to extract tags from IDMC objects.",
     )
 
-    # Connection platform override
+    # Connection platform override (per connection ID)
     connection_type_overrides: Dict[str, str] = Field(
         default={},
         description=(
-            "Manual overrides mapping IDMC connection ID to DataHub platform name. "
-            "Use when automatic platform detection via connParams fails. "
-            "Example: {'01DM180B000000000008': 'snowflake'}"
+            "Per-connection-ID override mapping IDMC connection id → DataHub "
+            "platform name. Use when a single connection can't be auto-resolved "
+            "(e.g., a one-off custom connector). "
+            "Example: {'01DM180B000000000008': 'snowflake'}. "
+            "Takes priority over `connection_type_platform_map` and the built-in "
+            "CONNECTION_TYPE_MAP."
+        ),
+    )
+
+    # Connection platform extension (by type string)
+    connection_type_platform_map: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Extend the built-in connection-type → DataHub-platform map with "
+            'custom entries. Keys are the IDMC `connParams["Connection Type"]` '
+            "string (or the connection's top-level `type` as a fallback), values "
+            "are DataHub platform names. Useful for new IDMC marketplace "
+            "connectors that aren't in the built-in map yet. "
+            "Example: {'MyCustomConnector_v3': 'snowflake', 'CompanyDW': 'postgres'}. "
+            "Entries here are merged with (and override) CONNECTION_TYPE_MAP."
         ),
     )
 
@@ -229,3 +327,20 @@ class InformaticaSourceConfig(
                     platform,
                 )
         return overrides
+
+    @field_validator("connection_type_platform_map")
+    @classmethod
+    def validate_connection_type_platform_map(
+        cls, type_map: Dict[str, str]
+    ) -> Dict[str, str]:
+        for conn_type, platform in type_map.items():
+            if not conn_type:
+                raise ValueError(
+                    "connection_type_platform_map has an empty connection-type key; "
+                    "keys must match the IDMC `connParams['Connection Type']` string."
+                )
+            if not platform:
+                raise ValueError(
+                    f"connection_type_platform_map[{conn_type!r}] has empty platform name"
+                )
+        return type_map

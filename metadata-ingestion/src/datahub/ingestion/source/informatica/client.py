@@ -77,7 +77,13 @@ class InformaticaClient:
                 f"IDMC login failed (HTTP {resp.status_code}): {resp.text[:500]}. "
                 f"Check login_url ({self.config.login_url}), username, and password."
             )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except json.JSONDecodeError as e:
+            raise InformaticaLoginError(
+                f"IDMC login returned 200 with non-JSON body "
+                f"(url={resp.url}): {resp.text[:200]!r}"
+            ) from e
         if "error" in data or data.get("@type") == "error":
             error_msg = data.get("error", {}).get("message") or data.get(
                 "description", str(data)
@@ -129,7 +135,11 @@ class InformaticaClient:
             return False
         if resp.status_code != 200:
             return False
-        data = resp.json()
+        try:
+            data = resp.json()
+        except json.JSONDecodeError:
+            # 200 with unparseable body → force a re-login instead of crashing.
+            return False
         if not data.get("isValidToken", False):
             return False
         logger.debug(
@@ -229,49 +239,111 @@ class InformaticaClient:
         self.report.report_api_call()
         return resp
 
+    @staticmethod
+    def _decode_json(resp: requests.Response) -> Any:
+        """Parse a 2xx response as JSON, raising InformaticaApiError on empty
+        or malformed bodies. ``raise_for_status`` only covers HTTP status —
+        a 200 with broken JSON would otherwise crash the whole pipeline with
+        an uncaught JSONDecodeError.
+        """
+        try:
+            return resp.json()
+        except json.JSONDecodeError as e:
+            body_preview = (resp.text or "")[:200]
+            raise InformaticaApiError(
+                f"IDMC returned {resp.status_code} with non-JSON body "
+                f"(url={resp.url}): {body_preview!r}"
+            ) from e
+
     def _get_v2(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
         resp = self._request("GET", f"{self._base_url}{path}", params=params)
         resp.raise_for_status()
-        return resp.json()
+        return self._decode_json(resp)
 
     def _get_v3(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
         resp = self._request(
             "GET", f"{self._base_url}{path}", is_v3=True, params=params
         )
         resp.raise_for_status()
-        return resp.json()
+        return self._decode_json(resp)
 
     def _post_v3(self, path: str, json_body: Any) -> Any:
         resp = self._request(
             "POST", f"{self._base_url}{path}", is_v3=True, json_body=json_body
         )
         resp.raise_for_status()
-        return resp.json()
+        return self._decode_json(resp)
 
     def list_objects(
         self,
         object_type: IdmcObjectType,
         tag: Optional[str] = None,
     ) -> Iterator[IdmcObject]:
-        """Paginate through v3 objects of a given type."""
+        """Paginate through v3 objects of a given type.
+
+        The `tag` argument, if set, filters the results client-side by the
+        object's ``tags`` field. IDMC's v3 objects API rejects ``tag==`` in its
+        server-side ``q`` parameter (HTTP 400).
+
+        Every page is logged to the report (method, URL, status proxy via
+        item count, total accumulated) so silent empty responses surface
+        in the end-of-run summary rather than hiding in DEBUG logs.
+        """
         skip = 0
         limit = self.config.page_size
+        total_returned = 0
+        total_yielded = 0
+        page = 0
         while True:
-            q_parts = [f"type=='{object_type}'"]
-            if tag:
-                q_parts.append(f"tag=='{tag}'")
-            data = self._get_v3(
-                "/public/core/v3/objects",
-                params={"q": " and ".join(q_parts), "limit": limit, "skip": skip},
-            )
+            params = {
+                "q": f"type=='{object_type}'",
+                "limit": limit,
+                "skip": skip,
+            }
+            url = f"{self._base_url}/public/core/v3/objects?{_encode_params(params)}"
+            data = self._get_v3("/public/core/v3/objects", params=params)
             objects = data if isinstance(data, list) else data.get("objects", [])
+            page += 1
+            self.report.report_api_response(
+                method="GET",
+                url=url,
+                status=200,
+                item_count=len(objects),
+                extra=f"type={object_type} tag={tag or '-'} page={page}",
+            )
+            logger.debug(
+                "list_objects type=%s tag=%s page=%d returned %d items",
+                object_type,
+                tag,
+                page,
+                len(objects),
+            )
             if not objects:
                 break
             for obj in objects:
-                yield self._parse_v3_object(obj, object_type)
+                parsed = self._parse_v3_object(obj, object_type)
+                total_returned += 1
+                # Record under both query type and actual documentType so items
+                # returned under a different type (e.g. MAPPLET via DTEMPLATE) surface correctly.
+                self.report.report_raw_object(object_type, parsed.path)
+                if parsed.object_type and parsed.object_type != object_type:
+                    self.report.report_raw_object(parsed.object_type, parsed.path)
+                if tag and tag not in parsed.tags:
+                    self.report.report_filtered("tag", object_type, parsed.path)
+                    continue
+                total_yielded += 1
+                yield parsed
             if len(objects) < limit:
                 break
             skip += limit
+        logger.info(
+            "list_objects type=%s tag=%s: returned=%d yielded=%d across %d page(s)",
+            object_type,
+            tag,
+            total_returned,
+            total_yielded,
+            page,
+        )
 
     @staticmethod
     def _parse_v3_object(data: Dict[str, Any], object_type: str) -> IdmcObject:
@@ -283,31 +355,132 @@ class InformaticaClient:
     def list_mappings(self) -> List[IdmcMapping]:
         data = self._get_v2("/api/v2/mapping")
         items = data if isinstance(data, list) else [data]
-        return [IdmcMapping.from_api_response(m) for m in items if isinstance(m, dict)]
+        mappings = [
+            IdmcMapping.from_api_response(m) for m in items if isinstance(m, dict)
+        ]
+        self.report.report_api_response(
+            method="GET",
+            url=f"{self._base_url}/api/v2/mapping",
+            status=200,
+            item_count=len(mappings),
+            extra="v2-mappings",
+        )
+        return mappings
 
     def get_mapping(self, v2_id: str) -> IdmcMapping:
         return IdmcMapping.from_api_response(self._get_v2(f"/api/v2/mapping/{v2_id}"))
 
+    # IDMC mapplet endpoint has moved across versions — probe each shape.
+    _V2_MAPPLET_ENDPOINTS: List[str] = [
+        "/api/v2/mapplet",
+        "/api/v2/mapplets",
+        "/api/v2/Mapplet",
+    ]
+
+    def list_mapplets_v2(self) -> List[IdmcObject]:
+        """Fallback mapplet listing via the v2 API.
+
+        Used when the v3 ``type=='MAPPLET'`` query returns zero items.
+        Probes the known endpoint shapes and returns the first 2xx response,
+        adapted to :class:`IdmcObject`. Empty list when every probe fails.
+        """
+        for path in self._V2_MAPPLET_ENDPOINTS:
+            try:
+                data = self._get_v2(path)
+            except (InformaticaApiError, requests.HTTPError) as e:
+                # _get_v2 raises HTTPError on 404/5xx, or wraps as InformaticaApiError.
+                self.report.report_api_response(
+                    method="GET",
+                    url=f"{self._base_url}{path}",
+                    status=0,
+                    item_count=0,
+                    extra=f"v2-mapplets-probe-failed: {e}",
+                )
+                continue
+            mapplets = self._parse_v2_mapplets(data)
+            self.report.report_api_response(
+                method="GET",
+                url=f"{self._base_url}{path}",
+                status=200,
+                item_count=len(mapplets),
+                extra="v2-mapplets",
+            )
+            return mapplets
+        return []
+
+    @staticmethod
+    def _parse_v2_mapplets(data: Any) -> List[IdmcObject]:
+        """Coerce a v2 mapplet-list response into :class:`IdmcObject` rows.
+
+        Handles both array and single-object shapes, skipping non-dict items.
+        """
+        items = data if isinstance(data, list) else [data]
+        mapplets: List[IdmcObject] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name", "")
+            parent = item.get("location") or item.get("folderPath") or ""
+            path = f"{parent.rstrip('/')}/{name}" if parent and name else name
+            mapplets.append(
+                IdmcObject(
+                    # v3 GUID aligns URNs with v3-sourced content.
+                    id=item.get("assetFrsGuid") or item.get("id", ""),
+                    name=name,
+                    path=path,
+                    object_type="MAPPLET",
+                    description=item.get("description") or None,
+                    created_by=item.get("createdBy") or None,
+                    updated_by=item.get("updatedBy") or None,
+                    create_time=item.get("createTime") or None,
+                    update_time=item.get("updateTime") or None,
+                )
+            )
+        return mapplets
+
     def list_connections(self) -> List[IdmcConnection]:
         data = self._get_v2("/api/v2/connection")
         items = data if isinstance(data, list) else [data]
-        return [
+        connections = [
             IdmcConnection.from_api_response(c) for c in items if isinstance(c, dict)
         ]
+        self.report.report_api_response(
+            method="GET",
+            url=f"{self._base_url}/api/v2/connection",
+            status=200,
+            item_count=len(connections),
+            extra="v2-connections",
+        )
+        return connections
 
     def get_connection(self, connection_id: str) -> IdmcConnection:
         return IdmcConnection.from_api_response(
             self._get_v2(f"/api/v2/connection/{connection_id}")
         )
 
-    def list_mapping_tasks(self) -> List[IdmcMappingTask]:
-        data = self._get_v2("/api/v2/mttask")
-        items = data if isinstance(data, list) else [data]
-        return [
-            IdmcMappingTask.from_api_response(mt)
-            for mt in items
-            if isinstance(mt, dict)
-        ]
+    def list_mapping_tasks(self) -> Iterator[IdmcMappingTask]:
+        """Iterate mapping tasks via the v3 objects API (type=MTT).
+
+        Delegates to :meth:`list_objects` so MTT entries pass through the
+        same flat/properties-style parser as other v3 object types. The v2
+        ``/api/v2/mttask`` endpoint cannot be used — it requires an ID or
+        name and does not list.
+
+        Add-On Bundle tasks are skipped. Paths can arrive as
+        ``"/Explore/Add-On Bundles/..."``, ``"/Add-On Bundles/..."``, or
+        ``"Add-On Bundles/..."`` depending on IDMC version, so match any
+        path segment rather than a fixed prefix.
+        """
+        for obj in self.list_objects("MTT"):
+            if (
+                obj.updated_by == "bundle-license-notifier"
+                or obj.name == "Add-On Bundles"
+                or any(seg == "Add-On Bundles" for seg in obj.path.split("/") if seg)
+            ):
+                self.report.report_filtered("bundle", "MTT", obj.path)
+                logger.debug("Skipping bundle MTT: id=%s path=%s", obj.id, obj.path)
+                continue
+            yield IdmcMappingTask.from_idmc_object(obj)
 
     def submit_export_job(self, object_ids: List[str]) -> str:
         body = {
@@ -444,10 +617,22 @@ class InformaticaClient:
             logger.debug("No @3.bin found in %s", entry_name)
             return None
         raw_bytes = inner_zip.read(bin_file)
+        # Decode/parse failures are reported explicitly so they surface in the
+        # summary instead of being absorbed by the caller's batch-level except.
         try:
-            data = json.loads(raw_bytes.decode("utf-8"))
-        except UnicodeDecodeError:
-            data = json.loads(raw_bytes.decode("utf-8-sig"))
+            try:
+                decoded = raw_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                decoded = raw_bytes.decode("utf-8-sig")
+            data = json.loads(decoded)
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            self.report.report_object_failed(
+                entry_name, f"invalid mapping design @3.bin: {e}"
+            )
+            logger.warning(
+                "Failed to parse mapping design JSON for %s: %s", entry_name, e
+            )
+            return None
         return self._extract_lineage_from_3bin(data, entry_name, mapping_id)
 
     def _extract_lineage_from_3bin(
@@ -505,3 +690,13 @@ def parse_saas_connection_ref(conn_id: str) -> str:
     Returns the part after the '@' if present, otherwise the input unchanged.
     """
     return conn_id.split("@", 1)[-1] if "@" in conn_id else conn_id
+
+
+def _encode_params(params: Dict[str, Any]) -> str:
+    """Render query params in a human-readable form for the report log.
+
+    Not used for actual HTTP — requests builds that itself — just for log
+    lines so the report shows ``q=type=='MAPPLET'`` style strings that the
+    user can eyeball to diagnose a bad filter.
+    """
+    return "&".join(f"{k}={v}" for k, v in params.items())
