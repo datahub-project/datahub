@@ -1,46 +1,25 @@
-import logging
-import os
+import warnings
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import GlossaryNodeInfoClass
-from datahub.metadata.urns import GlossaryNodeUrn
+from datahub.errors import ExperimentalWarning
 
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
-# First, ensure the parent node exists (Finance)
-parent_node_urn = GlossaryNodeUrn("Finance")
-parent_node_info = GlossaryNodeInfoClass(
-    definition="Top-level category for financial metrics and terms",
+from datahub.sdk import DataHubClient, GlossaryNode  # noqa: E402
+
+client = DataHubClient.from_env()
+
+parent_node = GlossaryNode(
     name="Finance",
+    display_name="Finance",
+    definition="Top-level category for financial metrics and terms.",
 )
 
-parent_event = MetadataChangeProposalWrapper(
-    entityUrn=str(parent_node_urn),
-    aspect=parent_node_info,
+child_node = GlossaryNode(
+    name="RevenueMetrics",
+    display_name="Revenue Metrics",
+    definition="Metrics related to revenue recognition and reporting.",
+    parent_node=parent_node,
 )
 
-# Create a nested child node under Finance
-child_node_urn = GlossaryNodeUrn("RevenueMetrics")
-child_node_info = GlossaryNodeInfoClass(
-    definition="Metrics related to revenue recognition and reporting",
-    name="Revenue Metrics",
-    parentNode=str(parent_node_urn),  # Set the parent relationship
-)
-
-child_event = MetadataChangeProposalWrapper(
-    entityUrn=str(child_node_urn),
-    aspect=child_node_info,
-)
-
-# Emit both to DataHub
-rest_emitter = DatahubRestEmitter(
-    gms_server=os.getenv("DATAHUB_GMS_URL", "http://localhost:8080"),
-    token=os.getenv("DATAHUB_GMS_TOKEN"),
-)
-rest_emitter.emit(parent_event)
-rest_emitter.emit(child_event)
-
-log.info(f"Created parent glossary node {parent_node_urn}")
-log.info(f"Created child glossary node {child_node_urn} under {parent_node_urn}")
+client.entities.upsert(parent_node)
+client.entities.upsert(child_node)

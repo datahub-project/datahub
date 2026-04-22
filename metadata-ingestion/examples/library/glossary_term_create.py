@@ -1,31 +1,18 @@
-import os
+import warnings
 
-from datahub.emitter.mce_builder import make_term_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import GlossaryTermInfoClass
+from datahub.errors import ExperimentalWarning
 
-# Get DataHub connection details from environment
-gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
-token = os.getenv("DATAHUB_GMS_TOKEN")
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
-# Create a term URN - the unique identifier for the glossary term
-term_urn = make_term_urn("CustomerLifetimeValue")
+from datahub.sdk import DataHubClient  # noqa: E402
+from datahub.sdk.glossary_term import GlossaryTerm  # noqa: E402
 
-# Define the term's core information
-term_info = GlossaryTermInfoClass(
-    name="Customer Lifetime Value",
+client = DataHubClient.from_env()
+
+term = GlossaryTerm(
+    name="CustomerLifetimeValue",
+    display_name="Customer Lifetime Value",
     definition="The total revenue a business can expect from a single customer account throughout the business relationship. This metric helps prioritize customer retention efforts and marketing spend.",
-    termSource="INTERNAL",
 )
 
-# Create a metadata change proposal
-event = MetadataChangeProposalWrapper(
-    entityUrn=term_urn,
-    aspect=term_info,
-)
-
-# Emit the metadata
-rest_emitter = DatahubRestEmitter(gms_server=gms_server, token=token)
-rest_emitter.emit(event)
-print(f"Created glossary term: {term_urn}")
+client.entities.upsert(term)

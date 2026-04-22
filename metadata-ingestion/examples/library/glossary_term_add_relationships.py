@@ -1,89 +1,54 @@
-from datahub.emitter.mce_builder import make_term_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
-from datahub.metadata.urns import GlossaryTermUrn
+import warnings
 
-# First, ensure the related terms exist (you would have created these previously)
-# For this example, assume we have:
-# - Classification.PII (a broad category)
-# - Classification.Sensitive (another category)
-# - PersonalInformation.Email (a specific term)
-# - PersonalInformation.Address (another specific term)
+from datahub.errors import ExperimentalWarning
 
-# Create relationships for the Email term
-email_term_urn = make_term_urn("PersonalInformation.Email")
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
-# Define relationships
-email_relationships = GlossaryRelatedTermsClass(
-    # IsA relationship: Email is a type of PII
-    # This creates an inheritance hierarchy
-    isRelatedTerms=[
-        str(GlossaryTermUrn("Classification.PII")),
-        str(GlossaryTermUrn("Classification.Sensitive")),
+from datahub.metadata.urns import GlossaryTermUrn  # noqa: E402
+from datahub.sdk import DataHubClient  # noqa: E402
+from datahub.sdk.glossary_term import GlossaryTerm  # noqa: E402
+
+client = DataHubClient.from_env()
+
+# Email — is a type of PII and Sensitive, related to PhoneNumber and Contact
+email_term = GlossaryTerm(
+    name="PersonalInformation.Email",
+    definition="Email addresses that can identify individuals.",
+    is_a=[
+        GlossaryTermUrn("Classification.PII"),
+        GlossaryTermUrn("Classification.Sensitive"),
     ],
-    # RelatedTo: General semantic relationship
-    relatedTerms=[
-        str(GlossaryTermUrn("PersonalInformation.PhoneNumber")),
-        str(GlossaryTermUrn("PersonalInformation.Contact")),
+    related_terms=[
+        GlossaryTermUrn("PersonalInformation.PhoneNumber"),
+        GlossaryTermUrn("PersonalInformation.Contact"),
     ],
 )
 
-# Create relationships for the Address term
-address_term_urn = make_term_urn("PersonalInformation.Address")
-
-address_relationships = GlossaryRelatedTermsClass(
-    # IsA: Address is also a type of PII
-    isRelatedTerms=[str(GlossaryTermUrn("Classification.PII"))],
-    # HasA: Address contains these components
-    hasRelatedTerms=[
-        str(GlossaryTermUrn("PersonalInformation.ZipCode")),
-        str(GlossaryTermUrn("PersonalInformation.Street")),
-        str(GlossaryTermUrn("PersonalInformation.City")),
-        str(GlossaryTermUrn("PersonalInformation.Country")),
+# Address — is a type of PII, has components (ZipCode, Street, City, Country)
+address_term = GlossaryTerm(
+    name="PersonalInformation.Address",
+    definition="Physical addresses that can identify individuals.",
+    is_a=[GlossaryTermUrn("Classification.PII")],
+    has_a=[
+        GlossaryTermUrn("PersonalInformation.ZipCode"),
+        GlossaryTermUrn("PersonalInformation.Street"),
+        GlossaryTermUrn("PersonalInformation.City"),
+        GlossaryTermUrn("PersonalInformation.Country"),
     ],
 )
 
-# Create an enumeration term with fixed values
-color_enum_urn = make_term_urn("ColorEnum")
-
-color_enum_relationships = GlossaryRelatedTermsClass(
-    # Values: Define the allowed values for this enumeration
+# ColorEnum — an enumeration with fixed allowed values
+color_enum_term = GlossaryTerm(
+    name="ColorEnum",
+    definition="An enumeration of allowed color values.",
     values=[
-        str(GlossaryTermUrn("Colors.Red")),
-        str(GlossaryTermUrn("Colors.Green")),
-        str(GlossaryTermUrn("Colors.Blue")),
-        str(GlossaryTermUrn("Colors.Yellow")),
-    ]
+        GlossaryTermUrn("Colors.Red"),
+        GlossaryTermUrn("Colors.Green"),
+        GlossaryTermUrn("Colors.Blue"),
+        GlossaryTermUrn("Colors.Yellow"),
+    ],
 )
 
-# Emit the relationships
-rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-
-# Emit Email term relationships
-rest_emitter.emit(
-    MetadataChangeProposalWrapper(entityUrn=email_term_urn, aspect=email_relationships)
-)
-print(f"Added relationships to: {email_term_urn}")
-
-# Emit Address term relationships
-rest_emitter.emit(
-    MetadataChangeProposalWrapper(
-        entityUrn=address_term_urn, aspect=address_relationships
-    )
-)
-print(f"Added relationships to: {address_term_urn}")
-
-# Emit Color enumeration relationships
-rest_emitter.emit(
-    MetadataChangeProposalWrapper(
-        entityUrn=color_enum_urn, aspect=color_enum_relationships
-    )
-)
-print(f"Added value relationships to: {color_enum_urn}")
-
-print("\nRelationship types explained:")
-print("- isRelatedTerms (IsA): Inheritance relationship - term is a type of another")
-print("- hasRelatedTerms (HasA): Containment relationship - term contains other terms")
-print("- values: Enumeration values - defines allowed values for the term")
-print("- relatedTerms: General semantic relationship between terms")
+client.entities.upsert(email_term)
+client.entities.upsert(address_term)
+client.entities.upsert(color_enum_term)

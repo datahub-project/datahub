@@ -1,32 +1,18 @@
-import logging
-import os
+import warnings
 
-from datahub.emitter.mce_builder import make_term_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.errors import ExperimentalWarning
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import GlossaryTermInfoClass
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from datahub.sdk import DataHubClient  # noqa: E402
+from datahub.sdk.glossary_term import GlossaryTerm  # noqa: E402
 
-term_urn = make_term_urn("rateofreturn")
-term_properties_aspect = GlossaryTermInfoClass(
+client = DataHubClient.from_env()
+
+term = GlossaryTerm(
+    name="rateofreturn",
+    display_name="Rate of Return",
     definition="A rate of return (RoR) is the net gain or loss of an investment over a specified time period.",
-    name="Rate of Return",
-    termSource="",
 )
 
-event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityUrn=term_urn,
-    aspect=term_properties_aspect,
-)
-
-# Create rest emitter
-rest_emitter = DatahubRestEmitter(
-    gms_server=os.getenv("DATAHUB_GMS_URL", "http://localhost:8080"),
-    token=os.getenv("DATAHUB_GMS_TOKEN"),
-)
-rest_emitter.emit(event)
-log.info(f"Created term {term_urn}")
+client.entities.upsert(term)
