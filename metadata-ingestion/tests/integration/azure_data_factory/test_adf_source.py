@@ -10,7 +10,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.azure_data_factory.adf_report import (
@@ -661,7 +661,7 @@ def create_mock_client(
     return mock_client
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_basic(pytestconfig, tmp_path):
     """Test basic ADF metadata extraction without execution history."""
@@ -717,7 +717,7 @@ def test_adf_source_basic(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_with_execution_history(pytestconfig, tmp_path):
     """Test ADF metadata extraction with execution history.
@@ -780,7 +780,7 @@ def test_adf_source_with_execution_history(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_with_platform_instance(pytestconfig, tmp_path):
     """Test ADF metadata extraction with platform instance configured."""
@@ -835,7 +835,7 @@ def test_adf_source_with_platform_instance(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_exception_propagation_to_factory_level(tmp_path):
     """Test that exceptions in child methods propagate to factory-level handler.
@@ -909,7 +909,7 @@ def test_adf_source_exception_propagation_to_factory_level(tmp_path):
             )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_factory_listing_failure_reports_failure(tmp_path):
     """Test that failure to list factories reports a failure (not warning).
@@ -1123,7 +1123,7 @@ def get_column_lineage_test_data() -> Dict[str, Any]:
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_with_column_lineage(pytestconfig, tmp_path):
     """Test ADF metadata extraction with column-level lineage enabled.
@@ -1192,7 +1192,7 @@ def test_adf_source_with_column_lineage(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_column_lineage_disabled(tmp_path):
     """Test that column lineage is not extracted when disabled.
@@ -1309,7 +1309,7 @@ def create_complex_scenario_mock_client(
     return mock_client
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_nested_pipelines(pytestconfig, tmp_path):
     """Test nested pipeline scenario with ExecutePipeline activities.
@@ -1361,7 +1361,7 @@ def test_adf_source_nested_pipelines(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_foreach_loop(pytestconfig, tmp_path):
     """Test ForEach loop scenario with iteration activities.
@@ -1413,7 +1413,7 @@ def test_adf_source_foreach_loop(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_branching(pytestconfig, tmp_path):
     """Test branching scenario with If-Condition and Switch activities.
@@ -1465,7 +1465,7 @@ def test_adf_source_branching(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_dataflow(pytestconfig, tmp_path):
     """Test Data Flow scenario with mapping data flows.
@@ -1517,7 +1517,7 @@ def test_adf_source_dataflow(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_multisource_chain(pytestconfig, tmp_path):
     """Test multi-source chain scenario with SQL -> Blob -> Synapse.
@@ -1569,7 +1569,7 @@ def test_adf_source_multisource_chain(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_diverse_activities(pytestconfig, tmp_path):
     """Test diverse activity types scenario.
@@ -1621,7 +1621,7 @@ def test_adf_source_diverse_activities(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_mixed_dependencies(pytestconfig, tmp_path):
     """Test mixed dependencies scenario with complex activity dependencies.

@@ -421,7 +421,6 @@ public class OidcUserInfoEndpointValidationTest {
     config.setSecret("testsecret");
     config.setDiscoveryURI(discoveryUri);
     config.setScope("openid profile email");
-    config.init();
 
     OidcClient client = new OidcClient(config);
     client.setCallbackUrl("http://localhost:" + oauthServerPort + "/callback");

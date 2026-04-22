@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { SearchPage } from '../../pages/search-page';
+import { SearchPage } from '../../pages/search.page';
 
 test.use({ featureName: 'search' });
 

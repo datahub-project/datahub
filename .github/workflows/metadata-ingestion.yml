@@ -127,11 +127,11 @@ jobs:
       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
       fail-fast: false
     steps:
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
+          java-version: 21
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
@@ -318,12 +318,12 @@ jobs:
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           fi
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         if: steps.check-changes.outputs.should_run == 'true'
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
+          java-version: 21
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         if: steps.check-changes.outputs.should_run == 'true'
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6

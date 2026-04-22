@@ -7,49 +7,35 @@
  */
 
 import { test, expect } from '../../fixtures/login-test';
-import { WelcomeModalPage } from '../../pages/welcome-modal-page';
-import { resolvedUsers } from '../../fixtures/users';
+import { WelcomeModalPage } from '../../pages/welcome-modal.page';
+import { users } from '../../data/users';
 
 test.describe('Login with Welcome Modal', () => {
-  test('logs in and displays welcome modal for first-time users', async ({
-    page,
-    loginPage,
-    logger,
-    logDir,
-  }) => {
-    const welcomeModalPage = new WelcomeModalPage(page, logger, logDir);
-    const { username, password } = resolvedUsers.admin;
+  let welcomeModalPage: WelcomeModalPage;
+
+  test.beforeEach(async ({ page, loginPage, logger, logDir }) => {
+    welcomeModalPage = new WelcomeModalPage(page, logger, logDir);
+    const { username, password } = users.admin;
 
     await page.addInitScript(() => {
       localStorage.removeItem('skipWelcomeModal');
     });
 
-    await page.goto('/');
+    // Navigate directly to /login — going to / while unauthenticated triggers a
+    // JS redirect before load fires, which Playwright sees as ERR_ABORTED.
+    await loginPage.navigateToLogin();
     await loginPage.login(username, password);
+  });
 
+  test('logs in and displays welcome modal for first-time users', async ({ page }) => {
     await welcomeModalPage.expectModalVisible();
-    await welcomeModalPage.expectModalTitle();
+    await welcomeModalPage.expectModalTitleVisible();
     await welcomeModalPage.closeViaButton();
 
     await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible();
   });
 
-  test('logs in and closes welcome modal via Get Started button', async ({
-    page,
-    loginPage,
-    logger,
-    logDir,
-  }) => {
-    const welcomeModalPage = new WelcomeModalPage(page, logger, logDir);
-    const { username, password } = resolvedUsers.admin;
-
-    await page.addInitScript(() => {
-      localStorage.removeItem('skipWelcomeModal');
-    });
-
-    await page.goto('/');
-    await loginPage.login(username, password);
-
+  test('logs in and closes welcome modal via Get Started button', async ({ page }) => {
     await welcomeModalPage.expectModalVisible();
     await welcomeModalPage.clickLastCarouselDot();
     await welcomeModalPage.expectFinalSlideVisible();
@@ -58,22 +44,7 @@ test.describe('Login with Welcome Modal', () => {
     await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible();
   });
 
-  test('logs in and closes welcome modal via Escape key', async ({
-    page,
-    loginPage,
-    logger,
-    logDir,
-  }) => {
-    const welcomeModalPage = new WelcomeModalPage(page, logger, logDir);
-    const { username, password } = resolvedUsers.admin;
-
-    await page.addInitScript(() => {
-      localStorage.removeItem('skipWelcomeModal');
-    });
-
-    await page.goto('/');
-    await loginPage.login(username, password);
-
+  test('logs in and closes welcome modal via Escape key', async ({ page }) => {
     await welcomeModalPage.expectModalVisible();
     await welcomeModalPage.closeViaEscape();
 

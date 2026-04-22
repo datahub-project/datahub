@@ -704,7 +704,7 @@
       ],
       "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
       "platform_id": "dataplex",
-      "platform_name": "Dataplex",
+      "platform_name": "Google Cloud Knowledge Catalog (Dataplex)",
       "support_status": "INCUBATING"
     },
     "db2": {

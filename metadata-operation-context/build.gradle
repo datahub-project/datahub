@@ -23,5 +23,5 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
   testImplementation externalDependency.testng
-  testImplementation externalDependency.mockitoInline
+  testImplementation externalDependency.mockito
 }

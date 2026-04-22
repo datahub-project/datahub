@@ -7,7 +7,7 @@
  */
 
 import { test, expect } from '../../fixtures/login-test';
-import { resolvedUsers } from '../../fixtures/users';
+import { users } from '../../data/users';
 
 test.describe('Login', () => {
   test.beforeEach(async ({ page }) => {
@@ -17,8 +17,8 @@ test.describe('Login', () => {
   });
 
   test('logs in successfully with valid credentials', async ({ page, loginPage }) => {
-    const { username, password } = resolvedUsers.admin;
-    await page.goto('/');
+    const { username, password } = users.admin;
+    await loginPage.navigateToLogin();
     await loginPage.login(username, password);
     await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({ timeout: 10000 });
     await expect(page).toHaveURL(/\/$|\/home/);
@@ -54,8 +54,8 @@ test.describe('Login', () => {
   });
 
   test('redirects to home page after successful login', async ({ page, loginPage }) => {
-    const { username, password } = resolvedUsers.admin;
-    await page.goto('/');
+    const { username, password } = users.admin;
+    await loginPage.navigateToLogin();
     await loginPage.login(username, password);
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/$|\/home/);
