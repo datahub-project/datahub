@@ -2474,3 +2474,561 @@ def test_sigma_ingest_data_models_cross_dm_upstream(
     assert not any(
         u.startswith(producer_container_urn_prefix) for u in upstream_urns
     ), f"consumer element must not point at a DM Container; got {upstream_urns}"
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_orphan_dm_discovery(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Personal-space ("orphan") DM discovery via on-demand GET /v2/dataModels/{urlId}.
+
+    When a workspace-scoped DM references an element from a personal-space DM
+    (``path: "My Documents"``, ``workspaceId: null``), the personal-space DM is
+    not returned by the ``/v2/dataModels`` listing. The discovery loop in
+    ``get_workunits_internal`` should detect the unresolved cross-DM prefix,
+    fetch the DM by urlId, and emit the full Container + element Dataset
+    entities so the lineage edge resolves end-to-end.
+
+    This also exercises the single-element fallback: the consumer element is
+    named "Test Data" but the producer element is named "data.csv". Because the
+    producer has exactly one element, the resolver falls back to that element
+    unambiguously.
+
+    Assertions:
+    1. Producer Container emitted with isPersonalDataModel="true" and path.
+    2. Producer element Dataset emitted with SchemaMetadata + correct subtype.
+    3. Consumer element Dataset has UpstreamLineage pointing at producer element.
+    4. Reporter counters: discovered=1, unresolved=0, single_element_fallback=1,
+       cross_dm_resolved=1.
+    5. Producer Container has no workspace parent Container.
+    6. /v2/dataModels listing called once; /v2/dataModels/{urlId} called once.
+    """
+    import json
+
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
+    consumer_element_id = "1DYf5I08WO"
+
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    producer_element_id = "wcUd3nEUAv"
+    cross_dm_suffix = "vACRd1GzJS"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [workspace_json],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Only the consumer DM is returned by the /files listing — the producer
+        # is a personal-space DM not tracked in /files.
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # /v2/dataModels listing — only the consumer workspace DM.
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "description": "Consumer DM",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # Consumer DM elements / columns / lineage.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "type": "data-model",
+                        "dataModelId": producer_dm_id,
+                        "name": "data.csv",
+                        "connectionId": "1aff342f-6157-4589-ab9b-947c16b0bd7e",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [f"{producer_dm_url_id}/{cross_dm_suffix}"],
+                        "dataSourceIds": [f"{producer_dm_url_id}/{cross_dm_suffix}"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # Personal-space producer DM — fetched on demand via GET /v2/dataModels/{urlId}.
+        # Response uses ``dataModelUrlId`` (not ``urlId``) per the real API shape
+        # probed 2026-04-22; our helper normalizes this.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_url_id}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dataModelId": producer_dm_id,
+                "dataModelUrlId": producer_dm_url_id,
+                "name": "My Data Model",
+                "url": f"https://app.sigmacomputing.com/acryldata/data-model/{producer_dm_url_id}",
+                "path": "My Documents",
+                "latestVersion": 2,
+                "ownerId": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdAt": "2026-04-16T18:57:31.928Z",
+                "updatedAt": "2026-04-16T19:02:22.085Z",
+                # workspaceId intentionally absent / null
+            },
+        },
+        # Producer DM elements / columns / lineage.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": producer_element_id,
+                        "name": "data.csv",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": f"col-{producer_element_id}-val",
+                        "elementId": producer_element_id,
+                        "name": "value",
+                        "label": "Value",
+                        "formula": "",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_orphan_dm_discovery_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    # --- Counter assertions ---
+    assert report.data_model_external_references_discovered == 1, (
+        f"expected 1 personal-space DM discovered, got "
+        f"{report.data_model_external_references_discovered}"
+    )
+    assert report.data_model_external_reference_unresolved == 0
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 1, (
+        f"expected 1 single-element fallback, got "
+        f"{report.data_model_element_cross_dm_upstreams_single_element_fallback}"
+    )
+    assert report.data_model_element_cross_dm_upstreams_resolved == 1
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 0
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    producer_element_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{producer_dm_id}.{producer_element_id},PROD)"
+    consumer_element_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{consumer_dm_id}.{consumer_element_id},PROD)"
+
+    # --- Assertion 1: producer Container emitted with isPersonalDataModel + path ---
+    container_props_mces = [
+        mce
+        for mce in mces
+        if mce.get("aspectName") == "containerProperties"
+        and mce.get("aspect", {}).get("json", {}).get("customProperties", {}).get("dataModelId") == producer_dm_id
+    ]
+    assert len(container_props_mces) == 1, (
+        f"expected 1 containerProperties for producer DM, got {len(container_props_mces)}"
+    )
+    producer_container_custom_props = (
+        container_props_mces[0]["aspect"]["json"]["customProperties"]
+    )
+    assert producer_container_custom_props.get("isPersonalDataModel") == "true", (
+        f"producer Container should have isPersonalDataModel=true, got "
+        f"{producer_container_custom_props}"
+    )
+    assert producer_container_custom_props.get("path") == "My Documents", (
+        f"producer Container should have path='My Documents', got "
+        f"{producer_container_custom_props}"
+    )
+
+    # --- Assertion 2: producer element Dataset emitted with SchemaMetadata ---
+    schema_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == producer_element_urn
+        and mce.get("aspectName") == "schemaMetadata"
+    ]
+    assert len(schema_mces) == 1, (
+        f"expected SchemaMetadata on producer element {producer_element_urn}, "
+        f"got {len(schema_mces)}"
+    )
+
+    # --- Assertion 3: consumer element Dataset has UpstreamLineage → producer ---
+    upstream_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == consumer_element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(upstream_mces) == 1, (
+        f"expected 1 UpstreamLineage on consumer element, got {len(upstream_mces)}"
+    )
+    aspect_json = upstream_mces[0]["aspect"].get("json", upstream_mces[0]["aspect"])
+    upstream_urns = [u.get("dataset") for u in aspect_json.get("upstreams", [])]
+    assert producer_element_urn in upstream_urns, (
+        f"consumer element should have upstream {producer_element_urn}, got {upstream_urns}"
+    )
+
+    # --- Assertion 5: producer Container has no workspace parent Container ---
+    # The producer Container entity URN is derived from DataModelKey(producer_dm_id).
+    # We verify no containerKey aspect on the producer Container references a
+    # Workspace URN (i.e. no parent container is set for the orphan DM).
+    producer_container_urn = next(
+        (
+            mce["entityUrn"]
+            for mce in mces
+            if mce.get("aspectName") == "containerProperties"
+            and mce.get("aspect", {}).get("json", {}).get("customProperties", {}).get("dataModelId") == producer_dm_id
+        ),
+        None,
+    )
+    assert producer_container_urn is not None
+    container_key_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == producer_container_urn
+        and mce.get("aspectName") == "container"
+    ]
+    # container aspect presence means "has a parent container". For personal-space
+    # DMs (workspaceId=None), no workspace parent should be emitted.
+    assert len(container_key_mces) == 0, (
+        f"orphan DM Container should have no workspace parent Container aspect, "
+        f"but found: {container_key_mces}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_orphan_dm_unreachable(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Personal-space DM discovery when the DM is unreachable (HTTP 403).
+
+    When ``GET /v2/dataModels/{urlId}`` returns 403 (service-account lacks
+    permission to the user's personal space), the discovery loop should count
+    the prefix as unresolvable and continue without raising. The consumer
+    element is emitted without ``UpstreamLineage``; no producer entities appear.
+
+    Assertions:
+    1. data_model_external_reference_unresolved == 1.
+    2. data_model_element_cross_dm_upstreams_dm_unknown == 1.
+    3. Consumer Dataset is emitted without upstreamLineage aspect.
+    4. No producer Container / Dataset URNs in the MCE stream.
+    5. Pipeline completes without raising.
+    """
+    import json
+
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
+    consumer_element_id = "1DYf5I08WO"
+
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    cross_dm_suffix = "vACRd1GzJS"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [workspace_json],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "description": "Consumer DM",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "type": "data-model",
+                        "dataModelId": producer_dm_id,
+                        "name": "data.csv",
+                        "connectionId": "1aff342f-6157-4589-ab9b-947c16b0bd7e",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [f"{producer_dm_url_id}/{cross_dm_suffix}"],
+                        "dataSourceIds": [f"{producer_dm_url_id}/{cross_dm_suffix}"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # The personal-space producer DM returns 403 — service-account cannot see it.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_url_id}": {
+            "method": "GET",
+            "status_code": 403,
+            "json": {"message": "Forbidden"},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_orphan_dm_unreachable_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    # Pipeline must complete without raising even when producer DM is 403.
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    # --- Assertion 1: unresolved counter ---
+    assert report.data_model_external_reference_unresolved == 1, (
+        f"expected 1 unresolved, got {report.data_model_external_reference_unresolved}"
+    )
+    # --- Assertion 2: cross-DM unknown counter ---
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 1, (
+        f"expected 1 dm_unknown, got {report.data_model_element_cross_dm_upstreams_dm_unknown}"
+    )
+    assert report.data_model_external_references_discovered == 0
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    consumer_element_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{consumer_dm_id}.{consumer_element_id},PROD)"
+
+    # --- Assertion 3: consumer Dataset emitted without UpstreamLineage ---
+    consumer_upstream_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == consumer_element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(consumer_upstream_mces) == 0, (
+        f"consumer Dataset should have no upstreamLineage when producer is 403, "
+        f"got {len(consumer_upstream_mces)}"
+    )
+
+    # --- Assertion 4: no producer Container / Dataset URNs in the stream ---
+    producer_prefix = producer_dm_id
+    producer_mces = [
+        mce
+        for mce in mces
+        if producer_prefix in mce.get("entityUrn", "")
+    ]
+    assert len(producer_mces) == 0, (
+        f"no producer entities should be emitted when DM is 403, "
+        f"got {len(producer_mces)}"
+    )

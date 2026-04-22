@@ -452,6 +452,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         candidates = name_map.get(consuming_element.name.lower())
         if not candidates:
+            # Single-element fallback: common for CSV-upload / personal-space DMs
+            # where the producer has exactly one element and the consumer element
+            # has been renamed (e.g. consumer "Test Data" ← producer "data.csv").
+            # If the producer DM has exactly one element total, the reference is
+            # unambiguous regardless of name — Sigma itself cannot point at any
+            # other element because there is no other element.
+            all_urns: List[str] = [
+                urn for urns in name_map.values() for urn in urns
+            ]
+            if len(all_urns) == 1:
+                self.reporter.data_model_element_cross_dm_upstreams_single_element_fallback += 1
+                return all_urns[0]
             self.reporter.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known += 1
             return None
 
@@ -703,6 +715,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return elementId_to_dataset_urn
 
+    def _collect_unresolved_cross_dm_prefixes(
+        self, data_models: List[SigmaDataModel]
+    ) -> Set[str]:
+        """
+        Scan every DM's elements' ``source_ids`` for ``<prefix>/<suffix>`` shapes
+        (cross-DM references) whose ``prefix`` is not yet registered in
+        ``self.dm_container_urn_by_url_id``. These prefixes point at personal-space
+        or otherwise unlisted DMs — the discovery loop fetches them by urlId.
+        """
+        unresolved: Set[str] = set()
+        for data_model in data_models:
+            for element in data_model.elements:
+                for source_id in element.source_ids:
+                    if "/" not in source_id:
+                        continue
+                    prefix, _, suffix = source_id.partition("/")
+                    if not prefix or not suffix:
+                        continue
+                    if prefix in self.dm_container_urn_by_url_id:
+                        continue
+                    unresolved.add(prefix)
+        return unresolved
+
     def _gen_data_model_workunit(
         self,
         data_model: SigmaDataModel,
@@ -738,6 +773,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             extra_properties["latestVersion"] = str(data_model.latestVersion)
         if data_model.path:
             extra_properties["path"] = data_model.path
+        # Flag personal-space / unlisted DMs so operators can distinguish them
+        # from workspace-listed DMs in DataHub. Presence of the flag is informational
+        # only; no UI logic depends on it in this release.
+        if not data_model.workspaceId:
+            extra_properties["isPersonalDataModel"] = "true"
 
         yield from gen_containers(
             container_key=data_model_key,
@@ -1231,10 +1271,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.ingest_data_models:
             data_models = self.sigma_api.get_data_models()
             elementId_maps_by_dm: Dict[str, Dict[str, str]] = {}
-            for data_model in data_models:
-                elementId_maps_by_dm[data_model.dataModelId] = (
-                    self._prepopulate_dm_bridge_maps(data_model)
-                )
+
+            # Discovery loop — prepopulate bridges for every known DM, then fetch any
+            # cross-DM <prefix> that's still unresolved (personal-space DMs not
+            # returned by /v2/dataModels), add them to the list, and repeat until
+            # stable. Each iteration either registers a new DM (shrinking the
+            # unresolved set) or counts the prefix as unreachable (400/403/404).
+            # Bounded by the number of reachable personal-space DMs per tenant.
+            already_discovered: Set[str] = set()
+            pending = list(data_models)
+            while pending:
+                for dm in pending:
+                    elementId_maps_by_dm[dm.dataModelId] = (
+                        self._prepopulate_dm_bridge_maps(dm)
+                    )
+                unresolved = self._collect_unresolved_cross_dm_prefixes(data_models)
+                pending = []
+                for prefix in unresolved:
+                    if prefix in already_discovered:
+                        continue
+                    already_discovered.add(prefix)
+                    dm = self.sigma_api.get_data_model_by_url_id(prefix)
+                    if dm is None:
+                        self.reporter.data_model_external_reference_unresolved += 1
+                        continue
+                    self.reporter.data_model_external_references_discovered += 1
+                    data_models.append(dm)
+                    pending.append(dm)
+
             for data_model in data_models:
                 yield from self._gen_data_model_workunit(
                     data_model, elementId_maps_by_dm[data_model.dataModelId]

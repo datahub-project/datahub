@@ -186,6 +186,28 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
     data_model_element_cross_dm_upstreams_dm_unknown: int = 0
 
+    # Personal-space / unlisted DMs discovered on demand via /v2/dataModels/{urlId}.
+    # These DMs live outside the workspace-scoped /v2/dataModels listing (path
+    # "My Documents", workspaceId null) but are reachable by urlId. The discovery
+    # loop in get_workunits_internal fetches them so their Container + element
+    # Datasets are emitted and cross-DM lineage edges resolve end-to-end.
+    #
+    # ``data_model_external_references_discovered`` : an unlisted DM was
+    #   successfully fetched by urlId and added to the ingestion. Each such DM
+    #   emits one Container + N Dataset entities as if it had been listed.
+    # ``data_model_external_reference_unresolved`` : /v2/dataModels/{urlId}
+    #   returned non-200 (403 most common — the service-account client has no
+    #   visibility into that user's personal space). Edge suppressed; existing
+    #   ``data_model_element_cross_dm_upstreams_dm_unknown`` also increments.
+    # ``data_model_element_cross_dm_upstreams_single_element_fallback`` :
+    #   referenced DM has exactly one element and name-bridge miss was resolved
+    #   unambiguously by picking that single element. Common for CSV-upload DMs
+    #   where the consumer renames its own element ("Test Data") but the
+    #   producer retains the file name ("data.csv").
+    data_model_external_references_discovered: int = 0
+    data_model_external_reference_unresolved: int = 0
+    data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
+
     # Workbook → DM element bridge counters. See sigma.py for the resolution
     # algorithm; the DM element is matched by name (Sigma coalesces same-named
     # DM element references at the API contract level, so name is sufficient).

@@ -801,6 +801,46 @@ class SigmaAPI:
         data_model.elements = elements
         data_model.external_sources = external_sources
 
+    def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
+        """
+        Fetch a DM by its urlId (not UUID). Used to resolve DMs referenced from
+        another DM's /lineage that are not returned by /v2/dataModels — typically
+        personal-space assets (``path: "My Documents"``, ``workspaceId: null``)
+        or other items that the workspace-scoped listing skips.
+
+        Sigma's /v2/dataModels/{id} endpoint accepts either UUID or urlId as the
+        path arg. When queried by urlId the response carries ``dataModelUrlId``
+        (populated) rather than ``urlId`` (legacy field — returns null for these
+        assets). Normalize to ``urlId`` so downstream consumers stay uniform.
+
+        Returns None on HTTP non-200 (403 / 404) so the caller can count and
+        continue without aborting the ingestion run.
+        """
+        logger.debug(f"Fetching data model by url_id '{url_id}'.")
+        url = f"{self.config.api_url}/dataModels/{url_id}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code != 200:
+                logger.debug(
+                    f"Data model '{url_id}' not reachable (status {response.status_code})."
+                )
+                return None
+            data = response.json()
+            # API shape inconsistency — by-urlId response uses ``dataModelUrlId``,
+            # by-UUID response uses ``urlId`` (often null). Normalize.
+            if "dataModelUrlId" in data and not data.get("urlId"):
+                data["urlId"] = data["dataModelUrlId"]
+            dm = SigmaDataModel.model_validate(data)
+            # No file_meta — these DMs are not in /files (workspace-scoped listing
+            # skips them). workspaceId stays whatever the body returned (likely None).
+            self._assemble_data_model(dm, file_meta=None)
+            return dm
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch data model by url_id '{url_id}'. Exception: {e}"
+            )
+            return None
+
     def get_data_models(self) -> List[SigmaDataModel]:
         logger.debug("Fetching all accessible data models metadata.")
         base_url = url = f"{self.config.api_url}/dataModels"
