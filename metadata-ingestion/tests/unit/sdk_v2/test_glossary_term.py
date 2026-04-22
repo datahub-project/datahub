@@ -217,6 +217,14 @@ def test_glossary_term_has_a_and_related() -> None:
     term.remove_has_a(GlossaryTermUrn("NonExistent"))
     assert term.has_a == [GlossaryTermUrn("ZipCode")]
 
+    # add_is_a and add_value from scratch (no prior related terms) hit None-init branches
+    fresh = GlossaryTerm(name="FreshTerm")
+    fresh.add_is_a(GlossaryTermUrn("Base"))
+    assert fresh.is_a == [GlossaryTermUrn("Base")]
+
+    fresh.add_value(GlossaryTermUrn("Option1"))
+    assert fresh.values == [GlossaryTermUrn("Option1")]
+
 
 def test_glossary_term_new_from_graph() -> None:
     import datahub.metadata.schema_classes as models
