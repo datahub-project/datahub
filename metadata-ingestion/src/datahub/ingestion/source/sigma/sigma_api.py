@@ -42,6 +42,10 @@ class SigmaAPI:
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
+        # Track source_type values we've already warned about to keep the
+        # report summary readable on large tenants with repeated unknown
+        # node types.
+        self._unknown_lineage_node_types_warned: Set[str] = set()
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff
@@ -357,6 +361,19 @@ class SigmaAPI:
                 if "/" in source_node_id
                 else source_node_id
             )
+            if not dm_url_id:
+                # Guard against a future API shape change (e.g. leading slash
+                # or empty prefix). An empty data_model_url_id would never
+                # match any entry in the bridge maps and silently degrade to
+                # unresolved; surface it as a report warning instead.
+                self.report.warning(
+                    message="Sigma data-model lineage node missing url-id prefix",
+                    context=(
+                        f"node={source_node_id}, element={element.name}, "
+                        f"workbook={workbook.name}"
+                    ),
+                )
+                return
             try:
                 upstream_sources[source_node_id] = DataModelElementUpstream(
                     name=source_node.get(Constant.NAME),
@@ -375,10 +392,20 @@ class SigmaAPI:
             # Warehouse table: handled by SQL-parse path; terminal for BFS.
             pass
         else:
-            self.report.warning(
-                message="Unknown Sigma lineage node type",
-                context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
-            )
+            # Deduplicate per ``source_type`` across a run — Sigma can emit
+            # hundreds of identical unknown-type nodes across a large tenant,
+            # and a single warning per new type is sufficient signal.
+            warn_key = source_type if isinstance(source_type, str) else "<non-str>"
+            if warn_key not in self._unknown_lineage_node_types_warned:
+                self._unknown_lineage_node_types_warned.add(warn_key)
+                self.report.warning(
+                    message="Unknown Sigma lineage node type",
+                    context=(
+                        f"type={source_type!r}, element={element.name}, "
+                        f"workbook={workbook.name} (further occurrences of "
+                        f"this type will be suppressed)"
+                    ),
+                )
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
@@ -604,9 +631,12 @@ class SigmaAPI:
         self, base_url: str, model_cls: Type[T], error_ctx: str
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
-        ``model_cls``. Swallows HTTP/JSON errors so a broken page does not
-        abort the containing ingestion loop — matches the existing pattern
-        used elsewhere in this module."""
+        ``model_cls``. Handles both pagination shapes Sigma uses:
+        ``nextPage`` (integer cursor, older endpoints) and ``nextPageToken``
+        (opaque cursor, /dataModels and newer endpoints) — see
+        ``get_data_models`` for the same pattern applied inline. Swallows
+        HTTP/JSON errors so a broken page does not abort the containing
+        ingestion loop, matching the existing pattern in this module."""
         url = base_url
         results: List[T] = []
         try:
@@ -616,8 +646,12 @@ class SigmaAPI:
                 response_dict = response.json()
                 for entry in response_dict.get(Constant.ENTRIES, []):
                     results.append(model_cls.model_validate(entry))
-                if response_dict.get(Constant.NEXTPAGE):
-                    url = f"{base_url}?page={response_dict[Constant.NEXTPAGE]}"
+                next_page = response_dict.get(Constant.NEXTPAGE)
+                next_token = response_dict.get(Constant.NEXTPAGETOKEN)
+                if next_page:
+                    url = f"{base_url}?page={next_page}"
+                elif next_token:
+                    url = f"{base_url}?nextPageToken={next_token}"
                 else:
                     break
             return results

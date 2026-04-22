@@ -1,9 +1,17 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sigma.config import SigmaSourceReport
 from datahub.testing import mce_helpers
+
+
+def _sigma_report(pipeline: Pipeline) -> SigmaSourceReport:
+    """Narrow ``pipeline.source.get_report()`` (returns the abstract
+    ``SourceReport`` base) to the Sigma-specific report so mypy can see the
+    DM-related counters added in T2."""
+    return cast(SigmaSourceReport, pipeline.source.get_report())
 
 
 def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
@@ -1305,9 +1313,9 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
         "DM element Datasets should be filtered out by data_model_pattern"
     )
 
-    report = pipeline.source.get_report()
-    assert report.element_dm_edges_emitted == 0
-    assert report.element_dm_edge_fallback_to_container == 0
+    report = _sigma_report(pipeline)
+    assert report.element_dm_edges_resolved == 0
+    assert report.element_dm_edge_name_unmatched_but_dm_known == 0
     # All three DM-bridge workbook elements must end up as unresolved because
     # the bridge maps were never populated (DM was denied).
     assert report.element_dm_edge_unresolved == 3, (
@@ -1367,6 +1375,20 @@ def test_sigma_ingest_data_models_disabled(pytestconfig, tmp_path, requests_mock
     with open(output_path) as f:
         mces = json.load(f)
     assert not any("CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "") for mce in mces)
+
+    # Prove the DM endpoints were never hit — stronger than the absence check
+    # above. If ingest_data_models=False, /v2/dataModels should not be
+    # requested at all.
+    dm_endpoint_hits = [
+        req
+        for req in requests_mock.request_history
+        if "/v2/dataModels" in req.url or "typeFilters=data-model" in req.url
+    ]
+    assert dm_endpoint_hits == [], (
+        f"expected ingest_data_models=False to short-circuit DM fetch, "
+        f"but got {len(dm_endpoint_hits)} requests: "
+        f"{[r.url for r in dm_endpoint_hits]}"
+    )
 
 
 @pytest.mark.integration
@@ -1562,7 +1584,7 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
     )
     element2_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:sigma,"
-        "CDJLIyOhUoKBSEVI8Wr4n.xloKCITNsP,PROD)"
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb.xloKCITNsP,PROD)"
     )
     found_edge = False
     for mce in mces:
@@ -1753,7 +1775,7 @@ def test_sigma_ingest_data_models_shared_entity_no_workspace(
     pipeline.run()
     pipeline.raise_from_status()
 
-    report = pipeline.source.get_report()
+    report = _sigma_report(pipeline)
     assert report.data_models_without_workspace == 1
 
     import json
@@ -1796,3 +1818,136 @@ def test_sigma_ingest_data_models_workspace_pattern_deny(
         or "0466d89b8ce5ac9b2cd1deecdffe42c1" in mce.get("entityUrn", "")
         for mce in mces
     ), "DM entities should be dropped by workspace_pattern deny"
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_lineage_node_missing_name(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Workbook lineage ``data-model`` node without a ``name`` field: the
+    resolver's ``if name_map and upstream.name`` guard should skip the
+    name-match branch and book it as
+    ``element_dm_edge_name_unmatched_but_dm_known``."""
+
+    override_data = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
+
+    # Rewrite dmRefElem01's lineage to strip the ``name`` from the DM node.
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem01"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "dependencies": {
+                "tgt_dmref_01": {
+                    "nodeId": "tgt_dmref_01",
+                    "elementId": "dmRefElem01",
+                    "name": "Uses 2313213123",
+                    "type": "sheet",
+                },
+                "CDJLIyOhUoKBSEVI8Wr4n/pwxVRJHBSK": {
+                    "nodeId": "CDJLIyOhUoKBSEVI8Wr4n/pwxVRJHBSK",
+                    "type": "data-model",
+                    # ``name`` intentionally omitted to exercise the
+                    # ``upstream.name is None`` guard.
+                },
+            },
+            "edges": [
+                {
+                    "source": "CDJLIyOhUoKBSEVI8Wr4n/pwxVRJHBSK",
+                    "target": "tgt_dmref_01",
+                    "type": "source",
+                }
+            ],
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_name_none_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # dmRefElem01 misses, dmRefElem02 resolves (name="random data model",
+    # ambiguous but resolved), dmRefElem03 misses (unknown element name).
+    assert report.element_dm_edge_name_unmatched_but_dm_known == 2, (
+        f"expected 2 name-unmatched edges, got "
+        f"{report.element_dm_edge_name_unmatched_but_dm_known}"
+    )
+    assert report.element_dm_edges_resolved == 1
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
+    pytestconfig, tmp_path, requests_mock
+):
+    """When multiple DM elements share a name, the resolver must pick the
+    same URN regardless of Sigma ``/elements`` response order (sorted by
+    elementId). Regression pin for m2 fix."""
+
+    override_data = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
+
+    # Reverse the /elements response: put ``xloKCITNsP`` before
+    # ``0ui59vLc38``. Without the sort-before-pick, this would flip which
+    # candidate is chosen for the ambiguous-name workbook reference.
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/elements"
+    ]["json"]["entries"] = [
+        {
+            "elementId": "xloKCITNsP",
+            "name": "random data model",
+            "type": "table",
+            "vizualizationType": None,
+        },
+        {
+            "elementId": "0ui59vLc38",
+            "name": "random data model",
+            "type": "table",
+            "vizualizationType": None,
+        },
+        {
+            "elementId": "4plNusNz75",
+            "name": "2313213123.test.231",
+            "type": "table",
+            "vizualizationType": None,
+        },
+    ]
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_ambig_deterministic_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # dmRefElem02 references "random data model" — must resolve to the
+    # URN for the element with the *sorted-smallest* elementId, i.e.
+    # ``0ui59vLc38`` (sorts before ``xloKCITNsP``).
+    dm_uuid = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
+    expected_resolved_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_uuid}.0ui59vLc38,PROD)"
+    )
+    chart_info = next(
+        mce
+        for mce in mces
+        if mce.get("entityUrn", "").endswith("dmRefElem02)")
+        and mce.get("aspectName") == "chartInfo"
+    )
+    aspect_json = chart_info.get("aspect", {}).get("json", chart_info.get("aspect", {}))
+    resolved_urns = [inp.get("string", "") for inp in aspect_json.get("inputs", [])]
+    assert expected_resolved_urn in resolved_urns, (
+        f"expected deterministic pick of {expected_resolved_urn} regardless of "
+        f"API element order, got {resolved_urns}"
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.element_dm_edge_ambiguous >= 1

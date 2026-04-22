@@ -166,9 +166,30 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Workbook → DM element bridge counters. See sigma.py for the resolution
     # algorithm; the DM element is matched by name (Sigma coalesces same-named
     # DM element references at the API contract level, so name is sufficient).
-    element_dm_edges_emitted: int = 0
-    element_dm_edge_fallback_to_container: int = 0
+    # ``element_dm_edges_resolved``   : workbook→DM edge successfully resolved to
+    #                                   a DM element Dataset URN and emitted as
+    #                                   a unique input on the chart.
+    # ``element_dm_edges_deduped``    : resolved URN was already present on the
+    #                                   same chart's input set (e.g. diamond
+    #                                   lineage reference the same DM element
+    #                                   under different sourceIds); not emitted
+    #                                   a second time.
+    # ``element_dm_edge_ambiguous``   : multiple DM elements share the same
+    #                                   name; deterministic pick-first was used.
+    # ``element_dm_edge_name_unmatched_but_dm_known`` : DM itself was ingested
+    #                                   but the specific element name could not
+    #                                   be matched. No lineage edge is emitted
+    #                                   (``ChartInfo.inputs`` accepts only
+    #                                   Dataset URNs, so a Container URN cannot
+    #                                   substitute); counter surfaces partial
+    #                                   visibility for report triage.
+    # ``element_dm_edge_unresolved``  : DM is not known to this ingestion run
+    #                                   (filtered by pattern or never fetched);
+    #                                   no lineage edge is emitted.
+    element_dm_edges_resolved: int = 0
+    element_dm_edges_deduped: int = 0
     element_dm_edge_ambiguous: int = 0
+    element_dm_edge_name_unmatched_but_dm_known: int = 0
     element_dm_edge_unresolved: int = 0
 
 

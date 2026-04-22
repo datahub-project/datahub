@@ -205,5 +205,13 @@ class SigmaDataModel(BaseModel):
         return self.dataModelId
 
     def get_element_urn_part(self, element: SigmaDataModelElement) -> str:
-        # ``<dataModelUrlId>.<elementId>`` — DM-scoped and human-readable.
-        return f"{self.get_url_id()}.{element.elementId}"
+        # ``<dataModelId>.<elementId>`` — keyed off the immutable UUID rather
+        # than ``urlId``. Sigma slugs (urlId) can be reissued across renames
+        # and visibility toggles, which would silently churn element Dataset
+        # URNs on the next ingestion and orphan DataHub-side attachments
+        # (owners, terms, lineage) to the old URNs. Matches ``DataModelKey``
+        # which uses ``dataModelId`` for the Container URN. ``dataModelUrlId``
+        # is still surfaced via ``DatasetProperties.customProperties`` for
+        # humans. The UUID's dashes also make collision with the Sigma
+        # Dataset URN shape (``sigma, <slug>, env``) effectively impossible.
+        return f"{self.dataModelId}.{element.elementId}"

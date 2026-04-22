@@ -425,8 +425,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     self.reporter.data_model_element_external_upstreams += 1
                 else:
                     self.reporter.data_model_element_upstreams_unresolved += 1
+                    logger.debug(
+                        "DM %s element %s: external upstream %r unresolved "
+                        "(inode not in sigma_dataset_urn_by_url_id and not a "
+                        "type=dataset external source)",
+                        data_model.dataModelId,
+                        element.elementId,
+                        source_id,
+                    )
             else:
                 self.reporter.data_model_element_upstreams_unresolved += 1
+                logger.debug(
+                    "DM %s element %s: upstream source_id %r has an unknown "
+                    "shape (neither an intra-DM elementId nor inode-prefixed); "
+                    "skipping",
+                    data_model.dataModelId,
+                    element.elementId,
+                    source_id,
+                )
 
             if upstream_urn and upstream_urn not in seen:
                 upstream_urns.append(upstream_urn)
@@ -529,19 +545,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=element_dataset_urn,
             )
 
-            # BrowsePaths: workspace → DM path segments → DM name → element.
-            # Use the DM Container as the immediate parent so UI navigation
-            # correctly enters the DM Container.
+            # BrowsePaths: workspace (urn) → DM path string segments → DM
+            # Container (urn) → element name (string leaf). The DM Container
+            # must appear as a typed entry so UI breadcrumbs are clickable
+            # and navigate to the Data Model Container entity page;
+            # plain-string segments render as inert folders.
             browse_parent_urn = (
                 workspace_container_urn
                 if workspace_container_urn
                 else data_model_container_urn
             )
-            yield self._gen_entity_browsepath_aspect(
-                entity_urn=element_dataset_urn,
-                parent_entity_urn=browse_parent_urn,
-                paths=paths + [data_model.name, element.name],
-            )
+            browse_entries = [
+                BrowsePathEntryClass(id=browse_parent_urn, urn=browse_parent_urn),
+                *[BrowsePathEntryClass(id=path) for path in paths],
+                BrowsePathEntryClass(
+                    id=data_model_container_urn, urn=data_model_container_urn
+                ),
+                BrowsePathEntryClass(id=element.name),
+            ]
+            yield MetadataChangeProposalWrapper(
+                entityUrn=element_dataset_urn,
+                aspect=BrowsePathsV2Class(browse_entries),
+            ).as_workunit()
 
             upstream_lineage = self._gen_data_model_element_upstream_lineage(
                 element, data_model, elementId_to_dataset_urn
@@ -705,14 +730,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Resolve a workbook element's DM upstream (from a ``data-model`` lineage
         node) to a DM element **Dataset** URN. Returns None when the DM element
         name cannot be matched — ``ChartInfo.inputs`` is schema-typed to accept
-        only Dataset URNs, so a Container URN cannot be substituted for it.
-        The ``element_dm_edge_fallback_to_container`` counter still fires to
-        surface partial-visibility cases in the ingestion report, and
-        ``element_dm_edge_unresolved`` covers the fully-unresolved case.
+        only Dataset URNs, so no lineage edge is emitted in the unmatched case.
+        Counters surface the different failure shapes for report triage:
+
+        - ``element_dm_edge_name_unmatched_but_dm_known``: DM was ingested, but
+          the specific element name did not match any emitted DM element.
+        - ``element_dm_edge_unresolved``: DM itself is not tracked by this
+          ingestion run (filtered by pattern, or never fetched).
 
         Name-based match: Sigma coalesces workbook references to same-named DM
         elements into the first-by-creation match at the API contract level, so
         name-based matching is sufficient (see ticket §"Same-named DM elements").
+        Candidates are sorted deterministically (by ``elementId``) to avoid
+        run-to-run drift driven by the ordering of ``/elements`` responses.
+
+        The caller is responsible for the ``element_dm_edges_resolved`` /
+        ``element_dm_edges_deduped`` counters, since dedup happens one level
+        up (multiple sourceIds on a single chart can point at the same DM
+        element).
         """
         name_map = self.dm_element_urn_by_name.get(upstream.data_model_url_id)
         if name_map and upstream.name:
@@ -720,11 +755,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if candidates:
                 if len(candidates) > 1:
                     self.reporter.element_dm_edge_ambiguous += 1
-                self.reporter.element_dm_edges_emitted += 1
-                return candidates[0]
+                    logger.warning(
+                        "Ambiguous DM element name %r in DM %s — %d candidates "
+                        "(%s). Picking lowest elementId deterministically; "
+                        "consider renaming or merging the duplicates in Sigma.",
+                        upstream.name,
+                        upstream.data_model_url_id,
+                        len(candidates),
+                        ", ".join(candidates),
+                    )
+                return sorted(candidates)[0]
 
         if upstream.data_model_url_id in self.dm_container_urn_by_url_id:
-            self.reporter.element_dm_edge_fallback_to_container += 1
+            self.reporter.element_dm_edge_name_unmatched_but_dm_known += 1
         else:
             self.reporter.element_dm_edge_unresolved += 1
         return None
@@ -795,11 +838,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Workbook element references a DM element (e.g. through the
                 # Sigma app's "use data model" action). ChartInfo.inputs is
                 # union[DatasetUrn] — the resolver returns only DM element
-                # Dataset URNs (Container-fallback counter fires but is not
-                # emitted as an input to avoid schema violations).
+                # Dataset URNs; failures (DM unknown or name unmatched) are
+                # surfaced through report counters.
                 dm_urn = self._resolve_dm_element_upstream_urn(upstream)
-                if dm_urn is not None and dm_urn not in dataset_inputs:
-                    dataset_inputs[dm_urn] = []
+                if dm_urn is not None:
+                    if dm_urn in dataset_inputs:
+                        # Diamond reference — same DM element reached via
+                        # multiple lineage nodeIds on this chart. Count the
+                        # skip so the report distinguishes genuine
+                        # unresolved-vs-deduped outcomes.
+                        self.reporter.element_dm_edges_deduped += 1
+                    else:
+                        dataset_inputs[dm_urn] = []
+                        self.reporter.element_dm_edges_resolved += 1
 
         # Unmatched SQL-parsed warehouse tables become direct dataset inputs.
         for in_table_urn in sql_parser_in_tables:
