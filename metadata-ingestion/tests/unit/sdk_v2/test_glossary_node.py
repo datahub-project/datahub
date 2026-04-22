@@ -97,3 +97,40 @@ def test_glossary_node_setters() -> None:
 
     node.set_parent_node(GlossaryNode(name="TopLevel"))
     assert node.parent_node == GlossaryNodeUrn("TopLevel")
+
+
+def test_glossary_node_new_from_graph() -> None:
+    import datahub.metadata.schema_classes as models
+
+    urn = GlossaryNodeUrn("Finance")
+    aspects: models.AspectBag = {
+        "glossaryNodeInfo": models.GlossaryNodeInfoClass(
+            definition="All financial terms.",
+            name="Financial Metrics",
+            parentNode="urn:li:glossaryNode:BusinessGlossary",
+            customProperties={"domain": "finance"},
+        )
+    }
+    node = GlossaryNode._new_from_graph(urn, aspects)
+
+    assert node.name == "Finance"
+    assert node.definition == "All financial terms."
+    assert node.display_name == "Financial Metrics"
+    assert node.parent_node == GlossaryNodeUrn("BusinessGlossary")
+    assert node.custom_properties == {"domain": "finance"}
+
+
+def test_glossary_node_structured_properties() -> None:
+    node = GlossaryNode(
+        name="Finance",
+        structured_properties={
+            "urn:li:structuredProperty:sp1": ["value1"],
+            "urn:li:structuredProperty:sp2": ["value2"],
+        },
+    )
+    assert node.structured_properties is not None
+    assert len(node.structured_properties) == 2
+
+    node.set_structured_property("urn:li:structuredProperty:sp1", ["updated"])
+    sp_dict = {p.propertyUrn: p.values for p in node.structured_properties}
+    assert sp_dict["urn:li:structuredProperty:sp1"] == ["updated"]
