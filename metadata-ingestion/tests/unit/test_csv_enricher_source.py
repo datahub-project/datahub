@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, cast
 from unittest import mock
 
 from datahub.emitter import mce_builder
@@ -264,7 +264,8 @@ def test_get_resource_structured_properties_work_unit_produced():
 
 def test_get_resource_structured_properties_no_new_values():
     source = create_mocked_csv_enricher_source()
-    source.ctx.graph.get_aspect.return_value = StructuredPropertiesClass(
+    graph = cast(mock.MagicMock, source.ctx.graph)
+    graph.get_aspect.return_value = StructuredPropertiesClass(
         properties=[
             StructuredPropertyValueAssignmentClass(
                 propertyUrn="urn:li:structuredProperty:io.acryl.test.classification",
