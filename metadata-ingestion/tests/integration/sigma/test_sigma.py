@@ -2145,3 +2145,332 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
         f"dmRefElem03 must NOT emit a DM Container URN as a chart input; "
         f"got inputs={elem03_inputs}"
     )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_upstream(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for DM→DM cross-reference upstream lineage.
+
+    When a Sigma user imports a table from Data-Model-A into Data-Model-B,
+    Sigma's ``/dataModels/{B_id}/lineage`` returns the consuming element's
+    ``sourceIds`` in the shape ``<A_urlId>/<opaque_suffix>`` — the same
+    shape as workbook→DM references (live-probed 2026-04-22 against a
+    real tenant: ``Test Source`` DM importing ``Test Data`` from
+    ``Test Model``). The suffix is opaque (Sigma does not expose a public
+    endpoint that maps it to an ``elementId``), so resolution falls back
+    to the name-bridge keyed by the consuming element's own ``name``
+    (Sigma's default names the imported table after the source element).
+
+    This test asserts:
+    1. Consumer DM's element emits ``UpstreamLineage`` pointing at the
+       source DM's element Dataset URN (not the source DM Container).
+    2. ``data_model_element_cross_dm_upstreams_resolved`` counter bumps.
+    3. The two-pass bridge pre-population in ``get_workunits_internal``
+       correctly resolves forward references — the consuming DM is
+       returned by ``/dataModels`` *before* the producing DM, which
+       would have broken a single-pass resolver.
+    """
+
+    producer_dm_id = "aaaa1111-aaaa-1111-aaaa-1111aaaa1111"
+    producer_dm_url_id = "ProducerDMurlId00000"
+    producer_element_id = "1DYf5I08WO"
+
+    consumer_dm_id = "bbbb2222-bbbb-2222-bbbb-2222bbbb2222"
+    consumer_dm_url_id = "ConsumerDMurlId00000"
+    consumer_element_id = "HdbgI9D-Ci"
+    # The suffix Sigma assigns inside the consumer's /lineage sourceIds —
+    # opaque per-element identifier, not equal to producer_element_id.
+    cross_dm_suffix = "idfniR_6Jx"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+    override_data: Dict[str, Dict[str, Any]] = {
+        # Minimal workspace + workbook scaffolding so the pipeline runs.
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [workspace_json],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Both DMs appear in /files (required for shared-entity workspace
+        # reconciliation inside the ingestion loop).
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Source",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "isArchived": False,
+                    },
+                    {
+                        "id": producer_dm_id,
+                        "urlId": producer_dm_url_id,
+                        "name": "Test Model",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # Consumer DM appears FIRST in /dataModels so that a single-pass
+        # resolver would encounter the forward reference before the
+        # producer's bridge map is populated — this is what exercises the
+        # two-pass pre-population contract in get_workunits_internal.
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Source",
+                        "description": "Consumer DM for cross-DM lineage",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/dm/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                    {
+                        "dataModelId": producer_dm_id,
+                        "urlId": producer_dm_url_id,
+                        "name": "Test Model",
+                        "description": "Producer DM with the source element",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2024-05-10T09:00:00.000Z",
+                        "updatedAt": "2024-05-12T10:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/dm/{producer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # Producer DM: a single "Test Data" element, no upstream.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": producer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": ["id", "name"],
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": f"col-{producer_element_id}-id",
+                        "elementId": producer_element_id,
+                        "name": "id",
+                        "label": "ID",
+                        "formula": "",
+                    },
+                    {
+                        "columnId": f"col-{producer_element_id}-name",
+                        "elementId": producer_element_id,
+                        "name": "name",
+                        "label": "Name",
+                        "formula": "",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Consumer DM: a single "Test Data" element whose sourceIds contain
+        # the real cross-DM wire shape "<producerUrlId>/<suffix>". The
+        # top-level "data-model" entry carrying producer's dataModelId is
+        # reproduced verbatim from the probe but not required for our
+        # resolver — it names what's referenced, not how to resolve it.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": ["id", "name"],
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": f"col-{consumer_element_id}-id",
+                        "elementId": consumer_element_id,
+                        "name": "id",
+                        "label": "ID",
+                        "formula": "",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "type": "data-model",
+                        "dataModelId": producer_dm_id,
+                        "name": "Test Data",
+                        "connectionId": "1aff342f-6157-4589-ab9b-947c16b0bd7e",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [
+                            f"{producer_dm_url_id}/{cross_dm_suffix}",
+                        ],
+                        "dataSourceIds": [
+                            f"{producer_dm_url_id}/{cross_dm_suffix}",
+                        ],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_cross_dm_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_cross_dm_upstreams_resolved == 1, (
+        f"expected 1 cross-DM upstream resolved, got "
+        f"{report.data_model_element_cross_dm_upstreams_resolved}"
+    )
+    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 0
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 0
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    consumer_element_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{consumer_dm_id}.{consumer_element_id},PROD)"
+    expected_upstream_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{producer_dm_id}.{producer_element_id},PROD)"
+
+    upstream_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == consumer_element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(upstream_mces) == 1, (
+        f"expected exactly 1 UpstreamLineage aspect on consumer element "
+        f"{consumer_element_urn}, got {len(upstream_mces)}"
+    )
+
+    aspect_json = (
+        upstream_mces[0]
+        .get("aspect", {})
+        .get("json", upstream_mces[0].get("aspect", {}))
+    )
+    upstream_urns = [u.get("dataset") for u in aspect_json.get("upstreams", [])]
+    assert expected_upstream_urn in upstream_urns, (
+        f"consumer element should have upstream {expected_upstream_urn} "
+        f"(producer DM element), got {upstream_urns}"
+    )
+
+    # The upstream must be the producer's *element* URN, never the producer's
+    # *Container* URN (UpstreamLineage.upstreams accepts Dataset URNs; a
+    # Container URN would be schema-valid but semantically wrong — it would
+    # show an entire DM as a single upstream node rather than the specific
+    # table that was imported).
+    producer_container_urn_prefix = "urn:li:container:"
+    assert not any(
+        u.startswith(producer_container_urn_prefix) for u in upstream_urns
+    ), f"consumer element must not point at a DM Container; got {upstream_urns}"

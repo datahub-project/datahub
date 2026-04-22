@@ -163,6 +163,29 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_external_upstreams: int = 0
     data_model_element_upstreams_unresolved: int = 0
 
+    # Cross-DM element references (DM-A element pulls a table from DM-B).
+    # Wire shape confirmed 2026-04-22 against a live tenant: the consuming
+    # DM's ``/dataModels/{id}/lineage`` returns ``sourceIds`` of shape
+    # ``<otherDmUrlId>/<suffix>`` — identical to the workbook→DM shape. The
+    # suffix is opaque (Sigma's suffix↔elementId map is not exposed), so
+    # resolution falls back to the name-bridge using the consuming element's
+    # own ``name`` (Sigma's default: element name mirrors the source element).
+    # ``data_model_element_cross_dm_upstreams_resolved`` : edge emitted to
+    #   the referenced DM element Dataset URN.
+    # ``data_model_element_cross_dm_upstreams_ambiguous`` : multiple DM
+    #   elements share the name; deterministic pick-lowest-elementId used.
+    # ``data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known``:
+    #   referenced DM was ingested but its element names do not include the
+    #   consuming element's name (user likely renamed the consuming element).
+    # ``data_model_element_cross_dm_upstreams_dm_unknown`` : referenced DM
+    #   is not part of this ingestion run (filtered or missing permission).
+    # On any unresolved outcome the existing ``data_model_element_upstreams_unresolved``
+    # also increments, so total unresolved counts stay correct.
+    data_model_element_cross_dm_upstreams_resolved: int = 0
+    data_model_element_cross_dm_upstreams_ambiguous: int = 0
+    data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
+    data_model_element_cross_dm_upstreams_dm_unknown: int = 0
+
     # Workbook → DM element bridge counters. See sigma.py for the resolution
     # algorithm; the DM element is matched by name (Sigma coalesces same-named
     # DM element references at the API contract level, so name is sufficient).

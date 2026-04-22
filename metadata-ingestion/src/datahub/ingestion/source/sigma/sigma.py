@@ -404,6 +404,69 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return self._gen_sigma_dataset_urn(suffix)
         return None
 
+    def _resolve_dm_element_cross_dm_upstream(
+        self,
+        source_id: str,
+        consuming_element: SigmaDataModelElement,
+        consuming_data_model: SigmaDataModel,
+    ) -> Optional[str]:
+        """
+        Resolve a DM element ``sourceId`` of shape ``<otherDmUrlId>/<suffix>``
+        (cross-DM reference — DM-A's element imports a table from DM-B) to
+        the referenced DM element Dataset URN.
+
+        Sigma's ``/dataModels/{id}/lineage`` endpoint emits this exact shape
+        when one DM element reads from an element in another DM (live-probed
+        2026-04-22). The suffix is opaque — Sigma does not expose a public
+        endpoint that maps it to an ``elementId`` — so we fall back to the
+        name-bridge used by the workbook→DM path: use the consuming
+        element's own ``name`` (Sigma's default names the imported table
+        after the source element) and resolve against
+        ``dm_element_urn_by_name``. User rename degrades to the
+        ``data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known``
+        counter. Self-reference (``<selfUrlId>/<suffix>``) is not expected
+        from the real API but is guarded defensively.
+
+        Returns None on any failure path; each failure bumps a distinct
+        sub-counter so report triage can distinguish rename vs missing DM.
+        """
+        other_dm_url_id, _, suffix = source_id.partition("/")
+        if not other_dm_url_id or not suffix:
+            return None
+
+        self_url_id = consuming_data_model.get_url_id()
+        if other_dm_url_id in {self_url_id, consuming_data_model.dataModelId}:
+            return None
+
+        if not consuming_element.name:
+            if other_dm_url_id in self.dm_container_urn_by_url_id:
+                self.reporter.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known += 1
+            else:
+                self.reporter.data_model_element_cross_dm_upstreams_dm_unknown += 1
+            return None
+
+        name_map = self.dm_element_urn_by_name.get(other_dm_url_id)
+        if not name_map:
+            self.reporter.data_model_element_cross_dm_upstreams_dm_unknown += 1
+            return None
+
+        candidates = name_map.get(consuming_element.name.lower())
+        if not candidates:
+            self.reporter.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known += 1
+            return None
+
+        if len(candidates) > 1:
+            self.reporter.data_model_element_cross_dm_upstreams_ambiguous += 1
+            logger.warning(
+                "Ambiguous cross-DM element name %r in DM %s — %d candidates "
+                "(%s). Picking lowest elementId deterministically.",
+                consuming_element.name,
+                other_dm_url_id,
+                len(candidates),
+                ", ".join(candidates),
+            )
+        return sorted(candidates)[0]
+
     def _gen_data_model_element_upstream_lineage(
         self,
         element: SigmaDataModelElement,
@@ -433,12 +496,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         element.elementId,
                         source_id,
                     )
+            elif "/" in source_id:
+                upstream_urn = self._resolve_dm_element_cross_dm_upstream(
+                    source_id, element, data_model
+                )
+                if upstream_urn:
+                    self.reporter.data_model_element_cross_dm_upstreams_resolved += 1
+                else:
+                    self.reporter.data_model_element_upstreams_unresolved += 1
+                    logger.debug(
+                        "DM %s element %s: cross-DM upstream %r unresolved",
+                        data_model.dataModelId,
+                        element.elementId,
+                        source_id,
+                    )
             else:
                 self.reporter.data_model_element_upstreams_unresolved += 1
                 logger.debug(
                     "DM %s element %s: upstream source_id %r has an unknown "
-                    "shape (neither an intra-DM elementId nor inode-prefixed); "
-                    "skipping",
+                    "shape (not an intra-DM elementId, not inode-prefixed, "
+                    "and not a <dmUrlId>/<suffix> cross-DM ref); skipping",
                     data_model.dataModelId,
                     element.elementId,
                     source_id,
@@ -582,28 +659,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model.workspaceId
                 )
 
-    def _gen_data_model_workunit(
-        self, data_model: SigmaDataModel
-    ) -> Iterable[MetadataWorkUnit]:
+    def _prepopulate_dm_bridge_maps(self, data_model: SigmaDataModel) -> Dict[str, str]:
         """
-        Emit a Sigma Data Model as a Container (parallel to Workspaces) plus
-        one Dataset per element inside it. Intra-DM and external upstream
-        lineage is wired via each element's UpstreamLineage aspect.
+        Populate the global DM bridge maps (``dm_container_urn_by_url_id``
+        and ``dm_element_urn_by_name``) for a single DM and return the local
+        ``elementId → Dataset URN`` map used for intra-DM lineage resolution.
+
+        Called eagerly for every DM *before* any DM emits workunits, so
+        cross-DM lineage (DM-A references DM-B's element) resolves regardless
+        of the order ``get_data_models`` returns DMs in — Sigma does not sort
+        ``/dataModels`` by dependency. Same global maps are reused by the
+        workbook→DM bridge, which also depends on every DM being registered
+        before workbook emission starts.
+
+        Register mappings under both ``urlId`` and ``dataModelId`` keys:
+        lineage ``sourceId`` prefixes and workbook lineage node ids use
+        ``urlId``, but if ``urlId`` is missing (``get_url_id`` falls back to
+        ``dataModelId``) the bridge still resolves. The set collapses the
+        redundant case.
         """
         data_model_key = self._gen_data_model_key(data_model.dataModelId)
         data_model_container_urn = builder.make_container_urn(data_model_key)
-
         dm_url_id = data_model.get_url_id()
-        # Record mappings needed by the workbook→DM bridge BEFORE yielding,
-        # so they are available even if the caller processes DMs lazily.
-        # Register under both urlId and dataModelId: workbook-side sourceId
-        # prefixes are urlId, but if urlId is missing (``get_url_id`` fallback
-        # to dataModelId) we still want the bridge to resolve. Register
-        # dataModelId only when it differs from the resolved url_id to avoid
-        # a redundant duplicate entry in the common case.
+
         bridge_keys = {dm_url_id, data_model.dataModelId}
         for key in bridge_keys:
             self.dm_container_urn_by_url_id[key] = data_model_container_urn
+
         name_map: Dict[str, List[str]] = {}
         elementId_to_dataset_urn: Dict[str, str] = {}
         for element in data_model.elements:
@@ -619,6 +701,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for key in bridge_keys:
             self.dm_element_urn_by_name[key] = name_map
 
+        return elementId_to_dataset_urn
+
+    def _gen_data_model_workunit(
+        self,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit a Sigma Data Model as a Container (parallel to Workspaces) plus
+        one Dataset per element inside it. Intra-DM, external, and cross-DM
+        upstream lineage is wired via each element's UpstreamLineage aspect.
+
+        Caller is expected to have invoked ``_prepopulate_dm_bridge_maps``
+        for every DM first (see docstring there), so both the workbook→DM
+        bridge and the DM→DM bridge resolve regardless of iteration order.
+        """
+        data_model_key = self._gen_data_model_key(data_model.dataModelId)
+        data_model_container_urn = builder.make_container_urn(data_model_key)
+
         owner_username = (
             self.sigma_api.get_user_name(data_model.createdBy)
             if data_model.createdBy
@@ -631,7 +732,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         extra_properties: Dict[str, str] = {
             "dataModelId": data_model.dataModelId,
-            "dataModelUrlId": dm_url_id,
+            "dataModelUrlId": data_model.get_url_id(),
         }
         if data_model.latestVersion is not None:
             extra_properties["latestVersion"] = str(data_model.latestVersion)
@@ -1121,9 +1222,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Ingest Data Models before Workbooks so the workbook → DM element
         # bridge map (``dm_element_urn_by_name``, ``dm_container_urn_by_url_id``)
         # is populated before workbook elements resolve their upstreams.
+        #
+        # Two-pass: first fully populate the bridge maps for *every* DM,
+        # then emit workunits. This is required because a DM's element can
+        # reference another DM (cross-DM lineage, live-probed 2026-04-22)
+        # and Sigma does not order ``/dataModels`` by dependency, so a
+        # naive single-pass would miss any forward reference.
         if self.config.ingest_data_models:
-            for data_model in self.sigma_api.get_data_models():
-                yield from self._gen_data_model_workunit(data_model)
+            data_models = self.sigma_api.get_data_models()
+            elementId_maps_by_dm: Dict[str, Dict[str, str]] = {}
+            for data_model in data_models:
+                elementId_maps_by_dm[data_model.dataModelId] = (
+                    self._prepopulate_dm_bridge_maps(data_model)
+                )
+            for data_model in data_models:
+                yield from self._gen_data_model_workunit(
+                    data_model, elementId_maps_by_dm[data_model.dataModelId]
+                )
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
