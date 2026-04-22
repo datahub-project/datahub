@@ -168,15 +168,18 @@ class SigmaDataModelElement(BaseModel):
     def _discard_api_bare_string_columns(cls, values: Dict) -> Dict:
         # The real /elements endpoint returns ``columns`` as bare strings.
         # Rich SigmaDataModelColumn objects come from /columns and are
-        # attached in ``_assemble_data_model``. Strip the bare-string list
-        # so pydantic validation does not fail; dict payloads (e.g. test
-        # mocks) are left untouched.
+        # attached in ``_assemble_data_model``. Filter to dict entries so a
+        # hypothetical mixed payload retains its well-formed rows instead
+        # of being dropped wholesale.
         if isinstance(values, dict):
             raw_columns = values.get("columns")
             if isinstance(raw_columns, list) and any(
-                isinstance(c, str) for c in raw_columns
+                not isinstance(c, dict) for c in raw_columns
             ):
-                values = {**values, "columns": []}
+                values = {
+                    **values,
+                    "columns": [c for c in raw_columns if isinstance(c, dict)],
+                }
         return values
 
 

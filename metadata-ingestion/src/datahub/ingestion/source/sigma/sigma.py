@@ -821,7 +821,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             name=data_model.name,
             sub_types=[BIContainerSubTypes.SIGMA_DATA_MODEL],
             parent_container_key=parent_container_key,
-            description=data_model.description,
+            description=data_model.description or "",
             external_url=data_model.url,
             extra_properties=extra_properties,
             owner_urn=(
@@ -913,7 +913,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           >=2 = ambiguous). The caller uses it to bump
           ``element_dm_edge_ambiguous`` once per unique chart-to-DM edge.
 
-        Candidates are sorted deterministically (by elementId).
+        Candidates are sorted deterministically by their Dataset URN
+        (which embeds ``dataModelId.elementId``), so the pick is stable
+        across runs; within a single DM this degenerates to the lowest
+        elementId.
         """
         dm_known = upstream.data_model_url_id in self.dm_container_urn_by_url_id
         name_map = self.dm_element_urn_by_name.get(upstream.data_model_url_id)
@@ -977,8 +980,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if isinstance(upstream, DatasetUpstream):
                 sigma_dataset_id = node_id.split("-")[-1]
                 if not upstream.name:
-                    # Without a name we can't correlate against SQL-parsed
-                    # tables; the chart-to-Sigma-dataset edge still lands.
+                    # SQL-bridge cannot run without a name, so no chart-to-
+                    # Sigma-dataset edge is emitted for this upstream.
+                    self.reporter.chart_dataset_upstream_name_missing += 1
                     continue
                 upstream_name_lower = upstream.name.lower()
                 for in_table_urn in list(sql_parser_in_tables):
@@ -1022,8 +1026,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             self.reporter.element_dm_edge_ambiguous += 1
                             logger.warning(
                                 "Ambiguous DM element name %r in DM %s: "
-                                "%d candidates (%s). Picked lowest "
-                                "elementId %s deterministically.",
+                                "%d candidates (%s). Picked lowest URN "
+                                "%s deterministically.",
                                 upstream.name,
                                 upstream.data_model_url_id,
                                 len(candidates),
@@ -1342,7 +1346,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         self.reporter.data_model_external_reference_unresolved += 1
                         continue
                     # Re-apply ``workspace_pattern`` so a denied workspace
-                    # cannot leak DMs via cross-DM references.
+                    # cannot leak DMs via cross-DM references. If the DM
+                    # has a workspaceId but the workspace is unreachable
+                    # (admin-only / deleted), mirror the listed-DM path:
+                    # count under ``data_models_without_workspace``.
                     if discovered_dm.workspaceId:
                         workspace = self.sigma_api.get_workspace(
                             discovered_dm.workspaceId
@@ -1355,6 +1362,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 f"in {workspace.name} (discovered, workspace_pattern denied)"
                             )
                             continue
+                        if workspace is None:
+                            self.reporter.data_models_without_workspace += 1
                     if not self.config.data_model_pattern.allowed(discovered_dm.name):
                         self.reporter.data_models.dropped(
                             f"{discovered_dm.name} ({discovered_dm.dataModelId}) "

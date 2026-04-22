@@ -157,6 +157,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # of the chart map (e.g. pivot-table blocked by page-element allowlist).
     num_filtered_sheet_upstreams: int = 0
 
+    # Chart upstream node of type=dataset had ``name=None``. The SQL-bridge
+    # cannot correlate it against a warehouse table, so the chart-to-Sigma-
+    # dataset edge is skipped. Pre-PR this raised ValidationError; this
+    # counter restores the observability signal.
+    chart_dataset_upstream_name_missing: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0

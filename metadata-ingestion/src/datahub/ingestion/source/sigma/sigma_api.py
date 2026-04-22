@@ -654,14 +654,11 @@ class SigmaAPI:
         ``model_cls``. Handles both pagination shapes (``nextPage`` and
         ``nextPageToken``). Swallows HTTP/JSON errors so a broken page
         does not abort the containing ingestion loop.
-
-        ``base_url`` must not contain a query string; the loop appends
-        ``?page=...`` / ``?nextPageToken=...`` without merging existing
-        params.
         """
-        assert "?" not in base_url, (
-            f"_paginated_entries requires a bare path (no query string); got {base_url!r}"
-        )
+        # Use ``&`` as the separator if the base URL already has query
+        # params (e.g. an ``api_url`` routed through a proxy), so
+        # pagination does not collide with existing params.
+        separator = "&" if "?" in base_url else "?"
         url = base_url
         results: List[T] = []
         try:
@@ -674,9 +671,9 @@ class SigmaAPI:
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
-                    url = f"{base_url}?page={next_page}"
+                    url = f"{base_url}{separator}page={next_page}"
                 elif next_token:
-                    url = f"{base_url}?nextPageToken={next_token}"
+                    url = f"{base_url}{separator}nextPageToken={next_token}"
                 else:
                     break
             return results
@@ -734,10 +731,16 @@ class SigmaAPI:
     ) -> None:
         """Fetch and attach elements, per-element columns, and per-element sourceIds."""
         if file_meta is not None:
-            data_model.workspaceId = file_meta.workspaceId
-            data_model.path = file_meta.path
-            data_model.badge = file_meta.badge
-            if file_meta.urlId and not data_model.urlId:
+            # Fill only when the DM payload did not carry the field, so a
+            # future vendor change that populates these on ``/dataModels``
+            # directly cannot be silently overridden by ``/files``.
+            if data_model.workspaceId is None:
+                data_model.workspaceId = file_meta.workspaceId
+            if data_model.path is None:
+                data_model.path = file_meta.path
+            if data_model.badge is None:
+                data_model.badge = file_meta.badge
+            if data_model.urlId is None and file_meta.urlId:
                 data_model.urlId = file_meta.urlId
 
         elements = self._get_data_model_elements(data_model.dataModelId)
