@@ -39,7 +39,7 @@ setup('seed search data', async () => {
     // Ingest Playwright test data (Dashboards, ML Models, Pipelines, HDFS, etc.)
     console.log('📤 Ingesting Playwright data.json (107 entities with all types)...');
     const { stdout: stdout1 } = await execAsync(`datahub ingest -c ${playwrightDataConfigPath}`, {
-      cwd: '/Users/priyabratadas/datahub/e2e-test/ui/playwright/tests',
+      cwd: path.resolve(__dirname),
       timeout: 120000,
     });
 
@@ -71,7 +71,7 @@ setup('seed search data', async () => {
     // Ingest Playwright search test data
     console.log('📤 Ingesting Playwright search/fixtures/data.json...');
     const { stdout: stdout2 } = await execAsync(`datahub ingest -c ${searchDataConfigPath}`, {
-      cwd: '/Users/priyabratadas/datahub/e2e-test/ui/playwright/tests',
+      cwd: path.resolve(__dirname),
       timeout: 60000,
     });
 
@@ -103,7 +103,7 @@ setup('seed search data', async () => {
     // Ingest business-attributes data
     console.log('📤 Ingesting business-attributes/fixtures/data.json...');
     const { stdout: stdout3 } = await execAsync(`datahub ingest -c ${businessAttributesConfigPath}`, {
-      cwd: '/Users/priyabratadas/datahub/e2e-test/ui/playwright/tests',
+      cwd: path.resolve(__dirname),
       timeout: 60000,
     });
 

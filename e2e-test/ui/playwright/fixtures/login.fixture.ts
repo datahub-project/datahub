@@ -27,10 +27,10 @@
  * User injection example (set at describe level, not inside tests):
  *
  *   import { test } from '../../fixtures/base-test';
- *   import { resolvedUsers } from '../../fixtures/users';
+ *   import { users } from '../../data/users';
  *
  *   test.describe('Reader access', () => {
- *     test.use({ user: resolvedUsers.reader });   // ← enforce via fixture
+ *     test.use({ user: users.reader });   // ← enforce via fixture
  *     test('can view datasets', async ({ page }) => { ... });
  *   });
  * ─────────────────────────────────────────────────────────────────────────────
@@ -42,8 +42,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { test as base } from '@playwright/test';
-import { resolvedUsers, type UserCredentials } from './users';
-import { LoginPage } from '../pages/login-page';
+import { users, type UserCredentials } from '../data/users';
+import { LoginPage } from '../pages/login.page';
 import { gmsTokenPath } from './login';
 import type { DataHubLogger } from '../utils/logger';
 
@@ -86,13 +86,17 @@ function isStateFileValid(stateFile: string): boolean {
     const raw = fs.readFileSync(stateFile, 'utf-8');
     const state = JSON.parse(raw) as { cookies?: Array<{ name: string; expires: number }> };
     const cookies = state.cookies ?? [];
-    if (cookies.length === 0) return false;
 
-    const now = Date.now() / 1000; // Unix seconds
-    // Session cookies (expires === -1) are always considered valid at read time;
-    // only explicitly-expired cookies are treated as stale.
-    const hasExpiredCookie = cookies.some((c) => c.expires > 0 && c.expires < now);
-    return !hasExpiredCookie;
+    // A state without the DataHub auth cookie is from an incomplete or failed login.
+    const actorCookie = cookies.find((c) => c.name === 'actor');
+    if (!actorCookie) return false;
+
+    const now = Date.now() / 1000;
+    // Reject if the actor cookie has an explicit expiry that has passed.
+    // Session cookies (expires === -1) are kept — server validates them.
+    if (actorCookie.expires > 0 && actorCookie.expires < now) return false;
+
+    return true;
   } catch {
     return false;
   }
@@ -102,7 +106,7 @@ function isStateFileValid(stateFile: string): boolean {
 
 export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
   // ── Option: injectable user (worker-scoped so all tests in a worker share) ──
-  user: [resolvedUsers.admin, { option: true, scope: 'worker' }],
+  user: [users.admin, { option: true, scope: 'worker' }],
 
   // ── Override context: authenticated or fresh depending on state file ─────────
   // Because `page` is derived from `context`, every test automatically
@@ -141,6 +145,9 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
       const loginPage = new LoginPage(page, logger);
       await loginPage.navigateToLogin();
       await loginPage.login(user.username, user.password);
+
+      // Suppress the welcome modal for all tests that reuse this state.
+      await page.evaluate(() => localStorage.setItem('skipWelcomeModal', 'true'));
 
       // Persist the authenticated session so subsequent tests skip login.
       await ctx.storageState({ path: stateFile });

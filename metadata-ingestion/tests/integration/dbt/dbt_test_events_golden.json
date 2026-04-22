@@ -2511,7 +2511,7 @@
                 "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
                 "status": "COMPLETE",
                 "result": {
-                    "type": "FAILURE",
+                    "type": "ERROR",
                     "nativeResults": {
                         "message": "Database Error in test dbt_expectations_expect_column_values_to_be_in_set_customers_customer_id__customer_id_is_not_null__0__1__2 (models/schema.yml)\n  No matching signature for operator = for argument types: INT64, STRING. Supported signature: ANY = ANY at [46:25]\n  compiled SQL at target/run/jaffle_shop/models/schema.yml/dbt_expectations_expect_column_e42202dc29e1149de0f5c3966219796d.sql"
                     }
@@ -2606,7 +2606,7 @@
                 "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "status": "COMPLETE",
                 "result": {
-                    "type": "FAILURE",
+                    "type": "ERROR",
                     "nativeResults": {
                         "message": "Database Error in test dbt_expectations_expect_column_values_to_not_be_in_set_orders_credit_card_amount__credit_card_amount_is_not_null__0 (models/schema.yml)\n  No matching signature for operator = for argument types: FLOAT64, STRING. Supported signature: ANY = ANY at [36:25]\n  compiled SQL at target/run/jaffle_shop/models/schema.yml/dbt_expectations_expect_column_fdf581b1071168614662824120d65b90.sql"
                     }

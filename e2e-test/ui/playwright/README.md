@@ -14,17 +14,15 @@ e2e-test/ui/playwright/
 │   ├── logger.fixture.ts         # Winston logger (auto-injected into every test)
 │   ├── mocking.fixture.ts        # apiMock fixture for route interception
 │   ├── seeding.fixture.ts        # Per-worker test data injection (seedingFixture)
-│   ├── login.ts                  # Auth file path helpers + GMS token reader
-│   ├── users.ts                  # Test user definitions (resolvedUsers)
-│   └── cleanup.ts                # cleanup fixture (registered in base-test)
+│   └── login.ts                  # Auth file path helpers + GMS token reader
 ├── pages/                        # Page Object Models
-│   ├── base-page.ts              # Base class: screenshot helper, logger/logDir
-│   ├── login-page.ts
-│   ├── search-page.ts
-│   ├── dataset-page.ts
-│   ├── business-attribute-page.ts
-│   ├── welcome-modal-page.ts
-│   ├── incidents-page.ts
+│   ├── base.page.ts              # Base class: screenshot helper, logger/logDir
+│   ├── login.page.ts
+│   ├── search.page.ts
+│   ├── dataset.page.ts
+│   ├── business-attribute.page.ts
+│   ├── welcome-modal.page.ts
+│   ├── incidents.page.ts
 │   └── common/
 │       ├── searchbar-component.ts
 │       └── sidebar-component.ts
@@ -38,12 +36,12 @@ e2e-test/ui/playwright/
 ├── helpers/                      # Standalone utility classes
 │   ├── cleanup-helper.ts         # CleanupHelper / GlobalCleanupHelper
 │   ├── graphql-helper.ts         # GraphQL request helpers (executeQuery, waitForGraphQLResponse)
-│   ├── graphql-seeder.ts         # Seed test data via GraphQL
-│   ├── cli-seeder.ts             # Seed test data via DataHub CLI (requires datahub CLI on $PATH)
-│   ├── rest-seeder.ts            # Seed test data via REST API
 │   ├── seeder-utils.ts           # Shared extractUrn + waitForSync utilities
-│   ├── navigation-helper.ts      # Navigation utilities
-│   └── wait-helper.ts            # Wait strategies
+│   ├── wait-helper.ts            # Wait strategies
+│   └── seeders/                  # Seeder implementations (see seeders/README.md)
+│       ├── cli-seeder.ts         # Seed via DataHub CLI (requires datahub CLI on $PATH)
+│       ├── graphql-seeder.ts     # Seed via GraphQL API
+│       └── rest-seeder.ts        # Seed via GMS REST API
 ├── factories/                    # Data generation
 │   ├── test-data-factory.ts      # URN builders + timestamped name generators
 │   ├── mock-response-factory.ts  # Re-exports from mock-responses/ (backward compat)
@@ -52,8 +50,12 @@ e2e-test/ui/playwright/
 │       ├── search.ts             # Search response builders
 │       ├── dataset.ts            # Dataset response builders
 │       └── index.ts              # Barrel re-export
+├── data/
+│   └── users.ts                  # Test user definitions (users)
 └── utils/                        # Shared constants and utilities
     ├── constants.ts              # Timeouts, routes, entity types, data sources
+    ├── cleanup.ts                # ScopedCleanup + deleteEntities helpers
+    ├── test-data.ts              # RestFeatureDataLoader for on-demand data injection
     ├── logger.ts                 # createLogger factory (Winston)
     ├── api-mock.ts               # PageApiMocker class
     └── random.ts                 # withTimestamp, withRandomSuffix helpers
@@ -70,34 +72,37 @@ e2e-test/ui/playwright/
 
 ```bash
 cd e2e-test/ui/playwright
-npm install
-npx playwright install chromium
+yarn install
+yarn playwright install chromium
 ```
 
 ### Running Tests
 
 ```bash
 # All tests
-npx playwright test
+yarn playwright test
 
 # Headed (see browser)
-npx playwright test --headed
+yarn playwright test --headed
 
 # Interactive UI mode
-npx playwright test --ui
+yarn playwright test --ui
 
 # Debug mode (step through)
-npx playwright test --debug
+yarn playwright test --debug
 
 # Specific suite
-npx playwright test tests/search/
-npx playwright test tests/business-attributes/
+yarn playwright test tests/search/
+yarn playwright test tests/business-attributes/
+
+# Specific test file
+yarn playwright test tests/search/search-filters.spec.ts
 
 # Specific test by name
-npx playwright test -g "should login successfully"
+yarn playwright test --grep "should login successfully"
 
 # View HTML report after a run
-npx playwright show-report
+yarn playwright show-report
 ```
 
 ## Writing Tests
@@ -169,9 +174,9 @@ test("renders with feature flag enabled", async ({ page, apiMock }) => {
 
 ```typescript
 import { test } from "../../fixtures/base-test";
-import { resolvedUsers } from "../../fixtures/users";
+import { users } from "../../fixtures/users";
 
-test.use({ user: resolvedUsers.reader });
+test.use({ user: users.reader });
 
 test("reader cannot edit", async ({ page }) => {
   /* ... */

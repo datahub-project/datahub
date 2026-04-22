@@ -1,5 +1,5 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { BasePage } from './base-page';
+import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
 const KAFKA_INCIDENTS_DATASET_URL =
@@ -210,10 +210,30 @@ export class IncidentsPage extends BasePage {
     await this.page.waitForLoadState('networkidle');
   }
 
+  childOption(status: string): Locator {
+    return this.page.locator(`[data-testid="child-option-${status}"]`);
+  }
+
   async filterByStatus(status: string): Promise<void> {
+    // The filter SelectBase is gated on IntersectionObserver (useIsVisible). Scroll
+    // the element into the viewport so the observer fires and the SelectBase renders.
+    await this.filterBase.scrollIntoViewIfNeeded();
     await this.filterBase.click();
-    await this.page.locator(`[data-testid="child-option-${status}"]`).click();
-    // Close the filter dropdown
+
+    // The NestedSelect renders parent categories collapsed by default.
+    // The status options live under the "state" parent — expand it first so that
+    // the child option elements are rendered in the DOM before we try to click.
+    const stateParent = this.page.locator('[data-testid="parent-option-state"]');
+    await stateParent.waitFor({ state: 'visible', timeout: 10000 });
+    const childOption = this.childOption(status);
+    const childVisible = await childOption.isVisible().catch(() => false);
+    if (!childVisible) {
+      await stateParent.click();
+    }
+
+    await childOption.waitFor({ state: 'visible', timeout: 10000 });
+    await childOption.click();
+    // Close the filter dropdown by clicking the base again.
     await this.filterBase.click();
   }
 
