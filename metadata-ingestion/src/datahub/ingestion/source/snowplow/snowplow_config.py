@@ -20,6 +20,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.snowplow.constants import (
     DEFAULT_SCHEMA_TYPES,
+    EventSpecStatus,
     SchemaType,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -356,6 +357,22 @@ class SnowplowSourceConfig(
         description="Regex patterns for tracking plans to filter",
     )
 
+    deployment_environment: Optional[str] = Field(
+        default=None,
+        description="Filter schemas by Snowplow deployment environment. "
+        "Only schemas deployed to this environment will be ingested. "
+        "Common values from BDP API: 'PROD', 'DEV'. "
+        "Case-insensitive. When not set, schemas from all environments are included.",
+    )
+
+    event_spec_statuses: Optional[List[str]] = Field(
+        default=None,
+        description="Filter event specifications by status. "
+        "Only event specs with a status in this list will be ingested. "
+        "Valid values: draft, published, deprecated, archived. "
+        "When not set, all statuses are included.",
+    )
+
     # ============================================
     # Feature Flags
     # ============================================
@@ -519,6 +536,38 @@ class SnowplowSourceConfig(
                     "Tracking plans are only available via BDP Console API."
                 )
         return v
+
+    @field_validator("deployment_environment", mode="after")
+    @classmethod
+    def validate_deployment_environment(cls, v: Optional[str]) -> Optional[str]:
+        """Normalize deployment environment: strip whitespace, uppercase, reject empty."""
+        if v is not None:
+            v = v.strip().upper()
+            if not v:
+                return None
+        return v
+
+    @field_validator("event_spec_statuses", mode="after")
+    @classmethod
+    def validate_event_spec_statuses(
+        cls, v: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate and normalize event spec status values."""
+        if v is None:
+            return v
+        valid = {s.value for s in EventSpecStatus}
+        normalized = []
+        for status in v:
+            s = status.strip().lower()
+            if s not in valid:
+                raise ValueError(
+                    f"Unknown event_spec_statuses value '{status}'. "
+                    f"Valid values: {', '.join(sorted(valid))}"
+                )
+            normalized.append(s)
+        if not normalized:
+            return None
+        return normalized
 
     @field_validator("schema_types_to_extract", mode="after")
     @classmethod

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssertionResult;
+import com.linkedin.datahub.graphql.generated.AssertionResultSeverity;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
 import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.BatchSpec;
@@ -85,6 +86,11 @@ public class AssertionRunEventMapper
     if (gmsResult.hasNativeResults()) {
       datasetAssertionResult.setNativeResults(
           StringMapMapper.map(context, gmsResult.getNativeResults()));
+    }
+
+    if (gmsResult.hasSeverity()) {
+      datasetAssertionResult.setSeverity(
+          AssertionResultSeverity.valueOf(gmsResult.getSeverity().name()));
     }
 
     return datasetAssertionResult;
