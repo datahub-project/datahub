@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import pytest
 
@@ -1964,3 +1964,184 @@ def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
 
     report = _sigma_report(pipeline)
     assert report.element_dm_edge_ambiguous >= 1
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin for the real Sigma API shape of workbook→DM element
+    lineage (live-probed 2026-04-22 on a tenant workbook).
+
+    Real tenants return the DM-reference node ``<dmUrlId>/<suffix>`` ONLY
+    as an edge source — the node is NOT a key in the ``dependencies`` dict.
+    Before the synthesis fix, the BFS loop raised ``KeyError`` when looking
+    up the missing dependency entry, blanking the entire element's lineage
+    and silently dropping every workbook→DM edge in production. This test
+    reproduces that shape and asserts that:
+
+    1. ``DataModelElementUpstream`` is synthesized from the edge alone,
+    2. the workbook element's own ``name`` is used as the DM element name
+       (Sigma's default — user rename degrades to the existing
+       ``element_dm_edge_name_unmatched_but_dm_known`` counter), and
+    3. the ``element_dm_edge_synthesized_from_edge_only`` counter tracks
+       how many refs travelled this path, so the legacy "DM in dependencies"
+       path's coverage — retained defensively — stays distinguishable.
+    """
+
+    override_data = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
+
+    # Rename the workbook elements so their ``name`` matches the target
+    # DM element name (Sigma's default behaviour — see test docstring).
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages/DmBridgePage/elements"
+    ]["json"]["entries"] = [
+        {
+            "elementId": "dmRefElem01",
+            "type": "table",
+            "name": "2313213123.test.231",
+            "columns": ["Col"],
+            "vizualizationType": "levelTable",
+        },
+        {
+            "elementId": "dmRefElem02",
+            "type": "visualization",
+            "name": "random data model",
+            "columns": ["Col"],
+            "vizualizationType": "bar",
+        },
+        {
+            "elementId": "dmRefElem03",
+            "type": "visualization",
+            "name": "name_renamed_by_user_no_longer_matches",
+            "columns": ["Col"],
+            "vizualizationType": "bar",
+        },
+    ]
+
+    # Rewrite each element's lineage to the real API shape: the DM-shaped
+    # ``<dmUrlId>/<suffix>`` node appears ONLY as an edge source; it is
+    # deliberately absent from ``dependencies``. Seed sheet entry names
+    # mirror element.name per observed API behaviour.
+    def _edges_only_lineage(
+        elem_id: str, elem_name: str, seed_node_id: str, dm_source_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    seed_node_id: {
+                        "nodeId": seed_node_id,
+                        "elementId": elem_id,
+                        "name": elem_name,
+                        "type": "sheet",
+                    }
+                },
+                "edges": [
+                    {
+                        "source": dm_source_id,
+                        "target": seed_node_id,
+                        "type": "source",
+                    }
+                ],
+            },
+        }
+
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem01"
+    ] = _edges_only_lineage(
+        elem_id="dmRefElem01",
+        elem_name="2313213123.test.231",
+        seed_node_id="seed_dmref_01",
+        dm_source_id="CDJLIyOhUoKBSEVI8Wr4n/pwxVRJHBSK",
+    )
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem02"
+    ] = _edges_only_lineage(
+        elem_id="dmRefElem02",
+        elem_name="random data model",
+        seed_node_id="seed_dmref_02",
+        dm_source_id="CDJLIyOhUoKBSEVI8Wr4n/mdYJst_DFR",
+    )
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/dmRefElem03"
+    ] = _edges_only_lineage(
+        elem_id="dmRefElem03",
+        elem_name="name_renamed_by_user_no_longer_matches",
+        seed_node_id="seed_dmref_03",
+        dm_source_id="CDJLIyOhUoKBSEVI8Wr4n/someOtherSuffix",
+    )
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_edges_only_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    # All 3 workbook→DM refs travelled the synthesized path (none were
+    # present in dependencies), so the counter bumps once per ref.
+    assert report.element_dm_edge_synthesized_from_edge_only == 3, (
+        f"expected 3 synthesized DM refs, got "
+        f"{report.element_dm_edge_synthesized_from_edge_only}"
+    )
+
+    # dmRefElem01 → "2313213123.test.231" (unique name, single DM element
+    #                match → resolves to 4plNusNz75).
+    # dmRefElem02 → "random data model" (ambiguous across 2 DM elements;
+    #                deterministic pick = lowest elementId = 0ui59vLc38).
+    # dmRefElem03 → user-renamed name → unmatched; DM is known to this run
+    #                so the name-unmatched-but-known counter bumps.
+    assert report.element_dm_edges_resolved == 2, (
+        f"expected 2 resolved bridge edges (01 + 02), got "
+        f"{report.element_dm_edges_resolved}"
+    )
+    assert report.element_dm_edge_name_unmatched_but_dm_known == 1, (
+        f"expected 1 rename-induced unmatched, got "
+        f"{report.element_dm_edge_name_unmatched_but_dm_known}"
+    )
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    dm_uuid = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
+    expected_01_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_uuid}.4plNusNz75,PROD)"
+    )
+    expected_02_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{dm_uuid}.0ui59vLc38,PROD)"
+    )
+
+    def _chart_inputs(elem_id: str) -> List[str]:
+        chart_info = next(
+            mce
+            for mce in mces
+            if mce.get("entityUrn", "").endswith(f"{elem_id})")
+            and mce.get("aspectName") == "chartInfo"
+        )
+        aspect_json = chart_info.get("aspect", {}).get(
+            "json", chart_info.get("aspect", {})
+        )
+        return [inp.get("string", "") for inp in aspect_json.get("inputs", [])]
+
+    assert expected_01_urn in _chart_inputs("dmRefElem01"), (
+        f"dmRefElem01 should link to unique-name DM element {expected_01_urn}; "
+        f"got inputs={_chart_inputs('dmRefElem01')}"
+    )
+    assert expected_02_urn in _chart_inputs("dmRefElem02"), (
+        f"dmRefElem02 should link to ambiguous-name deterministic pick "
+        f"{expected_02_urn}; got inputs={_chart_inputs('dmRefElem02')}"
+    )
+    # dmRefElem03 is renamed by the user; the resolver must NOT fall back
+    # to the DM Container URN (schema-invalid on ChartInfo.inputs).
+    elem03_inputs = _chart_inputs("dmRefElem03")
+    assert not any("CDJLIyOhUoKBSEVI8Wr4n" in inp for inp in elem03_inputs), (
+        f"dmRefElem03 must NOT emit a DM Container URN as a chart input; "
+        f"got inputs={elem03_inputs}"
+    )

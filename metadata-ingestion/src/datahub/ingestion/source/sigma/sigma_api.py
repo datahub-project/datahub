@@ -506,6 +506,49 @@ class SigmaAPI:
                         continue
                     visited.add(source_node_id)
 
+                    # Real Sigma API shape for workbook→DM-element references
+                    # (live-probed 2026-04-22): the DM-reference node
+                    # ``<dmUrlId>/<suffix>`` appears ONLY as an edge source
+                    # and NOT as a key in ``dependencies``. Detect that
+                    # structural signature ("/" in node id AND missing from
+                    # dependencies) and synthesize the ``DataModelElementUpstream``
+                    # from the edge alone.
+                    #
+                    # DM element name resolution: Sigma's public API does
+                    # not expose the suffix↔elementId map (2026-04-21 probe
+                    # of 18 candidate endpoints), and the edge itself carries
+                    # no DM element name. We fall back to the workbook
+                    # element's own ``name``, which — per Sigma's default
+                    # workflow — is initialized to the referenced DM element
+                    # name. If the user later renames the workbook element,
+                    # the name-bridge resolver returns None and the
+                    # ``element_dm_edge_name_unmatched_but_dm_known`` counter
+                    # surfaces the partial visibility for report triage.
+                    if source_node_id not in dependencies and "/" in source_node_id:
+                        dm_url_id, _, suffix = source_node_id.partition("/")
+                        if dm_url_id and suffix:
+                            try:
+                                upstream_sources[source_node_id] = (
+                                    DataModelElementUpstream(
+                                        name=element.name,
+                                        data_model_url_id=dm_url_id,
+                                    )
+                                )
+                                self.report.element_dm_edge_synthesized_from_edge_only += 1
+                            except ValidationError as e:
+                                self.report.warning(
+                                    message="Failed to synthesize Sigma DM upstream from edges-only node",
+                                    context=(
+                                        f"node={source_node_id}, element={element.name}, "
+                                        f"workbook={workbook.name}"
+                                    ),
+                                    exc=e,
+                                )
+                            continue
+                        # Fall through to the standard path below: a node id
+                        # with an empty prefix OR empty suffix is malformed;
+                        # let the legacy dispatch surface a warning.
+
                     # Per-node isolation: one malformed node skips rather than
                     # blanking the entire element's lineage.
                     try:

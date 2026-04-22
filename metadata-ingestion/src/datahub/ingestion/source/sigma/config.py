@@ -191,6 +191,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     element_dm_edge_ambiguous: int = 0
     element_dm_edge_name_unmatched_but_dm_known: int = 0
     element_dm_edge_unresolved: int = 0
+    # Sigma's live API shape (probed 2026-04-22 on a real tenant) places the
+    # DM-reference node ``<dmUrlId>/<suffix>`` ONLY in ``edges[].source`` and
+    # NOT as a key in the ``dependencies`` dict. We synthesize the upstream
+    # from the edge alone, using the workbook element's own ``name`` as the
+    # DM element name (Sigma's default is to name the workbook ref after the
+    # referenced DM element; user rename degrades to ``element_dm_edge_*``
+    # counters above). This counter surfaces how many workbook→DM refs
+    # travelled the synthesized path vs. the legacy "DM in dependencies"
+    # path (which remains as defence against a future API shape change).
+    element_dm_edge_synthesized_from_edge_only: int = 0
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
