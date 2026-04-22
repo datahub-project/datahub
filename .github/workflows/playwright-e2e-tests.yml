@@ -249,8 +249,13 @@ jobs:
 
       - name: Merge blob reports into unified HTML report
         run: |
-          if compgen -G "playwright-blob-reports/playwright-blob-report-*" > /dev/null 2>&1; then
-            npx playwright merge-reports --reporter html ./playwright-blob-reports
+          # download-artifact v4+ places each artifact in its own subfolder under
+          # playwright-blob-reports/. Flatten all .zip files into a single dir so
+          # `playwright merge-reports` can find them.
+          mkdir -p playwright-blobs-flat
+          find playwright-blob-reports -name "*.zip" -exec cp {} playwright-blobs-flat/ \;
+          if compgen -G "playwright-blobs-flat/*.zip" > /dev/null 2>&1; then
+            npx playwright merge-reports --reporter html ./playwright-blobs-flat
           else
             echo "No blob reports found — all shards may have been skipped or crashed"
           fi
