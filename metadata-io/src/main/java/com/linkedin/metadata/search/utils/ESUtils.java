@@ -36,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
+import com.linkedin.metadata.service.LifecycleStageTypeService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -87,12 +88,30 @@ import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 @Slf4j
 public class ESUtils {
 
+  /**
+   * Holds the LifecycleStageTypeService singleton for use in default search filters. Set once at
+   * startup via setLifecycleStageTypeService(). Volatile for visibility across threads.
+   */
+  @Nullable private static volatile LifecycleStageTypeService lifecycleStageTypeService;
+
+  /** Wires the service into the search filter path. Called once from the Spring factory. */
+  public static void setLifecycleStageTypeService(@Nullable LifecycleStageTypeService service) {
+    ESUtils.lifecycleStageTypeService = service;
+  }
+
+  /** Returns the currently wired service, or null if not yet set. */
+  @Nullable
+  public static LifecycleStageTypeService getLifecycleStageTypeService() {
+    return lifecycleStageTypeService;
+  }
+
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
   public static final String KEYWORD_ANALYZER = "keyword";
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String REMOVED = "removed";
+  public static final String LIFECYCLE_STAGE = "lifecycleStage";
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
   public static final String KEYWORD = "keyword";
@@ -1120,40 +1139,85 @@ public class ESUtils {
     }
   }
 
+  /**
+   * Resolves the set of hidden lifecycle stage URNs for the given entity types, or empty if the
+   * service is not wired yet or the search targets lifecycle stage types themselves.
+   */
+  @Nonnull
+  public static Set<String> resolveHiddenStageUrns(@Nonnull List<String> entityNames) {
+    return (lifecycleStageTypeService != null
+            && !entityNames.contains(LifecycleStageTypeService.LIFECYCLE_STAGE_TYPE_ENTITY_NAME))
+        ? lifecycleStageTypeService.getHiddenStageUrns(new HashSet<>(entityNames))
+        : Collections.emptySet();
+  }
+
   @Nonnull
   public static BoolQueryBuilder applyDefaultSearchFilters(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery) {
-    // filter soft deleted entities by default
-    filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
+    return applyDefaultSearchFilters(
+        opContext, entityNames, filter, filterQuery, resolveHiddenStageUrns(entityNames));
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder applyDefaultSearchFilters(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nonnull Set<String> hiddenLifecycleStageUrns) {
+    filterSoftDeletedAndHiddenStages(
+        filter,
+        filterQuery,
+        opContext.getSearchContext().getSearchFlags(),
+        hiddenLifecycleStageUrns);
     return filterQuery;
   }
 
   /**
-   * Applies a default filter to remove entities that are soft deleted only if there isn't a filter
-   * for the REMOVED field already and soft delete entities are not being requested via search flags
+   * Applies default filters to exclude soft-deleted entities and entities in hidden lifecycle
+   * stages unless the caller has explicitly opted in or already filtered on those fields.
+   *
+   * <p>Soft-delete exclusion (removed=true): controlled by SearchFlags.includeSoftDeleted.
+   *
+   * <p>Lifecycle stage exclusion: driven by {@code hiddenLifecycleStageUrns} — the set of lifecycle
+   * stage type URNs whose settings specify {@code hideInSearch=true}. Controlled by
+   * SearchFlags.includeHiddenLifecycleStages. When the caller already filters on the {@code
+   * lifecycleStage} field, the default exclusion is bypassed.
    */
-  private static void filterSoftDeletedByDefault(
+  private static void filterSoftDeletedAndHiddenStages(
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery,
-      @Nonnull SearchFlags searchFlags) {
-    if (Boolean.FALSE.equals(searchFlags.isIncludeSoftDeleted())) {
-      boolean removedInOrFilter = false;
-      if (filter != null) {
-        removedInOrFilter =
-            filter.getOr().stream()
-                .anyMatch(
-                    or ->
-                        or.getAnd().stream()
-                            .anyMatch(
-                                criterion ->
-                                    criterion.getField().equals(REMOVED)
-                                        || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
+      @Nonnull SearchFlags searchFlags,
+      @Nonnull Set<String> hiddenLifecycleStageUrns) {
+    boolean removedInOrFilter = false;
+    boolean lifecycleStageInOrFilter = false;
+    if (filter != null) {
+      for (var or : filter.getOr()) {
+        for (var criterion : or.getAnd()) {
+          String field = criterion.getField();
+          if (field.equals(REMOVED) || field.equals(REMOVED + KEYWORD_SUFFIX)) {
+            removedInOrFilter = true;
+          }
+          if (field.equals(LIFECYCLE_STAGE) || field.equals(LIFECYCLE_STAGE + KEYWORD_SUFFIX)) {
+            lifecycleStageInOrFilter = true;
+          }
+        }
       }
-      if (!removedInOrFilter) {
-        filterQuery.mustNot(QueryBuilders.termQuery(REMOVED, true));
+    }
+
+    if (Boolean.FALSE.equals(searchFlags.isIncludeSoftDeleted()) && !removedInOrFilter) {
+      filterQuery.mustNot(QueryBuilders.termQuery(REMOVED, true));
+    }
+
+    // Exclude entities in hidden lifecycle stages unless the caller opted in or already filters.
+    if (!Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())
+        && !lifecycleStageInOrFilter
+        && !hiddenLifecycleStageUrns.isEmpty()) {
+      for (String stageUrn : hiddenLifecycleStageUrns) {
+        filterQuery.mustNot(QueryBuilders.termQuery(LIFECYCLE_STAGE + KEYWORD_SUFFIX, stageUrn));
       }
     }
   }

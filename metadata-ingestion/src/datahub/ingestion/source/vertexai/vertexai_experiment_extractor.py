@@ -3,6 +3,7 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
+from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.cloud.aiplatform import ExperimentRun, initializer as vertex_initializer
 from google.cloud.aiplatform.metadata import (
     constants as metadata_constants,
@@ -322,6 +323,24 @@ class VertexAIExperimentExtractor:
             MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
         ]
 
+    def _get_logged_training_job_urns(self, run: ExperimentRun) -> List[str]:
+        """Return DataProcessInstance URNs for any CustomJobs logged to this run."""
+        urns: List[str] = []
+        try:
+            with self.rate_limiter:
+                custom_jobs = run.get_logged_custom_jobs()
+            for job in custom_jobs:
+                job_id = self.name_formatter.format_job_name(entity_id=job.name)
+                urns.append(builder.make_data_process_instance_urn(job_id))
+        except NotFound:
+            logger.debug(f"No logged custom jobs found for run {run.name}")
+        except GoogleAPICallError as e:
+            logger.warning(
+                f"API error fetching logged custom jobs for run {run.name}: {e}",
+                exc_info=True,
+            )
+        return urns
+
     def _get_run_timestamps(self, run: ExperimentRun) -> RunTimestamps:
         executions = run.get_executions()
         if len(executions) == 1:
@@ -350,7 +369,7 @@ class VertexAIExperimentExtractor:
 
     def _make_custom_properties_for_run(
         self, experiment: Experiment, run: ExperimentRun
-    ) -> dict:
+    ) -> Dict[str, str]:
         properties: Dict[str, str] = dict()
         properties["externalUrl"] = self.url_builder.make_experiment_run_url(
             experiment, run
@@ -361,8 +380,10 @@ class VertexAIExperimentExtractor:
             properties[f"update time ({exec_name})"] = str(exec.update_time)
         return properties
 
-    def _make_custom_properties_for_execution(self, execution: Execution) -> dict:
-        properties: Dict[str, Optional[str]] = dict()
+    def _make_custom_properties_for_execution(
+        self, execution: Execution
+    ) -> Dict[str, str]:
+        properties: Dict[str, str] = dict()
         for input in execution.get_input_artifacts():
             input_name = getattr(input, "name", "")
             properties[f"input artifact ({input_name})"] = getattr(input, "uri", "")
@@ -494,6 +515,16 @@ class VertexAIExperimentExtractor:
             yield from self._gen_run_execution(
                 execution=execution, exp=experiment, run=run
             )
+
+        training_job_urns = self._get_logged_training_job_urns(run)
+        if training_job_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=run_urn,
+                aspect=DataProcessInstanceRelationshipsClass(
+                    upstreamInstances=training_job_urns,
+                    parentInstance=experiment_key.as_urn(),
+                ),
+            ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=run_urn,

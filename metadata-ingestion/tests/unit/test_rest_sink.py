@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -284,7 +284,9 @@ basicAuditStamp = models.AuditStampClass(
         ),
     ],
 )
-@freeze_time(datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc))
+@time_machine.travel(
+    datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc), tick=False
+)
 def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()

@@ -1,13 +1,12 @@
 import OutputIcon from '@mui/icons-material/Output';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 // import AddOutputPortCard from './AddOutputPortCard';
 import { StyledHeaderWrapper } from '@app/entityV2/dataProduct/AssetsSections';
 import { SCREEN_WIDTH_BREAK_POINT } from '@app/entityV2/dataProduct/constants';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
@@ -36,12 +35,13 @@ const LoadMoreButton = styled(Card)`
     font-weight: 400;
     font-family: Mulish;
     padding: 10px 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const COUNT = 10;
 
 export const OutputPortsSection = () => {
+    const theme = useTheme();
     const [additionalResults, setAdditionalResults] = useState<SearchResult[]>([]);
     const [hasFetchedNewData, setHasFetchedNewData] = useState(false);
     const [start, setStart] = useState(0);
@@ -90,7 +90,7 @@ export const OutputPortsSection = () => {
         <OutputPortsWrapper>
             <StyledHeaderWrapper>
                 <SummaryTabHeaderTitle
-                    icon={<OutputIcon style={{ fontSize: 16, color: ANTD_GRAY[8] }} />}
+                    icon={<OutputIcon style={{ fontSize: 16, color: theme.colors.textSecondary }} />}
                     title={`Output Ports (${numResults})`}
                 />
             </StyledHeaderWrapper>

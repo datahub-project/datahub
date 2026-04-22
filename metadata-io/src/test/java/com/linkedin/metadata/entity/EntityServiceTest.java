@@ -106,7 +106,6 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -3455,20 +3454,5 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate recordTemplate =
         RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
-  }
-
-  private static GenericJsonPatch.PatchOp tagPatchOp(PatchOperationType op, Urn tagUrn) {
-    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
-    patchOp.setOp(op.getValue());
-    patchOp.setPath(String.format("/tags/%s", tagUrn));
-    if (PatchOperationType.ADD.equals(op)) {
-      // Create a proper TagAssociation structure
-      Map<String, Object> tagAssociation = new HashMap<>();
-      tagAssociation.put("tag", tagUrn.toString());
-      // Add optional context field with a non-null value to avoid coercion issues
-      tagAssociation.put("context", "test-context");
-      patchOp.setValue(tagAssociation);
-    }
-    return patchOp;
   }
 }

@@ -26,6 +26,7 @@ from typing_extensions import LiteralString, Self
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
     get_report_failure_sample_size,
+    get_report_info_sample_size,
     get_report_warning_sample_size,
 )
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
@@ -121,7 +122,7 @@ class StructuredLogs(Report):
         default_factory=lambda: {
             StructuredLogLevel.ERROR: LossyDict(get_report_failure_sample_size()),
             StructuredLogLevel.WARN: LossyDict(get_report_warning_sample_size()),
-            StructuredLogLevel.INFO: LossyDict(10),
+            StructuredLogLevel.INFO: LossyDict(get_report_info_sample_size()),
         }
     )
 
@@ -196,6 +197,25 @@ class StructuredLogs(Report):
             if context is not None:
                 entries[log_key].context.append(context)
 
+    def set_sample_sizes(
+        self,
+        failure_size: Optional[int] = None,
+        warning_size: Optional[int] = None,
+        info_size: Optional[int] = None,
+    ) -> None:
+        """Override the max_elements on the underlying LossyDicts.
+
+        Should be called early (right after source construction). Sources may
+        log warnings/errors during __init__, so existing entries are pruned
+        if they exceed the new limit.
+        """
+        if failure_size is not None:
+            self._entries[StructuredLogLevel.ERROR].resize(failure_size)
+        if warning_size is not None:
+            self._entries[StructuredLogLevel.WARN].resize(warning_size)
+        if info_size is not None:
+            self._entries[StructuredLogLevel.INFO].resize(info_size)
+
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]
         result: LossyList[StructuredLogEntry] = LossyList(
@@ -239,6 +259,18 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     @property
     def infos(self) -> LossyList[StructuredLogEntry]:
         return self._structured_logs.infos
+
+    def set_sample_sizes(
+        self,
+        failure_size: Optional[int] = None,
+        warning_size: Optional[int] = None,
+        info_size: Optional[int] = None,
+    ) -> None:
+        self._structured_logs.set_sample_sizes(
+            failure_size=failure_size,
+            warning_size=warning_size,
+            info_size=info_size,
+        )
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1

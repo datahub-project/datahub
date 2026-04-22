@@ -511,6 +511,332 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
+def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mock):
+    """
+    Exercises intra-workbook (element-to-element) lineage:
+    - direct sheet→sheet edge (nodeId != elementId)
+    - sheet upstream reached via a join pass-through node
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data: Dict[str, Dict] = {
+        # Add a third page containing the intra-workbook elements.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"pageId": "OSnGLBzL1i", "name": "Page 1"},
+                    {"pageId": "DFSieiAcgo", "name": "Page 2"},
+                    {"pageId": "IntraWorkbookPage", "name": "Page 3"},
+                ],
+                "total": 3,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages/IntraWorkbookPage/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "upstreamElem01",
+                        "type": "table",
+                        "name": "Upstream Table Element",
+                        "columns": ["Col A", "Col B"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        "elementId": "downstreamElem01",
+                        "type": "visualization",
+                        "name": "Downstream Chart",
+                        "columns": ["Col A"],
+                        "vizualizationType": "bar",
+                    },
+                    {
+                        "elementId": "joinDownstreamElem",
+                        "type": "visualization",
+                        "name": "Join Downstream Chart",
+                        "columns": ["Col A"],
+                        "vizualizationType": "bar",
+                    },
+                    {
+                        # Filtered by get_page_elements (not in allowlist) — never
+                        # enters the elementId→chart_urn map.
+                        "elementId": "pivotElem01",
+                        "type": "pivot-table",
+                        "name": "Pivot Table Element",
+                        "columns": ["Col A"],
+                        "vizualizationType": "pivot",
+                    },
+                    {
+                        # References pivotElem01 as upstream — chart_urn lookup returns
+                        # None, so no inputEdges should be emitted for this element.
+                        "elementId": "filteredUpstreamElem",
+                        "type": "visualization",
+                        "name": "Downstream Of Filtered Element",
+                        "columns": ["Col A"],
+                        "vizualizationType": "bar",
+                    },
+                    {
+                        # Cross-page reference: upstream is kH0MeihtGs on Page 1.
+                        # Verifies that elementId→chart_urn is built at workbook scope,
+                        # not page scope — a page-scoped map would miss Page 1 elements
+                        # while processing Page 3 and produce no inputEdges here.
+                        "elementId": "crossPageDownstreamElem",
+                        "type": "visualization",
+                        "name": "Cross-Page Downstream Chart",
+                        "columns": ["Col A"],
+                        "vizualizationType": "bar",
+                    },
+                ],
+                "total": 6,
+                "nextPage": None,
+            },
+        },
+        # upstreamElem01: only a warehouse table upstream (no sheet edge).
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/upstreamElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_node_upstream": {
+                        "nodeId": "tgt_node_upstream",
+                        "elementId": "upstreamElem01",
+                        "name": "Upstream Table Element",
+                        "type": "sheet",
+                    },
+                    "inode-warehouse01": {
+                        "nodeId": "inode-warehouse01",
+                        "name": "SOME_WAREHOUSE_TABLE",
+                        "type": "table",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "inode-warehouse01",
+                        "target": "tgt_node_upstream",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        # downstreamElem01: direct sheet upstream; nodeId ("src_node_upstream") !=
+        # elementId ("upstreamElem01") — the critical fixture-fiction guard.
+        # Also includes an unrelated edge (unrelated_sheet_node → unrelated_target)
+        # that is NOT reachable from tgt_node_downstream via reverse BFS. With the
+        # old scrape-every-edge-source approach this would add a spurious upstream_sources
+        # entry; the BFS implementation correctly excludes it.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/downstreamElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_node_downstream": {
+                        "nodeId": "tgt_node_downstream",
+                        "elementId": "downstreamElem01",
+                        "name": "Downstream Chart",
+                        "type": "sheet",
+                    },
+                    "src_node_upstream": {
+                        "nodeId": "src_node_upstream",
+                        "elementId": "upstreamElem01",
+                        "name": "Upstream Table Element",
+                        "type": "sheet",
+                    },
+                    "unrelated_sheet_node": {
+                        "nodeId": "unrelated_sheet_node",
+                        "elementId": "upstreamElem01",
+                        "name": "Upstream Table Element",
+                        "type": "sheet",
+                    },
+                    "unrelated_target_node": {
+                        "nodeId": "unrelated_target_node",
+                        "name": "Some Unrelated Target",
+                        "type": "table",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_node_upstream",
+                        "target": "tgt_node_downstream",
+                        "type": "lookup",
+                    },
+                    {
+                        # This edge's source is not reachable from tgt_node_downstream.
+                        "source": "unrelated_sheet_node",
+                        "target": "unrelated_target_node",
+                        "type": "source",
+                    },
+                ],
+            },
+        },
+        # joinDownstreamElem: sheet upstream reached via a join pass-through node.
+        # The sheet edge (upstreamElem01→join) appears directly in the edges list,
+        # making the join transparent without any recursive traversal.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/joinDownstreamElem": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_node_join_downstream": {
+                        "nodeId": "tgt_node_join_downstream",
+                        "elementId": "joinDownstreamElem",
+                        "name": "Join Downstream Chart",
+                        "type": "sheet",
+                    },
+                    "join_node_01": {
+                        "nodeId": "join_node_01",
+                        "type": "join",
+                    },
+                    "src_node_upstream": {
+                        "nodeId": "src_node_upstream",
+                        "elementId": "upstreamElem01",
+                        "name": "Upstream Table Element",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_node_upstream",
+                        "target": "join_node_01",
+                        "type": "lookup",
+                    },
+                    {
+                        "source": "join_node_01",
+                        "target": "tgt_node_join_downstream",
+                        "type": "source",
+                    },
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/upstreamElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/downstreamElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/joinDownstreamElem/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # filteredUpstreamElem: sheet upstream points to pivotElem01, which was
+        # filtered by get_page_elements and is absent from the chart map.
+        # The chart should be emitted with no inputEdges.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/filteredUpstreamElem": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_node_filtered": {
+                        "nodeId": "tgt_node_filtered",
+                        "elementId": "filteredUpstreamElem",
+                        "name": "Downstream Of Filtered Element",
+                        "type": "sheet",
+                    },
+                    "src_node_pivot": {
+                        "nodeId": "src_node_pivot",
+                        "elementId": "pivotElem01",
+                        "name": "Pivot Table Element",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_node_pivot",
+                        "target": "tgt_node_filtered",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/filteredUpstreamElem/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # crossPageDownstreamElem: sheet upstream is kH0MeihtGs on Page 1.
+        # inputEdges must point to urn:li:chart:(sigma,kH0MeihtGs), proving the
+        # elementId→chart_urn map is workbook-scoped (page-scoped would miss it).
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/crossPageDownstreamElem": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_node_cross_page": {
+                        "nodeId": "tgt_node_cross_page",
+                        "elementId": "crossPageDownstreamElem",
+                        "name": "Cross-Page Downstream Chart",
+                        "type": "sheet",
+                    },
+                    "src_node_page1_adoptions": {
+                        "nodeId": "src_node_page1_adoptions",
+                        "elementId": "kH0MeihtGs",
+                        "name": "ADOPTIONS",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_node_page1_adoptions",
+                        "target": "tgt_node_cross_page",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/crossPageDownstreamElem/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_extract_lineage_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_intra_workbook_lineage.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 

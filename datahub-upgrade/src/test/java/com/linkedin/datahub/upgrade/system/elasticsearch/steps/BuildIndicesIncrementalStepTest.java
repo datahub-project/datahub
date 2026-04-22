@@ -99,20 +99,22 @@ public class BuildIndicesIncrementalStepTest {
   @Test
   public void testFreshStartSuccessful() throws Throwable {
     IncrementalReindexResult incrementalResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, Map.of());
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
     when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
     PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
     when(indexBuilder.pollReindexCompletion(
-            eq(INDEX_NAME), eq(NEXT_INDEX_NAME), eq(2), anyMap(), eq("task1")))
+            eq(INDEX_NAME), eq(NEXT_INDEX_NAME), any(), anyInt(), anyMap(), eq("task1")))
         .thenReturn(pollResult);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(indexBuilder).buildIndexIncremental(any(), eq(UPGRADE_VERSION));
-    verify(indexBuilder).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder)
+        .pollReindexCompletion(any(), any(), any(), anyInt(), anyMap(), anyString());
     verify(indexBuilder).undoReindexOptimalSettings(eq(NEXT_INDEX_NAME), any(), anyMap());
     verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
   }
@@ -120,7 +122,7 @@ public class BuildIndicesIncrementalStepTest {
   @Test
   public void testSkippedEmptyIndex() throws Throwable {
     IncrementalReindexResult emptyResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, null, true, 2, Map.of());
+        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, null, true, 2, 0L, Map.of());
     when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION))).thenReturn(emptyResult);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -128,19 +130,20 @@ public class BuildIndicesIncrementalStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // Should not poll or undo settings for empty index
     verify(indexBuilder, never())
-        .pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
+        .pollReindexCompletion(any(), any(), any(), anyInt(), anyMap(), anyString());
     verify(indexBuilder, never()).undoReindexOptimalSettings(any(), any(), anyMap());
   }
 
   @Test
   public void testPollTimeoutReturnsFailed() throws Throwable {
     IncrementalReindexResult incrementalResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, Map.of());
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
     when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
     PollReindexResult timedOut = new PollReindexResult(false, Map.of(), Pair.of(100L, 50L));
-    when(indexBuilder.pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString()))
+    when(indexBuilder.pollReindexCompletion(any(), any(), any(), anyInt(), anyMap(), anyString()))
         .thenReturn(timedOut);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -159,6 +162,8 @@ public class BuildIndicesIncrementalStepTest {
             NEXT_INDEX_NAME,
             null,
             1679000000000L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.IN_PROGRESS);
 
@@ -168,7 +173,7 @@ public class BuildIndicesIncrementalStepTest {
 
     PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
     when(indexBuilder.pollReindexCompletion(
-            eq(INDEX_NAME), eq(NEXT_INDEX_NAME), anyInt(), anyMap(), eq("")))
+            eq(INDEX_NAME), eq(NEXT_INDEX_NAME), any(), anyInt(), anyMap(), eq("")))
         .thenReturn(pollResult);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -176,7 +181,8 @@ public class BuildIndicesIncrementalStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     // Should NOT call buildIndexIncremental — just resume polling
     verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
-    verify(indexBuilder).pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
+    verify(indexBuilder)
+        .pollReindexCompletion(any(), any(), any(), anyInt(), anyMap(), anyString());
     verify(indexBuilder).undoReindexOptimalSettings(eq(NEXT_INDEX_NAME), any(), anyMap());
     verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
   }
@@ -191,6 +197,8 @@ public class BuildIndicesIncrementalStepTest {
             NEXT_INDEX_NAME,
             null,
             1679000000000L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.COMPLETED);
 
@@ -204,7 +212,7 @@ public class BuildIndicesIncrementalStepTest {
     // Should not build or poll — index was already done
     verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
     verify(indexBuilder, never())
-        .pollReindexCompletion(any(), any(), anyInt(), anyMap(), anyString());
+        .pollReindexCompletion(any(), any(), any(), anyInt(), anyMap(), anyString());
   }
 
   @Test

@@ -275,6 +275,9 @@ SPANNER_DATABASE_FQN_REGEX = re.compile(
 SPANNER_TABLE_FQN_REGEX = re.compile(
     r"^spanner:(?P<project_id>[^.]+)\.regional-(?P<location>[^.]+)\.(?P<instance_id>[^.]+)\.(?P<database_id>[^.]+)\.(?P<table_id>[^.]+)$"
 )
+SPANNER_GRAPH_FQN_REGEX = re.compile(
+    r"^spanner:graph:(?P<project_id>[^.]+)\.regional-(?P<location>[^.]+)\.(?P<instance_id>[^.]+)\.(?P<database_id>[^.]+)\.(?P<graph_id>[^.]+)$"
+)
 PUBSUB_TOPIC_FQN_REGEX = re.compile(
     r"^pubsub:topic:(?P<project_id>[^.]+)\.(?P<topic_id>[^.]+)$"
 )
@@ -401,6 +404,18 @@ DATAPLEX_ENTRY_TYPE_MAPPINGS: dict[str, DataplexEntryTypeMapping] = {
         parent_container_key_class=DataplexCloudSpannerDatabase,
         datahub_dataset_name_format=(
             "{project_id}.regional-{location}.{instance_id}.{database_id}.{table_id}"
+        ),
+    ),
+    "cloud-spanner-graph": DataplexEntryTypeMapping(
+        datahub_platform="spanner",
+        datahub_entity_type="Dataset",
+        datahub_subtype=DatasetSubTypes.GRAPH,
+        fqn_regex=SPANNER_GRAPH_FQN_REGEX,
+        parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
+        container_key_class=None,
+        parent_container_key_class=DataplexCloudSpannerDatabase,
+        datahub_dataset_name_format=(
+            "{project_id}.regional-{location}.{instance_id}.{database_id}.{graph_id}"
         ),
     ),
     "pubsub-topic": DataplexEntryTypeMapping(
@@ -648,6 +663,11 @@ def is_supported_lineage_entry_type(entry_type_short_name: str) -> bool:
     """Return whether an entry type is supported as a lineage dataset node."""
     mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(entry_type_short_name)
     return bool(mapping and mapping.datahub_entity_type == "Dataset")
+
+
+def build_lineage_parent(project_id: str, location: str) -> str:
+    """Build Data Lineage API parent for an explicit project/location pair."""
+    return f"projects/{project_id}/locations/{location}"
 
 
 def build_container_urn_from_fqn(
