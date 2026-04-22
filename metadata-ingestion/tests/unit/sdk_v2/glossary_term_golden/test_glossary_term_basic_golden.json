@@ -1,0 +1,15 @@
+[
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:ARR",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "",
+            "termSource": "INTERNAL"
+        }
+    }
+}
+]

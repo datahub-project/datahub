@@ -1,0 +1,39 @@
+[
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:MRR",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Monthly Recurring Revenue.",
+            "termSource": "INTERNAL"
+        }
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:MRR",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryRelatedTerms",
+    "aspect": {
+        "json": {
+            "isRelatedTerms": [
+                "urn:li:glossaryTerm:RecurringRevenue"
+            ],
+            "hasRelatedTerms": [
+                "urn:li:glossaryTerm:SubscriptionCount"
+            ],
+            "values": [
+                "urn:li:glossaryTerm:MRR.New",
+                "urn:li:glossaryTerm:MRR.Expansion"
+            ],
+            "relatedTerms": [
+                "urn:li:glossaryTerm:ARR",
+                "urn:li:glossaryTerm:Churn"
+            ]
+        }
+    }
+}
+]

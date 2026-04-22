@@ -1,33 +1,27 @@
-import logging
-import os
+import warnings
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import GlossaryNodeInfoClass
-from datahub.metadata.urns import GlossaryNodeUrn
+from datahub.errors import ExperimentalWarning
 
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
-# Create a GlossaryNode URN
-node_urn = GlossaryNodeUrn("Finance")
+from datahub.sdk import DataHubClient, GlossaryNode  # noqa: E402
 
-# Create the glossary node info with definition and display name
-node_info = GlossaryNodeInfoClass(
+client = DataHubClient.from_env()
+
+# Top-level glossary node
+node = GlossaryNode(
+    name="Finance",
+    display_name="Financial Metrics",
     definition="Category for all financial and accounting-related business terms including revenue, costs, and profitability measures.",
-    name="Financial Metrics",
 )
 
-# Create metadata change proposal
-event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityUrn=str(node_urn),
-    aspect=node_info,
+# Child node nested under Finance
+child_node = GlossaryNode(
+    name="RevenueMetrics",
+    display_name="Revenue Metrics",
+    definition="Metrics related to revenue recognition and reporting.",
+    parent_node=node,
 )
 
-# Emit to DataHub
-gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
-token = os.getenv("DATAHUB_GMS_TOKEN")
-rest_emitter = DatahubRestEmitter(gms_server=gms_server, token=token)
-rest_emitter.emit(event)
-
-log.info(f"Created glossary node {node_urn}")
+client.entities.upsert(node)
+client.entities.upsert(child_node)
