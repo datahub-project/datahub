@@ -59,6 +59,6 @@ test.describe('Login', () => {
     await loginPage.login(username, password);
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/$|\/home/);
-    await expect(page.getByTestId('nav-bar-home-logo')).toBeVisible();
+    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({ timeout: 10000 });
   });
 });
