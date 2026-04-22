@@ -913,12 +913,20 @@ def get_mock_data_model_api() -> Dict[str, Dict]:
             "method": "GET",
             "status_code": 200,
             "json": {
+                # The real Sigma /dataModels/{id}/elements endpoint ships
+                # ``columns`` as a list of bare column-name strings, mirroring
+                # the workbook /elements shape. We keep the bare-string list
+                # here to regression-cover the pre-validator that discards it
+                # (rich SigmaDataModelColumn objects come from the separate
+                # /columns endpoint and are attached post-parse in
+                # SigmaAPI._assemble_data_model).
                 "entries": [
                     {
                         "elementId": "0ui59vLc38",
                         "name": "random data model",
                         "type": "table",
                         "vizualizationType": None,
+                        "columns": ["id", "name"],
                     },
                     {
                         # Duplicate-name case: Sigma coalesces workbook refs to
@@ -928,12 +936,14 @@ def get_mock_data_model_api() -> Dict[str, Dict]:
                         "name": "random data model",
                         "type": "table",
                         "vizualizationType": None,
+                        "columns": ["id", "name"],
                     },
                     {
                         "elementId": "4plNusNz75",
                         "name": "2313213123.test.231",
                         "type": "table",
                         "vizualizationType": None,
+                        "columns": ["id", "price"],
                     },
                 ],
                 "total": 3,
@@ -1902,18 +1912,21 @@ def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
             "name": "random data model",
             "type": "table",
             "vizualizationType": None,
+            "columns": ["id", "name"],
         },
         {
             "elementId": "0ui59vLc38",
             "name": "random data model",
             "type": "table",
             "vizualizationType": None,
+            "columns": ["id", "name"],
         },
         {
             "elementId": "4plNusNz75",
             "name": "2313213123.test.231",
             "type": "table",
             "vizualizationType": None,
+            "columns": ["id", "price"],
         },
     ]
 

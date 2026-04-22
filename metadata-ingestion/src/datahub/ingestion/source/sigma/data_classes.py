@@ -169,6 +169,26 @@ class SigmaDataModelElement(BaseModel):
     # ``inode-<suffix>`` string resolving to a warehouse table or Sigma Dataset.
     source_ids: List[str] = []
 
+    @model_validator(mode="before")
+    @classmethod
+    def _discard_api_bare_string_columns(cls, values: Dict) -> Dict:
+        # The real Sigma /dataModels/{id}/elements endpoint returns ``columns``
+        # as a list of bare column-name strings (the same shape as workbook
+        # Element.columns: List[str]), not as rich column objects. The rich
+        # SigmaDataModelColumn objects — with columnId, elementId, label,
+        # formula — come from the separate /dataModels/{id}/columns endpoint
+        # and are attached post-parse in SigmaAPI._assemble_data_model. Strip
+        # the bare-string list here so pydantic validation does not fail on
+        # real tenant responses; payloads that already carry rich column
+        # dicts (e.g. crafted unit-test mocks) are left untouched.
+        if isinstance(values, dict):
+            raw_columns = values.get("columns")
+            if isinstance(raw_columns, list) and any(
+                isinstance(c, str) for c in raw_columns
+            ):
+                values = {**values, "columns": []}
+        return values
+
 
 class SigmaDataModel(BaseModel):
     dataModelId: str  # UUID — stable across renames
