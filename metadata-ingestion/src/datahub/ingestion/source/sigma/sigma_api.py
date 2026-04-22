@@ -2,10 +2,10 @@ import functools
 import logging
 import sys
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Set
+from typing import Any, Deque, Dict, List, Optional, Set, Type, TypeVar
 
 import requests
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -32,6 +32,8 @@ from datahub.ingestion.source.sigma.data_classes import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class SigmaAPI:
@@ -598,51 +600,48 @@ class SigmaAPI:
             )
             return []
 
+    def _paginated_entries(
+        self, base_url: str, model_cls: Type[T], error_ctx: str
+    ) -> List[T]:
+        """Page through a Sigma list endpoint, parsing each entry into
+        ``model_cls``. Swallows HTTP/JSON errors so a broken page does not
+        abort the containing ingestion loop — matches the existing pattern
+        used elsewhere in this module."""
+        url = base_url
+        results: List[T] = []
+        try:
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for entry in response_dict.get(Constant.ENTRIES, []):
+                    results.append(model_cls.model_validate(entry))
+                if response_dict.get(Constant.NEXTPAGE):
+                    url = f"{base_url}?page={response_dict[Constant.NEXTPAGE]}"
+                else:
+                    break
+            return results
+        except Exception as e:
+            self._log_http_error(message=f"{error_ctx} Exception: {e}")
+            return []
+
     def _get_data_model_elements(
         self, data_model_id: str
     ) -> List[SigmaDataModelElement]:
         logger.debug(f"Fetching elements for data model '{data_model_id}'.")
-        base_url = url = f"{self.config.api_url}/dataModels/{data_model_id}/elements"
-        try:
-            elements: List[SigmaDataModelElement] = []
-            while True:
-                response = self._get_api_call(url)
-                response.raise_for_status()
-                response_dict = response.json()
-                for element_dict in response_dict.get(Constant.ENTRIES, []):
-                    elements.append(SigmaDataModelElement.model_validate(element_dict))
-                if response_dict.get(Constant.NEXTPAGE):
-                    url = f"{base_url}?page={response_dict[Constant.NEXTPAGE]}"
-                else:
-                    break
-            return elements
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch elements for data model '{data_model_id}'. Exception: {e}"
-            )
-            return []
+        return self._paginated_entries(
+            f"{self.config.api_url}/dataModels/{data_model_id}/elements",
+            SigmaDataModelElement,
+            f"Unable to fetch elements for data model '{data_model_id}'.",
+        )
 
     def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
         logger.debug(f"Fetching columns for data model '{data_model_id}'.")
-        base_url = url = f"{self.config.api_url}/dataModels/{data_model_id}/columns"
-        try:
-            columns: List[SigmaDataModelColumn] = []
-            while True:
-                response = self._get_api_call(url)
-                response.raise_for_status()
-                response_dict = response.json()
-                for col_dict in response_dict.get(Constant.ENTRIES, []):
-                    columns.append(SigmaDataModelColumn.model_validate(col_dict))
-                if response_dict.get(Constant.NEXTPAGE):
-                    url = f"{base_url}?page={response_dict[Constant.NEXTPAGE]}"
-                else:
-                    break
-            return columns
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch columns for data model '{data_model_id}'. Exception: {e}"
-            )
-            return []
+        return self._paginated_entries(
+            f"{self.config.api_url}/dataModels/{data_model_id}/columns",
+            SigmaDataModelColumn,
+            f"Unable to fetch columns for data model '{data_model_id}'.",
+        )
 
     def _get_data_model_lineage_entries(
         self, data_model_id: str

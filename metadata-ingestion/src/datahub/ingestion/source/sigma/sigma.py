@@ -488,6 +488,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             yield self._gen_entity_status_aspect(element_dataset_urn)
 
+            # description intentionally empty: the Sigma DM /elements API does
+            # not expose an element-level description field (verified during
+            # T2 investigation). qualifiedName uses "/" as the separator; DM
+            # or element names containing "/" will produce ambiguous
+            # qualifiedNames but remain unique via the URN.
             element_properties = DatasetProperties(
                 name=element.name,
                 description="",
@@ -566,14 +571,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         dm_url_id = data_model.get_url_id()
         # Record mappings needed by the workbook→DM bridge BEFORE yielding,
         # so they are available even if the caller processes DMs lazily.
-        self.dm_container_urn_by_url_id[dm_url_id] = data_model_container_urn
+        # Register under both urlId and dataModelId: workbook-side sourceId
+        # prefixes are urlId, but if urlId is missing (``get_url_id`` fallback
+        # to dataModelId) we still want the bridge to resolve. Register
+        # dataModelId only when it differs from the resolved url_id to avoid
+        # a redundant duplicate entry in the common case.
+        bridge_keys = {dm_url_id, data_model.dataModelId}
+        for key in bridge_keys:
+            self.dm_container_urn_by_url_id[key] = data_model_container_urn
         name_map: Dict[str, List[str]] = {}
         elementId_to_dataset_urn: Dict[str, str] = {}
         for element in data_model.elements:
             element_dataset_urn = self._gen_data_model_element_urn(data_model, element)
             elementId_to_dataset_urn[element.elementId] = element_dataset_urn
-            name_map.setdefault(element.name.lower(), []).append(element_dataset_urn)
-        self.dm_element_urn_by_name[dm_url_id] = name_map
+            # Skip elements with blank names to avoid collapsing multiple
+            # nameless elements into one candidate list (which would otherwise
+            # spuriously trip the ``element_dm_edge_ambiguous`` counter).
+            if element.name:
+                name_map.setdefault(element.name.lower(), []).append(
+                    element_dataset_urn
+                )
+        for key in bridge_keys:
+            self.dm_element_urn_by_name[key] = name_map
 
         owner_username = (
             self.sigma_api.get_user_name(data_model.createdBy)
@@ -684,8 +703,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[str]:
         """
         Resolve a workbook element's DM upstream (from a ``data-model`` lineage
-        node) to the specific DM element Dataset URN, falling back to the DM
-        Container URN when element-level resolution fails.
+        node) to a DM element **Dataset** URN. Returns None when the DM element
+        name cannot be matched — ``ChartInfo.inputs`` is schema-typed to accept
+        only Dataset URNs, so a Container URN cannot be substituted for it.
+        The ``element_dm_edge_fallback_to_container`` counter still fires to
+        surface partial-visibility cases in the ingestion report, and
+        ``element_dm_edge_unresolved`` covers the fully-unresolved case.
 
         Name-based match: Sigma coalesces workbook references to same-named DM
         elements into the first-by-creation match at the API contract level, so
@@ -700,12 +723,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.element_dm_edges_emitted += 1
                 return candidates[0]
 
-        container_urn = self.dm_container_urn_by_url_id.get(upstream.data_model_url_id)
-        if container_urn:
+        if upstream.data_model_url_id in self.dm_container_urn_by_url_id:
             self.reporter.element_dm_edge_fallback_to_container += 1
-            return container_urn
-
-        self.reporter.element_dm_edge_unresolved += 1
+        else:
+            self.reporter.element_dm_edge_unresolved += 1
         return None
 
     def _get_element_input_details(
@@ -772,8 +793,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 chart_input_urns.add(chart_urn)
             elif isinstance(upstream, DataModelElementUpstream):
                 # Workbook element references a DM element (e.g. through the
-                # Sigma app's "use data model" action). Emit as a cross-entity
-                # Dataset input — DM element URNs are Dataset-typed.
+                # Sigma app's "use data model" action). ChartInfo.inputs is
+                # union[DatasetUrn] — the resolver returns only DM element
+                # Dataset URNs (Container-fallback counter fires but is not
+                # emitted as an input to avoid schema violations).
                 dm_urn = self._resolve_dm_element_upstream_urn(upstream)
                 if dm_urn is not None and dm_urn not in dataset_inputs:
                     dataset_inputs[dm_urn] = []

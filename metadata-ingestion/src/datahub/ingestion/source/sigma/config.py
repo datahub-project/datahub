@@ -52,7 +52,6 @@ class Constant:
     NEXTPAGETOKEN = "nextPageToken"
     DATA_MODEL = "data-model"
     DATA_MODEL_ID = "dataModelId"
-    ENTITY_TYPE_DATA_MODEL_ELEMENT = "data-model-element"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"

@@ -2621,15 +2621,11 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": [
-                {
-                    "string": "urn:li:container:0466d89b8ce5ac9b2cd1deecdffe42c1"
-                }
-            ]
+            "inputs": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829350,
+        "lastObserved": 1776824987967,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

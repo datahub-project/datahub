@@ -836,7 +836,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
     )
 
 
-def register_mock_data_model_api(request_mock: Any) -> Dict[str, Dict]:
+def get_mock_data_model_api() -> Dict[str, Dict]:
     """
     Register mocks for a multi-element Data Model (``My Data Model-2``)
     mirroring the live-tenant regression case from the T2 investigation:
@@ -1042,27 +1042,11 @@ def register_mock_data_model_api(request_mock: Any) -> Dict[str, Dict]:
     }
 
 
-@pytest.mark.integration
-def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
-    """
-    Exercises the new Data Model ingestion path:
-
-    - multi-element DM emits 1 Container + 3 Datasets (duplicate-named element
-      included as an orphan)
-    - per-element schemaMetadata (no cross-element column-name collision)
-    - intra-DM element→element UpstreamLineage
-    - external upstream resolves to an existing Sigma Dataset URN
-    - workbook element bridges to a DM element via a ``data-model`` lineage
-      node (name-match primary path + ambiguous-name counter)
-    - workbook element with an unknown DM element name falls back to the DM
-      Container URN
-    """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
-
-    override_data: Dict[str, Dict] = register_mock_data_model_api(requests_mock)
-
-    # Add a page whose elements reference the DM via data-model lineage nodes,
-    # one resolvable-by-name and one that falls back to the DM Container.
+def _apply_dm_bridge_workbook_overrides(override_data: Dict[str, Dict]) -> None:
+    """Add a workbook page whose elements reference the DM via ``data-model``
+    lineage nodes. Exercises all three workbook→DM bridge outcomes:
+    name-match, ambiguous-name, and name-fail (container-fallback / unresolved
+    depending on whether the DM was emitted)."""
     override_data[
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages"
     ] = {
@@ -1086,7 +1070,6 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
         "json": {
             "entries": [
                 {
-                    # Name-match success: resolves to element 3 (4plNusNz75).
                     "elementId": "dmRefElem01",
                     "type": "table",
                     "name": "Uses 2313213123",
@@ -1094,8 +1077,6 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
                     "vizualizationType": "levelTable",
                 },
                 {
-                    # Name-match ambiguous: two DM elements share the name
-                    # "random data model"; pick-first + ambiguous counter.
                     "elementId": "dmRefElem02",
                     "type": "visualization",
                     "name": "Uses random model",
@@ -1103,7 +1084,6 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
                     "vizualizationType": "bar",
                 },
                 {
-                    # Name-match failure: resolves to DM Container fallback.
                     "elementId": "dmRefElem03",
                     "type": "visualization",
                     "name": "Uses unknown DM element",
@@ -1204,6 +1184,26 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
             f"https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/{elem_id}/query"
         ] = {"method": "GET", "status_code": 404, "json": {}}
 
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
+    """
+    Exercises the new Data Model ingestion path:
+
+    - multi-element DM emits 1 Container + 3 Datasets (duplicate-named element
+      included as an orphan)
+    - per-element schemaMetadata (no cross-element column-name collision)
+    - intra-DM element→element UpstreamLineage
+    - external upstream resolves to an existing Sigma Dataset URN
+    - workbook element bridges to a DM element via a ``data-model`` lineage
+      node (name-match primary path + ambiguous-name counter)
+    - workbook element with an unknown DM element name falls back to the DM
+      Container URN
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data: Dict[str, Dict] = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
     output_path: str = f"{tmp_path}/sigma_ingest_data_models_mces.json"
@@ -1246,9 +1246,11 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
 @pytest.mark.integration
 def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
     """``data_model_pattern`` denies the DM → no DM entities emitted and
-    workbook elements previously bridging to the DM resolve nothing."""
+    workbook elements previously bridging to the DM degrade to
+    ``element_dm_edge_unresolved`` (bridge maps never registered)."""
 
-    override_data: Dict[str, Dict] = register_mock_data_model_api(requests_mock)
+    override_data: Dict[str, Dict] = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
 
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
@@ -1302,6 +1304,23 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
     assert not dm_element_present, (
         "DM element Datasets should be filtered out by data_model_pattern"
     )
+
+    report = pipeline.source.get_report()
+    assert report.element_dm_edges_emitted == 0
+    assert report.element_dm_edge_fallback_to_container == 0
+    # All three DM-bridge workbook elements must end up as unresolved because
+    # the bridge maps were never populated (DM was denied).
+    assert report.element_dm_edge_unresolved == 3, (
+        f"expected 3 unresolved DM edges, got {report.element_dm_edge_unresolved}"
+    )
+    # No DM-element Dataset URN should end up in any ChartInfo.inputs either.
+    for mce in mces:
+        if mce.get("aspectName") == "chartInfo":
+            aspect_json = mce.get("aspect", {}).get("json", mce.get("aspect", {}))
+            for inp in aspect_json.get("inputs", []):
+                assert "CDJLIyOhUoKBSEVI8Wr4n" not in inp.get("string", ""), (
+                    f"DM URN leaked into ChartInfo.inputs for {mce.get('entityUrn')}"
+                )
 
 
 @pytest.mark.integration
@@ -1452,3 +1471,328 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:
+    return {
+        "run_id": "sigma-test",
+        "source": {
+            "type": "sigma",
+            "config": {
+                "client_id": "CLIENTID",
+                "client_secret": "CLIENTSECRET",
+                "chart_sources_platform_mapping": {
+                    "Acryl Data/Acryl Workbook": {"data_source_platform": "snowflake"},
+                },
+                **extra,
+            },
+        },
+        "sink": {"type": "file", "config": {"filename": output_path}},
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_external_dataset_not_ingested(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Case 2 of ``_resolve_dm_element_external_upstream``: DM /lineage
+    records a ``type: dataset`` node whose ``inode-<urlId>`` does *not* match
+    any ingested SigmaDataset (e.g. filtered out). The resolver should
+    synthesize a Sigma Dataset URN from the suffix rather than dropping the
+    edge or falling through to None."""
+
+    override_data = get_mock_data_model_api()
+    # Replace the lineage so element 2 (``xloKCITNsP``) sources from an
+    # unregistered Sigma Dataset inode. Element 1 keeps the PETS (Case 1)
+    # upstream; element 3 keeps its intra-DM edge.
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "type": "dataset",
+                    "name": "PETS",
+                    "inodeId": "inode-49HFLTr6xytgrPly3PFsNC",
+                },
+                {
+                    "type": "dataset",
+                    "name": "UnregisteredDataset",
+                    "inodeId": "inode-unregDs000000001",
+                },
+                {
+                    "type": "element",
+                    "elementId": "0ui59vLc38",
+                    "sourceIds": ["inode-49HFLTr6xytgrPly3PFsNC"],
+                },
+                {
+                    "type": "element",
+                    "elementId": "xloKCITNsP",
+                    "sourceIds": ["inode-unregDs000000001"],
+                },
+                {
+                    "type": "element",
+                    "elementId": "4plNusNz75",
+                    "sourceIds": ["0ui59vLc38"],
+                },
+            ],
+            "total": 5,
+            "nextPage": None,
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_case2_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # The xloKCITNsP element should carry a synthesized Sigma Dataset URN as
+    # its upstream — built from ``inode-unregDs000000001`` suffix.
+    expected_synth_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,unregDs000000001,PROD)"
+    )
+    element2_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        "CDJLIyOhUoKBSEVI8Wr4n.xloKCITNsP,PROD)"
+    )
+    found_edge = False
+    for mce in mces:
+        if (
+            mce.get("entityUrn") == element2_urn
+            and mce.get("aspectName") == "upstreamLineage"
+        ):
+            aspect_json = mce.get("aspect", {}).get("json", mce.get("aspect", {}))
+            for up in aspect_json.get("upstreams", []):
+                if up.get("dataset") == expected_synth_urn:
+                    found_edge = True
+    assert found_edge, (
+        f"expected synthesized Sigma Dataset URN {expected_synth_urn} "
+        f"as upstream of {element2_urn}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_lineage_http_error(
+    pytestconfig, tmp_path, requests_mock
+):
+    """DM /lineage returning 500 is handled gracefully: the DM Container and
+    element Datasets are still emitted, but no UpstreamLineage aspects."""
+
+    override_data = get_mock_data_model_api()
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/lineage"
+    ] = {"method": "GET", "status_code": 500, "json": {}}
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_lineage_err_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    dm_urn = "urn:li:container:0466d89b8ce5ac9b2cd1deecdffe42c1"
+    assert any(
+        mce.get("entityUrn") == dm_urn
+        and mce.get("aspectName") == "containerProperties"
+        for mce in mces
+    ), "DM Container should still be emitted despite lineage 500"
+
+    # No upstreamLineage aspects should exist for any DM element.
+    dm_element_upstreams = [
+        mce
+        for mce in mces
+        if "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert dm_element_upstreams == [], (
+        "no UpstreamLineage should be emitted when /lineage returns 500"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_next_page_token_pagination(
+    pytestconfig, tmp_path, requests_mock
+):
+    """``get_data_models`` should paginate via ``nextPageToken`` when the API
+    omits ``nextPage``. Covers the second branch of the pagination loop."""
+
+    override_data = get_mock_data_model_api()
+
+    # Add a second DM returned via a nextPageToken-driven second page.
+    second_dm_id = "247a4d09-a686-4eea-b183-9b82aa0f7beb"
+    second_dm_url_id = "SecondPagTok00000000"
+
+    override_data["https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model"][
+        "json"
+    ]["entries"].append(
+        {
+            "id": second_dm_id,
+            "urlId": second_dm_url_id,
+            "name": "Second DM (token-paginated)",
+            "type": "data-model",
+            "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+            "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+            "permission": "edit",
+            "path": "Acryl Data",
+            "badge": None,
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2024-05-10T09:00:00.000Z",
+            "updatedAt": "2024-05-12T10:00:00.000Z",
+            "isArchived": False,
+        }
+    )
+    override_data["https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model"][
+        "json"
+    ]["total"] = 2
+
+    # First /dataModels page: advertises a token, no nextPage.
+    override_data["https://aws-api.sigmacomputing.com/v2/dataModels"]["json"][
+        "nextPageToken"
+    ] = "tok-page-2"
+    # Token-driven second /dataModels page with the second DM.
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels?nextPageToken=tok-page-2"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "dataModelId": second_dm_id,
+                    "urlId": second_dm_url_id,
+                    "name": "Second DM (token-paginated)",
+                    "description": "",
+                    "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                    "createdAt": "2024-05-10T09:00:00.000Z",
+                    "updatedAt": "2024-05-12T10:00:00.000Z",
+                    "url": f"https://app.sigmacomputing.com/acryldata/dm/{second_dm_url_id}",
+                    "latestVersion": 1,
+                    "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                    "path": "Acryl Data",
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+    # Empty elements/columns/lineage for the second DM — exercises the
+    # pagination path, not element-level assembly.
+    for endpoint in ("elements", "columns", "lineage"):
+        override_data[
+            f"https://aws-api.sigmacomputing.com/v2/dataModels/{second_dm_id}/{endpoint}"
+        ] = {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_next_page_token_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    dm_container_urns = {
+        mce.get("entityUrn")
+        for mce in mces
+        if mce.get("entityType") == "container"
+        and mce.get("aspectName") == "subTypes"
+        and "Sigma Data Model"
+        in mce.get("aspect", {}).get("json", mce.get("aspect", {})).get("typeNames", [])
+    }
+    assert len(dm_container_urns) == 2, (
+        f"expected both DMs emitted via nextPage + nextPageToken, got {dm_container_urns}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_shared_entity_no_workspace(
+    pytestconfig, tmp_path, requests_mock
+):
+    """DM whose workspace is not returned from /workspaces should be ingested
+    when ``ingest_shared_entities=True`` and counted under
+    ``data_models_without_workspace`` — mirrors the existing shared-workbook
+    path but for DMs."""
+
+    override_data = get_mock_data_model_api()
+    # Point the DM at a workspace the tenant does not list in /workspaces.
+    override_data["https://aws-api.sigmacomputing.com/v2/dataModels"]["json"][
+        "entries"
+    ][0]["workspaceId"] = "99999999-0000-0000-0000-000000000000"
+    override_data["https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model"][
+        "json"
+    ]["entries"][0]["parentId"] = "99999999-0000-0000-0000-000000000000"
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_shared_no_ws_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = pipeline.source.get_report()
+    assert report.data_models_without_workspace == 1
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    assert any(
+        mce.get("entityUrn") == "urn:li:container:0466d89b8ce5ac9b2cd1deecdffe42c1"
+        for mce in mces
+    ), "DM Container should be emitted under ingest_shared_entities=True"
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_workspace_pattern_deny(
+    pytestconfig, tmp_path, requests_mock
+):
+    """``workspace_pattern`` deny should drop the DM even though
+    ``data_model_pattern`` allows it — verifies the workspace-scoped filter
+    branch specific to DMs."""
+
+    override_data = get_mock_data_model_api()
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_ws_deny_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path, workspace_pattern={"deny": ["Acryl Data"]}
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    assert not any(
+        "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        or "0466d89b8ce5ac9b2cd1deecdffe42c1" in mce.get("entityUrn", "")
+        for mce in mces
+    ), "DM entities should be dropped by workspace_pattern deny"
