@@ -15,12 +15,12 @@ import { useAppConfig } from '@src/app/useAppConfig';
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const DropdownMenu = styled.div<{ padding?: string }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     overflow: hidden;
     min-width: 200px;
-    max-width: 240px;
+    max-width: 400px;
 
     ${(props) => props.padding !== undefined && `padding: ${props.padding};`}
 `;

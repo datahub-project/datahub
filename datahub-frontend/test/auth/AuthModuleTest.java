@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.ActorType;
@@ -11,16 +12,24 @@ import com.datahub.authentication.Authentication;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.linkedin.metadata.restli.RestliClientSslConfig;
 import com.linkedin.metadata.utils.BasePathUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.typesafe.config.ConfigFactory;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.jmx.JmxMeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.ClearEnvironmentVariable;
 import org.mockito.MockedStatic;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.play.store.PlayCacheSessionStore;
-import org.pac4j.play.store.PlayCookieSessionStore;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
 
@@ -130,7 +139,7 @@ public class AuthModuleTest {
     // Verify SessionStore is bound
     SessionStore sessionStore = injector.getInstance(SessionStore.class);
     assertNotNull(sessionStore);
-    assertTrue(sessionStore instanceof PlayCookieSessionStore);
+    assertTrue(sessionStore instanceof DatahubPlayCookieSessionStore);
   }
 
   @Test
@@ -455,5 +464,118 @@ public class AuthModuleTest {
     boolean result = module.doesMetadataServiceUseSsl(config);
     // The result depends on the environment variable, so we just verify it doesn't throw
     assertNotNull(Boolean.valueOf(result));
+  }
+
+  @Test
+  public void buildRestliSslConfigForMetadataService_mapsTruststoreAndKeystoreFromConfig() {
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("metadataService.truststore.path", "/certs/trust.p12");
+    configMap.put("metadataService.truststore.password", "trust-secret");
+    configMap.put("metadataService.truststore.type", "PKCS12");
+    configMap.put("metadataService.keystore.path", "/certs/client.p12");
+    configMap.put("metadataService.keystore.password", "ks-secret");
+    configMap.put("metadataService.keystore.type", "PKCS12");
+    configMap.put("metadataService.keystore.keyPassword", "key-secret");
+
+    com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
+    RestliClientSslConfig ssl = AuthModule.buildRestliSslConfigForMetadataService(config);
+
+    assertTrue(ssl.hasCustomSslMaterial());
+    assertEquals("/certs/trust.p12", ssl.getTruststorePath());
+    assertEquals("trust-secret", ssl.getTruststorePassword());
+    assertEquals("PKCS12", ssl.getTruststoreType());
+    assertEquals("/certs/client.p12", ssl.getKeystorePath());
+    assertEquals("ks-secret", ssl.getKeystorePassword());
+    assertEquals("PKCS12", ssl.getKeystoreType());
+    assertEquals("key-secret", ssl.getKeyPassword());
+  }
+
+  @Test
+  public void buildRestliSslConfigForMetadataService_emptyWhenTlsKeysUnset() {
+    com.typesafe.config.Config config = ConfigFactory.parseMap(new HashMap<>());
+    RestliClientSslConfig ssl = AuthModule.buildRestliSslConfigForMetadataService(config);
+    assertFalse(ssl.hasCustomSslMaterial());
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_defaultPrometheusAndNoJmx_compositeHasPrometheusAndLegacySimple() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(null);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(null);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    MeterRegistry registry = utils.getRegistry();
+    assertTrue(registry instanceof CompositeMeterRegistry);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) registry;
+    long prom =
+        composite.getRegistries().stream()
+            .filter(PrometheusMeterRegistry.class::isInstance)
+            .count();
+    long simple =
+        composite.getRegistries().stream().filter(SimpleMeterRegistry.class::isInstance).count();
+    assertEquals(1, prom);
+    assertEquals(1, simple);
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_prometheusDisabled_usesSingleSimpleRegistry() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(null);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(false);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) utils.getRegistry();
+    assertEquals(1, composite.getRegistries().size());
+    assertTrue(composite.getRegistries().iterator().next() instanceof SimpleMeterRegistry);
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_jmxEnabledWithPrometheus_compositeHasPrometheusAndJmx() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(true);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(true);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) utils.getRegistry();
+    long prom =
+        composite.getRegistries().stream()
+            .filter(PrometheusMeterRegistry.class::isInstance)
+            .count();
+    long jmx =
+        composite.getRegistries().stream().filter(JmxMeterRegistry.class::isInstance).count();
+    assertEquals(1, prom);
+    assertEquals(1, jmx);
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_jmxEnabledPrometheusDisabled_jmxOnly() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(true);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(false);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) utils.getRegistry();
+    assertEquals(1, composite.getRegistries().size());
+    assertTrue(composite.getRegistries().iterator().next() instanceof JmxMeterRegistry);
   }
 }

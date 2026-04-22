@@ -100,7 +100,11 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    bulkProcessor.add(updateRequest);
+    // Route by docId (URL-encoded URN) so repeated aspect writes for the same entity
+    // land on the same bulk processor thread. Without this, concurrent same-URN updates
+    // race on OpenSearch's seqNo and retryOnConflict cannot converge — partial updates
+    // are silently dropped and the indexed doc ends up with only bootstrap fields.
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**
@@ -124,7 +128,7 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    bulkProcessor.add(updateRequest);
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**
@@ -139,7 +143,7 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
+    bulkProcessor.add(docId, new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
   }
 
   /**
@@ -154,7 +158,22 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(new DeleteRequest(indexName).id(docId));
+    bulkProcessor.add(docId, new DeleteRequest(indexName).id(docId));
+  }
+
+  /**
+   * Checks if the given index exists in OpenSearch.
+   *
+   * @param indexName name of the index to check
+   * @return true if the index exists, false otherwise
+   */
+  public boolean indexExists(@Nonnull String indexName) {
+    try {
+      return searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.warn("Error checking if index {} exists: {}", indexName, e.getMessage());
+      return false;
+    }
   }
 
   /**
@@ -182,8 +201,10 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    // Use URN-aware routing for entity document consistency
-    bulkProcessor.add(updateRequest);
+    // URN-aware routing — docId is the URL-encoded entity URN, stable per entity, so
+    // using it as the routing key serializes concurrent aspect writes for the same URN
+    // on one bulk processor thread (preventing version_conflict_engine_exception).
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**
@@ -200,14 +221,34 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    // Use URN-aware routing for entity document consistency
-    bulkProcessor.add(new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
+    // URN-aware routing — see upsertDocumentBySearchGroup above.
+    bulkProcessor.add(docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
 
   /** Applies a script to a particular document */
   public void applyScriptUpdate(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    applyScriptUpdateByIndexName(
+        toIndexName(opContext, entityName), docId, scriptSource, scriptParams, upsert);
+  }
+
+  /**
+   * Applies a script to a particular document in a specific index. This method works directly with
+   * index names, useful for applying script updates to semantic indices.
+   *
+   * @param indexName the name of the index
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateByIndexName(
+      @Nonnull String indexName,
       @Nonnull String docId,
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
@@ -225,13 +266,35 @@ public class ESWriteDAO {
             scriptParams // The parameters map
             );
     UpdateRequest updateRequest =
-        new UpdateRequest(toIndexName(opContext, entityName), docId)
+        new UpdateRequest(indexName, docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
             .script(script)
             .upsert(upsert);
-    bulkProcessor.add(updateRequest);
+    // URN-aware routing via docId — see upsertDocumentBySearchGroup above.
+    bulkProcessor.add(docId, updateRequest);
+  }
+
+  /**
+   * Applies a script to a particular document in the V3 index for the specified search group.
+   *
+   * @param opContext the operation context
+   * @param searchGroup the search group name
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    applyScriptUpdateByIndexName(
+        toIndexNameV3(opContext, searchGroup), docId, scriptSource, scriptParams, upsert);
   }
 
   /**

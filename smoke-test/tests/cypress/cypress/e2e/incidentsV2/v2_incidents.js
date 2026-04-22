@@ -21,7 +21,7 @@ function expandGroupIfNeeded(group) {
     .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
     .then(($icon) => {
       if ($icon.length > 0 && $icon.is(":visible")) {
-        cy.wrap($icon).should("be.visible").click();
+        cy.wrap($icon).should("be.visible").click({ force: true });
       } else {
         cy.log("Collapsed icon not found or not visible, skipping click");
       }
@@ -29,9 +29,6 @@ function expandGroupIfNeeded(group) {
 }
 
 describe("incidents", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
   const newIncidentNameWithTimeStamp = `${NEW_INCIDENT_VALUES.NAME}-${Date.now()}`;
   const editedIncidentNameWithTimeStamp = `${newIncidentNameWithTimeStamp}-edited`;
 

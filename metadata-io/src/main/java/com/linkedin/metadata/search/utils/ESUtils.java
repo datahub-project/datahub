@@ -36,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
+import com.linkedin.metadata.service.LifecycleStageTypeService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -63,6 +64,11 @@ import org.opensearch.action.search.DeletePitResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -81,12 +87,31 @@ import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 /** TODO: Add more robust unit tests for this critical class. */
 @Slf4j
 public class ESUtils {
+
+  /**
+   * Holds the LifecycleStageTypeService singleton for use in default search filters. Set once at
+   * startup via setLifecycleStageTypeService(). Volatile for visibility across threads.
+   */
+  @Nullable private static volatile LifecycleStageTypeService lifecycleStageTypeService;
+
+  /** Wires the service into the search filter path. Called once from the Spring factory. */
+  public static void setLifecycleStageTypeService(@Nullable LifecycleStageTypeService service) {
+    ESUtils.lifecycleStageTypeService = service;
+  }
+
+  /** Returns the currently wired service, or null if not yet set. */
+  @Nullable
+  public static LifecycleStageTypeService getLifecycleStageTypeService() {
+    return lifecycleStageTypeService;
+  }
+
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
   public static final String KEYWORD_ANALYZER = "keyword";
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String REMOVED = "removed";
+  public static final String LIFECYCLE_STAGE = "lifecycleStage";
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
   public static final String KEYWORD = "keyword";
@@ -331,6 +356,55 @@ public class ESUtils {
         return Set.of(SearchableAnnotation.FieldType.OBJECT);
     }
     return Collections.emptySet();
+  }
+
+  /**
+   * Builds a filter query as a Map suitable for low-level REST clients.
+   *
+   * <p>This method takes a Filter object and transforms it into an optimized OpenSearch query,
+   * including rewrites and optimizations, while returning a Map for use with the Low-Level client.
+   *
+   * <p>Output shape is ensured to have a top-level {@code bool} object. If the optimized query is
+   * not a bool, it will be wrapped as {"bool": {"filter": [ <query> ]}}.
+   *
+   * <p><b>Important:</b> Field types must be properly specified in searchableFieldTypes for numeric
+   * fields to ensure correct value serialization. Without field type specification, numeric values
+   * in range queries will remain as strings, leading to incorrect comparisons (e.g., "9" > "15").
+   *
+   * <p>Note: minimumShouldMatch is always serialized as a string by OpenSearch/Elasticsearch (e.g.,
+   * "1" instead of 1) because it supports both absolute numbers and percentages.
+   */
+  @Nonnull
+  public static Map<String, Object> buildFilterMap(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    QueryBuilder qb =
+        ESUtils.buildFilterQuery(
+            filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain);
+
+    // Optimize and preserve filtering semantics (considerScore=false for filters)
+    qb = ESUtils.queryOptimize(qb, false);
+
+    boolean wrapAsBool = !(qb instanceof BoolQueryBuilder);
+
+    try {
+      // If not a bool, wrap under a bool.filter using a QueryBuilder to avoid manual JSON mistakes
+      QueryBuilder topQuery = wrapAsBool ? QueryBuilders.boolQuery().filter(qb) : qb;
+
+      XContentBuilder builder = XContentFactory.jsonBuilder();
+      topQuery.toXContent(builder, ToXContent.EMPTY_PARAMS);
+
+      Map<String, Object> top =
+          XContentHelper.convertToMap(JsonXContent.jsonXContent, builder.toString(), true);
+
+      // If the serialized content already has top-level bool, return as-is, else wrap
+      return top.containsKey("bool") ? top : Map.of("bool", top);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to serialize filter query to Map", e);
+    }
   }
 
   /**
@@ -893,7 +967,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
   }
@@ -904,7 +977,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
   }
@@ -915,7 +987,6 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nonnull AspectRetriever aspectRetriever) {
-
     return buildWildcardQueryWithMultipleValues(
         fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
   }
@@ -950,7 +1021,7 @@ public class ESUtils {
     Set<String> fieldTypes =
         getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
     if (fieldTypes.size() > 1) {
-      log.warn(
+      log.debug(
           "Multiple field types for field name {}, determining best fit for set: {}",
           fieldName,
           fieldTypes);
@@ -996,7 +1067,6 @@ public class ESUtils {
       String fieldName,
       @Nonnull final Criterion criterion,
       @Nullable AspectRetriever aspectRetriever) {
-
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
       // use criterion field here for structured props since fieldName has dots replaced with
@@ -1016,7 +1086,7 @@ public class ESUtils {
           fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
               ? "structured property"
               : "regular field";
-      log.warn(
+      log.debug(
           "Multiple field types for {} '{}' (criterion: {}, values: {}), determining best fit for set: {}",
           fieldType,
           fieldName,
@@ -1069,40 +1139,85 @@ public class ESUtils {
     }
   }
 
+  /**
+   * Resolves the set of hidden lifecycle stage URNs for the given entity types, or empty if the
+   * service is not wired yet or the search targets lifecycle stage types themselves.
+   */
+  @Nonnull
+  public static Set<String> resolveHiddenStageUrns(@Nonnull List<String> entityNames) {
+    return (lifecycleStageTypeService != null
+            && !entityNames.contains(LifecycleStageTypeService.LIFECYCLE_STAGE_TYPE_ENTITY_NAME))
+        ? lifecycleStageTypeService.getHiddenStageUrns(new HashSet<>(entityNames))
+        : Collections.emptySet();
+  }
+
   @Nonnull
   public static BoolQueryBuilder applyDefaultSearchFilters(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery) {
-    // filter soft deleted entities by default
-    filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
+    return applyDefaultSearchFilters(
+        opContext, entityNames, filter, filterQuery, resolveHiddenStageUrns(entityNames));
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder applyDefaultSearchFilters(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nonnull Set<String> hiddenLifecycleStageUrns) {
+    filterSoftDeletedAndHiddenStages(
+        filter,
+        filterQuery,
+        opContext.getSearchContext().getSearchFlags(),
+        hiddenLifecycleStageUrns);
     return filterQuery;
   }
 
   /**
-   * Applies a default filter to remove entities that are soft deleted only if there isn't a filter
-   * for the REMOVED field already and soft delete entities are not being requested via search flags
+   * Applies default filters to exclude soft-deleted entities and entities in hidden lifecycle
+   * stages unless the caller has explicitly opted in or already filtered on those fields.
+   *
+   * <p>Soft-delete exclusion (removed=true): controlled by SearchFlags.includeSoftDeleted.
+   *
+   * <p>Lifecycle stage exclusion: driven by {@code hiddenLifecycleStageUrns} — the set of lifecycle
+   * stage type URNs whose settings specify {@code hideInSearch=true}. Controlled by
+   * SearchFlags.includeHiddenLifecycleStages. When the caller already filters on the {@code
+   * lifecycleStage} field, the default exclusion is bypassed.
    */
-  private static void filterSoftDeletedByDefault(
+  private static void filterSoftDeletedAndHiddenStages(
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery,
-      @Nonnull SearchFlags searchFlags) {
-    if (Boolean.FALSE.equals(searchFlags.isIncludeSoftDeleted())) {
-      boolean removedInOrFilter = false;
-      if (filter != null) {
-        removedInOrFilter =
-            filter.getOr().stream()
-                .anyMatch(
-                    or ->
-                        or.getAnd().stream()
-                            .anyMatch(
-                                criterion ->
-                                    criterion.getField().equals(REMOVED)
-                                        || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
+      @Nonnull SearchFlags searchFlags,
+      @Nonnull Set<String> hiddenLifecycleStageUrns) {
+    boolean removedInOrFilter = false;
+    boolean lifecycleStageInOrFilter = false;
+    if (filter != null) {
+      for (var or : filter.getOr()) {
+        for (var criterion : or.getAnd()) {
+          String field = criterion.getField();
+          if (field.equals(REMOVED) || field.equals(REMOVED + KEYWORD_SUFFIX)) {
+            removedInOrFilter = true;
+          }
+          if (field.equals(LIFECYCLE_STAGE) || field.equals(LIFECYCLE_STAGE + KEYWORD_SUFFIX)) {
+            lifecycleStageInOrFilter = true;
+          }
+        }
       }
-      if (!removedInOrFilter) {
-        filterQuery.mustNot(QueryBuilders.termQuery(REMOVED, true));
+    }
+
+    if (Boolean.FALSE.equals(searchFlags.isIncludeSoftDeleted()) && !removedInOrFilter) {
+      filterQuery.mustNot(QueryBuilders.termQuery(REMOVED, true));
+    }
+
+    // Exclude entities in hidden lifecycle stages unless the caller opted in or already filters.
+    if (!Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())
+        && !lifecycleStageInOrFilter
+        && !hiddenLifecycleStageUrns.isEmpty()) {
+      for (String stageUrn : hiddenLifecycleStageUrns) {
+        filterQuery.mustNot(QueryBuilders.termQuery(LIFECYCLE_STAGE + KEYWORD_SUFFIX, stageUrn));
       }
     }
   }
@@ -1308,7 +1423,6 @@ public class ESUtils {
             && nestedBool.should().isEmpty()
             && nestedBool.mustNot().isEmpty()
             && !nestedBool.filter().isEmpty()) {
-
           // Mark for removal
           filtersToRemove.add(filter);
 

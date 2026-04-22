@@ -259,6 +259,7 @@ class DatahubSensors:
     ) -> Optional[DagsterEnvironment]:
         module: Optional[str] = None
         repository: Optional[str] = None
+        location_name: Optional[str] = None
         if (
             context
             and context.dagster_run.job_code_origin
@@ -280,6 +281,9 @@ class DatahubSensors:
             else:
                 context.log.error("Unable to get Module")
 
+        if context and context.dagster_run.remote_job_origin:
+            location_name = context.dagster_run.remote_job_origin.location_name
+
         dagster_environment = DagsterEnvironment(
             is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None) is not None,
             is_branch_deployment=(
@@ -290,6 +294,7 @@ class DatahubSensors:
             branch=os.getenv("DAGSTER_CLOUD_DEPLOYMENT_NAME", "prod"),
             module=module,
             repository=repository,
+            location_name=location_name,
         )
         return dagster_environment
 
@@ -816,6 +821,13 @@ class DatahubSensors:
                 )
             }
 
+            # For failed/canceled runs where no lineage was collected,
+            # skip emitting lineage to avoid overwriting existing lineage
+            run_is_not_successful = context.dagster_run.status in (
+                DagsterRunStatus.FAILURE,
+                DagsterRunStatus.CANCELED,
+            )
+
             # For all dagster ops present in job:
             # Emit op entity which get mapped with datahub datajob entity.
             # Emit op run which get mapped with datahub data process instance entity.
@@ -840,7 +852,15 @@ class DatahubSensors:
                     )
                     datajob.name = datajob.name.split("__")[-1]
 
-                datajob.emit(self.graph)
+                op_has_lineage = bool(datajob.inlets) or bool(datajob.outlets)
+                skip_lineage = run_is_not_successful and not op_has_lineage
+                if skip_lineage:
+                    # Emit the DataJob entity without lineage to preserve
+                    # existing lineage from the last successful run
+                    for mcp in datajob.generate_mcp(generate_lineage=False):
+                        self.graph.emit_mcp(mcp)
+                else:
+                    datajob.emit(self.graph)
 
                 if self.config.debug_mode:
                     for mcp in datajob.generate_mcp():
@@ -859,6 +879,7 @@ class DatahubSensors:
                     graph=self.graph,
                     datajob=datajob,
                     run_step_stats=run_step_stats[op_def_snap.name],
+                    emit_template=not skip_lineage,
                 )
             context.log.info("Metadata emitted to DataHub successfully")
             return SkipReason("Pipeline metadata is emitted to DataHub")

@@ -76,8 +76,14 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ARG PIP_EXTRA_INDEX_URL=""
+# Persist settings for subsequent build layers and for optional venv builds
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Also configure pip globally inside the image so tools without env still use the mirror
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
@@ -117,12 +123,16 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
-# We need to install build-essential in order to build some Python packages (e.g. python-ldap)
+# We need to install build-essential in order to build some Python packages (e.g. python-ldap, kerberos)
+# gcc and g++ are explicitly listed to ensure compilers are available on all architectures
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install --no-install-recommends -y -qq \
-    default-jre-headless \
-    build-essential
+    apt-get update && apt-get install -y \
+    openjdk-21-jre-headless \
+    build-essential \
+    gcc \
+    g++ \
+    make
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
@@ -133,33 +143,62 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-locked
 # INLINE-END
 
-FROM ingestion-base-${APP_ENV} AS add-code
+# =============================================================================
+# ADD-CODE STAGES - Separate stages for each variant to avoid caching issues
+# with parameterized FROM statements in multi-platform builds
+# =============================================================================
 
+FROM ingestion-base-slim AS add-code-slim
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
-
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN test -d /metadata-ingestion/src/datahub/metadata  # codegen must be run prior to building the image
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-FROM add-code AS install-slim
+FROM ingestion-base-full AS add-code-full
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+FROM ingestion-base-locked AS add-code-locked
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+# =============================================================================
+# FINAL STAGES - Ubuntu variants
+# =============================================================================
+
+FROM add-code-slim AS final-slim
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
-FROM add-code AS install-full
+FROM add-code-full AS final-full
 
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
 
-FROM add-code AS install-locked
+FROM add-code-locked AS final-locked
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 # Locked variant: minimal install with s3-slim, network will be blocked
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 
@@ -167,6 +206,11 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
-FROM install-${APP_ENV} AS final
+
+# =============================================================================
+# DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
+# =============================================================================
+
+FROM final-${APP_ENV} AS final
 
 ENTRYPOINT [ "datahub" ]

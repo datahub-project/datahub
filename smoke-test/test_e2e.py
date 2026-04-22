@@ -1,31 +1,30 @@
+import concurrent.futures
 import logging
 import time
 import urllib
 from http import HTTPStatus
 from typing import Any, Optional
 
-import concurrent.futures
 import pytest
 import requests
-import tenacity
+
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utilities.metadata_operations import update_description
+from tests.utils import (
+    execute_graphql,
+    get_admin_credentials,
+    get_frontend_session,
+    get_kafka_broker_url,
+    get_kafka_schema_registry,
+    get_root_urn,
+    ingest_file_via_rest,
+    wait_for_writes_to_sync,
+    with_test_retry,
+)
 
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
-
-from tests.utilities.metadata_operations import update_description
-from tests.utils import (
-    execute_graphql,
-    get_kafka_broker_url,
-    get_kafka_schema_registry,
-    with_test_retry,
-    ingest_file_via_rest,
-    get_frontend_session,
-    get_admin_credentials,
-    get_root_urn,
-    wait_for_writes_to_sync,
-)
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"
@@ -74,7 +73,7 @@ def _ensure_user_relationship_present(auth_session, urn, relationships):
 
 @with_test_retry()
 def _ensure_dataset_present(
-        auth_session: Any,
+    auth_session: Any,
     urn: str,
     aspects: Optional[str] = "datasetProperties",
 ) -> Any:
@@ -139,8 +138,9 @@ def fixture_ingestion_via_kafka(auth_session):
     )
     pipeline.run()
     pipeline.raise_from_status()
-    _ensure_dataset_present(auth_session,
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)"
+    _ensure_dataset_present(
+        auth_session,
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)",
     )
 
     # Since Kafka emission is asynchronous, we must wait a little bit so that
@@ -148,7 +148,7 @@ def fixture_ingestion_via_kafka(auth_session):
     time.sleep(kafka_post_ingestion_wait_sec)
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def test_run_ingestion(auth_session):
     # Dummy test so that future ones can just depend on this one.
 
@@ -157,10 +157,11 @@ def test_run_ingestion(auth_session):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         futures = []
-        for ingestion_fixture in ["fixture_ingestion_via_kafka", "fixture_ingestion_via_rest"]:
-            futures.append(
-                executor.submit(globals()[ingestion_fixture], auth_session)
-            )
+        for ingestion_fixture in [
+            "fixture_ingestion_via_kafka",
+            "fixture_ingestion_via_rest",
+        ]:
+            futures.append(executor.submit(globals()[ingestion_fixture], auth_session))
 
         for future in concurrent.futures.as_completed(futures):
             logger.info(future.result())
@@ -224,10 +225,14 @@ def test_gms_batch_get_v2(auth_session):
     urn1 = f"urn:li:dataset:({platform},{name_1},{env})"
     urn2 = f"urn:li:dataset:({platform},{name_2},{env})"
 
-    resp1 = _ensure_dataset_present(auth_session, urn1, aspects="datasetProperties,ownership")
+    resp1 = _ensure_dataset_present(
+        auth_session, urn1, aspects="datasetProperties,ownership"
+    )
     assert resp1["results"][urn1]["aspects"]["ownership"]
 
-    resp2 = _ensure_dataset_present(auth_session, urn2, aspects="datasetProperties,ownership")
+    resp2 = _ensure_dataset_present(
+        auth_session, urn2, aspects="datasetProperties,ownership"
+    )
     assert (
         "ownership" not in resp2["results"][urn2]["aspects"]
     )  # Aspect does not exist.
@@ -241,7 +246,6 @@ def test_gms_batch_get_v2(auth_session):
     ],
 )
 def test_gms_search_dataset(auth_session, query, min_expected_results):
-
     json = {"input": f"{query}", "entity": "dataset", "start": 0, "count": 10}
     print(json)
     response = auth_session.post(
@@ -265,7 +269,6 @@ def test_gms_search_dataset(auth_session, query, min_expected_results):
     ],
 )
 def test_gms_search_across_entities(auth_session, query, min_expected_results):
-
     json = {"input": f"{query}", "entities": [], "start": 0, "count": 10}
     print(json)
     response = auth_session.post(
@@ -400,9 +403,7 @@ def test_frontend_search_across_entities(auth_session, query, min_expected_resul
             }
         }
     }"""
-    variables = {
-        "input": {"types": [], "query": f"{query}", "start": 0, "count": 10}
-    }
+    variables = {"input": {"types": [], "query": f"{query}", "start": 0, "count": 10}}
     res_data = execute_graphql(auth_session, graphql_query, variables)
 
     assert res_data["data"]["searchAcrossEntities"]
@@ -705,9 +706,7 @@ def test_list_groups(auth_session):
     )  # Length of default group set.
 
 
-@pytest.mark.dependency(
-    depends=["test_list_groups"]
-)
+@pytest.mark.dependency(depends=["test_list_groups"])
 def test_add_remove_members_from_group(auth_session):
     # Assert no group edges for user jdoe
     query = """query corpUser($urn: String!) {
@@ -755,7 +754,6 @@ def test_add_remove_members_from_group(auth_session):
 
 @pytest.mark.dependency()
 def test_update_corp_group_properties(auth_session):
-
     group_urn = "urn:li:corpGroup:bfoo"
 
     # Update Corp Group Description
@@ -813,7 +811,6 @@ def test_update_corp_group_properties(auth_session):
     ]
 )
 def test_update_corp_group_description(auth_session):
-
     group_urn = "urn:li:corpGroup:bfoo"
 
     # Update Corp Group Description
@@ -851,7 +848,6 @@ def test_update_corp_group_description(auth_session):
     ]
 )
 def test_remove_user(auth_session):
-
     query = """mutation removeUser($urn: String!) {\n
             removeUser(urn: $urn) }"""
     variables = {"urn": "urn:li:corpuser:jdoe"}
@@ -898,7 +894,6 @@ def test_remove_group(auth_session):
     ]
 )
 def test_create_group(auth_session):
-
     query = """mutation createGroup($input: CreateGroupInput!) {\n
             createGroup(input: $input) }"""
     variables = {
@@ -928,7 +923,6 @@ def test_create_group(auth_session):
 
 
 def test_home_page_recommendations(auth_session):
-
     min_expected_recommendation_modules = 0
 
     json = {
@@ -943,7 +937,9 @@ def test_home_page_recommendations(auth_session):
         },
     }
 
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     print(res_data)
@@ -959,7 +955,6 @@ def test_home_page_recommendations(auth_session):
 
 
 def test_search_results_recommendations(auth_session):
-
     # This test simply ensures that the recommendations endpoint does not return an error.
     json = {
         "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
@@ -976,7 +971,9 @@ def test_search_results_recommendations(auth_session):
         },
     }
 
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -985,7 +982,6 @@ def test_search_results_recommendations(auth_session):
 
 
 def test_generate_personal_access_token(auth_session):
-
     # Test success case
     json = {
         "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
@@ -1002,7 +998,9 @@ def test_generate_personal_access_token(auth_session):
         },
     }
 
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -1027,7 +1025,9 @@ def test_generate_personal_access_token(auth_session):
         },
     }
 
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -1141,7 +1141,8 @@ def test_native_user_endpoints(auth_session):
     }
 
     reset_credentials_response = frontend_session.post(
-        f"{auth_session.frontend_url()}/resetNativeUserCredentials", json=reset_credentials_json
+        f"{auth_session.frontend_url()}/resetNativeUserCredentials",
+        json=reset_credentials_json,
     )
     assert reset_credentials_response
     assert "errors" not in reset_credentials_response
@@ -1215,5 +1216,3 @@ def test_native_user_endpoints(auth_session):
     )
     remove_user_response.raise_for_status()
     assert "errors" not in remove_user_response
-
-

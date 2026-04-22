@@ -1,5 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 
@@ -321,7 +323,7 @@ const StructuredPropsDrawer = ({
                     {showAllowedValuesDrawer ? (
                         <TitleContainer>
                             <StyledIcon
-                                icon="ArrowBack"
+                                icon={ArrowLeft}
                                 color="gray"
                                 size="3xl"
                                 onClick={() => setShowAllowedValuesDrawer(false)}
@@ -335,7 +337,7 @@ const StructuredPropsDrawer = ({
                             {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
                         </Text>
                     )}
-                    <StyledIcon icon="Close" color="gray" onClick={handleClose} />
+                    <StyledIcon icon={X} color="gray" onClick={handleClose} />
                 </DrawerHeader>
             }
             footer={
@@ -352,7 +354,7 @@ const StructuredPropsDrawer = ({
                             <Button
                                 style={{ display: 'block', width: '100%' }}
                                 onClick={handleUpdateAllowedValues}
-                                isDisabled={!canEditProps}
+                                disabled={!canEditProps}
                             >
                                 Update Allowed Values
                             </Button>
@@ -360,7 +362,7 @@ const StructuredPropsDrawer = ({
                             <Button
                                 style={{ display: 'block', width: '100%' }}
                                 onClick={handleSubmit}
-                                isDisabled={isLoading || !canEditProps}
+                                disabled={isLoading || !canEditProps}
                                 data-testid="structured-props-create-update-button"
                             >
                                 {isEditMode ? 'Update' : 'Create'}

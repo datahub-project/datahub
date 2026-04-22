@@ -57,7 +57,7 @@ export function convertNestedSubTypeFilter(filters: Array<FacetFilterInput>) {
  * @param filters a list of Facet Filter Inputs representing the view filters. This can include the entity type filter.
  * @param operatorType a logical operator to be used when joining the filters into the View definition.
  */
-export const buildViewDefinition = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
+const buildViewDefinition = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
     const convertedFilters = convertNestedSubTypeFilter(filters);
     const entityTypes = extractEntityTypesFilterValues(convertedFilters);
     const filteredFilters = convertedFilters.filter((filter) => filter.field !== ENTITY_FILTER_NAME);

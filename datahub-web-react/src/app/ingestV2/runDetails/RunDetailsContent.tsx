@@ -55,9 +55,10 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 executionUrn: urn,
                 executionStatus: status || 'UNKNOWN',
                 viewedSection: tab,
+                sourceType: data?.executionRequest?.source?.type,
             });
         },
-        [result, urn, status],
+        [result, urn, status, data?.executionRequest?.source?.type],
     );
 
     const selectTab = (tab: TabType) => {
@@ -81,7 +82,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                         status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING ? (
                             <LoadingOutlined />
                         ) : (
-                            <Icon icon={ResultIcon} source="phosphor" size="lg" />
+                            <Icon icon={ResultIcon} size="lg" />
                         )
                     }
                     label={getExecutionRequestStatusDisplayText(status)}
@@ -118,16 +119,19 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 ),
                 key: TabType.Summary,
                 name: TabType.Summary,
+                dataTestId: 'run-details-summary-tab',
             },
             {
                 component: <LogsTab urn={urn} data={data} />,
                 key: TabType.Logs,
                 name: TabType.Logs,
+                dataTestId: 'run-details-logs-tab',
             },
             {
                 component: <RecipeTab urn={urn} data={data} />,
                 key: TabType.Recipe,
                 name: TabType.Recipe,
+                dataTestId: 'run-details-recipe-tab',
             },
         ],
         [data, urn, result, status],

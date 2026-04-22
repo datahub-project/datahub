@@ -27,13 +27,15 @@ const clickOnNewPost = () => {
 };
 
 const clickOnMoreOption = () => {
-  cy.get('[aria-label="more"]').first().click();
+  cy.get('[data-testid="dropdown-menu-item"]').first().click();
 };
 
 describe("create announcement and link post", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.setFeatureFlags((res) => {
+      res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+    });
+    cy.login();
     cy.skipIntroducePage();
     cy.goToHomePagePostSettingsV2();
     cy.waitTestIdVisible("posts-create-post-v2");
@@ -52,7 +54,7 @@ describe("create announcement and link post", () => {
     cy.goToHomePagePostSettingsV2();
     clickOnMoreOption();
     cy.clickOptionWithText("Edit");
-    cy.contains("label", "Announcement").click();
+    cy.contains("button", "Announcement").click();
     addOrEditAnnouncement(
       "Edit",
       "Test Announcement Title Updated",
@@ -74,7 +76,7 @@ describe("create announcement and link post", () => {
   it("Verify create, edit and delete link post", () => {
     clickOnNewPost();
     cy.waitTextPresent("Create");
-    cy.contains("label", "Pinned Link").click();
+    cy.contains("button", "Pinned Link").click();
     addOrEditLink(
       "Create",
       "Test Link Title",
@@ -86,7 +88,7 @@ describe("create announcement and link post", () => {
     cy.goToHomePagePostSettingsV2();
     clickOnMoreOption();
     cy.clickOptionWithText("Edit");
-    cy.contains("label", "Pinned Link").click();
+    cy.contains("button", "Pinned Link").click();
     addOrEditLink(
       "Edit",
       "Test Link Updated Title",

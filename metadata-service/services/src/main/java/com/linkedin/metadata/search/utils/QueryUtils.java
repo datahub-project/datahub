@@ -62,7 +62,8 @@ public class QueryUtils {
         .setCondition(condition);
   }
 
-  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria
+  // and using EQUAL
   // condition (default).
   @Nonnull
   public static Filter newFilter(@Nullable Map<String, String> params) {
@@ -245,19 +246,42 @@ public class QueryUtils {
   }
 
   public static List<EntitySpec> getQueryByDefaultEntitySpecs(EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs().values().stream()
-        .map(
-            spec ->
-                Pair.of(
-                    spec,
-                    spec.getSearchableFieldSpecs().stream()
-                        .map(SearchableFieldSpec::getSearchableAnnotation)
-                        .collect(Collectors.toList())))
-        .filter(
-            specPair ->
-                specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
-        .map(Pair::getFirst)
-        .collect(Collectors.toList());
+    return filterEntitySpecsForSearch(
+        entityRegistry.getEntitySpecs().values().stream()
+            .map(
+                spec ->
+                    Pair.of(
+                        spec,
+                        spec.getSearchableFieldSpecs().stream()
+                            .map(SearchableFieldSpec::getSearchableAnnotation)
+                            .collect(Collectors.toList())))
+            .filter(
+                specPair ->
+                    specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
+            .map(Pair::getFirst)
+            .collect(Collectors.toList()));
+  }
+
+  /**
+   * Filters entities for search. This is a hook for custom entity filtering logic. In OSS, this is
+   * a no-op that returns the input unchanged.
+   *
+   * @param entities list of entity names
+   * @return filtered list of entity names (unchanged in OSS)
+   */
+  public static List<String> filterEntitiesForSearch(List<String> entities) {
+    return entities;
+  }
+
+  /**
+   * Filters entity specs for search. This is a hook for custom entity filtering logic. In OSS, this
+   * is a no-op that returns the input unchanged.
+   *
+   * @param entities list of EntitySpecs
+   * @return filtered list of EntitySpecs (unchanged in OSS)
+   */
+  public static List<EntitySpec> filterEntitySpecsForSearch(List<EntitySpec> entities) {
+    return entities;
   }
 
   /**
@@ -275,7 +299,8 @@ public class QueryUtils {
     boolean schemaFieldEnabled =
         appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().isEnabled();
 
-    // Prevent increasing the query size by avoiding querying multiple fields with the
+    // Prevent increasing the query size by avoiding querying multiple fields with
+    // the
     // same URNs
     Criterion urnMatchCriterion =
         buildCriterion(

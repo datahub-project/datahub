@@ -3,7 +3,7 @@ pytest-dependency>=0.6.0
 pytest-rerunfailures==16.1
 psutil
 tenacity
--e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql,postgres]
+-e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql,postgres,datahub-documents]
 pydantic>2
 slack-sdk==3.18.1
 aiohttp
@@ -14,12 +14,17 @@ networkx
 mypy==1.14.1
 ruff==0.11.7
 # stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
+# requests>=2.32.4 required by snowflake-connector-python>=4.4.0 (pyOpenSSL 26+); types stubs track runtime
+# Upper bound matches metadata-ingestion: newer types-requests (e.g. >=2.32.0.20250306) require urllib3>=2,
+# which conflicts with acryl-great-expectations (urllib3<1.27) via acryl-datahub[mysql].
 types-requests>=2.28.11.6,<=2.31.0.3
 types-PyYAML
-# https://github.com/docker/docker-py/issues/3256
-requests<=2.31.0
+requests>=2.32.4,<3.0.0
 # Missing numpy requirement in 8.0.0
 deepdiff!=8.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.0.1
+
+# For semantic search tests (embedding generation)
+litellm>=1.0.0

@@ -1,75 +1,140 @@
 import logging
-import subprocess
 import time
+from typing import List, Optional
+
+import requests
 
 from tests.utilities import env_vars
 
-USE_STATIC_SLEEP: bool = env_vars.get_use_static_sleep()
 ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = (
     env_vars.get_elasticsearch_refresh_interval_seconds()
 )
-KAFKA_BOOTSTRAP_SERVER: str = env_vars.get_kafka_bootstrap_server()
 
 logger = logging.getLogger(__name__)
 
+# GMS Operations API endpoints for Kafka consumer lag
+_KAFKA_LAG_ENDPOINTS = {
+    "mcp": "/openapi/operations/kafka/mcp/consumer/offsets",
+    "mcl": "/openapi/operations/kafka/mcl/consumer/offsets",
+    "mcl_timeseries": "/openapi/operations/kafka/mcl-timeseries/consumer/offsets",
+}
 
-def infer_kafka_broker_container() -> str:
-    cmd = "docker ps --format '{{.Names}}' | grep broker"
-    completed_process = subprocess.run(
-        cmd,
-        capture_output=True,
-        shell=True,
-        text=True,
-    )
-    result = str(completed_process.stdout)
-    lines = result.splitlines()
-    if len(lines) == 0:
-        raise ValueError("No Kafka broker containers found")
-    return lines[0]
+
+def _get_gms_url() -> str:
+    return env_vars.get_gms_url() or "http://localhost:8080"
+
+
+def _get_gms_token() -> Optional[str]:
+    return env_vars.get_gms_token()
+
+
+def _get_total_lag(gms_url: str, endpoint: str) -> Optional[int]:
+    """Fetch total lag from a GMS Kafka Operations API endpoint.
+
+    Returns the sum of totalLag across all consumer groups and topics,
+    or None if the API call fails.
+    """
+    url = f"{gms_url}{endpoint}?skipCache=true"
+    try:
+        headers: dict = {}
+        token = _get_gms_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        resp = requests.get(url, headers=headers, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            return 0
+        total = 0
+        for _group, topics in data.items():
+            for _topic, info in topics.items():
+                metrics = info.get("metrics")
+                if metrics:
+                    total += metrics.get("totalLag", 0)
+        return total
+    except Exception:
+        return None
+
+
+def _get_consumer_lag(gms_url: str, consumers: List[str]) -> Optional[int]:
+    """Get combined lag across the requested consumer endpoints.
+
+    Returns total lag, or None if any endpoint fails.
+    """
+    total = 0
+    for consumer in consumers:
+        endpoint = _KAFKA_LAG_ENDPOINTS.get(consumer)
+        if not endpoint:
+            continue
+        lag = _get_total_lag(gms_url, endpoint)
+        if lag is None:
+            return None
+        total += lag
+    return total
 
 
 def wait_for_writes_to_sync(
     max_timeout_in_sec: int = 120,
-    consumer_group: str = "generic-mae-consumer-job-client",
+    mcp_only: bool = False,
+    mae_only: bool = False,
+    cdc_only: bool = False,
+    consumer_group: str | None = None,  # Deprecated: for backward compatibility
 ) -> None:
-    if USE_STATIC_SLEEP:
-        time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-        return
-    KAFKA_BROKER_CONTAINER: str = str(
-        env_vars.get_kafka_broker_container() or infer_kafka_broker_container()
-    )
-    start_time = time.time()
-    # get offsets
-    lag_zero = False
-    while not lag_zero and (time.time() - start_time) < max_timeout_in_sec:
-        time.sleep(1)  # micro-sleep
+    """Wait for Kafka consumer lag to reach zero using the GMS Operations API.
 
-        cmd = (
-            f"docker exec {KAFKA_BROKER_CONTAINER} /bin/kafka-consumer-groups --bootstrap-server {KAFKA_BOOTSTRAP_SERVER} --all-groups --describe | grep -E '({consumer_group}|cdc-consumer-job-client)'  "
-            + "| awk '{print $6}'"
-        )
-        try:
-            completed_process = subprocess.run(
-                cmd,
-                capture_output=True,
-                shell=True,
-                text=True,
-            )
-            result = str(completed_process.stdout)
-            lines = result.splitlines()
-            lag_values = [int(line) for line in lines if line != ""]
-            maximum_lag = max(lag_values)
-            if maximum_lag == 0:
-                lag_zero = True
-        except ValueError:
+    Polls DataHub's built-in Kafka lag endpoints until all requested consumers
+    have fully caught up, then waits an additional ES refresh interval for
+    search index updates to become visible.
+
+    Args:
+        max_timeout_in_sec: Maximum time to wait in seconds (default: 120)
+        mcp_only: If True, only wait for MCP consumer (for ingestion pipeline tests)
+        mae_only: If True, only wait for MCL consumer (for entity update tests)
+        cdc_only: Ignored (CDC has no dedicated lag endpoint; included for compat)
+        consumer_group: (Deprecated) Ignored; kept for backward compatibility
+    """
+    # Determine which consumers to check
+    if mcp_only:
+        consumers = ["mcp"]
+    elif mae_only:
+        consumers = ["mcl"]
+    else:
+        # Default: wait for all consumers
+        consumers = ["mcp", "mcl", "mcl_timeseries"]
+
+    gms_url = _get_gms_url()
+    start_time = time.time()
+    lag_zero = False
+    last_lag: Optional[int] = None
+
+    while not lag_zero and (time.time() - start_time) < max_timeout_in_sec:
+        time.sleep(1)
+
+        lag = _get_consumer_lag(gms_url, consumers)
+        if lag is None:
+            # API not available — fall back to static sleep
             logger.warning(
-                f"Error reading kafka lag using command: {cmd}", exc_info=True
+                "Kafka lag API unavailable, falling back to static sleep "
+                f"({ELASTICSEARCH_REFRESH_INTERVAL_SECONDS}s)"
             )
+            time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+            return
+
+        last_lag = lag
+        if lag == 0:
+            lag_zero = True
 
     if not lag_zero:
         logger.warning(
-            f"Exiting early from waiting for elastic to catch up due to a timeout. Current lag is {lag_values}"
+            f"Timed out waiting for consumer lag to reach zero after "
+            f"{max_timeout_in_sec}s. Last lag: {last_lag}"
         )
     else:
-        # we want to sleep for an additional period of time for Elastic writes buffer to clear
-        time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+        logger.info(
+            f"Consumer lag reached zero after "
+            f"{time.time() - start_time:.1f}s, waiting {ELASTICSEARCH_REFRESH_INTERVAL_SECONDS}s "
+            f"for ES refresh"
+        )
+
+    # Wait for Elasticsearch writes buffer to clear
+    time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)

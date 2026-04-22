@@ -6,12 +6,12 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useHistory, useLocation, useParams } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
-import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
@@ -37,12 +37,6 @@ const STEPS: IngestionSourceFormStep[] = [
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
     },
-    {
-        label: 'Sync Schedule ',
-        key: 'syncSchedule',
-        content: <ScheduleStep />,
-        subTitle: 'Configure an ingestion schedule',
-    },
 ];
 
 export function IngestionSourceUpdatePage() {
@@ -50,6 +44,7 @@ export function IngestionSourceUpdatePage() {
     const location = useLocation();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
 
     const ingestionSourcesListQueryInputs = useMemo(() => location.state?.queryInputs, [location.state]);
     const ingestionSourcesListBackUrl = useMemo(() => location.state?.backUrl, [location.state]);
@@ -74,8 +69,11 @@ export function IngestionSourceUpdatePage() {
             const shouldRun = options?.shouldRun;
             try {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
-                const input = getIngestionSourceMutationInput(data);
+                const input = getIngestionSourceMutationInput(data, source);
                 await updateIngestionSource(urn, input, data.owners, source?.ownership?.owners || []);
+
+                setCreatedOrUpdatedSource(urn);
+                setShouldRunCreatedOrUpdatedSource(!!shouldRun);
 
                 if (ingestionSourcesListQueryInputs) {
                     const updatedSource = {
@@ -104,14 +102,19 @@ export function IngestionSourceUpdatePage() {
                     ingestionOnboardingRedesignV1: true,
                 });
 
+                analytics.event({
+                    type: EventType.IngestionExitConfigurationEvent,
+                    sourceType: input.type,
+                    exitType: shouldRun ? 'save_and_run' : 'save_draft',
+                });
+
                 message.success({
                     content: `Successfully updated ingestion source!`,
                     duration: 3,
                 });
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
-                    createdOrUpdatedSourceUrn: urn,
-                    shouldRun,
+                    sourcesListQueryInputs: ingestionSourcesListQueryInputs,
                 });
             } catch (e: unknown) {
                 message.destroy();
@@ -128,6 +131,8 @@ export function IngestionSourceUpdatePage() {
         },
         [
             updateIngestionSource,
+            setCreatedOrUpdatedSource,
+            setShouldRunCreatedOrUpdatedSource,
             urn,
             history,
             ingestionSourceData,
@@ -139,8 +144,22 @@ export function IngestionSourceUpdatePage() {
     );
 
     const onCancel = useCallback(() => {
-        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION);
-    }, [history, ingestionSourcesListBackUrl]);
+        analytics.event({
+            type: EventType.IngestionExitConfigurationEvent,
+            sourceType: ingestionSourceData?.ingestionSource?.type,
+            exitType: 'cancel',
+        });
+        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
+            createdOrUpdatedSourceUrn: urn,
+            sourcesListQueryInputs: ingestionSourcesListQueryInputs,
+        });
+    }, [
+        history,
+        ingestionSourceData?.ingestionSource?.type,
+        ingestionSourcesListBackUrl,
+        urn,
+        ingestionSourcesListQueryInputs,
+    ]);
 
     const isDirtyChecker = useCallback(
         (
@@ -184,15 +203,14 @@ export function IngestionSourceUpdatePage() {
     return (
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
-            confirmationModalTitle="You have unsaved change"
-            confirmationModalText={
-                <>
-                    <Text type="span">You have unsaved changes to this source. </Text>
-                    <Text type="span" weight="bold">
-                        Are you sure you want to leave and discard your changes?
-                    </Text>
-                </>
+            confirmationModalTitle="You have unsaved changes"
+            confirmationModalContent={
+                <Text color="gray" colorLevel={1700}>
+                    Exiting now will discard your configuration. You can continue setup or exit and start over later
+                </Text>
             }
+            confirmButtonText="Continue Setup"
+            closeButtonText="Exit Without Saving"
         >
             <IngestionSourceBuilder
                 steps={STEPS}

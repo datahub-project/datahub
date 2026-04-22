@@ -1,4 +1,4 @@
-import { Input, colors } from '@components';
+import { Input } from '@components';
 import { Form } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -21,7 +21,7 @@ const SectionWrapper = styled.div`
     display: flex;
     padding: 8px 0 8px 12px;
     &:hover {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -34,11 +34,12 @@ const StyledRemoveIcon = styled(RemoveIcon)`
 `;
 
 const ErrorWrapper = styled.div`
-    color: ${colors.red[500]};
+    color: ${(props) => props.theme.colors.textError};
     margin-top: 5px;
 `;
 
 export function DictField({ field }: CommonFieldProps) {
+    const helper = field.helper ?? field.tooltip;
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -77,7 +78,7 @@ export function DictField({ field }: CommonFieldProps) {
                     <AddItemButton onClick={() => add()} text={field.buttonLabel} />
 
                     {errors.length > 0 && <ErrorWrapper>{errors}</ErrorWrapper>}
-                    {field.helper && <HelperText text={field.helper} />}
+                    {helper && <HelperText text={helper} />}
                 </ListWrapper>
             )}
         </Form.List>

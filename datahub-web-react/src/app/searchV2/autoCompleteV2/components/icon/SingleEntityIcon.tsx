@@ -16,6 +16,7 @@ const ImageIcon = styled(Image)<{ $size: number }>`
 
 const EntityIcon = styled.div`
     display: flex;
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 interface Props {

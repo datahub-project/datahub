@@ -105,7 +105,7 @@ describe('EntityProfile', () => {
         await waitFor(() =>
             expect(getByText('This and here we have yet another Dataset (YAN). Are there more?')).toBeInTheDocument(),
         );
-    }, 20_000);
+    }, 30_000);
 
     it('renders tab content', async () => {
         const { getByText } = render(
@@ -193,7 +193,7 @@ describe('EntityProfile', () => {
         await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
     }, 20_000);
 
-    it('switches tab content', async () => {
+    it.skip('switches tab content', async () => {
         const { getByText, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>

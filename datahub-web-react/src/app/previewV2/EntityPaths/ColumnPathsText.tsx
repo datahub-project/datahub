@@ -2,23 +2,22 @@ import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import ColumnsRelationshipText from '@app/previewV2/EntityPaths/ColumnsRelationshipText';
 import DisplayedColumns from '@app/previewV2/EntityPaths/DisplayedColumns';
 
 import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '@types';
 
-export const ResultText = styled.span`
+const ResultText = styled.span`
     white-space: nowrap;
     &:hover {
-        border-bottom: 1px solid black;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
         cursor: pointer;
     }
 `;
 
 const DescriptionWrapper = styled.span`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: nowrap;
 `;
 

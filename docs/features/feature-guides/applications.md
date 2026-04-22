@@ -4,7 +4,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability/>
 
-DataHub Cloud v1.2.0 introduces **Applications**, an experimental approach to grouping similar assets within DataHub that align with a specific business purpose. This is an experimental feature and is subject to change as we get feedback.
+DataHub Cloud v1.2.0 introduces **Applications**, an approach to grouping similar assets within DataHub that align with a specific business purpose.
 
 Applications sit between Domains and Data Products in DataHub's metadata model hierarchy:
 
@@ -32,7 +32,6 @@ Applications work best for large organizations that already use this concept int
 
 Keep in mind the following:
 
-- **This is an experimental feature** that's subject to change in future releases
 - **Applications aren't part of Data Mesh architecture** — they're an additional organizational layer that some large organizations find helpful, but are not suitable for teams adopting Data Mesh
 - **Applications differ from software services** — while a service is a single piece of software, an Application within DataHub groups multiple data assets around one business purpose
 
@@ -57,7 +56,7 @@ Learn more about creating a Custom Policy to leverage these privileges [here](..
 To enable Applications, you will need to work with your DataHub rep to configure the feature. Once this is complete, navigate to **Settings** > **Appearance** and toggle on **Show Applications**.
 
 :::note
-Applications are currently experimental, subject to change at any time, and are disabled by default. Please reach out to your DataHub rep to enable the feature.
+Applications are disabled by default. Please reach out to your DataHub rep to enable the feature.
 :::
 
 <p align="center">

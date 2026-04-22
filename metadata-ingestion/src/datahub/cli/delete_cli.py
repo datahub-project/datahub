@@ -233,9 +233,16 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     help="Batch size when querying for entities to un-soft delete."
     "Maximum 5000. Large batch sizes may cause timeouts.",
 )
+@click.option(
+    "-f",
+    "--force",
+    required=False,
+    is_flag=True,
+    help="Force the un-delete without confirmation prompts.",
+)
 @upgrade.check_upgrade
 def undo_by_filter(
-    urn: Optional[str], platform: Optional[str], batch_size: int
+    urn: Optional[str], platform: Optional[str], batch_size: int, force: bool
 ) -> None:
     """
     Undo soft deletion by filters
@@ -254,6 +261,29 @@ def undo_by_filter(
             )
         )
         logger.info(f"Going to un-soft delete {len(urns)} urns")
+
+        if len(urns) == 0:
+            click.echo(
+                "Found no soft-deleted entities to restore. Maybe you want to change your filters?"
+            )
+            return
+
+        if not force:
+            urns_by_type: Dict[str, List[str]] = {}
+            for u in urns:
+                entity_type = guess_entity_type(u)
+                urns_by_type.setdefault(entity_type, []).append(u)
+
+            click.echo(f"Found {len(urns)} soft-deleted entities to restore:")
+            for entity_type, entity_urns in urns_by_type.items():
+                click.echo(f"  - {len(entity_urns)} {entity_type}(s)")
+
+            click.confirm(
+                f"\nThis will un-soft-delete {len(urns)} entities in DataHub, making them visible again. "
+                "Do you want to continue?",
+                abort=True,
+            )
+
         urns_iter = progressbar.progressbar(urns, redirect_stdout=True)
         for urn in urns_iter:
             assert urn

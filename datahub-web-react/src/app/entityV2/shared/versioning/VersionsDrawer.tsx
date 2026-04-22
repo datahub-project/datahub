@@ -1,12 +1,13 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { Icon, Input, Table, Text, colors } from '@components';
+import { Icon, Input, Table, Text } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
-import moment from 'moment';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
@@ -14,6 +15,7 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 import { useSearchAcrossVersionsQuery } from '@graphql/versioning.generated';
 import { FilterOperator } from '@types';
@@ -65,13 +67,13 @@ const Title = styled(Text)`
 `;
 
 const CloseIcon = styled.div`
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
 `;
 
 const MenuIcon = styled(Icon)`
     border-radius: 200px;
-    border: ${colors.gray[100]} 1px solid;
+    border: ${(props) => props.theme.colors.border} 1px solid;
     cursor: pointer;
     transition: border 0.3s ease;
 
@@ -80,7 +82,7 @@ const MenuIcon = styled(Icon)`
     }
 
     :hover {
-        border: ${(props) => props.theme.styles['primary-color']} 1px solid;
+        border: ${(props) => props.theme.colors.borderBrand} 1px solid;
     }
 `;
 
@@ -101,6 +103,7 @@ interface Props {
 
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const { setDrawer } = useEntityContext();
 
     const [searchInput, setSearchInput] = useState<string>('');
@@ -169,24 +172,24 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     sections={[
                         {
                             title: 'Created in Source',
-                            content: moment(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
+                            content: dayjs(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
                         },
                         {
                             title: 'Synced to DataHub',
-                            content: moment(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
+                            content: dayjs(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
                         },
                     ]}
                 >
-                    {moment(versionProperties?.created?.time).fromNow()}
+                    {dayjs(versionProperties?.created?.time).fromNow()}
                 </StructuredPopover>
             ),
             menu: (
                 <StyledDropdown
-                    menu={{ items, style: { borderRadius: '12px', boxShadow: '0px 0px 14px 0px rgba(0, 0, 0, 0.15)' } }}
+                    menu={{ items, style: { borderRadius: '12px', boxShadow: theme.colors.shadowLg } }}
                     trigger={['click']}
                     overlayStyle={{ borderRadius: '100px' }}
                 >
-                    <MenuIcon icon="MoreVert" variant="outline" size="2xl" color="gray" />
+                    <MenuIcon icon={DotsThreeVertical} size="2xl" color="gray" />
                 </StyledDropdown>
             ),
         };
@@ -211,7 +214,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                 <Input
                     label=""
                     placeholder="Search versions by name..."
-                    icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
+                    icon={{ icon: MagnifyingGlass }}
                     value={searchInput}
                     setValue={setSearchInput}
                 />

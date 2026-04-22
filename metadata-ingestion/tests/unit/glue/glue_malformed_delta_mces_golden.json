@@ -19,7 +19,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635205,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -35,7 +35,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635205,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -52,7 +52,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635205,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -70,7 +70,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635205,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -91,7 +91,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635205,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -116,6 +116,9 @@
                         },
                         "name": "delta_table_1",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/delta-database/delta_table_1",
+                        "lastModified": {
+                            "time": 1623248255000
+                        },
                         "tags": []
                     }
                 },
@@ -144,7 +147,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635206,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -162,7 +165,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635206,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -178,7 +181,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635206,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -203,7 +206,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1744091635206,
+        "lastObserved": 1773134921668,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }

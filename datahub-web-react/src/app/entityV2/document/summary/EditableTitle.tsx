@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useUpdateDocumentTitleMutation } from '@app/document/hooks/useDocumentTreeMutations';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const TitleContainer = styled.div`
     width: 100%;
@@ -14,7 +13,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     font-size: 32px;
     font-weight: 700;
     line-height: 1.4;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     border: none;
     outline: none;
     background: transparent;
@@ -43,7 +42,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     }
 
     &::placeholder {
-        color: ${colors.gray[400]};
+        color: ${(props) => props.theme.colors.icon};
         opacity: 0.4;
     }
 `;
@@ -57,12 +56,28 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     const [title, setTitle] = useState(initialTitle || '');
     const [isSaving, setIsSaving] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const hasAutoFocused = useRef(false);
     const { canEditTitle } = useDocumentPermissions(documentUrn);
     const { updateTitle } = useUpdateDocumentTitleMutation();
 
     useEffect(() => {
         setTitle(initialTitle || '');
     }, [initialTitle]);
+
+    // For freshly created docs, clear the default title and focus the field so the placeholder shows and typing starts immediately.
+    useEffect(() => {
+        const trimmed = (initialTitle || '').trim().toLowerCase();
+        const isDefaultTitle = trimmed === 'new document' || trimmed === '';
+
+        if (canEditTitle && isDefaultTitle && !hasAutoFocused.current) {
+            hasAutoFocused.current = true;
+            setTitle('');
+            // Defer focus to next paint so the DOM is ready.
+            requestAnimationFrame(() => {
+                textareaRef.current?.focus();
+            });
+        }
+    }, [canEditTitle, initialTitle]);
 
     // Auto-resize textarea up to 3 rows, then scroll
     useEffect(() => {
@@ -82,11 +97,20 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     }, [title]);
 
     const handleBlur = async () => {
-        if (title !== initialTitle && !isSaving) {
+        // If the user leaves the field empty, fall back to the default placeholder title.
+        const trimmed = title.trim();
+        const fallbackTitle = initialTitle || 'New Document';
+        const finalTitle = trimmed === '' ? fallbackTitle : title;
+
+        if (finalTitle !== title) {
+            setTitle(finalTitle);
+        }
+
+        if (finalTitle !== initialTitle && !isSaving) {
             setIsSaving(true);
 
             // Tree mutation handles optimistic update + backend call + rollback on error!
-            await updateTitle(documentUrn, title);
+            await updateTitle(documentUrn, finalTitle);
 
             setIsSaving(false);
         }

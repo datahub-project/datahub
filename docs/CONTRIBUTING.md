@@ -60,3 +60,4 @@ Must be one of the following:
 - _style_: Changes that do not affect the meaning of the code (whitespace, formatting, missing semicolons, etc.)
 - _build_: Changes that affect the build system or external dependencies
 - _ci_: Changes to our CI configuration files and scripts
+- _chore_: Maintenance tasks (dependency bumps, tooling, etc.)

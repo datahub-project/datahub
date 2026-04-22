@@ -20,6 +20,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:omni",
+        "name": "omni",
+        "displayName": "Omni",
+        "description": "Import Dashboards, Charts, and lineage from Omni.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/omni",
+        "recipe": "source:\n  type: omni\n  config:\n    base_url: https://your-org.omniapp.co/api\n    api_key: ${OMNI_API_KEY}\n    connection_to_platform:\n      conn_abc123: snowflake\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true\n",
+        "category": "BI Tool",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:snaplogic",
         "name": "snaplogic",
         "displayName": "SnapLogic",
@@ -55,7 +65,7 @@
         "displayName": "Looker",
         "description": "Import Models, Explores, Views, Looks, Dashboards, and lineage from Looker.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/looker/overview#looker",
-        "recipe": "source:\n    type: looker\n    config:\n        # Coosrdinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
         "isPopular": true
     },
@@ -100,6 +110,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:dbt",
+        "name": "dbt",
+        "displayName": "dbt",
+        "description": "Import Sources, Seeds, Models, Snapshots, Tests, and lineage from dbt.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dbt/",
+        "recipe": "source:\n  type: dbt\n  config:\n    manifest_path: # path to manifest.json\n    catalog_path: # path to catalog.json\n    target_platform: # e.g. snowflake, bigquery\n    stateful_ingestion:\n      enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": true
+    },
+    {
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",
@@ -128,6 +148,16 @@
         "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"PLAINTEXT\"\n        stateful_ingestion:\n            enabled: false",
         "category": "ETL / ELT",
         "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:flink",
+        "name": "flink",
+        "displayName": "Flink",
+        "description": "Import jobs, lineage, and run history from Flink.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/flink/",
+        "recipe": "source:\n    type: flink\n    config:\n        connection:\n            rest_api_url: \"http://localhost:8081\"\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:hive",
@@ -165,7 +195,7 @@
         "displayName": "Glue",
         "description": "Import Tables, Databases, Jobs, statistics, and lineage to S3 from AWS Glue.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/glue/",
-        "recipe": "source:\n    type: glue\n    config:\n        # AWS credentials. \n        aws_region: # The region for your AWS Glue instance. \n        # Add secret in Secrets Tab with relevant names for each variable\n        # The access key for your AWS account.\n        aws_access_key_id: \"${AWS_ACCESS_KEY_ID}\"\n        # The secret key for your AWS account.\n        aws_secret_access_key: \"${AWS_SECRET_KEY}\"\n        aws_session_token: # The session key for your AWS account. This is only needed when you are using temporary credentials.\n        # aws_role: # (Optional) The role to assume (Role chaining supported by using a sorted list).\n\n        # Allow / Deny specific databases & tables\n        # database_pattern:\n        #    allow:\n        #        - \"flights-database\"\n        # table_pattern:\n        #    allow:\n        #        - \"avro\"",
+        "recipe": "source:\n    type: glue\n    config:\n        env: PROD\n        extract_owners: true\n        extract_transforms: true\n",
         "category": "Data Lake",
         "isPopular": true
     },
@@ -175,7 +205,7 @@
         "displayName": "Microsoft SQL Server",
         "description": "Import Tables, Views, Databases, Schemas, and statistics from SQL Server.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mssql/",
-        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        convert_urns_to_lowercase: true\n        convert_column_urns_to_lowercase: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": true
     },
@@ -188,6 +218,14 @@
         "recipe": "source:\n    type: mariadb\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:doris",
+        "name": "doris",
+        "displayName": "Apache Doris",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from Apache Doris.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/doris/",
+        "recipe": "source:\n    type: doris\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mongodb",
@@ -215,7 +253,7 @@
         "displayName": "Oracle",
         "description": "Import Databases, Schemas, Tables, Views, statistics, and lineage from Oracle.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/oracle/",
-        "recipe": "source: \n    type: oracle\n    config:\n        # Coordinates\n        host_port: # Your Oracle host and port, e.g. oracle:5432\n        database: # Your Oracle database name, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${ORACLE_USERNAME}\" # Your Oracle username, e.g. admin\n        password: \"${ORACLE_PASSWORD}\" # Your Oracle password, e.g. password_01\n\n        # Optional service name\n        # service_name: # Your service name, e.g. svc # omit database if using this option\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source: \n    type: oracle\n    config:\n        host_port: null\n        database: null\n        env: PROD\n        include_tables: true\n        include_views: true\n        include_view_lineage: true\n        include_view_column_lineage: true\n",
         "category": "Database",
         "isPopular": true
     },
@@ -315,7 +353,7 @@
         "displayName": "Vertica",
         "description": "Import Databases, Schemas, Tables, Views, Projections, statistics, and lineage from Vertica.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/vertica/",
-        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Database_Name\n        # Credentials\n        username: Vertica_User\n        password: Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  ",
+        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: # localhost:5433\n        # The name of the vertica database\n        database: # Database_Name\n        # Credentials\n        username: # Vertica_User\n        password: # Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  ",
         "category": "Data Warehouse",
         "isPopular": false
     },
@@ -382,12 +420,13 @@
     {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
-        "displayName": "Other",
+        "displayName": "Custom",
         "description": "Configure a custom recipe using YAML.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>",
         "category": "Miscellaneous",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:dremio",
@@ -395,7 +434,7 @@
         "displayName": "Dremio",
         "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
-        "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n        #true if https, otherwise false\n        tls: true\n\n        #For cloud instance\n        #is_dremio_cloud: True\n        #dremio_cloud_project_id: <project_id>\n\n        #Credentials with personal access token\n        authentication_method: PAT\n        password: pass\n\n        #Or Credentials with basic auth\n        #authentication_method: password\n        #username: null\n        #password: null\n\n       ingest_owner: true\n\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: dremio\n    config:\n        dremio_cloud_region: US\n        port: 9047\n        tls: true\n        authentication_method: PAT\n        password: pass\n        env: PROD\n        ingest_owner: true\n",
         "category": "Query Engine",
         "isPopular": true
     },
@@ -415,7 +454,7 @@
         "displayName": "Iceberg",
         "description": "Ingest databases and tables from any Iceberg catalog implementation",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/iceberg",
-        "recipe": "source:\n type: \"iceberg\"\n config:\n   env: dev\n   # each thread will open internet connections to fetch manifest files independently, \n   # this value needs to be adjusted with ulimit\n   processing_threads: 1 \n   # a single catalog definition with a form of a dictionary\n   catalog: \n     demo: # name of the catalog\n       type: \"rest\" # other types are available\n       uri: \"uri\"\n       s3.access-key-id: \"access-key\"\n       s3.secret-access-key: \"secret-access-key\"\n       s3.region: \"aws-region\"\n   profiling:\n     enabled: false\n",
+        "recipe": "source:\n type: \"iceberg\"\n config:\n   # each thread will open internet connections to fetch manifest files independently, \n   # this value needs to be adjusted with ulimit\n   processing_threads: 1 \n   # a single catalog definition with a form of a dictionary\n   catalog: \n     demo: # name of the catalog\n       type: \"rest\" # other types are available\n       uri: \"uri\"\n       s3.access-key-id: \"access-key\"\n       s3.secret-access-key: \"secret-access-key\"\n       s3.region: \"aws-region\"\n   profiling:\n     enabled: false\n",
         "category": "Data Lake",
         "isPopular": false
     },
@@ -468,6 +507,28 @@
         "recipe": "source:\n  type: preset\n  config:\n    # Coordinates\n    connect_uri: Preset workspace URL\n    manager_uri: https://api.app.preset.io\n\n    # Credentials\n    api_key: Preset API Key\n    api_secret: Preset API Secret",
         "category": "Miscellaneous",
         "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:notion",
+        "name": "notion",
+        "displayName": "Notion",
+        "description": "Import pages from Notion as Documents.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/notion/",
+        "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:confluence",
+        "name": "confluence",
+        "displayName": "Confluence",
+        "description": "Import pages and spaces from Confluence as Documents with semantic search support.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/confluence/",
+        "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    stateful_ingestion:\n      enabled: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
     },
     {
         "urn": "urn:li:dataPlatform:airflow",
@@ -531,5 +592,24 @@
         "recipe": "source:\n  type: feast\n  config:\n    # Coordinates\n    path: \"/path/to/repository/\"\n    # Options\n    environment: \"PROD\"",
         "category": "ML Platforms",
         "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:rdf",
+        "name": "rdf",
+        "displayName": "RDF",
+        "description": "Import glossary terms, term groups, and relationships from RDF/OWL ontologies (SKOS, Turtle, RDF/XML).",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/rdf",
+        "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary"
+    },
+    {
+        "urn": "urn:li:dataPlatform:snowplow",
+        "name": "snowplow",
+        "displayName": "Snowplow",
+        "description": "Import Schemas, Event Specifications, Tracking Plans, Pipelines, and Enrichments from Snowplow BDP.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/snowplow",
+        "recipe": "source:\n  type: snowplow\n  config:\n    # BDP Console API connection\n    bdp_connection:\n      organization_id: \"YOUR_ORG_UUID\"\n      api_key_id: \"${SNOWPLOW_API_KEY_ID}\"\n      api_key: \"${SNOWPLOW_API_KEY}\"\n\n    # Optional: Filter schemas by Snowplow deployment environment (PROD, DEV)\n    # deployment_environment: PROD\n\n    # Optional: Filter pipelines by Snowplow pipeline label (commonly the env, e.g. prod)\n    # pipeline_label: prod\n\n    # Optional: Filter event specifications by status\n    # event_spec_statuses:\n    #   - published\n\n    # Optional: Filter schemas by vendor/name pattern\n    # schema_pattern:\n    #   allow:\n    #     - \"com\\\\.mycompany\\\\..*\"\n\n    stateful_ingestion:\n      enabled: true",
+        "category": "Data Collector",
+        "isPopular": false,
+        "isNew": true
     }
 ]

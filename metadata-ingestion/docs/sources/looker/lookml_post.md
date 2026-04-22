@@ -1,6 +1,10 @@
-### Configuration Notes
+### Capabilities
 
-#### API-Based Lineage Extraction and Reachable Views
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Configuration Notes
+
+##### API-Based Lineage Extraction and Reachable Views
 
 When `use_api_for_view_lineage: true` is enabled, DataHub uses the `LookerQueryAPIBasedViewUpstream` implementation to extract lineage. This approach:
 
@@ -30,7 +34,7 @@ source:
 - If `emit_reachable_views_only: true`: The view is skipped and a warning is logged
 - If `emit_reachable_views_only: false`: The view is processed using regex-based parsing (may have limited lineage accuracy)
 
-#### Liquid Template Support and Limitations
+##### Liquid Template Support and Limitations
 
 1.  Handling Liquid Templates
 
@@ -83,7 +87,7 @@ source:
 
 Although liquid variables and LookML constants can be used anywhere in LookML code, their values are currently resolved only for LookML views by DataHub LookML ingestion. This behavior is sufficient since LookML ingestion processes only views and their upstream dependencies.
 
-### Multi-Project LookML (Advanced)
+#### Multi-Project LookML (Advanced)
 
 Looker projects support organization as multiple git repos, with [remote includes that can refer to projects that are stored in a different repo](https://cloud.google.com/looker/docs/importing-projects#include_files_from_an_imported_project). If your Looker implementation uses multi-project setup, you can configure the LookML source to pull in metadata from your remote projects as well.
 
@@ -150,7 +154,7 @@ This is not the same as ingesting the remote project as a primary Looker project
 
 :::
 
-### Handling Large Views with Many Fields
+#### Handling Large Views with Many Fields
 
 For Looker views with a large number of fields (100+), DataHub automatically uses field splitting to ensure reliable lineage extraction. This feature splits large field sets into manageable chunks, processes them in parallel, and combines the results.
 
@@ -167,7 +171,7 @@ Without API configuration, field splitting will not be available and the system 
 
 :::
 
-#### When Field Splitting is Used
+##### When Field Splitting is Used
 
 Field splitting is automatically triggered when:
 
@@ -190,7 +194,7 @@ source:
 - **Lower the threshold** (e.g., 50) if you experience SQL parsing failures with views that have 50-100 fields
 - **Raise the threshold** (e.g., 150) if your views consistently have 100+ fields and you want to minimize API calls
 
-#### Partial Lineage Results
+##### Partial Lineage Results
 
 By default, DataHub will return partial lineage results even if some field chunks fail to parse. This ensures you get lineage information for working fields rather than complete failure.
 
@@ -207,7 +211,7 @@ source:
 - Set to `false` if you want strict validation and prefer complete failure over partial results
 - Useful for debugging to identify problematic views that need attention
 
-#### Individual Field Fallback
+##### Individual Field Fallback
 
 When a chunk of fields fails, DataHub can automatically attempt to process each field individually. This helps:
 
@@ -228,7 +232,7 @@ source:
 - Set to `false` if you want faster processing and don't need to identify problematic fields
 - Useful if you know all fields in a view are valid and want to skip the fallback overhead
 
-#### Parallel Processing Performance
+##### Parallel Processing Performance
 
 Field chunks are processed in parallel to improve performance. You can control the number of worker threads:
 
@@ -248,7 +252,7 @@ source:
 
 **Important:** The maximum allowed value is 100 to prevent resource exhaustion. Values above 100 will be automatically capped with a warning.
 
-#### Complete Configuration Example
+##### Complete Configuration Example
 
 Here's a complete example configuration for handling large views:
 
@@ -298,7 +302,13 @@ source:
 - **API rate limiting**: Reduce `max_workers_for_parallel_processing` to decrease concurrent requests
 - **Memory issues**: Reduce `max_workers_for_parallel_processing` if you experience memory pressure
 
-### Troubleshooting Large View Lineage Extraction
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+#### Large View Lineage Extraction
 
 If you have Looker views with many fields (100+) and are experiencing lineage extraction issues, the following troubleshooting steps can help:
 
@@ -484,7 +494,7 @@ If you have Looker views with many fields (100+) and are experiencing lineage ex
    - **Many problematic fields:** Enable `enable_individual_field_fallback`
    - **Strict validation needs:** Disable `allow_partial_lineage_results`
 
-### Debugging LookML Parsing Errors
+#### Debugging LookML Parsing Errors
 
 If you see messages like `my_file.view.lkml': "failed to load view file: Unable to find a matching expression for '<literal>' on line 5"` in the failure logs, it indicates a parsing error for the LookML file.
 

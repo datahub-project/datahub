@@ -1,12 +1,14 @@
-import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     position: relative;
@@ -15,6 +17,7 @@ const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     justify-content: space-between;
     padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
     min-height: 38px;
+    height: 38px;
     cursor: pointer;
     border-radius: 6px;
     transition: background-color 0.15s ease;
@@ -25,32 +28,18 @@ const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
-    `}
+background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
+ `}
 
     ${(props) =>
         !props.$isSelected &&
         `
-        &:hover {
-            background: linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            );
-            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
-        }
-    `}
-
-    &:hover .tree-item-actions {
-        opacity: 1;
-    }
+ &:hover {
+background: ${props.theme.colors.bgHover};
+            box-shadow: ${props.theme.colors.shadowFocus};
+ }
+ `}
 `;
 
 const LeftContent = styled.div`
@@ -61,19 +50,28 @@ const LeftContent = styled.div`
     overflow: hidden;
 `;
 
-const ExpandButton = styled.button<{ $hasChildren: boolean; $isExpanded: boolean }>`
-    display: ${(props) => (props.$hasChildren && props.$isExpanded ? 'flex' : 'none')};
+const IconSlot = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 20px;
+    margin-right: 8px;
+    flex-shrink: 0;
+`;
+
+const ExpandButton = styled.button<{ $isVisible: boolean }>`
+    display: flex;
     align-items: center;
     justify-content: center;
     width: 20px;
     height: 20px;
-    margin-right: 4px;
     padding: 0;
     border: none;
     background: transparent;
     cursor: pointer;
     color: inherit;
-    flex-shrink: 0;
+    visibility: ${(props) => (props.$isVisible ? 'visible' : 'hidden')};
 
     &:hover {
         opacity: 0.7;
@@ -83,14 +81,15 @@ const ExpandButton = styled.button<{ $hasChildren: boolean; $isExpanded: boolean
 const IconWrapper = styled.div<{ $isSelected: boolean }>`
     display: flex;
     align-items: center;
-    margin-right: 8px;
+    justify-content: center;
+    width: 20px;
     flex-shrink: 0;
 
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || '#6C47FF'};`
-                : `color: ${colors.gray[1800]};`}
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
+                : `color: ${props.theme.colors.textTertiary};`}
     }
 `;
 
@@ -100,30 +99,29 @@ const Title = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     font-size: 14px;
     line-height: 20px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-    `}
+background: ${props.theme.colors.brandGradientSelected};
+ background-clip: text;
+ -webkit-text-fill-color: transparent;
+ font-weight: 600;
+ `}
 `;
 
 const Actions = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
-    opacity: 0;
-    transition: opacity 0.15s ease;
     margin-left: 8px;
+    flex-shrink: 0;
 `;
 
 const ActionButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -160,7 +158,9 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideCreate = false,
     parentUrn,
 }) => {
+    const theme = useTheme();
     const [isHovered, setIsHovered] = useState(false);
+    const [forceShowActions, setForceShowActions] = useState(false);
 
     const handleExpandClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -181,7 +181,38 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     };
 
     const showExpandButton = hasChildren && (isExpanded || isHovered);
-    const showIcon = !showExpandButton;
+
+    const renderIcon = () => {
+        if (showExpandButton) {
+            return (
+                <ExpandButton
+                    className="tree-item-expand-button"
+                    data-testid={`document-tree-expand-button-${urn}`}
+                    $isVisible
+                    onClick={handleExpandClick}
+                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                >
+                    {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
+                    {!isLoading && isExpanded && (
+                        <CaretDown color={theme.colors.textTertiary} size={16} weight="bold" />
+                    )}
+                    {!isLoading && !isExpanded && (
+                        <CaretRight color={theme.colors.textTertiary} size={16} weight="bold" />
+                    )}
+                </ExpandButton>
+            );
+        }
+
+        return (
+            <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
+                {hasChildren ? (
+                    <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
+                ) : (
+                    <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
+                )}
+            </IconWrapper>
+        );
+    };
 
     return (
         <TreeItemContainer
@@ -194,49 +225,27 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             onMouseLeave={() => setIsHovered(false)}
         >
             <LeftContent>
-                {showExpandButton && (
-                    <ExpandButton
-                        className="tree-item-expand-button"
-                        data-testid={`document-tree-expand-button-${urn}`}
-                        $hasChildren={hasChildren}
-                        $isExpanded={isExpanded || isHovered}
-                        onClick={handleExpandClick}
-                        aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                    >
-                        {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                        {!isLoading && isExpanded && <CaretDown color={colors.gray[1800]} size={16} weight="bold" />}
-                        {!isLoading && !isExpanded && <CaretRight color={colors.gray[1800]} size={16} weight="bold" />}
-                    </ExpandButton>
-                )}
-
-                {showIcon && (
-                    <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
-                        {hasChildren ? (
-                            <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
-                        ) : (
-                            <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
-                        )}
-                    </IconWrapper>
-                )}
+                <IconSlot>{renderIcon()}</IconSlot>
 
                 <Title $isSelected={isSelected} title={title}>
                     {title}
                 </Title>
             </LeftContent>
 
-            {!hideActions && (
+            {!hideActions && (isHovered || forceShowActions) && (
                 <Actions className="tree-item-actions">
                     {!hideActionsMenu && (
                         <DocumentActionsMenu
                             documentUrn={urn}
                             currentParentUrn={parentUrn}
                             shouldNavigateOnDelete={isSelected}
+                            onMenuVisibilityChange={setForceShowActions}
                         />
                     )}
                     {!hideCreate && (
-                        <Tooltip title="New context document" placement="bottom" showArrow={false}>
+                        <Tooltip title="New document" placement="bottom" showArrow={false}>
                             <ActionButton
-                                icon={{ icon: 'Plus', source: 'phosphor' }}
+                                icon={{ icon: Plus, color: 'gray', colorLevel: 1800 }}
                                 variant="text"
                                 onClick={handleAddChildClick}
                             />

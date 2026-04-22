@@ -1,12 +1,13 @@
 import { Button } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { ALLOWED_RELATED_ASSET_TYPES } from '@app/document/utils/documentUtils';
 import { AddRelatedEntityDropdown } from '@app/entityV2/document/summary/AddRelatedEntityDropdown';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { AndFilterInput, DocumentRelatedAsset, DocumentRelatedDocument, EntityType, FilterOperator } from '@types';
 
@@ -33,7 +34,7 @@ const SectionTitle = styled.h4`
     font-size: 14px;
     font-weight: 600;
     margin: 0;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const List = styled.div`
@@ -45,7 +46,7 @@ const List = styled.div`
 const EmptyState = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     text-align: start;
     padding: 0px;
 `;
@@ -98,31 +99,9 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
 
-    // Entity types that can be related (based on RelatedAsset.pdl)
-    // I don't love this, but I do want to enable searching for documents
-    // as well, even though not supported in the primary search bar yet.
-    const allowedEntityTypes: EntityType[] = [
-        EntityType.Container,
-        EntityType.Dataset,
-        EntityType.DataJob,
-        EntityType.DataFlow,
-        EntityType.Dashboard,
-        EntityType.Chart,
-        EntityType.Application,
-        EntityType.DataPlatform,
-        EntityType.Mlmodel,
-        EntityType.MlmodelGroup,
-        EntityType.MlprimaryKey,
-        EntityType.MlfeatureTable,
-        EntityType.CorpUser,
-        EntityType.CorpGroup,
-        EntityType.DataProduct,
-        EntityType.Domain,
-        EntityType.GlossaryTerm,
-        EntityType.GlossaryNode,
-        EntityType.Tag,
-        EntityType.Document, // Also allow documents
-    ];
+    // Derive allowed entity types from the single source of truth (ALLOWED_RELATED_ASSET_TYPES)
+    // Document is appended separately since it's handled via relatedDocuments
+    const allowedEntityTypes: EntityType[] = [...Object.values(ALLOWED_RELATED_ASSET_TYPES), EntityType.Document];
 
     // Combine all related entities
     const allRelatedEntities = [
@@ -219,7 +198,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                                 {canEdit && onRemoveEntity && (
                                     <TrashButton
                                         variant="text"
-                                        icon={{ icon: 'Trash', source: 'phosphor', color: 'red' }}
+                                        icon={{ icon: Trash, color: 'red' }}
                                         size="md"
                                         className="trash-button"
                                         onClick={(e) => {

@@ -1,0 +1,17 @@
+# Example recipe to test provisional filtering
+# Run with: datahub ingest -c test_example_recipe.yml
+
+source:
+  type: rdf
+  config:
+    source: tests/integration/rdf/example_fibo_maturity.ttl
+    format: turtle
+    dialect: fibo
+    include_provisional: false  # Change to true to include provisional terms
+    environment: PROD
+
+sink:
+  type: file
+  config:
+    filename: /tmp/rdf_test_output.json
+

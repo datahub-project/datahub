@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { ExpandedActorGroup } from '@app/entityV2/shared/components/styled/ExpandedActorGroup';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { countFormatter } from '@utils/formatter/index';
 
@@ -22,7 +21,7 @@ type Props = {
 };
 
 const StatSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
 `;
 

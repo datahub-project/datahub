@@ -86,6 +86,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
+#### Note: Not Supported in DataHub Cloud
+
+The `datahub-kafka` sink requires direct network access to the Kafka cluster, which is only available in self-hosted DataHub environments (like OSS). For DataHub Cloud, use the `datahub-rest` sink instead.
+
 ### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[datahub-kafka]'`.
@@ -113,6 +117,31 @@ sink:
       schema_registry_url: "http://localhost:8081"
 ```
 
+#### Kafka with OAuth
+
+E.g. for AWS MSK clusters using IAM authentication:
+
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-kafka"
+  config:
+    topic_routes:
+      MetadataChangeEvent: "custom_mce_topic_name" # Optional override
+      MetadataChangeProposal: "custom_mcp_topic_name" # Optional override
+    connection:
+      bootstrap: "b-1.your-msk-cluster.region.amazonaws.com:9098"
+      schema_registry_url: "http://datahub-gms:8080/schema-registry/api/"
+      producer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        sasl.oauthbearer.method: "default"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb" # OAuth callback
+```
+
+**Note:** MSK IAM authentication requires `pip install 'acryl-datahub-actions>=1.3.1.2'` for the OAuth callback.
+
 ### Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
@@ -121,6 +150,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | -------------------------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `connection.bootstrap`                       | ✅       |                        | Kafka bootstrap URL.                                                                                                                                     |
 | `connection.producer_config.<option>`        |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
+| `connection.producer_config.oauth_cb`        |          |                        | OAuth callback function for authentication (e.g., `datahub_actions.utils.kafka_msk_iam:oauth_cb` for MSK IAM)                                            |
 | `connection.schema_registry_url`             | ✅       |                        | URL of schema registry being used.                                                                                                                       |
 | `connection.schema_registry_config.<option>` |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
 | `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent    | Overridden Kafka topic name for the MetadataChangeEvent                                                                                                  |

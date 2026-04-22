@@ -164,7 +164,13 @@ public enum DataHubUsageEventType {
   CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
   MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
   EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
-  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent");
+  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent"),
+  ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent"),
+  INGESTION_SELECT_SOURCE_EVENT("IngestionSelectSourceEvent"),
+  INGESTION_ENTER_CONFIGURATION_EVENT("IngestionEnterConfigurationEvent"),
+  INGESTION_ENTER_SYNC_SCHEDULE_EVENT("IngestionEnterSyncScheduleEvent"),
+  INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
+  CLOSE_CREATE_SOURCE_EDUCATION_MODAL_EVENT("CloseCreateSourceEducationModalEvent");
 
   private final String type;
 

@@ -421,7 +421,6 @@ public class OidcUserInfoEndpointValidationTest {
     config.setSecret("testsecret");
     config.setDiscoveryURI(discoveryUri);
     config.setScope("openid profile email");
-    config.init();
 
     OidcClient client = new OidcClient(config);
     client.setCallbackUrl("http://localhost:" + oauthServerPort + "/callback");
@@ -497,8 +496,9 @@ public class OidcUserInfoEndpointValidationTest {
             mockOpContext, // systemOperationContext
             spySystemEntityClient, // systemEntityClient - THIS IS OUR SPY!
             mockAuthClient, // authClient - properly mocked to avoid NullPointerException
-            mockCookieConfigs // cookieConfigs - properly mocked to avoid NullPointerException
-            );
+            mockCookieConfigs, // cookieConfigs - properly mocked to avoid NullPointerException
+            "",
+            false);
 
     // When - Call the REAL DataHub handleOidcCallback() method
     // This will trigger the complete OIDC flow including JIT provisioning

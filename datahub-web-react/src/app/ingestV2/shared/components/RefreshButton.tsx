@@ -1,4 +1,5 @@
 import { Button } from '@components';
+import { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
 import React from 'react';
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
 
 export default function RefreshButton({ id, onClick }: Props) {
     return (
-        <Button id={id} variant="text" onClick={onClick} icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}>
+        <Button id={id} variant="text" onClick={onClick} icon={{ icon: ArrowClockwise }}>
             Refresh
         </Button>
     );

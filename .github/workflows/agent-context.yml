@@ -1,0 +1,72 @@
+name: DataHub Agent Context
+on:
+  push:
+    branches:
+      - master
+      - releases/**
+      - hotfixes/**
+    paths:
+      - ".github/workflows/agent-context.yml"
+      - "datahub-agent-context**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - ".github/workflows/agent-context.yml"
+      - "datahub-agent-context**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-datahub-agent-context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Test packages are correct
+        run: |
+          cd datahub-agent-context;
+          python -c 'import setuptools; where="./src"; assert setuptools.find_packages(where) == setuptools.find_namespace_packages(where), "you seem to be missing or have extra __init__.py files"'
+      - name: Gradle build (and test)
+        run: |
+          ./gradlew :datahub-agent-context:build
+
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: datahub-agent-context-test-results
+          test-results-paths: "datahub-agent-context/test-results/**"
+          junit-file-globs: "datahub-agent-context/test-results/*.xml"
+      - name: Upload datahub-agent-context coverage to Codecov
+        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          disable_search: true
+          files: ./build/coverage-reports/datahub-agent-context/
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          name: datahub-agent-context
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

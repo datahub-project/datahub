@@ -1,7 +1,7 @@
 import { get } from 'lodash';
 import YAML from 'yamljs';
 
-import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export function getValuesFromRecipe(displayRecipe: string, allFields: RecipeField[]) {
     const initialValues = {};

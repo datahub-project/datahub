@@ -54,18 +54,6 @@ import {
     VersionProperties,
 } from '@types';
 
-export type EntityTab = {
-    name: string;
-    component: React.FunctionComponent<{ properties?: any }>;
-    display?: {
-        visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
-        enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
-    };
-    properties?: any;
-    id?: string;
-    getDynamicName?: (GenericEntityProperties, T) => string;
-};
-
 export type EntitySidebarSection = {
     component: React.FunctionComponent<{ properties?: any; readOnly?: boolean }>;
     display?: {
@@ -185,6 +173,7 @@ export type EntityContextType = {
     entityType: EntityType;
     dataNotCombinedWithSiblings: any;
     entityData: GenericEntityProperties | null;
+    rootEntityData?: GenericEntityProperties | null;
     loading: boolean;
     baseEntity: any;
     updateEntity?: UpdateEntityType<any> | null;
@@ -199,10 +188,6 @@ export type EntityContextType = {
 
 export type SchemaContextType = {
     refetch?: () => Promise<any>;
-};
-
-export type RequiredAndNotNull<T> = {
-    [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };
 
 export type EntityAndType = {

@@ -3,12 +3,16 @@ package client;
 import static com.linkedin.metadata.Constants.DATAHUB_LOGIN_SOURCE_HEADER_NAME;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.LoginDenialReason;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.Inject;
+import com.linkedin.metadata.auth.LoginIdentityMask;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
@@ -43,6 +47,7 @@ public class AuthServiceClient {
   private static final String ARE_NATIVE_USER_CREDENTIALS_RESET_FIELD =
       "areNativeUserCredentialsReset";
   private static final String DOES_PASSWORD_MATCH_FIELD = "doesPasswordMatch";
+  private static final String LOGIN_DENIAL_REASON_FIELD = "loginDenialReason";
 
   private final String metadataServiceHost;
   private final Integer metadataServicePort;
@@ -50,6 +55,7 @@ public class AuthServiceClient {
   private final Boolean metadataServiceUseSsl;
   private final Authentication systemAuthentication;
   private final CloseableHttpClient httpClient;
+  private final boolean authVerboseLogging;
 
   @Inject
   public AuthServiceClient(
@@ -58,13 +64,15 @@ public class AuthServiceClient {
       @Nonnull final String metadataServiceBasePath,
       @Nonnull final Boolean useSsl,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull final CloseableHttpClient httpClient) {
+      @Nonnull final CloseableHttpClient httpClient,
+      final boolean authVerboseLogging) {
     this.metadataServiceHost = Objects.requireNonNull(metadataServiceHost);
     this.metadataServicePort = Objects.requireNonNull(metadataServicePort);
     this.metadataServiceBasePath = Objects.requireNonNull(metadataServiceBasePath);
     this.metadataServiceUseSsl = Objects.requireNonNull(useSsl);
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
     this.httpClient = Objects.requireNonNull(httpClient);
+    this.authVerboseLogging = authVerboseLogging;
   }
 
   /**
@@ -91,7 +99,7 @@ public class AuthServiceClient {
                   this.metadataServiceBasePath,
                   GENERATE_SESSION_TOKEN_ENDPOINT));
 
-      log.info("Requesting session token for user: {}", userId);
+      log.info("Requesting session token for userRef={}", LoginIdentityMask.mask(userId));
 
       // Build JSON request to generate a token on behalf of a user.
       final ObjectMapper objectMapper = new ObjectMapper();
@@ -108,18 +116,28 @@ public class AuthServiceClient {
 
       response = httpClient.execute(request);
       final HttpEntity entity = response.getEntity();
-      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
-        log.info("Successfully received session token for user: {}", userId);
+      final int code = response.getStatusLine().getStatusCode();
+      if (code == HttpStatus.SC_OK && entity != null) {
+        log.info(
+            "Successfully received session token for userRef={}", LoginIdentityMask.mask(userId));
         final String jsonStr = EntityUtils.toString(entity);
         return getAccessTokenFromJson(jsonStr);
-      } else {
-        throw new RuntimeException(
-            String.format(
-                "Bad response from the Metadata Service: %s %s",
-                response.getStatusLine().toString(), response.getEntity().toString()));
       }
+      if (code == HttpStatus.SC_FORBIDDEN && entity != null) {
+        final String jsonStr = EntityUtils.toString(entity);
+        final LoginDenialReason denial = parseLoginDenialReasonFromJson(jsonStr);
+        emitFrontendLoginDeniedLog(userId, denial, "generateSessionTokenForUser");
+        throw new SessionTokenDeniedException(denial, null);
+      }
+      throw new RuntimeException(
+          String.format(
+              "Bad response from the Metadata Service: %s %s",
+              response.getStatusLine().toString(), response.getEntity().toString()));
+    } catch (SessionTokenDeniedException e) {
+      throw e;
     } catch (Exception e) {
-      log.error("Failed to generate session token for user: {}", userId, e);
+      log.error(
+          "Failed to generate session token for userRef: {}", LoginIdentityMask.mask(userId), e);
       throw new RuntimeException("Failed to generate session token for user", e);
     } finally {
       try {
@@ -137,13 +155,12 @@ public class AuthServiceClient {
       @Nonnull final String userUrn,
       @Nonnull final String fullName,
       @Nonnull final String email,
-      @Nonnull final String title,
+      final String title,
       @Nonnull final String password,
       @Nonnull final String inviteToken) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(fullName, "fullName must not be null");
     Objects.requireNonNull(email, "email must not be null");
-    Objects.requireNonNull(title, "title must not be null");
     Objects.requireNonNull(password, "password must not be null");
     Objects.requireNonNull(inviteToken, "inviteToken must not be null");
     CloseableHttpResponse response = null;
@@ -167,7 +184,9 @@ public class AuthServiceClient {
       objectNode.put(USER_URN_FIELD, userUrn);
       objectNode.put(FULL_NAME_FIELD, fullName);
       objectNode.put(EMAIL_FIELD, email);
-      objectNode.put(TITLE_FIELD, title);
+      if (title != null) {
+        objectNode.put(TITLE_FIELD, title);
+      }
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(INVITE_TOKEN_FIELD, inviteToken);
       final String json =
@@ -269,7 +288,8 @@ public class AuthServiceClient {
   }
 
   /** Call the Auth Service to verify the credentials for a native Datahub user. */
-  public boolean verifyNativeUserCredentials(
+  @Nonnull
+  public NativeUserCredentialVerifyResult verifyNativeUserCredentials(
       @Nonnull final String userUrn, @Nonnull final String password) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(password, "password must not be null");
@@ -303,9 +323,8 @@ public class AuthServiceClient {
       response = httpClient.execute(request);
       final HttpEntity entity = response.getEntity();
       if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
-        // Successfully generated a token for the User
         final String jsonStr = EntityUtils.toString(entity);
-        return getDoesPasswordMatchFromJson(jsonStr);
+        return parseVerifyNativeCredentialsResponse(jsonStr, userUrn);
       } else {
         throw new RuntimeException(
             String.format(
@@ -322,6 +341,87 @@ public class AuthServiceClient {
       } catch (Exception e) {
         log.error("Failed to close http response", e);
       }
+    }
+  }
+
+  private void emitFrontendLoginDeniedLog(
+      @Nonnull final String rawUserRef,
+      @Nullable final LoginDenialReason loginDenialReason,
+      @Nonnull final String operation) {
+    final String masked = LoginIdentityMask.mask(rawUserRef);
+    final boolean warn = loginDenialReason == null || loginDenialReason.logsAtWarn();
+    if (loginDenialReason != null) {
+      if (warn) {
+        log.warn("loginDenied userRef={} loginDenialReason={}", masked, loginDenialReason.name());
+        if (authVerboseLogging) {
+          log.warn(
+              "loginDenied userRef={} loginDenialReason={} operation={}",
+              rawUserRef,
+              loginDenialReason.name(),
+              operation);
+        }
+      } else {
+        log.info("loginDenied userRef={} loginDenialReason={}", masked, loginDenialReason.name());
+        if (authVerboseLogging) {
+          log.info(
+              "loginDenied userRef={} loginDenialReason={} operation={}",
+              rawUserRef,
+              loginDenialReason.name(),
+              operation);
+        }
+      }
+    } else {
+      log.warn(
+          "loginDenied userRef={} event=auth_failure reason=missing_loginDenialReason", masked);
+      if (authVerboseLogging) {
+        log.warn(
+            "loginDenied userRef={} event=auth_failure reason=missing_loginDenialReason operation={}",
+            rawUserRef,
+            operation);
+      }
+    }
+  }
+
+  @Nullable
+  private static LoginDenialReason parseLoginDenialReasonName(@Nullable final String name) {
+    if (name == null || name.isEmpty()) {
+      return null;
+    }
+    try {
+      return LoginDenialReason.valueOf(name);
+    } catch (IllegalArgumentException e) {
+      return LoginDenialReason.UNKNOWN;
+    }
+  }
+
+  @Nullable
+  private static LoginDenialReason parseLoginDenialReasonFromJson(final String jsonStr) {
+    try {
+      final JsonNode node = new ObjectMapper().readTree(jsonStr);
+      if (node.has(LOGIN_DENIAL_REASON_FIELD) && !node.get(LOGIN_DENIAL_REASON_FIELD).isNull()) {
+        return parseLoginDenialReasonName(node.get(LOGIN_DENIAL_REASON_FIELD).asText());
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
+  }
+
+  @Nonnull
+  private NativeUserCredentialVerifyResult parseVerifyNativeCredentialsResponse(
+      final String jsonStr, final String userUrn) {
+    try {
+      final JsonNode node = new ObjectMapper().readTree(jsonStr);
+      final boolean match = node.get(DOES_PASSWORD_MATCH_FIELD).asBoolean();
+      LoginDenialReason denialReason = null;
+      if (node.has(LOGIN_DENIAL_REASON_FIELD) && !node.get(LOGIN_DENIAL_REASON_FIELD).isNull()) {
+        denialReason = parseLoginDenialReasonName(node.get(LOGIN_DENIAL_REASON_FIELD).asText());
+      }
+      if (!match || denialReason != null) {
+        emitFrontendLoginDeniedLog(userUrn, denialReason, "verifyNativeUserCredentials");
+      }
+      return new NativeUserCredentialVerifyResult(match, denialReason);
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to parse JSON received from the MetadataService!");
     }
   }
 
@@ -348,15 +448,6 @@ public class AuthServiceClient {
     ObjectMapper mapper = new ObjectMapper();
     try {
       return mapper.readTree(jsonStr).get(ARE_NATIVE_USER_CREDENTIALS_RESET_FIELD).asBoolean();
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to parse JSON received from the MetadataService!");
-    }
-  }
-
-  private boolean getDoesPasswordMatchFromJson(final String jsonStr) {
-    ObjectMapper mapper = new ObjectMapper();
-    try {
-      return mapper.readTree(jsonStr).get(DOES_PASSWORD_MATCH_FIELD).asBoolean();
     } catch (Exception e) {
       throw new IllegalArgumentException("Failed to parse JSON received from the MetadataService!");
     }

@@ -19,7 +19,14 @@ interface Props {
 
 export default function HoverCardAttributionDetails({ propagationDetails, addMargin }: Props) {
     const sourceDetail = usePropagationDetails(propagationDetails?.attribution?.sourceDetail);
-    const context = propagationDetails?.context ? (JSON.parse(propagationDetails.context) as PropagationContext) : null;
+    let context: PropagationContext | null = null;
+    if (propagationDetails?.context) {
+        try {
+            context = JSON.parse(propagationDetails.context) as PropagationContext;
+        } catch (e) {
+            console.warn('Failed to parse propagation context as JSON:', propagationDetails.context, e);
+        }
+    }
     const contextEntities = usePropagationContextEntities(context);
     const isPropagated = sourceDetail.isPropagated || context?.propagated;
 

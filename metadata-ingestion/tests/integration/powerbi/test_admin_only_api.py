@@ -2,12 +2,12 @@ from typing import Any, Dict, Optional
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
-pytestmark = pytest.mark.integration_batch_3
+pytestmark = pytest.mark.integration_batch_5
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -516,11 +516,16 @@ def default_source_config():
         },
         "env": "DEV",
         "extract_workspaces_to_containers": False,
+        "extract_column_level_lineage": False,
         "enable_advance_lineage_sql_construct": False,
+        # Explicitly set to True to maintain backward compatibility with golden files
+        "ownership": {
+            "create_corp_user": True,
+        },
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -556,7 +561,7 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_most_config_and_modified_since(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock

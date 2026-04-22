@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -98,6 +98,38 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "certification_details": "",
                     },
                 ],
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/dashboard/1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": 1,
+                "result": {
+                    "id": 1,
+                    "dashboard_title": "test_dashboard_title_1",
+                    "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
+                    "status": "published",
+                    "published": True,
+                    "certified_by": "Certification team",
+                    "certification_details": "Approved",
+                },
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/dashboard/2": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": 2,
+                "result": {
+                    "id": 2,
+                    "dashboard_title": "test_dashboard_title_2",
+                    "position_json": '{"CHART-test-3": {"meta": { "chartId": "12" }}, "CHART-test-4": {"meta": { "chartId": "13" }}}',
+                    "status": "draft",
+                    "published": False,
+                    "certified_by": "",
+                    "certification_details": "",
+                },
             },
         },
         "mock://mock-domain.superset.com/api/v1/chart/": {
@@ -759,7 +791,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_ingest(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
@@ -800,7 +832,7 @@ def test_superset_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_stateful_ingest(
     pytestconfig: pytest.Config,
@@ -883,6 +915,22 @@ def test_superset_stateful_ingest(
                         "certification_details": "Approved",
                     },
                 ],
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/dashboard/1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": 1,
+                "result": {
+                    "id": 1,
+                    "dashboard_title": "test_dashboard_title_1",
+                    "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
+                    "status": "published",
+                    "published": True,
+                    "certified_by": "Certification team",
+                    "certification_details": "Approved",
+                },
             },
         },
         "mock://mock-domain.superset.com/api/v1/chart/": {
@@ -1119,7 +1167,7 @@ def test_superset_stateful_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_aggregate_chart(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any

@@ -27,7 +27,7 @@ interface Size {
 
 const HEIGHT_WITHOUT_TEXT_HEIGHT = 66;
 const DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT = 'a';
-export const NODE_WIDTH_WITHOUT_TITLE = 61;
+const NODE_WIDTH_WITHOUT_TITLE = 61;
 
 function createDummyElement(text: string, options: Options): HTMLElement {
     const element = document.createElement('div');

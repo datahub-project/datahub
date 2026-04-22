@@ -14,7 +14,7 @@
 
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigEnum
@@ -30,29 +30,29 @@ class FailureMode(ConfigEnum):
 
 class SourceConfig(ConfigModel):
     type: str
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class TransformConfig(ConfigModel):
     type: str
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class FilterConfig(ConfigModel):
     event_type: Union[str, List[str]]
-    event: Optional[Dict[str, Any]] = None
+    event: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class ActionConfig(ConfigModel):
     type: str
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class PipelineOptions(BaseModel):
-    retry_count: Optional[int] = None
-    failure_mode: Optional[FailureMode] = None
-    failed_events_dir: Optional[str] = (
-        None  # The path where failed events should be logged.
+    retry_count: Optional[int] = Field(default=None)
+    failure_mode: Optional[FailureMode] = Field(default=None)
+    failed_events_dir: Optional[str] = Field(
+        default=None, description="The path where failed events should be logged."
     )
 
 

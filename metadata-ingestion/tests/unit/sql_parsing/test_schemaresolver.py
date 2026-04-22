@@ -1,3 +1,12 @@
+from unittest.mock import MagicMock
+
+import pytest
+import sqlglot
+from sqlglot import parse_one
+from sqlglot.expressions import Table
+
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -19,6 +28,24 @@ def create_default_schema_resolver(urn: str) -> SchemaResolver:
     )
 
     return schema_resolver
+
+
+def create_mock_schema(columns: list[tuple[str, str]]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="test",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=MagicMock(),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=col_name,
+                nativeDataType=col_type,
+                type=MagicMock(),
+            )
+            for col_name, col_type in columns
+        ],
+    )
 
 
 def test_basic_schema_resolver():
@@ -110,3 +137,397 @@ def test_match_columns_to_schema():
     )
 
     assert output_columns == ["id", "Name", "Address", "weight"]
+
+
+class TestResolveTableBatching:
+    @pytest.fixture
+    def mock_graph(self):
+        return MagicMock(spec=DataHubGraph)
+
+    @pytest.fixture
+    def schema_resolver(self, mock_graph):
+        return SchemaResolver(
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=mock_graph,
+        )
+
+    def test_batches_all_urn_variations(self, schema_resolver, mock_graph):
+        mock_graph.get_entities.return_value = {
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)": {
+                "schemaMetadata": (
+                    create_mock_schema([("id", "int"), ("name", "string")]),
+                    {},
+                )
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "id" in schema_info
+        assert mock_graph.get_entities.call_count == 1
+        urns_tried = mock_graph.get_entities.call_args[1]["urns"]
+        assert len(urns_tried) >= 2
+        assert len(urns_tried) == len(set(urns_tried))
+
+    def test_uses_cache_first(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        schema_resolver.add_schema_metadata(
+            urn, create_mock_schema([("cached_col", "string")])
+        )
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "cached_col" in schema_info
+        mock_graph.get_entities.assert_not_called()
+
+    def test_respects_ingestion_cache_precedence(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        schema_resolver.add_schema_metadata(
+            urn, create_mock_schema([("fresh_col", "string")])
+        )
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "fresh_col" in schema_info
+        mock_graph.get_entities.assert_not_called()
+
+    def test_batch_error_caches_none_and_no_fallback(self, schema_resolver, mock_graph):
+        """Test that batch errors cache None for all URNs without falling back to individual fetches."""
+        mock_graph.get_entities.side_effect = ConnectionError("Network error")
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert mock_graph.get_entities.call_count == 1
+        mock_graph.get_aspect.assert_not_called()
+
+        # Verify URNs are cached as None to prevent repeated lookups
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 is None
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_handles_not_found(self, schema_resolver, mock_graph):
+        mock_graph.get_entities.return_value = {}
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert "prod.db.schema.table" in resolved_urn.lower()
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_caches_results(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        mock_graph.get_entities.return_value = {
+            urn: {"schemaMetadata": (create_mock_schema([("id", "int")]), {})}
+        }
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+
+        resolved_urn1, schema_info1 = schema_resolver.resolve_table(table)
+        assert schema_info1 is not None
+        assert mock_graph.get_entities.call_count == 1
+
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 == schema_info1
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_partial_urn_match_from_batch(self, schema_resolver, mock_graph):
+        """Test when batch fetch returns schemas for SOME URN variations but not others."""
+        urn_lower = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        )
+        mock_graph.get_entities.return_value = {
+            urn_lower: {
+                "schemaMetadata": (create_mock_schema([("col1", "string")]), {})
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "col1" in schema_info
+        assert resolved_urn == urn_lower
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_mixed_cached_none_and_fetch(self, schema_resolver, mock_graph):
+        """Test when some URN variations are cached as None and others need fetching."""
+        urn_upper = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.DB.SCHEMA.TABLE,PROD)"
+        )
+        urn_lower = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        )
+
+        schema_resolver.add_schema_metadata_from_fetch(urn_upper, None)
+
+        mock_graph.get_entities.return_value = {
+            urn_lower: {
+                "schemaMetadata": (create_mock_schema([("found_col", "int")]), {})
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "found_col" in schema_info
+        assert resolved_urn == urn_lower
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_caches_none_to_prevent_repeated_lookups(self, schema_resolver, mock_graph):
+        """Test that None results are cached to prevent repeated API calls."""
+        mock_graph.get_entities.return_value = {}
+
+        table = _TableName(database="db", db_schema="schema", table="missing_table")
+
+        resolved_urn1, schema_info1 = schema_resolver.resolve_table(table)
+        assert schema_info1 is None
+        assert mock_graph.get_entities.call_count == 1
+
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 is None
+        assert mock_graph.get_entities.call_count == 1
+
+
+class TestTableNameParts:
+    """Test _TableName.parts field for multi-part table names."""
+
+    def test_multi_part_table_name_5_parts(self):
+        """Test 5-part table name (e.g., Dremio CE format)."""
+        sql = 'SELECT * FROM "Performance"."source"."schema"."folder"."table"'
+        parsed = parse_one(sql)
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        table = tables[0]
+
+        table_name = _TableName.from_sqlglot_table(table)
+
+        assert table_name.parts is not None
+        assert len(table_name.parts) == 5
+        assert table_name.parts == (
+            "Performance",
+            "source",
+            "schema",
+            "folder",
+            "table",
+        )
+
+    def test_multi_part_table_name_4_parts(self):
+        """Test 4-part table name."""
+        sql = 'SELECT * FROM "catalog"."database"."schema"."table"'
+        parsed = parse_one(sql)
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        table = tables[0]
+
+        table_name = _TableName.from_sqlglot_table(table)
+
+        assert table_name.parts is not None
+        assert len(table_name.parts) == 4
+        assert table_name.parts == ("catalog", "database", "schema", "table")
+
+    def test_parts_are_strings_not_objects(self):
+        """Verify that parts contain strings, not SQLGlot objects."""
+        sql = "SELECT * FROM db.schema.table"
+        parsed = parse_one(sql)
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        table = tables[0]
+
+        table_name = _TableName.from_sqlglot_table(table)
+
+        assert table_name.parts is not None
+        for part in table_name.parts:
+            assert isinstance(part, str), f"Expected string, got {type(part)}"
+
+    def test_hashability_with_parts(self):
+        """Test that _TableName with parts is hashable."""
+        sql = "SELECT * FROM db.schema.table"
+        parsed = parse_one(sql)
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        table = tables[0]
+
+        table_name = _TableName.from_sqlglot_table(table)
+
+        # Should be able to hash it
+        h = hash(table_name)
+        assert isinstance(h, int)
+
+        # Should work in a set
+        s = {table_name}
+        assert len(s) == 1
+
+    def test_equality_excludes_parts(self):
+        """Test that equality is based on database/schema/table only, not parts."""
+        tn1 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("db", "schema", "table"),
+        )
+        tn2 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("different", "parts"),
+        )
+
+        assert tn1 == tn2
+        assert hash(tn1) == hash(tn2)
+
+    def test_create_without_parts(self):
+        """Test that _TableName can be created without parts field."""
+        table_name = _TableName(database="db", db_schema="schema", table="table")
+
+        assert table_name.database == "db"
+        assert table_name.db_schema == "schema"
+        assert table_name.table == "table"
+        assert table_name.parts is None
+
+    def test_parts_in_set_operations(self):
+        """Test that parts don't affect deduplication in set operations."""
+        sql1 = "SELECT * FROM db.schema.table1"
+        sql2 = "SELECT * FROM db.schema.table2"
+        sql3 = "SELECT * FROM db.schema.table1"  # duplicate of sql1
+
+        parsed1 = parse_one(sql1)
+        parsed2 = parse_one(sql2)
+        parsed3 = parse_one(sql3)
+
+        tn1 = _TableName.from_sqlglot_table(
+            list(parsed1.find_all(sqlglot.exp.Table))[0]
+        )
+        tn2 = _TableName.from_sqlglot_table(
+            list(parsed2.find_all(sqlglot.exp.Table))[0]
+        )
+        tn3 = _TableName.from_sqlglot_table(
+            list(parsed3.find_all(sqlglot.exp.Table))[0]
+        )
+
+        # Set should deduplicate tn1 and tn3
+        table_set = {tn1, tn2, tn3}
+        assert len(table_set) == 2
+
+    def test_parts_stored_but_excluded_from_equality_when_3_or_less(self):
+        """Test that parts with <=3 elements don't affect equality (backward compatible)."""
+        table1 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("source", "folder1", "table"),
+        )
+        table2 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("source", "folder2", "table"),
+        )
+
+        assert table1 == table2, (
+            "3-part tables with different parts should be equal (backward compatible)"
+        )
+        assert hash(table1) == hash(table2)
+
+        table_set = {table1, table2}
+        assert len(table_set) == 1, "Should deduplicate based on db/schema/table only"
+
+        # But parts are still accessible
+        assert table1.parts == ("source", "folder1", "table")
+        assert table2.parts == ("source", "folder2", "table")
+
+    def test_parts_included_in_equality_when_more_than_3(self):
+        """Test that parts with >3 elements DO affect equality (multi-part tables are different)."""
+        table1 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("source", "folder1", "subfolder", "table"),
+        )
+        table2 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("source", "folder2", "subfolder", "table"),
+        )
+
+        assert table1 != table2, (
+            "Multi-part tables (>3) with different paths should NOT be equal"
+        )
+        assert hash(table1) != hash(table2)
+
+        table_set = {table1, table2}
+        assert len(table_set) == 2, "Both tables should be in the set"
+
+    def test_urn_consistency_across_operations(self):
+        """Test that same table always generates same URN."""
+        from datahub.sql_parsing.schema_resolver import SchemaResolver
+
+        resolver = SchemaResolver(platform="test", env="PROD", graph=None)
+
+        table1 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("a", "b", "c", "table"),
+        )
+        table2 = _TableName(
+            database="db",
+            db_schema="schema",
+            table="table",
+            parts=("a", "b", "c", "table"),
+        )
+
+        urn1 = resolver.get_urn_for_table(table1)
+        urn2 = resolver.get_urn_for_table(table2)
+
+        assert urn1 == urn2, "Same table should always generate same URN"
+        assert table1 == table2, "Same table should be equal"
+
+    def test_deep_hierarchy_6_plus_parts(self):
+        """Test tables with 6+ parts (deep hierarchies)."""
+        sql = 'SELECT * FROM "a"."b"."c"."d"."e"."f"."table"'
+        parsed = parse_one(sql)
+        table = list(parsed.find_all(Table))[0]
+
+        table_name = _TableName.from_sqlglot_table(table)
+
+        assert table_name.parts is not None
+        assert len(table_name.parts) == 7
+        assert table_name.parts == ("a", "b", "c", "d", "e", "f", "table")
+
+    def test_special_characters_in_parts(self):
+        """Test that special characters in table names are preserved."""
+        sql = 'SELECT * FROM "my-source"."folder_with_underscore"."table.with.dots"'
+        parsed = parse_one(sql)
+        table = list(parsed.find_all(Table))[0]
+
+        table_name = _TableName.from_sqlglot_table(table)
+
+        assert table_name.parts is not None
+        assert "my-source" in table_name.parts
+        assert "folder_with_underscore" in table_name.parts
+        assert "table.with.dots" in table_name.parts
+
+    def test_three_part_with_parts_field(self):
+        """Test that 3-part names with parts field are handled correctly."""
+        table_with_parts = _TableName(
+            database="source",
+            db_schema="schema",
+            table="table",
+            parts=("source", "schema", "table"),
+        )
+        table_without_parts = _TableName(
+            database="source", db_schema="schema", table="table", parts=None
+        )
+
+        assert table_with_parts == table_without_parts, "Equality ignores parts field"
+        assert table_with_parts.parts == ("source", "schema", "table")
+        assert table_without_parts.parts is None

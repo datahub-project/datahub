@@ -4,11 +4,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.datahub_database_reader import (
     DATETIME_FORMAT,
     DataHubDatabaseReader,
     VersionOrderer,
 )
+from datahub.ingestion.source.datahub.datahub_source import DataHubSource
 
 
 @pytest.fixture
@@ -306,3 +309,44 @@ def test_get_rows_for_date_range_exclude_aspects(mock_reader):
     assert "exclude_aspects" in called_params
     assert isinstance(called_params["exclude_aspects"], tuple)
     assert called_params["exclude_aspects"] == ("aspect1", "aspect2")
+
+
+def test_datahub_source_urn_pattern_warning_when_customized():
+    """Test that warning is emitted when user customizes urn_pattern."""
+    config_dict = {
+        "pull_from_datahub_api": True,
+        "urn_pattern": {
+            "allow": ["urn:li:dataset:.*"],
+            "deny": ["urn:li:chart:.*"],
+        },
+    }
+    config = DataHubSourceConfig.model_validate(config_dict)
+
+    ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+    ctx.graph = MagicMock()
+
+    source = DataHubSource(config, ctx)
+
+    assert len(source.report.warnings) > 0
+    warning_found = any(
+        "urn_pattern_override" in str(w) for w in source.report.warnings
+    )
+    assert warning_found, "Expected urn_pattern_override warning not found"
+
+
+def test_datahub_source_no_warning_with_default_urn_pattern():
+    """Test that no warning is emitted when using default urn_pattern."""
+    config_dict = {
+        "pull_from_datahub_api": True,
+    }
+    config = DataHubSourceConfig.model_validate(config_dict)
+
+    ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+    ctx.graph = MagicMock()
+
+    source = DataHubSource(config, ctx)
+
+    warning_found = any(
+        "urn_pattern_override" in str(w) for w in source.report.warnings
+    )
+    assert not warning_found, "Unexpected urn_pattern_override warning found"

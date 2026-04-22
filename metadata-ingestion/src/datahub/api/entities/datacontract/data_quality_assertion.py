@@ -55,6 +55,7 @@ class CustomSQLAssertion(IdConfigMixin, BaseAssertion):
         return AssertionInfoClass(
             type=AssertionTypeClass.SQL,
             sqlAssertion=sql_assertion_info,
+            source=builder.make_assertion_source(),
             description=self.description,
         )
 
@@ -84,6 +85,7 @@ class ColumnUniqueAssertion(IdConfigMixin, BaseAssertion):
         return AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             datasetAssertion=dataset_assertion_info,
+            source=builder.make_assertion_source(),
             description=self.description,
         )
 

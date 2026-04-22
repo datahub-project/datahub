@@ -5,7 +5,7 @@ from datahub.configuration.env_vars import (
     get_gms_base_path,
     get_kafka_schema_registry_url,
 )
-from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
+from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.configuration.validate_host_port import validate_host_port
 
 
@@ -39,9 +39,9 @@ def _resolve_kafka_oauth_callback(config: dict) -> dict:
     Raises:
         ConfigurationError: If oauth_cb validation or resolution fails
     """
-    if CallableConsumerConfig.is_callable_config(config):
+    if KafkaOAuthCallbackResolver.is_callable_config(config):
         try:
-            config = CallableConsumerConfig(config).callable_config()
+            config = KafkaOAuthCallbackResolver(config).callable_config()
         except Exception as e:
             raise ConfigurationError(e) from e
     return config

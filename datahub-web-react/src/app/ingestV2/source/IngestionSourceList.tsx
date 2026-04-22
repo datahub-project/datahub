@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import EmptySources from '@app/ingestV2/EmptySources';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { CLI_EXECUTOR_ID, DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
@@ -27,6 +28,7 @@ import {
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
 import {
+    DEFAULT_SOURCE_SORT_CRITERION,
     buildOwnerEntities,
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
@@ -109,7 +111,7 @@ const PaginationContainer = styled.div`
     flex-shrink: 0;
 `;
 
-export enum IngestionSourceType {
+enum IngestionSourceType {
     ALL,
     UI,
     CLI,
@@ -142,42 +144,46 @@ export const IngestionSourceList = ({
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    const [searchInput, setSearchInput] = useState('');
+    const location = useLocation();
+
+    const {
+        createdOrUpdatedSource,
+        shouldRunCreatedOrUpdatedSource,
+        setCreatedOrUpdatedSource,
+        setShouldRunCreatedOrUpdatedSource,
+    } = useIngestionContext();
+
+    // Query inputs after redirect to restore initial state of query and sorting
+    const redirectQueryInputs = useMemo(() => location.state?.sourcesListQueryInputs, [location.state]);
+
+    const [query, setQuery] = useState<undefined | string>(redirectQueryInputs?.query);
+    const [searchInput, setSearchInput] = useState(redirectQueryInputs?.query ?? '');
     const previousSearchInput = usePrevious(searchInput);
     const searchInputRef = useRef<InputRef>(null);
 
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     const history = useHistory();
-    const location = useLocation();
 
-    const createdOrUpdatedSourceUrnFromLocation = useMemo(
-        () => location.state?.createdOrUpdatedSourceUrn,
-        [location.state],
-    );
-    const shouldRunCreatedOrUpdatedSourceFromLocation = useMemo(() => location.state?.shouldRun, [location.state]);
-    const hasCreatedOrUpdatedSourceFromLocation = useMemo(
-        () => !!createdOrUpdatedSourceUrnFromLocation,
-        [createdOrUpdatedSourceUrnFromLocation],
-    );
-
-    // Initialize search input from URL parameter
-    useEffect(() => {
-        if (searchQueryFromUrl?.length) {
-            setQuery(searchQueryFromUrl);
-            setSearchInput(searchQueryFromUrl);
-            setTimeout(() => {
-                searchInputRef.current?.focus?.();
-            }, 0);
-        }
-    }, [searchQueryFromUrl]);
+    const hasCreatedOrUpdatedSource = useMemo(() => !!createdOrUpdatedSource, [createdOrUpdatedSource]);
 
     const handleSearchInputChange = (value: string) => {
         setSearchInput(value);
     };
 
     const { page, setPage, start, count: pageSize } = useUrlParamsPagination(DEFAULT_PAGE_SIZE);
+
+    // Initialize search input from URL parameter
+    useEffect(() => {
+        if (searchQueryFromUrl?.length) {
+            setPage(1);
+            setQuery(searchQueryFromUrl);
+            setSearchInput(searchQueryFromUrl);
+            setTimeout(() => {
+                searchInputRef.current?.focus?.();
+            }, 0);
+        }
+    }, [searchQueryFromUrl, setPage]);
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
@@ -194,7 +200,7 @@ export const IngestionSourceList = ({
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
-    const { sort, setSort } = useQueryParamSortCriterion();
+    const { sort, setSort } = useQueryParamSortCriterion(redirectQueryInputs?.sort);
 
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
     const prevSourceFilter = usePrevious(sourceFilter);
@@ -243,7 +249,7 @@ export const IngestionSourceList = ({
             count: pageSize,
             query: query?.length ? query : undefined,
             filters: filters.length ? filters : undefined,
-            sort,
+            sort: !query && !sort ? DEFAULT_SOURCE_SORT_CRITERION : sort,
         }),
         [start, pageSize, query, filters, sort],
     );
@@ -254,7 +260,7 @@ export const IngestionSourceList = ({
             input: queryInputs,
         },
         // As a created or updated source via separated page was passed to apollo cache we use cache-first to show it
-        fetchPolicy: hasCreatedOrUpdatedSourceFromLocation ? 'cache-first' : 'cache-and-network',
+        fetchPolicy: hasCreatedOrUpdatedSource ? 'cache-first' : 'cache-and-network',
         nextFetchPolicy: 'cache-first',
     });
 
@@ -465,23 +471,31 @@ export const IngestionSourceList = ({
     };
 
     // Handle executing or refetching of a created or updated source via the separated page
-    const [isCreatedOrUpdatedSourceFromLocationHandled, setIsCreatedOrUpdatedSourceFromLocationHandled] =
-        useState<boolean>(false);
+    const [isCreatedOrUpdatedSourceHandled, setIsCreatedOrUpdatedSourceHandled] = useState<boolean>(false);
     useEffect(() => {
-        if (createdOrUpdatedSourceUrnFromLocation && !isCreatedOrUpdatedSourceFromLocationHandled) {
-            setIsCreatedOrUpdatedSourceFromLocationHandled(true);
-            if (shouldRunCreatedOrUpdatedSourceFromLocation) {
-                executeIngestionSource(createdOrUpdatedSourceUrnFromLocation);
+        if (createdOrUpdatedSource && !isCreatedOrUpdatedSourceHandled) {
+            setIsCreatedOrUpdatedSourceHandled(true);
+            if (shouldRunCreatedOrUpdatedSource) {
+                executeIngestionSource(createdOrUpdatedSource);
             } else {
-                setSourcesToRefetch((prev) => new Set([...prev, createdOrUpdatedSourceUrnFromLocation]));
+                setSourcesToRefetch((prev) => new Set([...prev, createdOrUpdatedSource]));
             }
         }
     }, [
-        isCreatedOrUpdatedSourceFromLocationHandled,
-        createdOrUpdatedSourceUrnFromLocation,
-        shouldRunCreatedOrUpdatedSourceFromLocation,
         executeIngestionSource,
+        isCreatedOrUpdatedSourceHandled,
+        createdOrUpdatedSource,
+        shouldRunCreatedOrUpdatedSource,
     ]);
+
+    // Cleanup context values on unmount to prevent stale values when navigating away and back
+    useEffect(() => {
+        return () => {
+            setCreatedOrUpdatedSource(undefined);
+            setShouldRunCreatedOrUpdatedSource(false);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const onChangePage = (newPage: number) => {
         scrollToTop();

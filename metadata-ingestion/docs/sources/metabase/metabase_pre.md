@@ -1,0 +1,11 @@
+### Overview
+
+The `metabase` module ingests metadata from Metabase into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+#### Compatibility
+
+Metabase version [v0.48.3](https://www.metabase.com/start/oss/)
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

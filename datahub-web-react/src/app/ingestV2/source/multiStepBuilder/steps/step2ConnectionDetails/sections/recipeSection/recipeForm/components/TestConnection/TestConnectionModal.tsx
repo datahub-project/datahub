@@ -1,9 +1,10 @@
-import { Modal, PageTitle, Pill, spacing } from '@components';
+import { Modal, PageTitle, Pill, Text, spacing } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Typography } from 'antd';
 import React, { useCallback } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     CapabilityReport,
     SourceCapability,
@@ -25,7 +26,7 @@ const LoadingSubheader = styled.div`
     display: flex;
     justify-content: center;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const LoadingHeader = styled(Typography.Title)`
@@ -42,6 +43,11 @@ const ResultsWrapper = styled.div`
 const ModalHeader = styled.div`
     align-items: center;
     display: flex;
+`;
+
+const HeaderText = styled.div`
+    display: flex;
+    flex-direction: column;
 `;
 
 const SourceIcon = styled.img`
@@ -70,10 +76,10 @@ function TestConnectionModal({
         if (isLoading) return null;
 
         if (testConnectionFailed) {
-            return <Pill iconSource="phosphor" leftIcon="X" color="red" label="Failed" />;
+            return <Pill leftIcon={X} color="red" label="Failed" />;
         }
 
-        return <Pill iconSource="phosphor" leftIcon="Check" color="green" label="Successful" />;
+        return <Pill leftIcon={Check} color="green" label="Successful" />;
     }, [isLoading, testConnectionFailed]);
 
     return (
@@ -83,11 +89,14 @@ function TestConnectionModal({
             title={
                 <ModalHeader style={{ margin: 0 }}>
                     <SourceIcon alt="source logo" src={logoUrl} />
-                    {sourceConfig?.displayName} Connection Test
+                    <HeaderText>
+                        {sourceConfig?.displayName} Connection Test
+                        <Text color="gray">Here&apos;s what DataHub can access with your provided credentials</Text>
+                    </HeaderText>
                 </ModalHeader>
             }
             titlePill={renderTitlePill()}
-            width={452}
+            width={540}
         >
             {isLoading && (
                 <ResultsWrapper>
@@ -127,7 +136,7 @@ function TestConnectionModal({
                         Object.keys(testConnectionResult.capability_report).map((capabilityKey, index) => {
                             return (
                                 <ConnectionCapabilityView
-                                    capability={SourceCapability[capabilityKey] || ''}
+                                    capability={SourceCapability[capabilityKey] || capabilityKey}
                                     displayMessage={
                                         (testConnectionResult.capability_report as CapabilityReport)[capabilityKey]
                                             .failure_reason

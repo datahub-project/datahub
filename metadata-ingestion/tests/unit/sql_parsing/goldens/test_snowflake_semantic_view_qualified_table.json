@@ -1,0 +1,52 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "70dd17f122ea3ab3c7b989a54032786419ec13b23377c003c08be3b287b7efc5",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.mytable,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "col1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.mytable,PROD)",
+                    "column": "col1"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"COL1\" AS \"COL1\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "col2",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.mytable,PROD)",
+                    "column": "col2"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"COL2\" AS \"COL2\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT col1, col2 FROM SEMANTIC_VIEW(mydb.myschema.mytable FACTS fact_col)"
+    }
+}

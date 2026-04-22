@@ -1,8 +1,3 @@
-import dayjs from 'dayjs';
-import advancedFormat from 'dayjs/plugin/advancedFormat';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -23,6 +18,7 @@ import {
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
+import dayjs from '@utils/dayjs';
 
 import {
     Entity,
@@ -37,15 +33,13 @@ import {
     StringMapEntryInput,
 } from '@types';
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.extend(advancedFormat);
-dayjs.extend(localizedFormat);
+const CUSTOM_SOURCE_NAME = 'custom';
+export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
     if (!sourceConfigs) {
-        console.error(`Failed to find source configs with source type ${sourceType}`);
+        return ingestionSources.find((source) => source.name === CUSTOM_SOURCE_NAME);
     }
     return sourceConfigs;
 };
@@ -479,7 +473,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dashboard.toLowerCase(),
 ]);
 
-export type EntityTypeCount = {
+type EntityTypeCount = {
     count: number;
     displayName: string;
 };
@@ -538,6 +532,11 @@ export function getSortInput(field: string, order: SortingState): SortCriterion 
         field,
     };
 }
+
+export const DEFAULT_SOURCE_SORT_CRITERION: SortCriterion = {
+    sortOrder: SortOrder.Ascending,
+    field: 'type',
+};
 
 export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
     return hideSystemSources
@@ -706,9 +705,4 @@ export const getIngestionSourceMutationInput = (data: SourceBuilderState, source
               }
             : undefined,
     };
-};
-
-export const getSourceDisplayName = (sourceType: string, ingestionSources: SourceConfig[]) => {
-    const sourceConfigs = getSourceConfigs(ingestionSources, sourceType as string);
-    return sourceConfigs?.displayName;
 };

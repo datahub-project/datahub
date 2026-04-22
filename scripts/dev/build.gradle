@@ -1,0 +1,26 @@
+ext {
+  venv_name = '.venv'
+  venv_python = "${projectDir}/${venv_name}/bin/python"
+  venv_ruff = "${projectDir}/${venv_name}/bin/ruff"
+}
+
+task installRuff(type: Exec) {
+  description = 'Create .venv and install ruff'
+  outputs.file(venv_ruff)
+  commandLine 'bash', '-c',
+    "python3 -m venv ${projectDir}/${venv_name} && ${venv_python} -m pip install --quiet ruff"
+}
+
+task lint(type: Exec, dependsOn: installRuff) {
+  description = 'Check formatting of Python scripts'
+  inputs.files(fileTree('.').include('*.py'))
+  commandLine 'bash', '-c',
+    "${venv_ruff} check *.py && ${venv_ruff} format --check *.py"
+}
+
+task lintFix(type: Exec, dependsOn: installRuff) {
+  description = 'Auto-fix formatting of Python scripts'
+  inputs.files(fileTree('.').include('*.py'))
+  commandLine 'bash', '-c',
+    "${venv_ruff} check --fix *.py && ${venv_ruff} format *.py"
+}

@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder
 import datahub.client.v2.annotations.RequiresMutable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -60,7 +61,8 @@ public class DataJob extends Entity
         HasOwners<DataJob>,
         HasDomains<DataJob>,
         HasSubTypes<DataJob>,
-        HasStructuredProperties<DataJob> {
+        HasStructuredProperties<DataJob>,
+        HasDocumentation<DataJob> {
 
   private static final String ENTITY_TYPE = "dataJob";
 
@@ -133,15 +135,16 @@ public class DataJob extends Entity
   @Override
   @Nonnull
   public List<Class<? extends com.linkedin.data.template.RecordTemplate>> getDefaultAspects() {
-    return List.of(
-        com.linkedin.common.Ownership.class,
-        com.linkedin.common.GlobalTags.class,
-        com.linkedin.common.GlossaryTerms.class,
-        com.linkedin.domain.Domains.class,
-        com.linkedin.common.Status.class,
-        com.linkedin.common.InstitutionalMemory.class,
-        DataJobInfo.class,
-        com.linkedin.datajob.EditableDataJobProperties.class);
+    return Collections.unmodifiableList(
+        Arrays.asList(
+            com.linkedin.common.Ownership.class,
+            com.linkedin.common.GlobalTags.class,
+            com.linkedin.common.GlossaryTerms.class,
+            com.linkedin.domain.Domains.class,
+            com.linkedin.common.Status.class,
+            com.linkedin.common.InstitutionalMemory.class,
+            DataJobInfo.class,
+            com.linkedin.datajob.EditableDataJobProperties.class));
   }
 
   @Override

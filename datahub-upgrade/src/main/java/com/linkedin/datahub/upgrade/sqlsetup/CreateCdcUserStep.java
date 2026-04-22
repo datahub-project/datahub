@@ -88,6 +88,9 @@ public class CreateCdcUserStep implements UpgradeStep {
           }
         }
 
+        // Commit the transaction to persist the user creation and grants
+        connection.commit();
+
         result.setCdcUserCreated(true);
         log.info("CDC user '{}' created successfully", args.getCdcUser());
       }

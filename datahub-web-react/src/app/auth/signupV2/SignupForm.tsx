@@ -1,4 +1,4 @@
-import { Checkbox, Input, Text } from '@components';
+import { Input } from '@components';
 import { Form, FormInstance } from 'antd';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
@@ -20,19 +20,14 @@ const ItemContainer = styled.div`
     gap: 4px;
 `;
 
-const CheckboxContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-`;
-
 interface Props {
     form: FormInstance;
     handleSubmit: (values: SignupFormValues) => void;
     onFormChange: () => void;
+    isSubmitDisabled: boolean;
 }
 
-export default function SignupForm({ form, handleSubmit, onFormChange }: Props) {
+export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
     const location = useLocation();
 
     const searchParams = new URLSearchParams(location.search);
@@ -53,20 +48,26 @@ export default function SignupForm({ form, handleSubmit, onFormChange }: Props) 
         });
     }, [emailFromQuery, firstNameFromQuery, lastNameFromQuery, form]);
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !isSubmitDisabled) {
+            form.submit();
+        }
+    };
+
     return (
         <FormContainer>
-            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange}>
+            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
                 <ItemContainer>
                     <FieldLabel label="Email" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
-                        <Input placeholder="name@company.com" isDisabled={isEmailFromQuery} />
+                        <Input placeholder="name@company.com" isDisabled={isEmailFromQuery} inputTestId="email" />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
                     <FieldLabel label="Full Name" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your name' }]} name="fullName">
-                        <Input placeholder="First name Last name" />
+                        <Input placeholder="First name Last name" inputTestId="name" />
                     </Form.Item>
                 </ItemContainer>
 
@@ -86,7 +87,7 @@ export default function SignupForm({ form, handleSubmit, onFormChange }: Props) 
                         ]}
                         name="password"
                     >
-                        <Input placeholder="********" type="password" />
+                        <Input placeholder="********" type="password" inputTestId="password" />
                     </Form.Item>
                 </ItemContainer>
 
@@ -106,14 +107,9 @@ export default function SignupForm({ form, handleSubmit, onFormChange }: Props) 
                         ]}
                         name="confirmPassword"
                     >
-                        <Input placeholder="********" type="password" />
+                        <Input placeholder="********" type="password" inputTestId="confirmPassword" />
                     </Form.Item>
                 </ItemContainer>
-                <CheckboxContainer>
-                    {/* TODO: Handle when checkbox is clicked */}
-                    <Checkbox size="sm" />
-                    <Text color="gray">Receive updates from Datahub</Text>
-                </CheckboxContainer>
             </Form>
         </FormContainer>
     );

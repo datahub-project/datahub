@@ -72,9 +72,33 @@ public class ResolverUtils {
     return input;
   }
 
+  /**
+   * Resolves QueryContext from the environment. Uses the non-deprecated getGraphQlContext() first;
+   * falls back to getContext() only for backwards compatibility with callers that may not set
+   * GraphQLContext.
+   */
+  @Nullable
+  public static QueryContext getQueryContext(DataFetchingEnvironment environment) {
+    if (environment.getGraphQlContext() != null) {
+      Object fromGraphQL = environment.getGraphQlContext().get(QueryContext.class);
+      if (fromGraphQL instanceof QueryContext) {
+        return (QueryContext) fromGraphQL;
+      }
+    }
+    Object raw = environment.getContext();
+    if (raw instanceof QueryContext) {
+      return (QueryContext) raw;
+    }
+    return null;
+  }
+
   @Nonnull
   public static Authentication getAuthentication(DataFetchingEnvironment environment) {
-    return ((QueryContext) environment.getContext()).getAuthentication();
+    QueryContext context = getQueryContext(environment);
+    if (context == null) {
+      throw new IllegalStateException("QueryContext is required for getAuthentication");
+    }
+    return context.getAuthentication();
   }
 
   /**

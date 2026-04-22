@@ -21,7 +21,7 @@ from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -128,7 +128,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description='Nifi username, must be set for auth = "SINGLE_USER"'
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description='Nifi password, must be set for auth = "SINGLE_USER"'
     )
 
@@ -140,7 +140,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     client_key_file: Optional[str] = Field(
         default=None, description="Path to PEM file containing the client’s secret key"
     )
-    client_key_password: Optional[str] = Field(
+    client_key_password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password to decrypt the client_key_file"
     )
 
@@ -1119,7 +1119,7 @@ class NifiSource(StatefulIngestionSourceBase):
             assert self.config.username is not None
             assert self.config.password is not None
             self.session.auth = HTTPBasicAuth(
-                self.config.username, self.config.password
+                self.config.username, self.config.password.get_secret_value()
             )
             self.session.headers.update(
                 {
@@ -1134,7 +1134,9 @@ class NifiSource(StatefulIngestionSourceBase):
                 SSLAdapter(
                     certfile=self.config.client_cert_file,
                     keyfile=self.config.client_key_file,
-                    password=self.config.client_key_password,
+                    password=self.config.client_key_password.get_secret_value()
+                    if self.config.client_key_password
+                    else None,
                 ),
             )
             return
@@ -1146,7 +1148,9 @@ class NifiSource(StatefulIngestionSourceBase):
                 url=urljoin(self.rest_api_base_url, TOKEN_ENDPOINT),
                 data={
                     "username": self.config.username,
-                    "password": self.config.password,
+                    "password": self.config.password.get_secret_value()
+                    if self.config.password
+                    else None,
                 },
             )
         elif self.config.auth is NifiAuthType.KERBEROS:

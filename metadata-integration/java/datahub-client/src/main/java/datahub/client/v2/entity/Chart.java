@@ -11,6 +11,8 @@ import com.linkedin.metadata.aspect.patch.builder.ChartInfoPatchBuilder;
 import datahub.client.v2.annotations.RequiresMutable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +59,8 @@ public class Chart extends Entity
         HasOwners<Chart>,
         HasDomains<Chart>,
         HasSubTypes<Chart>,
-        HasStructuredProperties<Chart> {
+        HasStructuredProperties<Chart>,
+        HasDocumentation<Chart> {
 
   private static final String ENTITY_TYPE = "chart";
 
@@ -134,15 +137,16 @@ public class Chart extends Entity
   @Override
   @Nonnull
   public List<Class<? extends com.linkedin.data.template.RecordTemplate>> getDefaultAspects() {
-    return List.of(
-        com.linkedin.common.Ownership.class,
-        com.linkedin.common.GlobalTags.class,
-        com.linkedin.common.GlossaryTerms.class,
-        com.linkedin.domain.Domains.class,
-        com.linkedin.common.Status.class,
-        com.linkedin.common.InstitutionalMemory.class,
-        ChartInfo.class,
-        com.linkedin.chart.EditableChartProperties.class);
+    return Collections.unmodifiableList(
+        Arrays.asList(
+            com.linkedin.common.Ownership.class,
+            com.linkedin.common.GlobalTags.class,
+            com.linkedin.common.GlossaryTerms.class,
+            com.linkedin.domain.Domains.class,
+            com.linkedin.common.Status.class,
+            com.linkedin.common.InstitutionalMemory.class,
+            ChartInfo.class,
+            com.linkedin.chart.EditableChartProperties.class));
   }
 
   /**

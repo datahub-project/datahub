@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 from unittest import mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -290,6 +290,7 @@ def default_source_config():
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": True,
+        "extract_column_level_lineage": False,
         "extract_reports": False,
         "admin_apis_only": False,
         "extract_ownership": True,
@@ -301,10 +302,14 @@ def default_source_config():
             "enabled": True,
         },
         "profile_pattern": {"allow": [".*"]},
+        # Explicitly set to True to maintain backward compatibility with golden files
+        "ownership": {
+            "create_corp_user": True,
+        },
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_profiling(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"

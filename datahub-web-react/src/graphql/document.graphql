@@ -70,18 +70,28 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
                 value
             }
         }
+        documentation {
+            ...documentationFields
+        }
         ownership {
             ...ownershipFields
         }
         tags {
             ...globalTagsFields
         }
+        globalTags {
+            ...globalTagsFields
+        }
         glossaryTerms {
             ...glossaryTerms
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         structuredProperties {
             properties {
                 ...structuredPropertiesFields

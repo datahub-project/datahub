@@ -1,6 +1,7 @@
 import { blue } from '@ant-design/colors';
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Group } from '@visx/group';
 import { Button, Input } from 'antd';
 import React, { useContext, useState } from 'react';
@@ -108,7 +109,7 @@ export default function NodeColumnsHeader({ node, filterText, setFilterText }: P
                             )}
                             {!isSearchBarVisible && (
                                 <Button type="text" size="small" onClick={() => setIsSearchBarVisible(true)}>
-                                    <Icon icon="MagnifyingGlass" source="phosphor" />
+                                    <Icon icon={MagnifyingGlass} />
                                 </Button>
                             )}
                         </foreignObject>
