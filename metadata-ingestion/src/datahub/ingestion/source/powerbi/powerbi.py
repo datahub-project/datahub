@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -1938,15 +1938,24 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         batches = more_itertools.chunked(
             allowed_workspaces, self.source_config.scan_batch_size
         )
+        scan_filtered_workspace_ids: Set[str] = set()
         for batch_workspaces in batches:
             logger.info(
                 f"Fetching initial metadata for workspaces: {[w.format_name_for_logger() for w in batch_workspaces]}"
             )
-            self.powerbi_client.fill_metadata_from_scan_result(batch_workspaces)
+            scan_filtered_workspace_ids.update(
+                self.powerbi_client.fill_metadata_from_scan_result(batch_workspaces)
+            )
+
+        # Skip Phase 2 for workspaces the scan filtered out (inactive or
+        # wrong type) so we don't issue redundant per-workspace API calls.
+        if scan_filtered_workspace_ids:
+            allowed_workspaces = [
+                w for w in allowed_workspaces if w.id not in scan_filtered_workspace_ids
+            ]
 
         # Then get the rest of the metadata per workspace.
-        while allowed_workspaces:
-            workspace = allowed_workspaces.pop(0)
+        for workspace in allowed_workspaces:
             logger.info(f"Processing workspace id: {workspace.id}")
             self.powerbi_client.fill_regular_metadata_detail(workspace=workspace)
 

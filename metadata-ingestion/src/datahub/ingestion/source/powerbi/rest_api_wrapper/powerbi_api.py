@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Literal, Optional, cast
+from typing import Any, Dict, List, Literal, Optional, Set, cast
 
 import requests
 
@@ -282,8 +282,10 @@ class PowerBiAPI:
                 dashboard_endorsements={},
                 scan_result={},
                 independent_datasets={},
-                app=None,  # It will be populated in _fill_metadata_from_scan_result method
-                fabric_artifacts=self._parse_fabric_artifacts(workspace),
+                app=None,  # populated in fill_metadata_from_scan_result
+                # fabric_artifacts requires the scan response (Lakehouse /
+                # warehouses / SQLAnalyticsEndpoint keys are absent from the
+                # groups payload); set in fill_metadata_from_scan_result.
             )
             for workspace in groups
         ]
@@ -439,13 +441,13 @@ class PowerBiAPI:
         dataset_map: dict = {}
         scan_result = workspace.scan_result
 
-        if scan_result is None:
+        if not scan_result:
             return dataset_map
 
         datasets: Optional[Any] = scan_result.get(Constant.DATASETS)
         if datasets is None or len(datasets) == 0:
             logger.warning(
-                f"Workspace {scan_result[Constant.NAME]}({scan_result[Constant.ID]}) does not have datasets"
+                f"Workspace {scan_result.get(Constant.NAME)}({scan_result.get(Constant.ID)}) does not have datasets"
             )
 
             logger.info("Returning empty datasets")
@@ -654,13 +656,25 @@ class PowerBiAPI:
     def fill_metadata_from_scan_result(
         self,
         workspaces: List[Workspace],
-    ) -> None:
-        workspaces_by_id = {workspace.id: workspace for workspace in workspaces}
-        scan_result = self._get_scan_result(list(workspaces_by_id.keys()))
-        if not scan_result:
-            return
+    ) -> Set[str]:
+        """Populate scan-derived metadata (scan_result, fabric_artifacts,
+        datasets) on the given workspaces in place.
 
-        for workspace_metadata in scan_result["workspaces"]:
+        Returns the set of workspace IDs that the scan filtered out (inactive
+        or excluded by workspace_type_filter). Callers should skip these in
+        downstream phases to avoid redundant per-workspace API calls.
+        """
+        workspaces_by_id = {workspace.id: workspace for workspace in workspaces}
+        scan_result = self._get_scan_result(list(workspaces_by_id))
+        filtered_ids: Set[str] = set()
+        if not scan_result:
+            return filtered_ids
+
+        returned_ids: Set[str] = set()
+        for workspace_metadata in scan_result.get("workspaces") or []:
+            ws_id_in_scan = workspace_metadata.get(Constant.ID)
+            if ws_id_in_scan:
+                returned_ids.add(ws_id_in_scan)
             if (
                 workspace_metadata.get(Constant.STATE) != Constant.ACTIVE
                 or workspace_metadata.get(Constant.TYPE)
@@ -668,27 +682,64 @@ class PowerBiAPI:
             ):
                 # if the state is not "Active" then in some state like Not Found, "name" attribute is not present
                 wrk_identifier: str = (
-                    workspace_metadata[Constant.NAME]
-                    if workspace_metadata.get(Constant.NAME)
-                    else workspace_metadata.get(Constant.ID)
+                    workspace_metadata.get(Constant.NAME)
+                    or workspace_metadata.get(Constant.ID)
+                    or "<unknown>"
                 )
                 self.__reporter.info(
                     title="Skipped Workspace",
                     message="Workspace was skipped due to the workspace_type_filter",
                     context=f"workspace={wrk_identifier}",
                 )
+                if ws_id_in_scan and ws_id_in_scan in workspaces_by_id:
+                    filtered_ids.add(ws_id_in_scan)
                 continue
 
-            cur_workspace = workspaces_by_id.get(workspace_metadata[Constant.ID])
+            if not ws_id_in_scan:
+                # Active workspace entry without an id is a malformed scan
+                # response; nothing to correlate it to so skip safely.
+                logger.debug(
+                    "Scan returned an active workspace entry with no id; skipping."
+                )
+                continue
+
+            cur_workspace = workspaces_by_id.get(ws_id_in_scan)
             if not cur_workspace:
+                # Scan can surface workspace IDs that weren't requested in this
+                # batch; ignore them here (they get processed in their own batch
+                # if allowed) and log for debuggability.
+                logger.debug(
+                    "Scan returned workspace id %s outside the request batch; skipping.",
+                    ws_id_in_scan,
+                )
                 continue
 
             cur_workspace.scan_result = workspace_metadata
+            cur_workspace.fabric_artifacts = self._parse_fabric_artifacts(
+                workspace_metadata
+            )
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
             # collect all datasets in the registry
             self.dataset_registry.update(cur_workspace.datasets)
 
-        return
+        # Surface workspaces the scan API silently omitted. They still reach
+        # Phase 2 with empty scan metadata, but ingesters need visibility into
+        # the gap so they can investigate (typically an admin API permissions
+        # issue or a transient scan failure).
+        missing_ids = set(workspaces_by_id) - returned_ids - filtered_ids
+        for missing_id in missing_ids:
+            missing_ws = workspaces_by_id[missing_id]
+            self.__reporter.warning(
+                title="Incomplete Scan Metadata",
+                message=(
+                    "Workspace was requested but not present in the scan "
+                    "response; downstream metadata (endorsements, app, "
+                    "dataset lineage) may be incomplete for this workspace."
+                ),
+                context=f"workspace={missing_ws.name} id={missing_id}",
+            )
+
+        return filtered_ids
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
         reachable_datasets: List[str] = []
