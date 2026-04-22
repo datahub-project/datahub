@@ -153,136 +153,71 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
 
-    # Sheet upstreams skipped because the upstream element was filtered out of
-    # the chart map (e.g. a pivot-table blocked by get_page_elements's allowlist).
+    # Sheet upstream skipped because the upstream element was filtered out
+    # of the chart map (e.g. pivot-table blocked by page-element allowlist).
     num_filtered_sheet_upstreams: int = 0
 
-    # DM element emission / upstream resolution counters.
+    # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
     data_model_element_external_upstreams: int = 0
     data_model_element_upstreams_unresolved: int = 0
 
-    # Cross-DM element references (DM-A element pulls a table from DM-B).
-    # Wire shape confirmed 2026-04-22 against a live tenant: the consuming
-    # DM's ``/dataModels/{id}/lineage`` returns ``sourceIds`` of shape
-    # ``<otherDmUrlId>/<suffix>`` — identical to the workbook→DM shape. The
-    # suffix is opaque (Sigma's suffix↔elementId map is not exposed), so
-    # resolution falls back to the name-bridge using the consuming element's
-    # own ``name`` (Sigma's default: element name mirrors the source element).
-    # ``data_model_element_cross_dm_upstreams_resolved`` : edge emitted to
-    #   the referenced DM element Dataset URN. Ambiguous resolutions also
-    #   increment this counter — ``_ambiguous`` is a sub-shape of
-    #   ``_resolved``, not a disjoint outcome. Triage formula:
-    #   clean = _resolved − _ambiguous; ambiguous = _ambiguous.
-    # ``data_model_element_cross_dm_upstreams_ambiguous`` : multiple DM
-    #   elements share the name; deterministic pick-lowest-elementId used.
-    #   Always also counted under ``_resolved`` (see above).
-    # ``data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known``:
-    #   referenced DM was ingested but its element names do not include the
-    #   consuming element's name (user likely renamed the consuming element).
-    # ``data_model_element_cross_dm_upstreams_dm_unknown`` : referenced DM
-    #   is not part of this ingestion run (filtered or missing permission).
-    # On any unresolved outcome the existing ``data_model_element_upstreams_unresolved``
-    # also increments, so total unresolved counts stay correct.
+    # Cross-DM element references (DM-A element pulls from DM-B).
+    # ``_resolved``: edge emitted to a DM element Dataset URN. Ambiguous
+    #   resolutions are a sub-shape of ``_resolved`` and also increment
+    #   ``_ambiguous`` (clean = _resolved - _ambiguous).
+    # ``_name_unmatched_but_dm_known``: referenced DM ingested but no element
+    #   name matched (typically a consumer-side rename).
+    # ``_dm_unknown``: referenced DM not in this run.
+    # Unresolved outcomes also bump ``data_model_element_upstreams_unresolved``.
     data_model_element_cross_dm_upstreams_resolved: int = 0
     data_model_element_cross_dm_upstreams_ambiguous: int = 0
     data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
     data_model_element_cross_dm_upstreams_dm_unknown: int = 0
 
-    # Personal-space / unlisted DMs discovered on demand via /v2/dataModels/{urlId}.
-    # These DMs live outside the workspace-scoped /v2/dataModels listing (path
-    # "My Documents", workspaceId null) but are reachable by urlId. The discovery
-    # loop in get_workunits_internal fetches them so their Container + element
-    # Datasets are emitted and cross-DM lineage edges resolve end-to-end.
-    #
-    # ``data_model_external_references_discovered`` : an unlisted DM was
-    #   successfully fetched by urlId and added to the ingestion. Each such DM
-    #   emits one Container + N Dataset entities as if it had been listed.
-    # ``data_model_external_reference_unresolved`` : /v2/dataModels/{urlId}
-    #   returned non-200 (403 most common — the service-account client has no
-    #   visibility into that user's personal space). Edge suppressed; existing
-    #   ``data_model_element_cross_dm_upstreams_dm_unknown`` also increments.
-    # ``data_model_element_cross_dm_upstreams_single_element_fallback`` :
-    #   referenced DM has exactly one element and name-bridge miss was resolved
-    #   unambiguously by picking that single element. Common for CSV-upload DMs
-    #   where the consumer renames its own element ("Test Data") but the
-    #   producer retains the file name ("data.csv").
+    # Personal-space / unlisted DMs discovered via /v2/dataModels/{urlId}.
+    # ``_discovered``: an unlisted DM was fetched and added to the run.
+    # ``_unresolved``: fetch returned non-200 (usually 403).
+    # ``_single_element_fallback``: cross-DM name-bridge miss resolved by
+    #   picking the producer's sole element (common for CSV-upload DMs).
     data_model_external_references_discovered: int = 0
     data_model_external_reference_unresolved: int = 0
     data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
-    # ``data_model_element_cross_dm_upstreams_consumer_name_missing`` : the
-    #   *consuming* DM element has a blank name, so the name-bridge cannot
-    #   even be attempted. Distinct from ``_name_unmatched_but_dm_known``
-    #   (which means the DM is registered but no element matches the
-    #   consumer's name) — conflating the two makes triage mis-diagnose
-    #   "DM element rename broke the bridge" vs "consumer has no name".
+    # Consuming DM element had a blank name, so the name-bridge was never
+    # attempted (distinct from ``_name_unmatched_but_dm_known``).
     data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
 
-    # /columns entries with ``elementId = None`` (DM-global calculations).
-    # Dropped because there is no element Dataset to attach them to, but
-    # counted so a user reporting "missing field" can distinguish "column
-    # never existed" from "column silently dropped here".
+    # /columns entries with ``elementId = None`` (DM-global calculations),
+    # dropped because there is no element Dataset to attach them to.
     data_model_columns_without_element_dropped: int = 0
 
-    # Two DMs claimed the same ``urlId`` bridge key. The first wins the
-    # bridge registration (cross-DM lineage and workbook→DM refs resolve to
-    # it); the second is skipped at emit time so it cannot produce an
-    # orphan Container + Datasets the graph cannot link to. Non-zero here
-    # indicates a Sigma tenant with a slug reissued after an asset was
-    # deleted and another created — operators should inspect the warning
-    # log for the colliding ``(dataModelId, urlId)`` pairs.
+    # Two DMs claimed the same ``urlId`` bridge key. The first wins; the
+    # second is skipped at emit time to avoid an unlinked orphan. Non-zero
+    # means a reissued slug; see warning log for ``(dataModelId, urlId)``.
     data_models_bridge_key_collision: int = 0
 
-    # Duplicate ``column.name`` on a single DM element. Dropped to avoid
-    # emitting a ``SchemaMetadata`` with duplicate ``fieldPath`` values
-    # (GMS rejects / dedupes these non-deterministically). Counter
-    # surfaces partial schema visibility for report triage.
+    # Duplicate ``column.name`` on a single DM element, dropped to avoid
+    # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
-    # Workbook → DM element bridge counters. See sigma.py for the resolution
-    # algorithm; the DM element is matched by name (Sigma coalesces same-named
-    # DM element references at the API contract level, so name is sufficient).
-    # ``element_dm_edges_resolved``   : workbook→DM edge successfully resolved to
-    #                                   a DM element Dataset URN and emitted as
-    #                                   a unique input on the chart.
-    # ``element_dm_edges_deduped``    : resolved URN was already present on the
-    #                                   same chart's input set (e.g. diamond
-    #                                   lineage reference the same DM element
-    #                                   under different sourceIds); not emitted
-    #                                   a second time.
-    # ``element_dm_edge_ambiguous``   : multiple DM elements share the same
-    #                                   name; deterministic pick-first was used.
-    # ``element_dm_edge_name_unmatched_but_dm_known`` : DM itself was ingested
-    #                                   but the specific element name could not
-    #                                   be matched. No lineage edge is emitted
-    #                                   (``ChartInfo.inputs`` accepts only
-    #                                   Dataset URNs, so a Container URN cannot
-    #                                   substitute); counter surfaces partial
-    #                                   visibility for report triage.
-    # ``element_dm_edge_unresolved``  : DM is not known to this ingestion run
-    #                                   (filtered by pattern or never fetched);
-    #                                   no lineage edge is emitted.
+    # Workbook-to-DM-element bridge. Matched by element name.
+    # ``_resolved``: edge emitted as a unique chart input.
+    # ``_deduped``: URN already present on the chart (e.g. diamond lineage).
+    # ``_ambiguous``: multiple elements share the name; deterministic pick.
+    # ``_name_unmatched_but_dm_known``: DM ingested but name did not match
+    #   (no edge; ChartInfo.inputs requires Dataset URNs, not Container URNs).
+    # ``_unresolved``: DM not in this run.
     element_dm_edges_resolved: int = 0
     element_dm_edges_deduped: int = 0
     element_dm_edge_ambiguous: int = 0
     element_dm_edge_name_unmatched_but_dm_known: int = 0
-    # Sigma lineage node had no ``name`` field (the bridge cannot be
-    # attempted). Distinct from ``_name_unmatched_but_dm_known`` (DM
-    # known but a user-renamed element broke the match) — mirrors the
-    # cross-DM ``_consumer_name_missing`` counter so triage can tell
-    # "API didn't give us a name" from "rename broke the bridge".
+    # Lineage node had no ``name``; distinct from the rename-miss counter.
     element_dm_edge_upstream_name_missing: int = 0
     element_dm_edge_unresolved: int = 0
-    # Sigma's live API shape (probed 2026-04-22 on a real tenant) places the
-    # DM-reference node ``<dmUrlId>/<suffix>`` ONLY in ``edges[].source`` and
-    # NOT as a key in the ``dependencies`` dict. We synthesize the upstream
-    # from the edge alone, using the workbook element's own ``name`` as the
-    # DM element name (Sigma's default is to name the workbook ref after the
-    # referenced DM element; user rename degrades to ``element_dm_edge_*``
-    # counters above). This counter surfaces how many workbook→DM refs
-    # travelled the synthesized path vs. the legacy "DM in dependencies"
-    # path (which remains as defence against a future API shape change).
+    # Sigma places the DM-reference node only in ``edges[].source`` (not as
+    # a ``dependencies`` key). We synthesize the upstream using the workbook
+    # element's own ``name`` (Sigma's default mirrors the DM element name).
     element_dm_edge_synthesized_from_edge_only: int = 0
 
 
