@@ -1,12 +1,6 @@
-import warnings
-
-from datahub.errors import ExperimentalWarning
-
-warnings.filterwarnings("ignore", category=ExperimentalWarning)
-
-from datahub.metadata.urns import GlossaryTermUrn  # noqa: E402
-from datahub.sdk import DataHubClient  # noqa: E402
-from datahub.sdk.glossary_term import GlossaryTerm  # noqa: E402
+from datahub.metadata.urns import GlossaryTermUrn
+from datahub.sdk import DataHubClient
+from datahub.sdk.glossary_term import GlossaryTerm
 
 client = DataHubClient.from_env()
 
