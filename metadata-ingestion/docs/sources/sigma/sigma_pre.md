@@ -10,7 +10,7 @@ This source extracts the following:
 - Sigma Data Models as Containers, with each element as a Dataset
   inside the Container (opt-in via `ingest_data_models: true`; default
   `false`). `UpstreamLineage` is emitted on each element for intra-DM,
-  cross-DM, external (warehouse / Sigma Dataset), and workbook→DM
+  cross-DM, external (warehouse / Sigma Dataset), and workbook-to-DM
   references. Personal-space DMs referenced from ingested DMs are
   discovered on demand and gated by `ingest_shared_entities` and
   `data_model_pattern`. Report counters under

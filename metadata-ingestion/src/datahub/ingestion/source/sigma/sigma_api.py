@@ -351,21 +351,15 @@ class SigmaAPI:
                     exc=e,
                 )
         elif source_type == "data-model":
-            # DM element referenced from a workbook element. The node id has
-            # shape "<dataModelUrlId>/<opaque_suffix>"; the suffix is not
-            # resolvable via any public endpoint (2026-04-21 probe), so we
-            # carry the dataModelUrlId (prefix) and the DM element ``name``
-            # for name-based matching at emit time.
+            # Node id shape is "<dataModelUrlId>/<opaque_suffix>"; we carry
+            # the prefix and the DM-side ``name`` for name-based matching
+            # at emit time.
             dm_url_id = (
                 source_node_id.split("/")[0]
                 if "/" in source_node_id
                 else source_node_id
             )
             if not dm_url_id:
-                # Guard against a future API shape change (e.g. leading slash
-                # or empty prefix). An empty data_model_url_id would never
-                # match any entry in the bridge maps and silently degrade to
-                # unresolved; surface it as a report warning instead.
                 self.report.warning(
                     message="Sigma data-model lineage node missing url-id prefix",
                     context=(
@@ -375,18 +369,10 @@ class SigmaAPI:
                 )
                 return
             try:
-                # Name source: API-reported name on the DM-side node
-                # (``source_node[Constant.NAME]``). This is the DM element
-                # name as Sigma tracked it at the time of the workbook
-                # reference. The edge-only synthesis path below (line ~530)
-                # uses the *workbook* element's own name instead — the two
-                # diverge iff the workbook element was renamed after the
-                # DM element was linked. If Sigma switches a reference
-                # between the two API shapes at runtime (both observed on
-                # live tenants), a rename will silently degrade on only one
-                # of the two paths for the same underlying edge. Treat this
-                # as a known limitation — surface the failure via the
-                # ``element_dm_edge_name_unmatched_but_dm_known`` counter.
+                # Uses the API-reported DM-side name. The edge-only
+                # synthesis path below uses the workbook element's own
+                # name instead; the two diverge only if the workbook
+                # element was renamed after the DM link.
                 upstream_sources[source_node_id] = DataModelElementUpstream(
                     name=source_node.get(Constant.NAME),
                     data_model_url_id=dm_url_id,
@@ -398,15 +384,11 @@ class SigmaAPI:
                     exc=e,
                 )
         elif source_type == "join":
-            # Pass-through node: enqueue for continued BFS traversal.
-            queue.append(source_node_id)
+            queue.append(source_node_id)  # pass-through
         elif source_type == "table":
-            # Warehouse table: handled by SQL-parse path; terminal for BFS.
-            pass
+            pass  # terminal; warehouse lineage comes from SQL parsing
         else:
-            # Deduplicate per ``source_type`` across a run — Sigma can emit
-            # hundreds of identical unknown-type nodes across a large tenant,
-            # and a single warning per new type is sufficient signal.
+            # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
             if warn_key not in self._unknown_lineage_node_types_warned:
                 self._unknown_lineage_node_types_warned.add(warn_key)
@@ -422,16 +404,14 @@ class SigmaAPI:
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
     ) -> Dict[str, ElementUpstream]:
-        """
-        Returns upstream sources keyed by nodeId. Admits Sigma Dataset nodes
-        (type="dataset") and intra-workbook element nodes (type="sheet"). Walks
-        through join pass-through nodes transparently. Warehouse table nodes
-        (type="table") are skipped here — their lineage comes from the SQL-parse path.
+        """Return upstream sources keyed by nodeId, admitting Sigma Dataset
+        (``dataset``) and intra-workbook element (``sheet``) nodes. Walks
+        through ``join`` pass-through nodes. Warehouse tables (``table``)
+        come from the SQL-parse path and are skipped here.
 
-        Uses BFS from the queried element's own sheet node, following edges in
-        reverse (target→source), so only nodes reachable on the actual upstream
-        path are captured. This prevents spurious attribution from sibling edges
-        that happen to appear in the same response payload.
+        BFS from the queried element's sheet node, following edges in
+        reverse (target-to-source), so only reachable upstreams are
+        captured (sibling edges in the payload do not leak in).
         """
         upstream_sources: Dict[str, ElementUpstream] = {}
 
@@ -467,9 +447,8 @@ class SigmaAPI:
         try:
             dependencies = response_dict[Constant.DEPENDENCIES]
 
-            # Build reverse adjacency: target nodeId → list of source nodeIds.
-            # Per-edge isolation: a malformed edge skips only itself; valid edges
-            # before and after it still populate the adjacency map.
+            # Reverse adjacency (target nodeId -> source nodeIds). A
+            # malformed edge skips itself; others still populate.
             edges_by_target: Dict[str, List[str]] = {}
             for edge in response_dict[Constant.EDGES]:
                 try:
@@ -483,10 +462,9 @@ class SigmaAPI:
                         exc=e,
                     )
 
-            # Collect all seed nodes — sheet nodes whose elementId matches the queried
-            # element. Today Sigma returns exactly one, but the API contract is not
-            # documented; if multiple ever appear, BFS from all of them so no upstream
-            # reachable only from a secondary seed is silently dropped.
+            # Seeds: sheet nodes whose elementId matches the queried
+            # element. Sigma typically returns one, but we BFS from all of
+            # them defensively.
             seed_node_ids = [
                 node_id
                 for node_id, node_data in dependencies.items()
@@ -507,7 +485,7 @@ class SigmaAPI:
                     context=f"element={element.name}, workbook={workbook.name}, seed_count={len(seed_node_ids)}",
                 )
 
-            # BFS from all seeds, walking edges in reverse (target → source).
+            # BFS from all seeds, walking edges in reverse (target to source).
             visited: Set[str] = set(seed_node_ids)
             queue: Deque[str] = deque(seed_node_ids)
 
@@ -518,37 +496,18 @@ class SigmaAPI:
                         continue
                     visited.add(source_node_id)
 
-                    # Real Sigma API shape for workbook→DM-element references
-                    # (live-probed 2026-04-22): the DM-reference node
-                    # ``<dmUrlId>/<suffix>`` appears ONLY as an edge source
-                    # and NOT as a key in ``dependencies``. Detect that
-                    # structural signature ("/" in node id AND missing from
-                    # dependencies) and synthesize the ``DataModelElementUpstream``
-                    # from the edge alone.
-                    #
-                    # DM element name resolution: Sigma's public API does
-                    # not expose the suffix↔elementId map (2026-04-21 probe
-                    # of 18 candidate endpoints), and the edge itself carries
-                    # no DM element name. We fall back to the workbook
-                    # element's own ``name``, which — per Sigma's default
-                    # workflow — is initialized to the referenced DM element
-                    # name. If the user later renames the workbook element,
-                    # the name-bridge resolver returns None and the
-                    # ``element_dm_edge_name_unmatched_but_dm_known`` counter
-                    # surfaces the partial visibility for report triage.
+                    # Workbook-to-DM-element reference: the node
+                    # ``<dmUrlId>/<suffix>`` appears only as an edge source
+                    # (not as a ``dependencies`` key). Synthesize the
+                    # upstream from the edge. The edge carries no DM-side
+                    # name, so we fall back to the workbook element's own
+                    # name (Sigma's default mirrors the DM element name).
+                    # A user rename degrades to
+                    # ``element_dm_edge_name_unmatched_but_dm_known``.
                     if source_node_id not in dependencies and "/" in source_node_id:
                         dm_url_id, _, suffix = source_node_id.partition("/")
                         if dm_url_id and suffix:
                             try:
-                                # Name source divergence with the
-                                # dependencies-branch resolver above: that
-                                # path uses the API-reported ``source_node.name``
-                                # (DM-side name); this path uses the consuming
-                                # workbook element's own ``element.name``
-                                # because the edge carries no DM-side name.
-                                # Diverges iff the workbook element was renamed
-                                # after the DM link — a known limitation
-                                # documented in the resolver docstring.
                                 upstream_sources[source_node_id] = (
                                     DataModelElementUpstream(
                                         name=element.name,
@@ -566,12 +525,10 @@ class SigmaAPI:
                                     exc=e,
                                 )
                             continue
-                        # Fall through to the standard path below: a node id
-                        # with an empty prefix OR empty suffix is malformed;
-                        # let the legacy dispatch surface a warning.
+                        # Malformed (empty prefix or suffix): fall through
+                        # so the legacy dispatch surfaces a warning.
 
-                    # Per-node isolation: one malformed node skips rather than
-                    # blanking the entire element's lineage.
+                    # Per-node isolation: a malformed node skips itself.
                     try:
                         source_node = dependencies[source_node_id]
                     except (KeyError, AttributeError, TypeError) as e:
@@ -592,17 +549,16 @@ class SigmaAPI:
                             workbook,
                         )
                     except (KeyError, AttributeError, TypeError, ValidationError) as e:
-                        # ValidationError is caught inside _process_lineage_node for
-                        # pydantic construction failures; this outer catch is defence-in-depth
-                        # for any unexpected ValidationError that escapes the helper.
+                        # Defence-in-depth; the helper already handles
+                        # ValidationError internally.
                         self.report.warning(
                             message="Failed to parse Sigma lineage node",
                             context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                             exc=e,
                         )
         except (KeyError, AttributeError, TypeError, ValidationError) as e:
-            # Structural errors in setup phase only (missing DEPENDENCIES/EDGES key,
-            # malformed edge fields, non-dict entries during seed search).
+            # Structural errors in the setup phase (missing keys, malformed
+            # edges, non-dict seed entries).
             self.report.warning(
                 message="Failed to parse Sigma element lineage response",
                 context=f"element={element.name}, workbook={workbook.name}",
@@ -695,21 +651,13 @@ class SigmaAPI:
         self, base_url: str, model_cls: Type[T], error_ctx: str
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
-        ``model_cls``. Handles both pagination shapes Sigma uses:
-        ``nextPage`` (integer cursor, older endpoints) and ``nextPageToken``
-        (opaque cursor, /dataModels and newer endpoints) — see
-        ``get_data_models`` for the same pattern applied inline. Swallows
-        HTTP/JSON errors so a broken page does not abort the containing
-        ingestion loop, matching the existing pattern in this module.
+        ``model_cls``. Handles both pagination shapes (``nextPage`` and
+        ``nextPageToken``). Swallows HTTP/JSON errors so a broken page
+        does not abort the containing ingestion loop.
 
-        ``base_url`` must not contain an existing query string — the
-        pagination shape below appends ``?page=...`` / ``?nextPageToken=...``
-        without URL-escaping or merging existing params. A future caller
-        passing e.g. ``/endpoint?permissionFilter=X`` would silently drop
-        that param on page 2. Callers needing query params should compose
-        them via ``urllib.parse.urlencode`` and keep the pagination logic
-        here param-free, or switch this helper to ``urlencode``-based
-        composition.
+        ``base_url`` must not contain a query string; the loop appends
+        ``?page=...`` / ``?nextPageToken=...`` without merging existing
+        params.
         """
         assert "?" not in base_url, (
             f"_paginated_entries requires a bare path (no query string); got {base_url!r}"
@@ -757,12 +705,9 @@ class SigmaAPI:
     def _get_data_model_lineage_entries(
         self, data_model_id: str
     ) -> List[Dict[str, Any]]:
-        """
-        Returns the raw entries from the DM /lineage endpoint. Each entry has a
-        ``type`` field (``element``, ``dataset``, ``table``, ``join``...). For
-        ``element`` entries, ``sourceIds`` holds either another elementId in
-        the same DM (intra-DM lineage) or ``inode-<suffix>`` strings for
-        external upstreams (warehouse tables or Sigma Datasets).
+        """Return raw entries from the DM /lineage endpoint. ``element``
+        entries have ``sourceIds`` holding either an intra-DM elementId
+        or an ``inode-<suffix>`` for external upstreams.
         """
         logger.debug(f"Fetching lineage for data model '{data_model_id}'.")
         url = f"{self.config.api_url}/dataModels/{data_model_id}/lineage"
@@ -802,11 +747,7 @@ class SigmaAPI:
         columns_by_element: Dict[str, List[SigmaDataModelColumn]] = {}
         for column in columns:
             if column.elementId is None:
-                # Columns without an elementId are unusual but possible (e.g.
-                # on DM-global calculations). Skip — we have no element to
-                # attach them to, and dropping them is safer than producing a
-                # phantom orphan. Count dropped so "missing field" triage can
-                # distinguish this path from "column never existed upstream".
+                # DM-global calculations: no element to attach to.
                 self.report.data_model_columns_without_element_dropped += 1
                 continue
             columns_by_element.setdefault(column.elementId, []).append(column)
@@ -821,14 +762,9 @@ class SigmaAPI:
                     source_ids_by_element[element_id] = [
                         s for s in source_ids if isinstance(s, str)
                     ]
-            # ``type: dataset`` and ``type: table`` entries describe external
-            # nodes that DM elements may reference via ``inode-<id>`` source
-            # ids. Per the external-upstream resolver, ``type: dataset`` is
-            # resolved against ``sigma_dataset_urn_by_url_id`` (only Sigma
-            # Datasets ingested in this run produce an edge); ``type: table``
-            # would require SQL parsing that the DM API does not expose.
-            # Neither needs to be stashed on the DM — the resolver consults
-            # the cross-run sigma_dataset bridge map directly.
+            # ``type: dataset`` / ``type: table`` entries are resolved
+            # on the fly from their ``inode-<id>`` source_ids; no DM-side
+            # stash is needed.
 
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])
@@ -837,19 +773,10 @@ class SigmaAPI:
         data_model.elements = elements
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
-        """
-        Fetch a DM by its urlId (not UUID). Used to resolve DMs referenced from
-        another DM's /lineage that are not returned by /v2/dataModels — typically
-        personal-space assets (``path: "My Documents"``, ``workspaceId: null``)
-        or other items that the workspace-scoped listing skips.
+        """Fetch a DM by its urlId (not UUID). Used to resolve personal-space
+        or otherwise unlisted DMs referenced from another DM's /lineage.
 
-        Sigma's /v2/dataModels/{id} endpoint accepts either UUID or urlId as the
-        path arg. When queried by urlId the response carries ``dataModelUrlId``
-        (populated) rather than ``urlId`` (legacy field — returns null for these
-        assets). Normalize to ``urlId`` so downstream consumers stay uniform.
-
-        Returns None on HTTP non-200 (403 / 404) so the caller can count and
-        continue without aborting the ingestion run.
+        Returns None on non-200 so the caller can count and continue.
         """
         logger.debug(f"Fetching data model by url_id '{url_id}'.")
         url = f"{self.config.api_url}/dataModels/{url_id}"
@@ -861,13 +788,12 @@ class SigmaAPI:
                 )
                 return None
             data = response.json()
-            # API shape inconsistency — by-urlId response uses ``dataModelUrlId``,
-            # by-UUID response uses ``urlId`` (often null). Normalize.
+            # By-urlId responses return ``dataModelUrlId`` and a null
+            # ``urlId``; by-UUID responses use ``urlId``. Normalize.
             if "dataModelUrlId" in data and not data.get("urlId"):
                 data["urlId"] = data["dataModelUrlId"]
             dm = SigmaDataModel.model_validate(data)
-            # No file_meta — these DMs are not in /files (workspace-scoped listing
-            # skips them). workspaceId stays whatever the body returned (likely None).
+            # No file_meta: these DMs are not in /files.
             self._assemble_data_model(dm, file_meta=None)
             return dm
         except Exception as e:
@@ -901,15 +827,10 @@ class SigmaAPI:
 
                     file_meta = data_model_files_metadata.get(data_model.dataModelId)
 
-                    # Intentional ordering: ``data_model_pattern`` first, then
-                    # workspace. ``get_sigma_workbooks`` / ``get_sigma_datasets``
-                    # evaluate workspace first because their payloads already
-                    # carry everything needed to emit; DM entries require three
-                    # additional round trips (/elements, /columns, /lineage)
-                    # per entry, and short-circuiting on the cheap name regex
-                    # avoids them entirely for filtered DMs. If this ever gets
-                    # "consistency-fixed" to workspace-first, performance
-                    # regresses sharply on tenants with many filtered DMs.
+                    # DM-pattern filter runs before workspace lookup to
+                    # short-circuit three extra HTTP calls per filtered DM.
+                    # (get_sigma_workbooks/datasets check workspace first
+                    # because their payload is already complete.)
                     if not self.config.data_model_pattern.allowed(data_model.name):
                         self.report.data_models.dropped(
                             f"{data_model.name} ({data_model.dataModelId})"

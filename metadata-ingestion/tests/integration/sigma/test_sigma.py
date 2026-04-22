@@ -522,7 +522,7 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mock):
     """
     Exercises intra-workbook (element-to-element) lineage:
-    - direct sheet→sheet edge (nodeId != elementId)
+    - direct sheet-to-sheet edge (nodeId != elementId)
     - sheet upstream reached via a join pass-through node
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
@@ -570,7 +570,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                     },
                     {
                         # Filtered by get_page_elements (not in allowlist) — never
-                        # enters the elementId→chart_urn map.
+                        # enters the elementId-to-chart_urn map.
                         "elementId": "pivotElem01",
                         "type": "pivot-table",
                         "name": "Pivot Table Element",
@@ -588,7 +588,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                     },
                     {
                         # Cross-page reference: upstream is kH0MeihtGs on Page 1.
-                        # Verifies that elementId→chart_urn is built at workbook scope,
+                        # Verifies that elementId-to-chart_urn is built at workbook scope,
                         # not page scope — a page-scoped map would miss Page 1 elements
                         # while processing Page 3 and produce no inputEdges here.
                         "elementId": "crossPageDownstreamElem",
@@ -631,7 +631,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
         },
         # downstreamElem01: direct sheet upstream; nodeId ("src_node_upstream") !=
         # elementId ("upstreamElem01") — the critical fixture-fiction guard.
-        # Also includes an unrelated edge (unrelated_sheet_node → unrelated_target)
+        # Also includes an unrelated edge (unrelated_sheet_node to unrelated_target)
         # that is NOT reachable from tgt_node_downstream via reverse BFS. With the
         # old scrape-every-edge-source approach this would add a spurious upstream_sources
         # entry; the BFS implementation correctly excludes it.
@@ -680,7 +680,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
             },
         },
         # joinDownstreamElem: sheet upstream reached via a join pass-through node.
-        # The sheet edge (upstreamElem01→join) appears directly in the edges list,
+        # The sheet edge (upstreamElem01 to join) appears directly in the edges list,
         # making the join transparent without any recursive traversal.
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/joinDownstreamElem": {
             "method": "GET",
@@ -770,7 +770,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
         },
         # crossPageDownstreamElem: sheet upstream is kH0MeihtGs on Page 1.
         # inputEdges must point to urn:li:chart:(sigma,kH0MeihtGs), proving the
-        # elementId→chart_urn map is workbook-scoped (page-scoped would miss it).
+        # elementId-to-chart_urn map is workbook-scoped (page-scoped would miss it).
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/crossPageDownstreamElem": {
             "method": "GET",
             "status_code": 200,
@@ -850,11 +850,11 @@ def get_mock_data_model_api() -> Dict[str, Dict]:
     mirroring the live-tenant regression case from the T2 investigation:
 
     - 3 elements, two of which share the same name (duplicate-name case)
-    - intra-DM element lineage (element 3 → element 1)
+    - intra-DM element lineage (element 3 to element 1)
     - external upstream: element 1 sourced from an existing Sigma Dataset
       (``PETS`` with urlId ``49HFLTr6xytgrPly3PFsNC``)
     - workbook elements referencing DM elements via the ``data-model`` lineage
-      node type — the workbook→DM bridge exercises both the name-match primary
+      node type — the workbook-to-DM bridge exercises both the name-match primary
       path and the Container fallback path (unknown DM element name)
 
     Returns the full mock dict so individual tests can further override it.
@@ -1062,7 +1062,7 @@ def get_mock_data_model_api() -> Dict[str, Dict]:
 
 def _apply_dm_bridge_workbook_overrides(override_data: Dict[str, Dict]) -> None:
     """Add a workbook page whose elements reference the DM via ``data-model``
-    lineage nodes. Exercises all three workbook→DM bridge outcomes:
+    lineage nodes. Exercises all three workbook-to-DM bridge outcomes:
     name-match, ambiguous-name, and name-fail (container-fallback / unresolved
     depending on whether the DM was emitted)."""
     override_data[
@@ -1211,7 +1211,7 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
     - multi-element DM emits 1 Container + 3 Datasets (duplicate-named element
       included as an orphan)
     - per-element schemaMetadata (no cross-element column-name collision)
-    - intra-DM element→element UpstreamLineage
+    - intra-DM element-to-element UpstreamLineage
     - external upstream resolves to an existing Sigma Dataset URN
     - workbook element bridges to a DM element via a ``data-model`` lineage
       node (name-match primary path + ambiguous-name counter)
@@ -1264,7 +1264,7 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
-    """``data_model_pattern`` denies the DM → no DM entities emitted and
+    """``data_model_pattern`` denies the DM, so no DM entities emitted and
     workbook elements previously bridging to the DM degrade to
     ``element_dm_edge_unresolved`` (bridge maps never registered)."""
 
@@ -1910,10 +1910,10 @@ def test_sigma_ingest_data_models_lineage_node_missing_name(
     pipeline.raise_from_status()
 
     report = _sigma_report(pipeline)
-    # dmRefElem01: DM node has no name → element_dm_edge_upstream_name_missing.
+    # dmRefElem01: DM node has no name, counts as element_dm_edge_upstream_name_missing.
     # dmRefElem02: name="random data model", resolves (ambiguous, but a hit).
     # dmRefElem03: name="name_not_in_dm", DM known but no matching element
-    #              → element_dm_edge_name_unmatched_but_dm_known.
+    #              counts as element_dm_edge_name_unmatched_but_dm_known.
     assert report.element_dm_edge_upstream_name_missing == 1, (
         f"expected 1 upstream_name_missing, got "
         f"{report.element_dm_edge_upstream_name_missing}"
@@ -1998,7 +1998,7 @@ def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
     )
 
     report = _sigma_report(pipeline)
-    # One ambiguous chart→DM edge ⇒ counter bumps exactly once. The
+    # One ambiguous chart-to-DM edge bumps the counter exactly once. The
     # diamond-pattern test
     # (``test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamond``)
     # pins the no-over-count behavior for repeated sourceIds.
@@ -2011,14 +2011,14 @@ def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
 def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
     pytestconfig, tmp_path, requests_mock
 ):
-    """Regression pin for the real Sigma API shape of workbook→DM element
+    """Regression pin for the real Sigma API shape of workbook-to-DM element
     lineage (live-probed 2026-04-22 on a tenant workbook).
 
     Real tenants return the DM-reference node ``<dmUrlId>/<suffix>`` ONLY
     as an edge source — the node is NOT a key in the ``dependencies`` dict.
     Before the synthesis fix, the BFS loop raised ``KeyError`` when looking
     up the missing dependency entry, blanking the entire element's lineage
-    and silently dropping every workbook→DM edge in production. This test
+    and silently dropping every workbook-to-DM edge in production. This test
     reproduces that shape and asserts that:
 
     1. ``DataModelElementUpstream`` is synthesized from the edge alone,
@@ -2124,18 +2124,18 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
 
     report = _sigma_report(pipeline)
 
-    # All 3 workbook→DM refs travelled the synthesized path (none were
+    # All 3 workbook-to-DM refs travelled the synthesized path (none were
     # present in dependencies), so the counter bumps once per ref.
     assert report.element_dm_edge_synthesized_from_edge_only == 3, (
         f"expected 3 synthesized DM refs, got "
         f"{report.element_dm_edge_synthesized_from_edge_only}"
     )
 
-    # dmRefElem01 → "2313213123.test.231" (unique name, single DM element
-    #                match → resolves to 4plNusNz75).
-    # dmRefElem02 → "random data model" (ambiguous across 2 DM elements;
-    #                deterministic pick = lowest elementId = 0ui59vLc38).
-    # dmRefElem03 → user-renamed name → unmatched; DM is known to this run
+    # dmRefElem01: "2313213123.test.231" (unique name, single DM element
+    #              match resolves to 4plNusNz75).
+    # dmRefElem02: "random data model" (ambiguous across 2 DM elements;
+    #              deterministic pick-lowest resolves to 0ui59vLc38).
+    # dmRefElem03: user-renamed name, unmatched; DM is known to this run
     #                so the name-unmatched-but-known counter bumps.
     assert report.element_dm_edges_resolved == 2, (
         f"expected 2 resolved bridge edges (01 + 02), got "
@@ -2192,12 +2192,12 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
 def test_sigma_ingest_data_models_cross_dm_upstream(
     pytestconfig, tmp_path, requests_mock
 ):
-    """Regression pin for DM→DM cross-reference upstream lineage.
+    """Regression pin for DM-to-DM cross-reference upstream lineage.
 
     When a Sigma user imports a table from Data-Model-A into Data-Model-B,
     Sigma's ``/dataModels/{B_id}/lineage`` returns the consuming element's
     ``sourceIds`` in the shape ``<A_urlId>/<opaque_suffix>`` — the same
-    shape as workbook→DM references (live-probed 2026-04-22 against a
+    shape as workbook-to-DM references (live-probed 2026-04-22 against a
     real tenant: ``Test Source`` DM importing ``Test Data`` from
     ``Test Model``). The suffix is opaque (Sigma does not expose a public
     endpoint that maps it to an ``elementId``), so resolution falls back
@@ -2822,7 +2822,7 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
         f"got {len(schema_mces)}"
     )
 
-    # --- Assertion 3: consumer element Dataset has UpstreamLineage → producer ---
+    # --- Assertion 3: consumer element Dataset has UpstreamLineage to producer ---
     upstream_mces = [
         mce
         for mce in mces
@@ -3724,7 +3724,7 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
 
     Behavior: the first registration wins the bridge key, and the second
     DM is **skipped from emission entirely**. Previously, the second DM
-    would emit a Container + element Datasets that cross-DM and workbook→DM
+    would emit a Container + element Datasets that cross-DM and workbook-to-DM
     references could never link to (every lineage edge routes to the
     first DM by the bridge key), quietly polluting the graph with an
     orphan DM. The ``data_models_bridge_key_collision`` counter must
@@ -3826,7 +3826,7 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
     )
     assert duplicate_entities == [], (
         "colliding DM must not emit any entities — it cannot be linked by "
-        "cross-DM or workbook→DM lineage (the first DM owns the bridge "
+        "cross-DM or workbook-to-DM lineage (the first DM owns the bridge "
         f"key), so emitting it would create an orphan node. Got: "
         f"{[mce.get('entityUrn') for mce in duplicate_entities]}"
     )
@@ -4051,7 +4051,7 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
     with open(output_path) as f:
         mces = json.load(f)
 
-    # One chart→DM-element edge should land (the dedupe collapses the
+    # One chart-to-DM-element edge should land (the dedupe collapses the
     # 3 diamond sourceIds into 1 ChartInfo.inputs entry).
     dm_uuid = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
     expected_resolved_urn = (
@@ -4073,9 +4073,9 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
 
     report = _sigma_report(pipeline)
     # Ambiguity is a property of the DM element (not per-sourceId), so
-    # the counter must bump exactly once for this chart→DM edge.
+    # the counter must bump exactly once for this chart-to-DM edge.
     assert report.element_dm_edge_ambiguous == 1, (
-        f"expected element_dm_edge_ambiguous=1 (per-unique-chart→DM-edge), "
+        f"expected element_dm_edge_ambiguous=1 (per-unique-chart-to-DM-edge), "
         f"got {report.element_dm_edge_ambiguous}"
     )
     # The other two diamond paths are dedupe hits.
