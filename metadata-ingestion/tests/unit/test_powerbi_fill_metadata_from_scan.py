@@ -9,16 +9,18 @@ Covers the branches added to support cross-workspace scanning:
   invariant that enables cross-workspace reference resolution).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, cast
 from unittest import mock
 
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
+from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Workspace
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 
@@ -389,6 +391,128 @@ def test_fill_regular_metadata_detail_with_empty_scan_and_endorsements_enabled()
     )
     assert workspace.report_endorsements == {}
     assert workspace.app is None
+
+
+def _make_source(
+    workspaces_to_return: List[Workspace],
+    scan_filtered_ids: Set[str],
+    **config_overrides: Any,
+) -> PowerBiDashboardSource:
+    """Build a PowerBiDashboardSource with a fully-mocked PowerBiAPI so we can
+    drive get_workunits_internal end-to-end without hitting the network."""
+    config_overrides.setdefault("scan_batch_size", 10)
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="tenant",
+        client_id="client",
+        client_secret="secret",
+        **config_overrides,
+    )
+    ctx = PipelineContext(run_id="test-run")
+    source = PowerBiDashboardSource(config=config, ctx=ctx)
+    source.validate_dataset_type_mapping = mock.MagicMock()  # type: ignore[method-assign]
+    source.get_allowed_workspaces = mock.MagicMock(  # type: ignore[method-assign]
+        return_value=workspaces_to_return
+    )
+    source.powerbi_client.fill_metadata_from_scan_result = mock.MagicMock(  # type: ignore[method-assign]
+        return_value=scan_filtered_ids
+    )
+    source.powerbi_client.fill_regular_metadata_detail = mock.MagicMock()  # type: ignore[method-assign]
+    source.get_workspace_workunit = mock.MagicMock(return_value=iter([]))  # type: ignore[method-assign]
+    return source
+
+
+def test_get_workunits_internal_skips_scan_filtered_workspaces_in_phase_2():
+    """When fill_metadata_from_scan_result reports that some workspaces were
+    filtered out by the scan API, those workspaces must NOT receive
+    fill_regular_metadata_detail calls (the redundant API calls this PR
+    eliminates)."""
+    ws_a = _make_workspace("WS-A", name="kept")
+    ws_b = _make_workspace("WS-B", name="filtered")
+    ws_c = _make_workspace("WS-C", name="kept-too")
+    source = _make_source(
+        workspaces_to_return=[ws_a, ws_b, ws_c],
+        scan_filtered_ids={"WS-B"},
+    )
+
+    list(source.get_workunits_internal())
+
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-A", "WS-C"], (
+        f"Phase 2 must skip scan-filtered WS-B; got {processed}"
+    )
+
+
+def test_get_workunits_internal_processes_all_when_no_workspaces_filtered():
+    """Baseline: when the scan filters nothing, every allowed workspace must
+    flow through Phase 2 unchanged."""
+    workspaces = [
+        _make_workspace("WS-A"),
+        _make_workspace("WS-B"),
+    ]
+    source = _make_source(workspaces_to_return=workspaces, scan_filtered_ids=set())
+
+    list(source.get_workunits_internal())
+
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-A", "WS-B"]
+
+
+def test_get_workunits_internal_modified_since_branch_runs_per_workspace():
+    """When modified_since is configured, each workspace must register a fresh
+    job_id with the stale entity removal handler before yielding workunits.
+    This exercises the modified_since branch of get_workunits_internal that
+    wires per-workspace stateful ingestion checkpoints."""
+    workspaces = [_make_workspace("WS-A"), _make_workspace("WS-B")]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        scan_filtered_ids=set(),
+        modified_since="2024-01-01T00:00:00",
+    )
+    source.stale_entity_removal_handler = mock.MagicMock()  # type: ignore[assignment]
+    source.state_provider = mock.MagicMock()  # type: ignore[assignment]
+    source._apply_workunit_processors = mock.MagicMock(return_value=iter([]))  # type: ignore[method-assign]
+
+    list(source.get_workunits_internal())
+
+    set_job_id = cast(mock.MagicMock, source.stale_entity_removal_handler.set_job_id)
+    job_ids = [call.args[0] for call in set_job_id.call_args_list]
+    assert job_ids == ["WS-A", "WS-B"], (
+        f"set_job_id must be called once per workspace; got {job_ids}"
+    )
+    assert source._apply_workunit_processors.call_count == 2
+
+
+def test_get_workunits_internal_batches_phase_1_by_scan_batch_size():
+    """Phase 1 must call fill_metadata_from_scan_result once per
+    scan_batch_size chunk; the union of returned filtered IDs must drive the
+    Phase 2 skip logic across all batches."""
+    workspaces = [_make_workspace(f"WS-{i}") for i in range(5)]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        scan_filtered_ids=set(),
+        scan_batch_size=2,
+    )
+    fill_scan = mock.MagicMock(side_effect=[{"WS-0"}, {"WS-3"}, set()])
+    source.powerbi_client.fill_metadata_from_scan_result = fill_scan  # type: ignore[method-assign]
+
+    list(source.get_workunits_internal())
+
+    assert fill_scan.call_count == 3, (
+        "scan_batch_size=2 over 5 workspaces must produce 3 batches"
+    )
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-1", "WS-2", "WS-4"], (
+        f"Filtered-out IDs from any batch must be skipped in Phase 2; got {processed}"
+    )
 
 
 def test_get_workspace_datasets_tolerates_empty_scan_result():
