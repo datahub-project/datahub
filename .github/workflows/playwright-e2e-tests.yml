@@ -55,9 +55,11 @@ jobs:
 
       - name: Set shard count
         id: set-shard-count
+        env:
+          SHARD_COUNT_INPUT: ${{ github.event.inputs.shard_count }}
         run: |
-          if [[ -n "${{ github.event.inputs.shard_count }}" ]]; then
-            echo "shard_count=${{ github.event.inputs.shard_count }}" >> "$GITHUB_OUTPUT"
+          if [[ -n "$SHARD_COUNT_INPUT" ]]; then
+            echo "shard_count=$SHARD_COUNT_INPUT" >> "$GITHUB_OUTPUT"
           else
             echo "shard_count=4" >> "$GITHUB_OUTPUT"
           fi
