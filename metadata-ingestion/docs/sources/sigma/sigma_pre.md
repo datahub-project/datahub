@@ -40,9 +40,17 @@ This source extracts the following:
   occurrence is surfaced through the report counters
   `element_dm_edge_name_unmatched_but_dm_known` (DM was ingested but the
   specific element name did not match) and `element_dm_edge_unresolved`
-  (DM itself is not tracked in this run). Set `ingest_data_models: false`
-  to skip Data Model ingestion, and use `data_model_pattern` to allow/deny
-  individual Data Models by name.
+  (DM itself is not tracked in this run). Data Model ingestion is **opt-in**:
+  set `ingest_data_models: true` in the recipe to enable it (default is
+  `false`), and use `data_model_pattern` to allow/deny individual Data
+  Models by name.
+
+  Schema caveat: Sigma's Data Model `/columns` API does not return a
+  per-column type, so every Data Model element Dataset is emitted with
+  `SchemaField.type = String` / `nativeDataType = "String"`. This is a
+  known Sigma API limitation, not a modeling choice on the DataHub side —
+  type information will materialize once Sigma exposes it on the columns
+  payload (or once column-level lineage resolves back to a typed upstream).
 
   Column-level lineage (CLL / `FineGrainedLineage`) is **not yet emitted**
   on Data Model element `UpstreamLineage`. Each element Dataset already

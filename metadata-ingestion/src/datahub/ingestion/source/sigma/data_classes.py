@@ -58,8 +58,16 @@ class SigmaDataset(BaseModel):
 
 class DatasetUpstream(BaseModel):
     type: Literal["dataset"] = "dataset"
-    # Required: used by sigma.py to correlate with SQL-parsed warehouse table names.
-    name: str
+    # Used by sigma.py to correlate with SQL-parsed warehouse table names.
+    # Optional because Sigma's lineage payloads very occasionally surface
+    # ``name: null`` for a dataset upstream (observed in personal-space
+    # datasets and tenant exports); the correlation path in
+    # ``_get_element_input_details`` already guards on a missing name so
+    # the whole upstream does not need to be rejected at parse time.
+    # (``SheetUpstream.name`` is Optional for the same reason;
+    # ``DataModelElementUpstream.name`` is Optional because some DM
+    # references are edge-only and carry no name at all.)
+    name: Optional[str] = None
 
 
 class SheetUpstream(BaseModel):
@@ -228,6 +236,9 @@ class SigmaDataModel(BaseModel):
         # (owners, terms, lineage) to the old URNs. Matches ``DataModelKey``
         # which uses ``dataModelId`` for the Container URN. ``dataModelUrlId``
         # is still surfaced via ``DatasetProperties.customProperties`` for
-        # humans. The UUID's dashes also make collision with the Sigma
-        # Dataset URN shape (``sigma, <slug>, env``) effectively impossible.
+        # humans. A Sigma dataset slug colliding with ``<uuid>.<elementId>``
+        # is unlikely in practice — Sigma urlIds are base58 / url-safe
+        # tokens without dots (observed on 2026-04-22) — but not
+        # structurally impossible; if a future Sigma schema change
+        # allowed dots in slugs this invariant would need revisiting.
         return f"{self.dataModelId}.{element.elementId}"

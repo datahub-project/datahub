@@ -696,9 +696,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _prepopulate_dm_bridge_maps(self, data_model: SigmaDataModel) -> Dict[str, str]:
         """
-        Populate the global DM bridge maps (``dm_container_urn_by_url_id``
-        and ``dm_element_urn_by_name``) for a single DM and return the local
-        ``elementId → Dataset URN`` map used for intra-DM lineage resolution.
+        Populate the global DM bridge maps (``dm_container_urn_by_url_id``,
+        ``dm_element_urn_by_name``, ``dm_total_element_count_by_url_id``)
+        for a single DM and return the local ``elementId → Dataset URN``
+        map used for intra-DM lineage resolution.
 
         Called eagerly for every DM *before* any DM emits workunits, so
         cross-DM lineage (DM-A references DM-B's element) resolves regardless
@@ -707,43 +708,43 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         workbook→DM bridge, which also depends on every DM being registered
         before workbook emission starts.
 
-        Register mappings under both ``urlId`` and ``dataModelId`` keys:
-        lineage ``sourceId`` prefixes and workbook lineage node ids use
-        ``urlId``, but if ``urlId`` is missing (``get_url_id`` falls back to
-        ``dataModelId``) the bridge still resolves. The set collapses the
-        redundant case.
+        Bridge maps are keyed on ``get_url_id()`` — Sigma's ``<urlId>`` slug
+        when present, with ``dataModelId`` (UUID) as the fallback when
+        ``urlId`` is missing. All bridge-map consumers query via the same
+        function (cross-DM ``<prefix>/<suffix>`` parse, workbook lineage
+        node ids), so a single key suffices; no caller queries by the
+        raw UUID.
         """
         data_model_key = self._gen_data_model_key(data_model.dataModelId)
         data_model_container_urn = builder.make_container_urn(data_model_key)
-        dm_url_id = data_model.get_url_id()
+        bridge_key = data_model.get_url_id()
 
-        bridge_keys = {dm_url_id, data_model.dataModelId}
-        for key in bridge_keys:
-            # ``urlId`` is a short slug with documented collision history in
-            # older Sigma tenants (same slug reissued after an asset is
-            # deleted and another created). A second DM claiming an already-
-            # registered key would silently overwrite the first, producing
-            # mis-routed cross-DM lineage. Detect the collision, keep the
-            # first registration, and warn so operators can inspect the
-            # tenant. ``dataModelId`` (UUID) collisions are structurally
-            # impossible and the same-key-same-urn case (re-registering the
-            # same DM) is benign — only warn on a true URN mismatch.
-            existing = self.dm_container_urn_by_url_id.get(key)
-            if existing is not None and existing != data_model_container_urn:
-                logger.warning(
-                    "Sigma DM bridge key %r already registered to %s; new DM "
-                    "%s (%s) claims the same key but resolves to %s — keeping "
-                    "the first registration. Cross-DM lineage referring to %r "
-                    "may be mis-routed until the collision is resolved.",
-                    key,
-                    existing,
-                    data_model.name,
-                    data_model.dataModelId,
-                    data_model_container_urn,
-                    key,
-                )
-                continue
-            self.dm_container_urn_by_url_id[key] = data_model_container_urn
+        # ``urlId`` is a short slug with documented collision history in
+        # older Sigma tenants (same slug reissued after an asset is
+        # deleted and another created). A second DM claiming an already-
+        # registered key would silently overwrite the first, producing
+        # mis-routed cross-DM lineage. Detect the collision, keep the
+        # first registration, and warn so operators can inspect the
+        # tenant. The same-key-same-URN case (re-registering the same DM)
+        # is benign — only warn on a true URN mismatch.
+        existing_container = self.dm_container_urn_by_url_id.get(bridge_key)
+        container_collision = (
+            existing_container is not None
+            and existing_container != data_model_container_urn
+        )
+        if container_collision:
+            logger.warning(
+                "Sigma DM bridge key %r already registered to %s; new DM "
+                "%s (%s) claims the same key but resolves to %s — keeping "
+                "the first registration. Cross-DM lineage referring to %r "
+                "may be mis-routed until the collision is resolved.",
+                bridge_key,
+                existing_container,
+                data_model.name,
+                data_model.dataModelId,
+                data_model_container_urn,
+                bridge_key,
+            )
 
         name_map: Dict[str, List[str]] = {}
         elementId_to_dataset_urn: Dict[str, str] = {}
@@ -757,23 +758,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 name_map.setdefault(element.name.lower(), []).append(
                     element_dataset_urn
                 )
-        for key in bridge_keys:
-            # Same collision guard as the container map above — keep the
-            # first registration on a bridge key conflict, warn otherwise.
-            if (
-                key in self.dm_element_urn_by_name
-                and self.dm_element_urn_by_name[key] is not name_map
-                and self.dm_container_urn_by_url_id.get(key) != data_model_container_urn
-            ):
-                continue
-            self.dm_element_urn_by_name[key] = name_map
-            # Track the total element count (including blank-named elements,
-            # which are excluded from ``name_map``) so the cross-DM
-            # single-element fallback can verify the producer DM genuinely
-            # has exactly one element before attributing an unmatched-name
-            # reference. Without this, a DM with 1 named + N blank-named
-            # elements would spuriously hit the fallback.
-            self.dm_total_element_count_by_url_id[key] = len(data_model.elements)
+
+        if container_collision:
+            # Skip all three bridge-map writes on collision so the first
+            # registration wins uniformly. Writing any one of them without
+            # the others would leave the maps internally inconsistent.
+            return elementId_to_dataset_urn
+
+        self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
+        self.dm_element_urn_by_name[bridge_key] = name_map
+        # Track the total element count (including blank-named elements,
+        # which are excluded from ``name_map``) so the cross-DM
+        # single-element fallback can verify the producer DM genuinely
+        # has exactly one element before attributing an unmatched-name
+        # reference. Without this, a DM with 1 named + N blank-named
+        # elements would spuriously hit the fallback.
+        self.dm_total_element_count_by_url_id[bridge_key] = len(data_model.elements)
 
         return elementId_to_dataset_urn
 
@@ -785,12 +785,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         (cross-DM references) whose ``prefix`` is not yet registered in
         ``self.dm_container_urn_by_url_id``. These prefixes point at personal-space
         or otherwise unlisted DMs — the discovery loop fetches them by urlId.
+
+        Skips ``inode-`` prefixed source_ids: those are the external-upstream
+        shape (``inode-<datasetUrlId>`` / ``inode-<tableId>``), not cross-DM
+        references. Without this guard, a hypothetical ``inode-abc/foo``
+        shape would otherwise be attempted as a DM fetch, 404, and pollute
+        ``data_model_external_reference_unresolved`` with malformed-URL
+        noise rather than the intended "personal-space DM the client
+        cannot reach" signal.
         """
         unresolved: Set[str] = set()
         for data_model in data_models:
             for element in data_model.elements:
                 for source_id in element.source_ids:
                     if "/" not in source_id:
+                        continue
+                    if source_id.startswith("inode-"):
                         continue
                     prefix, _, suffix = source_id.partition("/")
                     if not prefix or not suffix:
@@ -836,11 +846,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if data_model.path:
             extra_properties["path"] = data_model.path
         # Flag personal-space / unlisted DMs so operators can distinguish them
-        # from workspace-listed DMs in DataHub. Presence of the flag is informational
-        # only; no UI logic depends on it in this release. Value follows the
-        # ``str(bool(True))`` convention ("True" / "False") that other DataHub
-        # sources use for boolean custom properties — keep the casing aligned
-        # here so downstream filters can assume a single normalized form.
+        # from workspace-listed DMs in DataHub. Presence of the flag is
+        # informational only; no UI logic depends on it in this release. Use
+        # lowercase ``"true"`` — matches the JSON boolean convention and the
+        # casing used by most other DataHub connectors that emit boolean
+        # custom properties (snowflake, dynamodb, mongodb). See the
+        # ``test_sigma_ingest_data_models_isPersonalDataModel_lowercase``
+        # regression test — any future drift will fail at CI time.
         if not data_model.workspaceId:
             extra_properties["isPersonalDataModel"] = "true"
 
@@ -931,13 +943,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _resolve_dm_element_upstream_urn(
         self, upstream: DataModelElementUpstream
-    ) -> Optional[str]:
+    ) -> Tuple[Optional[str], bool]:
         """
         Resolve a workbook element's DM upstream (from a ``data-model`` lineage
-        node) to a DM element **Dataset** URN. Returns None when the DM element
-        name cannot be matched — ``ChartInfo.inputs`` is schema-typed to accept
-        only Dataset URNs, so no lineage edge is emitted in the unmatched case.
-        Counters surface the different failure shapes for report triage:
+        node) to a DM element **Dataset** URN. Returns ``(urn, was_ambiguous)``
+        where ``urn`` is None when the DM element name cannot be matched —
+        ``ChartInfo.inputs`` is schema-typed to accept only Dataset URNs, so
+        no lineage edge is emitted in the unmatched case. Counters surface
+        the different failure shapes for report triage:
 
         - ``element_dm_edge_name_unmatched_but_dm_known``: DM was ingested, but
           the specific element name did not match any emitted DM element.
@@ -950,33 +963,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Candidates are sorted deterministically (by ``elementId``) to avoid
         run-to-run drift driven by the ordering of ``/elements`` responses.
 
-        The caller is responsible for the ``element_dm_edges_resolved`` /
-        ``element_dm_edges_deduped`` counters, since dedup happens one level
-        up (multiple sourceIds on a single chart can point at the same DM
-        element).
+        The ``was_ambiguous`` flag lets the caller bump
+        ``element_dm_edge_ambiguous`` exactly once per **unique** chart→DM
+        edge rather than once per sourceId (workbook charts often reference
+        the same DM element through multiple diamond-pattern sourceIds; the
+        ambiguity is a DM-side property that doesn't multiply).
+
+        The caller is also responsible for the ``element_dm_edges_resolved``
+        / ``element_dm_edges_deduped`` counters, since dedup happens one
+        level up.
         """
         name_map = self.dm_element_urn_by_name.get(upstream.data_model_url_id)
         if name_map and upstream.name:
             candidates = name_map.get(upstream.name.lower())
             if candidates:
-                if len(candidates) > 1:
-                    self.reporter.element_dm_edge_ambiguous += 1
-                    logger.warning(
-                        "Ambiguous DM element name %r in DM %s — %d candidates "
-                        "(%s). Picking lowest elementId deterministically; "
-                        "consider renaming or merging the duplicates in Sigma.",
-                        upstream.name,
-                        upstream.data_model_url_id,
-                        len(candidates),
-                        ", ".join(candidates),
-                    )
-                return sorted(candidates)[0]
+                was_ambiguous = len(candidates) > 1
+                return sorted(candidates)[0], was_ambiguous
 
         if upstream.data_model_url_id in self.dm_container_urn_by_url_id:
             self.reporter.element_dm_edge_name_unmatched_but_dm_known += 1
         else:
             self.reporter.element_dm_edge_unresolved += 1
-        return None
+        return None, False
 
     def _get_element_input_details(
         self,
@@ -1017,10 +1025,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for node_id, upstream in element.upstream_sources.items():
             if isinstance(upstream, DatasetUpstream):
                 sigma_dataset_id = node_id.split("-")[-1]
+                if not upstream.name:
+                    # ``DatasetUpstream.name`` is Optional; without it we
+                    # cannot correlate the SQL-parsed warehouse table
+                    # name against this upstream. Skip the SQL-bridge
+                    # pass; the Sigma Dataset URN itself still participates
+                    # via the chart→Sigma-dataset edge emitted below.
+                    continue
+                upstream_name_lower = upstream.name.lower()
                 for in_table_urn in list(sql_parser_in_tables):
                     if (
                         DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
-                        in upstream.name.lower()
+                        in upstream_name_lower
                     ):
                         dataset_urn = self._gen_sigma_dataset_urn(sigma_dataset_id)
                         if dataset_urn not in dataset_inputs:
@@ -1046,7 +1062,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # union[DatasetUrn] — the resolver returns only DM element
                 # Dataset URNs; failures (DM unknown or name unmatched) are
                 # surfaced through report counters.
-                dm_urn = self._resolve_dm_element_upstream_urn(upstream)
+                dm_urn, was_ambiguous = self._resolve_dm_element_upstream_urn(upstream)
                 if dm_urn is not None:
                     if dm_urn in dataset_inputs:
                         # Diamond reference — same DM element reached via
@@ -1057,6 +1073,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     else:
                         dataset_inputs[dm_urn] = []
                         self.reporter.element_dm_edges_resolved += 1
+                        # Only count ambiguity and log the warning on the
+                        # first resolution per chart→DM edge. Diamond
+                        # sourceIds pointing at the same ambiguous name
+                        # should surface as a *single* ambiguity signal,
+                        # not one per sourceId — otherwise report triage
+                        # over-counts and the logs spam.
+                        if was_ambiguous:
+                            self.reporter.element_dm_edge_ambiguous += 1
+                            candidates = self.dm_element_urn_by_name.get(
+                                upstream.data_model_url_id, {}
+                            ).get((upstream.name or "").lower(), [])
+                            logger.warning(
+                                "Ambiguous DM element name %r in DM %s — "
+                                "%d candidates (%s). Picked lowest "
+                                "elementId %s deterministically; consider "
+                                "renaming or merging the duplicates in Sigma.",
+                                upstream.name,
+                                upstream.data_model_url_id,
+                                len(candidates),
+                                ", ".join(sorted(candidates)),
+                                dm_urn,
+                            )
 
         # Unmatched SQL-parsed warehouse tables become direct dataset inputs.
         for in_table_urn in sql_parser_in_tables:
@@ -1356,6 +1394,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # loop O(N * rounds). ``unresolved_seen`` accumulates prefixes
             # already attempted so a failed discovery doesn't trigger a
             # second fetch on the next iteration.
+            #
+            # First iteration walks every DM because ``pending`` is
+            # initialized from ``all_data_models``; subsequent iterations
+            # walk only the delta of personal-space DMs just discovered.
+            # This keeps the amortized cost O(N) in DMs scanned for
+            # source_ids even when many levels of personal-space chaining
+            # exist in a tenant.
             already_discovered: Set[str] = set()
             unresolved_seen: Set[str] = set()
             pending = list(all_data_models)
