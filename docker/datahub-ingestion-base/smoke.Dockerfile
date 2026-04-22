@@ -1,5 +1,6 @@
 FROM acryldata/datahub-ingestion:head-slim AS base
 
+USER 0
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     sudo \
     python3-dev \
@@ -16,6 +17,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     openjdk-21-jdk && \
     rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
+USER datahub
 COPY . /datahub-src
 ARG RELEASE_VERSION
 RUN cd /datahub-src && \
