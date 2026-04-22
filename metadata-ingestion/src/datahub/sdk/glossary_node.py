@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Optional, Type, Union
+from typing import Dict, Optional, Type, Union
 
 from typing_extensions import Self
 
@@ -15,9 +15,6 @@ from datahub.sdk._shared import (
     StructuredPropertyInputType,
 )
 from datahub.sdk.entity import Entity, ExtraAspectsType
-
-if TYPE_CHECKING:
-    pass
 
 GlossaryNodeUrnOrStr = Union[str, GlossaryNodeUrn]
 

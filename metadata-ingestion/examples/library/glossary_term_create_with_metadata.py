@@ -1,3 +1,4 @@
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.sdk import DataHubClient, GlossaryNodeUrn
 from datahub.sdk.glossary_term import GlossaryTerm
 
@@ -13,7 +14,7 @@ term = GlossaryTerm(
         "data_retention_period": "7_years",
         "regulatory_framework": "GDPR,CCPA",
     },
-    owners=["urn:li:corpuser:datahub", "urn:li:corpGroup:privacy-team"],
+    owners=[CorpUserUrn("datahub"), CorpGroupUrn("privacy-team")],
     links=[
         (
             "https://wiki.company.com/privacy/pii-guidelines",
