@@ -563,8 +563,8 @@ class TestThriftClientBehavior:
 
         mock_thrift = MagicMock()
         mock_thrift.get_all_tables.return_value = ["regular_table", "my_view"]
-        mock_thrift.get_table.side_effect = lambda db, name: (
-            mock_view if name == "my_view" else mock_table
+        mock_thrift.get_table.side_effect = (
+            lambda db, name: mock_view if name == "my_view" else mock_table
         )
         mock_thrift.get_fields.return_value = [mock_field]
         client._client = mock_thrift

@@ -809,9 +809,7 @@ class TestParseDdlQuery:
         mock_identifiers.platform = "snowflake"
         mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
         mock_identifiers.gen_dataset_urn = Mock(
-            side_effect=lambda x: (
-                f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
-            )
+            side_effect=lambda x: f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
         )
         mock_identifiers.get_dataset_identifier_from_qualified_name = Mock(
             side_effect=lambda x: x.lower()

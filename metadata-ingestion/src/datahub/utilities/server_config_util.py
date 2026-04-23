@@ -222,15 +222,18 @@ class RestServiceConfig:
         # Special handling for features that rely on config flags
         config_based_features = {
             ServiceFeature.NO_CODE: lambda: self.is_no_code_enabled,
-            ServiceFeature.STATEFUL_INGESTION: lambda: (
-                self.raw_config.get("statefulIngestionCapable", False) is True
-            ),
-            ServiceFeature.IMPACT_ANALYSIS: lambda: (
-                self.raw_config.get("supportsImpactAnalysis", False) is True
-            ),
-            ServiceFeature.PATCH_CAPABLE: lambda: (
-                self.raw_config.get("patchCapable", False) is True
-            ),
+            ServiceFeature.STATEFUL_INGESTION: lambda: self.raw_config.get(
+                "statefulIngestionCapable", False
+            )
+            is True,
+            ServiceFeature.IMPACT_ANALYSIS: lambda: self.raw_config.get(
+                "supportsImpactAnalysis", False
+            )
+            is True,
+            ServiceFeature.PATCH_CAPABLE: lambda: self.raw_config.get(
+                "patchCapable", False
+            )
+            is True,
             ServiceFeature.CLI_TELEMETRY: lambda: (
                 self.raw_config.get("telemetry") or {}
             ).get("enabledCli", None),
