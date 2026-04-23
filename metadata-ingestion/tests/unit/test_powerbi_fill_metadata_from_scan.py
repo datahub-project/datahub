@@ -1,7 +1,7 @@
 """Unit tests for PowerBiAPI.fill_metadata_from_scan_result.
 
 Covers the branches added to support cross-workspace scanning:
-- Scan-side state/type filter populates the returned filtered_ids set.
+- Scan-side state/type filter populates the returned excluded_ids set.
 - Scan results outside the request batch are skipped (debug log).
 - fabric_artifacts is populated from the scan response (not the groups payload).
 - Workspaces missing from the scan response surface a reporter warning.
@@ -94,9 +94,9 @@ def _scan_workspace_payload(
     return payload
 
 
-def test_fill_metadata_returns_filtered_ids_for_scan_filtered_workspaces():
-    """Workspaces filtered by the scan-side state/type check are returned in the
-    filtered_ids set so callers can skip them in downstream phases."""
+def test_fill_metadata_returns_excluded_ids_for_scan_excluded_workspaces():
+    """Workspaces excluded by the scan-side state/type check are returned in the
+    excluded_ids set so callers can skip them in downstream phases."""
     api = _make_api()
     requested = [_make_workspace("WS-A"), _make_workspace("WS-B")]
     scan_response = {
@@ -109,12 +109,12 @@ def test_fill_metadata_returns_filtered_ids_for_scan_filtered_workspaces():
         mock.patch.object(api, "_get_scan_result", return_value=scan_response),
         mock.patch.object(api, "_get_workspace_datasets", return_value={}),
     ):
-        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
+        excluded = api.fill_metadata_from_scan_result(workspaces=requested)
 
-    assert filtered == {"WS-B"}, "PersonalGroup should be reported as filtered"
+    assert excluded == {"WS-B"}, "PersonalGroup should be reported as excluded"
     ws_a, ws_b = requested
     assert ws_a.scan_result.get(Constant.ID) == "WS-A"
-    assert ws_b.scan_result == {}, "Filtered workspace must not have scan_result set"
+    assert ws_b.scan_result == {}, "Excluded workspace must not have scan_result set"
 
 
 def test_fill_metadata_skips_unknown_workspace_ids_quietly(caplog):
@@ -134,9 +134,9 @@ def test_fill_metadata_skips_unknown_workspace_ids_quietly(caplog):
         mock.patch.object(api, "_get_workspace_datasets", return_value={}),
         caplog.at_level("DEBUG", logger=PowerBiAPI.__module__),
     ):
-        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
+        excluded = api.fill_metadata_from_scan_result(workspaces=requested)
 
-    assert filtered == set(), "Bonus workspaces are NOT scan-filtered ones"
+    assert excluded == set(), "Bonus workspaces are NOT scan-excluded ones"
     assert any(
         "WS-EXTRA" in r.getMessage() and r.levelname == "DEBUG" for r in caplog.records
     ), "Unknown workspace id must be logged at DEBUG"
@@ -166,15 +166,34 @@ def test_fill_metadata_populates_fabric_artifacts_from_scan_response():
     assert ws_a.fabric_artifacts["lake-1"].artifact_type == "Lakehouse"
 
 
-def test_fill_metadata_returns_empty_set_when_scan_returns_nothing():
-    """Defensive: when scan returns falsy, no workspaces are filtered and an
-    empty set is returned (callers must not crash on len())."""
+def test_fill_metadata_warns_per_workspace_when_scan_api_fails():
+    """``_get_scan_result`` swallows HTTP errors (401/403/429/5xx) and returns
+    None. Each requested workspace must surface an Incomplete Scan Metadata
+    warning in the source report so the gap is discoverable; otherwise the
+    failure is invisible outside raw logs."""
     api = _make_api()
-    requested = [_make_workspace("WS-A")]
+    requested = [_make_workspace("WS-A"), _make_workspace("WS-B", name="Sales")]
     with mock.patch.object(api, "_get_scan_result", return_value=None):
-        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
-    assert filtered == set()
-    assert isinstance(filtered, set)
+        excluded = api.fill_metadata_from_scan_result(workspaces=requested)
+
+    assert excluded == set(), (
+        "No workspaces are excluded by a failed scan — they must still flow "
+        "into Phase 2 with empty scan_result"
+    )
+    warnings_by_ctx = {
+        ctx: w
+        for w in api.reporter.warnings
+        if w.title == "Incomplete Scan Metadata"
+        for ctx in (w.context or [])
+    }
+    assert any("WS-A" in c for c in warnings_by_ctx), (
+        f"WS-A must be flagged with Incomplete Scan Metadata; "
+        f"got contexts={list(warnings_by_ctx)}"
+    )
+    assert any("WS-B" in c for c in warnings_by_ctx), (
+        f"WS-B must be flagged with Incomplete Scan Metadata; "
+        f"got contexts={list(warnings_by_ctx)}"
+    )
 
 
 def test_get_workspaces_does_not_set_fabric_artifacts_from_groups_payload():
@@ -219,10 +238,10 @@ def test_fill_metadata_warns_when_requested_workspace_missing_from_scan():
         mock.patch.object(api, "_get_scan_result", return_value=scan_response),
         mock.patch.object(api, "_get_workspace_datasets", return_value={}),
     ):
-        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
+        excluded = api.fill_metadata_from_scan_result(workspaces=requested)
 
-    assert filtered == set(), (
-        "Omitted workspaces must NOT be added to filtered_ids — they should "
+    assert excluded == set(), (
+        "Omitted workspaces must NOT be added to excluded_ids — they should "
         "still flow into Phase 2 so downstream code can do what it can."
     )
     report = api.reporter
@@ -395,7 +414,7 @@ def test_fill_regular_metadata_detail_with_empty_scan_and_endorsements_enabled()
 
 def _make_source(
     workspaces_to_return: List[Workspace],
-    scan_filtered_ids: Set[str],
+    excluded_ids: Set[str],
     **config_overrides: Any,
 ) -> PowerBiDashboardSource:
     """Build a PowerBiDashboardSource with a fully-mocked PowerBiAPI so we can
@@ -414,24 +433,24 @@ def _make_source(
         return_value=workspaces_to_return
     )
     source.powerbi_client.fill_metadata_from_scan_result = mock.MagicMock(  # type: ignore[method-assign]
-        return_value=scan_filtered_ids
+        return_value=excluded_ids
     )
     source.powerbi_client.fill_regular_metadata_detail = mock.MagicMock()  # type: ignore[method-assign]
     source.get_workspace_workunit = mock.MagicMock(return_value=iter([]))  # type: ignore[method-assign]
     return source
 
 
-def test_get_workunits_internal_skips_scan_filtered_workspaces_in_phase_2():
+def test_get_workunits_internal_skips_scan_excluded_workspaces_in_phase_2():
     """When fill_metadata_from_scan_result reports that some workspaces were
-    filtered out by the scan API, those workspaces must NOT receive
+    excluded by the scan API, those workspaces must NOT receive
     fill_regular_metadata_detail calls (the redundant API calls this PR
     eliminates)."""
     ws_a = _make_workspace("WS-A", name="kept")
-    ws_b = _make_workspace("WS-B", name="filtered")
+    ws_b = _make_workspace("WS-B", name="excluded")
     ws_c = _make_workspace("WS-C", name="kept-too")
     source = _make_source(
         workspaces_to_return=[ws_a, ws_b, ws_c],
-        scan_filtered_ids={"WS-B"},
+        excluded_ids={"WS-B"},
     )
 
     list(source.get_workunits_internal())
@@ -441,18 +460,18 @@ def test_get_workunits_internal_skips_scan_filtered_workspaces_in_phase_2():
     )
     processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
     assert processed == ["WS-A", "WS-C"], (
-        f"Phase 2 must skip scan-filtered WS-B; got {processed}"
+        f"Phase 2 must skip scan-excluded WS-B; got {processed}"
     )
 
 
-def test_get_workunits_internal_processes_all_when_no_workspaces_filtered():
-    """Baseline: when the scan filters nothing, every allowed workspace must
+def test_get_workunits_internal_processes_all_when_no_workspaces_excluded():
+    """Baseline: when the scan excludes nothing, every allowed workspace must
     flow through Phase 2 unchanged."""
     workspaces = [
         _make_workspace("WS-A"),
         _make_workspace("WS-B"),
     ]
-    source = _make_source(workspaces_to_return=workspaces, scan_filtered_ids=set())
+    source = _make_source(workspaces_to_return=workspaces, excluded_ids=set())
 
     list(source.get_workunits_internal())
 
@@ -471,7 +490,7 @@ def test_get_workunits_internal_modified_since_branch_runs_per_workspace():
     workspaces = [_make_workspace("WS-A"), _make_workspace("WS-B")]
     source = _make_source(
         workspaces_to_return=workspaces,
-        scan_filtered_ids=set(),
+        excluded_ids=set(),
         modified_since="2024-01-01T00:00:00",
     )
     source.stale_entity_removal_handler = mock.MagicMock()  # type: ignore[assignment]
@@ -490,12 +509,12 @@ def test_get_workunits_internal_modified_since_branch_runs_per_workspace():
 
 def test_get_workunits_internal_batches_phase_1_by_scan_batch_size():
     """Phase 1 must call fill_metadata_from_scan_result once per
-    scan_batch_size chunk; the union of returned filtered IDs must drive the
+    scan_batch_size chunk; the union of returned excluded IDs must drive the
     Phase 2 skip logic across all batches."""
     workspaces = [_make_workspace(f"WS-{i}") for i in range(5)]
     source = _make_source(
         workspaces_to_return=workspaces,
-        scan_filtered_ids=set(),
+        excluded_ids=set(),
         scan_batch_size=2,
     )
     fill_scan = mock.MagicMock(side_effect=[{"WS-0"}, {"WS-3"}, set()])
@@ -511,7 +530,7 @@ def test_get_workunits_internal_batches_phase_1_by_scan_batch_size():
     )
     processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
     assert processed == ["WS-1", "WS-2", "WS-4"], (
-        f"Filtered-out IDs from any batch must be skipped in Phase 2; got {processed}"
+        f"Excluded IDs from any batch must be skipped in Phase 2; got {processed}"
     )
 
 
@@ -530,7 +549,7 @@ def test_get_workspace_datasets_tolerates_empty_scan_result():
 def test_fill_metadata_filters_workspace_with_non_active_state():
     """The scan-side filter has two independent OR-conditions: state != Active
     and type not in workspace_type_filter. The state branch (e.g. Deleted /
-    Orphaned) must also land the workspace in filtered_ids so Phase 2 skips
+    Orphaned) must also land the workspace in excluded_ids so Phase 2 skips
     it."""
     api = _make_api()
     requested = [_make_workspace("WS-A"), _make_workspace("WS-DEL")]
@@ -544,10 +563,10 @@ def test_fill_metadata_filters_workspace_with_non_active_state():
         mock.patch.object(api, "_get_scan_result", return_value=scan_response),
         mock.patch.object(api, "_get_workspace_datasets", return_value={}),
     ):
-        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
+        excluded = api.fill_metadata_from_scan_result(workspaces=requested)
 
-    assert filtered == {"WS-DEL"}, (
-        "Non-Active state must be filtered just like wrong-type"
+    assert excluded == {"WS-DEL"}, (
+        "Non-Active state must be excluded just like wrong-type"
     )
     ws_active, ws_deleted = requested
     assert ws_active.scan_result.get(Constant.ID) == "WS-A"
@@ -565,9 +584,9 @@ def test_fill_metadata_handles_workspaces_none_in_scan_response():
     requested = [_make_workspace("WS-A"), _make_workspace("WS-B")]
     scan_response: Dict[str, Any] = {"workspaces": None}
     with mock.patch.object(api, "_get_scan_result", return_value=scan_response):
-        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
+        excluded = api.fill_metadata_from_scan_result(workspaces=requested)
 
-    assert filtered == set(), "Nothing was filtered (no workspaces in payload)"
+    assert excluded == set(), "Nothing was excluded (no workspaces in payload)"
     warned_titles = {w.title for w in api.reporter.warnings}
     assert "Incomplete Scan Metadata" in warned_titles, (
         "Both requested workspaces must be reported as missing from scan; "
@@ -588,7 +607,7 @@ def test_get_workunits_internal_phase1_batch_failure_isolates_other_batches(capl
     ]
     source = _make_source(
         workspaces_to_return=workspaces,
-        scan_filtered_ids=set(),
+        excluded_ids=set(),
         scan_batch_size=2,
     )
     # Batch 1 (WS-0, WS-1) succeeds; batch 2 (WS-2, WS-3) raises.
@@ -627,4 +646,22 @@ def test_get_workunits_internal_phase1_batch_failure_isolates_other_batches(capl
     )
     assert not any("WS-0" in c for c in warned_contexts), (
         f"WS-0 (in successful batch) must NOT be flagged; got {warned_contexts}"
+    )
+
+    # Regression guard: the Phase 1 except block must not emit a separate
+    # batch-level logger.warning on top of the per-workspace reporter.warning.
+    # reporter.warning(exc=...) already records the traceback once per
+    # workspace; an additional standalone logger.warning would produce N+1
+    # overlapping log entries for a single failure.
+    batch_level_lines = [
+        r
+        for r in caplog.records
+        if r.name.startswith("datahub.ingestion.source.powerbi")
+        and "Phase 1 scan batch failed" in r.getMessage()
+        and not any(f"WS-{i}" in r.getMessage() for i in range(4))
+    ]
+    assert batch_level_lines == [], (
+        "Phase 1 must not double-log: only per-workspace reporter.warning "
+        f"entries are expected; got extra batch-level lines: "
+        f"{[r.getMessage() for r in batch_level_lines]}"
     )

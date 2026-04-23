@@ -1938,31 +1938,22 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         batches = more_itertools.chunked(
             allowed_workspaces, self.source_config.scan_batch_size
         )
-        scan_filtered_workspace_ids: Set[str] = set()
+        excluded_workspace_ids: Set[str] = set()
         for batch_workspaces in batches:
             logger.info(
                 f"Fetching initial metadata for workspaces: {[w.format_name_for_logger() for w in batch_workspaces]}"
             )
             try:
-                scan_filtered_workspace_ids.update(
+                excluded_workspace_ids.update(
                     self.powerbi_client.fill_metadata_from_scan_result(batch_workspaces)
                 )
             except Exception as e:
-                # Phase 1 must not abort the whole ingestion: in the
-                # two-pass architecture, an unhandled exception here would
-                # mean zero workunits emitted from any batch (vs. the
-                # legacy single-pass code which yielded workunits inline
-                # and so preserved already-processed batches). Surface one
-                # "Incomplete Scan Metadata" warning per affected workspace
-                # so the gap is discoverable in the source report, then
-                # fall through to Phase 2 with empty scan_result for each.
-                logger.warning(
-                    "Phase 1 scan batch failed; affected workspaces will be "
-                    "ingested in Phase 2 without scan-derived metadata "
-                    "(endorsements, fabric artifacts, cross-workspace "
-                    "dataset lineage).",
-                    exc_info=True,
-                )
+                # Phase 1 must not abort the whole ingestion: an unhandled
+                # exception here would mean zero workunits emitted from any
+                # batch. Record one "Incomplete Scan Metadata" warning per
+                # affected workspace (reporter.warning includes the traceback
+                # via exc=) so the gap is discoverable in the source report,
+                # then fall through to Phase 2 with empty scan_result.
                 for ws in batch_workspaces:
                     self.reporter.warning(
                         title="Incomplete Scan Metadata",
@@ -1974,12 +1965,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                     )
 
-        # Skip Phase 2 for workspaces the scan filtered out (inactive or
-        # wrong type) so we don't issue redundant per-workspace API calls.
-        if scan_filtered_workspace_ids:
-            allowed_workspaces = [
-                w for w in allowed_workspaces if w.id not in scan_filtered_workspace_ids
-            ]
+        # Skip Phase 2 for workspaces the scan excluded (inactive or wrong
+        # type) so we don't issue redundant per-workspace API calls.
+        allowed_workspaces = [
+            w for w in allowed_workspaces if w.id not in excluded_workspace_ids
+        ]
 
         # Then get the rest of the metadata per workspace.
         for workspace in allowed_workspaces:

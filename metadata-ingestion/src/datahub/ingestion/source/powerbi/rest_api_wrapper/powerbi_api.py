@@ -452,7 +452,7 @@ class PowerBiAPI:
         datasets: Optional[Any] = scan_result.get(Constant.DATASETS)
         if datasets is None or len(datasets) == 0:
             logger.warning(
-                f"Workspace {scan_result.get(Constant.NAME)}({scan_result.get(Constant.ID)}) does not have datasets"
+                f"Workspace {scan_result.get(Constant.NAME) or '<unknown>'}({scan_result.get(Constant.ID) or '<unknown>'}) does not have datasets"
             )
 
             logger.info("Returning empty datasets")
@@ -665,15 +665,34 @@ class PowerBiAPI:
         """Populate scan-derived metadata (scan_result, fabric_artifacts,
         datasets) on the given workspaces in place.
 
-        Returns the set of workspace IDs that the scan filtered out (inactive
-        or excluded by workspace_type_filter). Callers should skip these in
+        Returns the set of workspace IDs that the scan excluded (inactive or
+        excluded by workspace_type_filter). Callers should skip these in
         downstream phases to avoid redundant per-workspace API calls.
         """
         workspaces_by_id = {workspace.id: workspace for workspace in workspaces}
         scan_result = self._get_scan_result(list(workspaces_by_id))
-        filtered_ids: Set[str] = set()
+        excluded_ids: Set[str] = set()
         if not scan_result:
-            return filtered_ids
+            # _get_scan_result returns None when create_scan_job raises any
+            # exception (HTTP/permission/network/etc., logged via
+            # log_http_error) and may also return an empty payload from the
+            # admin API. We cannot distinguish these here, so surface a
+            # cause-neutral per-workspace warning. Scan timeouts and
+            # result-fetch failures propagate as exceptions instead and are
+            # handled by the Phase 1 try/except in get_workunits_internal.
+            for ws in workspaces:
+                self.__reporter.warning(
+                    title="Incomplete Scan Metadata",
+                    message=(
+                        "Scan returned no metadata for this workspace; it "
+                        "will be ingested without scan-derived metadata "
+                        "(endorsements, app, fabric artifacts, "
+                        "cross-workspace dataset lineage). Check logs for "
+                        "any underlying HTTP or scan error."
+                    ),
+                    context=f"workspace={ws.name} id={ws.id}",
+                )
+            return excluded_ids
 
         returned_ids: Set[str] = set()
         for workspace_metadata in scan_result.get("workspaces") or []:
@@ -697,7 +716,7 @@ class PowerBiAPI:
                     context=f"workspace={wrk_identifier}",
                 )
                 if ws_id_in_scan and ws_id_in_scan in workspaces_by_id:
-                    filtered_ids.add(ws_id_in_scan)
+                    excluded_ids.add(ws_id_in_scan)
                 continue
 
             if not ws_id_in_scan:
@@ -731,7 +750,7 @@ class PowerBiAPI:
         # Phase 2 with empty scan metadata, but ingesters need visibility into
         # the gap so they can investigate (typically an admin API permissions
         # issue or a transient scan failure).
-        missing_ids = set(workspaces_by_id) - returned_ids - filtered_ids
+        missing_ids = set(workspaces_by_id) - returned_ids - excluded_ids
         for missing_id in missing_ids:
             missing_ws = workspaces_by_id[missing_id]
             self.__reporter.warning(
@@ -744,7 +763,7 @@ class PowerBiAPI:
                 context=f"workspace={missing_ws.name} id={missing_id}",
             )
 
-        return filtered_ids
+        return excluded_ids
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
         reachable_datasets: List[str] = []
