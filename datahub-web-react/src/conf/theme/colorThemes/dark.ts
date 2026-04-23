@@ -96,6 +96,7 @@ const darkTheme: ColorTheme = {
     shadowInset: 'inset 0px 1px 3px rgba(0, 0, 0, 0.40)',
     shadowNavbar: '0px 2px 10px rgba(0, 0, 0, 0.40)',
     shadowDropBrandColor: 'rgba(33, 23, 95, 0.3)',
+    shadowViewSelect: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
 
     // Overlays
     overlayLight: 'rgba(255, 255, 255, 0.05)',
@@ -229,6 +230,21 @@ const darkTheme: ColorTheme = {
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
     colorPickerDefault: colors.gray1200,
+    // Glossary Color Palette
+    glossaryPaletteViolet: colors.violet400,
+    glossaryPalettePurple: colors.violet500,
+    glossaryPaletteLightBlue: colors.trueblue100,
+    glossaryPaletteBlue: colors.trueblue300,
+    glossaryPaletteTeal: colors.cyan200,
+    glossaryPaletteGreen: colors.mudgreen500,
+    glossaryPaletteLime: colors.olive200,
+    glossaryPaletteLightOrange: colors.trueyellow200,
+    glossaryPaletteMustard: colors.yellow600,
+    glossaryPaletteOrange: colors.orange400,
+    glossaryPalettePeach: colors.orange300,
+    glossaryPaletteRed: colors.wine600,
+    glossaryPaletteMagenta: colors.pink300,
+    glossaryPaletteColdGrey: colors.gray600,
 };
 
 export default darkTheme;

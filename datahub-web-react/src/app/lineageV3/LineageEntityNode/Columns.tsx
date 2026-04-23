@@ -7,7 +7,6 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { FetchedEntity } from '@app/lineage/types';
 import Column from '@app/lineageV3/LineageEntityNode/Column';
 import ColumnSearch from '@app/lineageV3/LineageEntityNode/ColumnSearch';
@@ -46,11 +45,11 @@ const OnlyColumnsWrapper = styled.div`
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: boolean }>`
-    ${({ selected }) => (selected ? `color: ${LINEAGE_COLORS.BLUE_1};` : '')};
+    ${(props) => (props.selected ? `color: ${props.theme.colors.textBrand};` : '')};
     padding-right: 4px;
 
     :hover {
-        color: ${REDESIGN_COLORS.BLUE};
+        color: ${(props) => props.theme.colors.textInformation};
     }
 
     ::after {

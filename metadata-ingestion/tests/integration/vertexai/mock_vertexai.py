@@ -34,7 +34,6 @@ def gen_mock_model(
 ) -> Model:
     mock_model = MagicMock(spec=Model)
     mock_model.name = f"mock_prediction_model_{num}"
-
     mock_model.create_time = MOCK_CREATE_TIME
     mock_model.update_time = MOCK_UPDATE_TIME
     mock_model.version_id = f"{num}"
@@ -43,13 +42,12 @@ def gen_mock_model(
     mock_model.resource_name = (
         f"projects/123/locations/us-central1/models/{num + 1}{num + 2}{num + 3}"
     )
-    # Configure labels property with PropertyMock
+    # labels is a property descriptor on the real class, so set it on the type
     if labels is not None:
         type(mock_model).labels = PropertyMock(return_value=labels)
     else:
         mock_model.labels = {}
 
-    # Configure list_model_evaluations if provided
     if list_model_evaluations_return is not None:
         mock_model.list_model_evaluations = Mock(
             return_value=list(list_model_evaluations_return)
@@ -91,13 +89,12 @@ def gen_mock_training_custom_job(labels: Optional[Dict[str, str]] = None) -> Cus
     mock_training_job.update_time = MOCK_UPDATE_TIME
     mock_training_job.display_name = "mock_training_job_display_name"
     mock_training_job.description = "mock_training_job_description"
-    # Configure labels property with PropertyMock if provided
+    # labels is a property descriptor on the real class, so set it on the type
     if labels is not None:
         type(mock_training_job).labels = PropertyMock(return_value=labels)
     mock_training_job.labels = {}
 
-    # Link training job to output model (for training job lineage)
-    # Use the same model name as gen_mock_model(1) produces
+    # modelToUpload.name must match gen_mock_model(1).resource_name to wire up training → model lineage
     mock_training_job.to_dict.return_value = {
         "jobSpec": {
             "output": {"artifactOutputUri": "gs://bucket/training-output/model"}
@@ -120,7 +117,7 @@ def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
     mock_automl_job.description = "mock_auto_automl_tabular_job_description"
     mock_automl_job.labels = {}
 
-    # Link training job to output model (for training job lineage)
+    # datasetId must match gen_mock_dataset().name; modelToUpload.name must match gen_mock_model(1).resource_name
     mock_automl_job.to_dict.return_value = {
         "inputDataConfig": {"datasetId": "2562882439508656128"},
         "modelToUpload": {
@@ -185,6 +182,12 @@ def gen_mock_experiment_run() -> ExperimentRun:
     mock_experiment_run.update_time = MOCK_UPDATE_TIME
     mock_experiment_run.display_name = "mock_experiment_run_display_name"
     mock_experiment_run.description = "mock_experiment_run_description"
+
+    # name must match gen_mock_training_custom_job().name to resolve the ExperimentRun → TrainingJob URN
+    mock_logged_job = MagicMock()
+    mock_logged_job.name = "mock_training_job"
+    mock_experiment_run.get_logged_custom_jobs.return_value = [mock_logged_job]
+
     return mock_experiment_run
 
 
@@ -209,16 +212,14 @@ def get_mock_pipeline_job() -> PipelineJob:
     task_detail.create_time = MOCK_CREATE_TIME
     task_detail.end_time = MOCK_TASK_END_TIME
 
-    # Add model artifact in task inputs to test downstream lineage
-    # Use same project/location as gen_mock_model(1) produces: projects/123/locations/us-central1/models/234
+    # Input URI matches gen_mock_model(1).resource_name — exercises downstream model lineage from pipeline tasks
     mock_model_artifact = MagicMock()
     mock_model_artifact.uri = "projects/123/locations/us-central1/models/234"
     mock_input_entry = MagicMock()
     mock_input_entry.artifacts = [mock_model_artifact]
     task_detail.inputs = {"model": mock_input_entry}
 
-    # Add model artifact in outputs for completeness
-    # Use model 2: projects/123/locations/us-central1/models/345
+    # Output URI matches gen_mock_model(2).resource_name
     mock_output_model_artifact = MagicMock()
     mock_output_model_artifact.uri = "projects/123/locations/us-central1/models/345"
     mock_output_entry = MagicMock()
@@ -256,10 +257,8 @@ def get_mock_pipeline_job() -> PipelineJob:
 def gen_mock_model_evaluation(
     num: int = 1, display_name: Optional[str] = None
 ) -> ModelEvaluation:
-    """Generate a mock ModelEvaluation object."""
     mock_evaluation = MagicMock(spec=ModelEvaluation)
     mock_evaluation.name = f"projects/123/locations/us/models/456/evaluations/{num}"
-    # Configure display_name property with PropertyMock if provided
     if display_name is not None:
         type(mock_evaluation).display_name = PropertyMock(return_value=display_name)
     else:

@@ -111,7 +111,6 @@ public class BootstrapManagerFactory {
         new RestoreFormInfoIndicesStep(_entityService);
     final MigrateHomePageLinksStep migrateHomePageLinksStep =
         new MigrateHomePageLinksStep(_entityService, _entitySearchService);
-
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
             ImmutableList.of(

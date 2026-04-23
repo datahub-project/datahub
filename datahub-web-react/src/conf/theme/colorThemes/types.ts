@@ -93,6 +93,7 @@ export default interface ColorTheme {
     shadowInset: string;
     shadowNavbar: string;
     shadowDropBrandColor: string;
+    shadowViewSelect: string;
     // Overlays
     overlayLight: string;
     overlayMedium: string;
@@ -227,4 +228,19 @@ export default interface ColorTheme {
     colorPickerDarkGreen: string;
     colorPickerOlive: string;
     colorPickerDefault: string;
+    // Glossary Color Palette
+    glossaryPaletteViolet: string;
+    glossaryPalettePurple: string;
+    glossaryPaletteLightBlue: string;
+    glossaryPaletteBlue: string;
+    glossaryPaletteTeal: string;
+    glossaryPaletteGreen: string;
+    glossaryPaletteLime: string;
+    glossaryPaletteLightOrange: string;
+    glossaryPaletteMustard: string;
+    glossaryPaletteOrange: string;
+    glossaryPalettePeach: string;
+    glossaryPaletteRed: string;
+    glossaryPaletteMagenta: string;
+    glossaryPaletteColdGrey: string;
 }

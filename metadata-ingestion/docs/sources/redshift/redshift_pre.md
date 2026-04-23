@@ -38,7 +38,7 @@ GRANT SELECT ON pg_catalog.pg_description TO datahub;           -- Table and col
 GRANT SELECT ON pg_catalog.pg_database TO datahub;              -- Database catalog information
 GRANT SELECT ON pg_catalog.pg_attribute TO datahub;             -- Column definitions and properties
 GRANT SELECT ON pg_catalog.pg_attrdef TO datahub;               -- Column default values
-GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for ownership
+GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for usage and lineage
 
 -- Datashare lineage (enabled by default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;           -- Cross-cluster datashare information
@@ -102,7 +102,7 @@ GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;             -- Materialized v
 
 ```sql
 -- Required for provisioned clusters
-GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for ownership (superuser table)
+GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for usage and lineage (superuser table)
 GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized view information (provisioned)
 ```
 
@@ -137,7 +137,7 @@ GRANT SELECT ON pg_catalog.pg_description TO datahub;           -- Table and col
 GRANT SELECT ON pg_catalog.pg_database TO datahub;              -- Database catalog information
 GRANT SELECT ON pg_catalog.pg_attribute TO datahub;             -- Column definitions and properties
 GRANT SELECT ON pg_catalog.pg_attrdef TO datahub;               -- Column default values
-GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for ownership (superuser table)
+GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for usage and lineage (superuser table)
 
 -- Datashares (since include_share_lineage defaults to true)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;           -- Cross-cluster datashare information
@@ -204,6 +204,10 @@ GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
 ```
 
 :::
+
+##### Ownership Extraction (`extract_ownership: true`)
+
+No additional grants are required. Owner names are resolved via `pg_catalog.pg_user`, which is accessible to all Redshift users.
 
 ##### Optional: Datashare Privileges
 

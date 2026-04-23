@@ -1,8 +1,8 @@
 ### Overview
 
-The `dataplex` module ingests metadata from Dataplex into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+The `dataplex` module ingests metadata from Google Cloud Knowledge Catalog (Dataplex) into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-The Dataplex connector extracts metadata from Google Dataplex using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
+The connector extracts metadata from Google Cloud Knowledge Catalog (Dataplex) using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
 
 #### Spanner entry collection behavior
 
@@ -10,7 +10,20 @@ Spanner entries are collected through an additional `search_entries` workaround 
 
 ### Prerequisites
 
-Refer to [Dataplex documentation](https://cloud.google.com/dataplex/docs) for Dataplex basics.
+Refer to [Google Cloud Knowledge Catalog (Dataplex) documentation](https://cloud.google.com/dataplex/docs) for the basics.
+
+#### API Enablement
+
+Enable the following APIs on all target projects:
+
+- **Dataplex API** (`dataplex.googleapis.com`) — see [Enable Knowledge Catalog](https://docs.cloud.google.com/dataplex/docs/enable-api)
+- **Data Lineage API** (`datalineage.googleapis.com`) — required for lineage extraction (`include_lineage: true`), see [Enable Data Lineage API](https://docs.cloud.google.com/dataplex/docs/use-lineage#enable-apis)
+
+Some asset types require additional setup. For example, Cloud SQL instances must be connected to Dataplex to enable automatic metadata harvesting (schemas, tables, and views):
+
+```sh
+gcloud sql instances patch my-cloud-sql-instance --enable-dataplex-integration --project=my-gcp-project
+```
 
 #### Authentication
 
@@ -64,25 +77,19 @@ For service account authentication, follow these instructions:
 
 #### Permissions
 
-Grant the following permissions to the service account on all target projects.
+Grant the following roles to the service account on all target projects.
 
-**Universal Catalog Entries API:**
+| Feature                                        | Required Role                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Universal Catalog Entries API (core ingestion) | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer) |
+| Lineage extraction (`include_lineage: true`)   | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)         |
 
-**Default GCP Role:** [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+:::tip "Lineage requires the role on multiple projects"
 
-| Permission                  | Description                           |
-| --------------------------- | ------------------------------------- |
-| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
-| `dataplex.entryGroups.list` | View all entry groups in a location   |
-| `dataplex.entries.get`      | Access entry metadata and details     |
-| `dataplex.entries.getData`  | View data aspects within entries      |
-| `dataplex.entries.list`     | Enumerate entries within groups       |
+Grant `roles/datalineage.viewer` on all projects where the corresponding process is actually executed. Note it may differ from the project containing the asset.
+:::
 
-**Lineage extraction** (optional, `include_lineage: true`):
+Additional asset-specific viewer roles:
 
-**Default GCP Role:** [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
-
-| Permission                 | Description                               |
-| -------------------------- | ----------------------------------------- |
-| `datalineage.links.get`    | Allows a user to view lineage links       |
-| `datalineage.links.search` | Allows a user to search for lineage links |
+- `roles/aiplatform.viewer` (Vertex AI Viewer) is required when ingesting Vertex AI assets.
+- `roles/spanner.viewer` (Cloud Spanner Viewer) is required when ingesting Cloud Spanner assets.

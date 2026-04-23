@@ -91,5 +91,25 @@ export default function useGetDataForProfile<T>({
             })) ||
         null;
 
-    return { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch };
+    const rootEntityData =
+        (dataNotCombinedWithSiblings &&
+            Object.keys(dataNotCombinedWithSiblings).length > 0 &&
+            getDataForEntityType({
+                data: dataNotCombinedWithSiblings[Object.keys(dataNotCombinedWithSiblings)[0]],
+                entityType,
+                getOverrideProperties,
+                isHideSiblingMode,
+                flags,
+            })) ||
+        null;
+
+    return {
+        entityData,
+        rootEntityData,
+        dataPossiblyCombinedWithSiblings,
+        dataNotCombinedWithSiblings,
+        loading,
+        error,
+        refetch,
+    };
 }
