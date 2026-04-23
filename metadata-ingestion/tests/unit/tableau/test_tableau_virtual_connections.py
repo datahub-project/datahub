@@ -638,14 +638,17 @@ class TestVirtualConnectionProcessor:
             ],
         }
 
-        initial_count = self.vc_processor.report.num_vc_table_references_found
+        initial_count = (
+            self.vc_processor.report.num_virtual_connections_table_references_found
+        )
 
         self.vc_processor.process_datasource_for_vc_refs(
             datasource, DatasourceType.PUBLISHED
         )
 
         assert (
-            self.vc_processor.report.num_vc_table_references_found == initial_count + 2
+            self.vc_processor.report.num_virtual_connections_table_references_found
+            == initial_count + 2
         )
         assert len(self.vc_processor.vc_table_ids_for_lookup) == 2
 
