@@ -10,12 +10,12 @@ email_term = GlossaryTerm(
     display_name="Email",
     definition="Email addresses that can identify individuals.",
     is_a=[
-        GlossaryTermUrn("Classification.PII"),
-        GlossaryTermUrn("Classification.Sensitive"),
+        GlossaryTermUrn("a1b2c3d4"),  # Classification.PII
+        GlossaryTermUrn("b2c3d4e5"),  # Classification.Sensitive
     ],
     related_terms=[
-        GlossaryTermUrn("PersonalInformation.PhoneNumber"),
-        GlossaryTermUrn("PersonalInformation.Contact"),
+        GlossaryTermUrn("c3d4e5f6"),  # PersonalInformation.PhoneNumber
+        GlossaryTermUrn("d4e5f6a7"),  # PersonalInformation.Contact
     ],
 )
 
@@ -24,12 +24,12 @@ address_term = GlossaryTerm(
     id="5e6f7a8b",
     display_name="Address",
     definition="Physical addresses that can identify individuals.",
-    is_a=[GlossaryTermUrn("Classification.PII")],
+    is_a=[GlossaryTermUrn("a1b2c3d4")],  # Classification.PII
     has_a=[
-        GlossaryTermUrn("PersonalInformation.ZipCode"),
-        GlossaryTermUrn("PersonalInformation.Street"),
-        GlossaryTermUrn("PersonalInformation.City"),
-        GlossaryTermUrn("PersonalInformation.Country"),
+        GlossaryTermUrn("e5f6a7b8"),  # PersonalInformation.ZipCode
+        GlossaryTermUrn("f6a7b8c9"),  # PersonalInformation.Street
+        GlossaryTermUrn("a7b8c9d0"),  # PersonalInformation.City
+        GlossaryTermUrn("b8c9d0e1"),  # PersonalInformation.Country
     ],
 )
 
@@ -39,10 +39,10 @@ color_enum_term = GlossaryTerm(
     display_name="Color",
     definition="An enumeration of allowed color values.",
     values=[
-        GlossaryTermUrn("Colors.Red"),
-        GlossaryTermUrn("Colors.Green"),
-        GlossaryTermUrn("Colors.Blue"),
-        GlossaryTermUrn("Colors.Yellow"),
+        GlossaryTermUrn("c9d0e1f2"),  # Colors.Red
+        GlossaryTermUrn("d0e1f2a3"),  # Colors.Green
+        GlossaryTermUrn("e1f2a3b4"),  # Colors.Blue
+        GlossaryTermUrn("f2a3b4c5"),  # Colors.Yellow
     ],
 )
 
