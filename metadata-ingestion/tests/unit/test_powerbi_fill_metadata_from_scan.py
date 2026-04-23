@@ -525,3 +525,106 @@ def test_get_workspace_datasets_tolerates_empty_scan_result():
     workspace.scan_result = {}
     result = api._get_workspace_datasets(workspace=workspace)
     assert result == {}, "Must return empty dict, not raise"
+
+
+def test_fill_metadata_filters_workspace_with_non_active_state():
+    """The scan-side filter has two independent OR-conditions: state != Active
+    and type not in workspace_type_filter. The state branch (e.g. Deleted /
+    Orphaned) must also land the workspace in filtered_ids so Phase 2 skips
+    it."""
+    api = _make_api()
+    requested = [_make_workspace("WS-A"), _make_workspace("WS-DEL")]
+    scan_response = {
+        "workspaces": [
+            _scan_workspace_payload("WS-A", state="Active", ws_type="Workspace"),
+            _scan_workspace_payload("WS-DEL", state="Deleted", ws_type="Workspace"),
+        ]
+    }
+    with (
+        mock.patch.object(api, "_get_scan_result", return_value=scan_response),
+        mock.patch.object(api, "_get_workspace_datasets", return_value={}),
+    ):
+        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
+
+    assert filtered == {"WS-DEL"}, (
+        "Non-Active state must be filtered just like wrong-type"
+    )
+    ws_active, ws_deleted = requested
+    assert ws_active.scan_result.get(Constant.ID) == "WS-A"
+    assert ws_deleted.scan_result == {}, (
+        "Filtered (Deleted) workspace must not have scan_result populated"
+    )
+
+
+def test_fill_metadata_handles_workspaces_none_in_scan_response():
+    """Defensive: if the admin scan returns a payload where ``workspaces`` is
+    explicitly None (vs. missing or an empty list), the ``or []`` guard must
+    prevent a TypeError on iteration. All requested workspaces then surface
+    as missing-from-scan via the Incomplete Scan Metadata warning."""
+    api = _make_api()
+    requested = [_make_workspace("WS-A"), _make_workspace("WS-B")]
+    scan_response: Dict[str, Any] = {"workspaces": None}
+    with mock.patch.object(api, "_get_scan_result", return_value=scan_response):
+        filtered = api.fill_metadata_from_scan_result(workspaces=requested)
+
+    assert filtered == set(), "Nothing was filtered (no workspaces in payload)"
+    warned_titles = {w.title for w in api.reporter.warnings}
+    assert "Incomplete Scan Metadata" in warned_titles, (
+        "Both requested workspaces must be reported as missing from scan; "
+        f"got warnings: {warned_titles}"
+    )
+
+
+def test_get_workunits_internal_phase1_batch_failure_isolates_other_batches(caplog):
+    """A scan-timeout (or any exception) in one Phase 1 batch must NOT abort
+    the whole ingestion. Other batches must still be scanned, all workspaces
+    must reach Phase 2, and the affected workspaces must be flagged in the
+    source report so the gap is discoverable."""
+    workspaces = [
+        _make_workspace("WS-0"),
+        _make_workspace("WS-1"),
+        _make_workspace("WS-2"),
+        _make_workspace("WS-3"),
+    ]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        scan_filtered_ids=set(),
+        scan_batch_size=2,
+    )
+    # Batch 1 (WS-0, WS-1) succeeds; batch 2 (WS-2, WS-3) raises.
+    source.powerbi_client.fill_metadata_from_scan_result = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=[
+            set(),
+            ValueError("scan timeout"),
+        ]
+    )
+
+    with caplog.at_level("WARNING"):
+        list(source.get_workunits_internal())
+
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-0", "WS-1", "WS-2", "WS-3"], (
+        "All workspaces must reach Phase 2 even when a Phase 1 batch fails; "
+        f"got {processed}"
+    )
+
+    # context is a LossyList[str] (one entry per workspace in the failed batch);
+    # flatten across all "Incomplete Scan Metadata" warnings.
+    warned_contexts = [
+        ctx
+        for w in source.reporter.warnings
+        if w.title == "Incomplete Scan Metadata"
+        for ctx in w.context
+    ]
+    assert any("WS-2" in c for c in warned_contexts), (
+        f"WS-2 (in failed batch) must be flagged with Incomplete Scan Metadata; got {warned_contexts}"
+    )
+    assert any("WS-3" in c for c in warned_contexts), (
+        f"WS-3 (in failed batch) must be flagged with Incomplete Scan Metadata; got {warned_contexts}"
+    )
+    assert not any("WS-0" in c for c in warned_contexts), (
+        f"WS-0 (in successful batch) must NOT be flagged; got {warned_contexts}"
+    )

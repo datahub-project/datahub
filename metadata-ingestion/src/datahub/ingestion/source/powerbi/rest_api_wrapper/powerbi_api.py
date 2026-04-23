@@ -115,7 +115,10 @@ class PowerBiAPI:
         endorsements or tags as list of strings
         """
         results: Dict[str, List[str]] = {}
-        if scan_result is None:
+        # ``not scan_result`` covers both None (scan never ran / failed) and
+        # {} (workspace was scan-omitted post two-phase refactor); aligns
+        # with the same guard in _get_workspace_datasets.
+        if not scan_result:
             return results
 
         for scanned_dashboard in scan_result.get(Constant.DASHBOARDS) or []:
@@ -133,7 +136,9 @@ class PowerBiAPI:
     ) -> Dict[str, List[str]]:
         results: Dict[str, List[str]] = {}
 
-        if scan_result is None:
+        # See _get_dashboard_endorsements for why this is ``not scan_result``
+        # rather than ``is None``.
+        if not scan_result:
             return results
 
         reports: List[dict] = scan_result.get(Constant.REPORTS) or []
