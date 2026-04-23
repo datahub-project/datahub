@@ -216,12 +216,11 @@ class DataplexConfig(
     )
 
     include_glossary_term_associations: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Whether to ingest term-to-asset associations via the Dataplex lookupEntryLinks API. "
             "For each ingested term, all entries_locations are queried per project to find linked "
-            "assets. This can be slow for large environments with many terms or locations. "
-            "Default: False."
+            "assets. This can be slow for large environments with many terms or locations."
         ),
     )
 
