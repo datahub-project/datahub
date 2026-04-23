@@ -41,9 +41,7 @@ def test_glossary_node_with_parent() -> None:
     assert child1.parent_node == GlossaryNodeUrn("BusinessGlossary")
 
     # parent as GlossaryNodeUrn
-    child2 = GlossaryNode(
-        id="Finance", parent_node=GlossaryNodeUrn("BusinessGlossary")
-    )
+    child2 = GlossaryNode(id="Finance", parent_node=GlossaryNodeUrn("BusinessGlossary"))
     assert child2.parent_node == GlossaryNodeUrn("BusinessGlossary")
 
     # parent as URN string
