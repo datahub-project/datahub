@@ -10,15 +10,15 @@
  */
 
 import { test, expect } from '../../fixtures/login-test';
-import { WelcomeModalPage } from '../../pages/welcome-modal-page';
-import { resolvedUsers } from '../../fixtures/users';
+import { WelcomeModalPage } from '../../pages/welcome-modal.page';
+import { users } from '../../data/users';
 
 test.describe('Welcome to DataHub Modal', () => {
   let welcomeModalPage: WelcomeModalPage;
 
   test.beforeEach(async ({ page, loginPage, logger, logDir }) => {
     welcomeModalPage = new WelcomeModalPage(page, logger, logDir);
-    const { username, password } = resolvedUsers.admin;
+    const { username, password } = users.admin;
     await loginPage.navigateToLogin();
     await welcomeModalPage.clearLocalStorage();
     await loginPage.login(username, password);
@@ -28,7 +28,7 @@ test.describe('Welcome to DataHub Modal', () => {
     test('should display modal automatically on first visit to homepage', async () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
-      await welcomeModalPage.expectModalTitle();
+      await welcomeModalPage.expectModalTitleVisible();
       await welcomeModalPage.expectSlide1Visible();
     });
 

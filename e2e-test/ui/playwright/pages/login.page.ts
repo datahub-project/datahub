@@ -1,5 +1,5 @@
 import type { Page, Locator } from '@playwright/test';
-import { BasePage } from './base-page';
+import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
 export class LoginPage extends BasePage {
@@ -19,10 +19,17 @@ export class LoginPage extends BasePage {
     await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
     await this.loginButton.click();
-    await this.waitForPageLoad();
+    // Wait for the redirect away from /login — DataHub redirects to / on success.
+    // Using waitForURL here is more reliable than waitForLoadState, which can
+    // resolve against the current /login page before navigation begins.
+    await this.page.waitForURL((url) => !url.pathname.includes('login'), {
+      waitUntil: 'networkidle',
+      timeout: 30000,
+    });
   }
 
   async navigateToLogin(): Promise<void> {
     await this.navigate('/login');
+    await this.waitForPageLoad();
   }
 }

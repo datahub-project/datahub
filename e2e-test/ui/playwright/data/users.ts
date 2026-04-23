@@ -14,7 +14,7 @@
  * Example users.ci.ts:
  *   import type { UserMap } from './users';
  *   export const users: UserMap = {
- *     admin: { username: process.env.ADMIN_USERNAME!, password: process.env.ADMIN_PASSWORD!, role: 'admin' },
+ *     admin: { username: process.env.ADMIN_USERNAME!, password: process.env.ADMIN_PASSWORD! },
  *   };
  */
 
@@ -22,18 +22,16 @@ export interface UserCredentials {
   username: string;
   password: string;
   displayName?: string;
-  role: 'admin' | 'reader' | 'editor';
 }
 
 /** Strongly-typed map shape so CI overrides are validated at compile time. */
 export type UserMap = Record<string, UserCredentials>;
 
-export const users = {
+const defaultUsers = {
   admin: {
     username: process.env.DATAHUB_ADMIN_USERNAME ?? 'datahub',
     password: process.env.DATAHUB_ADMIN_PASSWORD ?? 'datahub',
     displayName: 'DataHub Admin',
-    role: 'admin' as const,
   },
 } satisfies UserMap;
 
@@ -49,6 +47,7 @@ try {
 
 /**
  * Resolved user registry: env-var defaults merged with any CI overrides.
- * Always import credentials from here, never from `users` directly.
+ * Always import credentials from here, never from `defaultUsers` directly.
  */
-export const resolvedUsers: UserMap = { ...users, ...ciOverrides };
+export const users: UserMap = { ...defaultUsers, ...ciOverrides };
+
