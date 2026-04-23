@@ -37,15 +37,23 @@ class TestUrnHelpers:
         result = _term_urn_id("my-project", "global", "my-glossary", "term-1")
         assert result == "dataplex.my-project.global.my-glossary.term-1"
 
-    def test_resource_id_extracts_last_segment(self) -> None:
-        assert (
-            _resource_id("projects/my-project/locations/global/glossaries/my-glossary")
-            == "my-glossary"
-        )
-        assert (
-            _resource_id("projects/my-project/locations/global/glossaries/g1/terms/t1")
-            == "t1"
-        )
+    @pytest.mark.parametrize(
+        "resource_name, expected",
+        [
+            (
+                "projects/my-project/locations/global/glossaries/my-glossary",
+                "my-glossary",
+            ),
+            (
+                "projects/my-project/locations/global/glossaries/g1/terms/t1",
+                "t1",
+            ),
+        ],
+    )
+    def test_resource_id_extracts_last_segment(
+        self, resource_name: str, expected: str
+    ) -> None:
+        assert _resource_id(resource_name) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -54,25 +62,24 @@ class TestUrnHelpers:
 
 
 class TestParseParentUrn:
-    def test_parent_is_glossary(self) -> None:
-        parent = "projects/my-project/locations/global/glossaries/my-glossary"
+    @pytest.mark.parametrize(
+        "parent, expected_urn_id",
+        [
+            (
+                "projects/my-project/locations/global/glossaries/my-glossary",
+                _glossary_node_urn_id("my-project", "global", "my-glossary"),
+            ),
+            (
+                "projects/my-project/locations/global/glossaries/my-glossary/categories/cat-1",
+                _category_node_urn_id("my-project", "global", "my-glossary", "cat-1"),
+            ),
+        ],
+    )
+    def test_valid_parent_resolves_to_glossary_node_urn(
+        self, parent: str, expected_urn_id: str
+    ) -> None:
         result = _parse_parent_urn(parent, "my-project", "global", "my-glossary")
-        expected = str(
-            GlossaryNodeUrn(
-                _glossary_node_urn_id("my-project", "global", "my-glossary")
-            )
-        )
-        assert result == expected
-
-    def test_parent_is_category(self) -> None:
-        parent = "projects/my-project/locations/global/glossaries/my-glossary/categories/cat-1"
-        result = _parse_parent_urn(parent, "my-project", "global", "my-glossary")
-        expected = str(
-            GlossaryNodeUrn(
-                _category_node_urn_id("my-project", "global", "my-glossary", "cat-1")
-            )
-        )
-        assert result == expected
+        assert result == str(GlossaryNodeUrn(expected_urn_id))
 
     def test_invalid_parent_raises(self) -> None:
         with pytest.raises(ValueError, match="Unexpected"):
@@ -323,7 +330,7 @@ class TestProcessTermAssociations:
         assert len(workunits) == 0
         assert processor._report.term_associations_emitted == 0
 
-    def test_lookup_entry_links_404_returns_empty(
+    def test_lookup_entry_links_returns_empty_on_error_status(
         self,
         processor: DataplexGlossaryProcessor,
         ctx: DataplexContext,
