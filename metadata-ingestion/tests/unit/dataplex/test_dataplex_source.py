@@ -99,6 +99,13 @@ def test_source_init_wires_clients_processor_and_lineage_extractor() -> None:
             "datahub.ingestion.source.dataplex.dataplex._resolve_project_numbers",
             return_value={"project-1": "123456789"},
         ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
+        ),
     ):
         source = DataplexSource(ctx, config)
 
@@ -137,6 +144,13 @@ def test_source_init_without_lineage_sets_lineage_members_to_none() -> None:
         patch(
             "datahub.ingestion.source.dataplex.dataplex._resolve_project_numbers",
             return_value={"project-1": "123456789"},
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
         ),
     ):
         source = DataplexSource(ctx, config)
