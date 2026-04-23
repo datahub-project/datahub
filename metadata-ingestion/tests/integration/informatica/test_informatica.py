@@ -14,7 +14,7 @@ The resulting MCE stream is compared against a checked-in golden file.
 
 import json
 from pathlib import Path
-from typing import Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional
 from unittest import mock
 
 import pytest
@@ -30,6 +30,8 @@ from datahub.ingestion.source.informatica.models import (
     IdmcObject,
     LineageTable,
     MappingLineageInfo,
+    TaskflowDefinition,
+    TaskflowStep,
 )
 from datahub.testing import mce_helpers
 
@@ -90,8 +92,10 @@ _TASKFLOWS: List[IdmcObject] = [
         path="/Explore/Sales/Taskflows/daily_refresh",
         object_type="TASKFLOW",
         description="Runs sales pipelines nightly",
+        # Different creator/updater — exercises the DATAOWNER +
+        # TECHNICAL_OWNER split in ``_owner_list``.
         created_by="alice@acme.com",
-        updated_by="alice@acme.com",
+        updated_by="bob@acme.com",
     ),
 ]
 
@@ -143,6 +147,17 @@ _MAPPING_TASKS: List[IdmcMappingTask] = [
         created_by="alice@acme.com",
         updated_by="alice@acme.com",
     ),
+    IdmcMappingTask(
+        v2_id="mttask-2",
+        name="nightly_enrich_customers",
+        path="/Explore/Sales/MappingTasks/nightly_enrich_customers",
+        description="Scheduled runner for enrich_customers",
+        mapping_id="v2-map-2",
+        mapping_name="enrich_customers",
+        connection_id="conn-snowflake-prod",
+        created_by="alice@acme.com",
+        updated_by="alice@acme.com",
+    ),
 ]
 
 _CONNECTIONS: List[IdmcConnection] = [
@@ -163,6 +178,37 @@ _CONNECTIONS: List[IdmcConnection] = [
         db_schema="APPS",
     ),
 ]
+
+_TASKFLOW_DEFINITIONS: Dict[str, TaskflowDefinition] = {
+    # ``daily_refresh`` runs two Mapping Tasks in sequence: first copy
+    # orders, then enrich customers. Chaining them here exercises
+    # ``_emit_taskflow_steps`` + ``_emit_orchestrate_datajob`` +
+    # ``_emit_orchestrate_aggregated_lineage`` end-to-end.
+    "tf-daily-refresh": TaskflowDefinition(
+        taskflow_id="tf-daily-refresh",
+        taskflow_name="daily_refresh",
+        steps=[
+            TaskflowStep(
+                step_id="step-copy",
+                step_name="Copy orders",
+                step_type="data",
+                task_type="MTT",
+                task_ref_id="mttask-1",
+                task_ref_name="nightly_copy_orders",
+            ),
+            TaskflowStep(
+                step_id="step-enrich",
+                step_name="Enrich customers",
+                step_type="data",
+                task_type="MTT",
+                task_ref_id="mttask-2",
+                task_ref_name="nightly_enrich_customers",
+                predecessor_step_ids=["step-copy"],
+            ),
+        ],
+    ),
+}
+
 
 _LINEAGE_INFOS: List[MappingLineageInfo] = [
     MappingLineageInfo(
@@ -242,12 +288,11 @@ class _StubClient:
         return _CONNECTIONS
 
     def get_taskflow_definition(self, taskflow_name="", taskflow_v3_guid=""):
-        # No Taskflow step DAG in the default fixture — individual tests can
-        # override this by passing a client subclass with a populated return.
-        return None
+        return _TASKFLOW_DEFINITIONS.get(taskflow_v3_guid)
 
     def prefetch_taskflow_definitions(self, taskflow_v3_guids):
-        # Default stub: no-op (the fixture doesn't test batched export).
+        # Stub: real client warms a cache here; our ``get_taskflow_definition``
+        # always returns from the fixture dict so no prefetch is needed.
         pass
 
     def submit_export_job(self, object_ids):
