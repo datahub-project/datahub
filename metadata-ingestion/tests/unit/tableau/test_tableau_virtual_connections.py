@@ -1,7 +1,7 @@
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from tableauserverclient.models import SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
@@ -25,7 +25,12 @@ from tests.unit.tableau.test_tableau_config import default_config
 FROZEN_TIME = "2021-12-07 07:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@pytest.fixture(autouse=True)
+def _freeze_time():
+    with time_machine.travel(FROZEN_TIME, tick=False):
+        yield
+
+
 class TestVirtualConnectionProcessor:
     """Consolidated, meaningful tests for Virtual Connection functionality"""
 
@@ -901,7 +906,6 @@ class TestVirtualConnectionProcessor:
             )
 
 
-@freeze_time(FROZEN_TIME)
 class TestTableauVCIntegration:
     """Test Virtual Connection integration with TableauSiteSource"""
 
