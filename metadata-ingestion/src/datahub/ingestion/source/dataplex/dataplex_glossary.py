@@ -38,9 +38,8 @@ logger = logging.getLogger(__name__)
 # Matches entry batching used in dataplex_entries.py and dataplex_lineage.py.
 WORKERS_BATCH_SIZE = 200
 
-# Dataplex built-in entry link types live under the system project "dataplex-types"
-# in the fixed "global" location — this is a GCP-managed resource path, not the
-# user's data location.
+# Dataplex built-in entry link types live under a GCP-managed system project
+# in the fixed "global" location.
 #
 # Known link types:
 #   definition  — term describes / is applied to an asset; maps to DataHub glossaryTerms
@@ -50,9 +49,11 @@ WORKERS_BATCH_SIZE = 200
 # relationship that DataHub's glossaryTerms aspect models. Synonym and other
 # term-to-term link types have no direct DataHub equivalent today.
 # TODO: consider ingesting synonym links as GlossaryRelatedTerms in the future.
-_DEFINITION_LINK_TYPE = (
-    "projects/dataplex-types/locations/global/entryLinkTypes/definition"
-)
+#
+# NOTE: Google returns the system project as a numeric project number (e.g.
+# 655216118709) rather than the name "dataplex-types", so we match on the
+# stable suffix rather than the full path.
+_DEFINITION_LINK_TYPE_SUFFIX = "/entryLinkTypes/definition"
 # Role in an entryLink that identifies the asset side (not the term side).
 _SOURCE_ROLE = "SOURCE"
 
@@ -536,7 +537,7 @@ class DataplexGlossaryProcessor:
 
             for link in links:
                 # Skip synonym and any other term-to-term link types.
-                if link.get("entryLinkType") != _DEFINITION_LINK_TYPE:
+                if not link.get("entryLinkType", "").endswith(_DEFINITION_LINK_TYPE_SUFFIX):
                     continue
                 for ref in link.get("entryReferences", []):
                     if ref.get("type") != _SOURCE_ROLE:

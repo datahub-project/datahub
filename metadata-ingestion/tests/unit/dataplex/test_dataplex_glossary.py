@@ -280,7 +280,7 @@ class TestProcessTermAssociations:
         mock_response.json.return_value = {
             "entryLinks": [
                 {
-                    "entryLinkType": "projects/dataplex-types/locations/global/entryLinkTypes/definition",
+                    "entryLinkType": "projects/655216118709/locations/global/entryLinkTypes/definition",
                     "entryReferences": [
                         {"type": "SOURCE", "name": asset_entry_name},
                         {"type": "TARGET", "name": "term-path"},
@@ -310,7 +310,7 @@ class TestProcessTermAssociations:
         mock_response.json.return_value = {
             "entryLinks": [
                 {
-                    "entryLinkType": "projects/dataplex-types/locations/global/entryLinkTypes/definition",
+                    "entryLinkType": "projects/655216118709/locations/global/entryLinkTypes/definition",
                     "entryReferences": [
                         {
                             "type": "SOURCE",
@@ -403,7 +403,7 @@ class TestProcessTermAssociations:
         mock_response.json.return_value = {
             "entryLinks": [
                 {
-                    "entryLinkType": "projects/dataplex-types/locations/global/entryLinkTypes/definition",
+                    "entryLinkType": "projects/655216118709/locations/global/entryLinkTypes/definition",
                     "entryReferences": [
                         {"type": "SOURCE", "name": asset_entry_name},
                     ],
