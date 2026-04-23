@@ -1654,6 +1654,29 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-3,PROD),test-job-3)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "\nimport sys\nfrom awsglue.utils import getResolvedOptions\nfrom pyspark.sql import SparkSession\nfrom awsglue.context import GlueContext\nfrom awsglue.job import Job\n\nargs = getResolvedOptions(sys.argv, [\"JOB_NAME\"])\nspark = (\n    SparkSession.builder\n    .config(\"spark.sql.catalogImplementation\", \"hive\")\n    .config(\"spark.hadoop.hive.metastore.client.factory.class\", \"com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory\")\n    .config(\"spark.sql.extensions\", \"org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions\")\n    .config(\"spark.sql.catalog.glue_catalog.catalog-impl\", \"org.apache.iceberg.aws.glue.GlueCatalog\")\n    .config(\"spark.sql.catalog.glue_catalog\", \"org.apache.iceberg.spark.SparkCatalog\")\n    .config(\"spark.sql.catalog.glue_catalog.warehouse\", warehouse)\n    .config(\"spark.sql.iceberg.handle-timestamp-without-timezone\", \"true\")\n    .getOrCreate()\n)\nglueContext = GlueContext(spark.sparkContext, sparkSession=spark)\njob = Job(glueContext)\njob.init(args[\"JOB_NAME\"], args)\ndf = glueContext.create_dynamic_frame.from_options(connection_type = \"postgresql\", connection_options = {\"url\": \"jdbc:postgresql://my-db-endpoint:5432/dbname\", \"password\": \"*****\"}, transformation_ctx = \"df\")\ndf.createOrReplaceTempView(\"myDataSource\")\nspark.sql(\"CREATE TABLE IF NOT EXISTS glue_catalog.warehouse.items_agg USING iceberg TBLPROPERTIES ('format-version'='2') AS (SELECT name, count(1) as num_items FROM myDataSource);\")\njob.commit()\n",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(glue,test-job-1,PROD)",
     "changeType": "UPSERT",

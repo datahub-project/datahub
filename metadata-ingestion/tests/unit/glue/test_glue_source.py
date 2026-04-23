@@ -19,6 +19,7 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
 from datahub.ingestion.source.state.sql_common_state import (
@@ -1469,3 +1470,36 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
 )
 def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
     assert _sanitize_jdbc_url(raw_url) == expected_safe
+
+
+@pytest.mark.parametrize(
+    "secret_name",
+    [
+        "password",
+        "sfPassword",
+        "PASSWORD",
+        "secret",
+        "client_secret",
+        "aws_secret_access_key",
+    ],
+)
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_glue_redact_job_script_secret_fields(secret_name):
+    secret_value = "kjdsg8uh834jksdnj"
+
+    script = f"""
+        datasource = glueContext.create_dynamic_frame.from_options(
+            frame = transformed,
+            connection_type = "postgresql",
+            connection_options = {{
+                "url": "jdbc:postgresql://your-PostgresqlDB-Endpoint",
+                "dbtable": "your_table",
+                "user": "your-Posgresql-User",
+                "{secret_name}": "{secret_value}"
+            }}
+        )
+    """
+
+    assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
+        secret_value, "*****"
+    )

@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
@@ -105,6 +106,8 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    DataTransformClass,
+    DataTransformLogicClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -115,6 +118,8 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
+    QueryLanguageClass,
+    QueryStatementClass,
     SchemaMetadataClass,
     TagAssociationClass,
     TimeStampClass,
@@ -525,18 +530,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return jobs
 
-    def get_dataflow_graph(
-        self, script_path: str, flow_urn: str
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Get the DAG of transforms and data sources/sinks for a job.
-
-        Parameters
-        ----------
-            script_path:
-                S3 path to the job's Python script.
-        """
-
+    def get_dataflow_script(self, script_path: str, flow_urn: str) -> Optional[str]:
         # handle a bug in AWS where script path has duplicate prefixes
         if script_path.lower().startswith("s3://s3://"):
             script_path = script_path[5:]
@@ -583,7 +577,19 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.num_job_script_location_invalid += 1
             return None
 
-        script = obj["Body"].read().decode("utf-8")
+        return obj["Body"].read().decode("utf-8")
+
+    def get_dataflow_graph(
+        self, script: str, script_path: str, flow_urn: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the DAG of transforms and data sources/sinks for a job.
+
+        Parameters
+        ----------
+            script_path:
+                S3 path to the job's Python script.
+        """
 
         try:
             # extract the job DAG from the script
@@ -1034,18 +1040,18 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
 
-    def get_datajob_wu_for_dataflow(
-        self, flow_urn: str, job_name: str
-    ) -> MetadataWorkUnit:
+    def get_datajob_wus_for_dataflow(
+        self, flow_urn: str, job_name: str, script: Optional[str]
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate a DataJob workunit for a Glue job with no nodes.
         """
 
+        job_urn = mce_builder.make_data_job_urn_with_flow(flow_urn, job_id=job_name)
+
         region = self.source_config.aws_region
-        return MetadataChangeProposalWrapper(
-            entityUrn=mce_builder.make_data_job_urn_with_flow(
-                flow_urn, job_id=job_name
-            ),
+        yield MetadataChangeProposalWrapper(
+            entityUrn=job_urn,
             aspect=DataJobInfoClass(
                 name=job_name,
                 type="GLUE",
@@ -1053,6 +1059,28 @@ class GlueSource(StatefulIngestionSourceBase):
                 customProperties={},
             ),
         ).as_workunit()
+
+        if script:
+            redacted_script = _redact_secret_fields_in_dataflow_script(script)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataTransformLogicClass(
+                    transforms=[
+                        DataTransformClass(
+                            queryStatement=QueryStatementClass(
+                                value=redacted_script,
+                                # The language field uses a pretty limited enum.
+                                # The "UNKNOWN" enum value is pretty new, so we don't want to
+                                # emit it until it has broader server-side support. As a
+                                # short-term solution, we map all languages to "SQL".
+                                # TODO: Once we've released server 1.1.0, we should change
+                                # this to be "UNKNOWN" for all languages except "SQL".
+                                language=QueryLanguageClass.SQL,
+                            )
+                        )
+                    ]
+                ),
+            ).as_workunit()
 
     def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
@@ -1627,12 +1655,15 @@ class GlueSource(StatefulIngestionSourceBase):
 
             job_script_location = job.get("Command", {}).get("ScriptLocation")
 
-            dag: Optional[Dict[str, Any]] = None
-
+            job_script: Optional[str] = None
             if job_script_location is not None:
-                dag = self.get_dataflow_graph(job_script_location, flow_urn)
+                job_script = self.get_dataflow_script(job_script_location, flow_urn)
             else:
                 self.report.num_job_script_location_missing += 1
+
+            dag: Optional[Dict[str, Any]] = None
+            if job_script:
+                dag = self.get_dataflow_graph(job_script, job_script_location, flow_urn)
 
             nodes: Optional[dict] = None
             if dag is not None:
@@ -1641,7 +1672,9 @@ class GlueSource(StatefulIngestionSourceBase):
                     self.report.num_job_without_nodes += 1
 
             if not nodes:
-                yield self.get_datajob_wu_for_dataflow(flow_urn, job["Name"])
+                yield from self.get_datajob_wus_for_dataflow(
+                    flow_urn, job["Name"], job_script
+                )
                 continue
 
             for node in nodes.values():
@@ -1995,3 +2028,14 @@ class GlueSource(StatefulIngestionSourceBase):
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
         self.report.report_warning(key, reason)
+
+
+def _redact_secret_fields_in_dataflow_script(script: str) -> str:
+    # It's possible for Glue Job nodes to contain sensitive values in their connection_info
+    # arguments. Redact all string values that are preceded by a key containing "password" or
+    # "secret".
+    return re.sub(
+        r'(?i)("(\\"|[^"])*(?:password|secret)(\\"|[^"])*"\s*:\s*)"(\\"|[^"])*"',
+        r'\1"*****"',
+        script,
+    )
