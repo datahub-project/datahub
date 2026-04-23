@@ -231,7 +231,6 @@ USER root
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 COPY --from=bundled-venvs-full $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
@@ -275,7 +274,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
   uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
 # =============================================================================
 # FINAL STAGE - SLIM VARIANT (no PySpark, network enabled)
@@ -288,7 +287,6 @@ USER root
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 COPY --from=bundled-venvs-slim $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
@@ -331,7 +329,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
   uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
 # =============================================================================
 # FINAL STAGE - LOCKED VARIANT (no PySpark, network BLOCKED, bundled venvs only)
@@ -344,7 +342,6 @@ USER root
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 COPY --from=bundled-venvs-locked $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
@@ -388,7 +385,7 @@ ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
 # =============================================================================
 # DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
