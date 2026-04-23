@@ -288,6 +288,16 @@ fragment ownershipFields on Ownership {
                     displayName
                     email
                 }
+                memberCount: relationships(
+                    input: {
+                        types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                        direction: INCOMING
+                        start: 0
+                        count: 1
+                    }
+                ) {
+                    total
+                }
                 info {
                     displayName
                     email
