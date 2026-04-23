@@ -316,9 +316,10 @@ class DataplexGlossaryProcessor:
             parent_urn = _parse_parent_urn(
                 term.parent, project_id, location, glossary_id
             )
+            project_number = self._ctx.project_numbers.get(project_id, project_id)
             term_console_url = (
-                f"{dataplex_url}/projects/{project_id}/locations/{location}"
-                f"/glossaries/{glossary_id}/terms/{term_id}"
+                f"{dataplex_url}/dp-glossaries/projects/{project_number}"
+                f"/locations/{location}/glossaries/{glossary_id}/terms/{term_id}"
             )
             glossary_term = GlossaryTerm(
                 id=_term_urn_id(project_id, location, glossary_id, term_id),

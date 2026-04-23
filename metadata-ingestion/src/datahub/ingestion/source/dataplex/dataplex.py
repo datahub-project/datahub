@@ -264,10 +264,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 credentials=credentials
             )
 
+            # Project numbers are needed for Dataplex console source_url construction
+            # on every term entity, so resolve them whenever glossary ingestion is on.
+            self.ctx_data.project_numbers = _resolve_project_numbers(
+                self.config.project_ids, credentials
+            )
+
             if self.config.include_glossary_term_associations:
-                self.ctx_data.project_numbers = _resolve_project_numbers(
-                    self.config.project_ids, credentials
-                )
                 raw_creds = (
                     credentials
                     if credentials is not None
