@@ -18,7 +18,9 @@ def test_get_workunits_internal_wraps_project_processing() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = False
+    source.config.include_glossaries = False
     source.lineage_extractor = None
+    source.glossary_processor = None
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -44,7 +46,9 @@ def test_get_workunits_internal_reports_project_google_api_failure() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = False
+    source.config.include_glossaries = False
     source.lineage_extractor = None
+    source.glossary_processor = None
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -201,9 +205,12 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1", "project-2"]
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -242,8 +249,11 @@ def test_get_workunits_internal_skips_lineage_stage_when_disabled() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = False
+    source.config.include_glossaries = False
     source.lineage_extractor = None
-    source.entry_data = []
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -264,9 +274,12 @@ def test_get_workunits_internal_handles_empty_entries_for_lineage() -> None:
     source.config = Mock()
     source.config.project_ids = ["project-1"]
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -281,11 +294,13 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
-    source.entry_data.append(
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
         EntryDataTuple(
             dataplex_entry_short_name="entry-1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
@@ -296,7 +311,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
             datahub_dataset_name="project-1.ds.table",
             datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
-    )
+    ]
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
     lineage_wu = Mock()
@@ -307,7 +322,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     ):
         assert list(source.get_workunits_internal()) == [lineage_wu]
     source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
-        source.entry_data,
+        source.ctx_data.entry_data,
         active_lineage_project_location_pairs=[("project-1", "us-central1")],
         max_workers=source.config.max_workers_lineage,
     )
@@ -323,10 +338,13 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1", "project-2"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = [
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
         EntryDataTuple(
             dataplex_entry_short_name="entry-1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
@@ -349,7 +367,7 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
         list(source.get_workunits_internal())
 
     source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
-        source.entry_data,
+        source.ctx_data.entry_data,
         active_lineage_project_location_pairs=[
             ("project-1", "us-central1"),
             ("project-2", "us-central1"),
@@ -364,11 +382,13 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
-    source.entry_data.append(
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
         EntryDataTuple(
             dataplex_entry_short_name="entry-1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
@@ -379,7 +399,7 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
             datahub_dataset_name="project-1.ds.table",
             datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
-    )
+    ]
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
     source.lineage_extractor.get_lineage_workunits.side_effect = RuntimeError("boom")
@@ -396,32 +416,34 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1", "project-2"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    entry_1 = EntryDataTuple(
-        dataplex_entry_short_name="entry-1",
-        dataplex_entry_name="projects/p1/locations/us/entryGroups/g/entries/entry-1",
-        dataplex_location="us",
-        dataplex_entry_fqn="bigquery:project-1.ds.table",
-        dataplex_entry_type_short_name="bigquery-table",
-        datahub_platform="bigquery",
-        datahub_dataset_name="project-1.ds.table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-    )
-    entry_2 = EntryDataTuple(
-        dataplex_entry_short_name="entry-2",
-        dataplex_entry_name="projects/p2/locations/us/entryGroups/g/entries/entry-2",
-        dataplex_location="us",
-        dataplex_entry_fqn="bigquery:project-2.ds.table",
-        dataplex_entry_type_short_name="bigquery-table",
-        datahub_platform="bigquery",
-        datahub_dataset_name="project-2.ds.table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-    )
-    source.entry_data = []
-    source.entry_data.append(entry_1)
-    source.entry_data.append(entry_2)
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
+        EntryDataTuple(
+            dataplex_entry_short_name="entry-1",
+            dataplex_entry_name="projects/p1/locations/us/entryGroups/g/entries/entry-1",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project-1.ds.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project-1.ds.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        ),
+        EntryDataTuple(
+            dataplex_entry_short_name="entry-2",
+            dataplex_entry_name="projects/p2/locations/us/entryGroups/g/entries/entry-2",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project-2.ds.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project-2.ds.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        ),
+    ]
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 

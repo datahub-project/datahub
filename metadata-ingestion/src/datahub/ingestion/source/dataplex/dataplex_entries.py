@@ -23,6 +23,7 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
+from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
@@ -154,19 +155,23 @@ class DataplexEntriesProcessor:
         config: DataplexConfig,
         catalog_client: dataplex_v1.CatalogServiceClient,
         report: DataplexEntriesReport,
-        entry_data: list[EntryDataTuple],
         source_report: SourceReport,
+        ctx: DataplexContext,
     ) -> None:
         self.config = config
         self.catalog_client = catalog_client
         self.report = report
         self.source_report = source_report
-        self.entry_data = entry_data
+        self._ctx = ctx
         self._emitted_project_containers: set[str] = set()
         # Guards the check+add on _emitted_project_containers across parallel workers.
         self._container_lock: threading.Lock = threading.Lock()
-        # Guards appends to entry_data across parallel workers.
+        # Guards appends to ctx.entry_data across parallel workers.
         self._entry_data_lock: threading.Lock = threading.Lock()
+
+    @property
+    def entry_data(self) -> list:
+        return self._ctx.entry_data
 
     # ------------------------------------------------------------------
     # Parallel entry processing (three-phase)
@@ -298,7 +303,7 @@ class DataplexEntriesProcessor:
         Safe to call from parallel worker threads:
         - Uses ``_container_lock`` for the atomic check+add on
           ``_emitted_project_containers``.
-        - Uses ``_entry_data_lock`` for appends to ``entry_data``.
+        - Uses ``_entry_data_lock`` for appends to ``ctx.entry_data``.
         - All other state accessed here (config, report methods) is either
           read-only or already lock-protected.
         """
@@ -422,7 +427,7 @@ class DataplexEntriesProcessor:
             ),
         )
         with self._entry_data_lock:
-            self.entry_data.append(entry_data_tuple)
+            self._ctx.entry_data.append(entry_data_tuple)
 
     def list_entry_groups(
         self, project_id: str, location: str
