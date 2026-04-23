@@ -336,28 +336,35 @@ class DataplexGlossaryProcessor:
     ) -> Iterable[MetadataWorkUnit]:
         """Yield glossaryTerms aspect workunits for assets linked to ingested terms.
 
-        Builds an entry_name -> datahub_dataset_urn lookup from the entries stage,
-        then for each term calls lookupEntryLinks across all entries_locations to find
-        linked assets.
+        Two-phase approach to avoid emitting partial terms per asset:
+          Phase 1 (parallel): for each term, collect all linked asset URNs via
+            lookupEntryLinks. Build a reverse index: asset_urn -> [term_urns].
+          Phase 2 (sequential): emit one glossaryTerms MCP per asset, carrying
+            the complete list of all its linked terms.
+
+        Without phase separation, emitting one MCP per (asset, term) pair would
+        cause each MCE to overwrite the previous one, leaving an asset with only
+        its last-processed term.
         """
         entry_name_to_urn: Dict[str, str] = {
             e.dataplex_entry_name: e.datahub_dataset_urn for e in self._ctx.entry_data
         }
 
-        # Build the full list of project × location pairs from entries_locations.
         location_pairs: List[Tuple[str, str]] = [
             (pid, loc)
             for pid in project_ids
             for loc in self._ctx.config.entries_locations
         ]
 
-        # One task per (term, project × location) pair.
+        # Phase 1: parallel scan — collect asset_urn -> [term_urns].
+        asset_to_terms: Dict[str, List[str]] = {}
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             it = iter(self._emitted_terms)
             while batch := list(islice(it, WORKERS_BATCH_SIZE)):
                 futures = {
                     executor.submit(
-                        self._resolve_term_associations,
+                        self._collect_asset_links_for_term,
                         project_id,
                         gl_location,
                         glossary_id,
@@ -370,7 +377,11 @@ class DataplexGlossaryProcessor:
                 for future in as_completed(futures):
                     project_id, gl_location, glossary_id, term_id = futures[future]
                     try:
-                        yield from future.result()
+                        term_urn_str, linked_asset_urns = future.result()
+                        for asset_urn in linked_asset_urns:
+                            asset_to_terms.setdefault(asset_urn, []).append(
+                                term_urn_str
+                            )
                     except Exception as exc:
                         self._source_report.warning(
                             title="Term association lookup failed",
@@ -382,7 +393,19 @@ class DataplexGlossaryProcessor:
                             exc=exc,
                         )
 
-    def _resolve_term_associations(
+        # Phase 2: emit one MCP per asset with its complete terms list.
+        for asset_urn, term_urns in asset_to_terms.items():
+            dataset_urn_obj = DatasetUrn.from_string(asset_urn)
+            dataset = Dataset(
+                platform=dataset_urn_obj.platform,
+                name=dataset_urn_obj.name,
+                env=dataset_urn_obj.env,
+            )
+            dataset.set_terms(term_urns)
+            yield from auto_workunit(dataset.as_mcps())
+            self._report.report_association()
+
+    def _collect_asset_links_for_term(
         self,
         project_id: str,
         gl_location: str,
@@ -390,8 +413,12 @@ class DataplexGlossaryProcessor:
         term_id: str,
         location_pairs: List[Tuple[str, str]],
         entry_name_to_urn: Dict[str, str],
-    ) -> List[MetadataWorkUnit]:
-        """Return workunits for all asset links to this term across all locations."""
+    ) -> Tuple[str, List[str]]:
+        """Return (term_urn_str, asset_urns) for this term across all locations.
+
+        De-duplicates asset URNs within the scan so the same asset is not
+        returned more than once even if multiple location scans return it.
+        """
         term_urn_str = str(
             GlossaryTermUrn(_term_urn_id(project_id, gl_location, glossary_id, term_id))
         )
@@ -402,9 +429,8 @@ class DataplexGlossaryProcessor:
             f"/glossaries/{glossary_id}/terms/{term_id}"
         )
 
-        workunits: List[MetadataWorkUnit] = []
-        # De-duplicate: the same asset can appear via multiple location scans.
         seen_asset_urns: set = set()
+        linked_asset_urns: List[str] = []
         for lookup_project_id, location in location_pairs:
             try:
                 links = self._lookup_entry_links(
@@ -436,21 +462,11 @@ class DataplexGlossaryProcessor:
                             entry_name,
                         )
                         continue
-                    if asset_urn in seen_asset_urns:
-                        continue
-                    seen_asset_urns.add(asset_urn)
+                    if asset_urn not in seen_asset_urns:
+                        seen_asset_urns.add(asset_urn)
+                        linked_asset_urns.append(asset_urn)
 
-                    dataset_urn_obj = DatasetUrn.from_string(asset_urn)
-                    dataset = Dataset(
-                        platform=dataset_urn_obj.platform,
-                        name=dataset_urn_obj.name,
-                        env=dataset_urn_obj.env,
-                    )
-                    dataset.set_terms([term_urn_str])
-                    workunits.extend(list(auto_workunit(dataset.as_mcps())))
-                    self._report.report_association()
-
-        return workunits
+        return term_urn_str, linked_asset_urns
 
     def _lookup_entry_links(
         self, project_id: str, location: str, term_entry_path: str

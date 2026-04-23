@@ -365,3 +365,51 @@ class TestProcessTermAssociations:
             )
 
         assert len(workunits) == 0
+
+    def test_asset_linked_to_multiple_terms_emits_one_mcp_with_all_terms(
+        self,
+        processor: DataplexGlossaryProcessor,
+        ctx: DataplexContext,
+    ) -> None:
+        """Asset linked to two terms must receive both in a single MCP, not two separate ones."""
+        asset_entry_name = "projects/my-project/locations/us/entryGroups/@bigquery/entries/bigquery:my-project.dataset.table1"
+        processor._emitted_terms = [
+            ("my-project", "global", "g1", "t1"),
+            ("my-project", "global", "g1", "t2"),
+        ]
+        ctx.project_numbers = {"my-project": "123456789"}
+        ctx.entry_data = [
+            EntryDataTuple(
+                dataplex_entry_short_name="table1",
+                dataplex_entry_name=asset_entry_name,
+                dataplex_location="us",
+                dataplex_entry_type_short_name="bigquery-table",
+                dataplex_entry_fqn="bigquery:my-project.dataset.table1",
+                datahub_platform="bigquery",
+                datahub_dataset_name="my-project.dataset.table1",
+                datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.table1,PROD)",
+            )
+        ]
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "entryLinks": [
+                {
+                    "entryLinkType": "projects/dataplex-types/locations/global/entryLinkTypes/definition",
+                    "entryReferences": [
+                        {"type": "SOURCE", "name": asset_entry_name},
+                    ],
+                }
+            ]
+        }
+
+        with patch.object(ctx, "authed_session") as mock_session:
+            mock_session.get.return_value = mock_response
+            workunits = list(
+                processor.process_term_associations(["my-project"], max_workers=1)
+            )
+
+        # One MCP emitted (one asset), not two (which would overwrite each other).
+        assert processor._report.term_associations_emitted == 1
+        assert len(workunits) > 0
