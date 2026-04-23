@@ -13,9 +13,9 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from itertools import islice
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
-from google.cloud import dataplex_v1, resourcemanager_v3
+from google.cloud import dataplex_v1
 
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
@@ -29,9 +29,6 @@ from datahub.sdk.glossary_node import GlossaryNode
 from datahub.sdk.glossary_term import GlossaryTerm
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
-
-if TYPE_CHECKING:
-    from google.oauth2 import service_account
 
 logger = logging.getLogger(__name__)
 
@@ -154,30 +151,6 @@ class DataplexGlossaryReport(Report):
     def report_association(self) -> None:
         with self._lock:
             self.term_associations_emitted += 1
-
-
-# ---------------------------------------------------------------------------
-# Project number resolution (GCP infrastructure helper)
-# ---------------------------------------------------------------------------
-
-
-def resolve_project_numbers(
-    project_ids: List[str],
-    credentials: Optional["service_account.Credentials"],
-) -> Dict[str, str]:
-    """Resolve GCP project numbers for all configured projects.
-
-    The lookupEntryLinks REST API requires project NUMBER (not project ID) inside
-    the glossary term entry path. This function calls the Resource Manager API once
-    per project at startup and caches the result in DataplexContext.project_numbers.
-    """
-    rm_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
-    result: Dict[str, str] = {}
-    for pid in project_ids:
-        project = rm_client.get_project(name=f"projects/{pid}")
-        # project.name is "projects/{number}"
-        result[pid] = project.name.split("/")[-1]
-    return result
 
 
 # ---------------------------------------------------------------------------

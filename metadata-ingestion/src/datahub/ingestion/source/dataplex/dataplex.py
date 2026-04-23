@@ -45,7 +45,6 @@ from datahub.ingestion.source.dataplex.dataplex_entries import (
 )
 from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryProcessor,
-    resolve_project_numbers,
 )
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
@@ -70,9 +69,15 @@ def _resolve_project_numbers(
 
     The Dataplex lookupEntryLinks REST API requires project NUMBER (not project ID)
     inside glossary term entry paths. Called once at startup when
-    include_glossary_term_associations=True.
+    include_glossaries=True.
     """
-    return resolve_project_numbers(project_ids, credentials)
+    from google.cloud import resourcemanager_v3
+
+    rm_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
+    return {
+        pid: rm_client.get_project(name=f"projects/{pid}").name.split("/")[-1]
+        for pid in project_ids
+    }
 
 
 @platform_name("Google Cloud Knowledge Catalog (Dataplex)", id="dataplex")
