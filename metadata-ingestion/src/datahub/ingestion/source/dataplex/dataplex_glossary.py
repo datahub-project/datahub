@@ -272,6 +272,7 @@ class DataplexGlossaryProcessor:
             len(response),
             timer.elapsed_seconds(),
         )
+        logger.debug("list_glossaries payload: %s", response)
         return response
 
     def _process_single_glossary(
@@ -381,6 +382,7 @@ class DataplexGlossaryProcessor:
             len(categories),
             timer.elapsed_seconds(),
         )
+        logger.debug("list_glossary_categories payload: %s", categories)
         return categories
 
     def _list_terms(
@@ -397,6 +399,7 @@ class DataplexGlossaryProcessor:
             len(terms),
             timer.elapsed_seconds(),
         )
+        logger.debug("list_glossary_terms payload: %s", terms)
         return terms
 
     # ------------------------------------------------------------------
@@ -583,6 +586,7 @@ class DataplexGlossaryProcessor:
             len(entry_links),
             timer.elapsed_seconds(),
         )
+        logger.debug("lookupEntryLinks payload: %s", entry_links)
 
         if resp.status_code == 404:
             return []
