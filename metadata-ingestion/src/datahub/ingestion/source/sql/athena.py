@@ -1,4 +1,5 @@
 import datetime
+import functools
 import json
 import logging
 import re
@@ -385,7 +386,6 @@ class AthenaSource(SQLAlchemySource):
         self.cursor: Optional[BaseCursor] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
-        self._is_glue_catalog: Optional[bool] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AthenaSource":
@@ -405,43 +405,41 @@ class AthenaSource(SQLAlchemySource):
             yield inspector
 
     def _get_catalog_type(self) -> Optional[str]:
-        """Query the Athena API to get the catalog type (GLUE, LAMBDA, HIVE, FEDERATED)."""
+        """Query the Athena API for the catalog type (GLUE, LAMBDA, HIVE, FEDERATED).
+
+        Returns None if the catalog isn't found or the API call fails.
+        """
         if self.cursor is None:
             raise RuntimeError(
                 "Cursor not initialized; call get_table_properties first"
             )
+        catalog_name = self.config.catalog_name
         try:
             client = self.cursor._connection.client  # type: ignore[union-attr]  # PyAthena internal: accessing boto3 Athena client
             paginator = client.get_paginator("list_data_catalogs")  # type: ignore[attr-defined]  # boto3 Athena API, not in PyAthena stubs
             for page in paginator.paginate():
                 for catalog in page.get("DataCatalogsSummary", []):
-                    if (
-                        catalog.get("CatalogName", "").lower()
-                        == self.config.catalog_name.lower()
-                    ):
+                    if catalog.get("CatalogName", "").lower() == catalog_name.lower():
                         return catalog.get("Type")
             self.report.warning(
-                message="Catalog not found in ListDataCatalogs response, defaulting to Glue behavior",
-                context=f"catalog={self.config.catalog_name}",
+                message="Catalog not found in ListDataCatalogs response",
+                context=f"catalog={catalog_name}",
             )
-            return None
         except Exception as e:
             self.report.warning(
-                message="Failed to determine catalog type, defaulting to Glue behavior",
-                context=f"catalog={self.config.catalog_name}, error={e}",
+                message="Failed to determine catalog type",
+                context=f"catalog={catalog_name}, error={e}",
             )
-            return None
+        return None
 
-    @property
+    @functools.cached_property
     def is_glue_catalog(self) -> bool:
-        if self._is_glue_catalog is None:
-            catalog_type = self._get_catalog_type()
-            # Default to True (Glue) when catalog type cannot be determined,
-            # since Glue is the most common Athena catalog type.
-            self._is_glue_catalog = (
-                catalog_type == "GLUE" if catalog_type is not None else True
-            )
-        return self._is_glue_catalog
+        catalog_type = self._get_catalog_type()
+        if catalog_type is not None:
+            return catalog_type == "GLUE"
+        # AwsDataCatalog is always backed by Glue. Any other catalog name was
+        # explicitly configured and is more likely non-Glue (Lambda/Hive/Federated).
+        return self.config.catalog_name.lower() == "awsdatacatalog"
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         schema, _view = dataset_identifier.split(".", 1)

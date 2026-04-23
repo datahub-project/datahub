@@ -427,8 +427,13 @@ def test_is_glue_catalog_caches_result():
     mock_cursor._connection.client.get_paginator.assert_called_once()
 
 
-def test_is_glue_catalog_defaults_true_when_catalog_not_found():
-    """is_glue_catalog defaults to True when catalog is not found (Glue is the common case)."""
+def test_is_glue_catalog_defaults_false_for_non_default_catalog_when_not_found():
+    """is_glue_catalog defaults to False for non-AwsDataCatalog when type cannot be resolved.
+
+    An explicitly-configured non-default catalog is much more likely to be
+    Lambda/Hive/Federated than Glue, so falling back to Glue would produce
+    incorrect lineage.
+    """
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -446,8 +451,30 @@ def test_is_glue_catalog_defaults_true_when_catalog_not_found():
     ]
     source.cursor = mock_cursor
 
+    assert source.is_glue_catalog is False
+
+
+def test_is_glue_catalog_defaults_true_for_awsdatacatalog_when_not_found():
+    """is_glue_catalog defaults to True for AwsDataCatalog, which is always Glue."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "AwsDataCatalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    # API response doesn't include AwsDataCatalog; fallback should still assume Glue.
+    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "other-catalog", "Type": "HIVE"}]}
+    ]
+    source.cursor = mock_cursor
+
     assert source.is_glue_catalog is True
-    assert source._is_glue_catalog is True  # Cached to avoid repeated API calls
 
 
 def test_is_glue_catalog_false_for_hive_catalog():
@@ -470,7 +497,6 @@ def test_is_glue_catalog_false_for_hive_catalog():
     source.cursor = mock_cursor
 
     assert source.is_glue_catalog is False
-    assert source._is_glue_catalog is False  # Should be cached as False
 
 
 @freeze_time(FROZEN_TIME)
@@ -520,8 +546,8 @@ def test_athena_get_table_properties_glue_iceberg_returns_glue_urn():
     assert location == expected_glue_urn
 
 
-def test_is_glue_catalog_defaults_true_on_api_exception():
-    """is_glue_catalog defaults to True when the API call raises an exception."""
+def test_is_glue_catalog_defaults_true_on_api_exception_for_awsdatacatalog():
+    """is_glue_catalog defaults to True on API exception when catalog is AwsDataCatalog."""
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -538,9 +564,30 @@ def test_is_glue_catalog_defaults_true_on_api_exception():
     )
     source.cursor = mock_cursor
 
-    # API failure should default to Glue (True), not break lineage
+    # AwsDataCatalog is always Glue, so API failure still safely defaults to True.
     assert source.is_glue_catalog is True
-    assert source._is_glue_catalog is True  # Cached to avoid repeated API calls
+
+
+def test_is_glue_catalog_defaults_false_on_api_exception_for_non_default_catalog():
+    """is_glue_catalog defaults to False on API exception when a non-default catalog is configured."""
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "catalog_name": "my-custom-catalog",
+        }
+    )
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    mock_cursor = mock.MagicMock()
+    mock_cursor._connection.client.get_paginator.return_value.paginate.side_effect = (
+        Exception("Network error")
+    )
+    source.cursor = mock_cursor
+
+    assert source.is_glue_catalog is False
 
 
 def test_get_column_type_simple_types():
