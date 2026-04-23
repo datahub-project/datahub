@@ -35,10 +35,10 @@ class GlossaryNode(
 
     A glossary node has two distinct name fields:
 
-    - ``name`` (the *identity*): forms the URN
-      ``urn:li:glossaryNode:<name>`` and must be unique and stable.
+    - ``id`` (the *identity*): forms the URN
+      ``urn:li:glossaryNode:<id>`` and must be unique and stable.
       Renaming it breaks existing references, so choose an identifier that
-      won't need to change (e.g. ``"Finance"`` or ``"Finance.Revenue"``).
+      won't need to change.
 
     - ``display_name``: the human-readable label shown in the DataHub UI
       (e.g. ``"Financial Metrics"``). It can be changed freely without
@@ -46,16 +46,16 @@ class GlossaryNode(
 
     Example::
 
-        # Stable machine-friendly name; friendly label as display_name.
+        # Stable machine-friendly id; friendly label as display_name.
         node = GlossaryNode(
-            name="Finance",
+            id="finance",
             display_name="Financial Metrics",
             definition="All financial and accounting-related business terms.",
         )
 
         # Nested node — child refers to parent by object or URN.
         child = GlossaryNode(
-            name="Finance.Revenue",
+            id="finance.revenue",
             display_name="Revenue Metrics",
             definition="Terms related to revenue recognition.",
             parent_node=node,
@@ -71,7 +71,7 @@ class GlossaryNode(
     def __init__(
         self,
         *,
-        name: str,
+        id: str,
         display_name: Optional[str] = None,
         definition: str = "",
         parent_node: Optional[Union[GlossaryNodeUrnOrStr, "GlossaryNode"]] = None,
@@ -84,15 +84,14 @@ class GlossaryNode(
         """Initialize a new GlossaryNode.
 
         Args:
-            name: Stable identifier used in the URN
-                (``urn:li:glossaryNode:<name>``). Prefer dot-separated paths
-                for hierarchy, e.g. ``"Finance"`` or ``"Finance.Revenue"``.
-                This value must not change after the node is published —
-                renaming it creates a new entity and orphans existing
-                references. Use ``display_name`` for the human-readable label.
+            id: Stable identifier used in the URN
+                (``urn:li:glossaryNode:<id>``). This value must not change
+                after the node is published — renaming it creates a new
+                entity and orphans existing references. Use ``display_name``
+                for the human-readable label shown in the UI.
             display_name: Human-readable label shown in the UI.
-                Unlike ``name``, this can be updated freely at any time.
-                Defaults to ``None`` (the UI falls back to ``name``).
+                Unlike ``id``, this can be updated freely at any time.
+                Defaults to ``None`` (the UI falls back to ``id``).
             definition: Business definition of this glossary category.
             parent_node: Optional parent node, accepted as a
                 :class:`GlossaryNode` object, a :class:`GlossaryNodeUrn`, or
@@ -103,7 +102,7 @@ class GlossaryNode(
             structured_properties: Structured property assignments.
             extra_aspects: Additional raw aspects to attach to the entity.
         """
-        urn = GlossaryNodeUrn(name)
+        urn = GlossaryNodeUrn(id)
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
 
@@ -128,7 +127,7 @@ class GlossaryNode(
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
         assert isinstance(urn, GlossaryNodeUrn)
-        entity = cls(name=urn.name)
+        entity = cls(id=urn.name)
         return entity._init_from_graph(current_aspects)
 
     @property
@@ -140,7 +139,7 @@ class GlossaryNode(
         return self._setdefault_aspect(models.GlossaryNodeInfoClass(definition=""))
 
     @property
-    def name(self) -> str:
+    def id(self) -> str:
         """Stable identifier used in the URN. Read-only after construction."""
         return self.urn.name
 

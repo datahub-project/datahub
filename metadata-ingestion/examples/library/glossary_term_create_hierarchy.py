@@ -13,20 +13,20 @@ client = DataHubClient.from_env()
 #       └── SSN (term)
 
 root = GlossaryNode(
-    name="DataGovernance",
+    id="8b9c0d1e",
     display_name="Data Governance",
     definition="Top-level governance structure for data classification and management.",
 )
 
 classification = GlossaryNode(
-    name="Classification",
+    id="2f3a4b5c",
     display_name="Classification",
     definition="Data classification categories.",
     parent_node=root,
 )
 
 pii = GlossaryNode(
-    name="PersonalInformation",
+    id="6d7e8f90",
     display_name="Personal Information",
     definition="Personal and sensitive data categories.",
     parent_node=root,
@@ -34,25 +34,25 @@ pii = GlossaryNode(
 
 terms = [
     GlossaryTerm(
-        name="Public",
+        id="abcdef12",
         display_name="Public",
         definition="Publicly available data with no restrictions.",
         parent_node=classification,
     ),
     GlossaryTerm(
-        name="Confidential",
+        id="34567890",
         display_name="Confidential",
         definition="Restricted access data for internal use only.",
         parent_node=classification,
     ),
     GlossaryTerm(
-        name="Email",
+        id="abcd1234",
         display_name="Email Address",
         definition="Email addresses that can identify individuals.",
         parent_node=pii,
     ),
     GlossaryTerm(
-        name="SSN",
+        id="5678abcd",
         display_name="Social Security Number",
         definition="Social Security Numbers - highly sensitive personal identifiers.",
         parent_node=pii,

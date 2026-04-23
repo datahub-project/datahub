@@ -39,11 +39,11 @@ class GlossaryTerm(
 
     A glossary term has two distinct name fields:
 
-    - ``name`` (the *identity*): forms the URN
-      ``urn:li:glossaryTerm:<name>`` and must be unique and stable.
+    - ``id`` (the *identity*): forms the URN
+      ``urn:li:glossaryTerm:<id>`` and must be unique and stable.
       Renaming it breaks every place the term is referenced (datasets,
       columns, policies, …), so choose an identifier that won't need to
-      change (e.g. ``"Classification.PII"`` or ``"Finance.ARR"``).
+      change.
 
     - ``display_name``: the human-readable label shown in the DataHub UI
       (e.g. ``"Personally Identifiable Information"``). It can be changed
@@ -72,16 +72,17 @@ class GlossaryTerm(
     Example::
 
         term = GlossaryTerm(
-            name="Classification.PII",          # stable URN key
+            id="3a4b5c6d",                      # stable URN key
             display_name="Personally Identifiable Information",
             definition="Data that can identify a person.",
-            parent_node=GlossaryNodeUrn("Classification"),
-            is_a=[GlossaryTermUrn("Classification.Sensitive")],
+            parent_node=GlossaryNodeUrn("2f3a4b5c"),
+            is_a=[GlossaryTermUrn("1a2b3c4d")],
         )
 
         # External term sourced from FIBO
         fibo_term = GlossaryTerm(
-            name="FIBO.FinancialInstrument",
+            id="7f8a9b0c",
+            display_name="Financial Instrument",
             definition="A financial instrument as defined by FIBO.",
             term_source="EXTERNAL",
             source_ref="FIBO",
@@ -98,7 +99,7 @@ class GlossaryTerm(
     def __init__(
         self,
         *,
-        name: str,
+        id: str,
         display_name: Optional[str] = None,
         definition: str = "",
         parent_node: Optional[Union[GlossaryNodeUrnOrStr, GlossaryNode]] = None,
@@ -119,16 +120,15 @@ class GlossaryTerm(
         """Initialize a new GlossaryTerm.
 
         Args:
-            name: Stable identifier used in the URN
-                (``urn:li:glossaryTerm:<name>``). Prefer dot-separated paths
-                to mirror hierarchy, e.g. ``"Classification.PII"`` or
-                ``"Finance.ARR"``. This value must not change after the term
-                is published — renaming it creates a new entity and orphans
-                every reference (dataset columns, policies, …). Use
-                ``display_name`` for the human-readable label.
+            id: Stable identifier used in the URN
+                (``urn:li:glossaryTerm:<id>``). This value must not change
+                after the term is published — renaming it creates a new
+                entity and orphans every reference (dataset columns,
+                policies, …). Use ``display_name`` for the human-readable
+                label shown in the UI.
             display_name: Human-readable label shown in the UI.
-                Unlike ``name``, this can be updated freely at any time.
-                Defaults to ``None`` (the UI falls back to ``name``).
+                Unlike ``id``, this can be updated freely at any time.
+                Defaults to ``None`` (the UI falls back to ``id``).
             definition: Authoritative business definition of the term.
             parent_node: Optional parent glossary node for organising the
                 term within the hierarchy. Accepted as a
@@ -157,7 +157,7 @@ class GlossaryTerm(
             structured_properties: Structured property assignments.
             extra_aspects: Additional raw aspects to attach to the entity.
         """
-        urn = GlossaryTermUrn(name)
+        urn = GlossaryTermUrn(id)
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
 
@@ -197,7 +197,7 @@ class GlossaryTerm(
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
         assert isinstance(urn, GlossaryTermUrn)
-        entity = cls(name=urn.name)
+        entity = cls(id=urn.name)
         return entity._init_from_graph(current_aspects)
 
     @property
@@ -216,7 +216,7 @@ class GlossaryTerm(
         return self._setdefault_aspect(models.GlossaryRelatedTermsClass())
 
     @property
-    def name(self) -> str:
+    def id(self) -> str:
         """Stable identifier used in the URN. Read-only after construction."""
         return self.urn.name
 

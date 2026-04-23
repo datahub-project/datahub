@@ -6,7 +6,8 @@ client = DataHubClient.from_env()
 
 # Email — is a type of PII and Sensitive, related to PhoneNumber and Contact
 email_term = GlossaryTerm(
-    name="PersonalInformation.Email",
+    id="1a2b3c4d",
+    display_name="Email",
     definition="Email addresses that can identify individuals.",
     is_a=[
         GlossaryTermUrn("Classification.PII"),
@@ -20,7 +21,8 @@ email_term = GlossaryTerm(
 
 # Address — is a type of PII, has components (ZipCode, Street, City, Country)
 address_term = GlossaryTerm(
-    name="PersonalInformation.Address",
+    id="5e6f7a8b",
+    display_name="Address",
     definition="Physical addresses that can identify individuals.",
     is_a=[GlossaryTermUrn("Classification.PII")],
     has_a=[
@@ -33,7 +35,8 @@ address_term = GlossaryTerm(
 
 # ColorEnum — an enumeration with fixed allowed values
 color_enum_term = GlossaryTerm(
-    name="ColorEnum",
+    id="9c0d1e2f",
+    display_name="Color",
     definition="An enumeration of allowed color values.",
     values=[
         GlossaryTermUrn("Colors.Red"),

@@ -11,14 +11,14 @@ GOLDEN_DIR = pathlib.Path(__file__).parent / "glossary_term_golden"
 
 
 def test_glossary_term_basic() -> None:
-    term = GlossaryTerm(name="ARR")
+    term = GlossaryTerm(id="ARR")
 
     assert GlossaryTerm.get_urn_type() == GlossaryTermUrn
     assert isinstance(term.urn, GlossaryTermUrn)
     assert str(term.urn) == "urn:li:glossaryTerm:ARR"
     assert str(term.urn) in repr(term)
 
-    assert term.name == "ARR"
+    assert term.id == "ARR"
     assert term.display_name is None
     assert term.definition == ""
     assert term.term_source == "INTERNAL"
@@ -43,17 +43,17 @@ def test_glossary_term_basic() -> None:
 
 
 def test_glossary_term_with_node() -> None:
-    node = GlossaryNode(name="Finance", definition="Financial terms.")
+    node = GlossaryNode(id="Finance", definition="Financial terms.")
 
     # parent as GlossaryNode object
     term1 = GlossaryTerm(
-        name="ARR", definition="Annual recurring revenue.", parent_node=node
+        id="ARR", definition="Annual recurring revenue.", parent_node=node
     )
     assert term1.parent_node == GlossaryNodeUrn("Finance")
 
     # parent as GlossaryNodeUrn
     term2 = GlossaryTerm(
-        name="ARR",
+        id="ARR",
         definition="Annual recurring revenue.",
         parent_node=GlossaryNodeUrn("Finance"),
     )
@@ -61,7 +61,7 @@ def test_glossary_term_with_node() -> None:
 
     # parent as URN string
     term3 = GlossaryTerm(
-        name="ARR",
+        id="ARR",
         definition="Annual recurring revenue.",
         parent_node="urn:li:glossaryNode:Finance",
     )
@@ -72,7 +72,7 @@ def test_glossary_term_with_node() -> None:
 
 def test_glossary_term_external() -> None:
     term = GlossaryTerm(
-        name="FIBO.FinancialInstrument",
+        id="FIBO.FinancialInstrument",
         definition="A financial instrument as defined by FIBO.",
         term_source="EXTERNAL",
         source_ref="FIBO",
@@ -88,7 +88,7 @@ def test_glossary_term_external() -> None:
 
 def test_glossary_term_related_terms() -> None:
     term = GlossaryTerm(
-        name="MRR",
+        id="MRR",
         definition="Monthly Recurring Revenue.",
         is_a=[GlossaryTermUrn("RecurringRevenue")],
         has_a=[GlossaryTermUrn("SubscriptionCount")],
@@ -126,7 +126,7 @@ def test_glossary_term_related_terms() -> None:
 
 def test_glossary_term_complex() -> None:
     term = GlossaryTerm(
-        name="Classification.PII",
+        id="Classification.PII",
         display_name="Personally Identifiable Information",
         definition="Information that can identify, contact, or locate a person.",
         parent_node=GlossaryNodeUrn("Classification"),
@@ -144,7 +144,7 @@ def test_glossary_term_complex() -> None:
         related_terms=[GlossaryTermUrn("SSN"), GlossaryTermUrn("Email")],
     )
 
-    assert term.name == "Classification.PII"
+    assert term.id == "Classification.PII"
     assert term.display_name == "Personally Identifiable Information"
     assert (
         term.definition == "Information that can identify, contact, or locate a person."
@@ -165,7 +165,7 @@ def test_glossary_term_complex() -> None:
 
 
 def test_glossary_term_setters() -> None:
-    term = GlossaryTerm(name="ARR")
+    term = GlossaryTerm(id="ARR")
 
     term.set_display_name("Annual Recurring Revenue")
     assert term.display_name == "Annual Recurring Revenue"
@@ -185,7 +185,7 @@ def test_glossary_term_setters() -> None:
     term.set_parent_node(GlossaryNodeUrn("Finance"))
     assert term.parent_node == GlossaryNodeUrn("Finance")
 
-    term.set_parent_node(GlossaryNode(name="TopLevel"))
+    term.set_parent_node(GlossaryNode(id="TopLevel"))
     assert term.parent_node == GlossaryNodeUrn("TopLevel")
 
     term.set_custom_properties({"key": "value"})
@@ -193,7 +193,7 @@ def test_glossary_term_setters() -> None:
 
 
 def test_glossary_term_has_a_and_related() -> None:
-    term = GlossaryTerm(name="Address")
+    term = GlossaryTerm(id="Address")
 
     # add_has_a / remove_has_a
     term.add_has_a(GlossaryTermUrn("ZipCode"))
@@ -218,7 +218,7 @@ def test_glossary_term_has_a_and_related() -> None:
     assert term.has_a == [GlossaryTermUrn("ZipCode")]
 
     # add_is_a and add_value from scratch (no prior related terms) hit None-init branches
-    fresh = GlossaryTerm(name="FreshTerm")
+    fresh = GlossaryTerm(id="FreshTerm")
     fresh.add_is_a(GlossaryTermUrn("Base"))
     assert fresh.is_a == [GlossaryTermUrn("Base")]
 
@@ -246,7 +246,7 @@ def test_glossary_term_new_from_graph() -> None:
     }
     term = GlossaryTerm._new_from_graph(urn, aspects)
 
-    assert term.name == "Classification.PII"
+    assert term.id == "Classification.PII"
     assert term.definition == "Data that identifies a person."
     assert term.display_name == "PII"
     assert term.parent_node == GlossaryNodeUrn("Classification")
@@ -258,7 +258,7 @@ def test_glossary_term_new_from_graph() -> None:
 
 def test_glossary_term_structured_properties() -> None:
     term = GlossaryTerm(
-        name="ARR",
+        id="ARR",
         structured_properties={
             "urn:li:structuredProperty:sp1": ["value1"],
         },

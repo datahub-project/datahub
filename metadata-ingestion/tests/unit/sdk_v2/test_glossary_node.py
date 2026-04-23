@@ -10,14 +10,14 @@ GOLDEN_DIR = pathlib.Path(__file__).parent / "glossary_node_golden"
 
 
 def test_glossary_node_basic() -> None:
-    node = GlossaryNode(name="Finance")
+    node = GlossaryNode(id="Finance")
 
     assert GlossaryNode.get_urn_type() == GlossaryNodeUrn
     assert isinstance(node.urn, GlossaryNodeUrn)
     assert str(node.urn) == "urn:li:glossaryNode:Finance"
     assert str(node.urn) in repr(node)
 
-    assert node.name == "Finance"
+    assert node.id == "Finance"
     assert node.display_name is None
     assert node.definition == ""
     assert node.parent_node is None
@@ -34,21 +34,21 @@ def test_glossary_node_basic() -> None:
 
 
 def test_glossary_node_with_parent() -> None:
-    parent = GlossaryNode(name="BusinessGlossary", definition="Top-level glossary.")
+    parent = GlossaryNode(id="BusinessGlossary", definition="Top-level glossary.")
 
     # parent as GlossaryNode object
-    child1 = GlossaryNode(name="Finance", parent_node=parent)
+    child1 = GlossaryNode(id="Finance", parent_node=parent)
     assert child1.parent_node == GlossaryNodeUrn("BusinessGlossary")
 
     # parent as GlossaryNodeUrn
     child2 = GlossaryNode(
-        name="Finance", parent_node=GlossaryNodeUrn("BusinessGlossary")
+        id="Finance", parent_node=GlossaryNodeUrn("BusinessGlossary")
     )
     assert child2.parent_node == GlossaryNodeUrn("BusinessGlossary")
 
     # parent as URN string
     child3 = GlossaryNode(
-        name="Finance", parent_node="urn:li:glossaryNode:BusinessGlossary"
+        id="Finance", parent_node="urn:li:glossaryNode:BusinessGlossary"
     )
     assert child3.parent_node == GlossaryNodeUrn("BusinessGlossary")
 
@@ -58,7 +58,7 @@ def test_glossary_node_with_parent() -> None:
 
 def test_glossary_node_complex() -> None:
     node = GlossaryNode(
-        name="RevenueMetrics",
+        id="RevenueMetrics",
         display_name="Revenue Metrics",
         definition="Metrics related to revenue recognition and reporting.",
         parent_node=GlossaryNodeUrn("Finance"),
@@ -67,7 +67,7 @@ def test_glossary_node_complex() -> None:
         links=["https://wiki.company.com/revenue"],
     )
 
-    assert node.name == "RevenueMetrics"
+    assert node.id == "RevenueMetrics"
     assert node.display_name == "Revenue Metrics"
     assert node.definition == "Metrics related to revenue recognition and reporting."
     assert node.parent_node == GlossaryNodeUrn("Finance")
@@ -81,7 +81,7 @@ def test_glossary_node_complex() -> None:
 
 
 def test_glossary_node_setters() -> None:
-    node = GlossaryNode(name="Finance")
+    node = GlossaryNode(id="Finance")
 
     node.set_display_name("Financial Metrics")
     assert node.display_name == "Financial Metrics"
@@ -95,7 +95,7 @@ def test_glossary_node_setters() -> None:
     node.set_custom_properties({"key": "value"})
     assert node.custom_properties == {"key": "value"}
 
-    node.set_parent_node(GlossaryNode(name="TopLevel"))
+    node.set_parent_node(GlossaryNode(id="TopLevel"))
     assert node.parent_node == GlossaryNodeUrn("TopLevel")
 
 
@@ -113,7 +113,7 @@ def test_glossary_node_new_from_graph() -> None:
     }
     node = GlossaryNode._new_from_graph(urn, aspects)
 
-    assert node.name == "Finance"
+    assert node.id == "Finance"
     assert node.definition == "All financial terms."
     assert node.display_name == "Financial Metrics"
     assert node.parent_node == GlossaryNodeUrn("BusinessGlossary")
@@ -122,7 +122,7 @@ def test_glossary_node_new_from_graph() -> None:
 
 def test_glossary_node_structured_properties() -> None:
     node = GlossaryNode(
-        name="Finance",
+        id="Finance",
         structured_properties={
             "urn:li:structuredProperty:sp1": ["value1"],
             "urn:li:structuredProperty:sp2": ["value2"],
