@@ -1,4 +1,5 @@
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import (
     Callable,
@@ -82,7 +83,23 @@ ORPHAN_PROJECT_SENTINEL = "__root__"
 # Shared between extraction and lineage phases so DataJob URNs match.
 MAPPING_JOB_ID = "transform"
 
+_UNSAFE_FLOW_ID_CHARS = re.compile(r"[^\w-]+")
+
 T = TypeVar("T")
+
+
+def _safe_flow_id(name: str, fallback: str) -> str:
+    """URN-safe flow_id from a user-facing IDMC name.
+
+    DataHub's Navigate tree renders DataFlow nodes by the URN flow_id
+    segment (not ``dataFlowInfo.name``), and visually splits on ``.``
+    and ``/`` — so we sanitize those out. Falls back to ``fallback``
+    when the result is empty so we never emit an MCP with an empty URN.
+    """
+    if not name:
+        return fallback
+    sanitized = _UNSAFE_FLOW_ID_CHARS.sub("_", name).strip("_")
+    return sanitized or fallback
 
 
 @dataclass
@@ -597,8 +614,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         display = tf.name or tf.id
         flow = DataFlow(
             platform=PLATFORM,
-            # GUID flow_id avoids ``.`` or ``/`` which the UI splits into hierarchy.
-            name=tf.id or display,
+            name=_safe_flow_id(tf.name, fallback=tf.id or display),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=display,
@@ -877,8 +893,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         task_tags = self._tag_list(mt.tags)
         flow = DataFlow(
             platform=PLATFORM,
-            # v2_id is unique and has no separators the UI would split.
-            name=mt.v2_id or mt.name,
+            name=_safe_flow_id(mt.name, fallback=mt.v2_id or mt.name),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=mt.name,
@@ -903,16 +918,10 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         browse_entries: List[BrowsePathEntryClass],
         mapping_v3_guid: str,
     ) -> DataJob:
-        """Build the MT's inner ``transform`` DataJob and register its URN
-        for the lineage + Taskflow-step phases to pick up.
-
-        Index bookkeeping:
-          * ``_mapping_v3_to_mt_job_urns`` — Mapping v3 GUID → [MT job urn];
-            lineage fan-out joins export results to every MT that runs the
-            mapping.
-          * ``_mapping_ids`` — v3 GUIDs to submit to the export API.
-          * ``_mt_v2_id_to_job_urn`` / ``_mt_name_to_job_urn`` — Taskflow
-            step references may name an MT by either id or name.
+        """Build the MT's inner ``transform`` DataJob and register its
+        URN in the indexes the lineage + Taskflow-step phases consume
+        (``_mapping_v3_to_mt_job_urns``, ``_mapping_ids``,
+        ``_mt_v2_id_to_job_urn``, ``_mt_name_to_job_urn``).
         """
         job = DataJob(
             name=MAPPING_JOB_ID,

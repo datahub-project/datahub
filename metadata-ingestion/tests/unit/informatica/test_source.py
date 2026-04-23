@@ -527,8 +527,11 @@ class TestEntityEmission:
         )
         flow = source._make_taskflow(tf)
         assert isinstance(flow, DataFlow)
-        # flow_id is the IDMC v3 GUID; display_name shows the friendly name.
-        assert "tf-1" in str(flow.urn)
+        # flow_id uses the human-readable name so DataHub's Navigate tree
+        # renders "daily_refresh" rather than the opaque v3 GUID. The
+        # v3 GUID is retained in customProperties for IDMC cross-reference.
+        assert "daily_refresh" in str(flow.urn)
+        assert "tf-1" not in str(flow.urn)
         assert flow.display_name == "daily_refresh"
         assert flow.custom_properties.get("v3Id") == "tf-1"
         assert flow.custom_properties.get("objectType") == "TASKFLOW"
@@ -561,10 +564,11 @@ class TestEntityEmission:
         flow, job = entities
         assert isinstance(flow, DataFlow)
         assert isinstance(job, DataJob)
-        # flow_id is the IDMC v2 id (mt-1) — separator-free so DataHub's UI
-        # can't split it into phantom tree nodes. display_name shows
-        # "nightly_task" to users.
-        assert "mt-1" in str(flow.urn)
+        # flow_id uses the MT's human-readable name so the Navigate tree
+        # shows "nightly_task" rather than the opaque v2 id. v2 id is
+        # retained in customProperties for IDMC cross-reference.
+        assert "nightly_task" in str(flow.urn)
+        assert "mt-1" not in str(flow.urn)
         assert flow.display_name == "nightly_task"
         assert "mttask/" not in str(flow.urn)
         assert flow.custom_properties.get("v3Id") == "mt-1"
@@ -862,15 +866,10 @@ class TestLineageEmission:
         assert wus == []
 
     def test_emit_lineage_stubs_each_external_urn_with_status_exactly_once(self):
-        # Every input/output dataset URN in the lineage export must receive
-        # a ``Status`` aspect so ``searchAcrossLineage`` treats the stub as
-        # an existing entity (without it the UI's left-chevron expansion
-        # from an MT's transform DataJob renders empty).
-        #
-        # Dedup is per-source-run, tracked in
-        # ``_stubbed_external_dataset_urns``: emitting lineage for a second
-        # mapping that references the same source/target must not re-emit
-        # the ``Status`` aspect.
+        # External URNs need a ``Status`` stub so ``searchAcrossLineage``
+        # finds them (otherwise the MT's left-chevron expansion is empty).
+        # Dedup via ``_stubbed_external_dataset_urns`` — a second mapping
+        # referencing the same URN must not re-emit the stub.
         source = _make_source()
         source._connections_by_fed_id["fed"] = IdmcConnection(
             id="c",
@@ -924,10 +923,8 @@ class TestLineageEmission:
         assert _status_urns(second_wus) == []
 
     def test_emit_lineage_sets_empty_inputdatajobs_for_first_mt_in_chain(self):
-        # When an MT has no Taskflow predecessor (first step, or not part
-        # of any Taskflow), its ``inputDatajobs`` must be an empty list —
-        # not omitted and not populated with a stale value. This is the
-        # entry-point contract of the ``input_ds → MT1 → …`` chain.
+        # Entry-point contract: an MT with no Taskflow predecessor emits
+        # ``inputDatajobs=[]`` — not omitted, not stale.
         source = _make_source()
         source._connections_by_fed_id["fed"] = IdmcConnection(
             id="c", name="prod", conn_type="Oracle", federated_id="fed"
@@ -1055,8 +1052,8 @@ class TestFilteringAndErrorHandling:
         assert len(entities) == 1
         flow = entities[0]
         assert isinstance(flow, DataFlow)
-        # flow_id is the v3 id "good"; display_name is "daily_refresh".
-        assert "good" in str(flow.urn)
+        # flow_id now uses the human-readable name, not the v3 GUID.
+        assert "daily_refresh" in str(flow.urn)
         assert flow.display_name == "daily_refresh"
         assert len(source.report.warnings) > 0
 
@@ -1136,13 +1133,7 @@ class TestFilteringAndErrorHandling:
             patch.object(
                 source.client,
                 "wait_for_export",
-                return_value=MagicMock(
-                    state=__import__(
-                        "datahub.ingestion.source.informatica.models",
-                        fromlist=["ExportJobState"],
-                    ).ExportJobState.SUCCESSFUL,
-                    message="",
-                ),
+                return_value=MagicMock(state=ExportJobState.SUCCESSFUL, message=""),
             ),
             patch.object(
                 source.client, "download_and_parse_export", return_value=iter([])
@@ -1188,14 +1179,10 @@ class TestFilteringAndErrorHandling:
         ):
             list(source._extract_lineage())
 
-        # All three batches were attempted, in order.
         assert submitted == [["guid-a"], ["guid-b"], ["guid-c"]]
-        # The failing batch is recorded under export_jobs_failed so
-        # operators can see which slice didn't make it through.
         assert len(source.report.export_jobs_failed) == 1
         assert "guid-b" not in str(source.report.export_jobs_failed[0])
-        # Failure context mentions the batch_start index so the operator
-        # can correlate with which mapping_id slice failed.
+        # ``batch@N`` identifies which mapping_id slice failed.
         assert "batch@1" in source.report.export_jobs_failed[0]
 
     def test_process_export_batch_timeout_does_not_duplicate_warning(self):
@@ -1218,17 +1205,14 @@ class TestFilteringAndErrorHandling:
                 source.client, "download_and_parse_export", return_value=iter([])
             ),
         ):
-            # No warning added here (the caller suppresses on TIMEOUT).
             warnings_before = len(source.report.warnings)
             list(source._process_export_batch(["guid-x"], batch_start=0))
             warnings_after = len(source.report.warnings)
         assert warnings_after == warnings_before
 
     def test_process_export_batch_failed_state_includes_status_message(self):
-        # FAILED/UNKNOWN states get a source-level warning that includes
-        # IDMC's ``status.message`` so operators can diagnose the failure
-        # root cause (missing Asset - export privilege etc.) without
-        # having to re-run with debug logging.
+        # FAILED/UNKNOWN states carry IDMC's ``status.message`` into the
+        # report warning so the ``Asset - export`` hint reaches operators.
         source = _make_source()
         with (
             patch.object(source.client, "submit_export_job", return_value="job-y"),
@@ -1246,7 +1230,6 @@ class TestFilteringAndErrorHandling:
         ):
             list(source._process_export_batch(["guid-y"], batch_start=7))
         assert len(source.report.warnings) >= 1
-        # The report warning carries the batch_start and IDMC's message.
         last_warning_str = "".join(
             f"{w.title} {w.message}" for w in source.report.warnings
         ) + str(source.report.warnings)
@@ -1464,9 +1447,8 @@ class TestSourceLifecycle:
         assert len(source.report.failures) > 0
 
     def test_summarize_taskflow_steps_warns_on_partial_coverage(self):
-        # Missing step DAGs are almost always a privilege issue
-        # (``Asset - export``); surface it on the report so operators see
-        # it without having to scan logs.
+        # Missing step DAGs usually mean missing ``Asset - export``;
+        # surface on the report so operators see it without log diving.
         source = _make_source()
         source.report.taskflows_scanned = 3
         source.report.taskflows_with_steps = 1
@@ -1474,13 +1456,10 @@ class TestSourceLifecycle:
         assert len(source.report.warnings) == 1
         w = source.report.warnings[0]
         assert w.title == "Taskflow step DAG missing for some Taskflows"
-        # The actionable hint must be in the warning — not buried in logs.
         assert "Asset - export" in "".join(w.message or [])
-        # Counts should make the gap concrete to the operator.
         assert "1/3" in "".join(w.message or [])
 
     def test_summarize_taskflow_steps_silent_on_full_coverage(self):
-        # Common case: every Taskflow had its step DAG resolved. No noise.
         source = _make_source()
         source.report.taskflows_scanned = 5
         source.report.taskflows_with_steps = 5
@@ -1488,7 +1467,6 @@ class TestSourceLifecycle:
         assert source.report.warnings == []
 
     def test_summarize_taskflow_steps_silent_when_no_taskflows_scanned(self):
-        # Zero Taskflows in the org (or all filtered out) — also silent.
         source = _make_source()
         source.report.taskflows_scanned = 0
         source.report.taskflows_with_steps = 0

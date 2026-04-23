@@ -180,10 +180,8 @@ _CONNECTIONS: List[IdmcConnection] = [
 ]
 
 _TASKFLOW_DEFINITIONS: Dict[str, TaskflowDefinition] = {
-    # ``daily_refresh`` runs two Mapping Tasks in sequence: first copy
-    # orders, then enrich customers. Chaining them here exercises
-    # ``_emit_taskflow_steps`` + ``_emit_orchestrate_datajob`` +
-    # ``_emit_orchestrate_aggregated_lineage`` end-to-end.
+    # 2-step chain (copy → enrich) exercises step-DAG emission +
+    # orchestrate DataJob + aggregated-lineage end-to-end.
     "tf-daily-refresh": TaskflowDefinition(
         taskflow_id="tf-daily-refresh",
         taskflow_name="daily_refresh",
@@ -291,8 +289,8 @@ class _StubClient:
         return _TASKFLOW_DEFINITIONS.get(taskflow_v3_guid)
 
     def prefetch_taskflow_definitions(self, taskflow_v3_guids):
-        # Stub: real client warms a cache here; our ``get_taskflow_definition``
-        # always returns from the fixture dict so no prefetch is needed.
+        # ``get_taskflow_definition`` reads directly from the fixture
+        # dict; no cache to warm.
         pass
 
     def submit_export_job(self, object_ids):
@@ -366,12 +364,9 @@ def test_preserves_case_when_convert_urns_to_lowercase_disabled(tmp_path):
     """With ``convert_urns_to_lowercase: false`` the emitted dataset URNs
     must use IDMC's original case.
 
-    The default ``True`` (tested in ``test_informatica_ingestion``) matches
-    Snowflake/Postgres/BigQuery's default lowercasing; the ``False`` path
-    exists for orgs that have disabled lowercasing on their source
-    platform so lineage edges still line up. Cross-source URN alignment
-    is the connector's primary value proposition, so both paths need
-    integration-level proof.
+    The default ``True`` (tested in ``test_informatica_ingestion``)
+    matches Snowflake/Postgres/BigQuery defaults; this test covers the
+    opt-out for orgs that have disabled lowercasing on those sources.
     """
     output_path = tmp_path / "informatica_mces_case_preserved.json"
     _run_pipeline(
@@ -382,12 +377,8 @@ def test_preserves_case_when_convert_urns_to_lowercase_disabled(tmp_path):
     with open(output_path) as f:
         records = json.load(f)
     dataset_urns = {r["entityUrn"] for r in records if r.get("entityType") == "dataset"}
-    # Lineage fixture emits from APPS.ORDERS → ANALYTICS.ORDERS and
-    # APPS.CUSTOMERS → ANALYTICS.CUSTOMERS_ENRICHED. With lowercasing
-    # disabled, every qualifier component keeps its IDMC-reported case.
-    # (Note: upstream URNs don't get the source's ``platform_instance``
-    # prefix — that comes from ``connection_to_platform_instance``, which
-    # this fixture doesn't set.)
+    # Upstream URNs don't pick up the source's own ``platform_instance`` —
+    # that comes from ``connection_to_platform_instance``, unset here.
     expected_uppercase_urns = {
         "urn:li:dataset:(urn:li:dataPlatform:oracle,OLTP.APPS.ORDERS,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.ORDERS,PROD)",
@@ -398,8 +389,7 @@ def test_preserves_case_when_convert_urns_to_lowercase_disabled(tmp_path):
         "convert_urns_to_lowercase=False must preserve IDMC's original "
         f"case in dataset URNs. Emitted: {sorted(dataset_urns)}"
     )
-    # Regression guard: ensure no lowercased variant is also emitted —
-    # that would mean the flag is being ignored somewhere in the chain.
+    # Regression guard against the flag being silently ignored.
     lowercased_variants = {
         "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)",

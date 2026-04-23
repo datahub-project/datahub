@@ -116,18 +116,15 @@ class TestLogin:
 
 
 class TestSessionValidation:
-    """Exercise _validate_session's unexpected-response branches. Expected
-    failure paths (expired token → ``isValidToken: false``) are silent by
-    design; unexpected ones (non-200, non-JSON 200) trigger a one-shot
-    report warning so a persistently broken ``/validSessionId`` endpoint
-    doesn't spam the report on every API call.
+    """Unexpected-response branches of ``_validate_session`` must fire a
+    one-shot report warning; expected paths (expired token) stay silent.
     """
 
     def _prep(self, client: InformaticaClient) -> None:
         client._session_id = "sess"
         client._base_url = "https://pod/saas"
-        # Mark the session as already-validated so subsequent calls to
-        # _validate_session actually run the HTTP probe.
+        # Recent-enough timestamp to force the HTTP validation probe
+        # instead of short-circuiting on TTL.
         client._session_last_validated_at = 1e12
 
     def test_non_200_fires_warning_once_across_consecutive_calls(self, client):
@@ -137,13 +134,11 @@ class TestSessionValidation:
             assert client._validate_session() is False
             assert client._validate_session() is False
             assert client._validate_session() is False
-        # One-shot guard: three failing probes, exactly one report warning.
         assert len(client.report.warnings) == 1
         warning = client.report.warnings[0]
         assert warning.title == (
             "IDMC session validation endpoint returned unexpected response"
         )
-        # The operator needs to know the specific HTTP status to diagnose.
         assert "HTTP 500" in "".join(warning.context or [])
 
     def test_non_json_200_body_also_fires_warning_once(self, client):
@@ -157,9 +152,7 @@ class TestSessionValidation:
         assert "non-JSON body" in "".join(client.report.warnings[0].context or [])
 
     def test_expired_token_is_silent(self, client):
-        # ``isValidToken: false`` is the expected path after 25 minutes.
-        # Re-login happens automatically; no operator action required, so
-        # no warning.
+        # ``isValidToken: false`` → automatic re-login; no operator action.
         self._prep(client)
         expired = _build_response(200, {"isValidToken": False})
         with patch.object(client._session, "post", return_value=expired):
@@ -720,16 +713,13 @@ class TestResolveSuccessorId:
         assert _resolve_successor_id({"name": "step-42"}) == "step-42"
 
     def test_dict_id_is_coerced_to_str(self):
-        # IDMC has returned numeric ids in older payloads; coerce to str
-        # so downstream ``successors.setdefault(...)`` keys stay uniform.
+        # Older payloads returned numeric ids; coerce for uniform keying.
         assert _resolve_successor_id({"id": 42}) == "42"
 
     def test_dict_without_id_returns_none(self):
         assert _resolve_successor_id({"label": "step-42"}) is None
 
     def test_unknown_shape_returns_none(self):
-        # Numbers, lists, None — anything that isn't str or {id: ...}
-        # shouldn't produce a false step id.
         assert _resolve_successor_id(42) is None
         assert _resolve_successor_id(["step-42"]) is None
         assert _resolve_successor_id(None) is None
@@ -907,10 +897,8 @@ class TestParseTaskflowXml:
         assert parse_taskflow_xml(b"<root><other/></root>") is None
 
     def test_rejects_billion_laughs_entity_expansion(self):
-        # Without defusedxml, this payload expands to ~10^9 "lol"s during
-        # parse and OOMs the process. With defusedxml.ElementTree, the
-        # entity declaration itself triggers EntitiesForbidden and the
-        # parser returns None in microseconds.
+        # Without defusedxml this payload expands to ~10^9 "lol"s; with
+        # it, EntitiesForbidden fires on the <!ENTITY> declaration.
         bomb = (
             b'<?xml version="1.0"?>\n'
             b"<!DOCTYPE lolz [\n"
@@ -966,8 +954,8 @@ _VALID_TASKFLOW_XML = (
 
 
 class TestParseTaskflowExportPackage:
-    """Covers the batched ZIP parse: bad-ZIP rollup, per-entry parse
-    failures rolled up into a single warning, and the happy path.
+    """Batched ZIP parse: happy path, bad-ZIP warning, and per-entry
+    parse failures rolled up into one warning (not one per entry).
     """
 
     def test_returns_parsed_definitions_on_happy_path(self):
@@ -979,7 +967,6 @@ class TestParseTaskflowExportPackage:
 
     def test_bad_zip_emits_single_warning_and_returns_empty(self):
         report = InformaticaSourceReport()
-        # Not a ZIP at all — just raw bytes.
         defs = _parse_taskflow_export_package(_iter_bytes(b"not-a-zip"), report=report)
         assert defs == {}
         assert len(report.warnings) == 1
@@ -989,9 +976,6 @@ class TestParseTaskflowExportPackage:
         )
 
     def test_malformed_entry_produces_one_rollup_warning_not_per_entry(self):
-        # ZIP with 1 valid + 2 malformed .TASKFLOW.xml entries. The valid
-        # one must still be returned; the two failures roll up into a
-        # single ``parse_failures=2`` warning rather than one each.
         report = InformaticaSourceReport()
         zip_bytes = _zip_with(
             {
@@ -1009,7 +993,6 @@ class TestParseTaskflowExportPackage:
         assert "parse_failures=2" in "".join(w.context or [])
 
     def test_no_report_argument_is_silent(self):
-        # Unit tests without a report object should still work.
         zip_bytes = _zip_with({"x.TASKFLOW.xml": b"not-xml"})
         defs = _parse_taskflow_export_package(_iter_bytes(zip_bytes))
-        assert defs == {}  # No crash, no report needed.
+        assert defs == {}

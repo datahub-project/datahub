@@ -705,13 +705,10 @@ class InformaticaClient:
         mapping_id: str,
         job_id: str,
     ) -> Optional[MappingLineageInfo]:
-        """Open one ``*.DTEMPLATE.zip`` entry, guard against zip-bomb
-        payloads, and delegate to the mapping-design parser.
-
-        Returns ``None`` and records a report warning/failure on any of:
-        oversized decompressed entry, malformed inner ZIP, bad UTF-8 in
-        ``@3.bin``, or unexpected JSON shape. A failure on one entry
-        never aborts the caller's loop over sibling entries.
+        """Parse one ``*.DTEMPLATE.zip`` entry with zip-bomb + malformed
+        payload guards. Returns ``None`` on failure so the caller's loop
+        over sibling entries continues; failures are surfaced via
+        ``report.warning`` / ``report_object_failed``.
         """
         try:
             info = outer_zip.getinfo(entry_name)
@@ -1072,13 +1069,10 @@ def _collect_taskflow_edges(
 
 
 def _xml_node_to_step(node: ET.Element) -> Optional[TaskflowStep]:
-    """Convert a single ``<flow>`` child node into a :class:`TaskflowStep`.
+    """Convert one ``<flow>`` child into a :class:`TaskflowStep`.
 
-    Returns ``None`` for nodes with no ``id`` or for control-flow
-    markers (``<start>``, ``<end>``). The node's ``<service>`` child (if
-    any) carries the step's human name and its ``task_ref_*`` — absent
-    for non-data flavors, default is inferred from the XML tag name
-    (``eventContainer`` → ``"data"``, anything else → ``"unknown"``).
+    Returns ``None`` for control-flow markers (``<start>``, ``<end>``)
+    or nodes without an ``id``.
     """
     tag = _local_tag(node)
     node_id = node.get("id", "")
