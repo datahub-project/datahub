@@ -118,8 +118,12 @@ class DataplexGlossaryReport(Report):
     glossaries_seen: int = 0
     glossaries_processed: int = 0
     glossaries_processed_samples: LossyList[str] = field(default_factory=LossyList)
-    categories_seen: int = 0
-    terms_seen: int = 0
+    glossary_categories_processed: int = 0
+    glossary_categories_processed_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    glossary_terms_processed: int = 0
+    glossary_terms_processed_samples: LossyList[str] = field(default_factory=LossyList)
     term_associations_emitted: int = 0
     glossary_api: Dict[str, Tuple[int, float]] = field(default_factory=dict)
 
@@ -137,13 +141,15 @@ class DataplexGlossaryReport(Report):
             self.glossaries_processed += 1
             self.glossaries_processed_samples.append(name)
 
-    def report_category(self) -> None:
+    def report_category(self, name: str) -> None:
         with self._lock:
-            self.categories_seen += 1
+            self.glossary_categories_processed += 1
+            self.glossary_categories_processed_samples.append(name)
 
-    def report_term(self) -> None:
+    def report_term(self, name: str) -> None:
         with self._lock:
-            self.terms_seen += 1
+            self.glossary_terms_processed += 1
+            self.glossary_terms_processed_samples.append(name)
 
     def report_association(self) -> None:
         with self._lock:
@@ -315,8 +321,8 @@ class DataplexGlossaryProcessor:
         )
 
         for category in categories:
-            self._report.report_category()
             cat_id = _resource_id(category.name)
+            self._report.report_category(category.name)
             parent_urn = _parse_parent_urn(
                 category.parent, project_id, location, glossary_id
             )
@@ -335,8 +341,8 @@ class DataplexGlossaryProcessor:
             yield cat_node
 
         for term in terms:
-            self._report.report_term()
             term_id = _resource_id(term.name)
+            self._report.report_term(term.name)
             parent_urn = _parse_parent_urn(
                 term.parent, project_id, location, glossary_id
             )
