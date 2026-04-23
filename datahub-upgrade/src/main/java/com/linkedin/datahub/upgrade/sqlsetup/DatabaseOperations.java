@@ -108,6 +108,27 @@ public interface DatabaseOperations {
   java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex);
 
   /**
+   * Drops legacy secondary indexes on {@code metadata_aspect_v2} that SqlSetup no longer creates
+   * (e.g. single-column {@code urn}/{@code aspect}/{@code version} indexes from older DDL).
+   * Defaults to a no-op.
+   *
+   * @param connection open JDBC connection to the target database
+   */
+  default void dropLegacyAspectTableIndexes(Connection connection) throws SQLException {}
+
+  /**
+   * Creates current {@code metadata_aspect_v2} secondary indexes when they are missing. On
+   * PostgreSQL these use {@code CREATE INDEX CONCURRENTLY} so builds on populated tables avoid long
+   * exclusive locks. On MySQL, indexes that are normally inlined in {@link
+   * #createTableSqlStatements} are added with {@code ALTER TABLE ... ADD INDEX} only when absent
+   * (so existing databases that predate those indexes still get them). Defaults to a no-op when
+   * there is nothing to ensure beyond inline DDL.
+   *
+   * @param connection open JDBC connection to the target database
+   */
+  default void ensureAspectIndexes(Connection connection) throws SQLException {}
+
+  /**
    * Called after table creation to create any indexes that must run outside a transaction (e.g.
    * CONCURRENTLY). Defaults to a no-op.
    *

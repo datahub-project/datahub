@@ -12,6 +12,13 @@ record AssertionResult {
   type: AssertionResultType
 
   /**
+   * The severity of a failure result. Only meaningful when type is FAILURE.
+   * Indicates how far the observed value deviated from expected bounds.
+   */
+  @TimeseriesField = {}
+  severity: optional AssertionResultSeverity
+
+  /**
    * Number of rows for evaluated batch
    */
   rowCount: optional long

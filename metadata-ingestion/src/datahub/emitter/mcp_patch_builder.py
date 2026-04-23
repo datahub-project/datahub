@@ -227,7 +227,12 @@ def determine_array_primary_keys(
     if sorted(is_none) == is_none:
         # All None values are at the end, we can use the default primary key order
         remove_nones = [v for v in path if v is not None]
-        return list(remove_nones), None
+
+        # TODO: Add back this functionality once we backend templates support attribution
+        # return list(remove_nones), None
+
+        # For now, always use default_key_fields because we must route to GenericJsonPatch
+        return remove_nones, {field_name: default_key_fields}
     else:
         # Reorder the primary keys so that None values are at the end, and specify the new order in arrayPrimaryKeys
         path_with_fields = list(zip(path, default_key_fields, strict=False))

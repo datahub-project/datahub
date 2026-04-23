@@ -68,9 +68,6 @@ class CronFreshnessAssertion(BaseEntityAssertion):
         }
         return self.id or datahub_guid(guid_dict)
 
-    def get_assertion_info_aspect(self) -> AssertionInfo:
-        return self.get_assertion_info()
-
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
         return self.trigger
 
@@ -118,9 +115,6 @@ class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
             "id_raw": self.id_raw,
         }
         return self.id or datahub_guid(guid_dict)
-
-    def get_assertion_info_aspect(self) -> AssertionInfo:
-        return self.get_assertion_info()
 
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
         return self.trigger
