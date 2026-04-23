@@ -166,8 +166,6 @@ class DataplexEntriesProcessor:
         self._emitted_project_containers: set[str] = set()
         # Guards the check+add on _emitted_project_containers across parallel workers.
         self._container_lock: threading.Lock = threading.Lock()
-        # Guards appends to ctx.entry_data across parallel workers.
-        self._entry_data_lock: threading.Lock = threading.Lock()
 
     @property
     def entry_data(self) -> list:
@@ -303,7 +301,7 @@ class DataplexEntriesProcessor:
         Safe to call from parallel worker threads:
         - Uses ``_container_lock`` for the atomic check+add on
           ``_emitted_project_containers``.
-        - Uses ``_entry_data_lock`` for appends to ``ctx.entry_data``.
+        - Uses ``ctx.append_entry`` (thread-safe) for appends to ``ctx.entry_data``.
         - All other state accessed here (config, report methods) is either
           read-only or already lock-protected.
         """
@@ -386,8 +384,8 @@ class DataplexEntriesProcessor:
     ) -> None:
         """Register a dataset entry for lineage extraction.
 
-        Safe to call from parallel worker threads — appends to ``entry_data``
-        under ``_entry_data_lock``.
+        Safe to call from parallel worker threads — delegates to
+        ``ctx.append_entry`` which is thread-safe.
         """
         if not entry.fully_qualified_name:
             return
@@ -426,8 +424,7 @@ class DataplexEntriesProcessor:
                 env=self.config.env,
             ),
         )
-        with self._entry_data_lock:
-            self._ctx.entry_data.append(entry_data_tuple)
+        self._ctx.append_entry(entry_data_tuple)
 
     def list_entry_groups(
         self, project_id: str, location: str

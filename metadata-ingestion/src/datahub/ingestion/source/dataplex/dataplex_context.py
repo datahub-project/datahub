@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -37,3 +38,11 @@ class DataplexContext:
     # Shared AuthorizedSession for REST calls (lookupEntryLinks).
     # Populated at startup only when include_glossary_term_associations=True.
     authed_session: Optional["google.auth.transport.requests.AuthorizedSession"] = None
+
+    def __post_init__(self) -> None:
+        self._entry_data_lock = threading.Lock()
+
+    def append_entry(self, entry: "EntryDataTuple") -> None:
+        """Thread-safe append to entry_data."""
+        with self._entry_data_lock:
+            self.entry_data.append(entry)
