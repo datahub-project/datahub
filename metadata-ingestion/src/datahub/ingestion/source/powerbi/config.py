@@ -359,6 +359,17 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+# Workspace ``type`` values returned by the PowerBI admin API for personal
+# workspaces. These are not addressable by id in the PowerBI UI - they are
+# reachable only via the ``/groups/me`` alias and only by their owner, so
+# ``/groups/{guid}`` for these types resolves to ``GroupNotAccessible``.
+PERSONAL_WORKSPACE_TYPE = "PersonalGroup"
+LEGACY_PERSONAL_WORKSPACE_TYPE = "Personal"
+NON_ADDRESSABLE_WORKSPACE_TYPES = frozenset(
+    {PERSONAL_WORKSPACE_TYPE, LEGACY_PERSONAL_WORKSPACE_TYPE}
+)
+
+
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
@@ -372,13 +383,11 @@ class PowerBiEnvironment(ConfigEnum):
     def workspace_url(self, workspace_id: str, workspace_type: str) -> Optional[str]:
         """Build a clickable PowerBI UI URL for a workspace.
 
-        Personal workspaces (``PersonalGroup``, ``Personal``) are not
-        addressable by id in the PowerBI UI - they are reachable only via
-        the special ``/groups/me`` alias and only by their owner. Surfacing
-        ``/groups/{guid}`` for those types would produce a dead link
-        (``GroupNotAccessible``), so we return ``None`` instead.
+        Returns ``None`` for personal workspace types (see
+        ``NON_ADDRESSABLE_WORKSPACE_TYPES``); surfacing ``/groups/{guid}``
+        for those would produce a dead ``GroupNotAccessible`` link.
         """
-        if workspace_type in ("PersonalGroup", "Personal"):
+        if workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES:
             return None
         return f"{self.web_app_base_url}/groups/{workspace_id}"
 
