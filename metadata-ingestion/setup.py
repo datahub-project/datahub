@@ -671,6 +671,12 @@ plugins: Dict[str, Set[str]] = {
     },
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
+    "informatica": {
+        "requests<3.0.0",
+        # Safe XML parsing for IDMC v3 Export .TASKFLOW.xml payloads
+        # (blocks billion-laughs / external-entity attacks).
+        "defusedxml>=0.7.1,<0.8.0",
+    },
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common

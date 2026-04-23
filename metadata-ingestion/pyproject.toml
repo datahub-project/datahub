@@ -734,6 +734,11 @@ iceberg-catalog = [
     "urllib3>=1.26,<3.0",
 ]
 
+informatica = [
+    "defusedxml>=0.7.1,<0.8.0",
+    "requests<3.0.0",
+]
+
 json-schema = [
     "requests<3.0.0",
 ]
@@ -1467,6 +1472,7 @@ all = [
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "db-dtypes",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "dnspython==2.7.0",

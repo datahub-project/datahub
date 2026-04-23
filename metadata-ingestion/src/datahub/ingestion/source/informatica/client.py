@@ -17,8 +17,11 @@ from typing import (
     Set,
     TypedDict,
 )
+from urllib.parse import urlencode
 
+import defusedxml.ElementTree
 import requests
+from defusedxml.common import DefusedXmlException
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -1074,9 +1077,18 @@ def parse_taskflow_xml(xml_bytes: bytes) -> Optional[TaskflowDefinition]:
     invert them into :attr:`TaskflowStep.predecessor_step_ids`.
     """
     try:
-        root = ET.fromstring(xml_bytes)
+        # ``defusedxml`` blocks billion-laughs / external-entity / DTD
+        # attacks; returns a stdlib ``ET.Element`` on success.
+        root = defusedxml.ElementTree.fromstring(xml_bytes)
     except ET.ParseError as e:
         logger.debug("Taskflow XML parse error: %s", e)
+        return None
+    except DefusedXmlException as e:
+        logger.warning(
+            "Rejected potentially malicious Taskflow XML "
+            "(entity expansion or external reference): %s",
+            e,
+        )
         return None
 
     tf_elem: Optional[ET.Element] = None
@@ -1199,6 +1211,4 @@ def _parse_taskflow_export_package(
 def _encode_params(params: Dict[str, Any]) -> str:
     # Used only for readable report-log URLs, not actual HTTP. ``safe``
     # keeps ``q=type=='X'`` readable instead of percent-escaped.
-    from urllib.parse import urlencode
-
     return urlencode(params, safe="=',")

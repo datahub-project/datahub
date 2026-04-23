@@ -819,3 +819,30 @@ class TestParseTaskflowXml:
 
     def test_xml_without_taskflow_element_returns_none(self):
         assert parse_taskflow_xml(b"<root><other/></root>") is None
+
+    def test_rejects_billion_laughs_entity_expansion(self):
+        # Without defusedxml, this payload expands to ~10^9 "lol"s during
+        # parse and OOMs the process. With defusedxml.ElementTree, the
+        # entity declaration itself triggers EntitiesForbidden and the
+        # parser returns None in microseconds.
+        bomb = (
+            b'<?xml version="1.0"?>\n'
+            b"<!DOCTYPE lolz [\n"
+            b'  <!ENTITY lol "lol">\n'
+            b'  <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">\n'
+            b'  <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">\n'
+            b"]>\n"
+            b"<lolz>&lol3;</lolz>"
+        )
+        assert parse_taskflow_xml(bomb) is None
+
+    def test_rejects_external_entity_reference(self):
+        # XXE payload that would read /etc/hostname without defusedxml.
+        xxe = (
+            b'<?xml version="1.0"?>\n'
+            b"<!DOCTYPE foo [\n"
+            b'  <!ENTITY xxe SYSTEM "file:///etc/hostname">\n'
+            b"]>\n"
+            b"<foo>&xxe;</foo>"
+        )
+        assert parse_taskflow_xml(xxe) is None
