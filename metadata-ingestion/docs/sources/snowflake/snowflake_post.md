@@ -167,37 +167,34 @@ semantic_view_pattern:
 
 DataHub supports ingestion of Snowflake Stages, Tasks, and Snowpipe objects. All three features are disabled by default and can be enabled independently.
 
-##### Stages (`stages.enabled: true`)
+##### Stages (`include_stages: true`)
 
 Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages (S3, GCS, Azure) resolve their URLs to the corresponding cloud platform dataset URN.
 
 ```yaml
-stages:
-  enabled: true
+include_stages: true
 stage_pattern:
   allow:
     - "MY_DB.MY_SCHEMA.*"
 ```
 
-##### Tasks (`tasks.enabled: true`)
+##### Tasks (`include_tasks: true`)
 
 Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.
 
 ```yaml
-tasks:
-  enabled: true
+include_tasks: true
 task_pattern:
   allow:
     - "MY_DB.MY_SCHEMA.*"
 ```
 
-##### Pipes (`pipes.enabled: true`)
+##### Pipes (`include_pipes: true`)
 
-Snowpipe objects are ingested as DataJob entities with lineage derived from parsing the `COPY INTO` statement. The pipe's source stage resolves to an upstream dataset (internal placeholder or external cloud URN) and the target table resolves to a downstream dataset. Enabling pipes automatically scans stages for lineage resolution, even if `stages.enabled` is false.
+Snowpipe objects are ingested as DataJob entities with lineage derived from parsing the `COPY INTO` statement. The pipe's source stage resolves to an upstream dataset (internal placeholder or external cloud URN) and the target table resolves to a downstream dataset. Enabling pipes automatically scans stages for lineage resolution, even if `include_stages` is false.
 
 ```yaml
-pipes:
-  enabled: true
+include_pipes: true
 pipe_pattern:
   allow:
     - "MY_DB.MY_SCHEMA.*"

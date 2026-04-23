@@ -4,7 +4,10 @@ from unittest.mock import MagicMock
 
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeStage
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeStage,
+    SnowflakeStageType,
+)
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
 )
@@ -23,7 +26,7 @@ def _make_config() -> SnowflakeV2Config:
         account_id="test_account",
         username="user",
         password="pass",  # type: ignore
-        stages={"enabled": True},
+        include_stages=True,
     )
 
 
@@ -35,7 +38,7 @@ def _make_internal_stage(name: str = "int_stage") -> SnowflakeStage:
         database_name="TEST_DB",
         schema_name="PUBLIC",
         comment="Internal stage for loading",
-        stage_type="INTERNAL",
+        stage_type=SnowflakeStageType.INTERNAL,
     )
 
 
@@ -50,7 +53,7 @@ def _make_external_stage(
         database_name="TEST_DB",
         schema_name="PUBLIC",
         comment="External S3 stage",
-        stage_type="EXTERNAL",
+        stage_type=SnowflakeStageType.EXTERNAL,
         url=url,
         cloud="aws",
         region="us-east-1",

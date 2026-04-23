@@ -79,9 +79,9 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 
 - `select` on `streams` is required for stream definitions to be available. This does not allow selecting the data (not required) unless the underlying dataset has select access as well.
 - `usage` on `streamlit` is required to show streamlits in a database. See the schema-level `usage` example above.
-- `usage` on `stages` is required to list stages via `SHOW STAGES`. Only needed if `stages.enabled: true` or `pipes.enabled: true`.
-- `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `tasks.enabled: true`.
-- `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `pipes.enabled: true`.
+- `usage` on `stages` is required to list stages via `SHOW STAGES`. Only needed if `include_stages: true` or `include_pipes: true`.
+- `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
+- `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 

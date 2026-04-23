@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_pipes import (
+    ParsedCopyInto,
     SnowflakePipesExtractor,
     parse_copy_into,
 )
@@ -12,6 +13,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakePipe,
     SnowflakeStage,
+    SnowflakeStageType,
 )
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
@@ -30,65 +32,79 @@ from datahub.metadata.schema_classes import (
 
 class TestParseCopyInto:
     def test_simple_copy_into(self) -> None:
-        definition = "COPY INTO my_table FROM @my_stage"
-        target, stage = parse_copy_into(definition, "MY_DB", "MY_SCHEMA")
-        assert target == "MY_DB.MY_SCHEMA.MY_TABLE"
-        assert stage == "MY_DB.MY_SCHEMA.MY_STAGE"
+        parsed = parse_copy_into(
+            "COPY INTO my_table FROM @my_stage", "MY_DB", "MY_SCHEMA"
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="MY_DB.MY_SCHEMA.MY_TABLE",
+            stage_fqn="MY_DB.MY_SCHEMA.MY_STAGE",
+        )
 
     def test_fully_qualified_names(self) -> None:
-        definition = "COPY INTO db1.schema1.target_table FROM @db2.schema2.source_stage"
-        target, stage = parse_copy_into(definition, "DEFAULT_DB", "DEFAULT_SCHEMA")
-        assert target == "DB1.SCHEMA1.TARGET_TABLE"
-        assert stage == "DB2.SCHEMA2.SOURCE_STAGE"
+        parsed = parse_copy_into(
+            "COPY INTO db1.schema1.target_table FROM @db2.schema2.source_stage",
+            "DEFAULT_DB",
+            "DEFAULT_SCHEMA",
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB1.SCHEMA1.TARGET_TABLE",
+            stage_fqn="DB2.SCHEMA2.SOURCE_STAGE",
+        )
 
     def test_stage_with_trailing_path(self) -> None:
-        definition = "COPY INTO my_table FROM @my_stage/data/2024/"
-        target, stage = parse_copy_into(definition, "DB", "SCHEMA")
-        assert target == "DB.SCHEMA.MY_TABLE"
-        assert stage == "DB.SCHEMA.MY_STAGE"
+        parsed = parse_copy_into(
+            "COPY INTO my_table FROM @my_stage/data/2024/", "DB", "SCHEMA"
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqn="DB.SCHEMA.MY_STAGE",
+        )
 
     def test_quoted_identifiers(self) -> None:
-        definition = 'COPY INTO "MY_DB"."MY_SCHEMA"."MY_TABLE" FROM @"MY_STAGE"'
-        target, stage = parse_copy_into(definition, "DEFAULT_DB", "DEFAULT_SCHEMA")
-        assert target == "MY_DB.MY_SCHEMA.MY_TABLE"
-        assert stage == "DEFAULT_DB.DEFAULT_SCHEMA.MY_STAGE"
+        parsed = parse_copy_into(
+            'COPY INTO "MY_DB"."MY_SCHEMA"."MY_TABLE" FROM @"MY_STAGE"',
+            "DEFAULT_DB",
+            "DEFAULT_SCHEMA",
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="MY_DB.MY_SCHEMA.MY_TABLE",
+            stage_fqn="DEFAULT_DB.DEFAULT_SCHEMA.MY_STAGE",
+        )
 
     def test_unparseable_returns_none(self) -> None:
-        definition = "SELECT 1"
-        target, stage = parse_copy_into(definition, "DB", "SCHEMA")
-        assert target is None
-        assert stage is None
+        assert parse_copy_into("SELECT 1", "DB", "SCHEMA") is None
 
     def test_empty_string_returns_none(self) -> None:
-        target, stage = parse_copy_into("", "DB", "SCHEMA")
-        assert target is None
-        assert stage is None
+        assert parse_copy_into("", "DB", "SCHEMA") is None
 
     def test_stage_with_file_format_options(self) -> None:
-        definition = (
+        parsed = parse_copy_into(
             "COPY INTO my_table FROM @my_stage/path/ "
-            "FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1)"
+            "FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1)",
+            "DB",
+            "SCHEMA",
         )
-        target, stage = parse_copy_into(definition, "DB", "SCHEMA")
-        assert target == "DB.SCHEMA.MY_TABLE"
-        assert stage == "DB.SCHEMA.MY_STAGE"
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqn="DB.SCHEMA.MY_STAGE",
+        )
 
     def test_case_insensitive(self) -> None:
-        definition = "copy into my_table from @my_stage"
-        target, stage = parse_copy_into(definition, "DB", "SCHEMA")
-        assert target == "DB.SCHEMA.MY_TABLE"
-        assert stage == "DB.SCHEMA.MY_STAGE"
+        parsed = parse_copy_into("copy into my_table from @my_stage", "DB", "SCHEMA")
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqn="DB.SCHEMA.MY_STAGE",
+        )
 
     def test_partial_qualification_two_part_target(self) -> None:
-        """Two-part target (schema.table) is ambiguous — regex treats first part as db.
-        This matches Snowflake's own behavior where two-part names default to db.table
-        context-dependently. The parser uses defaults for missing parts."""
-        definition = "COPY INTO schema1.my_table FROM @my_stage"
-        target, stage = parse_copy_into(definition, "DB", "DEFAULT_SCHEMA")
-        # Regex captures schema1 as group1 (db), my_table as group3 (table)
-        # group2 (schema) is empty → falls back to default_schema
-        assert target == "SCHEMA1.DEFAULT_SCHEMA.MY_TABLE"
-        assert stage == "DB.DEFAULT_SCHEMA.MY_STAGE"
+        """Two-part target (schema.table) uses default db."""
+        parsed = parse_copy_into(
+            "COPY INTO schema1.my_table FROM @my_stage", "DB", "DEFAULT_SCHEMA"
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA1.MY_TABLE",
+            stage_fqn="DB.DEFAULT_SCHEMA.MY_STAGE",
+        )
 
 
 # --- SnowflakePipesExtractor tests ---
@@ -99,7 +115,7 @@ def _make_config() -> SnowflakeV2Config:
         account_id="test_account",
         username="user",
         password="pass",  # type: ignore
-        pipes={"enabled": True},
+        include_pipes=True,
     )
 
 
@@ -129,7 +145,7 @@ def _make_internal_stage(name: str = "my_stage") -> SnowflakeStage:
         database_name="TEST_DB",
         schema_name="PUBLIC",
         comment=None,
-        stage_type="INTERNAL",
+        stage_type=SnowflakeStageType.INTERNAL,
     )
 
 
@@ -143,7 +159,7 @@ def _make_external_stage(
         database_name="TEST_DB",
         schema_name="PUBLIC",
         comment=None,
-        stage_type="EXTERNAL",
+        stage_type=SnowflakeStageType.EXTERNAL,
         url=url,
         cloud="aws",
         region="us-east-1",

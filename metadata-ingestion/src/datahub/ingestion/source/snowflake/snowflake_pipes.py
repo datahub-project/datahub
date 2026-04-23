@@ -1,7 +1,9 @@
 import logging
-import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
+
+import sqlglot
+import sqlglot.expressions as sqlglot_exp
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
@@ -39,53 +41,91 @@ from datahub.metadata.schema_classes import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Regex to parse COPY INTO statement
-# Handles: COPY INTO [db.][schema.]table FROM @[db.][schema.]stage[/path/...]
-# Supports quoted identifiers and optional trailing path/options after the stage name.
-_COPY_INTO_TARGET_PATTERN = re.compile(
-    r"COPY\s+INTO\s+"
-    r"(?:\"?(\w+)\"?\.)?(?:\"?(\w+)\"?\.)?\"?(\w+)\"?",
-    re.IGNORECASE,
-)
-_COPY_INTO_STAGE_PATTERN = re.compile(
-    r"FROM\s+"
-    r"@(?:\"?(\w+)\"?\.)?(?:\"?(\w+)\"?\.)?\"?(\w+)\"?"
-    r"(?:/[^\s]*)?",  # optional /path after stage name
-    re.IGNORECASE,
-)
+# Truncate the COPY INTO definition stored in customProperties to stay well
+# within DataHub's aspect size limits.
+_MAX_DEFINITION_LENGTH = 4000
+
+
+@dataclass
+class ParsedCopyInto:
+    """Target table and source stage extracted from a COPY INTO statement.
+
+    Both names are uppercase fully-qualified (`DB.SCHEMA.NAME`).
+    """
+
+    target_fqn: str
+    stage_fqn: str
+
+
+def _stage_reference_to_fqn(
+    raw: str, default_db: str, default_schema: str
+) -> Optional[str]:
+    """Convert a raw stage reference like `@db.schema.stage/path` into a 3-part FQN."""
+    if not raw.startswith("@"):
+        return None
+    stripped = raw[1:].split("/", 1)[0]
+    if not stripped:
+        return None
+
+    parts = [part.strip('"') for part in stripped.split(".") if part.strip('"')]
+    if len(parts) == 1:
+        db, schema, name = default_db, default_schema, parts[0]
+    elif len(parts) == 2:
+        db, schema, name = default_db, parts[0], parts[1]
+    elif len(parts) == 3:
+        db, schema, name = parts[0], parts[1], parts[2]
+    else:
+        return None
+    return f"{db}.{schema}.{name}".upper()
 
 
 def parse_copy_into(
     definition: str, default_db: str, default_schema: str
-) -> Tuple[Optional[str], Optional[str]]:
+) -> Optional[ParsedCopyInto]:
     """Parse a COPY INTO statement to extract target table and stage reference.
 
-    Handles common Snowflake COPY INTO variants:
-    - COPY INTO table FROM @stage
-    - COPY INTO db.schema.table FROM @db.schema.stage/path/
-    - COPY INTO "DB"."SCHEMA"."TABLE" FROM @"STAGE"
+    Uses sqlglot with the Snowflake dialect, so quoted identifiers, fully
+    qualified names, and trailing path / FILE_FORMAT options are all handled
+    by the parser itself.
 
-    Returns:
-        (target_table_fqn, stage_fqn) as uppercase fully-qualified names,
-        or (None, None) if parsing fails.
+    Returns `None` if the statement is not a COPY INTO or required parts are
+    missing.
     """
-    target_match = _COPY_INTO_TARGET_PATTERN.search(definition)
-    stage_match = _COPY_INTO_STAGE_PATTERN.search(definition)
+    if not definition:
+        return None
 
-    if not target_match or not stage_match:
-        return None, None
+    try:
+        tree = sqlglot.parse_one(definition, dialect="snowflake")
+    except sqlglot.errors.ParseError:
+        return None
 
-    target_db = target_match.group(1) or default_db
-    target_schema = target_match.group(2) or default_schema
-    target_table = target_match.group(3)
-    target_fqn = f"{target_db}.{target_schema}.{target_table}".upper()
+    if not isinstance(tree, sqlglot_exp.Copy):
+        return None
 
-    stage_db = stage_match.group(1) or default_db
-    stage_schema = stage_match.group(2) or default_schema
-    stage_name = stage_match.group(3)
-    stage_fqn = f"{stage_db}.{stage_schema}.{stage_name}".upper()
+    target = tree.this
+    if not isinstance(target, sqlglot_exp.Table) or not target.name:
+        return None
+    target_db = target.catalog or default_db
+    target_schema = target.db or default_schema
+    target_fqn = f"{target_db}.{target_schema}.{target.name}".upper()
 
-    return target_fqn, stage_fqn
+    files = tree.args.get("files") or []
+    if not files:
+        return None
+    file_expr = files[0]
+    stage_raw = (
+        file_expr.this.name
+        if isinstance(file_expr, sqlglot_exp.Table)
+        and isinstance(file_expr.this, sqlglot_exp.Var)
+        else None
+    )
+    if not stage_raw:
+        return None
+    stage_fqn = _stage_reference_to_fqn(stage_raw, default_db, default_schema)
+    if not stage_fqn:
+        return None
+
+    return ParsedCopyInto(target_fqn=target_fqn, stage_fqn=stage_fqn)
 
 
 @dataclass
@@ -178,12 +218,14 @@ class SnowflakePipesExtractor:
         job_id = self.identifiers.snowflake_identifier(pipe.name)
         job_urn = make_data_job_urn_with_flow(flow_urn, job_id)
 
-        target_fqn, stage_fqn = parse_copy_into(pipe.definition, db_name, schema_name)
-        if not target_fqn and pipe.definition:
+        parsed = parse_copy_into(pipe.definition, db_name, schema_name)
+        if parsed is None and pipe.definition:
             self.report.warning(
                 "Failed to parse COPY INTO statement for pipe lineage",
                 f"{db_name}.{schema_name}.{pipe.name}",
             )
+        target_fqn = parsed.target_fqn if parsed else None
+        stage_fqn = parsed.stage_fqn if parsed else None
 
         custom_properties: Dict[str, str] = {}
         if pipe.auto_ingest:
@@ -191,7 +233,7 @@ class SnowflakePipesExtractor:
         if pipe.notification_channel:
             custom_properties["notification_channel"] = pipe.notification_channel
         if pipe.definition:
-            custom_properties["definition"] = pipe.definition[:4000]
+            custom_properties["definition"] = pipe.definition[:_MAX_DEFINITION_LENGTH]
         if stage_fqn:
             custom_properties["stage_name"] = stage_fqn
 
@@ -201,7 +243,7 @@ class SnowflakePipesExtractor:
             else None
         )
         if stage_entry:
-            custom_properties["stage_type"] = stage_entry.stage.stage_type
+            custom_properties["stage_type"] = stage_entry.stage.stage_type.value
 
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,

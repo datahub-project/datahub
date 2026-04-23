@@ -34,6 +34,18 @@ from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
+from datahub.utilities.str_enum import StrEnum
+
+
+class SnowflakeStageType(StrEnum):
+    INTERNAL = "INTERNAL"
+    EXTERNAL = "EXTERNAL"
+
+
+class SnowflakeTaskState(StrEnum):
+    STARTED = "STARTED"
+    SUSPENDED = "SUSPENDED"
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -392,7 +404,7 @@ class SnowflakeStage:
     database_name: str
     schema_name: str
     comment: Optional[str]
-    stage_type: str  # INTERNAL or EXTERNAL
+    stage_type: SnowflakeStageType
     url: Optional[str] = None  # For external stages only
     cloud: Optional[str] = None
     region: Optional[str] = None
@@ -408,7 +420,7 @@ class SnowflakeTask:
     database_name: str
     schema_name: str
     definition: str  # SQL body
-    state: str  # STARTED, SUSPENDED
+    state: SnowflakeTaskState
     owner_role_type: str
     comment: Optional[str] = None
     warehouse: Optional[str] = None
@@ -1998,7 +2010,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         database_name=stage.get("database_name", db_name),
                         schema_name=stage.get("schema_name", schema_name),
                         comment=stage.get("comment"),
-                        stage_type=stage.get("type", "INTERNAL"),
+                        stage_type=SnowflakeStageType(
+                            (stage.get("type") or "INTERNAL").upper()
+                        ),
                         url=stage.get("url") or None,
                         cloud=stage.get("cloud") or None,
                         region=stage.get("region") or None,
@@ -2027,7 +2041,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 if isinstance(predecessors_raw, str):
                     try:
                         predecessors = json.loads(predecessors_raw)
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError) as pred_err:
+                        self.report.warning(
+                            "Failed to parse task predecessors",
+                            f"{db_name}.{schema_name}.{task.get('name')}: raw={predecessors_raw!r}",
+                            exc=pred_err,
+                        )
                         predecessors = []
                 else:
                     predecessors = predecessors_raw if predecessors_raw else []
@@ -2043,7 +2062,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         warehouse=task.get("warehouse") or None,
                         schedule=task.get("schedule") or None,
                         predecessors=predecessors,
-                        state=task.get("state", "SUSPENDED"),
+                        state=SnowflakeTaskState(
+                            (task.get("state") or "SUSPENDED").upper()
+                        ),
                         definition=task.get("definition", ""),
                         condition=task.get("condition") or None,
                         allow_overlapping_execution=task.get(

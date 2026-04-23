@@ -65,9 +65,9 @@ def test_snowflake_stages_tasks_pipes(
     golden_file = test_resources_dir / "snowflake_stages_tasks_pipes_golden.json"
 
     config = _base_config(
-        stages={"enabled": True},
-        tasks={"enabled": True},
-        pipes={"enabled": True},
+        include_stages=True,
+        include_tasks=True,
+        include_pipes=True,
     )
     report = _run_pipeline(config, output_file)
 
@@ -95,9 +95,9 @@ def test_snowflake_pipes_without_stages_still_resolves_lineage(
     output_file = tmp_path / "snowflake_pipes_only_events.json"
 
     config = _base_config(
-        stages={"enabled": False},
-        tasks={"enabled": False},
-        pipes={"enabled": True},
+        include_stages=False,
+        include_tasks=False,
+        include_pipes=True,
     )
     report = _run_pipeline(config, output_file)
 
@@ -111,7 +111,7 @@ def test_snowflake_pipes_without_stages_still_resolves_lineage(
     assert "dataJob" in entity_types
     assert "dataFlow" in entity_types
 
-    # Stage containers should NOT be emitted (stages.enabled=False)
+    # Stage containers should NOT be emitted (include_stages=False)
     container_events = [
         e
         for e in events
@@ -127,9 +127,9 @@ def test_snowflake_tasks_only(pytestconfig, tmp_path, mock_time, mock_datahub_gr
     output_file = tmp_path / "snowflake_tasks_only_events.json"
 
     config = _base_config(
-        stages={"enabled": False},
-        tasks={"enabled": True},
-        pipes={"enabled": False},
+        include_stages=False,
+        include_tasks=True,
+        include_pipes=False,
     )
     report = _run_pipeline(config, output_file)
 

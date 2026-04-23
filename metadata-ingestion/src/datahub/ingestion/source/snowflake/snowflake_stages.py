@@ -29,6 +29,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeStage,
+    SnowflakeStageType,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
@@ -102,7 +103,7 @@ class SnowflakeStagesExtractor:
                 parent_key=schema_container_key,
             )
 
-            if stage.stage_type.upper() == "INTERNAL":
+            if stage.stage_type == SnowflakeStageType.INTERNAL:
                 dataset_urn = self._gen_internal_stage_dataset_urn(stage)
                 lookup_entry.dataset_urn = dataset_urn
                 yield from self._gen_internal_stage_dataset(
@@ -122,7 +123,7 @@ class SnowflakeStagesExtractor:
         parent_key: SchemaKey,
     ) -> Iterable[MetadataWorkUnit]:
         extra_properties: Dict[str, str] = {
-            "stage_type": stage.stage_type,
+            "stage_type": stage.stage_type.value,
         }
         if stage.url:
             extra_properties["url"] = stage.url

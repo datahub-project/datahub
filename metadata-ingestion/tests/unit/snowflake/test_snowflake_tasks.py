@@ -4,7 +4,10 @@ from unittest.mock import MagicMock
 
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTask
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeTask,
+    SnowflakeTaskState,
+)
 from datahub.ingestion.source.snowflake.snowflake_tasks import (
     SnowflakeTasksExtractor,
 )
@@ -24,7 +27,7 @@ def _make_config() -> SnowflakeV2Config:
         account_id="test_account",
         username="user",
         password="pass",  # type: ignore
-        tasks={"enabled": True},
+        include_tasks=True,
     )
 
 
@@ -32,7 +35,7 @@ def _make_task(
     name: str = "etl_task",
     definition: str = "INSERT INTO target SELECT * FROM source",
     predecessors: Optional[List[str]] = None,
-    state: str = "STARTED",
+    state: SnowflakeTaskState = SnowflakeTaskState.STARTED,
     schedule: str = "USING CRON 0 * * * * UTC",
     warehouse: str = "COMPUTE_WH",
 ) -> SnowflakeTask:
@@ -101,7 +104,7 @@ class TestSnowflakeTasksExtractor:
         task = _make_task(
             schedule="USING CRON 0 * * * * UTC",
             warehouse="MY_WH",
-            state="STARTED",
+            state=SnowflakeTaskState.STARTED,
         )
         wus, _ = _collect_workunits([task])
 

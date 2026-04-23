@@ -35,6 +35,10 @@ from datahub.metadata.schema_classes import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+# Truncate the task definition stored in customProperties to stay well within
+# DataHub's aspect size limits.
+_MAX_DEFINITION_LENGTH = 4000
+
 
 @dataclass
 class SnowflakeTasksExtractor:
@@ -132,7 +136,7 @@ class SnowflakeTasksExtractor:
         job_urn = make_data_job_urn_with_flow(flow_urn, job_id)
 
         custom_properties: Dict[str, str] = {
-            "state": task.state,
+            "state": task.state.value,
         }
         if task.warehouse:
             custom_properties["warehouse"] = task.warehouse
@@ -143,7 +147,7 @@ class SnowflakeTasksExtractor:
         if task.allow_overlapping_execution:
             custom_properties["allow_overlapping_execution"] = "true"
         if task.definition:
-            custom_properties["definition"] = task.definition[:4000]
+            custom_properties["definition"] = task.definition[:_MAX_DEFINITION_LENGTH]
 
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,

@@ -726,7 +726,7 @@ class SnowflakeV2Source(
         databases: List[SnowflakeDatabase],
     ) -> Iterable[MetadataWorkUnit]:
         stages_extractor: Optional[SnowflakeStagesExtractor] = None
-        if self.config.stages.enabled or self.config.pipes.enabled:
+        if self.config.include_stages or self.config.include_pipes:
             stages_extractor = SnowflakeStagesExtractor(
                 config=self.config,
                 report=self.report,
@@ -745,10 +745,10 @@ class SnowflakeV2Source(
                         schema_name=schema.name,
                         schema_container_key=schema_container_key,
                     ):
-                        if self.config.stages.enabled:
+                        if self.config.include_stages:
                             yield wu
 
-        if self.config.tasks.enabled:
+        if self.config.include_tasks:
             tasks_extractor = SnowflakeTasksExtractor(
                 config=self.config,
                 report=self.report,
@@ -762,7 +762,7 @@ class SnowflakeV2Source(
                         schema_name=schema.name,
                     )
 
-        if self.config.pipes.enabled and stages_extractor:
+        if self.config.include_pipes and stages_extractor:
             pipes_extractor = SnowflakePipesExtractor(
                 config=self.config,
                 report=self.report,

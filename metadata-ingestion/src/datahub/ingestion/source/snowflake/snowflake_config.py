@@ -146,27 +146,6 @@ class SemanticViewsConfig(ConfigModel):
         return self
 
 
-class StagesConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="If enabled, Snowflake Stages will be ingested as containers with associated metadata.",
-    )
-
-
-class TasksConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="If enabled, Snowflake Tasks will be ingested as DataJobs with DAG dependencies and SQL lineage.",
-    )
-
-
-class PipesConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
-    )
-
-
 class SnowflakeFilterConfig(SQLFilterConfig):
     database_pattern: AllowDenyPattern = Field(
         AllowDenyPattern(
@@ -477,19 +456,19 @@ class SnowflakeV2Config(
         description="Configuration for semantic views ingestion.",
     )
 
-    stages: StagesConfig = Field(
-        default_factory=StagesConfig,
-        description="Configuration for Snowflake Stages ingestion.",
+    include_stages: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Stages will be ingested as containers with associated metadata.",
     )
 
-    tasks: TasksConfig = Field(
-        default_factory=TasksConfig,
-        description="Configuration for Snowflake Tasks ingestion.",
+    include_tasks: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Tasks will be ingested as DataJobs with DAG dependencies and SQL lineage.",
     )
 
-    pipes: PipesConfig = Field(
-        default_factory=PipesConfig,
-        description="Configuration for Snowflake Snowpipe ingestion.",
+    include_pipes: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
