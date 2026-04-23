@@ -13,7 +13,7 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from itertools import islice
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 from google.cloud import dataplex_v1
 
@@ -516,7 +516,9 @@ class DataplexGlossaryProcessor:
 
             for link in links:
                 # Skip synonym and any other term-to-term link types.
-                if not link.get("entryLinkType", "").endswith(_DEFINITION_LINK_TYPE_SUFFIX):
+                if not link.get("entryLinkType", "").endswith(
+                    _DEFINITION_LINK_TYPE_SUFFIX
+                ):
                     continue
                 for ref in link.get("entryReferences", []):
                     if ref.get("type") != _SOURCE_ROLE:
