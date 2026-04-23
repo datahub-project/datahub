@@ -323,8 +323,8 @@ def register_mock_data(workspace_client):
         ),
     ]
 
-    workspace_client.tables.get = (
-        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+    workspace_client.tables.get = lambda *args, **kwargs: (
+        databricks.sdk.service.catalog.TableInfo.from_dict(
             {
                 "name": "quickstart_table",
                 "catalog_name": "quickstart_catalog",
