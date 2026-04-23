@@ -55,7 +55,6 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
@@ -173,12 +172,9 @@ class SnowflakeV2Source(
             self.config.get_connection()
         )
 
-        # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary(
-            connection=self.connection,
-            report=self.report,
-            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
-        )
+        # SnowflakeSchemaGenerator creates its own data_dictionary with bulk metadata support
+        # (see get_workunits() -> SnowflakeSchemaGenerator.__init__)
+        # Creating it here prematurely would bypass bulk extraction
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
         self.discovered_datasets: Optional[List[str]] = None

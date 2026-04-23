@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -15,6 +16,9 @@ from typing import (
     Set,
     Tuple,
 )
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from datahub.configuration.env_vars import get_snowflake_schema_parallelism
 from datahub.ingestion.api.report import SupportsAsObj
@@ -547,10 +551,71 @@ class SnowflakeDataDictionary(SupportsAsObj):
         connection: SnowflakeConnection,
         report: SnowflakeV2Report,
         fetch_views_from_information_schema: bool = False,
+        bulk_metadata_df: Optional["pd.DataFrame"] = None,
     ) -> None:
         self.connection = connection
         self.report = report
         self._fetch_views_from_information_schema = fetch_views_from_information_schema
+        self._bulk_metadata_df = bulk_metadata_df
+        self._bulk_metadata_available = (
+            bulk_metadata_df is not None and len(bulk_metadata_df) > 0
+        )
+
+        logger.info(
+            f"SnowflakeDataDictionary.__init__: "
+            f"bulk_df_is_none={bulk_metadata_df is None}, "
+            f"bulk_df_len={len(bulk_metadata_df) if bulk_metadata_df is not None else 'N/A'}, "
+            f"_bulk_metadata_available={self._bulk_metadata_available}"
+        )
+        if bulk_metadata_df is not None and len(bulk_metadata_df) > 0:
+            logger.info(f"Bulk DataFrame columns: {bulk_metadata_df.columns.tolist()}")
+            logger.info(
+                f"Bulk DataFrame metadata_source values: {bulk_metadata_df['metadata_source'].unique().tolist()}"
+            )
+            logger.info(
+                f"Bulk DataFrame metadata_source counts: {bulk_metadata_df['metadata_source'].value_counts().to_dict()}"
+            )
+            # Check TABLE_META database names
+            table_meta_df = bulk_metadata_df[
+                bulk_metadata_df["metadata_source"] == "TABLE_META"
+            ]
+            if len(table_meta_df) > 0:
+                logger.info(
+                    f"TABLE_META sample database names: {table_meta_df['database_name'].unique().tolist()[:5]}"
+                )
+                logger.info(
+                    f"TABLE_META database_name dtype: {table_meta_df['database_name'].dtype}"
+                )
+
+        if self._bulk_metadata_available:
+            assert self._bulk_metadata_df is not None
+            logger.info(
+                "\n"
+                + "=" * 70
+                + "\n📦 SNOWFLAKE DATA DICTIONARY: BULK MODE ACTIVATED\n"
+                + "=" * 70
+                + f"\n✅ Bulk metadata loaded: {len(self._bulk_metadata_df):,} rows\n"
+                + "✅ Column extraction: FROM BULK DATA\n"
+                + "✅ PK constraint extraction: FROM BULK DATA\n"
+                + "✅ FK constraint extraction: FROM BULK DATA\n"
+                + "❌ Sequential queries: DISABLED\n"
+                + "=" * 70
+                + "\n"
+            )
+        else:
+            logger.info(
+                "\n"
+                + "=" * 70
+                + "\n📋 SNOWFLAKE DATA DICTIONARY: SEQUENTIAL MODE\n"
+                + "=" * 70
+                + "\n⚠️ Bulk metadata not available\n"
+                + "✅ Column extraction: VIA SEQUENTIAL QUERIES\n"
+                + "✅ PK constraint extraction: VIA SEQUENTIAL QUERIES\n"
+                + "✅ FK constraint extraction: VIA SEQUENTIAL QUERIES\n"
+                + "💡 Slower than bulk extraction\n"
+                + "=" * 70
+                + "\n"
+            )
 
     def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
@@ -616,6 +681,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_schemas_for_database(
         self, db_name: str, schema_filter: str = ""
     ) -> List[SnowflakeSchema]:
+        logger.debug(
+            f"📊 get_schemas_for_database({db_name}): "
+            f"bulk_available={self._bulk_metadata_available}"
+        )
+        # Try bulk metadata first
+        bulk_schemas = self._get_schemas_from_bulk_metadata(db_name)
+        if bulk_schemas is not None:
+            # Apply filter if specified
+            if schema_filter:
+                return [s for s in bulk_schemas if schema_filter in s.name]
+            return bulk_schemas
+
+        # Fall back to sequential queries
         snowflake_schemas = []
 
         cur = self.connection.query(
@@ -665,6 +743,102 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return tags
 
+    def _get_tables_for_database_from_bulk_metadata(
+        self,
+        db_name: str,
+        table_types: FrozenSet[str],
+        table_filter: str = "",
+    ) -> Optional[Dict[str, List[SnowflakeTable]]]:
+        """Extract all tables for a database from bulk metadata.
+
+        Returns Dict[schema_name, List[SnowflakeTable]] if successful, None otherwise.
+        """
+        if not self._bulk_metadata_available:
+            return None
+
+        try:
+            assert self._bulk_metadata_df is not None
+            df = self._bulk_metadata_df
+            # Check if database_name column exists
+            if "database_name" not in df.columns:
+                logger.error(
+                    f"ERROR: 'database_name' column not found! Available columns: {df.columns.tolist()}"
+                )
+                return None
+            # Case-insensitive comparison: Snowflake identifiers are case-insensitive
+            table_meta_df = df[df["metadata_source"] == "TABLE_META"]
+            logger.info(
+                f"DEBUG: Total rows={len(df)}, TABLE_META rows={len(table_meta_df)}, "
+                f"looking for db={db_name.upper()}"
+            )
+            if len(table_meta_df) > 0:
+                sample = table_meta_df["database_name"].iloc[0]
+                logger.info(
+                    f"DEBUG: First TABLE_META database_name value: '{sample}' (type={type(sample).__name__})"
+                )
+
+            tables_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["metadata_source"] == "TABLE_META")
+            ]
+            logger.info(f"DEBUG: Filtered to {len(tables_df)} rows for {db_name}")
+            logger.info(
+                f"DEBUG: table_types={table_types}, table_filter={table_filter}, "
+                f"unique table_type in filtered rows: {tables_df['table_type'].unique().tolist()}"
+            )
+
+            if len(tables_df) == 0:
+                return None
+
+            tables: Dict[str, List[SnowflakeTable]] = {}
+            skipped = 0
+            for _, row in tables_df.iterrows():
+                schema_name = row["schema_name"]
+                if schema_name not in tables:
+                    tables[schema_name] = []
+
+                # Apply table type filter
+                if table_types and row["table_type"] not in table_types:
+                    skipped += 1
+                    continue
+
+                # Apply table name filter
+                if table_filter and table_filter not in row["table_name"]:
+                    skipped += 1
+                    continue
+
+                is_dynamic_val = str(row.get("is_dynamic") or "").upper() == "YES"
+                table_cls = SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
+                table = table_cls(
+                    name=row["table_name"],
+                    type=row["table_type"],
+                    created=row.get("created"),
+                    last_altered=row.get("last_altered"),
+                    size_in_bytes=int(row["bytes"]) if row.get("bytes") else None,
+                    rows_count=int(row["row_count"]) if row.get("row_count") else None,
+                    comment=row.get("comment"),
+                    clustering_key=row.get("clustering_key"),
+                    is_dynamic=is_dynamic_val,
+                    is_iceberg=str(row.get("is_iceberg") or "").upper() == "YES",
+                    is_hybrid=str(row.get("is_hybrid") or "").upper() == "YES",
+                    retention_time=int(row["retention_time"])
+                    if row.get("retention_time") is not None
+                    else None,
+                )
+                tables[schema_name].append(table)
+
+            total_added = sum(len(t) for t in tables.values())
+            logger.info(
+                f"📦 [BULK] {db_name}: {total_added} tables added, {skipped} rows skipped (type/filter mismatch)"
+            )
+            return tables if tables else None
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to extract tables from bulk metadata for database {db_name}: {e}. "
+                f"Falling back to sequential queries."
+            )
+            return None
+
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self,
@@ -673,7 +847,40 @@ class SnowflakeDataDictionary(SupportsAsObj):
         table_filter: str = "",
         exclude_dynamic_tables: bool = False,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
-        tables: Dict[str, List[SnowflakeTable]] = {}
+        # Try bulk metadata first
+        bulk_tables = self._get_tables_for_database_from_bulk_metadata(
+            db_name, table_types, table_filter
+        )
+        if bulk_tables is not None:
+            # Validate completeness: check if tables have required fields
+            all_tables_flat = [
+                t for tables_list in bulk_tables.values() for t in tables_list
+            ]
+            if all_tables_flat:
+                first_table = all_tables_flat[0]
+                missing_fields: list[str] = []
+                if first_table.is_iceberg is None:
+                    missing_fields.append("is_iceberg")
+                if first_table.is_hybrid is None:
+                    missing_fields.append("is_hybrid")
+                if missing_fields:
+                    logger.warning(
+                        f"Bulk extraction incomplete for database {db_name} "
+                        f"(missing fields: {missing_fields}), falling back to sequential"
+                    )
+                    bulk_tables = None
+        if bulk_tables is not None:
+            tables: Dict[str, List[SnowflakeTable]] = bulk_tables
+            # Populate dynamic table definitions only if dynamic tables are not excluded
+            if not exclude_dynamic_tables:
+                self.populate_dynamic_table_definitions(tables, db_name)
+            return tables
+
+        # Fall back to sequential queries
+        logger.info(
+            f"Bulk extraction returned incomplete results, switching to sequential for {db_name}"
+        )
+        sequential_tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
                 SnowflakeQuery.tables_for_database(
@@ -691,13 +898,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return None
 
         for table in cur:
-            if table["TABLE_SCHEMA"] not in tables:
-                tables[table["TABLE_SCHEMA"]] = []
+            if table["TABLE_SCHEMA"] not in sequential_tables:
+                sequential_tables[table["TABLE_SCHEMA"]] = []
 
             is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
             table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
 
-            tables[table["TABLE_SCHEMA"]].append(
+            sequential_tables[table["TABLE_SCHEMA"]].append(
                 table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
@@ -716,9 +923,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         # Populate dynamic table definitions only if dynamic tables are not excluded
         if not exclude_dynamic_tables:
-            self.populate_dynamic_table_definitions(tables, db_name)
+            self.populate_dynamic_table_definitions(sequential_tables, db_name)
 
-        return tables
+        return sequential_tables
 
     def get_tables_for_schema(
         self,
@@ -728,7 +935,47 @@ class SnowflakeDataDictionary(SupportsAsObj):
         table_filter: str = "",
         exclude_dynamic_tables: bool = False,
     ) -> List[SnowflakeTable]:
-        tables: List[SnowflakeTable] = []
+        logger.debug(
+            f"📊 get_tables_for_schema({db_name}.{schema_name}): "
+            f"bulk_available={self._bulk_metadata_available}"
+        )
+        # Try bulk metadata first
+        bulk_tables = self._get_tables_from_bulk_metadata(db_name, schema_name)
+        if bulk_tables is not None:
+            # Validate completeness: check if tables have required fields
+            if bulk_tables:
+                first_table = bulk_tables[0]
+                missing_fields: list[str] = []
+                if first_table.is_iceberg is None:
+                    missing_fields.append("is_iceberg")
+                if first_table.is_hybrid is None:
+                    missing_fields.append("is_hybrid")
+                if missing_fields:
+                    logger.warning(
+                        f"Bulk extraction incomplete for {db_name}.{schema_name} "
+                        f"(missing fields: {missing_fields}), falling back to sequential"
+                    )
+                    bulk_tables = None
+        if bulk_tables is not None:
+            tables: List[SnowflakeTable] = bulk_tables
+
+            # Apply table type filter if specified
+            if table_types:
+                tables = [t for t in tables if t.type in table_types]
+
+            # Apply table name filter if specified
+            if table_filter:
+                tables = [t for t in tables if table_filter in t.name]
+
+            # Populate dynamic table definitions for just this schema (only if dynamic tables are not excluded)
+            if not exclude_dynamic_tables:
+                schema_tables = {schema_name: tables}
+                self.populate_dynamic_table_definitions(schema_tables, db_name)
+
+            return tables
+
+        # Fall back to sequential queries
+        sequential_tables: List[SnowflakeTable] = []
 
         cur = self.connection.query(
             SnowflakeQuery.tables_for_schema(
@@ -744,7 +991,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
             table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
 
-            tables.append(
+            sequential_tables.append(
                 table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
@@ -763,15 +1010,40 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         # Populate dynamic table definitions for just this schema (only if dynamic tables are not excluded)
         if not exclude_dynamic_tables:
-            schema_tables = {schema_name: tables}
+            schema_tables = {schema_name: sequential_tables}
             self.populate_dynamic_table_definitions(schema_tables, db_name)
 
-        return tables
+        return sequential_tables
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(
         self, db_name: str, view_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        # Try bulk metadata first
+        bulk_views = self._get_views_from_bulk_metadata(db_name)
+        if bulk_views is not None:
+            # Validate completeness: check if views have view_definition populated
+            all_views_flat = [
+                v for views_list in bulk_views.values() for v in views_list
+            ]
+            if all_views_flat:
+                views_missing_definition = [
+                    v for v in all_views_flat if v.view_definition is None
+                ]
+                if views_missing_definition:
+                    logger.warning(
+                        f"Bulk extraction incomplete for database {db_name}: "
+                        f"{len(views_missing_definition)}/{len(all_views_flat)} views missing "
+                        f"view_definition, falling back to sequential"
+                    )
+                    bulk_views = None
+        if bulk_views is not None:
+            return bulk_views
+
+        # Fall back to sequential queries
+        logger.info(
+            f"Bulk extraction returned incomplete results, switching to sequential for {db_name}"
+        )
         if self._fetch_views_from_information_schema:
             return self._get_views_for_database_using_information_schema(
                 db_name, view_filter
@@ -1479,6 +1751,181 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return semantic_views
 
+    def _get_schemas_from_bulk_metadata(
+        self, db_name: str
+    ) -> Optional[List[SnowflakeSchema]]:
+        """Extract schemas from bulk metadata DataFrame.
+
+        Returns None if bulk metadata unavailable or empty for this database.
+        """
+        logger.info(f">>> _get_schemas_from_bulk_metadata({db_name}) called")
+        if not self._bulk_metadata_available:
+            logger.info(f"❌ Bulk metadata unavailable for {db_name}")
+            return None
+
+        try:
+            assert self._bulk_metadata_df is not None
+            df = self._bulk_metadata_df
+            # Case-insensitive comparison: Snowflake identifiers are case-insensitive
+            schemas_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["metadata_source"] == "SCHEMA")
+            ].drop_duplicates(subset=["schema_name"])
+
+            if len(schemas_df) == 0:
+                logger.debug(
+                    f"⚠️ No SCHEMA rows found in bulk metadata for {db_name}. "
+                    f"Total bulk rows: {len(df)}, Unique metadata_source values: {df['metadata_source'].unique().tolist()}"
+                )
+                return None
+
+            schemas: List[SnowflakeSchema] = []
+            for _, row in schemas_df.iterrows():
+                schema = SnowflakeSchema(
+                    name=row["schema_name"],
+                    created=row.get("created"),
+                    last_altered=row.get("last_altered"),
+                    comment=row.get("comment"),
+                )
+                schemas.append(schema)
+
+            logger.debug(
+                f"📦 [BULK] {db_name}: {len(schemas)} schemas (from pre-extracted data)"
+            )
+            return schemas
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to extract schemas from bulk metadata for {db_name}: {e}. "
+                f"Falling back to sequential queries."
+            )
+            return None
+
+    def _get_tables_from_bulk_metadata(
+        self, db_name: str, schema_name: str
+    ) -> Optional[List[SnowflakeTable]]:
+        """Extract tables from bulk metadata DataFrame.
+
+        Returns None if bulk metadata unavailable or empty for this schema.
+        """
+        logger.info(
+            f">>> _get_tables_from_bulk_metadata({db_name}.{schema_name}) called"
+        )
+        if not self._bulk_metadata_available:
+            logger.info(f"❌ Bulk metadata unavailable for {db_name}.{schema_name}")
+            return None
+
+        try:
+            assert self._bulk_metadata_df is not None
+            df = self._bulk_metadata_df
+            # Case-insensitive comparison: Snowflake identifiers are case-insensitive
+            tables_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["schema_name"].str.upper() == schema_name.upper())
+                & (df["metadata_source"] == "TABLE_META")
+            ]
+
+            if len(tables_df) == 0:
+                logger.info(
+                    f"⚠️ No TABLE_META rows for {db_name}.{schema_name}. "
+                    f"Total bulk rows: {len(df)}, Unique metadata_source: {df['metadata_source'].unique().tolist()}"
+                )
+                return None
+
+            tables: List[SnowflakeTable] = []
+            for _, row in tables_df.iterrows():
+                is_dynamic_val = str(row.get("is_dynamic") or "").upper() == "YES"
+                table_cls = SnowflakeDynamicTable if is_dynamic_val else SnowflakeTable
+                table = table_cls(
+                    name=row["table_name"],
+                    type=row["table_type"],
+                    created=row.get("created"),
+                    last_altered=row.get("last_altered"),
+                    size_in_bytes=int(row["bytes"]) if row.get("bytes") else None,
+                    rows_count=int(row["row_count"]) if row.get("row_count") else None,
+                    comment=row.get("comment"),
+                    clustering_key=row.get("clustering_key"),
+                    is_dynamic=is_dynamic_val,
+                    is_iceberg=str(row.get("is_iceberg") or "").upper() == "YES",
+                    is_hybrid=str(row.get("is_hybrid") or "").upper() == "YES",
+                    retention_time=int(row["retention_time"])
+                    if row.get("retention_time") is not None
+                    else None,
+                )
+                tables.append(table)
+
+            logger.info(
+                f"📦 [BULK] {db_name}.{schema_name}: "
+                f"{len(tables)} tables (from pre-extracted data)"
+            )
+            return tables
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to extract tables from bulk metadata for {db_name}.{schema_name}: {e}. "
+                f"Falling back to sequential queries."
+            )
+            return None
+
+    def _get_columns_from_bulk_metadata(
+        self, schema_name: str, db_name: str
+    ) -> Optional[MutableMapping[str, List[SnowflakeColumn]]]:
+        """Extract columns from bulk metadata DataFrame.
+
+        Returns None if bulk metadata unavailable or empty for this schema.
+        """
+        if not self._bulk_metadata_available:
+            return None
+
+        try:
+            # Filter bulk metadata for this schema's columns
+            assert self._bulk_metadata_df is not None
+            df = self._bulk_metadata_df
+            # Case-insensitive comparison: Snowflake identifiers are case-insensitive
+            columns_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["schema_name"].str.upper() == schema_name.upper())
+                & (df["metadata_source"] == "COLUMN_META")
+            ]
+
+            if len(columns_df) == 0:
+                return None
+
+            columns: MutableMapping[str, List[SnowflakeColumn]] = {}
+            for _, row in columns_df.iterrows():
+                table_name = row["table_name"]
+                if table_name not in columns:
+                    columns[table_name] = []
+
+                columns[table_name].append(
+                    SnowflakeColumn(
+                        name=row["column_name"],
+                        ordinal_position=int(row["column_ordinal"]),
+                        is_nullable=row["is_nullable"] == "YES",
+                        data_type=row["data_type"],
+                        comment=row.get("column_comment"),
+                        character_maximum_length=row.get("character_maximum_length"),
+                        numeric_precision=row.get("numeric_precision"),
+                        numeric_scale=row.get("numeric_scale"),
+                    )
+                )
+
+            # Sort by ordinal_position
+            for table_name in columns:
+                columns[table_name].sort(key=lambda c: c.ordinal_position)
+
+            num_tables = len(columns)
+            num_cols = sum(len(c) for c in columns.values())
+            logger.debug(
+                f"📦 [BULK] {db_name}.{schema_name}: "
+                f"{num_tables} tables, {num_cols} columns (from pre-extracted data)"
+            )
+            return columns
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to extract columns from bulk metadata for {db_name}.{schema_name}: {e}. "
+                f"Falling back to sequential queries."
+            )
+            return None
+
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
         self,
@@ -1487,6 +1934,28 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # HACK: This key is excluded from the cache key.
         cache_exclude_all_objects: Iterable[str],
     ) -> MutableMapping[str, List[SnowflakeColumn]]:
+        # Try bulk metadata first (20-50x faster than sequential queries)
+        bulk_columns = self._get_columns_from_bulk_metadata(schema_name, db_name)
+        if bulk_columns is not None:
+            # Validate completeness: check if columns have required metadata fields
+            all_columns_flat = [c for cols in bulk_columns.values() for c in cols]
+            if all_columns_flat:
+                first_col = all_columns_flat[0]
+                missing_fields = []
+                if not first_col.data_type:
+                    missing_fields.append("data_type")
+                if not first_col.name:
+                    missing_fields.append("name")
+                if missing_fields:
+                    logger.warning(
+                        f"Bulk extraction incomplete for {db_name}.{schema_name} columns "
+                        f"(missing fields: {missing_fields}), falling back to sequential"
+                    )
+                    bulk_columns = None
+        if bulk_columns is not None:
+            return bulk_columns
+
+        # Fall back to sequential queries
         all_objects = list(cache_exclude_all_objects)
 
         columns: MutableMapping[str, List[SnowflakeColumn]] = {}
@@ -1534,10 +2003,139 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
         return columns
 
+    def _get_views_from_bulk_metadata(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        """Extract views from bulk metadata DataFrame.
+
+        Returns None if bulk metadata unavailable or no views found.
+        """
+        if not self._bulk_metadata_available:
+            return None
+
+        try:
+            assert self._bulk_metadata_df is not None
+            df = self._bulk_metadata_df
+
+            # Build lookup dict from VIEW_DEFINITION rows: (schema_name_upper, table_name_upper) -> (view_definition, is_secure)
+            view_def_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["metadata_source"] == "VIEW_DEFINITION")
+            ][["schema_name", "table_name", "view_definition", "is_secure"]]
+            view_def_lookup: Dict[tuple, tuple] = {
+                (r["schema_name"].upper(), r["table_name"].upper()): (
+                    r.get("view_definition"),
+                    str(r.get("is_secure") or "").upper() == "YES",
+                )
+                for _, r in view_def_df.iterrows()
+            }
+
+            view_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["table_type"] == "VIEW")
+                & (df["metadata_source"] == "TABLE_META")
+            ]
+
+            if len(view_df) == 0:
+                return None
+
+            views: Dict[str, List[SnowflakeView]] = {}
+            missing_view_defs = 0
+            for _, row in view_df.iterrows():
+                schema_name = row["schema_name"]
+                view_name = row["table_name"]
+                view_def_tuple = view_def_lookup.get(
+                    (schema_name.upper(), view_name.upper())
+                )
+                if schema_name not in views:
+                    views[schema_name] = []
+                if not view_def_tuple or not view_def_tuple[0]:
+                    missing_view_defs += 1
+                views[schema_name].append(
+                    SnowflakeView(
+                        name=view_name,
+                        created=row.get("created"),
+                        comment=row.get("comment"),
+                        view_definition=view_def_tuple[0] if view_def_tuple else None,
+                        last_altered=row.get("last_altered"),
+                        materialized=False,  # Bulk metadata doesn't capture this
+                        is_secure=view_def_tuple[1] if view_def_tuple else False,
+                    )
+                )
+
+            if missing_view_defs > 0:
+                logger.warning(
+                    f"⚠️ [BULK] {db_name}: {missing_view_defs} views missing view_definition"
+                )
+            logger.info(
+                f"📦 [BULK] {db_name}: "
+                f"{sum(len(v) for v in views.values())} views (from pre-extracted data)"
+            )
+            return views
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to extract views from bulk metadata for {db_name}: {e}"
+            )
+            return None
+
+    def _get_pk_constraints_from_bulk_metadata(
+        self, schema_name: str, db_name: str
+    ) -> Optional[Dict[str, SnowflakePK]]:
+        """Extract primary key constraints from bulk metadata DataFrame.
+
+        Returns None if bulk metadata unavailable or empty for this schema.
+        """
+        if not self._bulk_metadata_available:
+            return None
+
+        try:
+            assert self._bulk_metadata_df is not None
+            df = self._bulk_metadata_df
+            pk_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["schema_name"].str.upper() == schema_name.upper())
+                & (df["metadata_source"] == "PK_CONSTRAINT")
+            ]
+
+            if len(pk_df) == 0:
+                logger.info(
+                    f"📦 [BULK] {db_name}.{schema_name}: No PK constraints found in bulk metadata"
+                )
+                return None
+
+            constraints: Dict[str, SnowflakePK] = {}
+            for _, row in pk_df.iterrows():
+                table_name = row["table_name"]
+                if table_name not in constraints:
+                    constraints[table_name] = SnowflakePK(
+                        name=row["constraint_name"], column_names=[]
+                    )
+                if row.get("column_name") is not None:
+                    constraints[table_name].column_names.append(row["column_name"])
+
+            logger.info(
+                f"📦 [BULK] {db_name}.{schema_name}: "
+                f"{len(constraints)} tables with PK constraints (from pre-extracted data)"
+            )
+            return constraints
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to extract PK constraints from bulk metadata for {db_name}.{schema_name}: {e}"
+            )
+            return None
+
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_pk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
+        # Try bulk metadata first
+        bulk_constraints = self._get_pk_constraints_from_bulk_metadata(
+            schema_name, db_name
+        )
+        if bulk_constraints is not None:
+            return bulk_constraints
+
+        # Fall back to sequential queries
         constraints: Dict[str, SnowflakePK] = {}
         cur = self.connection.query(
             SnowflakeQuery.show_primary_keys_for_schema(schema_name, db_name),
@@ -1551,10 +2149,113 @@ class SnowflakeDataDictionary(SupportsAsObj):
             constraints[row["table_name"]].column_names.append(row["column_name"])
         return constraints
 
+    def _get_fk_constraints_from_bulk_metadata(
+        self, schema_name: str, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeFK]]]:
+        """Extract foreign key constraints from bulk metadata DataFrame.
+
+        Returns None if bulk metadata unavailable or empty for this schema.
+        """
+        if not self._bulk_metadata_available:
+            return None
+
+        try:
+            assert self._bulk_metadata_df is not None
+            df = self._bulk_metadata_df
+            fk_df = df[
+                (df["database_name"].str.upper() == db_name.upper())
+                & (df["schema_name"].str.upper() == schema_name.upper())
+                & (df["metadata_source"] == "FK_CONSTRAINT")
+            ]
+
+            if len(fk_df) == 0:
+                # Debug: check what FK rows exist for this database
+                fk_rows_in_db = df[
+                    (df["database_name"].str.upper() == db_name.upper())
+                    & (df["metadata_source"] == "FK_CONSTRAINT")
+                ]
+                logger.info(
+                    f"📦 [BULK] {db_name}.{schema_name}: No FK constraints found "
+                    f"(searched for schema='{schema_name}', but found {len(fk_rows_in_db)} FK rows in database with schemas: "
+                    f"{fk_rows_in_db['schema_name'].unique().tolist() if len(fk_rows_in_db) > 0 else 'none'})"
+                )
+                return None
+
+            constraints: Dict[str, List[SnowflakeFK]] = {}
+            fk_constraints_map: Dict[str, SnowflakeFK] = {}
+
+            # Build a map of (db, schema, table) -> (database, schema) from TABLE_META rows
+            # so we can resolve the referred PK table's database and schema.
+            pk_table_location: Dict[
+                tuple, tuple  # (db_upper, schema_upper, table_upper) -> (db, schema)
+            ] = {}
+            table_meta_df = df[df["metadata_source"] == "TABLE_META"]
+            for _, meta_row in table_meta_df.iterrows():
+                key = (
+                    str(meta_row["database_name"]).upper(),
+                    str(meta_row["schema_name"]).upper(),
+                    str(meta_row["table_name"]).upper(),
+                )
+                pk_table_location[key] = (
+                    meta_row["database_name"],
+                    meta_row["schema_name"],
+                )
+
+            for _, row in fk_df.iterrows():
+                fk_name = row["constraint_name"]
+                fk_table_name = row["table_name"]
+
+                if fk_name not in fk_constraints_map:
+                    # Look up the referred (PK) table's database and schema
+                    pk_key = (
+                        db_name.upper(),
+                        str(row.get("fk_schema_name", "") or "").upper(),
+                        str(row.get("fk_table_name", "") or "").upper(),
+                    )
+                    referred_db, referred_schema = pk_table_location.get(
+                        pk_key, (None, None)
+                    )
+                    fk_constraints_map[fk_name] = SnowflakeFK(
+                        name=fk_name,
+                        column_names=[],
+                        referred_database=referred_db,
+                        referred_schema=referred_schema,
+                        referred_table=row.get("fk_table_name"),
+                        referred_column_names=[],
+                    )
+
+                if fk_table_name not in constraints:
+                    constraints[fk_table_name] = []
+
+                if row.get("column_name") is not None:
+                    fk_constraints_map[fk_name].column_names.append(row["column_name"])
+
+                constraints[fk_table_name].append(fk_constraints_map[fk_name])
+
+            num_fks = sum(len(v) for v in constraints.values())
+            logger.info(
+                f"📦 [BULK] {db_name}.{schema_name}: "
+                f"{num_fks} FK constraints across {len(constraints)} tables (from pre-extracted data)"
+            )
+            return constraints
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to extract FK constraints from bulk metadata for {db_name}.{schema_name}: {e}"
+            )
+            return None
+
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_fk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeFK]]:
+        # Try bulk metadata first
+        bulk_constraints = self._get_fk_constraints_from_bulk_metadata(
+            schema_name, db_name
+        )
+        if bulk_constraints is not None:
+            return bulk_constraints
+
+        # Fall back to sequential queries
         constraints: Dict[str, List[SnowflakeFK]] = {}
         fk_constraints_map: Dict[str, SnowflakeFK] = {}
 
