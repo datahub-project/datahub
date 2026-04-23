@@ -12,6 +12,7 @@ class DatasetSubTypes(StrEnum):
     VIEW = "View"
     TOPIC = "Topic"
     SCHEMA = "Schema"
+    GRAPH = "Graph"
     # System-Specific SubTypes
     LOOKER_EXPLORE = "Explore"
     ELASTIC_INDEX_TEMPLATE = "Index Template"
@@ -73,6 +74,9 @@ class DatasetContainerSubTypes(StrEnum):
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
     FABRIC_SCHEMA = "Fabric Schema"
+    # Pinecone
+    PINECONE_INDEX = "Pinecone Index"
+    PINECONE_NAMESPACE = "Pinecone Namespace"
 
 
 class BIContainerSubTypes(StrEnum):

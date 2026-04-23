@@ -17,8 +17,8 @@ To create proposals on assets, users need to have the following resource privile
 - `Propose Tags`
 - `Propose Glossary Terms`
 - `Propose Owners`
-- `Propose Domain`
-- `Propose Properties`
+- `Propose Domains`
+- `Propose Structured Properties`
 - `Propose Description`
 - `Propose Dataset Column Tags`
 - `Propose Dataset Column Glossary Terms`
@@ -28,7 +28,7 @@ To create proposals on assets, users need to have the following resource privile
 To create proposals to change the Business Glossary, users need to have the following platform privileges:
 
 - `Propose Create Glossary Term`
-- `Propose Create Glossary Node (Term Group)`
+- `Propose Create Glossary Node`
 
 Which are granted by default using the **Reader**, **Editor**, and **Admin** roles by default.
 
@@ -38,7 +38,7 @@ To review proposals for an asset, users need to have the following resource priv
 
 - `Manage Tag Proposals`
 - `Manage Glossary Term Proposals`
-- `Manage Property Proposals`
+- `Manage Structured Property Proposals`
 - `Manage Domain Proposals`
 - `Manage Owner Proposals`
 - `Manage Description Proposals`

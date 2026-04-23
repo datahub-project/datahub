@@ -144,5 +144,10 @@ else
   JAR_EXTRACTION_OPTS="-jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar"
 fi
 
+# Hazelcast 5.x on Java 9+ needs JPMS access for JDK internals (performance; avoids startup warning).
+# Passed on the java command line (same as GMS/MCE), not JAVA_TOOL_OPTIONS — layertools extract and
+# some environments parse module flags incorrectly when supplied only via JAVA_TOOL_OPTIONS.
+HAZELCAST_JVM_OPTS="--add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED"
+
 export JAVA_TOOL_OPTIONS
-exec dockerize "${dockerize_args[@]}" java $JAR_EXTRACTION_OPTS
+exec dockerize "${dockerize_args[@]}" java $HAZELCAST_JVM_OPTS $JAR_EXTRACTION_OPTS

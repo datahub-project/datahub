@@ -47,12 +47,12 @@ export default function RowCountByValuePopover({ datum, labelFormatter }: RowCou
     return (
         <Container>
             <Square $startColor={colorSchemeParams.mainColor} $endColor={colorSchemeParams.alternativeColor} />
-            <Text color="gray" size="sm">
+            <Text size="sm">
                 <LabelContainer>
                     <TruncatedText>{labelFormatter(datum)}</TruncatedText>:
                 </LabelContainer>
             </Text>
-            <Text color="gray" size="sm" weight="semiBold">
+            <Text size="sm" weight="semiBold">
                 {formatNumberWithoutAbbreviation(datum.x)} {pluralize(datum.x, 'Row')}
             </Text>
         </Container>
