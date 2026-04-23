@@ -217,6 +217,11 @@ class DataplexGlossaryProcessor:
 
         for project_id in project_ids:
             for location in self._ctx.config.glossary_locations:
+                logger.info(
+                    "Listing glossaries for project=%s location=%s",
+                    project_id,
+                    location,
+                )
                 try:
                     for glossary in self._list_glossaries(project_id, location):
                         glossary_jobs.append((project_id, location, glossary))
@@ -227,6 +232,10 @@ class DataplexGlossaryProcessor:
                         context=f"project_id={project_id}, location={location}",
                         exc=exc,
                     )
+
+        logger.info(
+            "Found %d glossaries across all projects/locations", len(glossary_jobs)
+        )
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             it = iter(glossary_jobs)
@@ -273,6 +282,7 @@ class DataplexGlossaryProcessor:
         glossary_id = _resource_id(glossary.name)
         self._report.report_glossary(glossary.name)
         dataplex_url = self._ctx.config.dataplex_url.rstrip("/")
+        logger.info("Processing glossary %s (%s)", glossary.name, glossary.display_name)
 
         glossary_node = GlossaryNode(
             id=_glossary_node_urn_id(project_id, location, glossary_id),
@@ -289,6 +299,12 @@ class DataplexGlossaryProcessor:
         # Fetch categories and terms.
         categories = self._list_categories(project_id, location, glossary_id)
         terms = self._list_terms(project_id, location, glossary_id)
+        logger.debug(
+            "Glossary %s: %d categories, %d terms",
+            glossary_id,
+            len(categories),
+            len(terms),
+        )
 
         for category in categories:
             self._report.report_category()
@@ -394,6 +410,12 @@ class DataplexGlossaryProcessor:
             for loc in self._ctx.config.entries_locations
         ]
 
+        logger.info(
+            "Resolving term-asset associations for %d terms across %d project/location pairs",
+            len(self._emitted_terms),
+            len(location_pairs),
+        )
+
         # Phase 1: parallel scan — collect asset_urn -> [term_urns].
         asset_to_terms: Dict[str, List[str]] = {}
 
@@ -430,6 +452,11 @@ class DataplexGlossaryProcessor:
                             ),
                             exc=exc,
                         )
+
+        logger.info(
+            "Term-asset scan complete: %d assets linked to at least one term",
+            len(asset_to_terms),
+        )
 
         # Phase 2: emit one MCP per asset with its complete terms list.
         for asset_urn, term_urns in asset_to_terms.items():
