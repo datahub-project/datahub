@@ -264,8 +264,14 @@ class DataplexGlossaryProcessor:
         parent = f"projects/{project_id}/locations/{location}"
         request = dataplex_v1.ListGlossariesRequest(parent=parent)
         with PerfTimer() as timer:
-            response = self._glossary_client.list_glossaries(request=request)
+            response = list(self._glossary_client.list_glossaries(request=request))
         self._report.report_api_call("list_glossaries", timer.elapsed_seconds())
+        logger.debug(
+            "list_glossaries parent=%s returned %d glossaries in %.2fs",
+            parent,
+            len(response),
+            timer.elapsed_seconds(),
+        )
         return response
 
     def _process_single_glossary(
@@ -369,6 +375,12 @@ class DataplexGlossaryProcessor:
         self._report.report_api_call(
             "list_glossary_categories", timer.elapsed_seconds()
         )
+        logger.debug(
+            "list_glossary_categories parent=%s returned %d categories in %.2fs",
+            parent,
+            len(categories),
+            timer.elapsed_seconds(),
+        )
         return categories
 
     def _list_terms(
@@ -379,6 +391,12 @@ class DataplexGlossaryProcessor:
         with PerfTimer() as timer:
             terms = list(self._glossary_client.list_glossary_terms(request=request))
         self._report.report_api_call("list_glossary_terms", timer.elapsed_seconds())
+        logger.debug(
+            "list_glossary_terms parent=%s returned %d terms in %.2fs",
+            parent,
+            len(terms),
+            timer.elapsed_seconds(),
+        )
         return terms
 
     # ------------------------------------------------------------------
@@ -554,8 +572,19 @@ class DataplexGlossaryProcessor:
         with PerfTimer() as timer:
             resp = self._ctx.authed_session.get(url)
         self._report.report_api_call("lookupEntryLinks", timer.elapsed_seconds())
+        entry_links = (
+            resp.json().get("entryLinks", []) if resp.status_code != 404 else []
+        )
+        logger.debug(
+            "lookupEntryLinks project=%s location=%s status=%d links=%d in %.2fs",
+            project_id,
+            location,
+            resp.status_code,
+            len(entry_links),
+            timer.elapsed_seconds(),
+        )
 
         if resp.status_code == 404:
             return []
         resp.raise_for_status()
-        return resp.json().get("entryLinks", [])
+        return entry_links
