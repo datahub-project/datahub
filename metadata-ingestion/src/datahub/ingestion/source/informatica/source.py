@@ -1170,9 +1170,14 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         """Emit ``UpstreamLineage`` on each target dataset.
 
-        Emitted alongside ``DataJobInputOutput`` (not instead of) because
-        backend derivation of dataset upstreams from DataJob IO isn't
-        reliable across all UI views — matches Fivetran/dbt/Airflow.
+        Emitted alongside the MT's ``DataJobInputOutput`` (not instead of)
+        because DataHub's UI lineage traversal has asymmetric edge-type
+        filters: a Dataset→Dataset Lineage tab doesn't reliably traverse
+        ``Consumes``/``Produces`` edges through an intermediate DataJob.
+        Keeping the Dataset-to-Dataset ``UpstreamLineage`` aspect covers
+        that path explicitly; the DataJob aspect covers the MT's own
+        Lineage tab. The two together render correctly in every view we
+        tested.
         """
         if not input_urns:
             return
