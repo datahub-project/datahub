@@ -37,11 +37,22 @@ logger = logging.getLogger(__name__)
 # Matches entry batching used in dataplex_entries.py and dataplex_lineage.py.
 WORKERS_BATCH_SIZE = 200
 
-# Dataplex entryLinkType for a term-to-asset definitional link.
+# Dataplex built-in entry link types live under the system project "dataplex-types"
+# in the fixed "global" location — this is a GCP-managed resource path, not the
+# user's data location.
+#
+# Known link types:
+#   definition  — term describes / is applied to an asset; maps to DataHub glossaryTerms
+#   synonym     — relates two terms that are synonyms of each other (term-to-term only)
+#
+# We only ingest "definition" links because they represent the term-to-asset
+# relationship that DataHub's glossaryTerms aspect models. Synonym and other
+# term-to-term link types have no direct DataHub equivalent today.
+# TODO: consider ingesting synonym links as GlossaryRelatedTerms in the future.
 _DEFINITION_LINK_TYPE = (
     "projects/dataplex-types/locations/global/entryLinkTypes/definition"
 )
-# Role in an entryLink that identifies the asset (not the term).
+# Role in an entryLink that identifies the asset side (not the term side).
 _SOURCE_ROLE = "SOURCE"
 
 
@@ -449,6 +460,7 @@ class DataplexGlossaryProcessor:
                 continue
 
             for link in links:
+                # Skip synonym and any other term-to-term link types.
                 if link.get("entryLinkType") != _DEFINITION_LINK_TYPE:
                     continue
                 for ref in link.get("entryReferences", []):
