@@ -1,7 +1,7 @@
 [
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:RevenueMetrics",
+    "entityUrn": "urn:li:glossaryNode:4b5e6f7a",
     "changeType": "UPSERT",
     "aspectName": "glossaryNodeInfo",
     "aspect": {
@@ -11,14 +11,14 @@
                 "owner_team": "revenue"
             },
             "definition": "Metrics related to revenue recognition and reporting.",
-            "parentNode": "urn:li:glossaryNode:Finance",
+            "parentNode": "urn:li:glossaryNode:7f3d2c1a",
             "name": "Revenue Metrics"
         }
     }
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:RevenueMetrics",
+    "entityUrn": "urn:li:glossaryNode:4b5e6f7a",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -39,7 +39,7 @@
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:RevenueMetrics",
+    "entityUrn": "urn:li:glossaryNode:4b5e6f7a",
     "changeType": "UPSERT",
     "aspectName": "institutionalMemory",
     "aspect": {

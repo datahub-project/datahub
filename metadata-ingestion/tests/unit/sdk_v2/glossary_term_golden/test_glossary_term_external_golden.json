@@ -1,7 +1,7 @@
 [
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:FIBO.FinancialInstrument",
+    "entityUrn": "urn:li:glossaryTerm:7f8a9b0c",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {

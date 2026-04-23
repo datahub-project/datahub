@@ -1,7 +1,7 @@
 [
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:ARR",
+    "entityUrn": "urn:li:glossaryTerm:a1b2c3d4",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {

@@ -11,14 +11,14 @@ GOLDEN_DIR = pathlib.Path(__file__).parent / "glossary_term_golden"
 
 
 def test_glossary_term_basic() -> None:
-    term = GlossaryTerm(id="ARR")
+    term = GlossaryTerm(id="a1b2c3d4")
 
     assert GlossaryTerm.get_urn_type() == GlossaryTermUrn
     assert isinstance(term.urn, GlossaryTermUrn)
-    assert str(term.urn) == "urn:li:glossaryTerm:ARR"
+    assert str(term.urn) == "urn:li:glossaryTerm:a1b2c3d4"
     assert str(term.urn) in repr(term)
 
-    assert term.id == "ARR"
+    assert term.id == "a1b2c3d4"
     assert term.display_name is None
     assert term.definition == ""
     assert term.term_source == "INTERNAL"
@@ -43,36 +43,36 @@ def test_glossary_term_basic() -> None:
 
 
 def test_glossary_term_with_node() -> None:
-    node = GlossaryNode(id="Finance", definition="Financial terms.")
+    node = GlossaryNode(id="7f3d2c1a", definition="Financial terms.")
 
     # parent as GlossaryNode object
     term1 = GlossaryTerm(
-        id="ARR", definition="Annual recurring revenue.", parent_node=node
+        id="a1b2c3d4", definition="Annual recurring revenue.", parent_node=node
     )
-    assert term1.parent_node == GlossaryNodeUrn("Finance")
+    assert term1.parent_node == GlossaryNodeUrn("7f3d2c1a")
 
     # parent as GlossaryNodeUrn
     term2 = GlossaryTerm(
-        id="ARR",
+        id="a1b2c3d4",
         definition="Annual recurring revenue.",
-        parent_node=GlossaryNodeUrn("Finance"),
+        parent_node=GlossaryNodeUrn("7f3d2c1a"),
     )
-    assert term2.parent_node == GlossaryNodeUrn("Finance")
+    assert term2.parent_node == GlossaryNodeUrn("7f3d2c1a")
 
     # parent as URN string
     term3 = GlossaryTerm(
-        id="ARR",
+        id="a1b2c3d4",
         definition="Annual recurring revenue.",
-        parent_node="urn:li:glossaryNode:Finance",
+        parent_node="urn:li:glossaryNode:7f3d2c1a",
     )
-    assert term3.parent_node == GlossaryNodeUrn("Finance")
+    assert term3.parent_node == GlossaryNodeUrn("7f3d2c1a")
 
     assert term1.parent_node == term2.parent_node == term3.parent_node
 
 
 def test_glossary_term_external() -> None:
     term = GlossaryTerm(
-        id="FIBO.FinancialInstrument",
+        id="7f8a9b0c",
         definition="A financial instrument as defined by FIBO.",
         term_source="EXTERNAL",
         source_ref="FIBO",
@@ -88,35 +88,44 @@ def test_glossary_term_external() -> None:
 
 def test_glossary_term_related_terms() -> None:
     term = GlossaryTerm(
-        id="MRR",
+        id="b2c3d4e5",
         definition="Monthly Recurring Revenue.",
-        is_a=[GlossaryTermUrn("RecurringRevenue")],
-        has_a=[GlossaryTermUrn("SubscriptionCount")],
-        values=[GlossaryTermUrn("MRR.New"), GlossaryTermUrn("MRR.Expansion")],
-        related_terms=[GlossaryTermUrn("ARR"), GlossaryTermUrn("Churn")],
+        is_a=[GlossaryTermUrn("e5f6a7b8")],  # RecurringRevenue
+        has_a=[GlossaryTermUrn("f6a7b8c9")],  # SubscriptionCount
+        values=[
+            GlossaryTermUrn("a7b8c9d0"),  # MRR.New
+            GlossaryTermUrn("b8c9d0e1"),  # MRR.Expansion
+        ],
+        related_terms=[
+            GlossaryTermUrn("a1b2c3d4"),  # ARR
+            GlossaryTermUrn("c9d0e1f2"),  # Churn
+        ],
     )
 
-    assert term.is_a == [GlossaryTermUrn("RecurringRevenue")]
-    assert term.has_a == [GlossaryTermUrn("SubscriptionCount")]
-    assert term.values == [GlossaryTermUrn("MRR.New"), GlossaryTermUrn("MRR.Expansion")]
-    assert term.related_terms == [GlossaryTermUrn("ARR"), GlossaryTermUrn("Churn")]
+    assert term.is_a == [GlossaryTermUrn("e5f6a7b8")]
+    assert term.has_a == [GlossaryTermUrn("f6a7b8c9")]
+    assert term.values == [GlossaryTermUrn("a7b8c9d0"), GlossaryTermUrn("b8c9d0e1")]
+    assert term.related_terms == [
+        GlossaryTermUrn("a1b2c3d4"),
+        GlossaryTermUrn("c9d0e1f2"),
+    ]
 
     # add is_a is idempotent
-    term.add_is_a(GlossaryTermUrn("RecurringRevenue"))
+    term.add_is_a(GlossaryTermUrn("e5f6a7b8"))
     assert len(term.is_a) == 1
 
     # add new is_a
-    term.add_is_a(GlossaryTermUrn("Revenue"))
+    term.add_is_a(GlossaryTermUrn("e6f7a8b9"))  # Revenue
     assert len(term.is_a) == 2
 
     # remove is_a
-    term.remove_is_a(GlossaryTermUrn("Revenue"))
-    assert term.is_a == [GlossaryTermUrn("RecurringRevenue")]
+    term.remove_is_a(GlossaryTermUrn("e6f7a8b9"))
+    assert term.is_a == [GlossaryTermUrn("e5f6a7b8")]
 
     # add / remove value
-    term.add_value(GlossaryTermUrn("MRR.Contraction"))
+    term.add_value(GlossaryTermUrn("a2b3c4d5"))  # MRR.Contraction
     assert len(term.values) == 3
-    term.remove_value(GlossaryTermUrn("MRR.Contraction"))
+    term.remove_value(GlossaryTermUrn("a2b3c4d5"))
     assert len(term.values) == 2
 
     assert_entity_golden(
@@ -126,10 +135,10 @@ def test_glossary_term_related_terms() -> None:
 
 def test_glossary_term_complex() -> None:
     term = GlossaryTerm(
-        id="Classification.PII",
+        id="3a4b5c6d",
         display_name="Personally Identifiable Information",
         definition="Information that can identify, contact, or locate a person.",
-        parent_node=GlossaryNodeUrn("Classification"),
+        parent_node=GlossaryNodeUrn("2f3a4b5c"),
         custom_properties={"sensitivity_level": "HIGH", "regulatory_framework": "GDPR"},
         owners=[CorpUserUrn("datahub")],
         links=[
@@ -140,16 +149,19 @@ def test_glossary_term_complex() -> None:
             ("https://gdpr.eu/", "GDPR Official Documentation"),
         ],
         domain="urn:li:domain:privacy",
-        is_a=[GlossaryTermUrn("SensitiveData")],
-        related_terms=[GlossaryTermUrn("SSN"), GlossaryTermUrn("Email")],
+        is_a=[GlossaryTermUrn("c3d4e5f6")],  # SensitiveData
+        related_terms=[
+            GlossaryTermUrn("d4e5f6a7"),  # SSN
+            GlossaryTermUrn("1a2b3c4d"),  # Email
+        ],
     )
 
-    assert term.id == "Classification.PII"
+    assert term.id == "3a4b5c6d"
     assert term.display_name == "Personally Identifiable Information"
     assert (
         term.definition == "Information that can identify, contact, or locate a person."
     )
-    assert term.parent_node == GlossaryNodeUrn("Classification")
+    assert term.parent_node == GlossaryNodeUrn("2f3a4b5c")
     assert term.custom_properties == {
         "sensitivity_level": "HIGH",
         "regulatory_framework": "GDPR",
@@ -158,14 +170,17 @@ def test_glossary_term_complex() -> None:
     assert len(term.owners) == 1
     assert term.links is not None
     assert len(term.links) == 2
-    assert term.is_a == [GlossaryTermUrn("SensitiveData")]
-    assert term.related_terms == [GlossaryTermUrn("SSN"), GlossaryTermUrn("Email")]
+    assert term.is_a == [GlossaryTermUrn("c3d4e5f6")]
+    assert term.related_terms == [
+        GlossaryTermUrn("d4e5f6a7"),
+        GlossaryTermUrn("1a2b3c4d"),
+    ]
 
     assert_entity_golden(term, GOLDEN_DIR / "test_glossary_term_complex_golden.json")
 
 
 def test_glossary_term_setters() -> None:
-    term = GlossaryTerm(id="ARR")
+    term = GlossaryTerm(id="a1b2c3d4")
 
     term.set_display_name("Annual Recurring Revenue")
     assert term.display_name == "Annual Recurring Revenue"
@@ -182,83 +197,86 @@ def test_glossary_term_setters() -> None:
     term.set_source_url("https://example.com/arr")
     assert term.source_url == "https://example.com/arr"
 
-    term.set_parent_node(GlossaryNodeUrn("Finance"))
-    assert term.parent_node == GlossaryNodeUrn("Finance")
+    term.set_parent_node(GlossaryNodeUrn("7f3d2c1a"))
+    assert term.parent_node == GlossaryNodeUrn("7f3d2c1a")
 
-    term.set_parent_node(GlossaryNode(id="TopLevel"))
-    assert term.parent_node == GlossaryNodeUrn("TopLevel")
+    term.set_parent_node(GlossaryNode(id="2c3d4e5f"))
+    assert term.parent_node == GlossaryNodeUrn("2c3d4e5f")
 
     term.set_custom_properties({"key": "value"})
     assert term.custom_properties == {"key": "value"}
 
 
 def test_glossary_term_has_a_and_related() -> None:
-    term = GlossaryTerm(id="Address")
+    term = GlossaryTerm(id="5e6f7a8b")
 
     # add_has_a / remove_has_a
-    term.add_has_a(GlossaryTermUrn("ZipCode"))
-    term.add_has_a(GlossaryTermUrn("Street"))
-    term.add_has_a(GlossaryTermUrn("ZipCode"))  # idempotent
-    assert term.has_a == [GlossaryTermUrn("ZipCode"), GlossaryTermUrn("Street")]
+    term.add_has_a(GlossaryTermUrn("d0e1f2a3"))  # ZipCode
+    term.add_has_a(GlossaryTermUrn("e1f2a3b4"))  # Street
+    term.add_has_a(GlossaryTermUrn("d0e1f2a3"))  # idempotent
+    assert term.has_a == [GlossaryTermUrn("d0e1f2a3"), GlossaryTermUrn("e1f2a3b4")]
 
-    term.remove_has_a(GlossaryTermUrn("Street"))
-    assert term.has_a == [GlossaryTermUrn("ZipCode")]
+    term.remove_has_a(GlossaryTermUrn("e1f2a3b4"))
+    assert term.has_a == [GlossaryTermUrn("d0e1f2a3")]
 
     # add_related_term / remove_related_term
-    term.add_related_term(GlossaryTermUrn("Email"))
-    term.add_related_term(GlossaryTermUrn("Phone"))
-    term.add_related_term(GlossaryTermUrn("Email"))  # idempotent
-    assert term.related_terms == [GlossaryTermUrn("Email"), GlossaryTermUrn("Phone")]
+    term.add_related_term(GlossaryTermUrn("1a2b3c4d"))  # Email
+    term.add_related_term(GlossaryTermUrn("f2a3b4c5"))  # Phone
+    term.add_related_term(GlossaryTermUrn("1a2b3c4d"))  # idempotent
+    assert term.related_terms == [
+        GlossaryTermUrn("1a2b3c4d"),
+        GlossaryTermUrn("f2a3b4c5"),
+    ]
 
-    term.remove_related_term(GlossaryTermUrn("Phone"))
-    assert term.related_terms == [GlossaryTermUrn("Email")]
+    term.remove_related_term(GlossaryTermUrn("f2a3b4c5"))
+    assert term.related_terms == [GlossaryTermUrn("1a2b3c4d")]
 
     # remove on non-existent term is safe
-    term.remove_has_a(GlossaryTermUrn("NonExistent"))
-    assert term.has_a == [GlossaryTermUrn("ZipCode")]
+    term.remove_has_a(GlossaryTermUrn("d6e7f8a9"))
+    assert term.has_a == [GlossaryTermUrn("d0e1f2a3")]
 
     # add_is_a and add_value from scratch (no prior related terms) hit None-init branches
-    fresh = GlossaryTerm(id="FreshTerm")
-    fresh.add_is_a(GlossaryTermUrn("Base"))
-    assert fresh.is_a == [GlossaryTermUrn("Base")]
+    fresh = GlossaryTerm(id="a3b4c5d6")
+    fresh.add_is_a(GlossaryTermUrn("b4c5d6e7"))  # Base
+    assert fresh.is_a == [GlossaryTermUrn("b4c5d6e7")]
 
-    fresh.add_value(GlossaryTermUrn("Option1"))
-    assert fresh.values == [GlossaryTermUrn("Option1")]
+    fresh.add_value(GlossaryTermUrn("c5d6e7f8"))  # Option1
+    assert fresh.values == [GlossaryTermUrn("c5d6e7f8")]
 
 
 def test_glossary_term_new_from_graph() -> None:
     import datahub.metadata.schema_classes as models
 
-    urn = GlossaryTermUrn("Classification.PII")
+    urn = GlossaryTermUrn("3a4b5c6d")
     aspects: models.AspectBag = {
         "glossaryTermInfo": models.GlossaryTermInfoClass(
             definition="Data that identifies a person.",
             termSource="INTERNAL",
             name="PII",
-            parentNode="urn:li:glossaryNode:Classification",
+            parentNode="urn:li:glossaryNode:2f3a4b5c",
         ),
         "glossaryRelatedTerms": models.GlossaryRelatedTermsClass(
-            isRelatedTerms=["urn:li:glossaryTerm:SensitiveData"],
+            isRelatedTerms=["urn:li:glossaryTerm:c3d4e5f6"],  # SensitiveData
             hasRelatedTerms=None,
             values=None,
-            relatedTerms=["urn:li:glossaryTerm:SSN"],
+            relatedTerms=["urn:li:glossaryTerm:d4e5f6a7"],  # SSN
         ),
     }
     term = GlossaryTerm._new_from_graph(urn, aspects)
 
-    assert term.id == "Classification.PII"
+    assert term.id == "3a4b5c6d"
     assert term.definition == "Data that identifies a person."
     assert term.display_name == "PII"
-    assert term.parent_node == GlossaryNodeUrn("Classification")
-    assert term.is_a == [GlossaryTermUrn("SensitiveData")]
-    assert term.related_terms == [GlossaryTermUrn("SSN")]
+    assert term.parent_node == GlossaryNodeUrn("2f3a4b5c")
+    assert term.is_a == [GlossaryTermUrn("c3d4e5f6")]
+    assert term.related_terms == [GlossaryTermUrn("d4e5f6a7")]
     assert term.has_a == []
     assert term.values == []
 
 
 def test_glossary_term_structured_properties() -> None:
     term = GlossaryTerm(
-        id="ARR",
+        id="a1b2c3d4",
         structured_properties={
             "urn:li:structuredProperty:sp1": ["value1"],
         },

@@ -1,7 +1,7 @@
 [
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:Finance",
+    "entityUrn": "urn:li:glossaryNode:7f3d2c1a",
     "changeType": "UPSERT",
     "aspectName": "glossaryNodeInfo",
     "aspect": {

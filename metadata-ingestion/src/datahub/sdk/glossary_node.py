@@ -46,16 +46,16 @@ class GlossaryNode(
 
     Example::
 
-        # Stable machine-friendly id; friendly label as display_name.
+        # Stable opaque id; human-readable label as display_name.
         node = GlossaryNode(
-            id="finance",
+            id="7f3d2c1a",
             display_name="Financial Metrics",
             definition="All financial and accounting-related business terms.",
         )
 
         # Nested node — child refers to parent by object or URN.
         child = GlossaryNode(
-            id="finance.revenue",
+            id="4b5e6f7a",
             display_name="Revenue Metrics",
             definition="Terms related to revenue recognition.",
             parent_node=node,
