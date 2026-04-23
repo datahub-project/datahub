@@ -5,10 +5,13 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from datahub.ingestion.source.informatica.client import (
     InformaticaClient,
     parse_saas_connection_ref,
+    parse_taskflow_definition,
+    parse_taskflow_xml,
 )
 from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
 from datahub.ingestion.source.informatica.models import (
@@ -132,7 +135,7 @@ class TestDecodeJson:
         # must be converted to InformaticaApiError so the pipeline reports
         # a clean warning instead of crashing with JSONDecodeError.
         resp = MagicMock()
-        resp.json.side_effect = __import__("json").JSONDecodeError("x", "", 0)
+        resp.json.side_effect = json.JSONDecodeError("x", "", 0)
         resp.text = "<html>Server Error</html>"
         resp.status_code = 200
         resp.url = "https://pod/api/v2/thing"
@@ -169,7 +172,7 @@ class TestRequestRetryOnAuthFailure:
         assert req.call_count == 2
         assert client._session_id == "new"
 
-    def test_still_failing_auth_after_retry_is_reported(self, client):
+    def test_still_failing_auth_after_retry_raises(self, client):
         client._session_id = "old"
         client._base_url = "https://pod/saas"
         client._session_last_validated_at = 1e12
@@ -183,10 +186,9 @@ class TestRequestRetryOnAuthFailure:
         with (
             patch.object(client._session, "request", side_effect=[fail1, fail2]),
             patch.object(client._session, "post", return_value=login_resp),
+            pytest.raises(InformaticaLoginError, match="rejected after retry"),
         ):
             client._request("GET", "https://pod/saas/api/v2/thing")
-
-        assert len(client.report.failures) > 0
 
     def test_request_returns_first_response_if_not_auth_failure(self, client):
         client._session_id = "sess"
@@ -327,80 +329,6 @@ class TestParseV3Object:
         assert obj.path == "/Explore/Sales/Mappings"
 
 
-class TestListMappletsV2Fallback:
-    def test_probes_endpoints_in_order_and_returns_first_success(self, client):
-        client._session_id = "s"
-        client._base_url = "https://pod/saas"
-        client._session_last_validated_at = 1e12
-
-        call_log = []
-
-        def fake_request(method, url, *args, **kwargs):
-            call_log.append(url)
-            if url.endswith("/api/v2/mapplet"):
-                # First probe fails — matches the reported behavior on
-                # use4.dm-us.informaticacloud.com.
-                return _build_response(
-                    404, payload={"error": "Not Found"}, raw_bytes=b""
-                )
-            if url.endswith("/api/v2/mapplets"):
-                return _build_response(
-                    200,
-                    payload=[
-                        {
-                            "id": "01XXX",
-                            "name": "Mapplet1",
-                            "location": "Default/develop_test",
-                            "assetFrsGuid": "v3-guid",
-                        }
-                    ],
-                )
-            return _build_response(404)
-
-        # Override raise_for_status to actually raise on 404 so the caller
-        # exception path runs.
-        def request_wrapper(method, url, *args, **kwargs):
-            resp = fake_request(method, url, *args, **kwargs)
-            if resp.status_code >= 400:
-                import requests
-
-                http_err = requests.HTTPError(
-                    f"{resp.status_code} Client Error: Not Found for url: {url}"
-                )
-                resp.raise_for_status = MagicMock(side_effect=http_err)
-            return resp
-
-        with patch.object(client, "_request", side_effect=request_wrapper):
-            mapplets = client.list_mapplets_v2()
-
-        # Verify we stopped after the successful probe.
-        assert len([u for u in call_log if "mapplet" in u.lower()]) == 2
-        assert len(mapplets) == 1
-        assert mapplets[0].name == "Mapplet1"
-        assert mapplets[0].id == "v3-guid"
-        assert mapplets[0].path == "Default/develop_test/Mapplet1"
-
-    def test_returns_empty_when_all_probes_fail(self, client):
-        client._session_id = "s"
-        client._base_url = "https://pod/saas"
-        client._session_last_validated_at = 1e12
-
-        def always_404(method, url, *args, **kwargs):
-            resp = _build_response(404)
-            import requests
-
-            resp.raise_for_status = MagicMock(
-                side_effect=requests.HTTPError(f"404 for {url}")
-            )
-            return resp
-
-        with patch.object(client, "_request", side_effect=always_404):
-            mapplets = client.list_mapplets_v2()
-
-        # No endpoint worked — caller handles the empty list at info level.
-        assert mapplets == []
-
-
 class TestParseInnerDtemplateZip:
     @staticmethod
     def _make_inner_zip(bin_bytes: bytes) -> zipfile.ZipFile:
@@ -484,6 +412,94 @@ class TestSubmitExportJob:
             pytest.raises(InformaticaApiError, match="no ID"),
         ):
             client.submit_export_job(["m1"])
+
+
+class TestListMappingTasksEnrichment:
+    def test_v2_detail_lookup_populates_mapping_fields(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        # v3 MTT listing page + v2 detail payload per MT
+        v3_page = _build_response(
+            200,
+            {
+                "objects": [
+                    {
+                        "id": "mt-guid-1",
+                        "name": "nightly_copy",
+                        "path": "/Explore/Sales/ETL/nightly_copy",
+                        "documentType": "MTT",
+                    }
+                ]
+            },
+        )
+        empty_page = _build_response(200, {"objects": []})
+        v2_detail = _build_response(
+            200,
+            {
+                "id": "v2-task-1",
+                "name": "nightly_copy",
+                "mappingId": "m-1",
+                "mappingName": "copy_mapping",
+                "connectionId": "c-1",
+            },
+        )
+
+        # Order: v3 page → enrichment call for each item → next v3 page.
+        with patch.object(
+            client._session,
+            "request",
+            side_effect=[v3_page, v2_detail, empty_page],
+        ):
+            tasks = list(client.list_mapping_tasks())
+
+        assert len(tasks) == 1
+        mt = tasks[0]
+        assert mt.v2_id == "mt-guid-1"  # v3 id comes through from_idmc_object
+        assert mt.mapping_id == "m-1"
+        assert mt.mapping_name == "copy_mapping"
+        assert mt.connection_id == "c-1"
+
+    def test_v2_detail_lookup_failure_reports_warning_and_yields(self, client):
+        client._session_id = "s"
+        client._base_url = "https://pod/saas"
+        client._session_last_validated_at = 1e12
+
+        v3_page = _build_response(
+            200,
+            {
+                "objects": [
+                    {
+                        "id": "mt-1",
+                        "name": "nightly",
+                        "path": "/Explore/P/F/nightly",
+                        "documentType": "MTT",
+                    }
+                ]
+            },
+        )
+        empty_page = _build_response(200, {"objects": []})
+        # v2 detail responds 404 → raise_for_status raises HTTPError
+        v2_404 = _build_response(404)
+        v2_404.raise_for_status = MagicMock(
+            side_effect=requests.HTTPError("404 Not Found")
+        )
+
+        with patch.object(
+            client._session,
+            "request",
+            side_effect=[v3_page, v2_404, empty_page],
+        ):
+            tasks = list(client.list_mapping_tasks())
+
+        # Task still yielded — enrichment failure must not drop the MT
+        assert len(tasks) == 1
+        assert tasks[0].mapping_id == ""
+        assert any(
+            "enrich IDMC mapping task" in (w.title or "")
+            for w in client.report.warnings
+        )
 
 
 class TestExtractLineage:
@@ -631,3 +647,175 @@ class TestParseSaasConnectionRef:
 
     def test_handles_empty(self):
         assert parse_saas_connection_ref("") == ""
+
+
+class TestParseTaskflowDefinition:
+    def test_parses_linear_steps_with_next_edges(self):
+        # IDMC's taskflow JSON typically exposes edges via ``nextSteps`` on
+        # each step. The parser inverts those into ``predecessor_step_ids``.
+        data = {
+            "id": "tf-1",
+            "name": "daily_refresh",
+            "steps": [
+                {
+                    "id": "s1",
+                    "displayName": "Copy orders",
+                    "type": "data",
+                    "taskType": "MTT",
+                    "taskName": "nightly_copy_orders",
+                    "taskId": "01DM-1",
+                    "nextSteps": ["s2"],
+                },
+                {
+                    "id": "s2",
+                    "displayName": "Enrich",
+                    "type": "data",
+                    "taskType": "MTT",
+                    "taskName": "enrich_customers",
+                    "taskId": "01DM-2",
+                    "nextSteps": [],
+                },
+            ],
+        }
+        definition = parse_taskflow_definition(data)
+        assert definition is not None
+        assert definition.taskflow_name == "daily_refresh"
+        assert [s.step_id for s in definition.steps] == ["s1", "s2"]
+        s1, s2 = definition.steps
+        assert s1.task_ref_id == "01DM-1"
+        assert s1.task_ref_name == "nightly_copy_orders"
+        # s1 has no predecessor; s2 has s1 as predecessor (derived from s1.nextSteps).
+        assert s1.predecessor_step_ids == []
+        assert s2.predecessor_step_ids == ["s1"]
+
+    def test_parses_steps_with_explicit_predecessors(self):
+        # Some taskflow shapes expose ``dependsOn`` directly.
+        data = {
+            "name": "tf_2",
+            "steps": [
+                {"id": "a", "name": "A", "type": "command"},
+                {"id": "b", "name": "B", "type": "command", "dependsOn": ["a"]},
+            ],
+        }
+        definition = parse_taskflow_definition(data)
+        assert definition is not None
+        assert definition.steps[1].predecessor_step_ids == ["a"]
+
+    def test_non_dict_returns_none(self):
+        assert parse_taskflow_definition({"something": "else"}) is None  # type: ignore[arg-type]
+
+    def test_falls_back_to_name_when_explicit_id_missing(self):
+        # Some IDMC taskflow shapes only expose ``name`` on each step; the
+        # parser uses name as a fallback step id so predecessor linking works.
+        data = {
+            "name": "tf",
+            "steps": [
+                {"name": "step_alpha"},
+                {"id": "real", "name": "Real", "type": "data"},
+            ],
+        }
+        definition = parse_taskflow_definition(data)
+        assert definition is not None
+        assert [s.step_id for s in definition.steps] == ["step_alpha", "real"]
+
+    def test_skips_truly_empty_step_entries(self):
+        # A step with no id and no name can't be addressed by predecessors,
+        # so it's dropped.
+        data = {"name": "tf", "steps": [{}, {"id": "real", "name": "Real"}]}
+        definition = parse_taskflow_definition(data)
+        assert definition is not None
+        assert [s.step_id for s in definition.steps] == ["real"]
+
+
+class TestParseTaskflowXml:
+    EMPTY_TASKFLOW_XML = b"""\
+<aetgt:getResponse xmlns:aetgt="http://schemas.active-endpoints.com/appmodules/repository/2010/10/avrepository.xsd"
+                   xmlns:types1="http://schemas.active-endpoints.com/appmodules/repository/2010/10/avrepository.xsd">
+   <types1:Item>
+      <types1:Entry>
+         <taskflow xmlns="http://schemas.active-endpoints.com/appmodules/screenflow/2010/10/avosScreenflow.xsd"
+                   GUID="l8V6vf71iAxfOscobAR8it"
+                   name="Taskflow1">
+            <flow id="a">
+               <start id="b"><link id="l1" targetId="c"/></start>
+               <end id="c"/>
+            </flow>
+         </taskflow>
+      </types1:Entry>
+   </types1:Item>
+</aetgt:getResponse>
+"""
+
+    # Two-step DAG: start → DataTask1 → DataTask2 → end, mirroring the real
+    # Taskflow2 export payload shape (eventContainer + service + link).
+    LINEAR_TASKFLOW_XML = b"""\
+<aetgt:getResponse xmlns:aetgt="http://schemas.active-endpoints.com/appmodules/repository/2010/10/avrepository.xsd">
+   <types1:Item xmlns:types1="http://schemas.active-endpoints.com/appmodules/repository/2010/10/avrepository.xsd">
+      <types1:Entry>
+         <taskflow xmlns="http://schemas.active-endpoints.com/appmodules/screenflow/2010/10/avosScreenflow.xsd"
+                   GUID="2zwQ7UmP2ublD6Mfxz0Ssa"
+                   name="Taskflow2">
+            <flow id="a">
+               <start id="b"><link id="l0" targetId="step1"/></start>
+               <eventContainer id="step1">
+                  <service id="svc1">
+                     <title>Data Task 1</title>
+                     <serviceName>ICSExecuteDataTask</serviceName>
+                     <serviceInput>
+                        <parameter name="Task Name">MappingTask3</parameter>
+                        <parameter name="GUID">3WD6PD2FNhRbiv93ryBMM2</parameter>
+                        <parameter name="Task Type">MCT</parameter>
+                     </serviceInput>
+                  </service>
+                  <link id="l1" targetId="step2"/>
+               </eventContainer>
+               <eventContainer id="step2">
+                  <service id="svc2">
+                     <title>Data Task 2</title>
+                     <serviceName>ICSExecuteDataTask</serviceName>
+                     <serviceInput>
+                        <parameter name="Task Name">MappingTask2</parameter>
+                        <parameter name="GUID">499OiDLUgICjfllnYEUDqy</parameter>
+                        <parameter name="Task Type">MCT</parameter>
+                     </serviceInput>
+                  </service>
+                  <link id="l2" targetId="c"/>
+               </eventContainer>
+               <end id="c"/>
+            </flow>
+         </taskflow>
+      </types1:Entry>
+   </types1:Item>
+</aetgt:getResponse>
+"""
+
+    def test_empty_taskflow_yields_zero_steps(self):
+        # Taskflow with only start/end markers — produces no emittable steps.
+        definition = parse_taskflow_xml(self.EMPTY_TASKFLOW_XML)
+        assert definition is not None
+        assert definition.taskflow_name == "Taskflow1"
+        assert definition.taskflow_id == "l8V6vf71iAxfOscobAR8it"
+        assert definition.steps == []
+
+    def test_linear_two_step_dag(self):
+        definition = parse_taskflow_xml(self.LINEAR_TASKFLOW_XML)
+        assert definition is not None
+        assert definition.taskflow_name == "Taskflow2"
+        assert [s.step_id for s in definition.steps] == ["step1", "step2"]
+        s1, s2 = definition.steps
+        # Service metadata pulled through from <service><serviceInput>
+        assert s1.step_name == "Data Task 1"
+        assert s1.step_type == "data"  # ICSExecuteDataTask → "data"
+        assert s1.task_ref_name == "MappingTask3"
+        assert s1.task_ref_id == "3WD6PD2FNhRbiv93ryBMM2"
+        assert s1.task_type == "MCT"
+        # Predecessors: step1 has none (its only incoming edge is from <start>,
+        # which is a marker and excluded); step2's predecessor is step1.
+        assert s1.predecessor_step_ids == []
+        assert s2.predecessor_step_ids == ["step1"]
+
+    def test_malformed_xml_returns_none(self):
+        assert parse_taskflow_xml(b"not-valid-xml") is None
+
+    def test_xml_without_taskflow_element_returns_none(self):
+        assert parse_taskflow_xml(b"<root><other/></root>") is None

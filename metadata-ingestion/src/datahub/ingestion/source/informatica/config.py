@@ -15,8 +15,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 
 logger = logging.getLogger(__name__)
 
-ORCHESTRATOR = "informatica"
-
 # IDMC connParams["Connection Type"] → DataHub platform. Informatica doesn't
 # publish the canonical list, so entries cover observed native connectors
 # (CamelCase/Snake_Case), legacy CDK connectors (``TOOLKIT_CCI_*``), and
@@ -116,14 +114,6 @@ CONNECTION_TYPE_MAP: Dict[str, str] = {
     "SQLServer": "mssql",
 }
 
-# Default login URLs per IDMC region.
-IDMC_REGION_LOGIN_URLS: Dict[str, str] = {
-    "us": "https://dm-us.informaticacloud.com",
-    "us2": "https://dm2-us.informaticacloud.com",
-    "emea": "https://dm-em.informaticacloud.com",
-    "apac": "https://dm-ap.informaticacloud.com",
-}
-
 DEFAULT_PAGE_SIZE = 200
 DEFAULT_EXPORT_BATCH_SIZE = 1000
 DEFAULT_EXPORT_POLL_TIMEOUT_SECS = 300
@@ -203,6 +193,19 @@ class InformaticaSourceConfig(
         ),
     )
 
+    @field_validator("tag_filter_names")
+    @classmethod
+    def _strip_blank_tag_names(cls, v: List[str]) -> List[str]:
+        # IDMC rejects blank tag names server-side with an opaque 400;
+        # catch the mistake at config parse time with a clear error.
+        cleaned = [t.strip() for t in v if t and t.strip()]
+        if len(cleaned) != len(v):
+            raise ValueError(
+                "tag_filter_names contained empty or whitespace-only entries; "
+                "remove them or populate with IDMC tag names."
+            )
+        return cleaned
+
     # Features
     extract_lineage: bool = Field(
         default=True,
@@ -220,12 +223,21 @@ class InformaticaSourceConfig(
         ),
     )
 
+    strip_user_email_domain: bool = Field(
+        default=False,
+        description=(
+            "Strip the domain from IDMC user identifiers before forming the "
+            "CorpUser URN (e.g. ``alice@acme.com`` → ``urn:li:corpuser:alice``). "
+            "Enable when your Okta/AzureAD source ingests users without the "
+            "email domain so ownership edges align with existing CorpUser URNs."
+        ),
+    )
+
     extract_tags: bool = Field(
         default=True,
         description="Whether to extract tags from IDMC objects.",
     )
 
-    # Connection platform override (per connection ID)
     connection_type_overrides: Dict[str, str] = Field(
         default={},
         description=(
@@ -238,7 +250,6 @@ class InformaticaSourceConfig(
         ),
     )
 
-    # Connection platform extension (by type string)
     connection_type_platform_map: Dict[str, str] = Field(
         default={},
         description=(
@@ -249,6 +260,27 @@ class InformaticaSourceConfig(
             "connectors that aren't in the built-in map yet. "
             "Example: {'MyCustomConnector_v3': 'snowflake', 'CompanyDW': 'postgres'}. "
             "Entries here are merged with (and override) CONNECTION_TYPE_MAP."
+        ),
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Lowercase the dataset qualifier in emitted upstream URNs to match "
+            "the default behavior of the Snowflake, Postgres, and BigQuery sources "
+            "(which lowercase by default). Set to False only if you've disabled "
+            "lowercasing on every source this connector produces lineage to."
+        ),
+    )
+
+    connection_to_platform_instance: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map IDMC connection ID → DataHub `platform_instance` to use when "
+            "building upstream/downstream dataset URNs. Required whenever the "
+            "target source was ingested with a non-default platform_instance; "
+            "otherwise lineage edges will point at URNs that don't exist in "
+            "DataHub. Example: {'01DM180B000000000008': 'prod_sf'}."
         ),
     )
 
@@ -287,15 +319,17 @@ class InformaticaSourceConfig(
         description="Configuration for stateful ingestion and stale entity removal.",
     )
 
-    @model_validator(mode="after")
-    def validate_login_url(self) -> "InformaticaSourceConfig":
-        url = self.login_url.rstrip("/")
+    @field_validator("login_url")
+    @classmethod
+    def _validate_login_url(cls, v: str) -> str:
+        # IDMC has no http endpoints; reject at parse time rather than
+        # silently sending credentials in clear text.
+        if not v:
+            raise ValueError("login_url must not be empty")
+        url = v.rstrip("/")
         if not url.startswith("https://"):
-            raise ValueError(
-                f"login_url must start with https://, got: {self.login_url}"
-            )
-        self.login_url = url
-        return self
+            raise ValueError(f"login_url must start with https://, got: {v}")
+        return url
 
     @model_validator(mode="after")
     def validate_poll_bounds(self) -> "InformaticaSourceConfig":
@@ -320,9 +354,8 @@ class InformaticaSourceConfig(
                 )
             if platform not in known_platforms:
                 logger.warning(
-                    "connection_type_overrides[%s] uses platform %r which is not in "
-                    "the known platform map. This may still work if the platform is "
-                    "registered elsewhere in DataHub, but double-check the spelling.",
+                    "connection_type_overrides[%s] uses platform %r which is "
+                    "not in the built-in platform map; double-check spelling.",
                     conn_id,
                     platform,
                 )

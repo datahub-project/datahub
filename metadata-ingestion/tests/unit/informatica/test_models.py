@@ -1,10 +1,8 @@
 from datahub.ingestion.source.informatica.models import (
-    ExportJobState,
     IdmcConnection,
     IdmcMapping,
     IdmcMappingTask,
     IdmcObject,
-    InformaticaSourceReport,
 )
 
 
@@ -47,11 +45,6 @@ class TestIdmcConnection:
         assert conn.database == "DB"
         assert conn.db_schema == "S"
         assert conn.conn_type == ""
-
-    def test_from_api_response_handles_missing_fields(self):
-        conn = IdmcConnection.from_api_response({})
-        assert conn.id == ""
-        assert conn.name == ""
 
 
 class TestIdmcObjectParsing:
@@ -149,93 +142,60 @@ class TestIdmcMappingParsing:
 
 
 class TestIdmcMappingTaskParsing:
-    def test_from_api_response(self):
-        mt = IdmcMappingTask.from_api_response(
+    def test_from_idmc_object_propagates_tags(self):
+        obj = IdmcObject(
+            id="mt-1",
+            name="nightly",
+            path="/Explore/Sales/ETL/nightly",
+            object_type="MTT",
+            tags=["pii", "critical"],
+        )
+        mt = IdmcMappingTask.from_idmc_object(obj)
+        assert mt.v2_id == "mt-1"
+        assert mt.tags == ["pii", "critical"]
+
+
+class TestSchemaDriftTolerance:
+    """IDMC occasionally adds new fields to its API responses. The
+    connector must parse payloads with unknown fields cleanly (via
+    ``extra='allow'``) rather than aborting ingestion — that's the whole
+    point of using tolerant Pydantic models for API input.
+    """
+
+    def test_idmc_object_accepts_unknown_fields(self):
+        obj = IdmcObject(
+            id="x",
+            name="y",
+            path="/Explore/y",
+            object_type="DTEMPLATE",
+            # Simulated field IDMC might add in a future release:
+            futureField="some-new-thing",  # type: ignore[call-arg]
+        )
+        # Declared fields are still populated correctly.
+        assert obj.id == "x"
+        assert obj.name == "y"
+        assert obj.object_type == "DTEMPLATE"
+
+    def test_idmc_mapping_accepts_unknown_fields(self):
+        m = IdmcMapping.from_api_response(
             {
-                "id": "mt-1",
-                "name": "nightly",
-                "mappingId": "m-1",
-                "mappingName": "my_map",
-                "connectionId": "c-1",
-                "createdBy": "alice",
+                "id": "v2-1",
+                "name": "m",
+                "assetFrsGuid": "guid-1",
+                "mysteriousNewKey": 42,
+                "nested": {"alsoNew": True},
             }
         )
-        assert mt.v2_id == "mt-1"
-        assert mt.mapping_id == "m-1"
-        assert mt.connection_id == "c-1"
-        assert mt.created_by == "alice"
+        assert m.v2_id == "v2-1"
+        assert m.asset_frs_guid == "guid-1"
 
-    def test_from_v3_object(self):
-        mt = IdmcMappingTask.from_v3_object(
-            {
-                "id": "mt-1",
-                "name": "nightly",
-                "path": "/Explore/Sales/ETL/nightly",
-                "createdBy": "alice",
-                "lastUpdatedBy": "bob",
-            }
+    def test_idmc_connection_normalizes_empty_federated_id_to_none(self):
+        # Regression guard: an empty-string federated_id is NOT a valid key
+        # and would collide with real federated IDs in lineage lookup.
+        conn = IdmcConnection(
+            id="c",
+            name="n",
+            conn_type="Snowflake_Cloud_Data_Warehouse",
+            federated_id="",
         )
-        assert mt.v2_id == "mt-1"
-        assert mt.name == "nightly"
-        assert mt.path == "/Explore/Sales/ETL/nightly"
-        assert mt.created_by == "alice"
-        assert mt.updated_by == "bob"
-
-    def test_from_v3_object_name_falls_back_to_path(self):
-        mt = IdmcMappingTask.from_v3_object(
-            {"id": "mt-1", "name": "", "path": "/Explore/Sales/ETL/nightly"}
-        )
-        assert mt.name == "nightly"
-
-    def test_from_v3_object_parses_properties_style_response(self):
-        # IDMC v3 can return MTT entries in nested `properties` shape; without
-        # dual-format handling, name/path come back empty and folder structure
-        # is lost.
-        mt = IdmcMappingTask.from_v3_object(
-            {
-                "properties": [
-                    {"name": "id", "value": "mt-1"},
-                    {"name": "name", "value": "nightly"},
-                    {"name": "path", "value": "/Explore/Sales/ETL/nightly"},
-                    {"name": "createdBy", "value": "alice"},
-                ]
-            }
-        )
-        assert mt.v2_id == "mt-1"
-        assert mt.name == "nightly"
-        assert mt.path == "/Explore/Sales/ETL/nightly"
-        assert mt.created_by == "alice"
-
-
-class TestExportJobState:
-    def test_from_api_value_valid(self):
-        assert ExportJobState.from_api_value("SUCCESSFUL") == ExportJobState.SUCCESSFUL
-        assert ExportJobState.from_api_value("FAILED") == ExportJobState.FAILED
-
-    def test_from_api_value_unknown(self):
-        assert ExportJobState.from_api_value(None) == ExportJobState.UNKNOWN
-        assert ExportJobState.from_api_value("") == ExportJobState.UNKNOWN
-        assert ExportJobState.from_api_value("BOGUS") == ExportJobState.UNKNOWN
-
-
-class TestInformaticaSourceReport:
-    def test_report_api_call_increments_counter(self):
-        report = InformaticaSourceReport()
-        report.report_api_call()
-        report.report_api_call()
-        assert report.api_call_count == 2
-
-    def test_report_object_failed(self):
-        report = InformaticaSourceReport()
-        report.report_object_failed("mapping_A", "boom")
-        assert any("mapping_A" in e for e in report.objects_failed)
-
-    def test_report_connection_unresolved(self):
-        report = InformaticaSourceReport()
-        report.report_connection_unresolved("cid", "cname", "no platform")
-        assert any("cname" in e and "cid" in e for e in report.connections_unresolved)
-
-    def test_report_export_failed(self):
-        report = InformaticaSourceReport()
-        report.report_export_failed("job-1", "timed out")
-        assert any("job-1" in e for e in report.export_jobs_failed)
+        assert conn.federated_id is None

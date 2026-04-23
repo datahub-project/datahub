@@ -1,5 +1,5 @@
-import functools
 import logging
+from dataclasses import dataclass, field
 from typing import (
     Callable,
     Dict,
@@ -14,6 +14,7 @@ from typing import (
 )
 
 import requests
+from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
@@ -26,7 +27,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    MetadataWorkUnitProcessor,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.informatica.client import InformaticaClient
 from datahub.ingestion.source.informatica.config import (
@@ -45,6 +51,7 @@ from datahub.ingestion.source.informatica.models import (
     InformaticaSourceReport,
     LineageTable,
     MappingLineageInfo,
+    TaskflowStep,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -57,10 +64,12 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataJobInputOutputClass,
     DatasetLineageTypeClass,
+    OwnershipTypeClass,
+    StatusClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import CorpUserUrn, DataJobUrn, DatasetUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn, TagUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -76,12 +85,32 @@ MAPPING_JOB_ID = "transform"
 T = TypeVar("T")
 
 
+@dataclass
+class OrchestrateState:
+    """Per-orchestrate state accumulated across the lineage phase.
+
+    ``output_datasets`` fills from the last MT's outputs (via the
+    ``_orchestrate_by_last_mt`` reverse index) before emission.
+    """
+
+    last_mt_urn: str
+    mt_urns_in_order: List[str]
+    output_datasets: Set[str] = field(default_factory=set)
+
+
+@dataclass
+class TaskflowStepWalkResult:
+    step_order: List[str]
+    mt_urns_in_order: List[str]
+    step_summary_parts: List[str]
+
+
 class InformaticaProjectKey(ContainerKey):
     project_name: str
 
 
 class InformaticaFolderKey(InformaticaProjectKey):
-    # Inheriting from ProjectKey lets ContainerKey.parent_key() walk
+    # Inherit from ProjectKey so ContainerKey.parent_key() walks
     # Folder → Project automatically for BrowsePathsV2 assembly.
     folder_name: str
 
@@ -94,12 +123,15 @@ class InformaticaFolderKey(InformaticaProjectKey):
 @capability(SourceCapability.LINEAGE_COARSE, "Table-level lineage via v3 Export API")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.OWNERSHIP, "From IDMC object createdBy/updatedBy")
-class InformaticaSource(StatefulIngestionSourceBase):
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
     """DataHub ingestion source for Informatica Cloud (IDMC).
 
-    Emits IDMC Projects and Folders as Containers; Taskflows and per-project
-    mapping flows as DataFlows; Mappings and Mapping Tasks as DataJobs; and
-    table-level lineage resolved via the v3 Export API.
+    Emits IDMC Projects and Folders as Containers; Taskflows and Mapping
+    Tasks as DataFlows (each MT with an inner ``transform`` DataJob that
+    carries table-level lineage resolved from the referenced Mapping). Plain
+    Mappings and Mapplets are intentionally not emitted — only runnable MTs
+    surface in DataHub.
     """
 
     config: InformaticaSourceConfig
@@ -111,29 +143,82 @@ class InformaticaSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = InformaticaSourceReport()
         self.client = InformaticaClient(config, self.report)
-        # Lineage looks up by federated_id; config overrides look up by id.
+        # Lineage lookup by federated_id; config overrides by id.
         self._connections_by_fed_id: Dict[str, IdmcConnection] = {}
         self._connections_by_id: Dict[str, IdmcConnection] = {}
+        # Two indexes into v2 /api/v2/mapping — MT→Mapping refs use v2 ids,
+        # export batches use v3 GUIDs. State dict keys are plain str for
+        # test ergonomics; model-level V2Id/V3Guid NewTypes enforce the
+        # invariant on the boundary.
         self._v2_mappings_by_guid: Dict[str, IdmcMapping] = {}
-        # Collected during mapping extraction so lineage phase avoids a second v3 pass.
+        self._v2_mappings_by_v2_id: Dict[str, IdmcMapping] = {}
         self._mapping_ids: List[str] = []
-        # v3 mapping GUID → DataFlow URN; lineage phase reuses this for DataJob URNs.
-        self._mapping_flow_urns: Dict[str, str] = {}
-        # v2 mapping ID → IDMC path, so mapping tasks can inherit their
-        # parent mapping's browse path when their own is absent.
-        self._v2_id_to_path: Dict[str, str] = {}
-        # Track emitted containers so filtered segments fall back to plain-name
-        # browse-path entries instead of dangling URN references.
+        # v3 GUID → MT DataJob URNs that run that mapping (fan-out).
+        self._mapping_v3_to_mt_job_urns: Dict[str, List[str]] = {}
+        # MT lookups for Taskflow step resolution — steps reference MTs by
+        # either v2 id or name, so we index both.
+        self._mt_v2_id_to_job_urn: Dict[str, str] = {}
+        self._mt_name_to_job_urn: Dict[str, str] = {}
+        # MT DataJob URN → its step-order predecessors in any Taskflow.
+        # Ordered + deduplicated so the same predecessor isn't added twice.
+        self._mt_predecessors: Dict[str, List[str]] = {}
+        # Orchestrate sits at the end of a Taskflow's chain:
+        # ``input_ds → MT1 → … → MTn → orchestrate → out_ds``.
+        self._orchestrate_state: Dict[str, OrchestrateState] = {}
+        # Reverse index so lineage emission bubbles the last MT's outputs
+        # up to any Taskflow's orchestrate.
+        self._orchestrate_by_last_mt: Dict[str, List[str]] = {}
+        # Containers we've emitted — filtered segments fall back to
+        # plain-name browse entries instead of dangling URNs.
         self._emitted_project_names: Set[str] = set()
         self._emitted_folder_keys: Set[Tuple[str, str]] = set()
+        # External datasets (Snowflake, Oracle, etc.) referenced by
+        # lineage need a minimal Status aspect to register as existing
+        # entities; otherwise ``searchAcrossLineage`` filters them out.
+        self._stubbed_external_dataset_urns: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "InformaticaSource":
-        config = InformaticaSourceConfig.parse_obj(config_dict)
+        config = InformaticaSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        """Validate login credentials against IDMC before a full ingestion run."""
+        try:
+            config = InformaticaSourceConfig.model_validate(config_dict)
+        except (ValidationError, ValueError, TypeError) as e:
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason=f"Failed to parse config: {e}",
+            )
+        client = InformaticaClient(config, InformaticaSourceReport())
+        try:
+            client.login()
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True)
+            )
+        except InformaticaLoginError as e:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason=str(e),
+                )
+            )
+        except Exception as e:
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason=f"Unexpected error during login: {e}",
+            )
+        finally:
+            client.close()
 
     def get_report(self) -> InformaticaSourceReport:
         return self.report
+
+    def close(self) -> None:
+        self.client.close()
+        super().close()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -157,10 +242,33 @@ class InformaticaSource(StatefulIngestionSourceBase):
             )
             return
         yield from self._extract_containers()
-        yield from self._extract_taskflows()
+        # MTs emit before Taskflows so step resolution sees real MT URNs.
         yield from self._extract_mappings_and_tasks()
+        yield from self._extract_taskflows()
+        self._summarize_taskflow_steps()
         if self.config.extract_lineage:
             yield from self._extract_lineage()
+
+    def _summarize_taskflow_steps(self) -> None:
+        """Surface step-DAG coverage as a report warning when incomplete
+        so missing ``Asset - export`` privilege is actionable from the
+        ingestion report JSON without scanning logs.
+        """
+        total = self.report.taskflows_scanned
+        with_steps = self.report.taskflows_with_steps
+        if total == 0 or with_steps == total:
+            return
+        missing = total - with_steps
+        self.report.warning(
+            title="Taskflow step DAG missing for some Taskflows",
+            message=(
+                f"Resolved {with_steps}/{total} Taskflow step DAGs; "
+                f"{missing} Taskflow(s) emitted as DataFlow-only. "
+                "Common cause: service account lacks 'Asset - export' "
+                "privilege. Grant it to enable MT chaining via inputDatajobs."
+            ),
+            context=f"taskflows_scanned={total}, taskflows_with_steps={with_steps}",
+        )
 
     def _extract_containers(self) -> Iterable[Entity]:
         projects = self._safe_list(
@@ -209,10 +317,19 @@ class InformaticaSource(StatefulIngestionSourceBase):
                         f"name={folder.name!r} path={folder.path}",
                     )
                     continue
+                parent_project = self._resolve_parent_project(folder)
+                if parent_project and parent_project not in self._emitted_project_names:
+                    # Parent was filtered out upstream; skipping keeps the UI
+                    # tree clean instead of surfacing orphan folders.
+                    self.report.folders_filtered += 1
+                    self.report.report_filtered(
+                        "parent-project-filtered",
+                        "Folder",
+                        f"name={folder.name!r} path={folder.path}",
+                    )
+                    continue
                 self.report.folders_scanned += 1
-                parent_project = (
-                    self._resolve_parent_project(folder) or ORPHAN_PROJECT_SENTINEL
-                )
+                parent_project = parent_project or ORPHAN_PROJECT_SENTINEL
                 self._emitted_folder_keys.add((parent_project, folder.name))
                 logger.debug(
                     "Emitting Folder container: name=%s path=%s parent_project=%s",
@@ -221,7 +338,13 @@ class InformaticaSource(StatefulIngestionSourceBase):
                     parent_project,
                 )
                 yield self._make_folder_container(folder)
-            except Exception as e:
+            except (
+                InformaticaApiError,
+                InformaticaLoginError,
+                requests.RequestException,
+                ValueError,
+                KeyError,
+            ) as e:
                 self.report.warning(
                     title="Failed to process IDMC folder",
                     message="This folder will be skipped.",
@@ -237,19 +360,20 @@ class InformaticaSource(StatefulIngestionSourceBase):
         message: str,
         context: str,
     ) -> Iterator[T]:
-        """Iterate an IDMC listing call, converting enumeration failures to
-        source-report warnings instead of aborting the run.
-
-        Takes a zero-arg factory (not the iterable directly) so that
-        exceptions raised at *call time* — e.g. a non-generator client
-        method like ``list_mapping_tasks`` that HTTP-fails on invocation —
-        are caught the same as iteration-time failures. Per-item failures
-        should still be handled inline by the caller since they're usually
-        type-specific.
+        """Wrap an IDMC listing call, converting enumeration failures to
+        report warnings. Takes a zero-arg factory so call-time failures
+        (non-generator clients that HTTP-fail on invocation) are caught
+        the same as iteration-time failures.
         """
         try:
             yield from iterable_factory()
-        except Exception as e:
+        except (
+            InformaticaApiError,
+            InformaticaLoginError,
+            requests.RequestException,
+            ValueError,
+            KeyError,
+        ) as e:
             self.report.warning(title=title, message=message, context=context, exc=e)
 
     def _make_project_container(self, project: IdmcObject) -> Container:
@@ -258,13 +382,19 @@ class InformaticaSource(StatefulIngestionSourceBase):
             display_name=project.name,
             description=project.description,
             subtype="Project",
-            owners=self._owner_list(project.updated_by or project.created_by),
+            owners=self._owner_list(project.created_by, project.updated_by),
+            tags=self._tag_list(project.tags),
         )
 
     def _make_folder_container(self, folder: IdmcObject) -> Container:
         parent_project_name = self._resolve_parent_project(folder)
+        # Only reference the project when it was actually emitted; otherwise
+        # the folder would dangle with parent_container → a ghost URN.
         parent_key: Optional[ContainerKey] = (
-            self._project_key(parent_project_name) if parent_project_name else None
+            self._project_key(parent_project_name)
+            if parent_project_name
+            and parent_project_name in self._emitted_project_names
+            else None
         )
         key = self._folder_key(
             parent_project_name or ORPHAN_PROJECT_SENTINEL, folder.name
@@ -274,8 +404,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
             display_name=folder.name,
             description=folder.description,
             subtype="Folder",
-            owners=self._owner_list(folder.updated_by or folder.created_by),
+            owners=self._owner_list(folder.created_by, folder.updated_by),
             parent_container=parent_key,
+            tags=self._tag_list(folder.tags),
         )
 
     def _project_key(self, project_name: str) -> InformaticaProjectKey:
@@ -397,6 +528,9 @@ class InformaticaSource(StatefulIngestionSourceBase):
         return self._project_key(project_name)
 
     def _extract_taskflows(self) -> Iterable[Entity]:
+        # Two-pass: collect filtered Taskflows, batch-prefetch their step
+        # definitions in one v3 Export job, then emit using the warmed cache.
+        accepted: List[IdmcObject] = []
         taskflows = self._safe_list(
             lambda: self._iter_with_tags("TASKFLOW"),
             title="Failed to list IDMC taskflows",
@@ -404,23 +538,30 @@ class InformaticaSource(StatefulIngestionSourceBase):
             context="/public/core/v3/objects?type=TASKFLOW",
         )
         for tf in taskflows:
+            if self._excluded_by_folder_filter(tf.path):
+                self.report.taskflows_filtered += 1
+                self.report.report_filtered(
+                    "folder-excluded",
+                    "TASKFLOW",
+                    f"name={tf.name!r} path={tf.path}",
+                )
+                continue
+            if not self.config.taskflow_pattern.allowed(tf.name):
+                self.report.taskflows_filtered += 1
+                self.report.report_filtered(
+                    "pattern",
+                    "TASKFLOW",
+                    f"name={tf.name!r} path={tf.path}",
+                )
+                continue
+            accepted.append(tf)
+
+        if accepted:
+            guids = [tf.id for tf in accepted if tf.id]
+            self.client.prefetch_taskflow_definitions(guids)
+
+        for tf in accepted:
             try:
-                if self._excluded_by_folder_filter(tf.path):
-                    self.report.taskflows_filtered += 1
-                    self.report.report_filtered(
-                        "folder-excluded",
-                        "TASKFLOW",
-                        f"name={tf.name!r} path={tf.path}",
-                    )
-                    continue
-                if not self.config.taskflow_pattern.allowed(tf.name):
-                    self.report.taskflows_filtered += 1
-                    self.report.report_filtered(
-                        "pattern",
-                        "TASKFLOW",
-                        f"name={tf.name!r} path={tf.path}",
-                    )
-                    continue
                 self.report.taskflows_scanned += 1
                 logger.debug(
                     "Emitting Taskflow: name=%s path=%s id=%s",
@@ -428,8 +569,16 @@ class InformaticaSource(StatefulIngestionSourceBase):
                     tf.path,
                     tf.id,
                 )
-                yield self._make_taskflow(tf)
-            except Exception as e:
+                flow = self._make_taskflow(tf)
+                yield flow
+                yield from self._emit_taskflow_steps(tf, flow)
+            except (
+                InformaticaApiError,
+                InformaticaLoginError,
+                requests.RequestException,
+                ValueError,
+                KeyError,
+            ) as e:
                 self.report.warning(
                     title="Failed to process IDMC taskflow",
                     message="This taskflow will be skipped.",
@@ -448,98 +597,218 @@ class InformaticaSource(StatefulIngestionSourceBase):
             display_name=display,
             description=tf.description,
             custom_properties=self._taskflow_custom_props(tf),
-            owners=self._owner_list(tf.updated_by or tf.created_by),
+            owners=self._owner_list(tf.created_by, tf.updated_by),
             subtype="Taskflow",
+            tags=self._tag_list(tf.tags),
         )
-        parent_key = self._container_parent_key(tf.path)
+        self._attach_container_and_browse_path(flow, tf.path)
+        return flow
+
+    def _attach_container_and_browse_path(
+        self, flow: DataFlow, path: str
+    ) -> List[BrowsePathEntryClass]:
+        """Wire a DataFlow to its parent Container + BrowsePathsV2.
+
+        Returns the entries so callers that build deeper paths (e.g. MT
+        DataJob appends the MT name) can extend them.
+        """
+        parent_key = self._container_parent_key(path)
         if parent_key is not None:
             flow._set_container(parent_key)
-        browse_entries = self._browse_path_entries(tf.path)
+        browse_entries = self._browse_path_entries(path) if path else []
         if browse_entries:
             flow._set_aspect(BrowsePathsV2Class(path=browse_entries))
-        return flow
+        return browse_entries
+
+    @staticmethod
+    def _audit_props(obj: IdmcObject, **extra: str) -> Dict[str, str]:
+        """Common ``customProperties`` (v3 id, type, path, audit fields)
+        shared across Taskflow / MT emission. Empty strings are stripped.
+        """
+        props: Dict[str, str] = {
+            "v3Id": obj.id,
+            "objectType": obj.object_type or "",
+            "path": obj.path,
+            "createdBy": obj.created_by or "",
+            "updatedBy": obj.updated_by or "",
+            "createTime": obj.create_time or "",
+            "updateTime": obj.update_time or "",
+        }
+        props.update(extra)
+        return {k: v for k, v in props.items() if v}
 
     @staticmethod
     def _taskflow_custom_props(tf: IdmcObject) -> Dict[str, str]:
+        return InformaticaSource._audit_props(
+            tf, objectType=tf.object_type or "TASKFLOW"
+        )
+
+    @staticmethod
+    def _mt_custom_props(
+        mt: IdmcMappingTask, mapping_name: str, mapping_v3_guid: str
+    ) -> Dict[str, str]:
+        # Historical quirk: the ``v3Id`` key carries the v2 id (MTT v3
+        # GUIDs contain separators the UI would split). Kept for back-compat
+        # with previously-emitted entities.
         return {
             k: v
-            for k, v in (
-                ("idmcId", tf.id),
-                ("path", tf.path),
-                ("createdBy", tf.created_by or ""),
-                ("updatedBy", tf.updated_by or ""),
-                ("createTime", tf.create_time or ""),
-                ("updateTime", tf.update_time or ""),
-            )
+            for k, v in {
+                "v3Id": mt.v2_id,
+                "objectType": "MTT",
+                "path": mt.path,
+                "mappingId": mt.mapping_id,
+                "mappingName": mapping_name,
+                "mappingV3Id": mapping_v3_guid,
+                "createdBy": mt.created_by or "",
+                "updatedBy": mt.updated_by or "",
+                "createTime": mt.create_time or "",
+                "updateTime": mt.update_time or "",
+            }.items()
             if v
         }
 
+    def _emit_taskflow_steps(self, tf: IdmcObject, flow: DataFlow) -> Iterable[Entity]:
+        """Emit a chained-MT orchestration graph for a Taskflow.
+
+        The resulting Taskflow lineage reads as
+        ``input_ds → MT1 → … → MTn → orchestrate → out_ds``. Step-order
+        edges between MTs go into ``_mt_predecessors`` (merged into each
+        MT's ``inputDatajobs`` during the lineage phase); a single
+        ``orchestrate`` DataJob is emitted per Taskflow at the end.
+
+        Non-data steps (command / decision / …) are summarized in
+        ``customProperties`` but don't participate in the chain.
+        Silently no-ops when the definition isn't available.
+        """
+        definition = self.client.get_taskflow_definition(
+            taskflow_name=tf.name, taskflow_v3_guid=tf.id
+        )
+        if definition is None or not definition.steps:
+            return
+        walk = self._walk_taskflow_steps(definition.steps)
+        if not walk.mt_urns_in_order:
+            return
+        self.report.taskflows_with_steps += 1
+        yield self._emit_orchestrate_datajob(tf, flow, walk)
+
+    def _walk_taskflow_steps(self, steps: List[TaskflowStep]) -> TaskflowStepWalkResult:
+        """Resolve step task refs and register predecessor edges in
+        ``_mt_predecessors``. Pure — no DataJob emission.
+        """
+        step_order: List[str] = []
+        step_summary_parts: List[str] = []
+        mt_urns_in_order: List[str] = []
+        prev_mt_urn: Optional[str] = None
+        for step in steps:
+            step_order.append(step.step_id)
+            mt_urn = self._resolve_task_ref(step)
+            if mt_urn is None:
+                if step.step_type != "data":
+                    step_summary_parts.append(f"{step.step_name} ({step.step_type})")
+                continue
+            if mt_urn not in mt_urns_in_order:
+                mt_urns_in_order.append(mt_urn)
+            step_summary_parts.append(
+                f"{step.step_name} → {step.task_ref_name or step.task_ref_id}"
+            )
+            # Register prev_mt → mt_urn. Dedup so an MT appearing in two
+            # Taskflows with identical ordering doesn't get duplicate edges.
+            if prev_mt_urn and prev_mt_urn != mt_urn:
+                predecessors = self._mt_predecessors.setdefault(mt_urn, [])
+                if prev_mt_urn not in predecessors:
+                    predecessors.append(prev_mt_urn)
+            prev_mt_urn = mt_urn
+        return TaskflowStepWalkResult(
+            step_order=step_order,
+            mt_urns_in_order=mt_urns_in_order,
+            step_summary_parts=step_summary_parts,
+        )
+
+    def _emit_orchestrate_datajob(
+        self, tf: IdmcObject, flow: DataFlow, walk: TaskflowStepWalkResult
+    ) -> DataJob:
+        """Emit the orchestrate DataJob and register its URN for the
+        lineage phase to bubble last-MT outputs onto.
+        """
+        last_mt_urn = walk.mt_urns_in_order[-1]
+        custom_props: Dict[str, str] = {
+            "mappingTaskCount": str(len(walk.mt_urns_in_order)),
+            "stepOrder": " → ".join(walk.step_order),
+        }
+        if walk.step_summary_parts:
+            custom_props["stepSummary"] = " | ".join(walk.step_summary_parts)
+        job = DataJob(
+            name="orchestrate",
+            flow=flow,
+            display_name=f"{tf.name}.orchestrate",
+            subtype="Taskflow Orchestration",
+            description=(
+                f"Runs {len(walk.mt_urns_in_order)} Mapping Task(s) in order: "
+                f"{' → '.join(walk.step_summary_parts)}"
+                if walk.step_summary_parts
+                else None
+            ),
+            custom_properties=custom_props,
+        )
+        # inputDatajobs = [last MT]; outputDatasets is filled during the
+        # lineage phase so Taskflow Lineage ends with ``… → orch → out_ds``.
+        job._set_aspect(
+            DataJobInputOutputClass(
+                inputDatasets=[],
+                outputDatasets=[],
+                inputDatajobs=[last_mt_urn],
+            )
+        )
+        orchestrate_urn = str(job.urn)
+        self._orchestrate_state[orchestrate_urn] = OrchestrateState(
+            last_mt_urn=last_mt_urn,
+            mt_urns_in_order=list(walk.mt_urns_in_order),
+        )
+        self._orchestrate_by_last_mt.setdefault(last_mt_urn, []).append(orchestrate_urn)
+        return job
+
+    def _resolve_task_ref(self, step: TaskflowStep) -> Optional[str]:
+        """Resolve a step task reference to its MT's DataJob URN.
+
+        Prefers v2 id over name. ``None`` if the step references an MT
+        that wasn't emitted (e.g. filtered by pattern).
+        """
+        if step.task_ref_id and step.task_ref_id in self._mt_v2_id_to_job_urn:
+            return self._mt_v2_id_to_job_urn[step.task_ref_id]
+        if step.task_ref_name and step.task_ref_name in self._mt_name_to_job_urn:
+            return self._mt_name_to_job_urn[step.task_ref_name]
+        return None
+
     def _extract_mappings_and_tasks(self) -> Iterable[Entity]:
-        # Cache v2 mappings by GUID for v3-object metadata lookup (valid flag, v2_id).
+        """MT-centric emission.
+
+        Only Mapping Tasks are emitted as first-class entities; the v2
+        mapping cache is still loaded so ``mt.mapping_id`` → v3 GUID
+        translation works for the lineage export batch. Mappings without
+        an MT and Mapplets are never emitted.
+        """
+        # Cache v2 mappings by both v3 GUID and v2 id — lineage export
+        # keys by GUID, the /mttask enrichment keys by v2 id.
         try:
             for m in self.client.list_mappings():
                 if m.asset_frs_guid:
                     self._v2_mappings_by_guid[m.asset_frs_guid] = m
-        except Exception as e:
+                if m.v2_id:
+                    self._v2_mappings_by_v2_id[m.v2_id] = m
+        except (
+            InformaticaApiError,
+            InformaticaLoginError,
+            requests.RequestException,
+        ) as e:
             self.report.warning(
                 title="Failed to list IDMC v2 mappings",
-                message="v2 mapping attributes (valid flag, v2_id) will be missing from DataJob custom properties.",
+                message=(
+                    "Mapping Tasks may be missing mapping references and "
+                    "lineage may not resolve to the right mapping."
+                ),
                 context="/api/v2/mapping",
                 exc=e,
             )
-
-        # DTEMPLATE = mapping, DMAPPLET = CDI-native mapplet, MAPPLET = imported
-        # from PowerCenter. Both mapplet shapes coexist, so we query each and dedup.
-        mapping_types: List[Tuple[IdmcObjectType, str]] = [
-            ("DTEMPLATE", "Mapping"),
-            ("MAPPLET", "Mapplet"),
-            ("DMAPPLET", "Mapplet"),
-        ]
-        seen_mapping_ids: Set[str] = set()
-        mapplets_from_v3 = 0
-        for obj_type, default_subtype in mapping_types:
-            items = self._safe_list(
-                functools.partial(self._iter_with_tags, obj_type),
-                title="Failed to list IDMC mappings",
-                message=f"{obj_type} objects will be missing from ingestion output.",
-                context=f"/public/core/v3/objects?type={obj_type}",
-            )
-            for obj in items:
-                subtype = self._mapping_subtype_for(obj, default_subtype)
-                if not self._accept_mapping_object(obj, obj_type, seen_mapping_ids):
-                    continue
-                if subtype == "Mapplet":
-                    mapplets_from_v3 += 1
-                yield from self._emit_mapping(obj, subtype)
-
-        if mapplets_from_v3 == 0:
-            # Some pods don't expose mapplets via v3; fall back to the v2 endpoint.
-            try:
-                fallback_mapplets = list(self.client.list_mapplets_v2())
-            except Exception as e:
-                self.report.warning(
-                    title="v2 mapplet fallback raised an exception",
-                    message="Mapplets may be missing from this run.",
-                    context="/api/v2/mapplet (and alternatives)",
-                    exc=e,
-                )
-                fallback_mapplets = []
-            if fallback_mapplets:
-                for obj in fallback_mapplets:
-                    if not self._accept_mapping_object(
-                        obj, "MAPPLET_V2", seen_mapping_ids
-                    ):
-                        continue
-                    yield from self._emit_mapping(obj, "Mapplet")
-            else:
-                self.report.info(
-                    title="No mapplets found on this IDMC pod",
-                    message=(
-                        "v3 MAPPLET-family queries returned 0 items and no "
-                        "v2 mapplet endpoint responded."
-                    ),
-                    context="mapplet-ingest",
-                )
 
         mapping_tasks = self._safe_list(
             self.client.list_mapping_tasks,
@@ -555,6 +824,18 @@ class InformaticaSource(StatefulIngestionSourceBase):
                     f"name={mt.name!r} path={mt.path}",
                 )
                 continue
+            # ``mapping_pattern`` filters by the referenced Mapping's name,
+            # not the MT name.
+            v2_mapping = self._v2_mappings_by_v2_id.get(mt.mapping_id)
+            mapping_name = mt.mapping_name or (v2_mapping.name if v2_mapping else "")
+            if mapping_name and not self.config.mapping_pattern.allowed(mapping_name):
+                self.report.mappings_filtered += 1
+                self.report.report_filtered(
+                    "pattern",
+                    "MTT",
+                    f"name={mt.name!r} mapping={mapping_name!r}",
+                )
+                continue
             self.report.mapping_tasks_scanned += 1
             logger.debug(
                 "Emitting MappingTask: name=%s path=%s mapping_id=%s",
@@ -566,167 +847,77 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 self.report.report_filtered(
                     "mtt-empty-path",
                     "MTT",
-                    f"name={mt.name!r} falling back to parent mapping={mt.mapping_id!r}",
+                    f"name={mt.name!r} mapping={mt.mapping_id!r}",
                 )
-            yield self._make_mapping_task(mt)
+            yield from self._emit_mapping_task(mt)
 
-    def _mapping_subtype_for(self, obj: IdmcObject, default_subtype: str) -> str:
-        # Some pods return mapplets under the DTEMPLATE query with
-        # ``documentType=MAPPLET``; trust documentType over the query type.
-        return "Mapplet" if obj.object_type == "MAPPLET" else default_subtype
+    def _emit_mapping_task(self, mt: IdmcMappingTask) -> Iterable[Entity]:
+        """Emit a Mapping Task as DataFlow + inner ``transform`` DataJob.
 
-    def _accept_mapping_object(
-        self, obj: IdmcObject, source_type: str, seen_mapping_ids: Set[str]
-    ) -> bool:
-        """Apply dedup + folder + pattern filters; record rejections in the report."""
-        if obj.id in seen_mapping_ids:
-            self.report.report_filtered("dup", source_type, obj.path)
-            return False
-        if self._excluded_by_folder_filter(obj.path):
-            self.report.mappings_filtered += 1
-            self.report.report_filtered(
-                "folder-excluded",
-                source_type,
-                f"name={obj.name!r} path={obj.path}",
-            )
-            return False
-        if not self.config.mapping_pattern.allowed(obj.name):
-            self.report.mappings_filtered += 1
-            self.report.report_filtered(
-                "pattern",
-                source_type,
-                f"name={obj.name!r} path={obj.path}",
-            )
-            return False
-        seen_mapping_ids.add(obj.id)
-        return True
-
-    def _emit_mapping(self, obj: IdmcObject, subtype: str) -> Iterable[Entity]:
-        """Update internal caches, then yield the DataFlow/DataJob pair."""
-        self.report.mappings_scanned += 1
-        logger.debug(
-            "Emitting %s: name=%s path=%s id=%s",
-            subtype,
-            obj.name,
-            obj.path,
-            obj.id,
-        )
-        self._mapping_ids.append(obj.id)
-        v2_mapping = self._v2_mappings_by_guid.get(obj.id)
-        if v2_mapping:
-            self._v2_id_to_path[v2_mapping.v2_id] = obj.path
-        yield from self._emit_mapping_entities(obj, v2_mapping, subtype)
-
-    def _emit_mapping_entities(
-        self,
-        obj: IdmcObject,
-        v2_mapping: Optional[IdmcMapping],
-        subtype: str,
-    ) -> Iterable[Entity]:
-        # Each mapping pairs a DataFlow with an inner ``transform`` DataJob —
-        # only DataJobs can carry the ``dataJobInputOutput`` lineage aspect.
-        custom_props: Dict[str, str] = {
-            "path": obj.path,
-            "objectType": obj.object_type or "DTEMPLATE",
-            "v3Id": obj.id,
-        }
-        if v2_mapping:
-            custom_props["v2Id"] = v2_mapping.v2_id
-            custom_props["valid"] = "true" if v2_mapping.valid else "false"
-
+        The inner DataJob is the lineage attachment point — each MT
+        referencing a given Mapping receives the same tables (fan-out).
+        """
+        # v2 mapping_id → v3 GUID so the lineage phase can match export
+        # output back to this MT's DataJob.
+        v2_mapping = self._v2_mappings_by_v2_id.get(mt.mapping_id)
+        mapping_v3_guid = v2_mapping.asset_frs_guid if v2_mapping else ""
+        mapping_name = mt.mapping_name or (v2_mapping.name if v2_mapping else "")
+        custom_props = self._mt_custom_props(mt, mapping_name, mapping_v3_guid)
+        task_tags = self._tag_list(mt.tags)
         flow = DataFlow(
             platform=PLATFORM,
-            # GUID flow_id avoids ``.`` or ``/`` which the UI splits into hierarchy.
-            name=obj.id,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            display_name=obj.name,
-            description=obj.description,
-            subtype=subtype,
-            custom_properties=custom_props,
-            owners=self._owner_list(obj.updated_by or obj.created_by),
-        )
-        parent_key = self._container_parent_key(obj.path)
-        if parent_key is not None:
-            flow._set_container(parent_key)
-        browse_entries = self._browse_path_entries(obj.path)
-        if browse_entries:
-            flow._set_aspect(BrowsePathsV2Class(path=browse_entries))
-        self._mapping_flow_urns[obj.id] = str(flow.urn)
-        yield flow
-
-        # display_name prefixes the mapping name so jobs stay distinguishable
-        # from every other mapping's constant-named ``transform`` in lineage views.
-        job = DataJob(
-            name=MAPPING_JOB_ID,
-            flow=flow,
-            description=obj.description,
-            display_name=f"{obj.name}.transform",
-            custom_properties=custom_props,
-            subtype=f"{subtype} Logic",
-            owners=self._owner_list(obj.updated_by or obj.created_by),
-        )
-        # Override the SDK-built path so the DataFlow entry's ``id`` is the
-        # display name — SDK default uses the GUID flow_id, which renders raw.
-        job_browse_entries = [
-            *browse_entries,
-            BrowsePathEntryClass(id=obj.name, urn=str(flow.urn)),
-        ]
-        job._set_aspect(BrowsePathsV2Class(path=job_browse_entries))
-        yield job
-
-    def _make_mapping_task(self, mt: IdmcMappingTask) -> DataFlow:
-        # Browse path falls back to the parent mapping's when the task
-        # itself has no location field.
-        custom_props: Dict[str, str] = {
-            k: v
-            for k, v in (
-                ("objectType", "MTT"),
-                ("idmcId", mt.v2_id),
-                ("path", mt.path),
-                ("v2Id", mt.v2_id),
-                ("mappingId", mt.mapping_id),
-                ("mappingName", mt.mapping_name),
-                ("createdBy", mt.created_by or ""),
-                ("updatedBy", mt.updated_by or ""),
-                ("createTime", mt.create_time or ""),
-                ("updateTime", mt.update_time or ""),
-            )
-            if v
-        }
-        flow = DataFlow(
-            platform=PLATFORM,
-            # v2_id: unique per task, no separators the UI would split.
+            # v2_id is unique and has no separators the UI would split.
             name=mt.v2_id or mt.name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=mt.name,
             description=mt.description,
             custom_properties=custom_props,
-            owners=self._owner_list(mt.updated_by or mt.created_by),
+            owners=self._owner_list(mt.created_by, mt.updated_by),
             subtype="Mapping Task",
+            tags=task_tags,
         )
-        parent_path = mt.path or self._v2_id_to_path.get(mt.mapping_id, "")
-        parent_key = self._container_parent_key(parent_path)
-        if parent_key is not None:
-            flow._set_container(parent_key)
-        browse_entries = self._mapping_task_browse_entries(mt)
-        if browse_entries:
-            flow._set_aspect(BrowsePathsV2Class(path=browse_entries))
-        return flow
+        browse_entries = self._attach_container_and_browse_path(flow, mt.path)
+        yield flow
 
-    def _mapping_task_browse_entries(
-        self, mt: IdmcMappingTask
-    ) -> List[BrowsePathEntryClass]:
-        if mt.path:
-            return self._browse_path_entries(mt.path)
-        mapping_path = self._v2_id_to_path.get(mt.mapping_id)
-        if mapping_path:
-            return self._browse_path_entries(mapping_path)
-        return []
+        job = DataJob(
+            name=MAPPING_JOB_ID,
+            flow=flow,
+            description=mt.description,
+            display_name=f"{mt.name}.transform",
+            custom_properties=custom_props,
+            subtype="Task Logic",
+            owners=self._owner_list(mt.created_by, mt.updated_by),
+            tags=task_tags,
+        )
+        job_browse_entries = [
+            *browse_entries,
+            BrowsePathEntryClass(id=mt.name, urn=str(flow.urn)),
+        ]
+        job._set_aspect(BrowsePathsV2Class(path=job_browse_entries))
+
+        job_urn = str(job.urn)
+        if mapping_v3_guid:
+            self._mapping_v3_to_mt_job_urns.setdefault(mapping_v3_guid, []).append(
+                job_urn
+            )
+            if mapping_v3_guid not in self._mapping_ids:
+                self._mapping_ids.append(mapping_v3_guid)
+        # Index by both v2 id and name so Taskflow steps that reference MTs
+        # either way can resolve.
+        if mt.v2_id:
+            self._mt_v2_id_to_job_urn[mt.v2_id] = job_urn
+        if mt.name:
+            self._mt_name_to_job_urn[mt.name] = job_urn
+        yield job
 
     def _extract_lineage(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self._load_connections()
+        if not self._connections_by_id:
+            # ``_load_connections`` already reported the failure; don't
+            # waste time polling export jobs we can't resolve to URNs.
+            logger.warning("No connections loaded; skipping lineage extraction.")
+            return
         if not self._mapping_ids:
             logger.info("No mappings to extract lineage for.")
             return
@@ -750,6 +941,28 @@ class InformaticaSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
                 self.report.export_jobs_failed.append(f"batch@{batch_start}: {e}")
+        # Final pass: bubble each last-MT's outputs up to its Taskflow's
+        # orchestrate so the Taskflow Lineage view has the full pipeline.
+        yield from self._emit_orchestrate_aggregated_lineage()
+
+    def _emit_orchestrate_aggregated_lineage(self) -> Iterable[MetadataWorkUnit]:
+        """Emit each orchestrate's final ``DataJobInputOutput`` with the
+        last MT's outputs mirrored.
+        """
+        for orch_urn, state in self._orchestrate_state.items():
+            outputs = state.output_datasets
+            if not outputs:
+                # No resolved outputs on the last MT — keep the base
+                # emission with inputDatajobs=[last_mt] and no edges.
+                continue
+            yield MetadataChangeProposalWrapper(
+                entityUrn=orch_urn,
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=[],
+                    outputDatasets=sorted(outputs),
+                    inputDatajobs=[state.last_mt_urn],
+                ),
+            ).as_workunit()
 
     def _process_export_batch(
         self, batch: List[str], batch_start: int
@@ -757,11 +970,18 @@ class InformaticaSource(StatefulIngestionSourceBase):
         job_id = self.client.submit_export_job(batch)
         status = self.client.wait_for_export(job_id)
         if status.state != ExportJobState.SUCCESSFUL:
-            self.report.warning(
-                title="IDMC export job did not succeed",
-                message="Lineage for this batch will be missing.",
-                context=f"job_id={job_id}, state={status.state.value}, batch_start={batch_start}",
-            )
+            # TIMEOUT is already reported inside wait_for_export; other
+            # non-success states get a warning with IDMC's status.message.
+            if status.state != ExportJobState.TIMEOUT:
+                self.report.warning(
+                    title="IDMC export job did not succeed",
+                    message="Lineage for this batch will be missing.",
+                    context=(
+                        f"job_id={job_id}, state={status.state.value}, "
+                        f"batch_start={batch_start}, "
+                        f"message={status.message or '<none>'}"
+                    ),
+                )
             return
         for lineage_info in self.client.download_and_parse_export(job_id, batch):
             yield from self._emit_lineage(lineage_info)
@@ -775,7 +995,11 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 if conn.federated_id:
                     self._connections_by_fed_id[conn.federated_id] = conn
                 self._connections_by_id[conn.id] = conn
-        except Exception as e:
+        except (
+            InformaticaApiError,
+            InformaticaLoginError,
+            requests.RequestException,
+        ) as e:
             self.report.failure(
                 title="Failed to load IDMC connections",
                 message="Lineage resolution will be degraded; upstream/downstream datasets cannot be resolved.",
@@ -803,16 +1027,17 @@ class InformaticaSource(StatefulIngestionSourceBase):
         if override:
             return override
         user_map = self.config.connection_type_platform_map
-        if connection.conn_type:
-            if connection.conn_type in user_map:
-                return user_map[connection.conn_type]
-            if connection.conn_type in CONNECTION_TYPE_MAP:
-                return CONNECTION_TYPE_MAP[connection.conn_type]
-        if connection.base_type:
-            if connection.base_type in user_map:
-                return user_map[connection.base_type]
-            if connection.base_type in CONNECTION_TYPE_MAP:
-                return CONNECTION_TYPE_MAP[connection.base_type]
+        # First-hit-wins lookup chain; user map wins over built-in, and
+        # conn_type (specific) wins over base_type (generic ``TOOLKIT``).
+        lookups = (
+            (connection.conn_type, user_map),
+            (connection.conn_type, CONNECTION_TYPE_MAP),
+            (connection.base_type, user_map),
+            (connection.base_type, CONNECTION_TYPE_MAP),
+        )
+        for key, mapping in lookups:
+            if key and key in mapping:
+                return mapping[key]
         inferred = self._platform_from_connection_name(connection.name)
         if inferred:
             logger.info(
@@ -852,7 +1077,13 @@ class InformaticaSource(StatefulIngestionSourceBase):
     def _emit_lineage(
         self, lineage_info: MappingLineageInfo
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit dataJobInputOutput for the mapping job and upstreamLineage for each target."""
+        """Fan out ``dataJobInputOutput`` + dataset-level ``upstreamLineage``.
+
+        One Mapping can be referenced by N Mapping Tasks, so a single export
+        result is applied to every MT's ``transform`` DataJob that runs it.
+        Dataset-level ``upstreamLineage`` on downstream tables is emitted once
+        (the upstream set is the same regardless of which MT triggered it).
+        """
         if not lineage_info.mapping_id:
             self.report.warning(
                 title="IDMC lineage missing mapping id",
@@ -860,11 +1091,11 @@ class InformaticaSource(StatefulIngestionSourceBase):
                 context=f"mapping_name={lineage_info.mapping_name}",
             )
             return
-        flow_urn = self._mapping_flow_urns.get(lineage_info.mapping_id)
-        if not flow_urn:
+        mt_job_urns = self._mapping_v3_to_mt_job_urns.get(lineage_info.mapping_id)
+        if not mt_job_urns:
             self.report.warning(
-                title="IDMC lineage references unknown mapping",
-                message="Export returned a mapping id we didn't emit; skipping lineage for it.",
+                title="IDMC lineage references a mapping with no Mapping Tasks",
+                message="No Mapping Task was emitted that runs this mapping; lineage will be skipped.",
                 context=f"mapping_id={lineage_info.mapping_id} name={lineage_info.mapping_name}",
             )
             return
@@ -880,20 +1111,71 @@ class InformaticaSource(StatefulIngestionSourceBase):
         ]
         if not input_urns and not output_urns:
             return
-        job_urn = str(
-            DataJobUrn.create_from_ids(
-                data_flow_urn=flow_urn,
-                job_id=MAPPING_JOB_ID,
-            )
-        )
+        yield from self._stub_external_datasets(input_urns, output_urns)
+        for job_urn in mt_job_urns:
+            yield from self._emit_mt_datajob_io(job_urn, input_urns, output_urns)
+        yield from self._emit_downstream_upstream_lineage(input_urns, output_urns)
+
+    def _stub_external_datasets(
+        self, input_urns: List[str], output_urns: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a minimal ``Status`` aspect per unseen external dataset URN.
+
+        Without this stub, DataHub treats URNs that no other connector has
+        ingested as non-existent and ``searchAcrossLineage`` filters them
+        out of results. ``UpstreamLineage`` on a downstream creates a key
+        for *output* URNs implicitly, but inputs are only referenced
+        inside aspects and would otherwise remain ``exists: false``.
+
+        Dedup'd per-source-run via ``_stubbed_external_dataset_urns``.
+        """
+        for ds_urn in (*input_urns, *output_urns):
+            if ds_urn in self._stubbed_external_dataset_urns:
+                continue
+            self._stubbed_external_dataset_urns.add(ds_urn)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
+
+    def _emit_mt_datajob_io(
+        self,
+        job_urn: str,
+        input_urns: List[str],
+        output_urns: List[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit one MT ``transform`` DataJob's ``DataJobInputOutput`` aspect
+        and, when this MT is the last step of any Taskflow, bubble its
+        outputs up to the orchestrate's accumulator.
+        """
+        predecessor_mt_urns = self._mt_predecessors.get(job_urn, [])
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataJobInputOutputClass(
                 inputDatasets=input_urns,
                 outputDatasets=output_urns,
+                inputDatajobs=predecessor_mt_urns,
             ),
         ).as_workunit()
         self.report.lineage_edges_emitted += len(input_urns) + len(output_urns)
+        # When this MT is the last step of any Taskflow, push its outputs
+        # onto the orchestrate's accumulated ``outputDatasets``.
+        for orch_urn in self._orchestrate_by_last_mt.get(job_urn, []):
+            state = self._orchestrate_state.get(orch_urn)
+            if state is not None:
+                state.output_datasets.update(output_urns)
+
+    def _emit_downstream_upstream_lineage(
+        self, input_urns: List[str], output_urns: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit ``UpstreamLineage`` on each target dataset.
+
+        Emitted alongside ``DataJobInputOutput`` (not instead of) because
+        backend derivation of dataset upstreams from DataJob IO isn't
+        reliable across all UI views — matches Fivetran/dbt/Airflow.
+        """
+        if not input_urns:
+            return
         for tgt_urn in output_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=tgt_urn,
@@ -909,6 +1191,15 @@ class InformaticaSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     def _resolve_table_to_dataset_urn(self, table: LineageTable) -> Optional[str]:
+        if not table.table_name:
+            # Malformed IDMC transformations can yield empty table names; emitting
+            # a URN like ``snowflake,DWH.SALES.,PROD`` creates a dangling edge.
+            self.report.report_connection_unresolved(
+                table.connection_federated_id,
+                "unknown",
+                "Empty table name in IDMC transformation",
+            )
+            return None
         conn = self._connections_by_fed_id.get(table.connection_federated_id)
         if not conn:
             self.report.report_connection_unresolved(
@@ -939,11 +1230,16 @@ class InformaticaSource(StatefulIngestionSourceBase):
         elif conn.db_schema:
             parts.append(conn.db_schema)
         parts.append(table.table_name)
+        qualifier = ".".join(parts)
+        if self.config.convert_urns_to_lowercase:
+            qualifier = qualifier.lower()
+        platform_instance = self.config.connection_to_platform_instance.get(conn.id)
         return str(
             DatasetUrn.create_from_ids(
                 platform_id=platform,
-                table_name=".".join(parts),
+                table_name=qualifier,
                 env=self.config.env,
+                platform_instance=platform_instance,
             )
         )
 
@@ -986,19 +1282,35 @@ class InformaticaSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def _is_bundle_object(obj: IdmcObject) -> bool:
-        # Add-On Bundles live as a sibling of the user's projects and must be
-        # skipped. Match any path segment rather than a fixed prefix since IDMC
-        # returns ``/Explore/Add-On Bundles/...``, ``/Add-On Bundles/...``, or
-        # the legacy ``Add-On Bundles/...`` form interchangeably.
-        if obj.updated_by == "bundle-license-notifier":
-            return True
-        if obj.name == "Add-On Bundles":
-            return True
-        return any(seg == "Add-On Bundles" for seg in obj.path.split("/") if seg)
+        return obj.is_bundle()
 
     def _owner_list(
-        self, user_identifier: Optional[str]
-    ) -> Optional[List[CorpUserUrn]]:
-        if not user_identifier or not self.config.extract_ownership:
+        self,
+        created_by: Optional[str] = None,
+        updated_by: Optional[str] = None,
+    ) -> Optional[List[Tuple[CorpUserUrn, str]]]:
+        # Creator → DATAOWNER, last updater → TECHNICAL_OWNER; dedup
+        # when they're the same principal.
+        if not self.config.extract_ownership:
             return None
-        return [CorpUserUrn(user_identifier)]
+        created_urn = self._user_urn(created_by)
+        updated_urn = self._user_urn(updated_by)
+        owners: List[Tuple[CorpUserUrn, str]] = []
+        if created_urn:
+            owners.append((created_urn, OwnershipTypeClass.DATAOWNER))
+        if updated_urn and updated_urn != created_urn:
+            owners.append((updated_urn, OwnershipTypeClass.TECHNICAL_OWNER))
+        return owners or None
+
+    def _user_urn(self, identifier: Optional[str]) -> Optional[CorpUserUrn]:
+        if not identifier:
+            return None
+        username = identifier
+        if self.config.strip_user_email_domain and "@" in username:
+            username = username.split("@", 1)[0]
+        return CorpUserUrn(username)
+
+    def _tag_list(self, tags: List[str]) -> Optional[List[TagUrn]]:
+        if not tags or not self.config.extract_tags:
+            return None
+        return [TagUrn(name=t) for t in tags]

@@ -223,6 +223,9 @@ class _StubClient:
         self.config = config
         self.report = report
 
+    def close(self) -> None:
+        pass
+
     def login(self) -> str:
         return "stub-session"
 
@@ -232,16 +235,20 @@ class _StubClient:
     def list_mappings(self):
         return _V2_MAPPINGS
 
-    def list_mapplets_v2(self):
-        # Fixture instance returns mapplets via the v3 MAPPLET path already
-        # (there are none here), so the v2 fallback stays a no-op.
-        return []
-
     def list_mapping_tasks(self):
         return _MAPPING_TASKS
 
     def list_connections(self):
         return _CONNECTIONS
+
+    def get_taskflow_definition(self, taskflow_name="", taskflow_v3_guid=""):
+        # No Taskflow step DAG in the default fixture — individual tests can
+        # override this by passing a client subclass with a populated return.
+        return None
+
+    def prefetch_taskflow_definitions(self, taskflow_v3_guids):
+        # Default stub: no-op (the fixture doesn't test batched export).
+        pass
 
     def submit_export_job(self, object_ids):
         return "stub-export-job"
@@ -325,52 +332,18 @@ def test_failed_export_emits_entities_without_lineage(tmp_path):
     assert "container" in entity_types
     assert "dataFlow" in entity_types
     assert "dataJob" in entity_types
-    # No dataJobInputOutput aspect was emitted because the export failed.
+    # Mapping Tasks still wire the MT→Mapping ``inputDatajobs`` edge (that
+    # relationship is independent of export success), but no dataset-level
+    # lineage is present — inputDatasets/outputDatasets must both be empty.
     lineage_aspects = [
         r for r in records if r.get("aspectName") == "dataJobInputOutput"
     ]
-    assert lineage_aspects == []
+    for record in lineage_aspects:
+        aspect_json = record["aspect"]["json"]
+        assert aspect_json.get("inputDatasets") == []
+        assert aspect_json.get("outputDatasets") == []
     # Report carries a warning so the failure is discoverable.
     source_report = pipeline.source.get_report()
     assert any(
         w.title and "export" in w.title.lower() for w in source_report.warnings
     ), f"expected an export-related warning, got: {source_report.warnings}"
-
-
-class _V2MappletFallbackClient(_StubClient):
-    """Client stub simulating an IDMC pod where v3 MAPPLET returns empty and
-    mapplets are only reachable via the v2 /api/v2/mapplet fallback.
-    """
-
-    def list_mapplets_v2(self):
-        return [
-            IdmcObject(
-                id="mpl-guid-1",
-                name="reusable_logic",
-                path="/Explore/Sales/Mapplets/reusable_logic",
-                object_type="MAPPLET",
-                description="Shared lookup mapplet",
-                updated_by="alice@acme.com",
-            )
-        ]
-
-
-@time_machine.travel(FROZEN_TIME, tick=False)
-@pytest.mark.integration
-def test_v2_mapplet_fallback_emits_mapplet_when_v3_empty(tmp_path):
-    """v3 MAPPLET query returns nothing; the v2 fallback surfaces the mapplet
-    and the pipeline emits it as a DataFlow with subtype=Mapplet.
-    """
-    output_path = tmp_path / "informatica_v2_fallback.json"
-    _run_pipeline(_V2MappletFallbackClient, output_path)
-
-    with open(output_path) as f:
-        records = json.load(f)
-    mapplet_flow_names = [
-        r.get("aspect", {}).get("json", {}).get("name")
-        for r in records
-        if r.get("aspectName") == "dataFlowInfo"
-    ]
-    assert "reusable_logic" in mapplet_flow_names, (
-        f"mapplet from v2 fallback missing; got names: {mapplet_flow_names}"
-    )

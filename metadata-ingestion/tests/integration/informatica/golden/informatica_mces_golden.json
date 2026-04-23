@@ -71,7 +71,7 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:alice@acme.com",
-                    "type": "TECHNICAL_OWNER"
+                    "type": "DATAOWNER"
                 }
             ],
             "ownerTypes": {},
@@ -82,8 +82,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-7n4u08",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-bzbelw",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -182,7 +182,7 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:bob@acme.com",
-                    "type": "TECHNICAL_OWNER"
+                    "type": "DATAOWNER"
                 }
             ],
             "ownerTypes": {},
@@ -193,8 +193,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-7n4u08",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-bzbelw",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -599,32 +599,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,OLTP.APPS.ORDERS,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-7n4u08",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.tf-daily-refresh,PROD)",
     "changeType": "UPSERT",
@@ -650,7 +624,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "idmcId": "tf-daily-refresh",
+                "v3Id": "tf-daily-refresh",
+                "objectType": "TASKFLOW",
                 "path": "/Explore/Sales/Taskflows/daily_refresh",
                 "createdBy": "alice@acme.com",
                 "updatedBy": "alice@acme.com"
@@ -661,8 +636,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-2oo5mu",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -723,32 +698,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.CUSTOMERS_ENRICHED,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,OLTP.APPS.CUSTOMERS,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-7n4u08",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:10b4417391438f9824f96888068bcb2e",
     "changeType": "UPSERT",
@@ -775,7 +724,7 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:alice@acme.com",
-                    "type": "TECHNICAL_OWNER"
+                    "type": "DATAOWNER"
                 }
             ],
             "ownerTypes": {},
@@ -786,8 +735,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-bzbelw",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -840,23 +789,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-e5qkm9",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2",
     "changeType": "UPSERT",
@@ -869,117 +801,6 @@
     "systemMetadata": {
         "lastObserved": 1776427200000,
         "runId": "informatica-2026_04_17-12_00_00-7n4u08",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:informatica",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:informatica",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Mapping Logic"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "path": "/Explore/Sales/Mappings/copy_orders_to_dw",
-                "objectType": "DTEMPLATE",
-                "v3Id": "map-orders-copy",
-                "v2Id": "v2-map-1",
-                "valid": "true"
-            },
-            "name": "copy_orders_to_dw.transform",
-            "description": "Copy orders from OLTP to DWH",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "path": "/Explore/Sales/Mappings/copy_orders_to_dw",
-                "objectType": "DTEMPLATE",
-                "v3Id": "map-orders-copy",
-                "v2Id": "v2-map-1",
-                "valid": "true"
-            },
-            "name": "copy_orders_to_dw",
-            "description": "Copy orders from OLTP to DWH",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -1002,194 +823,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
-                },
-                {
-                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
-                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
-                },
-                {
-                    "id": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
-                    "urn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe"
-                },
-                {
-                    "id": "copy_orders_to_dw",
-                    "urn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:alice@acme.com",
-                    "type": "TECHNICAL_OWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Mapping"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-e5qkm9",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.CUSTOMERS_ENRICHED,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-7n4u08",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.ORDERS,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-7n4u08",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:alice@acme.com",
-                    "type": "TECHNICAL_OWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
-                },
-                {
-                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
-                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
-                },
-                {
-                    "id": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
-                    "urn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
     "changeType": "UPSERT",
@@ -1202,33 +835,6 @@
     "systemMetadata": {
         "lastObserved": 1776427200000,
         "runId": "informatica-2026_04_17-12_00_00-86k7fx",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:alice@acme.com",
-                    "type": "TECHNICAL_OWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -1259,12 +865,12 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "v3Id": "mttask-1",
                 "objectType": "MTT",
-                "idmcId": "mttask-1",
                 "path": "/Explore/Sales/MappingTasks/nightly_copy_orders",
-                "v2Id": "mttask-1",
                 "mappingId": "v2-map-1",
                 "mappingName": "copy_orders_to_dw",
+                "mappingV3Id": "map-orders-copy",
                 "createdBy": "alice@acme.com",
                 "updatedBy": "alice@acme.com"
             },
@@ -1274,26 +880,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:informatica",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-avgpmj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -1336,62 +924,6 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "path": "/Explore/Sales/Mappings/enrich_customers",
-                "objectType": "DTEMPLATE",
-                "v3Id": "map-customers-enrich",
-                "v2Id": "v2-map-2",
-                "valid": "true"
-            },
-            "name": "enrich_customers",
-            "description": "Enrich customer master data",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "path": "/Explore/Sales/Mappings/enrich_customers",
-                "objectType": "DTEMPLATE",
-                "v3Id": "map-customers-enrich",
-                "v2Id": "v2-map-2",
-                "valid": "true"
-            },
-            "name": "enrich_customers.transform",
-            "description": "Enrich customer master data",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1400,7 +932,7 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:alice@acme.com",
-                    "type": "TECHNICAL_OWNER"
+                    "type": "DATAOWNER"
                 }
             ],
             "ownerTypes": {},
@@ -1411,8 +943,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-bzbelw",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -1448,27 +980,144 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Mapping"
-            ]
+            "removed": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-7chfh0",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD),transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informatica",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-hu7o62",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Task Logic"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-hu7o62",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "v3Id": "mttask-1",
+                "objectType": "MTT",
+                "path": "/Explore/Sales/MappingTasks/nightly_copy_orders",
+                "mappingId": "v2-map-1",
+                "mappingName": "copy_orders_to_dw",
+                "mappingV3Id": "map-orders-copy",
+                "createdBy": "alice@acme.com",
+                "updatedBy": "alice@acme.com"
+            },
+            "name": "nightly_copy_orders.transform",
+            "description": "Scheduled runner for copy_orders_to_dw",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-avgpmj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-cco9av",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-st1qav",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1483,65 +1132,26 @@
                     "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
                 },
                 {
-                    "id": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
-                    "urn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe"
+                    "id": "urn:li:container:3f44664cb09d494b2d5a4605df28d769",
+                    "urn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
                 },
                 {
-                    "id": "enrich_customers",
-                    "urn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)"
+                    "id": "nightly_copy_orders",
+                    "urn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-hu7o62",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:oracle,OLTP.APPS.ORDERS,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.ORDERS,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -1549,7 +1159,7 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:alice@acme.com",
-                    "type": "TECHNICAL_OWNER"
+                    "type": "DATAOWNER"
                 }
             ],
             "ownerTypes": {},
@@ -1560,131 +1170,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
-                },
-                {
-                    "id": "urn:li:container:10b4417391438f9824f96888068bcb2e",
-                    "urn": "urn:li:container:10b4417391438f9824f96888068bcb2e"
-                },
-                {
-                    "id": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe",
-                    "urn": "urn:li:container:fe8898bf41ffc6b22c93585bb8e9acbe"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:informatica",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:informatica,idmc_test)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:oracle,OLTP.APPS.CUSTOMERS,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.CUSTOMERS_ENRICHED,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD),transform)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Mapping Logic"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test-informatica"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(informatica,idmc_test.map-customers-enrich,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-bzbelw",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }
@@ -1725,7 +1212,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.map-orders-copy,PROD),transform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD),transform)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1734,8 +1221,25 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776427200000,
-        "runId": "informatica-2026_04_17-12_00_00-0rwd8i",
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-hu7o62",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test-informatica"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1776407400000,
+        "runId": "informatica-2026_04_17-12_00_00-st1qav",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test-informatica"
     }

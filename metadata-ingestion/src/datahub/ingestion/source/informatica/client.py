@@ -3,8 +3,20 @@ import json
 import logging
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 import zipfile
-from typing import Any, Dict, Iterator, List, Optional
+from enum import IntEnum
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    TypedDict,
+)
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -24,12 +36,27 @@ from datahub.ingestion.source.informatica.models import (
     InformaticaSourceReport,
     LineageTable,
     MappingLineageInfo,
+    TaskflowDefinition,
+    TaskflowStep,
+    TaskflowStepType,
 )
 
 logger = logging.getLogger(__name__)
 
-# IDMC sessions expire after 30 min; validate near expiry instead of every request.
+
+class TxClass(IntEnum):
+    # IDMC transformation ``$$class`` values, reverse-engineered from
+    # exported DTEMPLATE @3.bin — not publicly documented.
+    TARGET = 8
+    SOURCE = 9
+
+
+# IDMC sessions expire after 30 min; validate near expiry, not per-call.
 _SESSION_VALIDATION_TTL_SECS = 25 * 60
+
+# Cap decompressed size of a single DTEMPLATE entry — guards against
+# malformed / hostile exports. Real mapping exports are sub-megabyte.
+_MAX_INNER_ZIP_BYTES = 100 * 1024 * 1024
 
 # backoff_factor=1.0 → delays of 1s, 2s, 4s.
 _RETRY_POLICY = Retry(
@@ -59,6 +86,13 @@ class InformaticaClient:
         self._session_id: Optional[str] = None
         self._base_url: Optional[str] = None
         self._session_last_validated_at: Optional[float] = None
+        self._taskflow_definition_cache: Dict[str, TaskflowDefinition] = {}
+        # One-shot guard so a persistently broken ``/validSessionId`` surfaces
+        # once per run instead of spamming the report on every API call.
+        self._session_validation_warned: bool = False
+
+    def close(self) -> None:
+        self._session.close()
 
     def login(self) -> str:
         """Authenticate via the v2 login endpoint. Returns the session id."""
@@ -134,19 +168,38 @@ class InformaticaClient:
             )
             return False
         if resp.status_code != 200:
+            self._warn_once_on_session_validation_failure(
+                reason=f"HTTP {resp.status_code}"
+            )
             return False
         try:
             data = resp.json()
         except json.JSONDecodeError:
             # 200 with unparseable body → force a re-login instead of crashing.
+            self._warn_once_on_session_validation_failure(reason="non-JSON body")
             return False
         if not data.get("isValidToken", False):
+            # Expected path when the token has simply expired — don't warn.
             return False
         logger.debug(
             "Session valid, %s minutes remaining", data.get("timeUntilExpire", "?")
         )
         self._session_last_validated_at = time.time()
         return True
+
+    def _warn_once_on_session_validation_failure(self, *, reason: str) -> None:
+        if self._session_validation_warned:
+            return
+        self._session_validation_warned = True
+        self.report.warning(
+            title="IDMC session validation endpoint returned unexpected response",
+            message=(
+                "Re-login will be triggered on every API call until this is "
+                "resolved. Verify the validSessionId endpoint is reachable "
+                "and the service account has the correct permissions."
+            ),
+            context=f"base_url={self._base_url} reason={reason}",
+        )
 
     def _ensure_authenticated(self, *, clear_session: bool = False) -> str:
         """Return a known-good session id. `clear_session` forces a fresh login."""
@@ -205,10 +258,10 @@ class InformaticaClient:
                 stream,
             )
             if self._is_auth_failure(resp):
-                self.report.failure(
-                    title="IDMC authentication rejected after retry",
-                    message="The server refused the request even after re-authentication. Check credentials and token permissions.",
-                    context=f"{method} {url}",
+                # Typed error so the caller aborts cleanly instead of the 4xx
+                # being downgraded to per-endpoint warnings by ``_safe_list``.
+                raise InformaticaLoginError(
+                    f"IDMC authentication rejected after retry: {method} {url}"
                 )
         return resp
 
@@ -281,13 +334,8 @@ class InformaticaClient:
     ) -> Iterator[IdmcObject]:
         """Paginate through v3 objects of a given type.
 
-        The `tag` argument, if set, filters the results client-side by the
-        object's ``tags`` field. IDMC's v3 objects API rejects ``tag==`` in its
-        server-side ``q`` parameter (HTTP 400).
-
-        Every page is logged to the report (method, URL, status proxy via
-        item count, total accumulated) so silent empty responses surface
-        in the end-of-run summary rather than hiding in DEBUG logs.
+        ``tag`` filters client-side; IDMC's v3 ``q`` parameter rejects
+        ``tag==`` server-side (HTTP 400).
         """
         skip = 0
         limit = self.config.page_size
@@ -323,8 +371,9 @@ class InformaticaClient:
             for obj in objects:
                 parsed = self._parse_v3_object(obj, object_type)
                 total_returned += 1
-                # Record under both query type and actual documentType so items
-                # returned under a different type (e.g. MAPPLET via DTEMPLATE) surface correctly.
+                # Record both the query type and the actual documentType so
+                # types returned under a different wrapper (e.g. MAPPLET
+                # served via DTEMPLATE) still surface in report counts.
                 self.report.report_raw_object(object_type, parsed.path)
                 if parsed.object_type and parsed.object_type != object_type:
                     self.report.report_raw_object(parsed.object_type, parsed.path)
@@ -367,77 +416,6 @@ class InformaticaClient:
         )
         return mappings
 
-    def get_mapping(self, v2_id: str) -> IdmcMapping:
-        return IdmcMapping.from_api_response(self._get_v2(f"/api/v2/mapping/{v2_id}"))
-
-    # IDMC mapplet endpoint has moved across versions — probe each shape.
-    _V2_MAPPLET_ENDPOINTS: List[str] = [
-        "/api/v2/mapplet",
-        "/api/v2/mapplets",
-        "/api/v2/Mapplet",
-    ]
-
-    def list_mapplets_v2(self) -> List[IdmcObject]:
-        """Fallback mapplet listing via the v2 API.
-
-        Used when the v3 ``type=='MAPPLET'`` query returns zero items.
-        Probes the known endpoint shapes and returns the first 2xx response,
-        adapted to :class:`IdmcObject`. Empty list when every probe fails.
-        """
-        for path in self._V2_MAPPLET_ENDPOINTS:
-            try:
-                data = self._get_v2(path)
-            except (InformaticaApiError, requests.HTTPError) as e:
-                # _get_v2 raises HTTPError on 404/5xx, or wraps as InformaticaApiError.
-                self.report.report_api_response(
-                    method="GET",
-                    url=f"{self._base_url}{path}",
-                    status=0,
-                    item_count=0,
-                    extra=f"v2-mapplets-probe-failed: {e}",
-                )
-                continue
-            mapplets = self._parse_v2_mapplets(data)
-            self.report.report_api_response(
-                method="GET",
-                url=f"{self._base_url}{path}",
-                status=200,
-                item_count=len(mapplets),
-                extra="v2-mapplets",
-            )
-            return mapplets
-        return []
-
-    @staticmethod
-    def _parse_v2_mapplets(data: Any) -> List[IdmcObject]:
-        """Coerce a v2 mapplet-list response into :class:`IdmcObject` rows.
-
-        Handles both array and single-object shapes, skipping non-dict items.
-        """
-        items = data if isinstance(data, list) else [data]
-        mapplets: List[IdmcObject] = []
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name", "")
-            parent = item.get("location") or item.get("folderPath") or ""
-            path = f"{parent.rstrip('/')}/{name}" if parent and name else name
-            mapplets.append(
-                IdmcObject(
-                    # v3 GUID aligns URNs with v3-sourced content.
-                    id=item.get("assetFrsGuid") or item.get("id", ""),
-                    name=name,
-                    path=path,
-                    object_type="MAPPLET",
-                    description=item.get("description") or None,
-                    created_by=item.get("createdBy") or None,
-                    updated_by=item.get("updatedBy") or None,
-                    create_time=item.get("createTime") or None,
-                    update_time=item.get("updateTime") or None,
-                )
-            )
-        return mapplets
-
     def list_connections(self) -> List[IdmcConnection]:
         data = self._get_v2("/api/v2/connection")
         items = data if isinstance(data, list) else [data]
@@ -453,34 +431,172 @@ class InformaticaClient:
         )
         return connections
 
-    def get_connection(self, connection_id: str) -> IdmcConnection:
-        return IdmcConnection.from_api_response(
-            self._get_v2(f"/api/v2/connection/{connection_id}")
-        )
-
     def list_mapping_tasks(self) -> Iterator[IdmcMappingTask]:
         """Iterate mapping tasks via the v3 objects API (type=MTT).
 
-        Delegates to :meth:`list_objects` so MTT entries pass through the
-        same flat/properties-style parser as other v3 object types. The v2
-        ``/api/v2/mttask`` endpoint cannot be used — it requires an ID or
-        name and does not list.
+        Each v3 MTT row is enriched with a v2 ``/api/v2/mttask/name/<name>``
+        lookup to pull in ``mappingId`` / ``mappingName`` / ``connectionId`` —
+        the v3 listing doesn't include the mapping reference.
 
-        Add-On Bundle tasks are skipped. Paths can arrive as
-        ``"/Explore/Add-On Bundles/..."``, ``"/Add-On Bundles/..."``, or
-        ``"Add-On Bundles/..."`` depending on IDMC version, so match any
-        path segment rather than a fixed prefix.
+        Add-On Bundle tasks are filtered out via ``IdmcObject.is_bundle``
+        (shared with other listing paths so report counts are consistent).
         """
         for obj in self.list_objects("MTT"):
-            if (
-                obj.updated_by == "bundle-license-notifier"
-                or obj.name == "Add-On Bundles"
-                or any(seg == "Add-On Bundles" for seg in obj.path.split("/") if seg)
-            ):
+            if obj.is_bundle():
                 self.report.report_filtered("bundle", "MTT", obj.path)
                 logger.debug("Skipping bundle MTT: id=%s path=%s", obj.id, obj.path)
                 continue
-            yield IdmcMappingTask.from_idmc_object(obj)
+            mt = IdmcMappingTask.from_idmc_object(obj)
+            self._enrich_mapping_task_with_v2_details(mt)
+            yield mt
+
+    def _enrich_mapping_task_with_v2_details(self, mt: IdmcMappingTask) -> None:
+        """Populate ``mapping_id`` / ``mapping_name`` / ``connection_id`` via v2."""
+        if not mt.name:
+            return
+        try:
+            data = self._get_v2(f"/api/v2/mttask/name/{mt.name}")
+        except (InformaticaApiError, requests.HTTPError) as e:
+            self.report.warning(
+                title="Failed to enrich IDMC mapping task with v2 details",
+                message=(
+                    "mappingId / mappingName / connectionId will be missing for "
+                    "this task; the task→mapping link will not be emitted."
+                ),
+                context=f"name={mt.name!r} v3_id={mt.v2_id!r}",
+                exc=e,
+            )
+            return
+        if isinstance(data, dict):
+            mt.merge_v2_details(data)
+
+    # Taskflow step shape varies by CDI version; probe known URLs in order
+    # and use the first that parses. ``/api/v2/workflow/`` is the legacy
+    # PowerCenter path — 403 on most modern tenants but kept for old pods.
+    _TASKFLOW_DEFINITION_ENDPOINTS = (
+        "/public/core/v3/objects/{guid}",
+        "/api/v2/taskflow/name/{name}",
+        "/api/v2/workflow/name/{name}",
+    )
+
+    def get_taskflow_definition(
+        self,
+        taskflow_name: str,
+        taskflow_v3_guid: str = "",
+    ) -> Optional[TaskflowDefinition]:
+        """Resolve a Taskflow's step DAG.
+
+        Tries cheap REST endpoints first; on failure falls back to the
+        authoritative v3 Export API, which returns the full IDMC
+        taskflowModel XML.
+        """
+        if not taskflow_name and not taskflow_v3_guid:
+            return None
+
+        if taskflow_v3_guid and taskflow_v3_guid in self._taskflow_definition_cache:
+            return self._taskflow_definition_cache[taskflow_v3_guid]
+
+        for template in self._TASKFLOW_DEFINITION_ENDPOINTS:
+            path = template.format(guid=taskflow_v3_guid, name=taskflow_name)
+            try:
+                data = (
+                    self._get_v3(path)
+                    if path.startswith("/public/core/v3")
+                    else self._get_v2(path)
+                )
+            except (InformaticaApiError, requests.HTTPError) as e:
+                logger.debug("Taskflow endpoint %s errored: %s", path, e)
+                continue
+            if not isinstance(data, dict):
+                continue
+            parsed = parse_taskflow_definition(data)
+            if parsed and parsed.steps:
+                return parsed
+
+        # REST endpoints fail on modern CDI pods; fall back to a one-off v3
+        # export. Callers that know the full GUID set should use
+        # ``prefetch_taskflow_definitions`` (single batched job).
+        if taskflow_v3_guid:
+            definitions = self._download_taskflow_export_definitions([taskflow_v3_guid])
+            if taskflow_v3_guid in definitions:
+                parsed = definitions[taskflow_v3_guid]
+                self._taskflow_definition_cache[taskflow_v3_guid] = parsed
+                return parsed if parsed.steps else None
+        return None
+
+    def prefetch_taskflow_definitions(self, taskflow_v3_guids: Iterable[str]) -> None:
+        """Batch-export N Taskflows in a single job and cache the parsed DAGs.
+
+        Idempotent — already-cached GUIDs are skipped.
+        """
+        guids = [
+            g
+            for g in taskflow_v3_guids
+            if g and g not in self._taskflow_definition_cache
+        ]
+        if not guids:
+            return
+        definitions = self._download_taskflow_export_definitions(guids)
+        self._taskflow_definition_cache.update(definitions)
+        logger.info(
+            "Prefetched %d/%d Taskflow definitions via batched v3 export",
+            len(definitions),
+            len(guids),
+        )
+
+    def _download_taskflow_export_definitions(
+        self, guids: List[str]
+    ) -> Dict[str, TaskflowDefinition]:
+        """Export ``guids`` as one job, download the package, parse every
+        ``.TASKFLOW.xml`` entry. Empty dict on any failure so callers
+        degrade gracefully; failures are surfaced as report warnings.
+        """
+        try:
+            job_id = self.submit_export_job(guids)
+        except (InformaticaApiError, requests.HTTPError) as e:
+            self.report.warning(
+                title="IDMC Taskflow batch export submit failed",
+                message=(
+                    "Taskflow step DAGs will be missing for this batch. "
+                    "Common cause: service account lacks 'Asset - export' "
+                    "privilege. Taskflows will still be emitted as "
+                    "DataFlow-only entities."
+                ),
+                context=f"{len(guids)} taskflow(s)",
+                exc=e,
+            )
+            return {}
+        status = self.wait_for_export(job_id)
+        if status.state != ExportJobState.SUCCESSFUL:
+            # TIMEOUT is already reported inside wait_for_export; other
+            # non-success states get a warning with IDMC's status.message.
+            if status.state != ExportJobState.TIMEOUT:
+                self.report.warning(
+                    title="IDMC Taskflow batch export did not succeed",
+                    message=(
+                        f"Export ended in state {status.state}. "
+                        "Taskflow step DAGs will be missing for this batch."
+                    ),
+                    context=(f"job_id={job_id} message={status.message or '<none>'}"),
+                )
+            return {}
+        try:
+            resp = self._request(
+                "GET",
+                f"{self._base_url}/public/core/v3/export/{job_id}/package",
+                is_v3=True,
+                stream=True,
+            )
+            resp.raise_for_status()
+        except (InformaticaApiError, requests.HTTPError) as e:
+            self.report.warning(
+                title="IDMC Taskflow export package download failed",
+                message="Taskflow step DAGs will be missing for this batch.",
+                context=f"job_id={job_id}",
+                exc=e,
+            )
+            return {}
+        return _parse_taskflow_export_package(resp.iter_content, report=self.report)
 
     def submit_export_job(self, object_ids: List[str]) -> str:
         body = {
@@ -553,7 +669,7 @@ class InformaticaClient:
             tmp.flush()
             tmp.seek(0)
             try:
-                outer_zip = zipfile.ZipFile(tmp)
+                outer_zip_ctx = zipfile.ZipFile(tmp)
             except zipfile.BadZipFile as e:
                 self.report.warning(
                     title="IDMC export package is not a valid ZIP",
@@ -563,45 +679,79 @@ class InformaticaClient:
                 )
                 self.report.report_export_failed(job_id, "Invalid ZIP file")
                 return
-            dtemplate_entries = [
-                n for n in outer_zip.namelist() if n.endswith(".DTEMPLATE.zip")
-            ]
-            for idx, entry_name in enumerate(dtemplate_entries):
-                mapping_id = self._resolve_entry_mapping_id(
-                    entry_name, submitted_ids, idx
-                )
-                try:
-                    inner_zip = zipfile.ZipFile(io.BytesIO(outer_zip.read(entry_name)))
-                    lineage = self._parse_inner_dtemplate_zip(
-                        inner_zip, entry_name, mapping_id
+            with outer_zip_ctx as outer_zip:
+                dtemplate_entries = [
+                    n for n in outer_zip.namelist() if n.endswith(".DTEMPLATE.zip")
+                ]
+                assigned_ids: set[str] = set()
+                for idx, entry_name in enumerate(dtemplate_entries):
+                    mapping_id = self._resolve_entry_mapping_id(
+                        entry_name, submitted_ids, idx, assigned_ids
                     )
-                    if lineage:
-                        yield lineage
-                    inner_zip.close()
-                except Exception as e:
-                    self.report.warning(
-                        title="Failed to parse IDMC mapping export entry",
-                        message="Lineage for this mapping will be missing.",
-                        context=f"job_id={job_id}, entry={entry_name}",
-                        exc=e,
-                    )
-                    self.report.report_object_failed(entry_name, str(e))
-            outer_zip.close()
+                    if mapping_id:
+                        assigned_ids.add(mapping_id)
+                    try:
+                        info = outer_zip.getinfo(entry_name)
+                        if info.file_size > _MAX_INNER_ZIP_BYTES:
+                            self.report.warning(
+                                title="IDMC export entry exceeds zip-bomb guard",
+                                message="Skipping suspiciously large mapping export entry.",
+                                context=(
+                                    f"job_id={job_id}, entry={entry_name}, "
+                                    f"decompressed_size={info.file_size}"
+                                ),
+                            )
+                            self.report.report_object_failed(
+                                entry_name, f"exceeds {_MAX_INNER_ZIP_BYTES} bytes"
+                            )
+                            continue
+                        with zipfile.ZipFile(
+                            io.BytesIO(outer_zip.read(entry_name))
+                        ) as inner_zip:
+                            lineage = self._parse_inner_dtemplate_zip(
+                                inner_zip, entry_name, mapping_id
+                            )
+                        if lineage:
+                            yield lineage
+                    except (
+                        zipfile.BadZipFile,
+                        UnicodeDecodeError,
+                        json.JSONDecodeError,
+                        KeyError,
+                        ValueError,
+                    ) as e:
+                        self.report.warning(
+                            title="Failed to parse IDMC mapping export entry",
+                            message="Lineage for this mapping will be missing.",
+                            context=f"job_id={job_id}, entry={entry_name}",
+                            exc=e,
+                        )
+                        self.report.report_object_failed(entry_name, str(e))
 
     @staticmethod
     def _resolve_entry_mapping_id(
-        entry_name: str, submitted_ids: List[str], index: int
+        entry_name: str,
+        submitted_ids: List[str],
+        index: int,
+        assigned_ids: Optional[set[str]] = None,
     ) -> str:
         """Match an export entry to its submitted mapping id.
 
         Prefer a substring match against the entry name (more robust against
         server-side ordering changes); fall back to positional alignment.
+        ``assigned_ids`` dedups substring matches across entries so a single
+        id cannot be reused when another entry also contains its substring —
+        and skips the positional fallback if the aligned id has already been
+        claimed by an earlier entry.
         """
+        already_assigned = assigned_ids or set()
         for sid in submitted_ids:
-            if sid and sid in entry_name:
+            if sid and sid in entry_name and sid not in already_assigned:
                 return sid
         if 0 <= index < len(submitted_ids):
-            return submitted_ids[index]
+            positional = submitted_ids[index]
+            if positional not in already_assigned:
+                return positional
         return ""
 
     def _parse_inner_dtemplate_zip(
@@ -617,8 +767,6 @@ class InformaticaClient:
             logger.debug("No @3.bin found in %s", entry_name)
             return None
         raw_bytes = inner_zip.read(bin_file)
-        # Decode/parse failures are reported explicitly so they surface in the
-        # summary instead of being absorbed by the caller's batch-level except.
         try:
             try:
                 decoded = raw_bytes.decode("utf-8")
@@ -670,9 +818,9 @@ class InformaticaClient:
             )
             tx_class = tx.get("$$class")
             tx_name = tx.get("name", "").lower()
-            if tx_class == 9 or "source" in tx_name:
+            if tx_class == TxClass.SOURCE or "source" in tx_name:
                 sources.append(lt)
-            elif tx_class == 8 or "target" in tx_name:
+            elif tx_class == TxClass.TARGET or "target" in tx_name:
                 targets.append(lt)
         if not sources and not targets:
             return None
@@ -685,18 +833,372 @@ class InformaticaClient:
 
 
 def parse_saas_connection_ref(conn_id: str) -> str:
-    """Parse an IDMC connection reference of the form 'saas:@{federatedId}'.
-
-    Returns the part after the '@' if present, otherwise the input unchanged.
-    """
+    # IDMC uses ``saas:@{federatedId}`` for SaaS connection refs.
     return conn_id.split("@", 1)[-1] if "@" in conn_id else conn_id
 
 
-def _encode_params(params: Dict[str, Any]) -> str:
-    """Render query params in a human-readable form for the report log.
+# Field-name fallbacks — IDMC's Taskflow JSON shape varies across API versions.
+_TASKFLOW_STEP_ARRAY_KEYS = ("steps", "stepList", "tfSteps", "taskflowSteps")
+_TASKFLOW_STEP_ID_KEYS = ("id", "stepId", "name")
+_TASKFLOW_STEP_NAME_KEYS = ("displayName", "stepName", "name")
+_TASKFLOW_STEP_TYPE_KEYS = ("type", "stepType", "kind", "@type")
+_TASKFLOW_STEP_TASK_TYPE_KEYS = ("taskType", "dataTaskType", "mttType")
+_TASKFLOW_STEP_TASK_NAME_KEYS = ("taskName", "mttaskName", "mappingTaskName")
+_TASKFLOW_STEP_TASK_ID_KEYS = ("taskId", "mttaskId", "mappingTaskId")
+_TASKFLOW_STEP_NEXT_KEYS = ("nextSteps", "next", "onSuccess", "successors")
+_TASKFLOW_STEP_PREV_KEYS = ("predecessors", "prev", "dependsOn")
 
-    Not used for actual HTTP — requests builds that itself — just for log
-    lines so the report shows ``q=type=='MAPPLET'`` style strings that the
-    user can eyeball to diagnose a bad filter.
+
+def _first_present(data: Dict[str, Any], keys: Iterable[str]) -> Any:
+    for k in keys:
+        if k in data and data[k] is not None:
+            return data[k]
+    return None
+
+
+def parse_taskflow_definition(data: Dict[str, Any]) -> Optional[TaskflowDefinition]:
+    """Convert a Taskflow JSON payload into a :class:`TaskflowDefinition`.
+
+    Returns ``None`` if the top-level shape doesn't contain a step array.
+    Predecessors: use explicit ``predecessors`` if present, otherwise
+    invert ``nextSteps`` edges (A.nextSteps=[B] → B.predecessors+=A).
     """
-    return "&".join(f"{k}={v}" for k, v in params.items())
+    steps_raw = _first_present(data, _TASKFLOW_STEP_ARRAY_KEYS)
+    if not isinstance(steps_raw, list) or not steps_raw:
+        return None
+
+    steps: List[TaskflowStep] = []
+    successors: Dict[str, List[str]] = {}
+    for raw in steps_raw:
+        if not isinstance(raw, dict):
+            continue
+        step_id = _first_present(raw, _TASKFLOW_STEP_ID_KEYS) or ""
+        if not step_id:
+            continue
+        step_name = _first_present(raw, _TASKFLOW_STEP_NAME_KEYS) or step_id
+        step_type = _normalize_step_type(
+            (_first_present(raw, _TASKFLOW_STEP_TYPE_KEYS) or "").lower()
+        )
+        predecessors_raw = _first_present(raw, _TASKFLOW_STEP_PREV_KEYS) or []
+        next_raw = _first_present(raw, _TASKFLOW_STEP_NEXT_KEYS) or []
+        if isinstance(next_raw, list):
+            for succ in next_raw:
+                if isinstance(succ, str):
+                    successors.setdefault(step_id, []).append(succ)
+                elif isinstance(succ, dict):
+                    succ_id = _first_present(succ, _TASKFLOW_STEP_ID_KEYS)
+                    if succ_id:
+                        successors.setdefault(step_id, []).append(str(succ_id))
+        steps.append(
+            TaskflowStep(
+                step_id=str(step_id),
+                step_name=str(step_name),
+                step_type=step_type,
+                task_type=_first_present(raw, _TASKFLOW_STEP_TASK_TYPE_KEYS),
+                task_ref_name=_first_present(raw, _TASKFLOW_STEP_TASK_NAME_KEYS),
+                task_ref_id=_first_present(raw, _TASKFLOW_STEP_TASK_ID_KEYS),
+                predecessor_step_ids=(
+                    [str(p) for p in predecessors_raw if isinstance(p, (str, int))]
+                ),
+            )
+        )
+
+    # Fall back to inverting ``nextSteps`` when explicit predecessors
+    # are missing.
+    if successors:
+        by_id = {s.step_id: s for s in steps}
+        for src_id, dsts in successors.items():
+            for dst_id in dsts:
+                dst = by_id.get(dst_id)
+                if dst is not None and src_id not in dst.predecessor_step_ids:
+                    dst.predecessor_step_ids.append(src_id)
+
+    tf_id = data.get("id") or data.get("taskflowId") or ""
+    tf_name = data.get("name") or data.get("taskflowName") or ""
+    return TaskflowDefinition(
+        taskflow_id=str(tf_id),
+        taskflow_name=str(tf_name),
+        steps=steps,
+    )
+
+
+# Control-flow markers inside ``<flow>``; their ``<link>`` children still
+# contribute to successor edges but the markers themselves aren't steps.
+_TASKFLOW_MARKER_TAGS = {"start", "end"}
+
+
+def _local_tag(elem: ET.Element) -> str:
+    return elem.tag.split("}", 1)[-1] if "}" in elem.tag else elem.tag
+
+
+def _first_child(elem: ET.Element, local_name: str) -> Optional[ET.Element]:
+    for child in elem:
+        if _local_tag(child) == local_name:
+            return child
+    return None
+
+
+_KNOWN_STEP_TYPES: frozenset = frozenset(
+    {"data", "command", "decision", "assignment", "notification", "subtaskflow"}
+)
+
+
+def _normalize_step_type(raw: str) -> TaskflowStepType:
+    # Anything not in the closed set becomes "unknown".
+    if raw in _KNOWN_STEP_TYPES:
+        return raw  # type: ignore[return-value]
+    return "unknown"
+
+
+def _classify_step_type(service_name: str, fallback: str) -> TaskflowStepType:
+    """Map an IDMC ``<service><serviceName>`` to a closed step-type label."""
+    name = service_name or ""
+    if "ExecuteDataTask" in name or "RunTask" in name:
+        return "data"
+    if "Command" in name:
+        return "command"
+    if "Notification" in name or "Email" in name:
+        return "notification"
+    if "Decision" in name:
+        return "decision"
+    if "Assignment" in name:
+        return "assignment"
+    if "Subtaskflow" in name or "SubTaskFlow" in name:
+        return "subtaskflow"
+    if fallback in _KNOWN_STEP_TYPES:
+        return fallback  # type: ignore[return-value]
+    return "unknown"
+
+
+class TaskflowStepServiceData(TypedDict):
+    """Structured result of parsing a Taskflow ``<service>`` XML element.
+
+    Fields are all Optional since IDMC's XML omits absent attributes.
+    """
+
+    step_name: Optional[str]
+    step_type: Optional[str]
+    task_type: Optional[str]
+    task_ref_name: Optional[str]
+    task_ref_id: Optional[str]
+
+
+def _parse_taskflow_step_service(
+    service: ET.Element, fallback_type: TaskflowStepType
+) -> TaskflowStepServiceData:
+    """Extract step name + type + MT references from a ``<service>`` element."""
+    result: TaskflowStepServiceData = {
+        "step_name": None,
+        "step_type": fallback_type,
+        "task_type": None,
+        "task_ref_name": None,
+        "task_ref_id": None,
+    }
+    title = _first_child(service, "title")
+    if title is not None and title.text:
+        result["step_name"] = title.text.strip()
+    svc_name_elem = _first_child(service, "serviceName")
+    svc_name = (
+        svc_name_elem.text.strip()
+        if svc_name_elem is not None and svc_name_elem.text
+        else ""
+    )
+    result["step_type"] = _classify_step_type(svc_name, fallback=fallback_type)
+    svc_input = _first_child(service, "serviceInput")
+    if svc_input is not None:
+        for param in svc_input:
+            if _local_tag(param) != "parameter":
+                continue
+            pname = param.get("name", "")
+            pvalue = (param.text or "").strip()
+            if not pvalue:
+                continue
+            if pname == "Task Name":
+                result["task_ref_name"] = pvalue
+            elif pname == "GUID":
+                result["task_ref_id"] = pvalue
+            elif pname == "Task Type":
+                result["task_type"] = pvalue
+    return result
+
+
+def _collect_taskflow_edges(
+    flow_elem: ET.Element,
+) -> Dict[str, List[str]]:
+    """Collect outgoing ``<link targetId="..."/>`` edges for each node in a flow."""
+    successors: Dict[str, List[str]] = {}
+    for node in flow_elem:
+        node_id = node.get("id", "")
+        if not node_id:
+            continue
+        for child in node:
+            if _local_tag(child) == "link":
+                target = child.get("targetId")
+                if target:
+                    successors.setdefault(node_id, []).append(target)
+    return successors
+
+
+def parse_taskflow_xml(xml_bytes: bytes) -> Optional[TaskflowDefinition]:
+    """Parse IDMC's v3-exported ``.TASKFLOW.xml`` into a :class:`TaskflowDefinition`.
+
+    Structure expected (namespaces elided):
+
+        <aetgt:getResponse>
+          <types1:Item>
+            <types1:Entry>
+              <taskflow GUID="..." name="...">
+                <flow id="...">
+                  <start id="b"><link targetId="..."/></start>
+                  <eventContainer id="...">
+                    <service>
+                      <title>Data Task 1</title>
+                      <serviceName>ICSExecuteDataTask</serviceName>
+                      <serviceInput>
+                        <parameter name="Task Name">MappingTask3</parameter>
+                        <parameter name="GUID">3WD6PD2FNhRbiv93ryBMM2</parameter>
+                        <parameter name="Task Type">MCT</parameter>
+                      </serviceInput>
+                    </service>
+                    <link targetId="..."/>
+                  </eventContainer>
+                  <end id="c"/>
+                </flow>
+              </taskflow>
+            </types1:Entry>
+          </types1:Item>
+        </aetgt:getResponse>
+
+    ``<start>`` / ``<end>`` are skipped (flow markers, not emitted as steps).
+    Each ``<link targetId="X"/>`` child of a node is an outgoing edge; we
+    invert them into :attr:`TaskflowStep.predecessor_step_ids`.
+    """
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError as e:
+        logger.debug("Taskflow XML parse error: %s", e)
+        return None
+
+    tf_elem: Optional[ET.Element] = None
+    for elem in root.iter():
+        if _local_tag(elem) == "taskflow":
+            tf_elem = elem
+            break
+    if tf_elem is None:
+        return None
+
+    tf_guid = tf_elem.get("GUID", "")
+    tf_name = tf_elem.get("name") or tf_elem.get("displayName") or ""
+
+    flow_elem = _first_child(tf_elem, "flow")
+    if flow_elem is None:
+        return TaskflowDefinition(taskflow_id=tf_guid, taskflow_name=tf_name, steps=[])
+
+    successors = _collect_taskflow_edges(flow_elem)
+    steps: List[TaskflowStep] = []
+    real_step_ids: Set[str] = set()
+    for node in flow_elem:
+        tag = _local_tag(node)
+        node_id = node.get("id", "")
+        if not node_id or tag in _TASKFLOW_MARKER_TAGS:
+            continue
+        real_step_ids.add(node_id)
+        # ``eventContainer`` is the XML tag for data-task nodes.
+        fallback_type: TaskflowStepType = (
+            "data" if tag == "eventContainer" else "unknown"
+        )
+        service = _first_child(node, "service")
+        if service is not None:
+            svc = _parse_taskflow_step_service(service, fallback_type=fallback_type)
+        else:
+            svc = TaskflowStepServiceData(
+                step_name=None,
+                step_type=fallback_type,
+                task_type=None,
+                task_ref_name=None,
+                task_ref_id=None,
+            )
+        step_type_value = svc["step_type"] or fallback_type
+        steps.append(
+            TaskflowStep(
+                step_id=node_id,
+                step_name=svc["step_name"] or node_id,
+                step_type=_normalize_step_type(str(step_type_value)),
+                task_type=svc["task_type"],
+                task_ref_name=svc["task_ref_name"],
+                task_ref_id=svc["task_ref_id"],
+            )
+        )
+
+    # Invert successors → predecessors; skip control-flow marker nodes.
+    by_id = {s.step_id: s for s in steps}
+    for src_id, dsts in successors.items():
+        if src_id not in real_step_ids:
+            continue
+        for dst_id in dsts:
+            dst = by_id.get(dst_id)
+            if dst is not None and src_id not in dst.predecessor_step_ids:
+                dst.predecessor_step_ids.append(src_id)
+
+    return TaskflowDefinition(taskflow_id=tf_guid, taskflow_name=tf_name, steps=steps)
+
+
+def _parse_taskflow_export_package(
+    iter_content: Callable[..., Iterator[bytes]],
+    report: Optional[InformaticaSourceReport] = None,
+) -> Dict[str, TaskflowDefinition]:
+    """Stream an export package ZIP to a temp file and parse every
+    ``.TASKFLOW.xml`` entry.
+
+    ``report`` is optional so unit tests can skip the report wiring.
+    """
+    definitions: Dict[str, TaskflowDefinition] = {}
+    with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
+        for chunk in iter_content(chunk_size=8192):
+            tmp.write(chunk)
+        tmp.flush()
+        tmp.seek(0)
+        try:
+            zf_ctx = zipfile.ZipFile(tmp)
+        except zipfile.BadZipFile as e:
+            logger.debug("Taskflow export package is not a valid ZIP: %s", e)
+            if report is not None:
+                report.warning(
+                    title="IDMC Taskflow export package is not a valid ZIP",
+                    message="All Taskflow step DAGs in this batch will be missing.",
+                    context=str(e),
+                )
+            return definitions
+        with zf_ctx as zf:
+            parse_failures = 0
+            for name in zf.namelist():
+                if not name.endswith(".TASKFLOW.xml"):
+                    continue
+                try:
+                    xml_bytes = zf.read(name)
+                except KeyError:
+                    continue
+                parsed = parse_taskflow_xml(xml_bytes)
+                if parsed is not None and parsed.taskflow_id:
+                    definitions[parsed.taskflow_id] = parsed
+                else:
+                    parse_failures += 1
+            if parse_failures and report is not None:
+                report.warning(
+                    title="IDMC Taskflow XML parse failed for some entries",
+                    message=(
+                        f"{parse_failures} Taskflow .TASKFLOW.xml entr(y/ies) "
+                        "could not be parsed; step DAGs will be missing. "
+                        "This usually indicates IDMC schema drift."
+                    ),
+                    context=f"parse_failures={parse_failures}",
+                )
+    return definitions
+
+
+def _encode_params(params: Dict[str, Any]) -> str:
+    # Used only for readable report-log URLs, not actual HTTP. ``safe``
+    # keeps ``q=type=='X'`` readable instead of percent-escaped.
+    from urllib.parse import urlencode
+
+    return urlencode(params, safe="=',")

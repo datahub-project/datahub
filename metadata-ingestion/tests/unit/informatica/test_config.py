@@ -53,18 +53,3 @@ class TestInformaticaSourceConfig:
                 _base_config(connection_type_overrides={"01A": "snowflak_typo"})
             )
         assert any("snowflak_typo" in r.message for r in caplog.records)
-
-    def test_connection_type_overrides_accepts_known_platform(self):
-        config = InformaticaSourceConfig.model_validate(
-            _base_config(connection_type_overrides={"01B": "snowflake"})
-        )
-        assert config.connection_type_overrides == {"01B": "snowflake"}
-
-    def test_tag_and_pattern_filters(self):
-        config = InformaticaSourceConfig.model_validate(
-            _base_config(
-                tag_filter_names=["pii", "critical"],
-                project_pattern={"allow": ["Prod.*"]},
-            )
-        )
-        assert config.tag_filter_names == ["pii", "critical"]

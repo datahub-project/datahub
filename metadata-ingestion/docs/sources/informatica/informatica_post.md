@@ -14,11 +14,15 @@ Three filter layers can be combined, applied in order:
 
 When emitting lineage, each IDMC connection is mapped to a DataHub platform (e.g. `Snowflake_Cloud_Data_Warehouse → snowflake`). The mapping is driven by `connParams["Connection Type"]`. If IDMC returns an unknown type (or a customer-specific connector), set `connection_type_overrides` to map that connection ID to a DataHub platform name. The connector will warn about unknown platforms at config-parse time.
 
+#### External Dataset Stubs
+
+Every input/output dataset URN referenced by mapping lineage receives a minimal `Status` aspect when it is first seen. Without this stub, DataHub treats URNs that no other connector has ingested as non-existent and `searchAcrossLineage` filters them out of results — which would leave the left-side chevron on a Mapping Task's `transform` DataJob unable to expand upstream datasets. The stub is idempotent and does not override Schema, Ownership, or other metadata written by the source platform's own connector when it runs.
+
 ### Limitations
 
 - **No column-level lineage** — the v3 export gives us transformation-level source/target tables but not column mappings.
 - **No execution history** — the connector does not ingest Activity Monitor runs as DataProcessInstances.
-- **Tag extraction not yet wired** — the `extract_tags` flag is accepted for forward compatibility but tags are not emitted in this release.
+- **Taskflow step DAG requires `Asset - export`** — Taskflow step ordering lives in a `taskflowModel` XML document fetched via the v3 Export API. Ingestion will silently no-op the step chain for Taskflows the user can't export (the Taskflow itself is still emitted as a DataFlow with its `orchestrate` DataJob, but that orchestrate won't have an `inputDatajobs` chain). The report includes `taskflows_with_steps` so you can confirm coverage.
 - **Single-user auth only** — service-principal / federated SSO login is not supported; use a native IDMC user.
 
 ### Troubleshooting

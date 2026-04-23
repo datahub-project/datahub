@@ -1,21 +1,28 @@
-from typing import Any, Iterator, Optional
+from typing import Any, List
 from unittest.mock import MagicMock, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
 from datahub.ingestion.source.informatica.models import (
     IdmcConnection,
     IdmcMapping,
     IdmcMappingTask,
     IdmcObject,
+    InformaticaApiError,
     InformaticaLoginError,
     LineageTable,
     MappingLineageInfo,
+    TaskflowDefinition,
+    TaskflowStep,
 )
-from datahub.ingestion.source.informatica.source import InformaticaSource
-from datahub.metadata.schema_classes import BrowsePathsV2Class
-from datahub.sdk.container import Container
+from datahub.ingestion.source.informatica.source import (
+    InformaticaSource,
+    OrchestrateState,
+)
+from datahub.ingestion.source.state import stale_entity_removal_handler
+from datahub.metadata.schema_classes import BrowsePathsV2Class, DataJobInputOutputClass
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 
@@ -344,7 +351,10 @@ class TestConnectionPlatformResolution:
 
 
 class TestTableUrnResolution:
-    def test_urn_includes_database_schema_table(self):
+    def test_urn_matches_snowflake_default_lowercase(self):
+        # Default convert_urns_to_lowercase=True aligns emitted URNs with the
+        # Snowflake/Postgres/BigQuery connectors' default lowercasing, so
+        # lineage edges actually land on real dataset URNs.
         source = _make_source()
         conn = IdmcConnection(
             id="c",
@@ -362,7 +372,50 @@ class TestTableUrnResolution:
         )
         assert urn is not None
         assert "snowflake" in urn
-        assert "DWH.SALES.ORDERS" in urn
+        assert "dwh.sales.orders" in urn
+
+    def test_urn_preserves_case_when_lowercasing_disabled(self):
+        source = _make_source(convert_urns_to_lowercase=False)
+        conn = IdmcConnection(
+            id="c",
+            name="prod",
+            conn_type="Oracle",
+            federated_id="fed",
+            database="OLTP",
+            db_schema="APPS",
+        )
+        source._connections_by_fed_id["fed"] = conn
+        urn = source._resolve_table_to_dataset_urn(
+            LineageTable(
+                table_name="ORDERS", schema_name="PUBLIC", connection_federated_id="fed"
+            )
+        )
+        assert urn is not None
+        assert "OLTP.PUBLIC.ORDERS" in urn
+
+    def test_urn_threads_connection_to_platform_instance(self):
+        # When the user declares that connection "c1" maps to the Snowflake
+        # source ingested with platform_instance=prod_sf, the emitted URN must
+        # include that instance or the lineage edge dangles.
+        source = _make_source(
+            connection_to_platform_instance={"c1": "prod_sf"},
+        )
+        conn = IdmcConnection(
+            id="c1",
+            name="prod",
+            conn_type="Snowflake_Cloud_Data_Warehouse",
+            federated_id="fed",
+            database="DWH",
+            db_schema="PUBLIC",
+        )
+        source._connections_by_fed_id["fed"] = conn
+        urn = source._resolve_table_to_dataset_urn(
+            LineageTable(
+                table_name="ORDERS", schema_name="SALES", connection_federated_id="fed"
+            )
+        )
+        assert urn is not None
+        assert "prod_sf" in urn
 
     def test_schema_falls_back_to_connection_schema(self):
         source = _make_source()
@@ -379,7 +432,29 @@ class TestTableUrnResolution:
             LineageTable(table_name="T", connection_federated_id="fed")
         )
         assert urn is not None
-        assert "PUBLIC.T" in urn
+        assert "public.t" in urn
+
+    def test_empty_table_name_returns_none(self):
+        # Malformed IDMC transformations can carry an empty table name;
+        # building a URN would yield ``snowflake,DWH.SALES.,PROD`` which
+        # dangles. Guard returns None + reports unresolved.
+        source = _make_source()
+        source._connections_by_fed_id["fed"] = IdmcConnection(
+            id="c",
+            name="prod",
+            conn_type="Snowflake_Cloud_Data_Warehouse",
+            federated_id="fed",
+            database="DWH",
+            db_schema="SALES",
+        )
+        urn = source._resolve_table_to_dataset_urn(
+            LineageTable(table_name="", connection_federated_id="fed")
+        )
+        assert urn is None
+        assert any(
+            "Empty table name" in entry
+            for entry in source.report.connections_unresolved
+        )
 
     def test_unknown_connection_reports_and_returns_none(self):
         source = _make_source()
@@ -391,21 +466,21 @@ class TestTableUrnResolution:
 
 
 class TestEntityEmission:
-    def test_make_project_container(self):
+    def test_make_folder_container_parent_set_when_project_emitted(self):
         source = _make_source()
-        proj = IdmcObject(
-            id="p1",
-            name="Sales",
-            path="/Explore/Sales",
-            object_type="Project",
-            description="sales org",
-            updated_by="alice",
+        source._emitted_project_names.add("Sales")
+        folder = IdmcObject(
+            id="f1",
+            name="Mappings",
+            path="/Explore/Sales/Mappings",
+            object_type="Folder",
         )
-        container = source._make_project_container(proj)
-        assert isinstance(container, Container)
-        assert str(container.urn).startswith("urn:li:container:")
+        container = source._make_folder_container(folder)
+        assert str(container.parent_container) == source._project_key("Sales").as_urn()
 
-    def test_make_folder_container_has_parent_key(self):
+    def test_make_folder_container_parent_dropped_when_project_not_emitted(self):
+        # Parent project filtered out upstream — folder must not dangle with a
+        # ghost parent_container URN.
         source = _make_source()
         folder = IdmcObject(
             id="f1",
@@ -414,7 +489,7 @@ class TestEntityEmission:
             object_type="Folder",
         )
         container = source._make_folder_container(folder)
-        assert isinstance(container, Container)
+        assert container.parent_container is None
 
     def test_make_taskflow_falls_back_to_id_when_name_empty(self):
         source = _make_source()
@@ -448,7 +523,8 @@ class TestEntityEmission:
         # flow_id is the IDMC v3 GUID; display_name shows the friendly name.
         assert "tf-1" in str(flow.urn)
         assert flow.display_name == "daily_refresh"
-        assert flow.custom_properties.get("idmcId") == "tf-1"
+        assert flow.custom_properties.get("v3Id") == "tf-1"
+        assert flow.custom_properties.get("objectType") == "TASKFLOW"
         # Browse path uses Project/Folder container URNs so the taskflow
         # nests under its IDMC project/folder containers.
         bp = flow._get_aspect(BrowsePathsV2Class)
@@ -460,84 +536,8 @@ class TestEntityEmission:
             (folder_urn, folder_urn),
         ]
 
-    def test_emit_mapping_entities_emits_dataflow_and_datajob_pair(self):
-        # Each mapping gets its own DataFlow (browsable under the IDMC folder)
-        # plus an inner DataJob that carries lineage — replacing the old
-        # per-project "Mappings in <project>" synthetic DataFlow.
-        source = _make_source(platform_instance="prod")
-        source._emitted_project_names.add("Sales")
-        source._emitted_folder_keys.add(("Sales", "Mappings"))
-        obj = IdmcObject(
-            id="guid-1",
-            name="map_1",
-            path="/Explore/Sales/Mappings/map_1",
-            object_type="DTEMPLATE",
-        )
-        v2 = IdmcMapping(
-            v2_id="v2-1", name="map_1", asset_frs_guid="guid-1", valid=False
-        )
-        entities = list(source._emit_mapping_entities(obj, v2, subtype="Mapping"))
-        assert len(entities) == 2
-        flow, job = entities
-        assert isinstance(flow, DataFlow)
-        assert isinstance(job, DataJob)
-        # DataFlow URN uses the IDMC v3 GUID (opaque but separator-free so
-        # DataHub's UI can't split it into phantom tree nodes). Users never
-        # see the GUID — display_name + DataJob browse-path override keep
-        # the UI readable.
-        assert "guid-1" in str(flow.urn)
-        # DataJob URN reuses the same constant id the lineage phase rebuilds.
-        assert str(job.urn).endswith(",transform)")
-        # v3Id custom property still carries the underlying GUID for audit.
-        assert flow.custom_properties.get("v3Id") == "guid-1"
-        assert flow.custom_properties.get("v2Id") == "v2-1"
-        assert flow.custom_properties.get("valid") == "false"
-        # DataJob display_name carries the parent mapping's name so the UI
-        # shows "map_1.transform" instead of a bare "transform" shared by
-        # every mapping in the project.
-        assert job.display_name == "map_1.transform"
-        # DataFlow gets the browse path.
-        bp = flow._get_aspect(BrowsePathsV2Class)
-        assert bp is not None
-        project_urn = source._project_key("Sales").as_urn()
-        folder_urn = source._folder_key("Sales", "Mappings").as_urn()
-        assert [(e.id, e.urn) for e in bp.path] == [
-            (project_urn, project_urn),
-            (folder_urn, folder_urn),
-        ]
-        # DataJob's browse path is explicitly overridden so the last entry
-        # uses the display name as the label (instead of the URN flow_id
-        # which DataHub's UI otherwise renders verbatim as a raw path string
-        # in the navigate tree).
-        job_bp = job._get_aspect(BrowsePathsV2Class)
-        assert job_bp is not None
-        assert [(e.id, e.urn) for e in job_bp.path] == [
-            (project_urn, project_urn),
-            (folder_urn, folder_urn),
-            ("map_1", str(flow.urn)),
-        ]
-        # Flow URN tracked for later lineage emission.
-        assert source._mapping_flow_urns["guid-1"] == str(flow.urn)
-
-    def test_emit_mapping_entities_mapplet_preserves_object_type(self):
-        # Mapplets go through the same emitter but keep their real objectType
-        # on both the DataFlow and DataJob custom properties.
-        source = _make_source()
-        obj = IdmcObject(
-            id="mpl-1",
-            name="reusable_lookup",
-            path="/Explore/Sales/Mapplets/reusable_lookup",
-            object_type="MAPPLET",
-        )
-        entities = list(source._emit_mapping_entities(obj, None, subtype="Mapplet"))
-        flow, job = entities
-        assert isinstance(flow, DataFlow)
-        assert isinstance(job, DataJob)
-        assert flow.custom_properties.get("objectType") == "MAPPLET"
-        assert job.custom_properties.get("objectType") == "MAPPLET"
-
-    def test_make_mapping_task_dataflow_with_path(self):
-        # Mapping task is a DataFlow (mirrors taskflow); browse path on the flow.
+    def test_emit_mapping_task_with_path(self):
+        # Mapping task emits DataFlow + inner DataJob; browse path lands on both.
         source = _make_source(platform_instance="prod")
         source._emitted_project_names.add("Sales")
         source._emitted_folder_keys.add(("Sales", "ETL"))
@@ -549,19 +549,20 @@ class TestEntityEmission:
             mapping_name="m",
             updated_by="bob",
         )
-        flow = source._make_mapping_task(mt)
+        entities = list(source._emit_mapping_task(mt))
+        assert len(entities) == 2
+        flow, job = entities
         assert isinstance(flow, DataFlow)
+        assert isinstance(job, DataJob)
         # flow_id is the IDMC v2 id (mt-1) — separator-free so DataHub's UI
         # can't split it into phantom tree nodes. display_name shows
         # "nightly_task" to users.
         assert "mt-1" in str(flow.urn)
         assert flow.display_name == "nightly_task"
-        # No mttask/ prefix in the URN.
         assert "mttask/" not in str(flow.urn)
-        assert flow.custom_properties.get("v2Id") == "mt-1"
-        # Path custom property mirrors mappings/taskflows.
+        assert flow.custom_properties.get("v3Id") == "mt-1"
+        assert flow.custom_properties.get("objectType") == "MTT"
         assert flow.custom_properties.get("path") == "/Explore/Sales/ETL/nightly_task"
-        assert flow.custom_properties.get("idmcId") == "mt-1"
         bp = flow._get_aspect(BrowsePathsV2Class)
         assert bp is not None
         project_urn = source._project_key("Sales").as_urn()
@@ -570,30 +571,51 @@ class TestEntityEmission:
             (project_urn, project_urn),
             (folder_urn, folder_urn),
         ]
+        assert job.name == "transform"
 
-    def test_make_mapping_task_dataflow_no_path_falls_back_to_parent_mapping(self):
+    def test_emit_mapping_task_carries_mapping_reference_in_custom_properties(self):
+        # Mapping reference (v3 GUID + friendly name + v2 id) is surfaced in
+        # the MT's customProperties so users can find the underlying mapping
+        # without leaving DataHub.
         source = _make_source()
-        source._emitted_project_names.add("Sales")
-        source._emitted_folder_keys.add(("Sales", "Folder1"))
-        source._v2_id_to_path["m-1"] = "/Explore/Sales/Folder1/my_mapping"
+        source._v2_mappings_by_v2_id["m-1"] = IdmcMapping(
+            v2_id="m-1", name="my_mapping", asset_frs_guid="guid-1"
+        )
         mt = IdmcMappingTask(
             v2_id="mt-1",
             name="nightly_task",
             mapping_id="m-1",
             mapping_name="my_mapping",
         )
-        flow = source._make_mapping_task(mt)
-        bp = flow._get_aspect(BrowsePathsV2Class)
-        assert bp is not None
-        project_urn = source._project_key("Sales").as_urn()
-        folder_urn = source._folder_key("Sales", "Folder1").as_urn()
-        assert [(e.id, e.urn) for e in bp.path] == [
-            (project_urn, project_urn),
-            (folder_urn, folder_urn),
-        ]
+        flow, _ = list(source._emit_mapping_task(mt))
+        assert isinstance(flow, DataFlow)
+        assert flow.custom_properties.get("mappingV3Id") == "guid-1"
+        assert flow.custom_properties.get("mappingName") == "my_mapping"
+        assert flow.custom_properties.get("mappingId") == "m-1"
 
-    def test_make_mapping_task_dataflow_no_browse_path_when_unknown(self):
-        # No path and no parent mapping in cache: no project/folder entries.
+    def test_emit_mapping_task_registers_for_lineage_fanout(self):
+        # The MT emitter populates ``_mapping_v3_to_mt_job_urns`` so the
+        # lineage phase can fan out one export result to every MT DataJob
+        # that references that Mapping. It also appends the v3 GUID to
+        # ``_mapping_ids`` (deduplicated) for the export batch.
+        source = _make_source()
+        source._v2_mappings_by_v2_id["m-1"] = IdmcMapping(
+            v2_id="m-1", name="my_mapping", asset_frs_guid="guid-1"
+        )
+        mt = IdmcMappingTask(
+            v2_id="mt-1",
+            name="nightly_task",
+            mapping_id="m-1",
+            mapping_name="my_mapping",
+        )
+        _, job = list(source._emit_mapping_task(mt))
+        assert isinstance(job, DataJob)
+        assert source._mapping_v3_to_mt_job_urns["guid-1"] == [str(job.urn)]
+        assert source._mapping_ids == ["guid-1"]
+
+    def test_emit_mapping_task_skips_lineage_fanout_when_mapping_unknown(self):
+        # Orphaned MT (v2 enrichment didn't find the mapping): no fan-out
+        # registration, no entry in the export batch, no dangling lineage.
         source = _make_source()
         mt = IdmcMappingTask(
             v2_id="mt-1",
@@ -601,19 +623,107 @@ class TestEntityEmission:
             mapping_id="unknown-id",
             mapping_name="m",
         )
-        flow = source._make_mapping_task(mt)
-        bp = flow._get_aspect(BrowsePathsV2Class)
-        # SDK may set a default path; just verify we didn't set our own hierarchy.
-        assert bp is None or all("mttask" not in (e.id or "") for e in bp.path)
+        _, job = list(source._emit_mapping_task(mt))
+        assert isinstance(job, DataJob)
+        assert source._mapping_v3_to_mt_job_urns == {}
+        assert source._mapping_ids == []
+        # No dataJobInputOutput aspect is emitted at MT-emit time — that's
+        # the lineage phase's job (inputDatasets/outputDatasets only).
+        from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+        assert job._get_aspect(DataJobInputOutputClass) is None
+
+    def test_two_mts_pointing_at_same_mapping_share_lineage_fanout(self):
+        # One Mapping with two MTs referencing it: both MT DataJob URNs land
+        # in the fan-out list so the lineage phase emits lineage to both.
+        source = _make_source()
+        source._v2_mappings_by_v2_id["m-1"] = IdmcMapping(
+            v2_id="m-1", name="shared", asset_frs_guid="guid-1"
+        )
+        for mt_name in ("nightly", "hourly"):
+            mt = IdmcMappingTask(
+                v2_id=f"mt-{mt_name}",
+                name=mt_name,
+                mapping_id="m-1",
+                mapping_name="shared",
+            )
+            list(source._emit_mapping_task(mt))
+        urns = source._mapping_v3_to_mt_job_urns["guid-1"]
+        assert len(urns) == 2
+        # Export batch deduped to one mapping despite two MTs.
+        assert source._mapping_ids == ["guid-1"]
 
     def test_extract_ownership_disabled_suppresses_owners(self):
         source = _make_source(extract_ownership=False)
-        assert source._owner_list("alice") is None
+        assert source._owner_list("alice", "bob") is None
 
     def test_empty_user_identifier_returns_none(self):
         source = _make_source()
-        assert source._owner_list(None) is None
-        assert source._owner_list("") is None
+        assert source._owner_list(None, None) is None
+        assert source._owner_list("", "") is None
+
+    def test_owner_list_emits_creator_as_dataowner_and_updater_as_technical(self):
+        from datahub.metadata.schema_classes import OwnershipTypeClass
+
+        source = _make_source()
+        owners = source._owner_list("alice", "bob")
+        assert owners is not None
+        assert len(owners) == 2
+        assert owners[0][1] == OwnershipTypeClass.DATAOWNER
+        assert owners[1][1] == OwnershipTypeClass.TECHNICAL_OWNER
+
+    def test_owner_list_dedupes_when_creator_and_updater_match(self):
+        source = _make_source()
+        owners = source._owner_list("alice", "alice")
+        assert owners is not None
+        assert len(owners) == 1
+
+    def test_owner_urn_keeps_email_domain_by_default(self):
+        source = _make_source()
+        owners = source._owner_list("alice@acme.com", None)
+        assert owners is not None
+        assert str(owners[0][0]) == "urn:li:corpuser:alice@acme.com"
+
+    def test_owner_urn_strips_email_domain_when_configured(self):
+        source = _make_source(strip_user_email_domain=True)
+        owners = source._owner_list("alice@acme.com", None)
+        assert owners is not None
+        assert str(owners[0][0]) == "urn:li:corpuser:alice"
+
+
+class TestTestConnection:
+    BASE_CONFIG = {
+        "username": "svc",
+        "password": "pw",
+        "login_url": "https://dm-us.informaticacloud.com",
+    }
+
+    def test_success_reports_basic_connectivity(self):
+        with patch(
+            "datahub.ingestion.source.informatica.source.InformaticaClient"
+        ) as MockClient:
+            MockClient.return_value.login.return_value = "session"
+            result = InformaticaSource.test_connection(dict(self.BASE_CONFIG))
+        assert result.basic_connectivity is not None
+        assert result.basic_connectivity.capable is True
+        MockClient.return_value.close.assert_called_once()
+
+    def test_login_failure_reports_incapable(self):
+        with patch(
+            "datahub.ingestion.source.informatica.source.InformaticaClient"
+        ) as MockClient:
+            MockClient.return_value.login.side_effect = InformaticaLoginError(
+                "bad credentials"
+            )
+            result = InformaticaSource.test_connection(dict(self.BASE_CONFIG))
+        assert result.basic_connectivity is not None
+        assert result.basic_connectivity.capable is False
+        assert "bad credentials" in (result.basic_connectivity.failure_reason or "")
+
+    def test_bad_config_reports_internal_failure(self):
+        result = InformaticaSource.test_connection({"bogus": "config"})
+        assert result.internal_failure is True
+        assert "parse config" in (result.internal_failure_reason or "")
 
 
 class TestLineageEmission:
@@ -632,9 +742,10 @@ class TestLineageEmission:
             database="DWH",
             db_schema="PUBLIC",
         )
-        source._mapping_flow_urns["guid-42"] = (
-            "urn:li:dataFlow:(informatica,guid-42,PROD)"
+        mt_job_urn = (
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
         )
+        source._mapping_v3_to_mt_job_urns["guid-42"] = [mt_job_urn]
         lineage = MappingLineageInfo(
             mapping_id="guid-42",
             mapping_name="my_map",
@@ -660,20 +771,51 @@ class TestLineageEmission:
             mcps.append(wu.metadata)
         aspect_names = [m.aspectName for m in mcps]
         assert "dataJobInputOutput" in aspect_names
+        # Both aspects are needed — backend derivation of dataset upstreams from
+        # DataJobInputOutput isn't reliable across all UI views.
         assert "upstreamLineage" in aspect_names
         io_mcp = next(m for m in mcps if m.aspectName == "dataJobInputOutput")
-        assert io_mcp.entityUrn is not None
-        # DataJob URN uses the per-mapping DataFlow URN and the constant
-        # "transform" id the emitter sets for the inner DataJob.
-        assert io_mcp.entityUrn.endswith(
-            "urn:li:dataJob:(urn:li:dataFlow:(informatica,guid-42,PROD),transform)"
-        )
+        # dataJobInputOutput lands on the MT DataJob (not the Mapping's DataJob),
+        # because Mappings aren't emitted — MTs are the runnable entities.
+        assert io_mcp.entityUrn == mt_job_urn
         assert source.report.lineage_edges_emitted == 2
 
-    def test_emit_lineage_skips_when_mapping_not_emitted(self):
-        # If export returns a mapping id we never emitted (filtered out or
-        # export raced ahead of extraction), skip it with a warning rather
-        # than fabricate a dangling DataJob URN.
+    def test_emit_lineage_fans_out_to_every_mt_referencing_mapping(self):
+        # Two MTs running the same Mapping both receive dataJobInputOutput
+        # from a single export result.
+        source = _make_source()
+        source._connections_by_fed_id["fed"] = IdmcConnection(
+            id="c",
+            name="prod",
+            conn_type="Oracle",
+            federated_id="fed",
+            database="OLTP",
+            db_schema="APPS",
+        )
+        mt_urns = [
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-a,PROD),transform)",
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-b,PROD),transform)",
+        ]
+        source._mapping_v3_to_mt_job_urns["guid-42"] = list(mt_urns)
+        lineage = MappingLineageInfo(
+            mapping_id="guid-42",
+            mapping_name="shared",
+            source_tables=[LineageTable(table_name="T", connection_federated_id="fed")],
+            target_tables=[],
+        )
+        wus = list(source._emit_lineage(lineage))
+        io_mcps = [
+            wu.metadata
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.aspectName == "dataJobInputOutput"
+        ]
+        emitted = sorted(m.entityUrn or "" for m in io_mcps)
+        assert emitted == sorted(mt_urns)
+
+    def test_emit_lineage_skips_when_no_mt_references_mapping(self):
+        # Export returns a mapping id that no MT referenced (e.g. orphaned or
+        # MT filtered out). Warn and skip — don't fabricate dangling URNs.
         source = _make_source()
         source._connections_by_fed_id["fed"] = IdmcConnection(
             id="c", name="prod", conn_type="Oracle", federated_id="fed"
@@ -702,7 +844,9 @@ class TestLineageEmission:
 
     def test_emit_lineage_skips_when_no_resolvable_tables(self):
         source = _make_source()
-        source._mapping_flow_urns["m-1"] = "urn:li:dataFlow:(informatica,m-1,PROD)"
+        source._mapping_v3_to_mt_job_urns["m-1"] = [
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
+        ]
         lineage = MappingLineageInfo(
             mapping_id="m-1",
             mapping_name="my_map",
@@ -713,6 +857,97 @@ class TestLineageEmission:
         )
         wus = list(source._emit_lineage(lineage))
         assert wus == []
+
+    def test_emit_lineage_stubs_each_external_urn_with_status_exactly_once(self):
+        # Every input/output dataset URN in the lineage export must receive
+        # a ``Status`` aspect so ``searchAcrossLineage`` treats the stub as
+        # an existing entity (without it the UI's left-chevron expansion
+        # from an MT's transform DataJob renders empty).
+        #
+        # Dedup is per-source-run, tracked in
+        # ``_stubbed_external_dataset_urns``: emitting lineage for a second
+        # mapping that references the same source/target must not re-emit
+        # the ``Status`` aspect.
+        source = _make_source()
+        source._connections_by_fed_id["fed"] = IdmcConnection(
+            id="c",
+            name="prod",
+            conn_type="Oracle",
+            federated_id="fed",
+            database="OLTP",
+            db_schema="APPS",
+        )
+        mt_urn = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt,PROD),transform)"
+        source._mapping_v3_to_mt_job_urns["guid-1"] = [mt_urn]
+        source._mapping_v3_to_mt_job_urns["guid-2"] = [mt_urn]
+
+        shared_src = LineageTable(
+            table_name="SHARED_SRC", connection_federated_id="fed"
+        )
+        shared_tgt = LineageTable(
+            table_name="SHARED_TGT", connection_federated_id="fed"
+        )
+        first = MappingLineageInfo(
+            mapping_id="guid-1",
+            mapping_name="map_1",
+            source_tables=[shared_src],
+            target_tables=[shared_tgt],
+        )
+        second = MappingLineageInfo(
+            mapping_id="guid-2",
+            mapping_name="map_2",
+            source_tables=[shared_src],
+            target_tables=[shared_tgt],
+        )
+        first_wus = list(source._emit_lineage(first))
+        second_wus = list(source._emit_lineage(second))
+
+        def _status_urns(wus: List[MetadataWorkUnit]) -> List[str]:
+            return [
+                wu.metadata.entityUrn or ""
+                for wu in wus
+                if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+                and wu.metadata.aspectName == "status"
+            ]
+
+        # First lineage emission stubs both URNs exactly once.
+        first_status_urns = _status_urns(first_wus)
+        assert sorted(first_status_urns) == [
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.shared_src,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.shared_tgt,PROD)",
+        ]
+        # Second emission references the same URNs — dedup guard must skip
+        # both Status aspects.
+        assert _status_urns(second_wus) == []
+
+    def test_emit_lineage_sets_empty_inputdatajobs_for_first_mt_in_chain(self):
+        # When an MT has no Taskflow predecessor (first step, or not part
+        # of any Taskflow), its ``inputDatajobs`` must be an empty list —
+        # not omitted and not populated with a stale value. This is the
+        # entry-point contract of the ``input_ds → MT1 → …`` chain.
+        source = _make_source()
+        source._connections_by_fed_id["fed"] = IdmcConnection(
+            id="c", name="prod", conn_type="Oracle", federated_id="fed"
+        )
+        first_mt = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
+        source._mapping_v3_to_mt_job_urns["guid-1"] = [first_mt]
+        # Deliberately leave ``_mt_predecessors`` empty.
+        lineage = MappingLineageInfo(
+            mapping_id="guid-1",
+            mapping_name="first_step",
+            source_tables=[LineageTable(table_name="T", connection_federated_id="fed")],
+            target_tables=[],
+        )
+        wus = list(source._emit_lineage(lineage))
+        io_mcp = next(
+            wu.metadata
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.aspectName == "dataJobInputOutput"
+        )
+        aspect = io_mcp.aspect
+        assert isinstance(aspect, DataJobInputOutputClass)
+        assert aspect.inputDatajobs == []
 
 
 class TestSafeListHelper:
@@ -736,7 +971,7 @@ class TestSafeListHelper:
         source = _make_source()
 
         def boom():
-            raise RuntimeError("list call failed")
+            raise InformaticaApiError("list call failed (HTTP 403)")
 
         out = list(source._safe_list(boom, title="t", message="m", context="/api/test"))
         assert out == []
@@ -747,11 +982,27 @@ class TestSafeListHelper:
 
         def gen():
             yield 1
-            raise RuntimeError("mid-iteration failure")
+            raise InformaticaApiError("mid-iteration HTTP 500")
 
         out = list(source._safe_list(gen, title="t", message="m", context="/api/test"))
         assert out == [1]
         assert len(source.report.warnings) == 1
+
+    def test_programmer_errors_propagate_from_safe_list(self):
+        # A programmer error (AttributeError, TypeError, etc.) must NOT be
+        # silently converted into a warning — that would mask real bugs
+        # behind the connector's "graceful degradation" mechanic. Only
+        # typed IDMC/network errors are catchable.
+        source = _make_source()
+
+        def gen():
+            yield 1
+            raise AttributeError("genuine bug")
+
+        import pytest
+
+        with pytest.raises(AttributeError):
+            list(source._safe_list(gen, title="t", message="m", context="c"))
 
 
 class TestFilteringAndErrorHandling:
@@ -784,7 +1035,10 @@ class TestFilteringAndErrorHandling:
             path="/Explore/Sales/daily_refresh",
             object_type="TASKFLOW",
         )
-        with patch.object(source.client, "list_objects") as mock_list:
+        with (
+            patch.object(source.client, "list_objects") as mock_list,
+            patch.object(source.client, "prefetch_taskflow_definitions"),
+        ):
             mock_list.return_value = iter([bad, good])
             # Force bad to raise even after path fallback by patching _make_taskflow
             original = source._make_taskflow
@@ -805,116 +1059,29 @@ class TestFilteringAndErrorHandling:
         assert flow.display_name == "daily_refresh"
         assert len(source.report.warnings) > 0
 
-    def test_v2_mapplet_fallback_runs_when_v3_returns_zero(self):
-        # Some IDMC pods return 0 items from v3 ``type=='MAPPLET'`` even when
-        # mapplets exist in the UI (observed on ``use4.dm-us``). The v2 fallback
-        # fills the gap so mapplets don't silently disappear from the navigate
-        # tree.
+    def test_extract_taskflows_batches_prefetch_into_single_call(self):
+        # All filtered Taskflows' v3 GUIDs should land in ONE
+        # prefetch_taskflow_definitions call, not N separate ones.
         source = _make_source()
-        fallback_mapplet = IdmcObject(
-            id="mpl-1",
-            name="Mapplet1",
-            path="Default/develop_test/Mapplet1",
-            object_type="MAPPLET",
-        )
-
-        def _no_v3_mapplets(
-            object_type: str, tag: Optional[str] = None
-        ) -> "Iterator[IdmcObject]":
-            return iter([])
-
-        with (
-            patch.object(source.client, "list_mappings", return_value=[]),
-            patch.object(source.client, "list_objects", side_effect=_no_v3_mapplets),
-            patch.object(
-                source.client, "list_mapplets_v2", return_value=[fallback_mapplet]
-            ),
-            patch.object(source.client, "list_mapping_tasks", return_value=iter([])),
-        ):
-            entities = list(source._extract_mappings_and_tasks())
-
-        # A Mapplet DataFlow + inner DataJob should have been emitted from the
-        # v2 fallback. URNs carry the IDMC GUID; display_name carries the name.
-        urns = [str(e.urn) for e in entities]
-        assert any("mpl-1" in u for u in urns)
-        display_names = [
-            getattr(e, "display_name", None)
-            for e in entities
-            if hasattr(e, "display_name")
-        ]
-        assert "Mapplet1" in display_names
-
-    def test_v2_mapplet_fallback_skipped_when_v3_returns_mapplets(self):
-        # If v3 already returns mapplets, the v2 fallback MUST NOT fire — we
-        # don't want to double-count or hit an unnecessary endpoint.
-        source = _make_source()
-        v3_mapplet = IdmcObject(
-            id="mpl-1",
-            name="Mapplet1",
-            path="/Explore/P/F/Mapplet1",
-            object_type="MAPPLET",
-        )
-
-        def _v3_list(
-            object_type: str, tag: Optional[str] = None
-        ) -> "Iterator[IdmcObject]":
-            if object_type == "MAPPLET":
-                return iter([v3_mapplet])
-            return iter([])
-
-        with (
-            patch.object(source.client, "list_mappings", return_value=[]),
-            patch.object(source.client, "list_objects", side_effect=_v3_list),
-            patch.object(source.client, "list_mapplets_v2") as v2_mock,
-            patch.object(source.client, "list_mapping_tasks", return_value=iter([])),
-        ):
-            list(source._extract_mappings_and_tasks())
-            v2_mock.assert_not_called()
-
-    def test_mapplet_returned_via_dtemplate_query_gets_mapplet_subtype(self):
-        # Some IDMC pods ship mapplets back on the DTEMPLATE query, with the
-        # discriminating ``documentType`` field set to "MAPPLET". Before the
-        # subtype fix these were labeled "Mapping" in the UI; now the subtype
-        # is taken from the response documentType rather than the query type.
-        source = _make_source()
-        dtemplate_results = [
+        taskflows = [
             IdmcObject(
-                id="m1",
-                name="a_mapping",
-                path="/Explore/P/F/a_mapping",
-                object_type="DTEMPLATE",
-            ),
-            IdmcObject(
-                id="mpl1",
-                name="a_mapplet",
-                path="/Explore/P/F/a_mapplet",
-                object_type="MAPPLET",  # mapplet shipped via DTEMPLATE query
-            ),
+                id=f"tf-{i}",
+                name=f"T{i}",
+                path=f"/Explore/P/T{i}",
+                object_type="TASKFLOW",
+            )
+            for i in range(3)
         ]
-
-        def _mock_list_objects(
-            object_type: str, tag: Optional[str] = None
-        ) -> "Iterator[IdmcObject]":
-            if object_type == "DTEMPLATE":
-                return iter(dtemplate_results)
-            return iter([])
-
         with (
-            patch.object(source.client, "list_mappings", return_value=[]),
-            patch.object(source.client, "list_objects", side_effect=_mock_list_objects),
-            patch.object(source.client, "list_mapping_tasks", return_value=iter([])),
+            patch.object(source.client, "list_objects") as mock_list,
+            patch.object(source.client, "prefetch_taskflow_definitions") as prefetch,
         ):
-            entities = list(source._extract_mappings_and_tasks())
-
-        subtypes = {
-            e.custom_properties.get("objectType"): e
-            for e in entities
-            if hasattr(e, "custom_properties")
-        }
-        # The flow pair for the mapplet keeps the MAPPLET objectType on its
-        # DataFlow, while the genuine mapping keeps DTEMPLATE.
-        assert "MAPPLET" in subtypes
-        assert "DTEMPLATE" in subtypes
+            mock_list.return_value = iter(taskflows)
+            list(source._extract_taskflows())
+        prefetch.assert_called_once()
+        # Verify all 3 GUIDs passed in the single call, in order.
+        (arg,) = prefetch.call_args.args
+        assert list(arg) == ["tf-0", "tf-1", "tf-2"]
 
     def test_list_mapping_tasks_failure_reported(self):
         source = _make_source()
@@ -924,7 +1091,7 @@ class TestFilteringAndErrorHandling:
             patch.object(
                 source.client,
                 "list_mapping_tasks",
-                side_effect=RuntimeError("403 Forbidden"),
+                side_effect=InformaticaApiError("403 Forbidden"),
             ),
         ):
             list(source._extract_mappings_and_tasks())
@@ -933,7 +1100,7 @@ class TestFilteringAndErrorHandling:
     def test_load_connections_failure_reported_as_failure(self):
         source = _make_source()
         with patch.object(
-            source.client, "list_connections", side_effect=RuntimeError("500")
+            source.client, "list_connections", side_effect=InformaticaApiError("500")
         ):
             source._load_connections()
         assert len(source.report.failures) > 0
@@ -947,6 +1114,332 @@ class TestFilteringAndErrorHandling:
             source._load_connections()
             m.assert_not_called()
 
+    def test_extract_lineage_slices_mapping_ids_into_configured_batches(self):
+        # 5 mapping ids + batch_size=2 → 3 export submissions with the
+        # expected slices [ids[0:2], ids[2:4], ids[4:5]]. Ensures the
+        # batching math doesn't drop or duplicate a mapping at the edge.
+        source = _make_source(export_batch_size=2)
+        source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
+        source._connections_by_fed_id["fed"] = IdmcConnection(
+            id="c", name="n", conn_type="", federated_id="fed"
+        )
+        source._mapping_ids = [f"guid-{i}" for i in range(5)]
+        submitted_batches: List[List[str]] = []
+
+        def _submit(batch: List[str]) -> str:
+            submitted_batches.append(list(batch))
+            return f"job-{len(submitted_batches)}"
+
+        with (
+            patch.object(source.client, "submit_export_job", side_effect=_submit),
+            patch.object(
+                source.client,
+                "wait_for_export",
+                return_value=MagicMock(
+                    state=__import__(
+                        "datahub.ingestion.source.informatica.models",
+                        fromlist=["ExportJobState"],
+                    ).ExportJobState.SUCCESSFUL,
+                    message="",
+                ),
+            ),
+            patch.object(
+                source.client, "download_and_parse_export", return_value=iter([])
+            ),
+        ):
+            list(source._extract_lineage())
+
+        assert submitted_batches == [
+            ["guid-0", "guid-1"],
+            ["guid-2", "guid-3"],
+            ["guid-4"],
+        ]
+
+    def test_extract_lineage_continues_after_batch_submit_failure(self):
+        # A submit failure on batch 1 must not prevent batches 2+ from
+        # running; the failed batch is recorded in
+        # ``report.export_jobs_failed`` so operators can see which slice
+        # didn't make it through.
+        from datahub.ingestion.source.informatica.models import (
+            ExportJobState,
+            InformaticaApiError,
+        )
+
+        source = _make_source(export_batch_size=1)
+        source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
+        source._connections_by_fed_id["fed"] = IdmcConnection(
+            id="c", name="n", conn_type="", federated_id="fed"
+        )
+        source._mapping_ids = ["guid-a", "guid-b", "guid-c"]
+        submitted: List[List[str]] = []
+
+        def _submit(batch: List[str]) -> str:
+            submitted.append(list(batch))
+            if batch == ["guid-b"]:
+                raise InformaticaApiError("simulated 500 on batch 2")
+            return "job-ok"
+
+        with (
+            patch.object(source.client, "submit_export_job", side_effect=_submit),
+            patch.object(
+                source.client,
+                "wait_for_export",
+                return_value=MagicMock(state=ExportJobState.SUCCESSFUL, message=""),
+            ),
+            patch.object(
+                source.client, "download_and_parse_export", return_value=iter([])
+            ),
+        ):
+            list(source._extract_lineage())
+
+        # All three batches were attempted, in order.
+        assert submitted == [["guid-a"], ["guid-b"], ["guid-c"]]
+        # The failing batch is recorded under export_jobs_failed so
+        # operators can see which slice didn't make it through.
+        assert len(source.report.export_jobs_failed) == 1
+        assert "guid-b" not in str(source.report.export_jobs_failed[0])
+        # Failure context mentions the batch_start index so the operator
+        # can correlate with which mapping_id slice failed.
+        assert "batch@1" in source.report.export_jobs_failed[0]
+
+    def test_process_export_batch_timeout_does_not_duplicate_warning(self):
+        # ``wait_for_export`` already reports TIMEOUT; the calling
+        # ``_process_export_batch`` must NOT emit a second "did not
+        # succeed" warning for the same failure. FAILED/UNKNOWN states
+        # still get the caller-side warning (with status.message), but
+        # TIMEOUT is suppressed to avoid duplicate report noise.
+        from datahub.ingestion.source.informatica.models import ExportJobState
+
+        source = _make_source()
+        with (
+            patch.object(source.client, "submit_export_job", return_value="job-x"),
+            patch.object(
+                source.client,
+                "wait_for_export",
+                return_value=MagicMock(
+                    state=ExportJobState.TIMEOUT, message="polling gave up"
+                ),
+            ),
+            patch.object(
+                source.client, "download_and_parse_export", return_value=iter([])
+            ),
+        ):
+            # No warning added here (the caller suppresses on TIMEOUT).
+            warnings_before = len(source.report.warnings)
+            list(source._process_export_batch(["guid-x"], batch_start=0))
+            warnings_after = len(source.report.warnings)
+        assert warnings_after == warnings_before
+
+    def test_process_export_batch_failed_state_includes_status_message(self):
+        # FAILED/UNKNOWN states get a source-level warning that includes
+        # IDMC's ``status.message`` so operators can diagnose the failure
+        # root cause (missing Asset - export privilege etc.) without
+        # having to re-run with debug logging.
+        from datahub.ingestion.source.informatica.models import ExportJobState
+
+        source = _make_source()
+        with (
+            patch.object(source.client, "submit_export_job", return_value="job-y"),
+            patch.object(
+                source.client,
+                "wait_for_export",
+                return_value=MagicMock(
+                    state=ExportJobState.FAILED,
+                    message="Asset - export privilege required",
+                ),
+            ),
+            patch.object(
+                source.client, "download_and_parse_export", return_value=iter([])
+            ),
+        ):
+            list(source._process_export_batch(["guid-y"], batch_start=7))
+        assert len(source.report.warnings) >= 1
+        # The report warning carries the batch_start and IDMC's message.
+        last_warning_str = "".join(
+            f"{w.title} {w.message}" for w in source.report.warnings
+        ) + str(source.report.warnings)
+        assert "Asset - export" in last_warning_str or "export" in last_warning_str
+
+
+class TestTaskflowStepEmission:
+    TF_OBJ = IdmcObject(
+        id="tf-1",
+        name="daily_refresh",
+        path="/Explore/Sales/Taskflows/daily_refresh",
+        object_type="TASKFLOW",
+    )
+
+    def _prepared_source(self):
+        """Build a source with the Taskflow's DataFlow + MT URN caches seeded."""
+        source = _make_source()
+        # Simulate earlier phases populating the MT job URN caches so Taskflow
+        # steps can resolve their task references.
+        source._mt_v2_id_to_job_urn["01DM-1"] = (
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
+        )
+        source._mt_name_to_job_urn["enrich_customers"] = (
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-2,PROD),transform)"
+        )
+        return source
+
+    def test_skips_emission_when_definition_unavailable(self):
+        source = self._prepared_source()
+        flow = source._make_taskflow(self.TF_OBJ)
+        with patch.object(source.client, "get_taskflow_definition", return_value=None):
+            entities = list(source._emit_taskflow_steps(self.TF_OBJ, flow))
+        assert entities == []
+
+    def test_chains_mts_and_orchestrate_sits_at_end(self):
+        # Taskflow step order (s1 → s2) is surfaced as: MT2.inputDatajobs
+        # picks up MT1 as a predecessor; orchestrate's inputDatajobs is just
+        # the *last* MT in the chain so the Taskflow Lineage view reads
+        # ``input_ds → MT1 → MT2 → orchestrate → out_ds``.
+        source = self._prepared_source()
+        flow = source._make_taskflow(self.TF_OBJ)
+        mt1 = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
+        mt2 = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-2,PROD),transform)"
+        definition = TaskflowDefinition(
+            taskflow_id="tf-1",
+            taskflow_name="daily_refresh",
+            steps=[
+                TaskflowStep(
+                    step_id="s1",
+                    step_name="Copy orders",
+                    step_type="data",
+                    task_ref_id="01DM-1",
+                    task_ref_name="nightly_copy_orders",
+                ),
+                TaskflowStep(
+                    step_id="s2",
+                    step_name="Enrich customers",
+                    step_type="data",
+                    task_ref_name="enrich_customers",
+                    predecessor_step_ids=["s1"],
+                ),
+            ],
+        )
+        with patch.object(
+            source.client, "get_taskflow_definition", return_value=definition
+        ):
+            [job] = list(source._emit_taskflow_steps(self.TF_OBJ, flow))
+
+        from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+        dio = job._get_aspect(DataJobInputOutputClass)
+        assert dio is not None
+        # Orchestrate points at the last MT only (not all MTs in parallel).
+        assert dio.inputDatajobs == [mt2]
+        # MT2 picks up MT1 as a predecessor; MT1 has no predecessor in this TF.
+        assert source._mt_predecessors == {mt2: [mt1]}
+        # Reverse index for the lineage-phase output-dataset bubble-up.
+        assert source._orchestrate_by_last_mt[mt2] == [str(job.urn)]
+        # Step metadata still preserved on orchestrate for auditing.
+        assert job.custom_properties.get("stepOrder") == "s1 → s2"
+        assert job.custom_properties.get("mappingTaskCount") == "2"
+
+    def test_dedupes_self_chain_when_taskflow_runs_same_mt_twice(self):
+        # If the same MT appears in two consecutive steps, we don't add it
+        # as its own predecessor.
+        source = self._prepared_source()
+        flow = source._make_taskflow(self.TF_OBJ)
+        definition = TaskflowDefinition(
+            taskflow_id="tf-1",
+            taskflow_name="dup",
+            steps=[
+                TaskflowStep(
+                    step_id="s1",
+                    step_name="Run copy",
+                    step_type="data",
+                    task_ref_id="01DM-1",
+                ),
+                TaskflowStep(
+                    step_id="s2",
+                    step_name="Run copy again",
+                    step_type="data",
+                    task_ref_id="01DM-1",  # same MT
+                    predecessor_step_ids=["s1"],
+                ),
+            ],
+        )
+        with patch.object(
+            source.client, "get_taskflow_definition", return_value=definition
+        ):
+            list(source._emit_taskflow_steps(self.TF_OBJ, flow))
+        mt1 = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
+        # No self-loop predecessor added.
+        assert source._mt_predecessors.get(mt1, []) == []
+
+    def test_orchestrate_mirrors_last_mt_outputs(self):
+        # End-of-lineage pass emits the orchestrate's DataJobInputOutput with
+        # the *last* MT's output datasets mirrored. ``inputDatajobs`` stays
+        # as the last MT only, so the graph tail reads
+        # ``last_MT → orchestrate → output_ds``.
+        source = self._prepared_source()
+        orch_urn = (
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,tf-1,PROD),orchestrate)"
+        )
+        last_mt = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-2,PROD),transform)"
+        source._orchestrate_state[orch_urn] = OrchestrateState(
+            last_mt_urn=last_mt,
+            mt_urns_in_order=[
+                "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)",
+                last_mt,
+            ],
+            output_datasets={
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.orders,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.customers,PROD)",
+            },
+        )
+        workunits = list(source._emit_orchestrate_aggregated_lineage())
+        assert len(workunits) == 1
+        aspect = workunits[0].metadata.aspect
+        assert aspect is not None
+        assert aspect.inputDatajobs == [last_mt]
+        assert aspect.inputDatasets == []
+        assert aspect.outputDatasets == [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.customers,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.orders,PROD)",
+        ]
+
+    def test_orchestrate_skips_aggregation_when_last_mt_has_no_outputs(self):
+        # No outputs resolved (export failure etc.) — keep the base emission
+        # with inputDatajobs=[last_mt] and no dataset edges.
+        source = self._prepared_source()
+        source._orchestrate_state[
+            "urn:li:dataJob:(urn:li:dataFlow:(informatica,tf-1,PROD),orchestrate)"
+        ] = OrchestrateState(
+            last_mt_urn=(
+                "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt,PROD),transform)"
+            ),
+            mt_urns_in_order=[
+                "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt,PROD),transform)"
+            ],
+        )
+        assert list(source._emit_orchestrate_aggregated_lineage()) == []
+
+    def test_skips_emission_when_no_resolvable_mts(self):
+        # Taskflow with only command / decision steps — no MT references to
+        # surface, so no orchestrate DataJob is emitted (keeps the catalog
+        # free of empty wrappers).
+        source = self._prepared_source()
+        flow = source._make_taskflow(self.TF_OBJ)
+        definition = TaskflowDefinition(
+            taskflow_id="tf-1",
+            taskflow_name="admin_only",
+            steps=[
+                TaskflowStep(
+                    step_id="cmd",
+                    step_name="Shell step",
+                    step_type="command",
+                ),
+            ],
+        )
+        with patch.object(
+            source.client, "get_taskflow_definition", return_value=definition
+        ):
+            entities = list(source._emit_taskflow_steps(self.TF_OBJ, flow))
+        assert entities == []
+
 
 class TestSourceLifecycle:
     def test_stale_entity_removal_handler_registered(self):
@@ -954,8 +1447,6 @@ class TestSourceLifecycle:
         # workunit processor chain. Verify the returned workunit_processor is
         # actually registered — a refactor that calls ``create`` but drops the
         # result would silently leave deleted IDMC entities live in DataHub.
-        from datahub.ingestion.source.state import stale_entity_removal_handler
-
         sentinel = object()
         fake_handler = MagicMock()
         fake_handler.workunit_processor = sentinel
