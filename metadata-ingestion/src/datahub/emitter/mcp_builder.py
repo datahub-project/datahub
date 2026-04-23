@@ -230,29 +230,16 @@ def add_owner_to_entity_wu(
     owner_urn: str,
     ownership_type: str = OwnershipTypeClass.DATAOWNER,
 ) -> Iterable[MetadataWorkUnit]:
-    """
-    Add an owner to an entity.
-
-    Args:
-        entity_type: The type of entity (e.g., "dataset", "dataProduct")
-        entity_urn: The URN of the entity
-        owner_urn: The URN of the owner (corpuser or corpGroup)
-        ownership_type: The ownership type. Can be a string constant (e.g., "TECHNICAL_OWNER")
-                    or a custom ownership type URN (e.g., "urn:li:ownershipType:producer").
-                    Defaults to DATAOWNER for backward compatibility.
-    """
-    owner_class = OwnerClass(
-        owner=owner_urn,
-        type=ownership_type,
-    )
-
-    # If ownership_type is a custom URN (starts with "urn:li:ownershipType:"), set typeUrn
-    if ownership_type.startswith("urn:li:ownershipType:"):
-        owner_class.typeUrn = ownership_type
-
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
-        aspect=OwnershipClass(owners=[owner_class]),
+        aspect=OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=owner_urn,
+                    type=ownership_type,
+                )
+            ]
+        ),
     ).as_workunit()
 
 
