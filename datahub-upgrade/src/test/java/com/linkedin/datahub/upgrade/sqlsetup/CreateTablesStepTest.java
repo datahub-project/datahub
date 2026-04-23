@@ -15,6 +15,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.function.Function;
 import javax.sql.DataSource;
 import org.mockito.Mock;
@@ -31,6 +32,7 @@ public class CreateTablesStepTest {
   @Mock private Connection mockConnection;
   @Mock private PreparedStatement mockPreparedStatement;
   @Mock private ResultSet mockResultSet;
+  @Mock private Statement mockStatement;
   @Mock private SqlUpdate mockSqlUpdate;
 
   private CreateTablesStep createTablesStep;
@@ -38,6 +40,16 @@ public class CreateTablesStepTest {
   @BeforeMethod
   public void setUp() throws SQLException {
     MockitoAnnotations.openMocks(this);
+    reset(
+        mockDatabase,
+        mockDataSource,
+        mockConnection,
+        mockPreparedStatement,
+        mockResultSet,
+        mockStatement,
+        mockSqlUpdate,
+        mockUpgradeContext,
+        mockUpgradeReport);
     SqlSetupArgs defaultSetupArgs =
         new SqlSetupArgs(
             true, // createTables
@@ -65,6 +77,9 @@ public class CreateTablesStepTest {
     when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
     when(mockPreparedStatement.executeUpdate()).thenReturn(1);
     when(mockResultSet.next()).thenReturn(false); // Default: database doesn't exist
+
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+    when(mockStatement.execute(anyString())).thenReturn(false);
 
     // Setup mock to return SqlUpdate mock when sqlUpdate is called (for table creation)
     when(mockDatabase.sqlUpdate(anyString())).thenReturn(mockSqlUpdate);
@@ -225,7 +240,8 @@ public class CreateTablesStepTest {
     verify(mockConnection)
         .prepareStatement(contains("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA"));
     verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement).executeQuery();
+    verify(mockPreparedStatement, times(6))
+        .executeQuery(); // schema + 3 legacy drops + 2 ensureAspectIndexes existence checks
     verify(mockConnection).prepareStatement(contains("CREATE DATABASE"));
     verify(mockConnection).prepareStatement("USE `testdb`");
     verify(mockPreparedStatement, times(2))
@@ -336,6 +352,8 @@ public class CreateTablesStepTest {
 
     // Mock that database exists (ResultSet.next() returns true)
     when(mockResultSet.next()).thenReturn(true);
+    // Legacy index counts 0 (nothing to drop); timeIndex + idx_version_urn_aspect already present
+    when(mockResultSet.getInt(1)).thenReturn(0, 0, 0, 1, 1);
 
     Function<UpgradeContext, UpgradeStepResult> executable = createTablesStep.executable();
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -344,7 +362,8 @@ public class CreateTablesStepTest {
     verify(mockConnection)
         .prepareStatement(contains("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA"));
     verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement).executeQuery();
+    verify(mockPreparedStatement, times(6))
+        .executeQuery(); // schema + 3 legacy + 2 ensureAspectIndexes
   }
 
   @Test
@@ -383,8 +402,16 @@ public class CreateTablesStepTest {
   @Test
   public void testCreateDatabaseIfNotExistsMysqlDatabaseCheckFails() throws SQLException {
 
-    // Mock database check failure - PreparedStatement throws exception
-    when(mockPreparedStatement.executeQuery()).thenThrow(new SQLException("Check failed"));
+    // First executeQuery (schema existence check) fails; fallback create path runs.
+    // Subsequent executeQuery calls are from dropLegacyAspectTableIndexes and must succeed.
+    when(mockPreparedStatement.executeQuery())
+        .thenThrow(new SQLException("Check failed"))
+        .thenReturn(mockResultSet)
+        .thenReturn(mockResultSet)
+        .thenReturn(mockResultSet)
+        .thenReturn(mockResultSet)
+        .thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(false);
 
     Function<UpgradeContext, UpgradeStepResult> executable = createTablesStep.executable();
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -393,6 +420,118 @@ public class CreateTablesStepTest {
     verify(mockConnection)
         .prepareStatement(contains("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA"));
     verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement).executeQuery();
+    verify(mockPreparedStatement, times(6)).executeQuery();
+  }
+
+  @Test
+  public void testCreateTablesMysqlAcquiresFourConnectionsWhenCreateDatabaseEnabled()
+      throws SQLException {
+    SqlSetupArgs args =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            false);
+    CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
+
+    SqlSetupResult result = step.createTables(args);
+
+    assertEquals(result.getTablesCreated(), 1);
+    assertTrue(result.getExecutionTimeMs() >= 0);
+    verify(mockDataSource, times(4)).getConnection();
+  }
+
+  @Test
+  public void testCreateTablesMysqlAcquiresThreeConnectionsWhenCreateDatabaseDisabled()
+      throws SQLException {
+    SqlSetupArgs args =
+        new SqlSetupArgs(
+            true,
+            false,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            false);
+    CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
+
+    step.createTables(args);
+
+    verify(mockDataSource, times(3)).getConnection();
+  }
+
+  @Test
+  public void testCreateTablesPostgresRunsConcurrentDropAndEnsureIndexStatements()
+      throws SQLException {
+    SqlSetupArgs args =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "testdb",
+            false);
+    CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
+
+    step.createTables(args);
+
+    verify(mockDatabase, times(1)).sqlUpdate(contains("CREATE TABLE IF NOT EXISTS"));
+    verify(mockStatement, times(7)).execute(anyString());
+  }
+
+  @Test
+  public void testCreateTablesPostgresWithSchemaVersionAcquiresFifthConnectionAndRunsPostSetup()
+      throws SQLException {
+    SqlSetupArgs args =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "testdb",
+            true);
+    CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
+    when(mockResultSet.next()).thenReturn(false);
+
+    step.createTables(args);
+
+    verify(mockDataSource, times(5)).getConnection();
+    verify(mockStatement, times(8)).execute(anyString());
+    verify(mockStatement)
+        .execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
   }
 }

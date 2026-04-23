@@ -1,8 +1,8 @@
 from copy import deepcopy
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 
@@ -50,6 +50,25 @@ class SigmaDataset(BaseModel):
         return self.url.split("/")[-1]
 
 
+class DatasetUpstream(BaseModel):
+    type: Literal["dataset"] = "dataset"
+    # Required: used by sigma.py to correlate with SQL-parsed warehouse table names.
+    name: str
+
+
+class SheetUpstream(BaseModel):
+    type: Literal["sheet"] = "sheet"
+    name: Optional[str] = None
+    element_id: str
+
+
+# "table" (warehouse) nodes are terminal in BFS — handled by the SQL-parse path.
+# "join" pass-through nodes are traversed by BFS but never stored as upstreams.
+ElementUpstream = Annotated[
+    Union[DatasetUpstream, SheetUpstream], Field(discriminator="type")
+]
+
+
 class Element(BaseModel):
     elementId: str
     name: str
@@ -58,7 +77,7 @@ class Element(BaseModel):
     vizualizationType: Optional[str] = None
     query: Optional[str] = None
     columns: List[str] = []
-    upstream_sources: Dict[str, str] = {}
+    upstream_sources: Dict[str, "ElementUpstream"] = {}
 
     def get_urn_part(self):
         return self.elementId

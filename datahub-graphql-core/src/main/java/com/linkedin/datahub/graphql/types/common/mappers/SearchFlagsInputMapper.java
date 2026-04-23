@@ -72,6 +72,9 @@ public class SearchFlagsInputMapper
     if (searchFlags.getFilterNonLatestVersions() != null) {
       result.setFilterNonLatestVersions(searchFlags.getFilterNonLatestVersions());
     }
+    if (searchFlags.getIncludeHiddenLifecycleStages() != null) {
+      result.setIncludeHiddenLifecycleStages(searchFlags.getIncludeHiddenLifecycleStages());
+    }
     return result;
   }
 }

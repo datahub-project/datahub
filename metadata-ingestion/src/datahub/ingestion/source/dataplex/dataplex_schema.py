@@ -23,6 +23,150 @@ from datahub.metadata.urns import DataPlatformUrn
 logger = logging.getLogger(__name__)
 
 
+def _create_node_field(node_name: str) -> SchemaFieldClass:
+    """Create a SchemaFieldClass for a graph node."""
+    return SchemaFieldClass(
+        fieldPath=f"[nodes].{node_name}",
+        type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        nativeDataType="NODE",
+        nullable=True,
+        recursive=False,
+    )
+
+
+def _create_edge_field(
+    edge_name: str, src_name: Optional[str], dst_name: Optional[str]
+) -> SchemaFieldClass:
+    """Create a SchemaFieldClass for a graph edge."""
+    description = f"{src_name} → {dst_name}" if src_name and dst_name else None
+    return SchemaFieldClass(
+        fieldPath=f"[edges].{edge_name}",
+        type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        nativeDataType="EDGE",
+        description=description,
+        nullable=True,
+        recursive=False,
+    )
+
+
+def _extract_proto_edge_names(
+    edge_fields: dict,
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Extract edge name and source/destination names from proto Value form."""
+    name_val = edge_fields.get("name")
+    edge_name = name_val.string_value if name_val else None
+
+    src_val = edge_fields.get("source")
+    src_name = None
+    if src_val and hasattr(src_val, "struct_value"):
+        src_name_val = dict(src_val.struct_value.fields).get("name")
+        src_name = src_name_val.string_value if src_name_val else None
+
+    dst_val = edge_fields.get("destination")
+    dst_name = None
+    if dst_val and hasattr(dst_val, "struct_value"):
+        dst_name_val = dict(dst_val.struct_value.fields).get("name")
+        dst_name = dst_name_val.string_value if dst_name_val else None
+
+    return edge_name, src_name, dst_name
+
+
+def extract_graph_schema_from_entry_aspects(
+    entry: dataplex_v1.Entry, entry_id: str, platform: str
+) -> Optional[SchemaMetadataClass]:
+    """Extract schema from a Spanner Graph ``graph-schema`` aspect.
+
+    Nodes are emitted as fields under ``[nodes].<name>`` and edges as fields
+    under ``[edges].<name>``, with source→destination in the edge description.
+    """
+    if not entry.aspects:
+        return None
+
+    graph_aspect = None
+    for aspect_key, aspect_value in entry.aspects.items():
+        if "graph-schema" in aspect_key:
+            graph_aspect = aspect_value
+            break
+
+    if graph_aspect is None:
+        logger.debug(f"No graph-schema aspect found for entry {entry_id}")
+        return None
+    if not hasattr(graph_aspect, "data") or not graph_aspect.data:
+        logger.debug(f"graph-schema aspect for entry {entry_id} has no data")
+        return None
+
+    fields: list[SchemaFieldClass] = []
+    try:
+        data_dict = dict(graph_aspect.data)
+
+        nodes_data = data_dict.get("nodes")
+        if nodes_data and hasattr(nodes_data, "list_value"):
+            # Proto Value form
+            for node_value in nodes_data.list_value.values:
+                node_fields = dict(node_value.struct_value.fields)
+                name_val = node_fields.get("name")
+                node_name = name_val.string_value if name_val else None
+                if node_name:
+                    fields.append(_create_node_field(node_name))
+        elif nodes_data and hasattr(nodes_data, "__iter__"):
+            # Python-native list form (proto-plus auto-marshaled Struct → dict)
+            for node_item in nodes_data:
+                # MapComposite objects from proto-plus need dict conversion
+                node_dict = (
+                    dict(node_item) if not isinstance(node_item, dict) else node_item
+                )
+                node_name = node_dict.get("name")
+                if node_name:
+                    fields.append(_create_node_field(node_name))
+
+        edges_data = data_dict.get("edges")
+        if edges_data and hasattr(edges_data, "list_value"):
+            # Proto Value form
+            for edge_value in edges_data.list_value.values:
+                edge_fields = dict(edge_value.struct_value.fields)
+                edge_name, src_name, dst_name = _extract_proto_edge_names(edge_fields)
+                if edge_name:
+                    fields.append(_create_edge_field(edge_name, src_name, dst_name))
+        elif edges_data and hasattr(edges_data, "__iter__"):
+            # Python-native list form (proto-plus auto-marshaled Struct → dict)
+            for edge_item in edges_data:
+                # MapComposite objects from proto-plus need dict conversion
+                edge_dict = (
+                    dict(edge_item) if not isinstance(edge_item, dict) else edge_item
+                )
+                edge_name = edge_dict.get("name")
+                src = edge_dict.get("source")
+                src_name = dict(src).get("name") if src else None
+                dst = edge_dict.get("destination")
+                dst_name = dict(dst).get("name") if dst else None
+
+                if edge_name:
+                    fields.append(_create_edge_field(edge_name, src_name, dst_name))
+
+        if not fields:
+            logger.debug(
+                f"No nodes or edges extracted from graph-schema for {entry_id}"
+            )
+            return None
+
+        logger.info(f"Extracted {len(fields)} graph schema fields for entry {entry_id}")
+        return SchemaMetadataClass(
+            schemaName=entry_id,
+            platform=str(DataPlatformUrn(platform)),
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=fields,
+        )
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to extract graph schema from entry {entry_id}: {e}",
+            exc_info=True,
+        )
+        return None
+
+
 def extract_field_value(field_data: Any, field_key: str, default: str = "") -> str:
     """Extract a field value from protobuf field data (dict or object).
 

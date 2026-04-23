@@ -42,6 +42,10 @@ base_requirements = {
     "setuptools<82.0.0",
 }
 
+gcp_sm_common = {
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
+}
+
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -61,9 +65,10 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
-    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
-    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
-    # (not enforced here due to Airflow constraint file conflicts in CI)
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
+    # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
+    # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
+    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -126,7 +131,9 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    "sqlglot[c]==30.0.3",
+    #"sqlglot[c]==30.0.3",
+    # memory leak with sqlglot[c] https://github.com/tobymao/sqlglot/issues/7506
+    "sqlglot==30.0.3",
     "patchy==2.8.0",
 }
 
@@ -313,7 +320,7 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
+    "cryptography>=46.0.7,<47.0.0",  # >=46.0.7 for CVE-2026-26007
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -387,7 +394,6 @@ s3_base = {
     # overflow/infinite loop GHSA-c8rr-9gxc-jprv). Keep <6 until major API review.
     "ujson>=5.12.0,<6.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
@@ -474,7 +480,8 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
+    "Authlib>=1.6.11,<2.0.0",
 }
 
 superset_common = {
@@ -802,6 +809,9 @@ plugins: Dict[str, Set[str]] = {
         # are expected to be provided by the source connector itself when needed.
         # The plugin is designed to be installed alongside source connectors, not standalone.
     },
+    # Cloud secret store plugins.
+    "aws-secret-manager": aws_common | cachetools_lib,
+    "gcp-secret-manager": gcp_sm_common | cachetools_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -857,6 +867,9 @@ mypy_stubs = {
 
 
 test_api_requirements = {
+    # Do not raise the lower bound to pytest 9.x here: airflow-plugin CI installs
+    # acryl-datahub[testing-utils] with Airflow's constraints-*.txt, which pin pytest 7.x.
+    # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
     # Missing numpy requirement in 8.0.0
@@ -882,6 +895,8 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
+    # moto: AWS mocks for S3 / Dynamo / secrets tests only, not a runtime S3 source dependency
+    "moto[s3]>=5.0.0,<6.0.0",
     *lint_requirements,
     *test_api_requirements,
     "coverage>=5.1,<8.0.0",
@@ -891,8 +906,7 @@ base_dev_requirements = {
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
-    "freezegun<2.0.0",  # TODO: fully remove and use time-machine
-    "time-machine<4.0.0",  # better Pydantic v2 compatibility
+    "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
     "twine<7.0.0",
@@ -965,6 +979,8 @@ base_dev_requirements = {
             "pinecone",
             "mssql-odbc",
             "omni",
+            "aws-secret-manager",
+            "gcp-secret-manager",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -1239,7 +1255,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
-        "datahub": ["py.typed"],
+        "datahub": ["py.typed", "constraints.txt"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],

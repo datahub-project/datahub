@@ -416,7 +416,7 @@ public class PatchItemImplTest {
         .urn(urn)
         .aspectName(DATASET_PROPERTIES_ASPECT_NAME)
         .auditStamp(auditStamp)
-        .patch(null)
+        .patch((JsonPatch) null)
         .build(entityRegistry);
   }
 
