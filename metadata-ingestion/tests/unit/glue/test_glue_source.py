@@ -19,6 +19,7 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
 from datahub.ingestion.source.state.sql_common_state import (
@@ -48,14 +49,17 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
+    get_dataflow_graph_response_3,
     get_delta_tables_response_1,
     get_delta_tables_response_2,
     get_jobs_response,
     get_jobs_response_empty,
     get_object_body_1,
     get_object_body_2,
+    get_object_body_3,
     get_object_response_1,
     get_object_response_2,
+    get_object_response_3,
     get_object_tagging,
     get_tables_lineage_response_1,
     get_tables_response_1,
@@ -216,6 +220,11 @@ def test_glue_ingest(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -245,6 +254,14 @@ def test_glue_ingest(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -571,6 +588,11 @@ def test_glue_ingest_include_table_lineage(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -600,6 +622,14 @@ def test_glue_ingest_include_table_lineage(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -908,6 +938,11 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -937,6 +972,14 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -1427,3 +1470,36 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
 )
 def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
     assert _sanitize_jdbc_url(raw_url) == expected_safe
+
+
+@pytest.mark.parametrize(
+    "secret_name",
+    [
+        "password",
+        "sfPassword",
+        "PASSWORD",
+        "secret",
+        "client_secret",
+        "aws_secret_access_key",
+    ],
+)
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_glue_redact_job_script_secret_fields(secret_name):
+    secret_value = "kjdsg8uh834jksdnj"
+
+    script = f"""
+        datasource = glueContext.create_dynamic_frame.from_options(
+            frame = transformed,
+            connection_type = "postgresql",
+            connection_options = {{
+                "url": "jdbc:postgresql://your-PostgresqlDB-Endpoint",
+                "dbtable": "your_table",
+                "user": "your-Posgresql-User",
+                "{secret_name}": "{secret_value}"
+            }}
+        )
+    """
+
+    assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
+        secret_value, "*****"
+    )

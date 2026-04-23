@@ -10,7 +10,7 @@
  */
 
 import { test, expect } from '../../fixtures/login-test';
-import { resolvedUsers } from '../../fixtures/users';
+import { users } from '../../data/users';
 
 test.describe('Login with Theme V2', () => {
   test.beforeEach(async ({ apiMock, page }) => {
@@ -31,7 +31,7 @@ test.describe('Login with Theme V2', () => {
   });
 
   test('logs in successfully with Theme V2 enabled', async ({ page, loginPage }) => {
-    const { username, password } = resolvedUsers.admin;
+    const { username, password } = users.admin;
     await page.goto('/');
     await loginPage.login(username, password);
     await expect(page.getByRole('button', { name: 'Discover' })).toBeVisible();
