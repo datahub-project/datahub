@@ -13,10 +13,6 @@ on:
         required: false
         default: "4"
         type: string
-  push:
-    branches:
-      - e2e/**
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -39,8 +35,6 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-        with:
-          checkout-head-only: true
 
       - uses: ./.github/actions/determine-runners
         id: determine-runners
@@ -260,6 +254,7 @@ jobs:
             npx playwright merge-reports --reporter html ./playwright-blobs-flat
           else
             echo "No blob reports found — all shards may have been skipped or crashed"
+            exit 1
           fi
 
       - name: Upload merged Playwright HTML report

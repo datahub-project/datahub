@@ -18,7 +18,7 @@ export default defineConfig({
       ],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:9002',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     // storageState is intentionally NOT set here.
