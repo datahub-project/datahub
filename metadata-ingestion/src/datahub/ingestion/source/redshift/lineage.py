@@ -219,7 +219,7 @@ class RedshiftSqlLineage(Closeable):
                 platform=LineageDatasetPlatform.REDSHIFT.value,
                 platform_instance=self.config.platform_instance,
                 default_db=db_name,
-                default_schema=str(self.config.default_schema),
+                default_schema=self.config.default_schema,
                 graph=self.context.graph,
                 env=self.config.env,
             )

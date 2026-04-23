@@ -117,6 +117,34 @@ def test_get_sources_from_query_with_only_table():
     )
 
 
+def test_get_sources_from_query_with_none_default_schema():
+    # Regression test: previously `_get_sources_from_query` wrapped
+    # `self.config.default_schema` with `str(...)`, which turned a Python
+    # `None` into the literal string "None" and produced URNs like
+    # `urn:li:dataset:(...,db.none.tbl,PROD)` for unqualified table refs.
+    # The value should be passed through unchanged so sqlglot can fall
+    # back to its empty-string behaviour instead of injecting "None".
+    test_query = """
+        insert into target select * from source
+    """
+    lineage_extractor = get_lineage_extractor()
+    lineage_extractor.config.default_schema = None  # type: ignore[assignment]
+
+    lineage_datasets, _ = lineage_extractor._get_sources_from_query(
+        db_name="test", query=test_query
+    )
+    assert len(lineage_datasets) == 1
+
+    lineage = lineage_datasets[0]
+
+    assert ".none." not in lineage.urn
+    assert ".None." not in lineage.urn
+    assert (
+        lineage.urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,test.source,PROD)"
+    )
+
+
 def test_parse_alter_table_rename():
     assert parse_alter_table_rename("public", "alter table foo rename to bar") == (
         "public",
