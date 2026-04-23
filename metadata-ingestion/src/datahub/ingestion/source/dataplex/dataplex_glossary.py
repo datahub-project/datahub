@@ -24,6 +24,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.metadata.urns import DatasetUrn, GlossaryNodeUrn, GlossaryTermUrn
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 from datahub.sdk.glossary_node import GlossaryNode
 from datahub.sdk.glossary_term import GlossaryTerm
 from datahub.utilities.lossy_collections import LossyList
@@ -263,7 +264,7 @@ class DataplexGlossaryProcessor:
         project_id: str,
         location: str,
         glossary: dataplex_v1.Glossary,
-    ) -> Iterable[object]:
+    ) -> Iterable[Entity]:
         """Fetch categories + terms for one glossary and yield SDK entities.
 
         Safe to call from parallel worker threads — all mutations go through
@@ -271,11 +272,17 @@ class DataplexGlossaryProcessor:
         """
         glossary_id = _resource_id(glossary.name)
         self._report.report_glossary(glossary.name)
+        dataplex_url = self._ctx.config.dataplex_url.rstrip("/")
 
         glossary_node = GlossaryNode(
             id=_glossary_node_urn_id(project_id, location, glossary_id),
             display_name=glossary.display_name or glossary_id,
             definition=getattr(glossary, "description", "") or "",
+            custom_properties={
+                "project_id": project_id,
+                "location": location,
+                "glossary_id": glossary_id,
+            },
         )
         yield glossary_node
 
@@ -294,6 +301,12 @@ class DataplexGlossaryProcessor:
                 display_name=category.display_name or cat_id,
                 definition=getattr(category, "description", "") or "",
                 parent_node=parent_urn,
+                custom_properties={
+                    "project_id": project_id,
+                    "location": location,
+                    "glossary_id": glossary_id,
+                    "category_id": cat_id,
+                },
             )
             yield cat_node
 
@@ -303,11 +316,24 @@ class DataplexGlossaryProcessor:
             parent_urn = _parse_parent_urn(
                 term.parent, project_id, location, glossary_id
             )
+            term_console_url = (
+                f"{dataplex_url}/projects/{project_id}/locations/{location}"
+                f"/glossaries/{glossary_id}/terms/{term_id}"
+            )
             glossary_term = GlossaryTerm(
                 id=_term_urn_id(project_id, location, glossary_id, term_id),
                 display_name=term.display_name or term_id,
                 definition=getattr(term, "description", "") or "",
                 parent_node=parent_urn,
+                term_source="EXTERNAL",
+                source_ref="Dataplex",
+                source_url=term_console_url,
+                custom_properties={
+                    "project_id": project_id,
+                    "location": location,
+                    "glossary_id": glossary_id,
+                    "term_id": term_id,
+                },
             )
             yield glossary_term
 
