@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 import sqlglot
-from freezegun import freeze_time
+import time_machine
 from pyathena import OperationalError
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
@@ -85,7 +85,7 @@ def test_athena_uri():
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_athena_get_table_properties():
     from pyathena.model import AthenaTableMetadata
 

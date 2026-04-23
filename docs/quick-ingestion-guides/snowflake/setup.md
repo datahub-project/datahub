@@ -37,7 +37,7 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    grant usage on all schemas in database identifier($db_var) to role datahub_role;
    grant usage on future schemas in database identifier($db_var) to role datahub_role;
 
-   -- Grant Select acccess enable Data Profiling
+   -- Grant Select access enable Data Profiling
    grant select on all tables in database identifier($db_var) to role datahub_role;
    grant select on future tables in database identifier($db_var) to role datahub_role;
    grant select on all external tables in database identifier($db_var) to role datahub_role;

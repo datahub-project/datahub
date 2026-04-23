@@ -3,7 +3,7 @@
 from typing import Optional
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresSource
@@ -98,7 +98,7 @@ def get_profile_for_table(
     return None
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_basic_statistics_exact_values(postgres_source):
     """Test basic statistics with known exact values."""
@@ -127,7 +127,7 @@ def test_basic_statistics_exact_values(postgres_source):
     assert value_col_profile.uniqueCount == 5
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_mathematical_correctness(postgres_source):
     """Verify statistical properties hold."""
@@ -176,7 +176,7 @@ def test_mathematical_correctness(postgres_source):
             assert float(field_profile.median) <= float(field_profile.max)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_quantiles_ordering(postgres_source):
     """Verify quantiles are properly ordered."""
@@ -195,7 +195,7 @@ def test_quantiles_ordering(postgres_source):
     assert value_col_profile.quantiles is None or len(value_col_profile.quantiles) == 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_approximate_unique_count_bounds(postgres_source):
     """Verify approximate unique count is within reasonable bounds."""
@@ -217,7 +217,7 @@ def test_approximate_unique_count_bounds(postgres_source):
     assert 9 <= value_col_profile.uniqueCount <= 11
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_value_frequencies_correctness(postgres_source):
     """Verify value frequencies are correct."""
@@ -249,7 +249,7 @@ def test_value_frequencies_correctness(postgres_source):
         assert freq_dict.get("C") == 1
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_histogram_consistency(postgres_source):
     """Verify histogram is mathematically consistent."""
@@ -280,7 +280,7 @@ def test_histogram_consistency(postgres_source):
             assert boundaries[i] <= boundaries[i + 1]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_edge_case_empty_table(postgres_source):
     """Test profiling empty table."""
@@ -290,7 +290,7 @@ def test_edge_case_empty_table(postgres_source):
     assert profile.rowCount == 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_edge_case_single_row(postgres_source):
     """Test profiling table with single row."""
@@ -323,7 +323,7 @@ def test_edge_case_single_row(postgres_source):
         assert value_col_profile.sampleValues == ["42"]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_edge_case_all_nulls(postgres_source):
     """Test profiling table with all NULL values."""
@@ -354,7 +354,7 @@ def test_edge_case_all_nulls(postgres_source):
         assert not value_col_profile.sampleValues
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_row_count_estimation(postgres_source):
     """Test row count estimation for PostgreSQL."""
@@ -385,7 +385,7 @@ def test_row_count_estimation(postgres_source):
     assert 500 <= profile.rowCount <= 1500
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_quantiles_cardinality_filtering(postgres_source):
     """Test that quantiles are only calculated for columns with sufficient cardinality."""
@@ -427,7 +427,7 @@ def test_quantiles_cardinality_filtering(postgres_source):
     assert len(high_card_value_col.quantiles) > 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_histogram_cardinality_filtering(postgres_source):
     """Test that histogram is only calculated for columns with sufficient cardinality."""

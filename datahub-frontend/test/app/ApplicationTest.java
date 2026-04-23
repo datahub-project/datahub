@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 import static play.mvc.Http.Status.MOVED_PERMANENTLY;
 import static play.mvc.Http.Status.OK;
+import static play.mvc.Http.Status.SERVICE_UNAVAILABLE;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
 
@@ -24,6 +25,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
+import config.GracefulShutdownModule;
 import controllers.routes;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -1466,6 +1468,25 @@ public class ApplicationTest extends WithBrowser {
     assertEquals("no-cache", result.headers().get("Cache-Control"));
   }
 
+  @Test
+  public void testHealthCheckReturns503WhenShuttingDown() {
+    // Get the singleton GracefulShutdownModule instance from the app injector
+    GracefulShutdownModule shutdownModule = app.injector().instanceOf(GracefulShutdownModule.class);
+    // Set shutdown flag via instance method
+    shutdownModule.setShuttingDown(true);
+
+    try {
+      Http.RequestBuilder request = fakeRequest(Helpers.GET, "/health");
+      Result result = route(app, request);
+      assertEquals(SERVICE_UNAVAILABLE, result.status());
+      String content = Helpers.contentAsString(result);
+      assertEquals("Shutting down", content);
+    } finally {
+      // Reset the shutdown flag after test
+      shutdownModule.setShuttingDown(false);
+    }
+  }
+
   /**
    * Test module that provides a mock Application controller that simulates resource loading failure
    */
@@ -1486,7 +1507,10 @@ public class ApplicationTest extends WithBrowser {
       Environment mockEnvironment = mock(Environment.class);
       when(mockEnvironment.resourceAsStream("public/index.html")).thenReturn(null);
 
-      return new controllers.Application(mockHttpClient, mockEnvironment, config);
+      // Mock GracefulShutdownModule for the test
+      GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
+      return new controllers.Application(
+          mockHttpClient, mockEnvironment, config, mockShutdownModule);
     }
 
     @Provides

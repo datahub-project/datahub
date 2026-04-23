@@ -1,14 +1,13 @@
 import _ from 'lodash';
+import { DefaultTheme } from 'styled-components';
 
 import { AssertionResultType } from '@types';
 
-export const ACCENT_COLOR_HEX = '#222222';
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
-const ERROR_COLOR_HEX = '#FAAD14';
-const INIT_COLOR_HEX = '#8C8C8C';
-
-export const getFillColor = (type: AssertionResultType) => {
+export const getFillColor = (type: AssertionResultType, theme: DefaultTheme) => {
+    const SUCCESS_COLOR_HEX = theme.colors.iconSuccess;
+    const FAILURE_COLOR_HEX = theme.colors.iconError;
+    const ERROR_COLOR_HEX = theme.colors.iconWarning;
+    const INIT_COLOR_HEX = theme.colors.textTertiary;
     switch (type) {
         case AssertionResultType.Success:
             return SUCCESS_COLOR_HEX;

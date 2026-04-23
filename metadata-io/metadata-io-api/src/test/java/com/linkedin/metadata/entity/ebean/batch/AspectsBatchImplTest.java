@@ -199,7 +199,7 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(0).getSystemMetadata())
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
                     .urn(
@@ -216,7 +216,7 @@ public class AspectsBatchImplTest {
                     .recordTemplate(
                         new StructuredProperties()
                             .setProperties(new StructuredPropertyValueAssignmentArray()))
-                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(1).getSystemMetadata())
                     .build(mockAspectRetriever))),
         "Expected patch items converted to upsert change items");
   }
@@ -284,7 +284,7 @@ public class AspectsBatchImplTest {
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
                     .auditStamp(auditStamp)
-                    .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(0).getSystemMetadata())
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever),
                 ChangeItemImpl.builder()
@@ -299,7 +299,7 @@ public class AspectsBatchImplTest {
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
                     .auditStamp(auditStamp)
-                    .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
+                    .systemMetadata(testItems.get(1).getSystemMetadata())
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever))),
         "Mutation to status aspect");

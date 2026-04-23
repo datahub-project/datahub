@@ -32,6 +32,7 @@ else
             libldap2-dev \
             libsasl2-dev \
             ldap-utils \
-            libkrb5-dev
+            libkrb5-dev \
+            unixodbc-dev
     fi
 fi

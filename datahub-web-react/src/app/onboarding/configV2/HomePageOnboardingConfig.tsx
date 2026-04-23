@@ -1,7 +1,7 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
@@ -14,6 +14,15 @@ export const V2_HOME_PAGE_ANNOUNCEMENTS_ID = 'v2-home-page-announcements';
 export const V2_HOME_PAGE_PERSONAL_SIDEBAR_ID = 'v2-home-page-personal-sidebar';
 export const V2_HOME_PAGE_PENDING_TASKS_ID = 'v2-home-page-pending-tasks';
 export const GLOBAL_WELCOME_TO_ACRYL_ID = 'global-welcome-to-acryl';
+
+const InfoBox = styled.div`
+    background-color: ${({ theme }) => theme.colors.bgSurfaceDarker};
+    opacity: 0.7;
+    border-radius: 4px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+`;
 
 const HomePageOnboardingConfig: OnboardingStep[] = [
     {
@@ -62,21 +71,12 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                         </li>
                     </ul>
                     <p>Let&apos;s get started! 🚀</p>
-                    <div
-                        style={{
-                            backgroundColor: ANTD_GRAY[4],
-                            opacity: '0.7',
-                            borderRadius: '4px',
-                            height: '40px',
-                            display: 'flex',
-                            alignItems: 'center',
-                        }}
-                    >
+                    <InfoBox>
                         <span style={{ paddingLeft: '5px' }}>💡</span>
                         <span style={{ paddingLeft: '10px' }}>
                             Press <strong>Cmd + Ctrl + T</strong> to open up this tutorial at any time.
                         </span>
-                    </div>
+                    </InfoBox>
                 </Typography.Paragraph>
             </div>
         ),

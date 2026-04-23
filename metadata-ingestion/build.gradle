@@ -204,6 +204,21 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
     "${pytest_default_env} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
 
+task testPerformance(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
+  // Run performance tests to catch memory leaks and performance regressions
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
+  outputs.dir("${venv_name}")
+  outputs.dir("test-results")
+  def cvg_arg = get_coverage_args("quick")
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "${pytest_default_env} pytest ${cvg_arg} tests/performance -m 'perf' --junit-xml=test-results/junit.performance.xml"
+}
+
 task installDocs(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_docs_sentinel"
   inputs.file file('setup.py')

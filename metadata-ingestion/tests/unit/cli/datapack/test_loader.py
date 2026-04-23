@@ -411,6 +411,100 @@ class TestIndexFileResolution:
             assert entries1[0].path == entries2[0].path
 
 
+class TestIndexVersionCache:
+    def test_version_match_uses_cache(self, tmp_path: pathlib.Path) -> None:
+        """When remote version matches cached version, data files are not re-fetched."""
+        from datahub.cli.datapack.loader import (
+            _save_index_version,
+        )
+
+        # Create data files
+        (tmp_path / "data.json").write_text(json.dumps([{"entityType": "dataset"}]))
+
+        # Create index with version
+        index = {"version": "1", "files": ["data.json"]}
+        index_file = tmp_path / "index.json"
+        index_file.write_text(json.dumps(index))
+
+        pack = DataPackInfo(
+            name="versioned", description="t", url=f"file://{index_file}"
+        )
+        cache_dir = tmp_path / "cache"
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            # First load — downloads everything
+            entries1 = download_pack(pack)
+            assert len(entries1) == 1
+
+            # Save version to simulate prior load
+            _save_index_version(pack, "1")
+
+            # Second load — should use cache (version matches)
+            entries2 = download_pack(pack)
+            assert len(entries2) == 1
+            assert entries2[0].path == entries1[0].path
+
+    def test_version_mismatch_redownloads(self, tmp_path: pathlib.Path) -> None:
+        """When remote version differs from cached, data files are re-downloaded."""
+        from datahub.cli.datapack.loader import (
+            _save_index_version,
+        )
+
+        (tmp_path / "data.json").write_text(json.dumps([{"entityType": "dataset"}]))
+
+        index = {"version": "2", "files": ["data.json"]}
+        index_file = tmp_path / "index.json"
+        index_file.write_text(json.dumps(index))
+
+        pack = DataPackInfo(
+            name="versioned", description="t", url=f"file://{index_file}"
+        )
+        cache_dir = tmp_path / "cache"
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            # First load
+            entries1 = download_pack(pack)
+            assert len(entries1) == 1
+
+            # Save OLD version
+            _save_index_version(pack, "1")
+
+            # Second load — version mismatch, should re-download
+            entries2 = download_pack(pack)
+            assert len(entries2) == 1
+
+    def test_no_version_field_redownloads(self, tmp_path: pathlib.Path) -> None:
+        """Index without version field always re-downloads data files."""
+        (tmp_path / "data.json").write_text(json.dumps([{"entityType": "dataset"}]))
+
+        index = {"files": ["data.json"]}  # No version field
+        index_file = tmp_path / "index.json"
+        index_file.write_text(json.dumps(index))
+
+        pack = DataPackInfo(
+            name="unversioned", description="t", url=f"file://{index_file}"
+        )
+        cache_dir = tmp_path / "cache"
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            entries = download_pack(pack)
+            assert len(entries) == 1
+
+    def test_non_index_pack_unchanged(self, tmp_path: pathlib.Path) -> None:
+        """Non-index packs (direct data files) use existing cache behavior."""
+        source = tmp_path / "data.json"
+        source.write_text(json.dumps([{"entityType": "dataset"}]))
+        sha = _sha256_file(source)
+
+        pack = DataPackInfo(
+            name="direct", description="t", url=f"file://{source}", sha256=sha
+        )
+        cache_dir = tmp_path / "cache"
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            entries1 = download_pack(pack)
+            entries2 = download_pack(pack)
+            assert len(entries1) == 1
+            assert len(entries2) == 1
+            assert entries1[0].path == entries2[0].path
+
+
 class TestCheckVersionCompatibility:
     def test_no_version_required_passes(self) -> None:
         from datahub.cli.datapack.loader import check_version_compatibility

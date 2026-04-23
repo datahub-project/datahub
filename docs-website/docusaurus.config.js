@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><span>March Town Hall 3/26</span><a href="https://luma.com/lxl6exxr?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>April Town Hall 4/23</span><a href="https://luma.com/2yinw29m?utm_term=docs" target="_blank" class="button"><div>Register Here<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,

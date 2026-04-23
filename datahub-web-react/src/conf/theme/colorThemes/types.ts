@@ -92,11 +92,15 @@ export default interface ColorTheme {
     shadowFocusBrand: string;
     shadowInset: string;
     shadowNavbar: string;
+    shadowDropBrandColor: string;
+    shadowViewSelect: string;
     // Overlays
     overlayLight: string;
     overlayMedium: string;
     overlayHeavy: string;
     overlayOnBrand: string;
+    overlayMask: string;
+    overlayDropShadow: string;
     // Inputs / Forms
     bgInput: string;
     bgInputDisabled: string;
@@ -112,6 +116,7 @@ export default interface ColorTheme {
     bgCode: string;
     bgCodeBlock: string;
     // Highlight
+    bgHighlight: string;
     // Tooltip
     bgTooltip: string;
     // Brand gradients
@@ -157,11 +162,17 @@ export default interface ColorTheme {
     chartsHeatmapMedium: string;
     chartsHeatmapLow: string;
     chartsHeatmapBase: string;
+    chartsRedHigh: string;
+    chartsRedMedium: string;
+    chartsRedLow: string;
+    chartsRedBase: string;
     chartsBrandHighAlpha: string;
     chartsBrandMediumAlpha: string;
     chartsBrandLowAlpha: string;
     chartsBrandBaseAlpha: string;
     chartsInformationHigh: string;
+    chartsGradientStart: string;
+    chartsGradientEnd: string;
     /** @deprecated Remove — unused. Kept for type compat only. */
     navBgGradientTop: string;
     /** @deprecated Remove — unused. Kept for type compat only. */
@@ -209,4 +220,27 @@ export default interface ColorTheme {
     tagsTrueYellowBorder: string;
     tagsTrueYellowIcon: string;
     tagsTrueYellowText: string;
+    colorPickerOrange: string;
+    colorPickerBlue: string;
+    colorPickerCobalt: string;
+    colorPickerTangerine: string;
+    colorPickerBrown: string;
+    colorPickerDarkGreen: string;
+    colorPickerOlive: string;
+    colorPickerDefault: string;
+    // Glossary Color Palette
+    glossaryPaletteViolet: string;
+    glossaryPalettePurple: string;
+    glossaryPaletteLightBlue: string;
+    glossaryPaletteBlue: string;
+    glossaryPaletteTeal: string;
+    glossaryPaletteGreen: string;
+    glossaryPaletteLime: string;
+    glossaryPaletteLightOrange: string;
+    glossaryPaletteMustard: string;
+    glossaryPaletteOrange: string;
+    glossaryPalettePeach: string;
+    glossaryPaletteRed: string;
+    glossaryPaletteMagenta: string;
+    glossaryPaletteColdGrey: string;
 }

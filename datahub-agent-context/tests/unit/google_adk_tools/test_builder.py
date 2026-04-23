@@ -6,7 +6,10 @@ from unittest.mock import Mock
 import pytest
 
 from datahub_agent_context import get_datahub_client
-from datahub_agent_context.google_adk_tools.builder import build_google_adk_tools
+from datahub_agent_context.google_adk_tools.builder import (
+    build_google_adk_cloud_tools,
+    build_google_adk_tools,
+)
 
 READ_ONLY_TOOLS = {
     "search_documents",
@@ -34,6 +37,11 @@ MUTATION_TOOLS = {
     "add_glossary_terms",
     "remove_glossary_terms",
     "save_document",
+}
+
+CLOUD_TOOLS = {
+    "ask_datahub_chat",
+    "get_datahub_chat",
 }
 
 
@@ -131,3 +139,29 @@ def test_build_google_adk_tools_not_langchain_basetools(mock_client):
         assert isinstance(t, Callable)  # type: ignore[arg-type]
         # Plain functions don't have LangChain's _run method or name attribute as a property
         assert not hasattr(t, "_run")
+
+
+# ---------------------------------------------------------------------------
+# Cloud tools builder
+# ---------------------------------------------------------------------------
+
+
+def test_build_cloud_tools_includes_ask_datahub(mock_client):
+    """Cloud builder includes Ask DataHub tools by default."""
+    tools = build_google_adk_cloud_tools(mock_client)
+    tool_names = {t.__name__ for t in tools}
+    assert tool_names == CLOUD_TOOLS
+
+
+def test_build_cloud_tools_can_disable_ask_datahub(mock_client):
+    """Cloud builder with ask_datahub=False returns empty list."""
+    tools = build_google_adk_cloud_tools(mock_client, ask_datahub=False)
+    assert tools == []
+
+
+def test_build_combined_tools(mock_client):
+    """Base + cloud builders together give the full tool set."""
+    base = build_google_adk_tools(mock_client, include_mutations=True)
+    cloud = build_google_adk_cloud_tools(mock_client)
+    all_names = {t.__name__ for t in base + cloud}
+    assert all_names == READ_ONLY_TOOLS | MUTATION_TOOLS | CLOUD_TOOLS

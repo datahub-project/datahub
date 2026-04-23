@@ -1,4 +1,4 @@
-import { Button, colors } from '@components';
+import { Button } from '@components';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -11,20 +11,20 @@ const StyledButton = styled(Button)<{ $active?: boolean }>`
     ${(props) =>
         props.$active
             ? `
-        background: ${colors.white};
+        background: ${props.theme.colors.bg};
         :hover {
-            background: ${colors.white};
+            background: ${props.theme.colors.bg};
         }
     `
             : `
-        color: ${colors.gray[500]} !important;
+        color: ${props.theme.colors.textSecondary} !important;
     `}
 `;
 
 const TabsWrapper = styled.div`
     display: flex;
     padding: 2px;
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 6px;
 `;
 

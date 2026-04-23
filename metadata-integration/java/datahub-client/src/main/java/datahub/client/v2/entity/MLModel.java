@@ -80,7 +80,8 @@ public class MLModel extends Entity
         HasOwners<MLModel>,
         HasDomains<MLModel>,
         HasSubTypes<MLModel>,
-        HasStructuredProperties<MLModel> {
+        HasStructuredProperties<MLModel>,
+        HasDocumentation<MLModel> {
 
   private static final String ENTITY_TYPE = "mlModel";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
