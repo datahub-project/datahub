@@ -122,34 +122,6 @@ public class MigrateAspectsStepTest {
     assertEquals(state.get("lastCreatedOnMs"), "999999");
   }
 
-  // ── skip ──────────────────────────────────────────────────────────────────
-
-  @Test
-  public void testSkipWhenPreviousResultIsSucceeded() {
-    DataHubUpgradeResult prev = succeededResult();
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(prev));
-
-    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
-    assertTrue(step.skip(mockContext));
-  }
-
-  @Test
-  public void testSkipWhenPreviousResultIsAborted() {
-    DataHubUpgradeResult prev = abortedResult();
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(prev));
-
-    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
-    assertTrue(step.skip(mockContext));
-  }
-
-  @Test
-  public void testNoSkipWhenNoPreviousResult() {
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
-
-    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
-    assertFalse(step.skip(mockContext));
-  }
-
   // ── executable ────────────────────────────────────────────────────────────
 
   @Test

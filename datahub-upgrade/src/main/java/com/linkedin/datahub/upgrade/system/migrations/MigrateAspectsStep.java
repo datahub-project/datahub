@@ -155,24 +155,6 @@ public class MigrateAspectsStep implements UpgradeStep {
   // ---------------------------------------------------------------------------
 
   @Override
-  public boolean skip(UpgradeContext context) {
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    if (prevResult
-        .filter(
-            r ->
-                DataHubUpgradeState.SUCCEEDED.equals(r.getState())
-                    || DataHubUpgradeState.ABORTED.equals(r.getState()))
-        .isPresent()) {
-      log.info("{}: Previous result was {}; skipping.", id(), prevResult.get().getState());
-      return true;
-    }
-
-    return false;
-  }
-
-  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     log.info(
         "{}: Starting migration sweep across {} aspect(s).", id(), aspectTargetVersions.size());
