@@ -1,0 +1,60 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:4b5e6f7a",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "domain": "finance",
+                "owner_team": "revenue"
+            },
+            "definition": "Metrics related to revenue recognition and reporting.",
+            "parentNode": "urn:li:glossaryNode:7f3d2c1a",
+            "name": "Revenue Metrics"
+        }
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:4b5e6f7a",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:4b5e6f7a",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://wiki.company.com/revenue",
+                    "description": "https://wiki.company.com/revenue",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                }
+            ]
+        }
+    }
+}
+]
