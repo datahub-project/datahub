@@ -1,7 +1,7 @@
 import io
 import json
 import zipfile
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +9,7 @@ import requests
 
 from datahub.ingestion.source.informatica.client import (
     InformaticaClient,
+    _parse_taskflow_export_package,
     parse_saas_connection_ref,
     parse_taskflow_definition,
     parse_taskflow_xml,
@@ -111,6 +112,58 @@ class TestLogin:
             pytest.raises(InformaticaLoginError, match="non-JSON body"),
         ):
             client.login()
+
+
+class TestSessionValidation:
+    """Exercise _validate_session's unexpected-response branches. Expected
+    failure paths (expired token → ``isValidToken: false``) are silent by
+    design; unexpected ones (non-200, non-JSON 200) trigger a one-shot
+    report warning so a persistently broken ``/validSessionId`` endpoint
+    doesn't spam the report on every API call.
+    """
+
+    def _prep(self, client: InformaticaClient) -> None:
+        client._session_id = "sess"
+        client._base_url = "https://pod/saas"
+        # Mark the session as already-validated so subsequent calls to
+        # _validate_session actually run the HTTP probe.
+        client._session_last_validated_at = 1e12
+
+    def test_non_200_fires_warning_once_across_consecutive_calls(self, client):
+        self._prep(client)
+        bad = _build_response(500, {"error": "upstream"})
+        with patch.object(client._session, "post", return_value=bad):
+            assert client._validate_session() is False
+            assert client._validate_session() is False
+            assert client._validate_session() is False
+        # One-shot guard: three failing probes, exactly one report warning.
+        assert len(client.report.warnings) == 1
+        warning = client.report.warnings[0]
+        assert warning.title == (
+            "IDMC session validation endpoint returned unexpected response"
+        )
+        # The operator needs to know the specific HTTP status to diagnose.
+        assert "HTTP 500" in "".join(warning.context or [])
+
+    def test_non_json_200_body_also_fires_warning_once(self, client):
+        self._prep(client)
+        resp = _build_response(200)
+        resp.json.side_effect = json.JSONDecodeError("x", "", 0)
+        with patch.object(client._session, "post", return_value=resp):
+            assert client._validate_session() is False
+            assert client._validate_session() is False
+        assert len(client.report.warnings) == 1
+        assert "non-JSON body" in "".join(client.report.warnings[0].context or [])
+
+    def test_expired_token_is_silent(self, client):
+        # ``isValidToken: false`` is the expected path after 25 minutes.
+        # Re-login happens automatically; no operator action required, so
+        # no warning.
+        self._prep(client)
+        expired = _build_response(200, {"isValidToken": False})
+        with patch.object(client._session, "post", return_value=expired):
+            assert client._validate_session() is False
+        assert client.report.warnings == []
 
 
 class TestAuthFailureDetection:
@@ -846,3 +899,84 @@ class TestParseTaskflowXml:
             b"<foo>&xxe;</foo>"
         )
         assert parse_taskflow_xml(xxe) is None
+
+
+def _iter_bytes(
+    data: bytes,
+) -> "Callable[..., Iterator[bytes]]":
+    """Fake ``requests.Response.iter_content``: chunk_size-keyed bytes iterator."""
+
+    def _iter(chunk_size: int = 8192) -> Iterator[bytes]:
+        for i in range(0, len(data), chunk_size):
+            yield data[i : i + chunk_size]
+
+    return _iter
+
+
+def _zip_with(entries: Dict[str, bytes]) -> bytes:
+    """Build an in-memory ZIP with the given ``{name: bytes}`` entries."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, content in entries.items():
+            zf.writestr(name, content)
+    return buf.getvalue()
+
+
+_VALID_TASKFLOW_XML = (
+    b'<?xml version="1.0" encoding="UTF-8"?>'
+    b'<taskflow GUID="tf-guid-1" name="TF1"><flow id="f">'
+    b'<start id="s"><link targetId="n1"/></start>'
+    b'<eventContainer id="n1"/>'
+    b'<end id="e"/>'
+    b"</flow></taskflow>"
+)
+
+
+class TestParseTaskflowExportPackage:
+    """Covers the batched ZIP parse: bad-ZIP rollup, per-entry parse
+    failures rolled up into a single warning, and the happy path.
+    """
+
+    def test_returns_parsed_definitions_on_happy_path(self):
+        report = InformaticaSourceReport()
+        zip_bytes = _zip_with({"Explore/Default/TF1.TASKFLOW.xml": _VALID_TASKFLOW_XML})
+        defs = _parse_taskflow_export_package(_iter_bytes(zip_bytes), report=report)
+        assert set(defs.keys()) == {"tf-guid-1"}
+        assert report.warnings == []
+
+    def test_bad_zip_emits_single_warning_and_returns_empty(self):
+        report = InformaticaSourceReport()
+        # Not a ZIP at all — just raw bytes.
+        defs = _parse_taskflow_export_package(_iter_bytes(b"not-a-zip"), report=report)
+        assert defs == {}
+        assert len(report.warnings) == 1
+        assert (
+            report.warnings[0].title
+            == "IDMC Taskflow export package is not a valid ZIP"
+        )
+
+    def test_malformed_entry_produces_one_rollup_warning_not_per_entry(self):
+        # ZIP with 1 valid + 2 malformed .TASKFLOW.xml entries. The valid
+        # one must still be returned; the two failures roll up into a
+        # single ``parse_failures=2`` warning rather than one each.
+        report = InformaticaSourceReport()
+        zip_bytes = _zip_with(
+            {
+                "good.TASKFLOW.xml": _VALID_TASKFLOW_XML,
+                "bad1.TASKFLOW.xml": b"not-xml",
+                "bad2.TASKFLOW.xml": b"<a><b></a>",  # unbalanced
+                "not-a-taskflow.txt": b"ignored",  # suffix filter skips this
+            }
+        )
+        defs = _parse_taskflow_export_package(_iter_bytes(zip_bytes), report=report)
+        assert set(defs.keys()) == {"tf-guid-1"}
+        assert len(report.warnings) == 1
+        w = report.warnings[0]
+        assert w.title == "IDMC Taskflow XML parse failed for some entries"
+        assert "parse_failures=2" in "".join(w.context or [])
+
+    def test_no_report_argument_is_silent(self):
+        # Unit tests without a report object should still work.
+        zip_bytes = _zip_with({"x.TASKFLOW.xml": b"not-xml"})
+        defs = _parse_taskflow_export_package(_iter_bytes(zip_bytes))
+        assert defs == {}  # No crash, no report needed.

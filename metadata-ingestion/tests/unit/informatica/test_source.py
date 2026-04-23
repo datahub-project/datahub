@@ -1,11 +1,14 @@
 from typing import Any, List
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
 from datahub.ingestion.source.informatica.models import (
+    ExportJobState,
     IdmcConnection,
     IdmcMapping,
     IdmcMappingTask,
@@ -22,7 +25,11 @@ from datahub.ingestion.source.informatica.source import (
     OrchestrateState,
 )
 from datahub.ingestion.source.state import stale_entity_removal_handler
-from datahub.metadata.schema_classes import BrowsePathsV2Class, DataJobInputOutputClass
+from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    DataJobInputOutputClass,
+    OwnershipTypeClass,
+)
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 
@@ -629,8 +636,6 @@ class TestEntityEmission:
         assert source._mapping_ids == []
         # No dataJobInputOutput aspect is emitted at MT-emit time — that's
         # the lineage phase's job (inputDatasets/outputDatasets only).
-        from datahub.metadata.schema_classes import DataJobInputOutputClass
-
         assert job._get_aspect(DataJobInputOutputClass) is None
 
     def test_two_mts_pointing_at_same_mapping_share_lineage_fanout(self):
@@ -663,8 +668,6 @@ class TestEntityEmission:
         assert source._owner_list("", "") is None
 
     def test_owner_list_emits_creator_as_dataowner_and_updater_as_technical(self):
-        from datahub.metadata.schema_classes import OwnershipTypeClass
-
         source = _make_source()
         owners = source._owner_list("alice", "bob")
         assert owners is not None
@@ -999,8 +1002,6 @@ class TestSafeListHelper:
             yield 1
             raise AttributeError("genuine bug")
 
-        import pytest
-
         with pytest.raises(AttributeError):
             list(source._safe_list(gen, title="t", message="m", context="c"))
 
@@ -1160,11 +1161,6 @@ class TestFilteringAndErrorHandling:
         # running; the failed batch is recorded in
         # ``report.export_jobs_failed`` so operators can see which slice
         # didn't make it through.
-        from datahub.ingestion.source.informatica.models import (
-            ExportJobState,
-            InformaticaApiError,
-        )
-
         source = _make_source(export_batch_size=1)
         source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
         source._connections_by_fed_id["fed"] = IdmcConnection(
@@ -1208,8 +1204,6 @@ class TestFilteringAndErrorHandling:
         # succeed" warning for the same failure. FAILED/UNKNOWN states
         # still get the caller-side warning (with status.message), but
         # TIMEOUT is suppressed to avoid duplicate report noise.
-        from datahub.ingestion.source.informatica.models import ExportJobState
-
         source = _make_source()
         with (
             patch.object(source.client, "submit_export_job", return_value="job-x"),
@@ -1235,8 +1229,6 @@ class TestFilteringAndErrorHandling:
         # IDMC's ``status.message`` so operators can diagnose the failure
         # root cause (missing Asset - export privilege etc.) without
         # having to re-run with debug logging.
-        from datahub.ingestion.source.informatica.models import ExportJobState
-
         source = _make_source()
         with (
             patch.object(source.client, "submit_export_job", return_value="job-y"),
@@ -1322,8 +1314,6 @@ class TestTaskflowStepEmission:
             source.client, "get_taskflow_definition", return_value=definition
         ):
             [job] = list(source._emit_taskflow_steps(self.TF_OBJ, flow))
-
-        from datahub.metadata.schema_classes import DataJobInputOutputClass
 
         dio = job._get_aspect(DataJobInputOutputClass)
         assert dio is not None
@@ -1472,3 +1462,35 @@ class TestSourceLifecycle:
             wus = list(source.get_workunits_internal())
         assert wus == []
         assert len(source.report.failures) > 0
+
+    def test_summarize_taskflow_steps_warns_on_partial_coverage(self):
+        # Missing step DAGs are almost always a privilege issue
+        # (``Asset - export``); surface it on the report so operators see
+        # it without having to scan logs.
+        source = _make_source()
+        source.report.taskflows_scanned = 3
+        source.report.taskflows_with_steps = 1
+        source._summarize_taskflow_steps()
+        assert len(source.report.warnings) == 1
+        w = source.report.warnings[0]
+        assert w.title == "Taskflow step DAG missing for some Taskflows"
+        # The actionable hint must be in the warning — not buried in logs.
+        assert "Asset - export" in "".join(w.message or [])
+        # Counts should make the gap concrete to the operator.
+        assert "1/3" in "".join(w.message or [])
+
+    def test_summarize_taskflow_steps_silent_on_full_coverage(self):
+        # Common case: every Taskflow had its step DAG resolved. No noise.
+        source = _make_source()
+        source.report.taskflows_scanned = 5
+        source.report.taskflows_with_steps = 5
+        source._summarize_taskflow_steps()
+        assert source.report.warnings == []
+
+    def test_summarize_taskflow_steps_silent_when_no_taskflows_scanned(self):
+        # Zero Taskflows in the org (or all filtered out) — also silent.
+        source = _make_source()
+        source.report.taskflows_scanned = 0
+        source.report.taskflows_with_steps = 0
+        source._summarize_taskflow_steps()
+        assert source.report.warnings == []
