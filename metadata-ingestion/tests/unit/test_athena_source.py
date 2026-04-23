@@ -191,7 +191,7 @@ from "test_schema"."test_table$partitions")"""
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_athena_get_table_properties_iceberg_location():
     config = AthenaConfig.model_validate(
         {
@@ -499,7 +499,7 @@ def test_is_glue_catalog_false_for_hive_catalog():
     assert source.is_glue_catalog is False
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_athena_get_table_properties_glue_iceberg_returns_glue_urn():
     """When catalog is Glue, Iceberg tables still get Glue URN (Glue takes precedence)."""
     config = AthenaConfig.model_validate(
