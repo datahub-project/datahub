@@ -237,29 +237,22 @@ def add_owner_to_entity_wu(
         entity_type: The type of entity (e.g., "dataset", "dataProduct")
         entity_urn: The URN of the entity
         owner_urn: The URN of the owner (corpuser or corpGroup)
-        owner_type: The ownership type. Can be a string constant (e.g., "TECHNICAL_OWNER")
+        ownership_type: The ownership type. Can be a string constant (e.g., "TECHNICAL_OWNER")
                     or a custom ownership type URN (e.g., "urn:li:ownershipType:producer").
                     Defaults to DATAOWNER for backward compatibility.
     """
     owner_class = OwnerClass(
         owner=owner_urn,
-        type=owner_type,
+        type=ownership_type,
     )
 
-    # If owner_type is a custom URN (starts with "urn:li:ownershipType:"), set typeUrn
-    if owner_type.startswith("urn:li:ownershipType:"):
-        owner_class.typeUrn = owner_type
+    # If ownership_type is a custom URN (starts with "urn:li:ownershipType:"), set typeUrn
+    if ownership_type.startswith("urn:li:ownershipType:"):
+        owner_class.typeUrn = ownership_type
 
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
-        aspect=OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=owner_urn,
-                    type=ownership_type,
-                )
-            ]
-        ),
+        aspect=OwnershipClass(owners=[owner_class]),
     ).as_workunit()
 
 
@@ -432,7 +425,7 @@ def gen_data_product(
     domain_urn: Optional[str] = None,
     owner_urn: Optional[str] = None,
     owner_urns: Optional[List[str]] = None,
-    owner_type: str = OwnershipTypeClass.DATAOWNER,
+    ownership_type: str = OwnershipTypeClass.DATAOWNER,
     tags: Optional[List[str]] = None,
     structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
     assets: Optional[List[str]] = None,
@@ -449,7 +442,7 @@ def gen_data_product(
         domain_urn: URN of the domain this Data Product belongs to
         owner_urn: URN of a single owner (user or group). Deprecated - use owner_urns instead
         owner_urns: List of owner URNs (users or groups). Preferred over owner_urn for multiple owners
-        owner_type: Ownership type for all owners. Can be a string constant (e.g., "TECHNICAL_OWNER")
+        ownership_type: Ownership type for all owners. Can be a string constant (e.g., "TECHNICAL_OWNER")
                     or a custom ownership type URN (e.g., "urn:li:ownershipType:producer").
                     Defaults to DATAOWNER for backward compatibility.
         tags: List of tag names to associate with the Data Product
@@ -506,7 +499,7 @@ def gen_data_product(
             entity_type="dataProduct",
             entity_urn=data_product_urn,
             owner_urn=owner,
-            owner_type=owner_type,
+            ownership_type=ownership_type,
         )
 
     if tags:
@@ -541,7 +534,7 @@ def gen_domain(
     parent_domain_urn: Optional[str] = None,
     owner_urn: Optional[str] = None,
     owner_urns: Optional[List[str]] = None,
-    owner_type: str = OwnershipTypeClass.DATAOWNER,
+    ownership_type: str = OwnershipTypeClass.DATAOWNER,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn = domain_key.as_urn()
 
@@ -567,7 +560,7 @@ def gen_domain(
             entity_type="domain",
             entity_urn=domain_urn,
             owner_urn=owner,
-            owner_type=owner_type,
+            ownership_type=ownership_type,
         )
 
 

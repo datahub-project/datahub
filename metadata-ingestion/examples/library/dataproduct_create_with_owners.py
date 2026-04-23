@@ -3,12 +3,12 @@ Example showing how to create a Data Product with multiple owners and custom own
 
 This example demonstrates the enhanced gen_data_product functionality that supports:
 - Multiple owners (owner_urns parameter)
-- Custom ownership types (owner_type parameter supports both string constants and custom URNs)
+- Custom ownership types (ownership_type parameter supports both string constants and custom URNs)
 - Assets included in the initial creation (assets parameter)
 
 The function is backward compatible - existing code will continue to work with defaults.
 
-Examples of owner_type values:
+Examples of ownership_type values:
 - "DATAOWNER" (default)
 - "TECHNICAL_OWNER"
 - "BUSINESS_OWNER"
@@ -65,7 +65,7 @@ for wu in gen_data_product(
     },
     domain_urn="urn:li:domain:analytics",
     owner_urns=owners,
-    owner_type="BUSINESS_OWNER",  # All owners get this type (defaults to DATAOWNER)
+    ownership_type="BUSINESS_OWNER",  # All owners get this type (defaults to DATAOWNER)
     assets=assets,  # Assets included in initial creation
     tags=["production", "pii"],
 ):

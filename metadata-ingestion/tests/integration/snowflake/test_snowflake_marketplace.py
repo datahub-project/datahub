@@ -2,7 +2,7 @@ from typing import cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -15,7 +15,7 @@ from tests.integration.snowflake.common import (
 pytestmark = pytest.mark.integration_batch_2
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -98,7 +98,7 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_marketplace_with_filtering(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

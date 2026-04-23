@@ -834,7 +834,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 structured_properties=structured_props,
                 domain_urn=metadata.domain_urn,
                 owner_urns=metadata.owner_urns if metadata.owner_urns else None,
-                owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
+                ownership_type=OwnershipTypeClass.TECHNICAL_OWNER,
                 assets=asset_urns if asset_urns else None,
             )
 
