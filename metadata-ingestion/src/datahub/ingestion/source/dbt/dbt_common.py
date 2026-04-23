@@ -500,6 +500,13 @@ class DBTCommonConfig(
     IncrementalLineageConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Whether to convert dataset urns to lowercase. Default True to match "
+        "historical dbt behavior. Set to False for case-sensitive platforms like BigQuery "
+        "if you need to preserve original identifier casing in URNs.",
+    )
+
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -606,7 +613,13 @@ class DBTCommonConfig(
     )
     test_warnings_are_errors: bool = Field(
         default=False,
-        description="When enabled, dbt test warnings will be treated as failures.",
+        description=(
+            "When enabled, dbt test warnings will be treated as failures "
+            "(emitted as ``AssertionResult.type = FAILURE`` with ``severity = LOW``). "
+            "The default will change to ``true`` in a future release once assertion "
+            "result consumers can filter by severity; set ``true`` today to adopt the "
+            "forthcoming behavior."
+        ),
     )
     infer_dbt_schemas: bool = Field(
         default=True,
@@ -1061,7 +1074,7 @@ class DBTNode:
         data_platform_instance: Optional[str],
     ) -> str:
         db_fqn = self.get_db_fqn()
-        if target_platform != DBT_PLATFORM or self.convert_urns_to_lowercase:
+        if self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
             platform=target_platform,
@@ -3230,26 +3243,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
 
     def _should_create_sibling_relationships(self, node: DBTNode) -> bool:
+        """Whether to emit sibling relationships for a dbt node.
+
+        When dbt_is_primary_sibling=False, always emits so the dbt source
+        controls primary/secondary designation.
+
+        When dbt_is_primary_sibling=True, emits for semantic views because
+        the SiblingAssociationHook doesn't handle them (it only recognizes
+        the "source" subtype on the dbt side, and the warehouse-side handler
+        is unreliable for semantic views). Standard models and sources are
+        left to the hook.
         """
-        Determines whether to emit sibling relationships for a dbt node.
-
-        Sibling relationships (both dbt entity's aspect and target entity's patch) are only
-        emitted when dbt_is_primary_sibling=False to establish explicit primary/secondary
-        relationships. When dbt_is_primary_sibling=True,
-        the SiblingAssociationHook handles sibling creation automatically.
-
-        Args:
-            node: The dbt node to evaluate
-
-        Returns:
-            True if sibling patches should be emitted for this node
-        """
-        # Only create siblings for entities that exist in target platform
         if not node.exists_in_target_platform:
             return False
-
-        # Only emit patches when explicit primary/secondary control is needed
-        return self.config.dbt_is_primary_sibling is False
+        if self.config.dbt_is_primary_sibling is False:
+            return True
+        return node.materialization == "semantic_view"
 
     def get_report(self):
         return self.report
