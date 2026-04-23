@@ -859,6 +859,21 @@ def _first_present(data: Dict[str, Any], keys: Iterable[str]) -> Any:
     return None
 
 
+def _resolve_successor_id(succ: Any) -> Optional[str]:
+    """Extract a step id from a ``nextSteps`` entry.
+
+    IDMC's Taskflow JSON varies across API versions: ``nextSteps`` can
+    be a list of bare step-id strings or a list of ``{"id": "..."}``
+    dicts. Return ``None`` for anything else (unknown shape).
+    """
+    if isinstance(succ, str):
+        return succ
+    if isinstance(succ, dict):
+        succ_id = _first_present(succ, _TASKFLOW_STEP_ID_KEYS)
+        return str(succ_id) if succ_id else None
+    return None
+
+
 def parse_taskflow_definition(data: Dict[str, Any]) -> Optional[TaskflowDefinition]:
     """Convert a Taskflow JSON payload into a :class:`TaskflowDefinition`.
 
@@ -886,12 +901,9 @@ def parse_taskflow_definition(data: Dict[str, Any]) -> Optional[TaskflowDefiniti
         next_raw = _first_present(raw, _TASKFLOW_STEP_NEXT_KEYS) or []
         if isinstance(next_raw, list):
             for succ in next_raw:
-                if isinstance(succ, str):
-                    successors.setdefault(step_id, []).append(succ)
-                elif isinstance(succ, dict):
-                    succ_id = _first_present(succ, _TASKFLOW_STEP_ID_KEYS)
-                    if succ_id:
-                        successors.setdefault(step_id, []).append(str(succ_id))
+                resolved = _resolve_successor_id(succ)
+                if resolved:
+                    successors.setdefault(step_id, []).append(resolved)
         steps.append(
             TaskflowStep(
                 step_id=str(step_id),

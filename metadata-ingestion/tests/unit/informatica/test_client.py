@@ -10,6 +10,7 @@ import requests
 from datahub.ingestion.source.informatica.client import (
     InformaticaClient,
     _parse_taskflow_export_package,
+    _resolve_successor_id,
     parse_saas_connection_ref,
     parse_taskflow_definition,
     parse_taskflow_xml,
@@ -700,6 +701,36 @@ class TestParseSaasConnectionRef:
 
     def test_handles_empty(self):
         assert parse_saas_connection_ref("") == ""
+
+
+class TestResolveSuccessorId:
+    """IDMC Taskflow JSON shape drift: ``nextSteps`` can be bare strings
+    or ``{"id": ...}`` dicts. The helper returns ``None`` for anything
+    else so schema drift doesn't leak into the step-id list.
+    """
+
+    def test_bare_string_returns_as_is(self):
+        assert _resolve_successor_id("step-42") == "step-42"
+
+    def test_dict_with_id_key_extracts_id(self):
+        assert _resolve_successor_id({"id": "step-42"}) == "step-42"
+        assert _resolve_successor_id({"stepId": "step-42"}) == "step-42"
+        assert _resolve_successor_id({"name": "step-42"}) == "step-42"
+
+    def test_dict_id_is_coerced_to_str(self):
+        # IDMC has returned numeric ids in older payloads; coerce to str
+        # so downstream ``successors.setdefault(...)`` keys stay uniform.
+        assert _resolve_successor_id({"id": 42}) == "42"
+
+    def test_dict_without_id_returns_none(self):
+        assert _resolve_successor_id({"label": "step-42"}) is None
+
+    def test_unknown_shape_returns_none(self):
+        # Numbers, lists, None — anything that isn't str or {id: ...}
+        # shouldn't produce a false step id.
+        assert _resolve_successor_id(42) is None
+        assert _resolve_successor_id(["step-42"]) is None
+        assert _resolve_successor_id(None) is None
 
 
 class TestParseTaskflowDefinition:
