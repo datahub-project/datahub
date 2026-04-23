@@ -61,7 +61,7 @@ def _make_site_source() -> TableauSiteSource:
     return source
 
 
-def _extract_dataset_custom_props(work_units) -> dict:
+def _extract_dataset_custom_props(work_units: list) -> dict:
     """Extract customProperties from DatasetPropertiesClass in work units."""
     for wu in work_units:
         if isinstance(wu.metadata, MetadataChangeProposalWrapper):
@@ -74,7 +74,7 @@ def _extract_dataset_custom_props(work_units) -> dict:
     return {}
 
 
-def _extract_container_custom_props(work_units) -> dict:
+def _extract_container_custom_props(work_units: list) -> dict:
     """Extract customProperties from ContainerPropertiesClass in work units."""
     for wu in work_units:
         if isinstance(wu.metadata, MetadataChangeProposalWrapper):
@@ -91,7 +91,7 @@ def test_emit_datasource_luid_none_omitted():
     """
     source = _make_site_source()
 
-    datasource = {
+    datasource: dict = {
         c.ID: "ds-1",
         c.NAME: "Test DS",
         c.TYPE_NAME: c.PUBLISHED_DATA_SOURCE,
