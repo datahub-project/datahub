@@ -31,10 +31,10 @@ The ingestion is entry-type driven: each Universal Catalog `entry_type` maps to 
 
 Dataplex [Business Glossaries](https://cloud.google.com/dataplex/docs/glossaries-overview) are ingested as a three-level hierarchy of DataHub Glossary entities.
 
-| Dataplex entity | DataHub entity  | URN pattern                                                          |
-| :-------------- | :-------------- | :------------------------------------------------------------------- |
-| Glossary        | `GlossaryNode`  | `dataplex.{project_id}.{location}.{glossary_id}`                     |
-| Category        | `GlossaryNode`  | `dataplex.{project_id}.{location}.{glossary_id}.{category_id}`       |
-| Term            | `GlossaryTerm`  | `dataplex.{project_id}.{location}.{glossary_id}.{term_id}`           |
+| Dataplex entity | DataHub entity | URN pattern                                                    |
+| :-------------- | :------------- | :------------------------------------------------------------- |
+| Glossary        | `GlossaryNode` | `dataplex.{project_id}.{location}.{glossary_id}`               |
+| Category        | `GlossaryNode` | `dataplex.{project_id}.{location}.{glossary_id}.{category_id}` |
+| Term            | `GlossaryTerm` | `dataplex.{project_id}.{location}.{glossary_id}.{term_id}`     |
 
 Terms are marked as `EXTERNAL` with a `source_url` pointing to the Dataplex console entry. When `include_glossary_term_associations` is enabled (default), the connector also resolves term-to-asset links via the Dataplex `lookupEntryLinks` API and attaches the corresponding `GlossaryTerm` to each linked DataHub dataset.
