@@ -280,7 +280,10 @@ class PowerBiAPI:
                 id=workspace[Constant.ID],
                 name=workspace[Constant.NAME],
                 type=workspace[Constant.TYPE],
-                webUrl=f"{self.__config.environment.web_app_base_url}/groups/{workspace[Constant.ID]}",
+                webUrl=self.__config.environment.workspace_url(
+                    workspace_id=workspace[Constant.ID],
+                    workspace_type=workspace[Constant.TYPE],
+                ),
                 datasets={},
                 dashboards={},
                 reports={},

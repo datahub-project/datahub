@@ -44,6 +44,7 @@ def _make_workspace(ws_id: str, name: str = "ws") -> Workspace:
         id=ws_id,
         name=name,
         type="Workspace",
+        webUrl=f"https://app.powerbi.com/groups/{ws_id}",
         datasets={},
         dashboards={},
         reports={},
@@ -664,4 +665,61 @@ def test_get_workunits_internal_phase1_batch_failure_isolates_other_batches(capl
         "Phase 1 must not double-log: only per-workspace reporter.warning "
         f"entries are expected; got extra batch-level lines: "
         f"{[r.getMessage() for r in batch_level_lines]}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Workspace.webUrl construction
+# ---------------------------------------------------------------------------
+
+
+def _mock_groups_response(api: PowerBiAPI, groups: List[Dict[str, Any]]) -> Any:
+    """Patch the resolver get_groups() call used by PowerBiAPI.get_workspaces."""
+    return mock.patch.object(api._get_resolver(), "get_groups", return_value=groups)
+
+
+def test_get_workspaces_builds_commercial_workspace_url():
+    """COMMERCIAL environment surfaces app.powerbi.com URLs by id."""
+    api = _make_api()  # COMMERCIAL is the default
+    groups = [
+        {Constant.ID: "WS-1", Constant.NAME: "ws-one", Constant.TYPE: "Workspace"}
+    ]
+    with _mock_groups_response(api, groups):
+        workspaces = api.get_workspaces()
+
+    assert len(workspaces) == 1
+    assert workspaces[0].webUrl == "https://app.powerbi.com/groups/WS-1"
+
+
+def test_get_workspaces_builds_government_workspace_url():
+    """GOVERNMENT environment must use the GCC base URL, not the commercial one."""
+    api = _make_api(environment="GOVERNMENT")
+    groups = [
+        {Constant.ID: "WS-2", Constant.NAME: "ws-two", Constant.TYPE: "Workspace"}
+    ]
+    with _mock_groups_response(api, groups):
+        workspaces = api.get_workspaces()
+
+    assert workspaces[0].webUrl == "https://app.powerbigov.us/groups/WS-2"
+
+
+def test_get_workspaces_omits_url_for_personal_workspace():
+    """PersonalGroup workspaces are not addressable by id in the PowerBI UI;
+    surface webUrl=None instead of a dead /groups/{guid} link."""
+    api = _make_api()
+    groups = [
+        {Constant.ID: "WS-A", Constant.NAME: "shared", Constant.TYPE: "Workspace"},
+        {Constant.ID: "PG-1", Constant.NAME: "mine", Constant.TYPE: "PersonalGroup"},
+        {Constant.ID: "P-1", Constant.NAME: "legacy", Constant.TYPE: "Personal"},
+    ]
+    with _mock_groups_response(api, groups):
+        workspaces = api.get_workspaces()
+
+    by_id = {w.id: w for w in workspaces}
+    assert by_id["WS-A"].webUrl == "https://app.powerbi.com/groups/WS-A"
+    assert by_id["PG-1"].webUrl is None, (
+        "PersonalGroup workspaces are not directly addressable; URL must be None"
+    )
+    assert by_id["P-1"].webUrl is None, (
+        "Legacy Personal workspaces are not directly addressable; URL must be None"
     )

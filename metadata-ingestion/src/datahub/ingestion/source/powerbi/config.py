@@ -369,6 +369,19 @@ class PowerBiEnvironment(ConfigEnum):
             return "https://app.powerbigov.us"
         return "https://app.powerbi.com"
 
+    def workspace_url(self, workspace_id: str, workspace_type: str) -> Optional[str]:
+        """Build a clickable PowerBI UI URL for a workspace.
+
+        Personal workspaces (``PersonalGroup``, ``Personal``) are not
+        addressable by id in the PowerBI UI - they are reachable only via
+        the special ``/groups/me`` alias and only by their owner. Surfacing
+        ``/groups/{guid}`` for those types would produce a dead link
+        (``GroupNotAccessible``), so we return ``None`` instead.
+        """
+        if workspace_type in ("PersonalGroup", "Personal"):
+            return None
+        return f"{self.web_app_base_url}/groups/{workspace_id}"
+
 
 class PowerBiAppUrlPattern(ConfigEnum):
     WORKSPACE_BASED = "WORKSPACE_BASED"
