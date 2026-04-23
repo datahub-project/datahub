@@ -47,8 +47,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test as base, request, type Browser } from '@playwright/test';
 import { readGmsToken, gmsTokenPath } from './login';
-import type { UserCredentials } from './users';
-import { LoginPage } from '../pages/login-page';
+import type { UserCredentials } from '../data/users';
+import { LoginPage } from '../pages/login.page';
 import { gmsUrl } from '../utils/constants';
 import { extractUrn, type Mcp } from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
@@ -331,6 +331,8 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
 
       await use();
     },
-    { auto: true, scope: 'worker' },
+    // 90 s: ingestMcps + 15 s ES index wait + network overhead can exceed the
+    // default fixture timeout (which mirrors the 30 s test timeout).
+    { auto: true, scope: 'worker', timeout: 90_000 },
   ],
 });

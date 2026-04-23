@@ -1,5 +1,5 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { BasePage } from './base-page';
+import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
 export class WelcomeModalPage extends BasePage {
@@ -77,25 +77,33 @@ export class WelcomeModalPage extends BasePage {
     await expect(this.modal).not.toBeVisible();
   }
 
-  async expectModalTitle(): Promise<void> {
+  async expectModalTitleVisible(): Promise<void> {
     await expect(this.modalTitle).toBeVisible();
   }
 
   async closeViaButton(): Promise<void> {
-    // Wait for carousel to be ready first (modal might be in loading state)
-    await this.waitForCarouselReady();
-    // Wait for close button to be visible and clickable
+    // Only wait for carousel to be ready if the loading indicator is actually present.
+    const loadingText = this.page.getByText('Loading...');
+    if (await loadingText.isVisible()) {
+      await this.waitForCarouselReady();
+    }
     await this.closeButton.waitFor({ state: 'visible', timeout: 5000 });
     await this.closeButton.click();
     await this.modal.waitFor({ state: 'hidden' });
   }
 
   async closeViaGetStarted(): Promise<void> {
+    // The Get Started button is rendered via rightComponent only after the carousel's
+    // afterChange callback fires and React updates currentSlide to the last index.
+    // Wait for the button to be visible before clicking.
+    await this.getStartedButton.waitFor({ state: 'visible', timeout: 10000 });
     await this.getStartedButton.click();
     await this.modal.waitFor({ state: 'hidden' });
   }
 
   async closeViaEscape(): Promise<void> {
+    // Ensure the modal has focus so the Escape key event is captured by Ant Design.
+    await this.modal.click({ position: { x: 5, y: 5 }, force: true }).catch(() => {});
     await this.page.keyboard.press('Escape');
     await this.modal.waitFor({ state: 'hidden' });
   }
@@ -112,6 +120,9 @@ export class WelcomeModalPage extends BasePage {
   }
 
   async clickLastCarouselDot(): Promise<void> {
+    // Ensure carousel dots are rendered before clicking.
+    await this.waitForCarouselReady();
+    await this.lastCarouselDot.waitFor({ state: 'visible', timeout: 10000 });
     await this.lastCarouselDot.click();
     await this.page.waitForTimeout(500); // Wait for carousel animation
   }
@@ -123,6 +134,10 @@ export class WelcomeModalPage extends BasePage {
 
   async expectSlide2Visible(): Promise<void> {
     await this.waitForCarouselReady();
+    // Wait for the active dot to move to index 1 before asserting the heading.
+    // This is reliable with both real and fake (page.clock) timers since
+    // waitForFunction polls the DOM using real Playwright time.
+    await this.waitForSlideChange(1);
     await expect(this.slide2Heading).toBeVisible();
   }
 
