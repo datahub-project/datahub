@@ -781,6 +781,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                     # Abstract explores (extension: required) are base templates that
                     # cannot be queried via the Looker API — skip to avoid 404 errors.
+                    # https://docs.cloud.google.com/looker/docs/reference/param-explore-extension
                     if explore_dict.get("extension") == "required":
                         continue
 
