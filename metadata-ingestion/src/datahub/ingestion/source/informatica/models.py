@@ -264,6 +264,9 @@ class IdmcMappingTask(BaseModel):
 
     ``mapping_id`` is the *v2* id of the referenced Mapping. To look up
     the mapping in v3 GUID-keyed state, translate via the v2 index first.
+    ``None`` means the v3 MTT listing has been parsed but the v2-detail
+    enrichment has not yet populated the reference (or the v2 call
+    failed) — distinct from "enriched, but the reference is empty".
     """
 
     model_config = _IDMC_MODEL_CONFIG
@@ -272,7 +275,7 @@ class IdmcMappingTask(BaseModel):
     name: str
     path: str = ""
     description: Optional[str] = None
-    mapping_id: V2Id = V2Id("")
+    mapping_id: Optional[V2Id] = None
     mapping_name: str = ""
     connection_id: str = ""
     created_by: Optional[str] = None
@@ -298,7 +301,9 @@ class IdmcMappingTask(BaseModel):
     def merge_v2_details(self, data: Dict[str, Any]) -> None:
         # v3 MTT listing omits the mapping reference; the v2 detail
         # endpoint carries it. Empty values don't clobber existing fields.
-        self.mapping_id = V2Id(data.get("mappingId") or self.mapping_id)
+        new_mapping_id = data.get("mappingId")
+        if new_mapping_id:
+            self.mapping_id = V2Id(new_mapping_id)
         self.mapping_name = data.get("mappingName") or self.mapping_name
         self.connection_id = data.get("connectionId") or self.connection_id
 

@@ -271,6 +271,12 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _extract_containers(self) -> Iterable[Entity]:
+        # Projects emit before Folders so folder parent_container edges
+        # can check ``_emitted_project_names`` and skip orphans.
+        yield from self._emit_projects()
+        yield from self._emit_folders()
+
+    def _emit_projects(self) -> Iterable[Entity]:
         projects = self._safe_list(
             lambda: self._iter_with_tags("Project"),
             title="Failed to list IDMC projects",
@@ -294,6 +300,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             )
             yield self._make_project_container(project)
 
+    def _emit_folders(self) -> Iterable[Entity]:
         folders = self._safe_list(
             lambda: self._iter_with_tags("Folder"),
             title="Failed to list IDMC folders",
@@ -656,7 +663,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 "v3Id": mt.v2_id,
                 "objectType": "MTT",
                 "path": mt.path,
-                "mappingId": mt.mapping_id,
+                "mappingId": mt.mapping_id or "",
                 "mappingName": mapping_name,
                 "mappingV3Id": mapping_v3_guid,
                 "createdBy": mt.created_by or "",
@@ -826,7 +833,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             # ``mapping_pattern`` filters by the referenced Mapping's name,
             # not the MT name.
-            v2_mapping = self._v2_mappings_by_v2_id.get(mt.mapping_id)
+            v2_mapping = (
+                self._v2_mappings_by_v2_id.get(mt.mapping_id) if mt.mapping_id else None
+            )
             mapping_name = mt.mapping_name or (v2_mapping.name if v2_mapping else "")
             if mapping_name and not self.config.mapping_pattern.allowed(mapping_name):
                 self.report.mappings_filtered += 1
@@ -859,7 +868,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         """
         # v2 mapping_id → v3 GUID so the lineage phase can match export
         # output back to this MT's DataJob.
-        v2_mapping = self._v2_mappings_by_v2_id.get(mt.mapping_id)
+        v2_mapping = (
+            self._v2_mappings_by_v2_id.get(mt.mapping_id) if mt.mapping_id else None
+        )
         mapping_v3_guid = v2_mapping.asset_frs_guid if v2_mapping else ""
         mapping_name = mt.mapping_name or (v2_mapping.name if v2_mapping else "")
         custom_props = self._mt_custom_props(mt, mapping_name, mapping_v3_guid)
@@ -879,7 +890,30 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         )
         browse_entries = self._attach_container_and_browse_path(flow, mt.path)
         yield flow
+        yield self._make_mt_transform_datajob(
+            mt, flow, custom_props, task_tags, browse_entries, mapping_v3_guid
+        )
 
+    def _make_mt_transform_datajob(
+        self,
+        mt: IdmcMappingTask,
+        flow: DataFlow,
+        custom_props: Dict[str, str],
+        task_tags: Optional[List[TagUrn]],
+        browse_entries: List[BrowsePathEntryClass],
+        mapping_v3_guid: str,
+    ) -> DataJob:
+        """Build the MT's inner ``transform`` DataJob and register its URN
+        for the lineage + Taskflow-step phases to pick up.
+
+        Index bookkeeping:
+          * ``_mapping_v3_to_mt_job_urns`` — Mapping v3 GUID → [MT job urn];
+            lineage fan-out joins export results to every MT that runs the
+            mapping.
+          * ``_mapping_ids`` — v3 GUIDs to submit to the export API.
+          * ``_mt_v2_id_to_job_urn`` / ``_mt_name_to_job_urn`` — Taskflow
+            step references may name an MT by either id or name.
+        """
         job = DataJob(
             name=MAPPING_JOB_ID,
             flow=flow,
@@ -890,12 +924,14 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             owners=self._owner_list(mt.created_by, mt.updated_by),
             tags=task_tags,
         )
-        job_browse_entries = [
-            *browse_entries,
-            BrowsePathEntryClass(id=mt.name, urn=str(flow.urn)),
-        ]
-        job._set_aspect(BrowsePathsV2Class(path=job_browse_entries))
-
+        job._set_aspect(
+            BrowsePathsV2Class(
+                path=[
+                    *browse_entries,
+                    BrowsePathEntryClass(id=mt.name, urn=str(flow.urn)),
+                ]
+            )
+        )
         job_urn = str(job.urn)
         if mapping_v3_guid:
             self._mapping_v3_to_mt_job_urns.setdefault(mapping_v3_guid, []).append(
@@ -903,13 +939,11 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             )
             if mapping_v3_guid not in self._mapping_ids:
                 self._mapping_ids.append(mapping_v3_guid)
-        # Index by both v2 id and name so Taskflow steps that reference MTs
-        # either way can resolve.
         if mt.v2_id:
             self._mt_v2_id_to_job_urn[mt.v2_id] = job_urn
         if mt.name:
             self._mt_name_to_job_urn[mt.name] = job_urn
-        yield job
+        return job
 
     def _extract_lineage(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self._load_connections()

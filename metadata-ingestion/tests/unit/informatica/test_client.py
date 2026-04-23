@@ -547,9 +547,11 @@ class TestListMappingTasksEnrichment:
         ):
             tasks = list(client.list_mapping_tasks())
 
-        # Task still yielded — enrichment failure must not drop the MT
+        # Task still yielded — enrichment failure must not drop the MT.
+        # mapping_id stays ``None`` so downstream code can distinguish
+        # "enrichment failed / not yet run" from "enriched but blank".
         assert len(tasks) == 1
-        assert tasks[0].mapping_id == ""
+        assert tasks[0].mapping_id is None
         assert any(
             "enrich IDMC mapping task" in (w.title or "")
             for w in client.report.warnings

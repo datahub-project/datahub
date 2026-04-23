@@ -14,7 +14,6 @@ from typing import (
     Iterator,
     List,
     Optional,
-    Set,
     TypedDict,
 )
 from urllib.parse import urlencode
@@ -693,43 +692,61 @@ class InformaticaClient:
                     )
                     if mapping_id:
                         assigned_ids.add(mapping_id)
-                    try:
-                        info = outer_zip.getinfo(entry_name)
-                        if info.file_size > _MAX_INNER_ZIP_BYTES:
-                            self.report.warning(
-                                title="IDMC export entry exceeds zip-bomb guard",
-                                message="Skipping suspiciously large mapping export entry.",
-                                context=(
-                                    f"job_id={job_id}, entry={entry_name}, "
-                                    f"decompressed_size={info.file_size}"
-                                ),
-                            )
-                            self.report.report_object_failed(
-                                entry_name, f"exceeds {_MAX_INNER_ZIP_BYTES} bytes"
-                            )
-                            continue
-                        with zipfile.ZipFile(
-                            io.BytesIO(outer_zip.read(entry_name))
-                        ) as inner_zip:
-                            lineage = self._parse_inner_dtemplate_zip(
-                                inner_zip, entry_name, mapping_id
-                            )
-                        if lineage:
-                            yield lineage
-                    except (
-                        zipfile.BadZipFile,
-                        UnicodeDecodeError,
-                        json.JSONDecodeError,
-                        KeyError,
-                        ValueError,
-                    ) as e:
-                        self.report.warning(
-                            title="Failed to parse IDMC mapping export entry",
-                            message="Lineage for this mapping will be missing.",
-                            context=f"job_id={job_id}, entry={entry_name}",
-                            exc=e,
-                        )
-                        self.report.report_object_failed(entry_name, str(e))
+                    lineage = self._parse_dtemplate_entry(
+                        outer_zip, entry_name, mapping_id, job_id
+                    )
+                    if lineage is not None:
+                        yield lineage
+
+    def _parse_dtemplate_entry(
+        self,
+        outer_zip: zipfile.ZipFile,
+        entry_name: str,
+        mapping_id: str,
+        job_id: str,
+    ) -> Optional[MappingLineageInfo]:
+        """Open one ``*.DTEMPLATE.zip`` entry, guard against zip-bomb
+        payloads, and delegate to the mapping-design parser.
+
+        Returns ``None`` and records a report warning/failure on any of:
+        oversized decompressed entry, malformed inner ZIP, bad UTF-8 in
+        ``@3.bin``, or unexpected JSON shape. A failure on one entry
+        never aborts the caller's loop over sibling entries.
+        """
+        try:
+            info = outer_zip.getinfo(entry_name)
+            if info.file_size > _MAX_INNER_ZIP_BYTES:
+                self.report.warning(
+                    title="IDMC export entry exceeds zip-bomb guard",
+                    message="Skipping suspiciously large mapping export entry.",
+                    context=(
+                        f"job_id={job_id}, entry={entry_name}, "
+                        f"decompressed_size={info.file_size}"
+                    ),
+                )
+                self.report.report_object_failed(
+                    entry_name, f"exceeds {_MAX_INNER_ZIP_BYTES} bytes"
+                )
+                return None
+            with zipfile.ZipFile(io.BytesIO(outer_zip.read(entry_name))) as inner_zip:
+                return self._parse_inner_dtemplate_zip(
+                    inner_zip, entry_name, mapping_id
+                )
+        except (
+            zipfile.BadZipFile,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            KeyError,
+            ValueError,
+        ) as e:
+            self.report.warning(
+                title="Failed to parse IDMC mapping export entry",
+                message="Lineage for this mapping will be missing.",
+                context=f"job_id={job_id}, entry={entry_name}",
+                exc=e,
+            )
+            self.report.report_object_failed(entry_name, str(e))
+            return None
 
     @staticmethod
     def _resolve_entry_mapping_id(
@@ -1054,6 +1071,42 @@ def _collect_taskflow_edges(
     return successors
 
 
+def _xml_node_to_step(node: ET.Element) -> Optional[TaskflowStep]:
+    """Convert a single ``<flow>`` child node into a :class:`TaskflowStep`.
+
+    Returns ``None`` for nodes with no ``id`` or for control-flow
+    markers (``<start>``, ``<end>``). The node's ``<service>`` child (if
+    any) carries the step's human name and its ``task_ref_*`` — absent
+    for non-data flavors, default is inferred from the XML tag name
+    (``eventContainer`` → ``"data"``, anything else → ``"unknown"``).
+    """
+    tag = _local_tag(node)
+    node_id = node.get("id", "")
+    if not node_id or tag in _TASKFLOW_MARKER_TAGS:
+        return None
+    fallback_type: TaskflowStepType = "data" if tag == "eventContainer" else "unknown"
+    service = _first_child(node, "service")
+    if service is not None:
+        svc = _parse_taskflow_step_service(service, fallback_type=fallback_type)
+    else:
+        svc = TaskflowStepServiceData(
+            step_name=None,
+            step_type=fallback_type,
+            task_type=None,
+            task_ref_name=None,
+            task_ref_id=None,
+        )
+    step_type_value = svc["step_type"] or fallback_type
+    return TaskflowStep(
+        step_id=node_id,
+        step_name=svc["step_name"] or node_id,
+        step_type=_normalize_step_type(str(step_type_value)),
+        task_type=svc["task_type"],
+        task_ref_name=svc["task_ref_name"],
+        task_ref_id=svc["task_ref_id"],
+    )
+
+
 def parse_taskflow_xml(xml_bytes: bytes) -> Optional[TaskflowDefinition]:
     """Parse IDMC's v3-exported ``.TASKFLOW.xml`` into a :class:`TaskflowDefinition`.
 
@@ -1120,44 +1173,15 @@ def parse_taskflow_xml(xml_bytes: bytes) -> Optional[TaskflowDefinition]:
 
     successors = _collect_taskflow_edges(flow_elem)
     steps: List[TaskflowStep] = []
-    real_step_ids: Set[str] = set()
     for node in flow_elem:
-        tag = _local_tag(node)
-        node_id = node.get("id", "")
-        if not node_id or tag in _TASKFLOW_MARKER_TAGS:
-            continue
-        real_step_ids.add(node_id)
-        # ``eventContainer`` is the XML tag for data-task nodes.
-        fallback_type: TaskflowStepType = (
-            "data" if tag == "eventContainer" else "unknown"
-        )
-        service = _first_child(node, "service")
-        if service is not None:
-            svc = _parse_taskflow_step_service(service, fallback_type=fallback_type)
-        else:
-            svc = TaskflowStepServiceData(
-                step_name=None,
-                step_type=fallback_type,
-                task_type=None,
-                task_ref_name=None,
-                task_ref_id=None,
-            )
-        step_type_value = svc["step_type"] or fallback_type
-        steps.append(
-            TaskflowStep(
-                step_id=node_id,
-                step_name=svc["step_name"] or node_id,
-                step_type=_normalize_step_type(str(step_type_value)),
-                task_type=svc["task_type"],
-                task_ref_name=svc["task_ref_name"],
-                task_ref_id=svc["task_ref_id"],
-            )
-        )
+        step = _xml_node_to_step(node)
+        if step is not None:
+            steps.append(step)
 
     # Invert successors → predecessors; skip control-flow marker nodes.
     by_id = {s.step_id: s for s in steps}
     for src_id, dsts in successors.items():
-        if src_id not in real_step_ids:
+        if src_id not in by_id:
             continue
         for dst_id in dsts:
             dst = by_id.get(dst_id)

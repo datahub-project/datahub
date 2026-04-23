@@ -362,6 +362,56 @@ class _FailedExportClient(_StubClient):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+def test_preserves_case_when_convert_urns_to_lowercase_disabled(tmp_path):
+    """With ``convert_urns_to_lowercase: false`` the emitted dataset URNs
+    must use IDMC's original case.
+
+    The default ``True`` (tested in ``test_informatica_ingestion``) matches
+    Snowflake/Postgres/BigQuery's default lowercasing; the ``False`` path
+    exists for orgs that have disabled lowercasing on their source
+    platform so lineage edges still line up. Cross-source URN alignment
+    is the connector's primary value proposition, so both paths need
+    integration-level proof.
+    """
+    output_path = tmp_path / "informatica_mces_case_preserved.json"
+    _run_pipeline(
+        _StubClient,
+        output_path,
+        extra_config={"convert_urns_to_lowercase": False},
+    )
+    with open(output_path) as f:
+        records = json.load(f)
+    dataset_urns = {r["entityUrn"] for r in records if r.get("entityType") == "dataset"}
+    # Lineage fixture emits from APPS.ORDERS → ANALYTICS.ORDERS and
+    # APPS.CUSTOMERS → ANALYTICS.CUSTOMERS_ENRICHED. With lowercasing
+    # disabled, every qualifier component keeps its IDMC-reported case.
+    # (Note: upstream URNs don't get the source's ``platform_instance``
+    # prefix — that comes from ``connection_to_platform_instance``, which
+    # this fixture doesn't set.)
+    expected_uppercase_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,OLTP.APPS.ORDERS,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.ORDERS,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,OLTP.APPS.CUSTOMERS,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,DWH.ANALYTICS.CUSTOMERS_ENRICHED,PROD)",
+    }
+    assert expected_uppercase_urns.issubset(dataset_urns), (
+        "convert_urns_to_lowercase=False must preserve IDMC's original "
+        f"case in dataset URNs. Emitted: {sorted(dataset_urns)}"
+    )
+    # Regression guard: ensure no lowercased variant is also emitted —
+    # that would mean the flag is being ignored somewhere in the chain.
+    lowercased_variants = {
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,oltp.apps.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,dwh.analytics.orders,PROD)",
+    }
+    assert not (lowercased_variants & dataset_urns), (
+        "convert_urns_to_lowercase=False produced a lowercased URN: "
+        f"{lowercased_variants & dataset_urns}"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
 def test_failed_export_emits_entities_without_lineage(tmp_path):
     """When IDMC's export job fails, entity metadata still ingests but no
     lineage MCPs are emitted — and the source report records a warning so
