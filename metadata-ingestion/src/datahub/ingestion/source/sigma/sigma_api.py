@@ -576,8 +576,9 @@ class SigmaAPI:
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
         ``model_cls``. Handles both pagination shapes (``nextPage`` and
-        ``nextPageToken``). Swallows HTTP/JSON errors so a broken page
-        does not abort the containing ingestion loop.
+        ``nextPageToken``). HTTP/JSON errors abort pagination and surface
+        a report warning; per-entry ``ValidationError`` drops only that
+        entry (so one malformed row cannot empty the whole list).
         """
         # Use ``&`` as the separator if the base URL already has query
         # params (e.g. an ``api_url`` routed through a proxy), so
@@ -591,7 +592,14 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for entry in response_dict.get(Constant.ENTRIES, []):
-                    results.append(model_cls.model_validate(entry))
+                    try:
+                        results.append(model_cls.model_validate(entry))
+                    except ValidationError as ve:
+                        self.report.warning(
+                            message=f"{error_ctx} Dropped malformed entry.",
+                            context=f"entry={entry!r}",
+                            exc=ve,
+                        )
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
@@ -602,8 +610,18 @@ class SigmaAPI:
                     break
             return results
         except Exception as e:
+            # Surface HTTP/JSON pagination failures so the operator sees
+            # them in the ingestion report; ``_log_http_error`` alone is
+            # debug-level and would leave the DM looking healthy while its
+            # elements/columns are silently missing. Partial results
+            # collected before the break are preserved.
+            self.report.warning(
+                message=f"{error_ctx} Pagination aborted.",
+                context=f"url={url}, partial_results={len(results)}",
+                exc=e,
+            )
             self._log_http_error(message=f"{error_ctx} Exception: {e}")
-            return []
+            return results
 
     def _get_data_model_elements(
         self, data_model_id: str
@@ -701,86 +719,59 @@ class SigmaAPI:
 
     def get_data_models(self) -> List[SigmaDataModel]:
         logger.debug("Fetching all accessible data models metadata.")
-        base_url = url = f"{self.config.api_url}/dataModels"
-        # Match ``_paginated_entries``: handle a proxied ``api_url`` that
-        # already carries a query string so pagination does not collide.
-        separator = "&" if "?" in base_url else "?"
         data_model_files_metadata = self._get_files_metadata(
             file_type=Constant.DATA_MODEL
         )
-        try:
-            data_models: List[SigmaDataModel] = []
-            while True:
-                response = self._get_api_call(url)
-                response.raise_for_status()
-                response_dict = response.json()
-                for dm_dict in response_dict.get(Constant.ENTRIES, []):
-                    try:
-                        data_model = SigmaDataModel.model_validate(dm_dict)
-                    except ValidationError as e:
-                        self.report.warning(
-                            message="Failed to parse Sigma Data Model payload",
-                            context=f"entry={dm_dict!r}",
-                            exc=e,
-                        )
-                        continue
+        # Pagination and per-entry parse errors are handled by
+        # ``_paginated_entries``; this method only has to apply the
+        # workspace / DM-pattern filters and assemble each DM.
+        raw_data_models = self._paginated_entries(
+            f"{self.config.api_url}/dataModels",
+            SigmaDataModel,
+            "Unable to fetch sigma data models.",
+        )
+        data_models: List[SigmaDataModel] = []
+        for data_model in raw_data_models:
+            file_meta = data_model_files_metadata.get(data_model.dataModelId)
 
-                    file_meta = data_model_files_metadata.get(data_model.dataModelId)
+            # DM-pattern filter runs before workspace lookup to
+            # short-circuit three extra HTTP calls per filtered DM.
+            # (get_sigma_workbooks/datasets check workspace first
+            # because their payload is already complete.)
+            if not self.config.data_model_pattern.allowed(data_model.name):
+                self.report.data_models.dropped(
+                    f"{data_model.name} ({data_model.dataModelId})"
+                )
+                continue
 
-                    # DM-pattern filter runs before workspace lookup to
-                    # short-circuit three extra HTTP calls per filtered DM.
-                    # (get_sigma_workbooks/datasets check workspace first
-                    # because their payload is already complete.)
-                    if not self.config.data_model_pattern.allowed(data_model.name):
-                        self.report.data_models.dropped(
-                            f"{data_model.name} ({data_model.dataModelId})"
-                        )
-                        continue
+            workspace = None
+            candidate_workspace_id = file_meta.workspaceId if file_meta else None
+            if candidate_workspace_id:
+                workspace = self.get_workspace(candidate_workspace_id)
 
-                    workspace = None
-                    candidate_workspace_id = (
-                        file_meta.workspaceId if file_meta else None
+            if workspace:
+                if self.config.workspace_pattern.allowed(workspace.name):
+                    self.report.data_models.processed(
+                        f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
                     )
-                    if candidate_workspace_id:
-                        workspace = self.get_workspace(candidate_workspace_id)
-
-                    if workspace:
-                        if self.config.workspace_pattern.allowed(workspace.name):
-                            self.report.data_models.processed(
-                                f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
-                            )
-                            self._assemble_data_model(data_model, file_meta)
-                            data_models.append(data_model)
-                        else:
-                            self.report.data_models.dropped(
-                                f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
-                            )
-                    elif self.config.ingest_shared_entities:
-                        self.report.data_models_without_workspace += 1
-                        self.report.data_models.processed(
-                            f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
-                        )
-                        self._assemble_data_model(data_model, file_meta)
-                        data_models.append(data_model)
-                    else:
-                        self.report.data_models.dropped(
-                            f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
-                        )
-
-                next_page = response_dict.get(Constant.NEXTPAGE)
-                next_token = response_dict.get(Constant.NEXTPAGETOKEN)
-                if next_page:
-                    url = f"{base_url}{separator}page={next_page}"
-                elif next_token:
-                    url = f"{base_url}{separator}nextPageToken={next_token}"
+                    self._assemble_data_model(data_model, file_meta)
+                    data_models.append(data_model)
                 else:
-                    break
-            return data_models
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch sigma data models. Exception: {e}"
-            )
-            return []
+                    self.report.data_models.dropped(
+                        f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                    )
+            elif self.config.ingest_shared_entities:
+                self.report.data_models_without_workspace += 1
+                self.report.data_models.processed(
+                    f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+                )
+                self._assemble_data_model(data_model, file_meta)
+                data_models.append(data_model)
+            else:
+                self.report.data_models.dropped(
+                    f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
+                )
+        return data_models
 
     def get_sigma_workbooks(self) -> List[Workbook]:
         logger.debug("Fetching all accessible workbooks metadata.")

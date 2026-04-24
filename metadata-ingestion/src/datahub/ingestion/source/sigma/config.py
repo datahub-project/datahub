@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
@@ -248,3 +248,18 @@ class SigmaSourceConfig(
         description="Regex patterns to filter Sigma Data Model names in ingestion. "
         "Requires ingest_data_models to be enabled.",
     )
+
+    @model_validator(mode="after")
+    def _warn_data_model_pattern_without_ingest(self) -> "SigmaSourceConfig":
+        # Surface mis-configurations loudly; silently ignoring the pattern
+        # has tricked operators into thinking filters were active.
+        if (
+            not self.ingest_data_models
+            and self.data_model_pattern != AllowDenyPattern.allow_all()
+        ):
+            logger.warning(
+                "data_model_pattern is set but ingest_data_models=False; "
+                "the pattern will be ignored. Enable ingest_data_models or "
+                "remove data_model_pattern to silence this warning."
+            )
+        return self

@@ -5,7 +5,12 @@ import pytest
 import requests
 
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
-from datahub.ingestion.source.sigma.data_classes import DatasetUpstream, SheetUpstream
+from datahub.ingestion.source.sigma.data_classes import (
+    DatasetUpstream,
+    File,
+    SheetUpstream,
+    SigmaDataModel,
+)
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 
@@ -665,3 +670,98 @@ class TestGetElementInputDetails:
 
         assert dataset_inputs == {}
         assert chart_urns == ["urn:li:chart:(sigma,upstream_elem)"]
+
+
+class TestAssembleDataModelFileMetaFallback:
+    """Exercise the ``_assemble_data_model`` fallback that fills
+    ``workspaceId``/``path``/``badge``/``urlId`` from ``/files`` metadata
+    when the ``/dataModels`` payload omits them. Integration fixtures
+    happen to populate every field on ``/dataModels`` directly, so this
+    branch would otherwise be untested. (See review #3.)
+    """
+
+    def _dm(self, **overrides: object) -> SigmaDataModel:
+        import datetime as _dt
+
+        base = {
+            "dataModelId": "dm-uuid-1",
+            "name": "My DM",
+            "createdAt": _dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            "updatedAt": _dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        }
+        base.update(overrides)
+        return SigmaDataModel.model_validate(base)
+
+    def _file(self, **overrides: object) -> File:
+        base = {
+            "id": "file-1",
+            "name": "My DM",
+            "parentId": "folder-1",
+            "path": "Acryl Data/Marketing",
+            "type": "data-model",
+            "workspaceId": "ws-from-file",
+            "urlId": "urlid-from-file",
+            "badge": "certified",
+        }
+        base.update(overrides)
+        return File.model_validate(base)
+
+    def _patch_fetches(self, api: SigmaAPI) -> None:
+        # Short-circuit the three per-DM fetches; we only care about the
+        # fill-from-file-meta block.
+        patch.object(api, "_get_data_model_elements", return_value=[]).start()
+        patch.object(api, "_get_data_model_columns", return_value=[]).start()
+        patch.object(api, "_get_data_model_lineage_entries", return_value=[]).start()
+
+    def test_fills_missing_fields_from_file_meta(self) -> None:
+        api = _create_sigma_api()
+        self._patch_fetches(api)
+        dm = self._dm(workspaceId=None, path=None, urlId=None, badge=None)
+
+        try:
+            api._assemble_data_model(dm, self._file())
+        finally:
+            patch.stopall()
+
+        assert dm.workspaceId == "ws-from-file"
+        assert dm.path == "Acryl Data/Marketing"
+        assert dm.urlId == "urlid-from-file"
+        assert dm.badge == "certified"
+
+    def test_does_not_override_dm_payload_fields(self) -> None:
+        """``/dataModels`` wins when it already carries the field — a future
+        vendor change that populates these directly must not be silently
+        overwritten by ``/files``."""
+        api = _create_sigma_api()
+        self._patch_fetches(api)
+        dm = self._dm(
+            workspaceId="ws-from-dm",
+            path="DM Path",
+            urlId="urlid-from-dm",
+            badge="dm-badge",
+        )
+
+        try:
+            api._assemble_data_model(dm, self._file())
+        finally:
+            patch.stopall()
+
+        assert dm.workspaceId == "ws-from-dm"
+        assert dm.path == "DM Path"
+        assert dm.urlId == "urlid-from-dm"
+        assert dm.badge == "dm-badge"
+
+    def test_none_file_meta_is_safe(self) -> None:
+        api = _create_sigma_api()
+        self._patch_fetches(api)
+        dm = self._dm(workspaceId=None, path=None, urlId=None, badge=None)
+
+        try:
+            api._assemble_data_model(dm, None)
+        finally:
+            patch.stopall()
+
+        assert dm.workspaceId is None
+        assert dm.path is None
+        assert dm.urlId is None
+        assert dm.badge is None

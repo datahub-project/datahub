@@ -479,6 +479,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_dataset_urn: Dict[str, str],
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
+        # ``data_model.path`` starts with the workspace name (e.g.
+        # "Acryl Data/Marketing"); drop index 0 because the workspace is
+        # already the enclosing Container. ``split`` on a path with no
+        # separator yields ``["Acryl Data"]`` so [1:] safely degrades
+        # to ``[]``.
         paths = data_model.path.split("/")[1:] if data_model.path else []
         workspace_container_urn: Optional[str] = None
         if data_model.workspaceId:
@@ -491,12 +496,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             yield self._gen_entity_status_aspect(element_dataset_urn)
 
-            # description is empty: Sigma's /elements API has no
-            # element-level description. qualifiedName uses "/" as the
-            # separator; names containing "/" are disambiguated by URN.
+            # Sigma's /elements API has no element-level description, so
+            # we omit the field (description=None) rather than emitting an
+            # explicit empty string; aspect-replace semantics would blank
+            # any description a user edited in the UI. qualifiedName uses
+            # "/" as the separator; names containing "/" are still
+            # disambiguated by the element URN.
             element_properties = DatasetProperties(
                 name=element.name,
-                description="",
+                description=None,
                 qualifiedName=f"{data_model.name}/{element.name}",
                 customProperties={
                     "dataModelId": data_model.dataModelId,

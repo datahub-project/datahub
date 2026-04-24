@@ -144,6 +144,9 @@ class SigmaDataModelElement(BaseModel):
     elementId: str
     name: str
     type: Optional[str] = None
+    # NOTE: ``vizualizationType`` matches Sigma's API spelling (the typo is
+    # upstream, not ours). Keep as-is so Pydantic parses the raw payload
+    # without extra field aliasing.
     vizualizationType: Optional[str] = None
     columns: List[SigmaDataModelColumn] = []
     # From /lineage, filtered to this element. Each entry is either an
