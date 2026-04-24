@@ -215,27 +215,31 @@ class TestPathHelpers:
 
 
 class TestTagFilterAndIteration:
-    def test_returns_tags_when_configured(self):
+    def test_tag_filter_single_pass(self):
+        # list_objects must be called exactly once regardless of how many tags
+        # are configured — tag matching is done client-side.
         source = _make_source(tag_filter_names=["pii", "critical"])
-        assert source._tag_filters_or_none("TASKFLOW") == ["pii", "critical"]
+        obj_match = IdmcObject(
+            id="1", name="x", path="/Explore/P", object_type="TASKFLOW", tags=["pii"]
+        )
+        obj_no_match = IdmcObject(
+            id="2", name="y", path="/Explore/P", object_type="TASKFLOW", tags=["other"]
+        )
+        with patch.object(
+            source.client, "list_objects", return_value=iter([obj_match, obj_no_match])
+        ) as m:
+            results = list(source._iter_with_tags("TASKFLOW"))
+        m.assert_called_once_with("TASKFLOW")
+        assert [o.id for o in results] == ["1"]
 
     def test_skips_tag_filter_for_container_types(self):
-        # IDMC v3 rejects `tag==` on Project/Folder; ensure the code passes
-        # through with no tag for those types even when tag_filter_names is set.
+        # tag_filter_names must not drop Projects/Folders — IDMC v3 rejects
+        # tag== on those types and all containers should always be fetched.
         source = _make_source(tag_filter_names=["pii"])
-        assert source._tag_filters_or_none("Project") == [None]
-        assert source._tag_filters_or_none("Folder") == [None]
-
-    def test_iter_with_tags_dedupes_by_id(self):
-        source = _make_source(tag_filter_names=["a", "b"])
-        obj1 = IdmcObject(id="1", name="x", path="/Explore/P", object_type="TASKFLOW")
-        obj2 = IdmcObject(id="2", name="y", path="/Explore/P", object_type="TASKFLOW")
-        with patch.object(source.client, "list_objects") as m:
-            m.side_effect = lambda object_type, tag=None: (
-                iter([obj1, obj2]) if tag == "a" else iter([obj1])
-            )
-            results = list(source._iter_with_tags("TASKFLOW"))
-        assert [o.id for o in results] == ["1", "2"]
+        obj = IdmcObject(id="1", name="P", path="/Explore/P", object_type="Project")
+        with patch.object(source.client, "list_objects", return_value=iter([obj])):
+            results = list(source._iter_with_tags("Project"))
+        assert [o.id for o in results] == ["1"]
 
 
 class TestConnectionPlatformResolution:

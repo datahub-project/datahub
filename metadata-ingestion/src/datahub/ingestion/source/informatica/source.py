@@ -1292,35 +1292,28 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _iter_with_tags(self, object_type: IdmcObjectType) -> Iterable[IdmcObject]:
-        # Centralized tag-filter + bundle-skip + dedup so every entity type
-        # gets the same treatment. Drops are recorded to the report.
-        seen: set[str] = set()
-        for tag in self._tag_filters_or_none(object_type):
-            for obj in self.client.list_objects(object_type, tag=tag):
-                if obj.id in seen:
-                    self.report.report_filtered("dup", object_type, obj.path)
-                    continue
-                seen.add(obj.id)
-                if self._is_bundle_object(obj):
-                    self.report.report_filtered("bundle", object_type, obj.path)
-                    logger.debug(
-                        "Skipping bundle %s: id=%s path=%s",
-                        object_type,
-                        obj.id,
-                        obj.path,
-                    )
-                    continue
-                yield obj
-
-    def _tag_filters_or_none(self, object_type: IdmcObjectType) -> List[Optional[str]]:
-        # IDMC v3 rejects ``tag==`` on Project/Folder with HTTP 400;
-        # tags only apply to assets like TASKFLOW and DTEMPLATE.
-        if object_type in ("Project", "Folder"):
-            return [None]
-        if self.config.tag_filter_names:
-            tags: List[Optional[str]] = list(self.config.tag_filter_names)
-            return tags
-        return [None]
+        # Single pass per type; tag matching is client-side. Passing each tag
+        # separately would cause K × N API calls since IDMC ignores server-side
+        # tag filters for non-Project/Folder types.
+        tag_set = (
+            set(self.config.tag_filter_names)
+            if self.config.tag_filter_names and object_type not in ("Project", "Folder")
+            else None
+        )
+        for obj in self.client.list_objects(object_type):
+            if self._is_bundle_object(obj):
+                self.report.report_filtered("bundle", object_type, obj.path)
+                logger.debug(
+                    "Skipping bundle %s: id=%s path=%s",
+                    object_type,
+                    obj.id,
+                    obj.path,
+                )
+                continue
+            if tag_set and not any(t in obj.tags for t in tag_set):
+                self.report.report_filtered("tag", object_type, obj.path)
+                continue
+            yield obj
 
     @staticmethod
     def _is_project_masquerading_as_folder(obj: IdmcObject) -> bool:
