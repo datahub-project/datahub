@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import random
 import tempfile
 import time
 import xml.etree.ElementTree as ET
@@ -639,14 +640,16 @@ class InformaticaClient:
                 status = self.poll_export_job(job_id)
             except (InformaticaApiError, requests.HTTPError) as e:
                 logger.warning("Transient error polling export job %s: %s", job_id, e)
-                time.sleep(self.config.export_poll_interval_secs)
+                time.sleep(
+                    self.config.export_poll_interval_secs + random.uniform(-1, 1)
+                )
                 continue
             if status.state == ExportJobState.SUCCESSFUL:
                 return status
             if status.state not in (ExportJobState.IN_PROGRESS, ExportJobState.QUEUED):
                 self.report.report_export_failed(job_id, status.message)
                 return status
-            time.sleep(self.config.export_poll_interval_secs)
+            time.sleep(self.config.export_poll_interval_secs + random.uniform(-1, 1))
         self.report.report_export_failed(job_id, "Timed out waiting for export")
         self.report.warning(
             title="IDMC export job timed out",
