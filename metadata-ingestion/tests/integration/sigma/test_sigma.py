@@ -2045,3 +2045,131 @@ def test_sigma_ingest_data_models_schema_duplicate_fieldpath_dropped(
         f"duplicate fieldPath must be deduped, got {field_paths}"
     )
     assert set(field_paths) == {"duplicated_name", "unique_name"}
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_workspaceId_mismatch_uses_files(
+    pytestconfig, tmp_path, requests_mock
+):
+    """C2 regression: when ``/files`` reports workspaceId=A but the
+    ``/dataModels`` payload carries workspaceId=B (a DM that was moved,
+    or a Sigma-side inconsistency between the two endpoints),
+    ``get_data_models`` filters under workspace A (the ``/files``
+    preference is documented as "authoritative for the folder tree")
+    and :meth:`_assemble_data_model` must now also *render* under
+    workspace A. Previously a ``if data_model.workspaceId is None``
+    guard short-circuited the fill-from-file, leaving
+    ``data_model.workspaceId = B`` for per-workspace counters and
+    browse-path construction -- filtered in under A, rendered under B.
+
+    Pinned invariants:
+
+    1. The DM ends up in the workspace counters under the ``/files``
+       workspace (A), not the payload workspace (B).
+    2. The ``/dataModels`` payload workspace id (B) does not acquire
+       any DM-related count -- otherwise a single DM would show up
+       twice in two workspaces' dashboards.
+    """
+    FILES_WS = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    PAYLOAD_WS = "payload-ws-22222222-3333-4444-5555-666666666666"
+
+    override_data = get_mock_data_model_api()
+    # /files for this DM reports FILES_WS (the authoritative one).
+    # The base fixture already uses FILES_WS in /files, so leave it.
+    # /dataModels payload, however, diverges to PAYLOAD_WS -- this is
+    # the Sigma-side inconsistency the C2 reviewer called out.
+    override_data["https://aws-api.sigmacomputing.com/v2/dataModels"]["json"][
+        "entries"
+    ][0]["workspaceId"] = PAYLOAD_WS
+
+    # Mock /workspaces/{PAYLOAD_WS} so even if the bug regresses and
+    # the code tries to look up the payload workspace, the lookup
+    # succeeds (otherwise the test would pass vacuously because both
+    # pre- and post-fix code would drop the DM for "no workspace").
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{PAYLOAD_WS}"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaceId": PAYLOAD_WS,
+            "name": "Payload Workspace (should NOT receive the DM)",
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2024-03-12T08:31:04.826Z",
+            "updatedAt": "2024-03-12T08:31:04.826Z",
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_ws_mismatch_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    files_counts = report.workspaces.workspace_counts.get(FILES_WS)
+    payload_counts = report.workspaces.workspace_counts.get(PAYLOAD_WS)
+
+    assert files_counts is not None and files_counts.data_models_count == 1, (
+        "DM must be counted under the /files workspace (authoritative for "
+        "the folder tree), not the /dataModels payload workspace. Got "
+        f"files_counts={files_counts}"
+    )
+    assert files_counts.data_model_elements_count == 3, (
+        "All 3 DM elements must be counted under the /files workspace so "
+        "filtering, rendering, and per-workspace telemetry agree on a "
+        "single workspace. Got "
+        f"files_counts.data_model_elements_count={files_counts.data_model_elements_count}"
+    )
+    assert payload_counts is None or payload_counts.data_models_count == 0, (
+        "Payload-workspace counters must stay at zero -- a DM that appears "
+        "in both workspaces' dashboards is precisely the user-visible "
+        "split-brain C2 is protecting against. Got "
+        f"payload_counts={payload_counts}"
+    )
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # The DM element BrowsePathsV2 must reference the /files workspace
+    # container URN as its root, not the payload workspace's.
+    # Construct both expected container URNs so the assertion fails
+    # loudly if rendering regresses onto the payload workspace.
+    from datahub.emitter.mce_builder import make_container_urn
+    from datahub.ingestion.source.sigma.data_classes import WorkspaceKey
+
+    files_ws_container_urn = make_container_urn(
+        WorkspaceKey(workspaceId=FILES_WS, platform="sigma")
+    )
+    payload_ws_container_urn = make_container_urn(
+        WorkspaceKey(workspaceId=PAYLOAD_WS, platform="sigma")
+    )
+    element_urn_prefix = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb."
+    )
+    element_browse_paths_seen = 0
+    for mce in mces:
+        entity_urn = mce.get("entityUrn", "")
+        if not entity_urn.startswith(element_urn_prefix):
+            continue
+        if mce.get("aspectName") != "browsePathsV2":
+            continue
+        aspect_json = mce.get("aspect", {}).get("json", mce.get("aspect", {}))
+        path_ids = [entry.get("id") for entry in aspect_json.get("path", [])]
+        assert files_ws_container_urn in path_ids, (
+            f"DM element {entity_urn} BrowsePathsV2 must root at the "
+            f"/files workspace container URN ({files_ws_container_urn}); "
+            f"got path_ids={path_ids}"
+        )
+        assert payload_ws_container_urn not in path_ids, (
+            f"DM element {entity_urn} must NOT have the /dataModels "
+            f"payload workspace ({payload_ws_container_urn}) anywhere in "
+            f"its BrowsePathsV2; got path_ids={path_ids}"
+        )
+        element_browse_paths_seen += 1
+    assert element_browse_paths_seen == 3, (
+        f"expected BrowsePathsV2 for all 3 DM elements; got {element_browse_paths_seen}"
+    )

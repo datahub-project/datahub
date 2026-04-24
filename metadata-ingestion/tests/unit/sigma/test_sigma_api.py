@@ -725,17 +725,21 @@ class TestAssembleDataModelFileMetaFallback:
         dm = self._dm(workspaceId=None, path=None, urlId=None, badge=None)
 
         with self._patched_fetches(api):
-            api._assemble_data_model(dm, self._file())
+            api._assemble_data_model(
+                dm, self._file(), resolved_workspace_id="ws-from-file"
+            )
 
         assert dm.workspaceId == "ws-from-file"
         assert dm.path == "Acryl Data/Marketing"
         assert dm.urlId == "urlid-from-file"
         assert dm.badge == "certified"
 
-    def test_does_not_override_dm_payload_fields(self) -> None:
-        """``/dataModels`` wins when it already carries the field — a future
-        vendor change that populates these directly must not be silently
-        overwritten by ``/files``."""
+    def test_secondary_file_meta_fields_do_not_override_dm_payload(self) -> None:
+        """``path`` / ``badge`` / ``urlId`` remain /dataModels-preferred:
+        a future vendor change that populates them directly on the DM
+        payload must not be silently overwritten by ``/files``.
+        ``workspaceId`` is handled at the caller level now
+        (see ``test_resolved_workspace_id_overrides_dm_payload``)."""
         api = _create_sigma_api()
         dm = self._dm(
             workspaceId="ws-from-dm",
@@ -751,6 +755,32 @@ class TestAssembleDataModelFileMetaFallback:
         assert dm.path == "DM Path"
         assert dm.urlId == "urlid-from-dm"
         assert dm.badge == "dm-badge"
+
+    def test_resolved_workspace_id_overrides_dm_payload(self) -> None:
+        """C2 regression: the caller in ``get_data_models`` resolves
+        ``(file_meta.workspaceId, data_model.workspaceId)`` into a
+        single "authoritative" workspace -- with /files preferred when
+        it disagrees with the /dataModels payload -- and then uses
+        that same id for filtering and rendering. If
+        ``_assemble_data_model`` silently kept the DM-payload workspace
+        when the caller passed a different ``resolved_workspace_id``,
+        filtering would be done under workspace B while rendering /
+        browse paths / per-workspace counters keyed off workspace A.
+        """
+        api = _create_sigma_api()
+        dm = self._dm(workspaceId="ws-from-dm-payload")
+
+        with self._patched_fetches(api):
+            api._assemble_data_model(
+                dm,
+                self._file(workspaceId="ws-from-file"),
+                resolved_workspace_id="ws-from-file",
+            )
+
+        assert dm.workspaceId == "ws-from-file", (
+            "caller-resolved workspace must override the DM payload so "
+            "filtering and rendering agree on a single workspace per DM"
+        )
 
     def test_none_file_meta_is_safe(self) -> None:
         api = _create_sigma_api()
@@ -1116,6 +1146,7 @@ class TestPaginatedEntriesDedup:
 
 def _create_sigma_source(
     ingest_data_models: bool = True,
+    ingest_owner: bool = True,
     data_model_pattern_overrides: Optional[Dict[str, Any]] = None,
 ) -> SigmaSource:
     """Build a minimal :class:`SigmaSource` for unit tests. The API
@@ -1128,6 +1159,7 @@ def _create_sigma_source(
         "client_id": "test_client_id",
         "client_secret": "test_secret",
         "ingest_data_models": ingest_data_models,
+        "ingest_owner": ingest_owner,
     }
     if data_model_pattern_overrides is not None:
         config_kwargs["data_model_pattern"] = data_model_pattern_overrides
@@ -1313,4 +1345,490 @@ class TestDataModelPatternWarning:
         assert not any(
             "data_model_pattern ignored" in (w.title or "")
             for w in source.reporter.warnings
+        )
+
+    def test_ignore_case_false_on_default_pattern_does_not_warn(self) -> None:
+        """M3 edge case: a user who pins ``ignoreCase: False`` on an
+        otherwise-default pattern is semantically still "match
+        everything" (``.*`` matches regardless of case). The default
+        detector must not treat that as "non-default" and fire a
+        spurious "pattern ignored" warning.
+        """
+        source = _create_sigma_source(
+            ingest_data_models=False,
+            data_model_pattern_overrides={"ignoreCase": False},
+        )
+        assert not any(
+            "data_model_pattern ignored" in (w.title or "")
+            for w in source.reporter.warnings
+        ), (
+            "ignoreCase=False on an otherwise-default pattern is still "
+            "semantically the default and must not trigger the ignored-pattern "
+            "warning"
+        )
+
+
+class TestLineageDedupMerge:
+    """M5 regression: :meth:`_get_data_model_lineage_entries` must merge
+    ``sourceIds`` on shape-aware dedup collisions rather than silently
+    dropping the second occurrence. Protects against:
+
+    (a) a proxy that echoes the same cursor -- identical rows, union
+        collapses to the same set; counters still bump so operators see
+        the echo.
+    (b) a future Sigma-side split of one element's lineage across
+        multiple rows (e.g. versioned upstreams) -- we keep all
+        ``sourceIds`` instead of losing the trailing rows'.
+    """
+
+    def test_element_source_ids_unioned_on_collision(self) -> None:
+        api = _create_sigma_api()
+        raw_entries = [
+            {
+                "type": "element",
+                "elementId": "elem1",
+                "sourceIds": ["inode-a", "inode-b"],
+            },
+            # Same elementId; different, partially-overlapping sourceIds.
+            # Old behavior: dropped the second row, losing ``inode-c``.
+            # New behavior: union into the first row, preserving ordering
+            # and bumping the duplicate counter.
+            {
+                "type": "element",
+                "elementId": "elem1",
+                "sourceIds": ["inode-b", "inode-c"],
+            },
+        ]
+        with patch.object(api, "_paginated_raw_entries", return_value=raw_entries):
+            deduped = api._get_data_model_lineage_entries("dm-test")
+
+        assert len(deduped) == 1, (
+            "duplicate element rows must collapse to a single entry; got "
+            f"{len(deduped)}"
+        )
+        assert deduped[0]["sourceIds"] == ["inode-a", "inode-b", "inode-c"], (
+            "expected union of sourceIds preserving first-seen order; got "
+            f"{deduped[0]['sourceIds']}"
+        )
+        assert api.report.pagination_duplicate_entries_dropped == 1, (
+            "duplicate counter must still bump so operators notice the "
+            "pagination echo / shape drift"
+        )
+
+    def test_identical_element_rows_union_is_idempotent(self) -> None:
+        """Proxy-echo path: two truly identical rows stay identical
+        after union; no phantom ``sourceIds`` appear from stringified
+        set iteration order.
+        """
+        api = _create_sigma_api()
+        raw_entries = [
+            {
+                "type": "element",
+                "elementId": "elem1",
+                "sourceIds": ["inode-a", "inode-b"],
+            },
+            {
+                "type": "element",
+                "elementId": "elem1",
+                "sourceIds": ["inode-a", "inode-b"],
+            },
+        ]
+        with patch.object(api, "_paginated_raw_entries", return_value=raw_entries):
+            deduped = api._get_data_model_lineage_entries("dm-test")
+
+        assert len(deduped) == 1
+        assert deduped[0]["sourceIds"] == ["inode-a", "inode-b"]
+        assert api.report.pagination_duplicate_entries_dropped == 1
+
+
+class TestEagerDatasetUrnMapPopulation:
+    """M6 regression: ``sigma_dataset_urn_by_url_id`` must be populated
+    eagerly -- before DM iteration -- rather than as a side-effect of
+    :meth:`_gen_dataset_workunit` yielding. An eager pre-pass decouples
+    DM external-upstream resolution from the order in which the pipeline
+    framework drains dataset vs. DM generators, so a future refactor
+    that reorders or parallelizes the yields cannot silently burn
+    through the ``unresolved_external`` counter.
+    """
+
+    def test_map_populated_before_any_workunit_is_yielded(self) -> None:
+        import datetime as _dt
+
+        from datahub.ingestion.source.sigma.data_classes import SigmaDataset
+
+        source = _create_sigma_source()
+
+        ds_a = SigmaDataset(
+            datasetId="ds-a-id",
+            name="DS A",
+            description="",
+            createdBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            url="https://sigma.example/dataset/url-a",
+        )
+        ds_b = SigmaDataset(
+            datasetId="ds-b-id",
+            name="DS B",
+            description="",
+            createdBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            url="https://sigma.example/dataset/url-b",
+        )
+
+        with (
+            patch.object(source.sigma_api, "fill_workspaces", return_value=None),
+            patch.object(
+                source.sigma_api, "get_sigma_datasets", return_value=[ds_a, ds_b]
+            ),
+            patch.object(source.sigma_api, "get_sigma_workbooks", return_value=[]),
+            patch.object(source.sigma_api, "get_data_models", return_value=[]),
+            patch.object(source, "_get_allowed_workspaces", return_value=[]),
+            patch.object(
+                source,
+                "_gen_sigma_dataset_upstream_lineage_workunit",
+                return_value=iter([]),
+            ),
+            patch.object(source, "_gen_dataset_workunit") as mock_gen_dataset_workunit,
+        ):
+            # Assert the map is already populated the moment
+            # ``_gen_dataset_workunit`` is invoked for the first dataset,
+            # i.e. before any yield from the dataset generator has been
+            # consumed by a hypothetical DM consumer downstream.
+            captured_map_snapshots: List[Dict[str, str]] = []
+
+            def _capture(dataset: Any) -> Iterator[Any]:
+                captured_map_snapshots.append(dict(source.sigma_dataset_urn_by_url_id))
+                return iter([])
+
+            mock_gen_dataset_workunit.side_effect = _capture
+            list(source.get_workunits_internal())
+
+        assert len(captured_map_snapshots) == 2, (
+            "expected _gen_dataset_workunit to be invoked once per dataset; got "
+            f"{len(captured_map_snapshots)} calls"
+        )
+        for snap in captured_map_snapshots:
+            assert ds_a.get_urn_part() in snap, (
+                "sigma_dataset_urn_by_url_id must contain DS A before any "
+                f"dataset workunit is yielded; snapshot was {snap!r}"
+            )
+            assert ds_b.get_urn_part() in snap, (
+                "sigma_dataset_urn_by_url_id must contain DS B before any "
+                f"dataset workunit is yielded; snapshot was {snap!r}"
+            )
+
+
+class TestChartInputsInsertionOrder:
+    """C1 regression: :class:`ChartInfoClass`\\ ``.inputs`` must preserve
+    insertion order of :meth:`_get_element_input_details`'s
+    ``dataset_inputs`` keys, **not** emit a lex-sorted list.
+
+    The split PR was ~600 lines of DM-specific churn; a stray
+    ``sorted(dataset_inputs.keys())`` on the Chart path would
+    silently churn every Sigma chart's ChartInfo aspect on first
+    re-ingest after the upgrade (any tenant whose inputs were
+    inserted in non-alphabetical order would get a new aspect
+    version). This test pins the invariant at the level of the
+    function that emits the aspect so any future "let's sort for
+    determinism" refactor has to own a Updating-DataHub note and
+    this test's expectations.
+    """
+
+    def test_chart_inputs_preserve_insertion_order(self) -> None:
+        import datetime as _dt
+
+        from datahub.ingestion.source.sigma.data_classes import Element, Workbook
+        from datahub.metadata.schema_classes import ChartInfoClass
+
+        source = _create_sigma_source()
+
+        # Insertion order is Z -> A, the inverse of lex order. A
+        # silent ``sorted(...)`` would produce [A, Z] and fail the
+        # assertion below.
+        dataset_inputs: Dict[str, List[str]] = {
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,zzz-inserted-first,PROD)": [],
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,aaa-inserted-second,PROD)": [],
+        }
+        chart_input_urns: List[str] = []
+
+        element = Element(
+            elementId="elem-c1",
+            name="Chart with two dataset inputs",
+            url="https://sigma.example/wb/elem-c1",
+            type="visualization",
+            vizualizationType="bar",
+            columns=["Col A"],
+        )
+        workbook = Workbook(
+            workbookId="wb-c1",
+            name="Workbook for C1 regression",
+            ownerId="u",
+            createdBy="u",
+            updatedBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            url="https://sigma.example/wb",
+            path="Acryl Data/Acryl Workbook",
+            latestVersion=1,
+            workspaceId="ws-c1",
+            pages=[],
+        )
+
+        with patch.object(
+            source,
+            "_get_element_input_details",
+            return_value=(dataset_inputs, chart_input_urns),
+        ):
+            workunits = list(
+                source._gen_elements_workunit(
+                    elements=[element],
+                    workbook=workbook,
+                    all_input_fields=[],
+                    paths=[],
+                    elementId_to_chart_urn={},
+                )
+            )
+
+        chart_info_aspects = [
+            wu.metadata.aspect  # type: ignore[union-attr]
+            for wu in workunits
+            if isinstance(
+                wu.metadata.aspect,  # type: ignore[union-attr]
+                ChartInfoClass,
+            )
+        ]
+        assert len(chart_info_aspects) == 1, (
+            f"expected exactly one ChartInfo workunit per element; got "
+            f"{len(chart_info_aspects)}"
+        )
+        emitted_inputs = chart_info_aspects[0].inputs
+        assert emitted_inputs == list(dataset_inputs.keys()), (
+            f"ChartInfo.inputs must preserve insertion order from "
+            f"dataset_inputs.keys(); got {emitted_inputs!r}, expected "
+            f"{list(dataset_inputs.keys())!r}"
+        )
+
+
+class TestDataModelElementOwner:
+    """M1 regression: DM element Datasets must emit an
+    :class:`OwnershipClass` aspect derived from ``data_model.createdBy``
+    when :attr:`SigmaSourceConfig.ingest_owner` is true. Without this,
+    "Datasets owned by X" filters in the DataHub UI silently miss DM
+    elements even though the author shows up on the enclosing DM
+    Container -- an asymmetry that is surprising because DM elements
+    are advertised as first-class Datasets parallel to Sigma Datasets.
+    """
+
+    def _make_dm_with_one_element(self) -> SigmaDataModel:
+        import datetime as _dt
+
+        from datahub.ingestion.source.sigma.data_classes import (
+            SigmaDataModelElement,
+        )
+
+        dm = SigmaDataModel(
+            dataModelId="dm-owner-test",
+            name="DM with owner",
+            description="",
+            createdBy="creator-1",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            url="https://sigma.example/dm",
+            urlId="dm-url-id",
+            latestVersion=1,
+            workspaceId="ws-1",
+            path="Acryl Data",
+        )
+        dm.elements = [
+            SigmaDataModelElement(
+                elementId="elem-1",
+                name="element one",
+                type="table",
+            )
+        ]
+        return dm
+
+    def test_owner_emitted_when_createdBy_resolves_and_ingest_owner_true(
+        self,
+    ) -> None:
+        from datahub.metadata.schema_classes import OwnershipClass
+
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        elementId_to_dataset_urn = {
+            "elem-1": source._gen_data_model_element_urn(dm, dm.elements[0])
+        }
+
+        with patch.object(source.sigma_api, "get_user_name", return_value="jane.doe"):
+            workunits = list(
+                source._gen_data_model_workunit(dm, elementId_to_dataset_urn)
+            )
+
+        element_owner_aspects: List[OwnershipClass] = []
+        for wu in workunits:
+            aspect = wu.metadata.aspect  # type: ignore[union-attr]
+            entity_urn = wu.metadata.entityUrn  # type: ignore[union-attr]
+            if (
+                isinstance(aspect, OwnershipClass)
+                and entity_urn == elementId_to_dataset_urn["elem-1"]
+            ):
+                element_owner_aspects.append(aspect)
+        assert len(element_owner_aspects) == 1, (
+            "exactly one OwnershipClass aspect must be emitted per DM "
+            f"element; got {len(element_owner_aspects)}"
+        )
+        owner_aspect = element_owner_aspects[0]
+        owner_urns = [o.owner for o in owner_aspect.owners]
+        assert owner_urns == ["urn:li:corpuser:jane.doe"], (
+            f"DM element owner must be derived from data_model.createdBy "
+            f"via get_user_name; got {owner_urns!r}"
+        )
+
+    def test_no_owner_when_ingest_owner_false(self) -> None:
+        from datahub.metadata.schema_classes import OwnershipClass
+
+        source = _create_sigma_source(ingest_data_models=True, ingest_owner=False)
+        dm = self._make_dm_with_one_element()
+        elementId_to_dataset_urn = {
+            "elem-1": source._gen_data_model_element_urn(dm, dm.elements[0])
+        }
+
+        with patch.object(source.sigma_api, "get_user_name", return_value="jane.doe"):
+            workunits = list(
+                source._gen_data_model_workunit(dm, elementId_to_dataset_urn)
+            )
+
+        element_owner_aspects = []
+        for wu in workunits:
+            aspect = wu.metadata.aspect  # type: ignore[union-attr]
+            entity_urn = wu.metadata.entityUrn  # type: ignore[union-attr]
+            if (
+                isinstance(aspect, OwnershipClass)
+                and entity_urn == elementId_to_dataset_urn["elem-1"]
+            ):
+                element_owner_aspects.append(wu)
+        assert element_owner_aspects == [], (
+            "ingest_owner=False must suppress DM element OwnershipClass "
+            "emission so operators who opt out of user-URN emission are "
+            "respected"
+        )
+
+    def test_no_owner_when_createdBy_unresolved(self) -> None:
+        from datahub.metadata.schema_classes import OwnershipClass
+
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        elementId_to_dataset_urn = {
+            "elem-1": source._gen_data_model_element_urn(dm, dm.elements[0])
+        }
+
+        # get_user_name returning None models: member not in /members
+        # (deleted user, admin-permission-only tenant, etc). We must
+        # silently skip rather than emit an ``OwnershipClass`` with an
+        # empty or None owner URN.
+        with patch.object(source.sigma_api, "get_user_name", return_value=None):
+            workunits = list(
+                source._gen_data_model_workunit(dm, elementId_to_dataset_urn)
+            )
+
+        element_owner_aspects = []
+        for wu in workunits:
+            aspect = wu.metadata.aspect  # type: ignore[union-attr]
+            entity_urn = wu.metadata.entityUrn  # type: ignore[union-attr]
+            if (
+                isinstance(aspect, OwnershipClass)
+                and entity_urn == elementId_to_dataset_urn["elem-1"]
+            ):
+                element_owner_aspects.append(wu)
+        assert element_owner_aspects == [], (
+            "unresolved createdBy must not produce an OwnershipClass "
+            "aspect on the DM element"
+        )
+
+
+class TestGetDataModelsPerDmIsolation:
+    """M2 regression: :meth:`SigmaAPI.get_data_models` must isolate
+    per-DM assembly failures so one malformed DM does not abort the
+    whole DM feed. Mirrors :meth:`get_sigma_workbooks`, which
+    swallows per-workbook failures for the same reason.
+    """
+
+    def _paginated_raw_entry(self, dm_id: str, name: str) -> Dict[str, Any]:
+        return {
+            "dataModelId": dm_id,
+            "urlId": f"url-{dm_id}",
+            "name": name,
+            "description": "",
+            "createdBy": "u",
+            "createdAt": "2024-05-10T09:00:00.000Z",
+            "updatedAt": "2024-05-12T10:00:00.000Z",
+            "url": f"https://sigma.example/dm/{dm_id}",
+            "latestVersion": 1,
+            "workspaceId": "ws-1",
+            "path": "Acryl Data",
+        }
+
+    def test_one_bad_dm_does_not_kill_the_feed(self) -> None:
+        api = _create_sigma_api()
+
+        # Force ``ingest_shared_entities`` so the "no workspace"
+        # branch also exercises the try/except (though the main
+        # scenario is a successful workspace lookup below).
+        api.config.ingest_shared_entities = True
+
+        raw = [
+            SigmaDataModel.model_validate(
+                self._paginated_raw_entry("dm-good-1", "Good DM 1")
+            ),
+            SigmaDataModel.model_validate(
+                self._paginated_raw_entry("dm-bad", "Bad DM")
+            ),
+            SigmaDataModel.model_validate(
+                self._paginated_raw_entry("dm-good-2", "Good DM 2")
+            ),
+        ]
+
+        original_assemble = api._assemble_data_model
+
+        def _assemble_side_effect(
+            data_model: SigmaDataModel,
+            file_meta: Optional[File],
+            resolved_workspace_id: Optional[str] = None,
+        ) -> None:
+            if data_model.dataModelId == "dm-bad":
+                raise RuntimeError("simulated vendor payload corruption")
+            original_assemble(
+                data_model, file_meta, resolved_workspace_id=resolved_workspace_id
+            )
+
+        with (
+            patch.object(api, "_get_files_metadata", return_value={}),
+            patch.object(api, "_paginated_entries", return_value=raw),
+            # Skip the real ``get_workspace`` HTTP call: the M2 scenario
+            # is "assembly raises", not "workspace lookup raises", and
+            # a live request here would make this test take 30+ seconds
+            # waiting for connection timeouts.
+            patch.object(api, "get_workspace", return_value=None),
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_columns", return_value=[]),
+            patch.object(api, "_get_data_model_lineage_entries", return_value=[]),
+            patch.object(
+                api, "_assemble_data_model", side_effect=_assemble_side_effect
+            ),
+        ):
+            data_models = api.get_data_models()
+
+        returned_ids = {dm.dataModelId for dm in data_models}
+        assert returned_ids == {"dm-good-1", "dm-good-2"}, (
+            f"expected both good DMs to survive when a sibling DM's "
+            f"assembly raises; got {returned_ids!r}"
+        )
+        warning_titles = [w.title for w in api.report.warnings]
+        assert any(
+            (t or "") == "Failed to assemble Sigma Data Model" for t in warning_titles
+        ), (
+            f"expected a structured warning pinpointing the bad DM; "
+            f"got warnings {warning_titles!r}"
         )

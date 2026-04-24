@@ -167,12 +167,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # check, but any future reorder in ``__init__`` would silently
         # emit a spurious warning -- the direct list check is
         # cache-state-independent.
+        # ``ignoreCase`` is intentionally excluded from this check: a user
+        # who pins ``ignoreCase: False`` on an otherwise-default pattern is
+        # semantically still the "match everything" pattern (``.*`` matches
+        # regardless of case). Including it would fire a spurious "pattern
+        # ignored" warning on a benign config tweak.
         dm_pattern = self.config.data_model_pattern
-        _dm_pattern_is_default = (
-            dm_pattern.allow == [".*"]
-            and not dm_pattern.deny
-            and dm_pattern.ignoreCase is True
-        )
+        _dm_pattern_is_default = dm_pattern.allow == [".*"] and not dm_pattern.deny
         if not self.config.ingest_data_models and not _dm_pattern_is_default:
             self.reporter.warning(
                 title="data_model_pattern ignored",
@@ -337,9 +338,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self, dataset: SigmaDataset
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._gen_sigma_dataset_urn(dataset.get_urn_part())
-        # Record the url_id -> urn mapping for DM element ``inode-<urlId>``
-        # upstream resolution.
-        self.sigma_dataset_urn_by_url_id[dataset.get_urn_part()] = dataset_urn
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -584,6 +582,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         data_model_key: DataModelKey,
         data_model_container_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
+        owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
         # ``data_model.path`` starts with the workspace name (e.g.
@@ -647,6 +646,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield self._gen_data_model_element_schema_metadata(
                 element_dataset_urn, element
             )
+
+            # Propagate DM-level ownership (``data_model.createdBy``) onto
+            # every element Dataset. The DM API has no element-level owner
+            # field, so we mirror the Container owner on each child
+            # Dataset -- otherwise "Datasets owned by X" filters in the
+            # DataHub UI would miss DM elements entirely even though the
+            # author shows up on the enclosing Container. Gated on
+            # ``ingest_owner`` so operators who opt out of user-URN
+            # emission (typically for privacy / SSO sync reasons) are
+            # respected.
+            if self.config.ingest_owner and owner_username:
+                yield self._gen_entity_owner_aspect(element_dataset_urn, owner_username)
 
             yield from add_entity_to_container(
                 container_key=data_model_key,
@@ -759,6 +770,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             data_model_key,
             data_model_container_urn,
             elementId_to_dataset_urn,
+            owner_username=owner_username,
         )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -925,7 +937,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
                     externalUrl=element.url,
-                    inputs=sorted(dataset_inputs.keys()),
+                    inputs=list(dataset_inputs.keys()),
                     inputEdges=(
                         [
                             EdgeClass(destinationUrn=urn, sourceUrn=chart_urn)
@@ -1142,7 +1154,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         logger.info("Sigma plugin execution is started")
         self.sigma_api.fill_workspaces()
 
-        for dataset in self.sigma_api.get_sigma_datasets():
+        # Materialize the Sigma Dataset list once and populate the
+        # ``url_id -> urn`` bridge map eagerly *before* DM iteration.
+        # Previously the map was populated as a side-effect of
+        # ``_gen_dataset_workunit`` yielding, which left
+        # ``_resolve_dm_element_external_upstream`` dependent on
+        # iteration order: the map was only complete because datasets
+        # were yielded before DMs and the pipeline framework drained
+        # generators sequentially. An eager pre-pass decouples
+        # external-upstream resolution from emission order so any
+        # future refactor that reorders or parallelizes the yields
+        # cannot silently burn through the ``unresolved_external``
+        # counter.
+        datasets = list(self.sigma_api.get_sigma_datasets())
+        for dataset in datasets:
+            self.sigma_dataset_urn_by_url_id[dataset.get_urn_part()] = (
+                self._gen_sigma_dataset_urn(dataset.get_urn_part())
+            )
+
+        for dataset in datasets:
             yield from self._gen_dataset_workunit(dataset)
         # Data Models are emitted before Workbooks. Cross-DM references,
         # personal-space DM discovery, and workbook-to-DM linking arrive

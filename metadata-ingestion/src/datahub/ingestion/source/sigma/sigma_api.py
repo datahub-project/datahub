@@ -762,8 +762,21 @@ class SigmaAPI:
             f"Unable to fetch lineage for data model '{data_model_id}'.",
             silent_statuses=(400, 403, 404),
         )
-        seen: Set[Tuple[str, str]] = set()
         deduped: List[Dict[str, Any]] = []
+        # Map natural key -> index into ``deduped`` so we can merge on
+        # collision rather than silently drop the second occurrence.
+        # For ``element`` rows, merging means union of ``sourceIds``;
+        # for ``dataset`` / ``table`` rows it's a no-op (there is no
+        # payload field we'd want to accumulate across duplicates).
+        # The union-on-collision shape handles:
+        #   (a) a proxy that echoes the same page cursor -- the two
+        #       rows are identical so the union collapses to the same
+        #       set.
+        #   (b) a future Sigma-side API change that splits one
+        #       element's lineage across multiple rows (e.g. versioned
+        #       upstreams) -- we accumulate rather than losing the
+        #       trailing rows' ``sourceIds``.
+        seen_index: Dict[Tuple[str, str], int] = {}
         for entry in raw:
             entry_type = str(entry.get(Constant.TYPE, ""))
             if entry_type == "element":
@@ -779,23 +792,67 @@ class SigmaAPI:
                 deduped.append(entry)
                 continue
             key = (entry_type, identifier)
-            if key in seen:
-                self.report.pagination_duplicate_entries_dropped += 1
+            existing_idx = seen_index.get(key)
+            if existing_idx is None:
+                seen_index[key] = len(deduped)
+                deduped.append(entry)
                 continue
-            seen.add(key)
-            deduped.append(entry)
+            self.report.pagination_duplicate_entries_dropped += 1
+            if entry_type == "element":
+                existing = deduped[existing_idx]
+                existing_sources = existing.get("sourceIds") or []
+                new_sources = entry.get("sourceIds") or []
+                if not isinstance(existing_sources, list) or not isinstance(
+                    new_sources, list
+                ):
+                    # Vendor shape drift: don't attempt a merge on a
+                    # non-list sourceIds -- the enclosing
+                    # ``_assemble_data_model`` defensively validates
+                    # per-element and will simply see the already-stored
+                    # row.
+                    continue
+                # Preserve first-seen order while unioning the second
+                # row's additions. Stringify-and-dedupe matches the
+                # invariant enforced downstream by
+                # ``_assemble_data_model`` (non-string sourceIds are
+                # filtered out there anyway).
+                seen_sources: Set[str] = {
+                    s for s in existing_sources if isinstance(s, str)
+                }
+                merged = list(existing_sources)
+                for s in new_sources:
+                    if isinstance(s, str) and s not in seen_sources:
+                        merged.append(s)
+                        seen_sources.add(s)
+                existing["sourceIds"] = merged
         return deduped
 
     def _assemble_data_model(
-        self, data_model: SigmaDataModel, file_meta: Optional[File]
+        self,
+        data_model: SigmaDataModel,
+        file_meta: Optional[File],
+        resolved_workspace_id: Optional[str] = None,
     ) -> None:
-        """Fetch and attach elements, per-element columns, and per-element sourceIds."""
+        """Fetch and attach elements, per-element columns, and per-element
+        sourceIds. If ``resolved_workspace_id`` is provided by the caller,
+        it overrides whatever the ``/dataModels`` payload or ``/files``
+        row reported, ensuring filtering (done by the caller) and
+        rendering (done below) agree on a single workspace per DM.
+        """
+        if resolved_workspace_id is not None:
+            # Overwrite unconditionally: ``get_data_models`` already
+            # resolved ``(file_meta.workspaceId, data_model.workspaceId)``
+            # into a single "authoritative" workspace with /files
+            # preferred. Leaving the original ``data_model.workspaceId``
+            # intact would produce DMs filtered under workspace B but
+            # rendered / counted under workspace A when the two
+            # disagree (e.g. a DM moved across workspaces, or a
+            # Sigma-side inconsistency between the two endpoints).
+            data_model.workspaceId = resolved_workspace_id
         if file_meta is not None:
-            # Fill only when the DM payload did not carry the field, so a
-            # future vendor change that populates these on ``/dataModels``
-            # directly cannot be silently overridden by ``/files``.
-            if data_model.workspaceId is None:
-                data_model.workspaceId = file_meta.workspaceId
+            # These secondary fields are /files-authoritative (the folder
+            # tree); fall back to them only when the /dataModels payload
+            # did not carry a value.
             if data_model.path is None:
                 data_model.path = file_meta.path
             if data_model.badge is None:
@@ -864,53 +921,87 @@ class SigmaAPI:
         )
         data_models: List[SigmaDataModel] = []
         for data_model in raw_data_models:
-            file_meta = data_model_files_metadata.get(data_model.dataModelId)
+            try:
+                file_meta = data_model_files_metadata.get(data_model.dataModelId)
 
-            # DM-pattern filter runs before workspace lookup to
-            # short-circuit three extra HTTP calls per filtered DM.
-            # (get_sigma_workbooks/datasets check workspace first
-            # because their payload is already complete.)
-            if not self.config.data_model_pattern.allowed(data_model.name):
-                self.report.data_models.dropped(
-                    f"{data_model.name} ({data_model.dataModelId})"
-                )
-                continue
-
-            workspace = None
-            # Prefer ``/files`` workspaceId (authoritative for the folder
-            # tree) and fall back to the ``/dataModels`` payload so a DM
-            # whose ``/files`` row is missing workspace (admin-perm /
-            # legacy-tenant edge case, same shape as workbook L833-L839
-            # below) but whose payload names an allowed workspace still
-            # routes through the normal workspace-pattern branch instead
-            # of being dropped / gated behind ``ingest_shared_entities``.
-            candidate_workspace_id = (
-                file_meta.workspaceId if file_meta else None
-            ) or data_model.workspaceId
-            if candidate_workspace_id:
-                workspace = self.get_workspace(candidate_workspace_id)
-
-            if workspace:
-                if self.config.workspace_pattern.allowed(workspace.name):
-                    self.report.data_models.processed(
-                        f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                # DM-pattern filter runs before workspace lookup to
+                # short-circuit three extra HTTP calls per filtered DM.
+                # (get_sigma_workbooks/datasets check workspace first
+                # because their payload is already complete.)
+                if not self.config.data_model_pattern.allowed(data_model.name):
+                    self.report.data_models.dropped(
+                        f"{data_model.name} ({data_model.dataModelId})"
                     )
-                    self._assemble_data_model(data_model, file_meta)
+                    continue
+
+                workspace = None
+                # Prefer ``/files`` workspaceId (authoritative for the folder
+                # tree) and fall back to the ``/dataModels`` payload so a DM
+                # whose ``/files`` row is missing workspace (admin-perm /
+                # legacy-tenant edge case, same shape as workbook L833-L839
+                # below) but whose payload names an allowed workspace still
+                # routes through the normal workspace-pattern branch instead
+                # of being dropped / gated behind ``ingest_shared_entities``.
+                candidate_workspace_id = (
+                    file_meta.workspaceId if file_meta else None
+                ) or data_model.workspaceId
+                if candidate_workspace_id:
+                    workspace = self.get_workspace(candidate_workspace_id)
+
+                if workspace:
+                    if self.config.workspace_pattern.allowed(workspace.name):
+                        self.report.data_models.processed(
+                            f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                        )
+                        self._assemble_data_model(
+                            data_model,
+                            file_meta,
+                            resolved_workspace_id=candidate_workspace_id,
+                        )
+                        data_models.append(data_model)
+                    else:
+                        self.report.data_models.dropped(
+                            f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                        )
+                elif self.config.ingest_shared_entities:
+                    self.report.data_models_without_workspace += 1
+                    self.report.data_models.processed(
+                        f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+                    )
+                    self._assemble_data_model(
+                        data_model,
+                        file_meta,
+                        resolved_workspace_id=candidate_workspace_id,
+                    )
                     data_models.append(data_model)
                 else:
                     self.report.data_models.dropped(
-                        f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                        f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
                     )
-            elif self.config.ingest_shared_entities:
-                self.report.data_models_without_workspace += 1
-                self.report.data_models.processed(
-                    f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+            except Exception as e:
+                # Per-DM isolation: an unexpected exception during
+                # assembly (pydantic remodel, network transient that
+                # escapes the inner silent-status gate, etc.) must not
+                # abort the whole DM feed. Mirrors ``get_sigma_workbooks``
+                # which swallows per-workbook failures for the same
+                # reason. The warning carries enough identifiers to
+                # locate the offender, and the outer loop continues
+                # with the next DM.
+                self.report.warning(
+                    title="Failed to assemble Sigma Data Model",
+                    message="Skipping this DM; other DMs will still be "
+                    "assembled. The DM Container, its elements, and any "
+                    "lineage derived from it will be absent from this "
+                    "ingestion run.",
+                    context=(
+                        f"dataModelId={data_model.dataModelId}, "
+                        f"name={data_model.name!r}"
+                    ),
+                    exc=e,
                 )
-                self._assemble_data_model(data_model, file_meta)
-                data_models.append(data_model)
-            else:
                 self.report.data_models.dropped(
-                    f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
+                    f"{data_model.name} ({data_model.dataModelId}) "
+                    "(assembly failed -- see warning)"
                 )
         return data_models
 
