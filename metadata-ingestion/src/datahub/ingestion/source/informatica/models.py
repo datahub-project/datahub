@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Dict, List, Literal, NewType, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -65,9 +66,14 @@ class IdmcObject(BaseModel):
     description: Optional[str] = None
     updated_by: Optional[str] = None
     created_by: Optional[str] = None
-    create_time: Optional[str] = None
-    update_time: Optional[str] = None
+    create_time: Optional[datetime] = None
+    update_time: Optional[datetime] = None
     tags: List[str] = Field(default_factory=list)
+
+    @field_validator("create_time", "update_time", mode="before")
+    @classmethod
+    def _parse_times(cls, v: Any) -> Optional[datetime]:
+        return _parse_optional_datetime(v)
 
     @field_validator("id")
     @classmethod
@@ -174,6 +180,18 @@ def _parse_tags(raw: Any) -> List[str]:
     return out
 
 
+def _parse_optional_datetime(v: Any) -> Optional[datetime]:
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime):
+        return v
+    try:
+        return datetime.fromisoformat(str(v))
+    except (ValueError, TypeError):
+        logger.debug("Could not parse datetime value: %r", v)
+        return None
+
+
 class IdmcMapping(BaseModel):
     """v2 mapping metadata (``/api/v2/mapping``).
 
@@ -191,12 +209,17 @@ class IdmcMapping(BaseModel):
     description: Optional[str] = None
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
-    create_time: Optional[str] = None
-    update_time: Optional[str] = None
+    create_time: Optional[datetime] = None
+    update_time: Optional[datetime] = None
     document_type: Optional[str] = None
     valid: bool = True
-    parameters: List[Dict[str, Any]] = Field(default_factory=list)
-    references: List[Dict[str, Any]] = Field(default_factory=list)
+    parameters: List[Dict[str, object]] = Field(default_factory=list)
+    references: List[Dict[str, object]] = Field(default_factory=list)
+
+    @field_validator("create_time", "update_time", mode="before")
+    @classmethod
+    def _parse_times(cls, v: Any) -> Optional[datetime]:
+        return _parse_optional_datetime(v)
 
     @classmethod
     def from_api_response(cls, data: Dict[str, Any]) -> "IdmcMapping":
@@ -280,9 +303,14 @@ class IdmcMappingTask(BaseModel):
     connection_id: str = ""
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
-    create_time: Optional[str] = None
-    update_time: Optional[str] = None
+    create_time: Optional[datetime] = None
+    update_time: Optional[datetime] = None
     tags: List[str] = Field(default_factory=list)
+
+    @field_validator("create_time", "update_time", mode="before")
+    @classmethod
+    def _parse_times(cls, v: Any) -> Optional[datetime]:
+        return _parse_optional_datetime(v)
 
     @classmethod
     def from_idmc_object(cls, obj: IdmcObject) -> "IdmcMappingTask":

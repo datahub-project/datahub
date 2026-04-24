@@ -24,7 +24,12 @@ from defusedxml.common import DefusedXmlException
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from datahub.ingestion.source.informatica.config import InformaticaSourceConfig
+from datahub.ingestion.source.informatica.config import (
+    DEFAULT_LOGIN_TIMEOUT_SECS,
+    DEFAULT_REQUEST_TIMEOUT_SECS,
+    DEFAULT_SESSION_VALIDATION_TIMEOUT_SECS,
+    InformaticaSourceConfig,
+)
 from datahub.ingestion.source.informatica.models import (
     ExportJobState,
     ExportJobStatus,
@@ -105,7 +110,7 @@ class InformaticaClient:
                 "password": self.config.password.get_secret_value(),
             },
             headers={"Content-Type": "application/json"},
-            timeout=30,
+            timeout=DEFAULT_LOGIN_TIMEOUT_SECS,
         )
         self.report.report_api_call()
         if resp.status_code != 200:
@@ -158,7 +163,7 @@ class InformaticaClient:
                     "Content-Type": "application/json",
                     "icSessionId": self._session_id,
                 },
-                timeout=10,
+                timeout=DEFAULT_SESSION_VALIDATION_TIMEOUT_SECS,
             )
             self.report.report_api_call()
         except requests.RequestException as e:
@@ -289,7 +294,7 @@ class InformaticaClient:
             params=params,
             json=json_body,
             stream=stream,
-            timeout=60,
+            timeout=DEFAULT_REQUEST_TIMEOUT_SECS,
         )
         self.report.report_api_call()
         return resp
@@ -627,7 +632,12 @@ class InformaticaClient:
         """Poll until complete or timeout."""
         deadline = time.time() + self.config.export_poll_timeout_secs
         while time.time() < deadline:
-            status = self.poll_export_job(job_id)
+            try:
+                status = self.poll_export_job(job_id)
+            except (InformaticaApiError, requests.HTTPError) as e:
+                logger.warning("Transient error polling export job %s: %s", job_id, e)
+                time.sleep(self.config.export_poll_interval_secs)
+                continue
             if status.state == ExportJobState.SUCCESSFUL:
                 return status
             if status.state not in (ExportJobState.IN_PROGRESS, ExportJobState.QUEUED):

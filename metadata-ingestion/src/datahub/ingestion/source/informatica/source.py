@@ -654,8 +654,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             "path": obj.path,
             "createdBy": obj.created_by or "",
             "updatedBy": obj.updated_by or "",
-            "createTime": obj.create_time or "",
-            "updateTime": obj.update_time or "",
+            "createTime": obj.create_time.isoformat() if obj.create_time else "",
+            "updateTime": obj.update_time.isoformat() if obj.update_time else "",
         }
         props.update(extra)
         return {k: v for k, v in props.items() if v}
@@ -684,8 +684,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 "mappingV3Id": mapping_v3_guid,
                 "createdBy": mt.created_by or "",
                 "updatedBy": mt.updated_by or "",
-                "createTime": mt.create_time or "",
-                "updateTime": mt.update_time or "",
+                "createTime": mt.create_time.isoformat() if mt.create_time else "",
+                "updateTime": mt.update_time.isoformat() if mt.update_time else "",
             }.items()
             if v
         }

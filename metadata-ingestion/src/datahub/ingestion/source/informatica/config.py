@@ -118,6 +118,9 @@ DEFAULT_PAGE_SIZE = 200
 DEFAULT_EXPORT_BATCH_SIZE = 1000
 DEFAULT_EXPORT_POLL_TIMEOUT_SECS = 300
 DEFAULT_EXPORT_POLL_INTERVAL_SECS = 5
+DEFAULT_LOGIN_TIMEOUT_SECS = 30
+DEFAULT_SESSION_VALIDATION_TIMEOUT_SECS = 10
+DEFAULT_REQUEST_TIMEOUT_SECS = 60
 
 
 class InformaticaSourceConfig(
@@ -235,7 +238,10 @@ class InformaticaSourceConfig(
 
     extract_tags: bool = Field(
         default=True,
-        description="Whether to extract tags from IDMC objects.",
+        description=(
+            "Emit IDMC object tags as DataHub GlobalTags on Projects, Folders, "
+            "Taskflows, and Mapping Tasks. Set to False to skip tag extraction."
+        ),
     )
 
     connection_type_overrides: Dict[str, str] = Field(
