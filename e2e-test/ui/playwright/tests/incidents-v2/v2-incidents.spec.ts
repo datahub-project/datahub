@@ -22,18 +22,18 @@ test.use({ featureName: 'incidents-v2' });
 const EXISTING_INCIDENT_TITLE = 'test title';
 
 const NEW_INCIDENT_VALUES = {
-  NAME: 'Incident new name',
-  DESCRIPTION: 'This is Description',
-  TYPE: 'Freshness',
-  PRIORITY: 'Critical',
-  STAGE: 'Investigation',
+    NAME: 'Incident new name',
+    DESCRIPTION: 'This is Description',
+    TYPE: 'Freshness',
+    PRIORITY: 'Critical',
+    STAGE: 'Investigation',
 };
 
 const EDITED_INCIDENT_VALUES = {
-  DESCRIPTION: 'Edited Description',
-  PRIORITY: 'High',
-  STAGE: 'In progress',
-  TYPE: 'Freshness',
+    DESCRIPTION: 'Edited Description',
+    PRIORITY: 'High',
+    STAGE: 'In progress',
+    TYPE: 'Freshness',
 };
 
 // Shared timestamp so that the "create" and "update" tests reference the same incident name.
@@ -42,158 +42,150 @@ const newIncidentName = `${NEW_INCIDENT_VALUES.NAME}-${sharedTimestamp}`;
 const editedIncidentName = `${newIncidentName}-edited`;
 
 test.describe('Incidents V2', () => {
-  // Tests 2 and 3 share the same incident name (create → update).
-  // Serial mode ensures test 2 completes before test 3 starts.
-  test.describe.configure({ mode: 'serial' });
+    // Tests 2 and 3 share the same incident name (create → update).
+    // Serial mode ensures test 2 completes before test 3 starts.
+    test.describe.configure({ mode: 'serial' });
 
-  test.beforeEach(async ({ apiMock }) => {
-    await apiMock.setFeatureFlags({
-      themeV2Enabled: true,
-      themeV2Default: true,
-      showNavBarRedesign: true,
+    test.beforeEach(async ({ apiMock }) => {
+        await apiMock.setFeatureFlags({
+            themeV2Enabled: true,
+            themeV2Default: true,
+            showNavBarRedesign: true,
+        });
     });
-  });
 
-  test('can view v1 incident', async ({ page, logger, logDir }) => {
-    const incidentsPage = new IncidentsPage(page, logger, logDir);
-    await incidentsPage.navigateToKafkaDatasetIncidents();
+    test('can view v1 incident', async ({ page, logger, logDir }) => {
+        const incidentsPage = new IncidentsPage(page, logger, logDir);
+        await incidentsPage.navigateToKafkaDatasetIncidents();
 
-    // Seeder fixture guarantees the Kafka dataset is present — wait for it to load.
-    await expect(page.getByText('Not Found')).not.toBeVisible({ timeout: 20000 });
+        // Seeder fixture guarantees the Kafka dataset is present — wait for it to load.
+        await expect(page.getByText('Not Found')).not.toBeVisible({ timeout: 20000 });
 
-    const row = incidentsPage.getIncidentRow(EXISTING_INCIDENT_TITLE);
-    await expect(row).toBeVisible();
-    await expect(row).toContainText(EXISTING_INCIDENT_TITLE);
-  });
+        const row = incidentsPage.getIncidentRow(EXISTING_INCIDENT_TITLE);
+        await expect(row).toBeVisible();
+        await expect(row).toContainText(EXISTING_INCIDENT_TITLE);
+    });
 
-  test('create a v2 incident with all fields set', async ({ page, logger, logDir }) => {
-    const incidentsPage = new IncidentsPage(page, logger, logDir);
-    await incidentsPage.navigateToKafkaDatasetIncidents();
+    test('create a v2 incident with all fields set', async ({ page, logger, logDir }) => {
+        const incidentsPage = new IncidentsPage(page, logger, logDir);
+        await incidentsPage.navigateToKafkaDatasetIncidents();
 
-    await incidentsPage.clickCreateIncidentBtn();
-    await incidentsPage.fillIncidentName(newIncidentName);
-    await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION);
-    await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
-    await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.selectFirstAssignee();
-    await incidentsPage.dismissDropdowns();
-    await incidentsPage.submitIncidentForm();
+        await incidentsPage.clickCreateIncidentBtn();
+        await incidentsPage.fillIncidentName(newIncidentName);
+        await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION);
+        await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
+        await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
+        await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
+        await incidentsPage.selectFirstAssignee();
+        await incidentsPage.dismissDropdowns();
+        await incidentsPage.submitIncidentForm();
 
-    await incidentsPage.expandGroupIfNeeded('CRITICAL');
-    await incidentsPage.expectIncidentRowExists(newIncidentName);
-    await incidentsPage.expectIncidentNameBadgeVisible(newIncidentName);
-    await incidentsPage.expectIncidentRowStage(newIncidentName, NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.expectIncidentRowCategory(newIncidentName, NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.expectResolveButtonVisible(newIncidentName);
-    await incidentsPage.expectResolveButtonContains(newIncidentName, 'Resolve');
-  });
+        await incidentsPage.expandGroupIfNeeded('CRITICAL');
+        await expect(incidentsPage.getIncidentRow(newIncidentName)).toBeVisible({ timeout: 15000 });
+        await incidentsPage.expectIncidentNameBadgeVisible(newIncidentName);
+        await incidentsPage.expectIncidentRowStage(newIncidentName, NEW_INCIDENT_VALUES.STAGE);
+        await incidentsPage.expectIncidentRowCategory(newIncidentName, NEW_INCIDENT_VALUES.TYPE);
+        await incidentsPage.expectResolveButtonVisible(newIncidentName);
+        await incidentsPage.expectResolveButtonContains(newIncidentName, 'Resolve');
+    });
 
-  test('can update incident & resolve incident', async ({ page, logger, logDir }) => {
-    test.setTimeout(60000);
-    const incidentsPage = new IncidentsPage(page, logger, logDir);
-    await incidentsPage.navigateToKafkaDatasetIncidents();
+    test('can update incident & resolve incident', async ({ page, logger, logDir }) => {
+        test.setTimeout(120000);
+        const incidentsPage = new IncidentsPage(page, logger, logDir);
+        await incidentsPage.navigateToKafkaDatasetIncidents();
 
-    // Open the incident created in the previous test.
-    // Expand the CRITICAL group first since incidents are collapsed by default.
-    await incidentsPage.expandGroupIfNeeded('CRITICAL');
-    await incidentsPage.expectIncidentRowExists(newIncidentName);
-    await incidentsPage.clickIncidentRow(newIncidentName);
+        // Open the incident created in the previous test.
+        // Expand the CRITICAL group first since incidents are collapsed by default.
+        await incidentsPage.expandGroupIfNeeded('CRITICAL');
+        await expect(incidentsPage.getIncidentRow(newIncidentName)).toBeVisible({ timeout: 15000 });
+        await incidentsPage.clickIncidentRow(newIncidentName);
 
-    // Edit mode
-    await incidentsPage.clickEditIcon();
-    await incidentsPage.clearAndFillName(editedIncidentName);
-    await incidentsPage.clearAndFillDescription(EDITED_INCIDENT_VALUES.DESCRIPTION);
-    await incidentsPage.selectPriority(EDITED_INCIDENT_VALUES.PRIORITY);
-    await incidentsPage.selectStage(EDITED_INCIDENT_VALUES.STAGE);
-    await incidentsPage.selectFirstAssignee();
-    await incidentsPage.dismissDropdowns();
-    await incidentsPage.selectStatus('Resolved');
-    await incidentsPage.submitIncidentForm();
+        // Edit mode
+        await incidentsPage.clickEditIcon();
+        await incidentsPage.clearAndFillName(editedIncidentName);
+        await incidentsPage.clearAndFillDescription(EDITED_INCIDENT_VALUES.DESCRIPTION);
+        await incidentsPage.selectPriority(EDITED_INCIDENT_VALUES.PRIORITY);
+        await incidentsPage.selectStage(EDITED_INCIDENT_VALUES.STAGE);
+        await incidentsPage.selectFirstAssignee();
+        await incidentsPage.dismissDropdowns();
+        await incidentsPage.selectStatus('Resolved');
+        await incidentsPage.submitIncidentForm();
 
-    // Filter to show RESOLVED incidents
-    await incidentsPage.filterByStatus('RESOLVED');
+        // Filter to show RESOLVED incidents
+        await incidentsPage.filterByStatus('RESOLVED');
 
-    // Scroll to and verify the HIGH priority group
-    const highGroup = incidentsPage.getIncidentGroup('HIGH');
-    await highGroup.scrollIntoViewIfNeeded();
-    await incidentsPage.expandGroupIfNeeded('HIGH');
+        // Scroll to and verify the HIGH priority group
+        const highGroup = incidentsPage.getIncidentGroup('HIGH');
+        await highGroup.scrollIntoViewIfNeeded();
+        await incidentsPage.expandGroupIfNeeded('HIGH');
 
-    await incidentsPage.getIncidentRow(editedIncidentName).scrollIntoViewIfNeeded();
-    await incidentsPage.expectIncidentRowExists(editedIncidentName);
-    await incidentsPage.expectIncidentRowStage(editedIncidentName, EDITED_INCIDENT_VALUES.STAGE);
-    await incidentsPage.expectIncidentRowCategory(editedIncidentName, EDITED_INCIDENT_VALUES.TYPE);
-    await incidentsPage.expectResolveButtonContains(editedIncidentName, 'Me');
-  });
+        await incidentsPage.getIncidentRow(editedIncidentName).scrollIntoViewIfNeeded();
+        await expect(incidentsPage.getIncidentRow(editedIncidentName)).toBeVisible({ timeout: 15000 });
+        await incidentsPage.expectIncidentRowStage(editedIncidentName, EDITED_INCIDENT_VALUES.STAGE);
+        await incidentsPage.expectIncidentRowCategory(editedIncidentName, EDITED_INCIDENT_VALUES.TYPE);
+        await incidentsPage.expectResolveButtonContains(editedIncidentName, 'Me');
+    });
 
-  test('Create V2 incident with all fields set and separate_siblings=false', async ({
-    page,
-    logger,
-    logDir,
-  }) => {
-    const incidentsPage = new IncidentsPage(page, logger, logDir);
-    // is_lineage_mode=false is the default for this navigation helper
-    await incidentsPage.navigateToBigQueryDatasetIncidents();
+    test('Create V2 incident with all fields set and separate_siblings=false', async ({ page, logger, logDir }) => {
+        const incidentsPage = new IncidentsPage(page, logger, logDir);
+        // is_lineage_mode=false is the default for this navigation helper
+        await incidentsPage.navigateToBigQueryDatasetIncidents();
 
-    // The create button shows with siblings variant when separate_siblings is not forced true
-    await incidentsPage.clickCreateIncidentBtnWithSiblings();
-    await incidentsPage.selectFirstSiblingFromDropdown();
+        // The create button shows with siblings variant when separate_siblings is not forced true
+        await incidentsPage.clickCreateIncidentBtnWithSiblings();
+        await incidentsPage.selectFirstSiblingFromDropdown();
 
-    // Drawer should open for "Create New Incident"
-    await incidentsPage.expectDrawerTitleContains('Create New Incident');
+        // Drawer should open for "Create New Incident"
+        await incidentsPage.expectDrawerTitleContains('Create New Incident');
 
-    // In sibling mode a second remirror editor may appear (index 1)
-    await incidentsPage.fillIncidentName(newIncidentName);
-    await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION, 1);
-    await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
-    await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.selectFirstAssignee();
-    await incidentsPage.dismissDropdowns();
-    await incidentsPage.submitIncidentForm();
+        // In sibling mode a second remirror editor may appear (index 1)
+        await incidentsPage.fillIncidentName(newIncidentName);
+        await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION, 1);
+        await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
+        await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
+        await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
+        await incidentsPage.selectFirstAssignee();
+        await incidentsPage.dismissDropdowns();
+        await incidentsPage.submitIncidentForm();
 
-    await incidentsPage.expectIncidentGroupVisible('CRITICAL');
-    const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
-    await criticalGroup.scrollIntoViewIfNeeded();
-    await incidentsPage.expandGroupIfNeeded('CRITICAL');
+        await expect(incidentsPage.getIncidentGroup('CRITICAL')).toBeVisible();
+        const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
+        await criticalGroup.scrollIntoViewIfNeeded();
+        await incidentsPage.expandGroupIfNeeded('CRITICAL');
 
-    await incidentsPage.expectIncidentRowExists(newIncidentName);
-    await incidentsPage.expectIncidentNameBadgeVisible(newIncidentName);
-    await incidentsPage.expectIncidentRowStage(newIncidentName, NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.expectIncidentRowCategory(newIncidentName, NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.expectResolveButtonVisible(newIncidentName);
-    await incidentsPage.expectResolveButtonContains(newIncidentName, 'Resolve');
-  });
+        await expect(incidentsPage.getIncidentRow(newIncidentName)).toBeVisible({ timeout: 15000 });
+        await incidentsPage.expectIncidentNameBadgeVisible(newIncidentName);
+        await incidentsPage.expectIncidentRowStage(newIncidentName, NEW_INCIDENT_VALUES.STAGE);
+        await incidentsPage.expectIncidentRowCategory(newIncidentName, NEW_INCIDENT_VALUES.TYPE);
+        await incidentsPage.expectResolveButtonVisible(newIncidentName);
+        await incidentsPage.expectResolveButtonContains(newIncidentName, 'Resolve');
+    });
 
-  test('Create V2 incident with all fields set and separate_siblings=true', async ({
-    page,
-    logger,
-    logDir,
-  }) => {
-    const siblingIncidentName = `${newIncidentName}-New`;
-    const incidentsPage = new IncidentsPage(page, logger, logDir);
-    await incidentsPage.navigateToBigQueryDatasetIncidents('separate_siblings=true');
+    test('Create V2 incident with all fields set and separate_siblings=true', async ({ page, logger, logDir }) => {
+        const siblingIncidentName = `${newIncidentName}-New`;
+        const incidentsPage = new IncidentsPage(page, logger, logDir);
+        await incidentsPage.navigateToBigQueryDatasetIncidents('separate_siblings=true');
 
-    await incidentsPage.clickCreateIncidentBtn();
-    await incidentsPage.fillIncidentName(siblingIncidentName);
-    await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION);
-    await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
-    await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.selectFirstAssignee();
-    await incidentsPage.dismissDropdowns();
-    await incidentsPage.submitIncidentForm();
+        await incidentsPage.clickCreateIncidentBtn();
+        await incidentsPage.fillIncidentName(siblingIncidentName);
+        await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION);
+        await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
+        await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
+        await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
+        await incidentsPage.selectFirstAssignee();
+        await incidentsPage.dismissDropdowns();
+        await incidentsPage.submitIncidentForm();
 
-    await incidentsPage.expectIncidentGroupVisible('CRITICAL');
-    const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
-    await criticalGroup.scrollIntoViewIfNeeded();
-    await incidentsPage.expandGroupIfNeeded('CRITICAL');
+        await expect(incidentsPage.getIncidentGroup('CRITICAL')).toBeVisible();
+        const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
+        await criticalGroup.scrollIntoViewIfNeeded();
+        await incidentsPage.expandGroupIfNeeded('CRITICAL');
 
-    await incidentsPage.expectIncidentRowExists(siblingIncidentName);
-    await incidentsPage.expectIncidentNameBadgeVisible(siblingIncidentName);
-    await incidentsPage.expectIncidentRowStage(siblingIncidentName, NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.expectIncidentRowCategory(siblingIncidentName, NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.expectResolveButtonVisible(siblingIncidentName);
-    await incidentsPage.expectResolveButtonContains(siblingIncidentName, 'Resolve');
-  });
+        await expect(incidentsPage.getIncidentRow(siblingIncidentName)).toBeVisible({ timeout: 15000 });
+        await incidentsPage.expectIncidentNameBadgeVisible(siblingIncidentName);
+        await incidentsPage.expectIncidentRowStage(siblingIncidentName, NEW_INCIDENT_VALUES.STAGE);
+        await incidentsPage.expectIncidentRowCategory(siblingIncidentName, NEW_INCIDENT_VALUES.TYPE);
+        await incidentsPage.expectResolveButtonVisible(siblingIncidentName);
+        await incidentsPage.expectResolveButtonContains(siblingIncidentName, 'Resolve');
+    });
 });

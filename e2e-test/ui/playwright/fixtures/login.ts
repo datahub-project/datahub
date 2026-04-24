@@ -23,12 +23,12 @@ const AUTH_DIR = path.join(__dirname, '../.auth');
 
 /** Absolute path to the Playwright storageState file for `username`. */
 export function authStatePath(username: string): string {
-  return path.join(AUTH_DIR, `${username}.json`);
+    return path.join(AUTH_DIR, `${username}.json`);
 }
 
 /** Absolute path to the GMS token file for `username`. */
 export function gmsTokenPath(username: string): string {
-  return path.join(AUTH_DIR, `gms-token-${username}.json`);
+    return path.join(AUTH_DIR, `gms-token-${username}.json`);
 }
 
 /**
@@ -38,14 +38,14 @@ export function gmsTokenPath(username: string): string {
  * the auth setup project first.
  */
 export function readGmsToken(username: string): string {
-  const tokenFile = gmsTokenPath(username);
-  if (!fs.existsSync(tokenFile)) {
-    throw new Error(
-      `GMS token not found for user '${username}'. ` +
-        `Run at least one test first so the login fixture can create the token, ` +
-        `or delete .auth/ and re-run to force a fresh login.`,
-    );
-  }
-  const data = JSON.parse(fs.readFileSync(tokenFile, 'utf-8')) as { token: string };
-  return data.token;
+    const tokenFile = gmsTokenPath(username);
+    if (!fs.existsSync(tokenFile)) {
+        throw new Error(
+            `GMS token not found for user '${username}'. ` +
+                `Run at least one test first so the login fixture can create the token, ` +
+                `or delete .auth/ and re-run to force a fresh login.`,
+        );
+    }
+    const data = JSON.parse(fs.readFileSync(tokenFile, 'utf-8')) as { token: string };
+    return data.token;
 }

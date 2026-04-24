@@ -9,8 +9,6 @@
  * old test runs don't leave behind orphaned data.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { test as setup, request } from '@playwright/test';
 import { readGmsToken } from '../fixtures/login';
 import { deleteEntities } from '../utils/cleanup';
@@ -25,61 +23,61 @@ const CLEANUP_PREFIXES = ['pw_', 'cypress_', 'Cypress', 'fct_cypress', 'SampleCy
 const ENTITY_TYPES = ['DATASET', 'TAG', 'GLOSSARY_TERM', 'DOMAIN', 'DATA_PRODUCT'];
 
 setup('global cleanup', async () => {
-  setup.setTimeout(180_000);
-  console.log('\n🧹 Starting global pre-run cleanup...');
+    setup.setTimeout(180_000);
+    console.log('\n🧹 Starting global pre-run cleanup...');
 
-  const url = gmsUrl();
-  let gmsToken: string;
+    const url = gmsUrl();
+    let gmsToken: string;
 
-  try {
-    gmsToken = readGmsToken(ADMIN_USERNAME);
-  } catch {
-    console.warn('⚠️  GMS token not found — skipping global cleanup');
-    return;
-  }
+    try {
+        gmsToken = readGmsToken(ADMIN_USERNAME);
+    } catch {
+        console.warn('⚠️  GMS token not found — skipping global cleanup');
+        return;
+    }
 
-  const apiContext = await request.newContext({
-    baseURL: url,
-    extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
-  });
+    const apiContext = await request.newContext({
+        baseURL: url,
+        extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
+    });
 
-  try {
-    const urnsToDelete: string[] = [];
+    try {
+        const urnsToDelete: string[] = [];
 
-    for (const entityType of ENTITY_TYPES) {
-      for (const prefix of CLEANUP_PREFIXES) {
-        const response = await apiContext.post(`${url}/api/v2/graphql`, {
-          data: {
-            query: `query search($input: SearchInput!) { search(input: $input) { total entities { urn } } }`,
-            variables: {
-              input: { type: entityType, query: `${prefix}*`, start: 0, count: 200 },
-            },
-          },
-          headers: { 'Content-Type': 'application/json' },
-        });
+        for (const entityType of ENTITY_TYPES) {
+            for (const prefix of CLEANUP_PREFIXES) {
+                const response = await apiContext.post(`${url}/api/v2/graphql`, {
+                    data: {
+                        query: `query search($input: SearchInput!) { search(input: $input) { total entities { urn } } }`,
+                        variables: {
+                            input: { type: entityType, query: `${prefix}*`, start: 0, count: 200 },
+                        },
+                    },
+                    headers: { 'Content-Type': 'application/json' },
+                });
 
-        if (!response.ok()) continue;
+                if (!response.ok()) continue;
 
-        const json = (await response.json()) as {
-          data?: { search?: { total?: number; entities?: { urn: string }[] } };
-        };
-        const entities = json.data?.search?.entities ?? [];
-        if (entities.length > 0) {
-          console.log(`   Found ${entities.length} ${entityType} entities matching '${prefix}*'`);
-          urnsToDelete.push(...entities.map((e) => e.urn));
+                const json = (await response.json()) as {
+                    data?: { search?: { total?: number; entities?: { urn: string }[] } };
+                };
+                const entities = json.data?.search?.entities ?? [];
+                if (entities.length > 0) {
+                    console.log(`   Found ${entities.length} ${entityType} entities matching '${prefix}*'`);
+                    urnsToDelete.push(...entities.map((e) => e.urn));
+                }
+            }
         }
-      }
-    }
 
-    if (urnsToDelete.length === 0) {
-      console.log('✅ No leftover test entities found');
-      return;
-    }
+        if (urnsToDelete.length === 0) {
+            console.log('✅ No leftover test entities found');
+            return;
+        }
 
-    console.log(`🗑️  Deleting ${urnsToDelete.length} leftover entities...`);
-    await deleteEntities(apiContext, url, urnsToDelete);
-    console.log('✅ Global cleanup complete');
-  } finally {
-    await apiContext.dispose();
-  }
+        console.log(`🗑️  Deleting ${urnsToDelete.length} leftover entities...`);
+        await deleteEntities(apiContext, url, urnsToDelete);
+        console.log('✅ Global cleanup complete');
+    } finally {
+        await apiContext.dispose();
+    }
 });

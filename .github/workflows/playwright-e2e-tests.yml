@@ -84,10 +84,34 @@ jobs:
           echo "yarn_cache_key=playwright-e2e-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=playwright-e2e-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
+  lint:
+    name: Lint & Format check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+
+      - name: Prettier format check
+        working-directory: e2e-test/ui/playwright
+        run: yarn format:check
+
+      - name: ESLint
+        working-directory: e2e-test/ui/playwright
+        run: yarn lint
+
   playwright_test:
     name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs: [setup]
+    needs: [setup, lint]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
