@@ -408,8 +408,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
+        # Failure counters bump once per unique ``source_id`` too -- a
+        # vendor payload that repeats the same failed ``inode-X`` inside
+        # one element's ``sourceIds`` would otherwise double-count the
+        # unresolved buckets while the success path above carefully
+        # dedupes, leaving asymmetric triage numbers.
         upstream_urns: List[str] = []
         seen: Set[str] = set()
+        unresolved_seen: Set[str] = set()
         for source_id in element.source_ids:
             upstream_urn: Optional[str] = None
             shape: str = ""
@@ -419,7 +425,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elif source_id.startswith("inode-"):
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
-                if upstream_urn is None:
+                if upstream_urn is None and source_id not in unresolved_seen:
+                    unresolved_seen.add(source_id)
                     self.reporter.data_model_element_upstreams_unresolved_external += 1
                     self.reporter.data_model_element_upstreams_unresolved += 1
                     logger.debug(
@@ -437,15 +444,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # perm) apart from "we don't yet handle this shape"
                 # (cross-DM resolution arrives in a follow-up PR, plus
                 # any future Sigma vendor shape).
-                self.reporter.data_model_element_upstreams_unknown_shape += 1
-                self.reporter.data_model_element_upstreams_unresolved += 1
-                logger.debug(
-                    "DM %s element %s: upstream source_id %r has an unknown shape "
-                    "(not ``inode-`` external, not intra-DM)",
-                    data_model.dataModelId,
-                    element.elementId,
-                    source_id,
-                )
+                if source_id not in unresolved_seen:
+                    unresolved_seen.add(source_id)
+                    self.reporter.data_model_element_upstreams_unknown_shape += 1
+                    self.reporter.data_model_element_upstreams_unresolved += 1
+                    logger.debug(
+                        "DM %s element %s: upstream source_id %r has an unknown shape "
+                        "(not ``inode-`` external, not intra-DM)",
+                        data_model.dataModelId,
+                        element.elementId,
+                        source_id,
+                    )
 
             if upstream_urn and upstream_urn not in seen:
                 upstream_urns.append(upstream_urn)
@@ -475,7 +484,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # native column), and GMS rejects / non-deterministically dedupes
         # duplicate ``fieldPath``s.
         #
-        # Tie-break is deterministic across runs (review M5):
+        # Tie-break is deterministic across runs:
         # 1. Prefer the row with a non-empty ``formula`` -- that's the
         #    user-authored calculated field and the one Sigma surfaces
         #    in the UI when both exist with the same name.

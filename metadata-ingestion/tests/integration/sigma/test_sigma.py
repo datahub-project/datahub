@@ -1380,6 +1380,75 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
 
 
 @pytest.mark.integration
+def test_sigma_ingest_data_models_unresolved_counters_dedup_duplicate_source_id(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Unresolved counters must dedup by ``source_id`` to mirror the
+    success-path dedup.
+
+    Regression guard: a vendor payload that repeats the same failed
+    ``inode-X`` inside one element's ``sourceIds`` (diamond reference to
+    the same un-ingested target) previously bumped
+    ``data_model_element_upstreams_unresolved`` and
+    ``data_model_element_upstreams_unresolved_external`` once per
+    repetition, while the successful counters above correctly counted
+    once per unique URN. Over-counting makes the "Sigma is partially
+    broken" dashboards noisy. The fix tracks an ``unresolved_seen`` set
+    keyed by ``source_id`` so unresolved buckets count once per distinct
+    failure too.
+    """
+
+    override_data = get_mock_data_model_api()
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/dataModels/147a4d09-a686-4eea-b183-9b82aa0f7beb/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "type": "dataset",
+                    "name": "UnregisteredDataset",
+                    "inodeId": "inode-unregDs000000001",
+                },
+                {
+                    "type": "element",
+                    "elementId": "0ui59vLc38",
+                    # Same un-ingested inode referenced three times --
+                    # the counter fix must collapse these into one bump.
+                    "sourceIds": [
+                        "inode-unregDs000000001",
+                        "inode-unregDs000000001",
+                        "inode-unregDs000000001",
+                    ],
+                },
+            ],
+            "total": 2,
+            "nextPage": None,
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_unresolved_dedup_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_upstreams_unresolved_external == 1, (
+        f"duplicate source_id must count once in _unresolved_external, "
+        f"got {report.data_model_element_upstreams_unresolved_external}"
+    )
+    assert report.data_model_element_upstreams_unresolved == 1, (
+        f"duplicate source_id must count once in the aggregate unresolved "
+        f"counter, got {report.data_model_element_upstreams_unresolved}"
+    )
+    assert report.data_model_element_upstreams_unknown_shape == 0
+    assert report.data_model_element_external_upstreams == 0
+
+
+@pytest.mark.integration
 def test_sigma_ingest_data_models_lineage_http_error(
     pytestconfig, tmp_path, requests_mock
 ):
@@ -1420,6 +1489,87 @@ def test_sigma_ingest_data_models_lineage_http_error(
     assert dm_element_upstreams == [], (
         "no UpstreamLineage should be emitted when /lineage returns 500"
     )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_extract_lineage_false(
+    pytestconfig, tmp_path, requests_mock
+):
+    """``ingest_data_models=True`` + ``extract_lineage=False`` is the
+    documented "catalog without upstreams" opt-out.
+
+    Pins three invariants at once so the gating cannot regress silently:
+
+    1. No ``/dataModels/{id}/lineage`` HTTP call is issued (the opt-out is
+       enforced in ``_assemble_data_model``, not just on the consumer side).
+    2. DM Containers, element Datasets, and their ``SchemaMetadata`` are
+       still emitted -- operators still get a DM catalog.
+    3. No ``upstreamLineage`` aspect is emitted for any DM element -- users
+       who opt out are not surprised by empty-upstream aspects overwriting
+       graph edges sourced from other connectors.
+    """
+
+    register_mock_api(
+        request_mock=requests_mock, override_data=get_mock_data_model_api()
+    )
+
+    output_path = f"{tmp_path}/sigma_dm_extract_lineage_false_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, extract_lineage=False)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    lineage_hits = [
+        req
+        for req in requests_mock.request_history
+        if "/dataModels/" in req.url and req.url.endswith("/lineage")
+    ]
+    assert lineage_hits == [], (
+        f"expected extract_lineage=False to short-circuit the DM /lineage "
+        f"call, but got {len(lineage_hits)} requests: "
+        f"{[r.url for r in lineage_hits]}"
+    )
+
+    import json
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    dm_urn = "urn:li:container:0466d89b8ce5ac9b2cd1deecdffe42c1"
+    assert any(
+        mce.get("entityUrn") == dm_urn
+        and mce.get("aspectName") == "containerProperties"
+        for mce in mces
+    ), "DM Container should still be emitted with extract_lineage=False"
+
+    element_schema_aspects = [
+        mce
+        for mce in mces
+        if "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        and mce.get("aspectName") == "schemaMetadata"
+    ]
+    assert element_schema_aspects, (
+        "DM element SchemaMetadata should still be emitted with "
+        "extract_lineage=False (catalog-without-upstreams shape)"
+    )
+
+    dm_element_upstreams = [
+        mce
+        for mce in mces
+        if "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert dm_element_upstreams == [], (
+        "no UpstreamLineage should be emitted when extract_lineage=False; "
+        "users opting out must not get empty-upstream aspects that would "
+        "overwrite edges from other connectors"
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_intra_upstreams == 0
+    assert report.data_model_element_external_upstreams == 0
+    assert report.data_model_element_upstreams_unresolved == 0
 
 
 @pytest.mark.integration

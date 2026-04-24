@@ -781,7 +781,7 @@ def _paginated_response(
 
 
 class TestPaginatedRawEntries:
-    """Regression coverage for ``_paginated_raw_entries`` (review M2, M3).
+    """Regression coverage for ``_paginated_raw_entries``.
 
     ``_paginated_entries`` shares the same HTTP loop, so cycle protection
     and multi-page aggregation are covered transitively.
@@ -854,12 +854,12 @@ class TestPaginatedRawEntries:
 
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every
-        page of lineage, not just the first. Review M2 regression.
+        page of lineage, not just the first.
 
         Uses the real DM ``/lineage`` shape -- ``element`` rows carry
         ``elementId`` (not ``nodeId``) and ``sourceIds``, ``dataset``
         rows carry ``inodeId``. Earlier fixture shapes here used a
-        synthetic ``nodeId`` that masked C1.
+        synthetic ``nodeId`` that masked the shape-aware-key bug.
         """
         api = _create_sigma_api()
         page1 = _paginated_response(
@@ -912,8 +912,8 @@ class TestPaginatedRawEntries:
 
 
 class TestPaginatedEntriesDedup:
-    """Regression coverage for review C1: an echoed pagination cursor
-    (or any server-side overlap between pages) must not leak duplicate
+    """Regression coverage for pagination dedup: an echoed cursor (or
+    any server-side overlap between pages) must not leak duplicate
     typed entries to downstream emitters. The cycle guard itself still
     appends entries from the first *two* pages before firing; the
     natural-key dedup at the typed layer is what prevents double-MCP
@@ -970,8 +970,8 @@ class TestPaginatedEntriesDedup:
         assert api.report.pagination_duplicate_entries_dropped == 0
 
     def test_lineage_raw_dedupes_by_shape_aware_key(self) -> None:
-        """Review C1 regression: dedup must use the *real* DM
-        ``/lineage`` shape -- ``elementId`` for ``type: element`` rows,
+        """Dedup must use the *real* DM ``/lineage`` shape --
+        ``elementId`` for ``type: element`` rows,
         ``inodeId`` for ``type: dataset`` / ``type: table`` rows. An
         earlier version of this function keyed on ``(type, nodeId)``
         which collapsed to ``(type, "")`` for every real entry and

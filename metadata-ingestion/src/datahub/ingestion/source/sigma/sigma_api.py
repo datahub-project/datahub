@@ -805,9 +805,9 @@ class SigmaAPI:
 
         elements = self._get_data_model_elements(data_model.dataModelId)
         columns = self._get_data_model_columns(data_model.dataModelId)
-        # Review M6: ``extract_lineage=False`` is a historical opt-out for
-        # the privileged ``/workbooks/{id}/lineage`` surface; users who
-        # set it don't expect the connector to call *any* ``/lineage``
+        # ``extract_lineage=False`` is a historical opt-out for the
+        # privileged ``/workbooks/{id}/lineage`` surface; users who set
+        # it don't expect the connector to call *any* ``/lineage``
         # endpoint. Honor that here so ``ingest_data_models=True +
         # extract_lineage=False`` emits DM Containers + element Datasets
         # + ``SchemaMetadata`` (the "catalog without upstreams" shape),
