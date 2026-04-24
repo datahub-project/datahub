@@ -810,7 +810,7 @@ class TestLineageEmission:
             "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-a,PROD),transform)",
             "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-b,PROD),transform)",
         ]
-        source._mapping_v3_to_mt_job_urns["guid-42"] = list(mt_urns)
+        source._mapping_v3_to_mt_job_urns[V3Guid("guid-42")] = list(mt_urns)
         lineage = MappingLineageInfo(
             mapping_id="guid-42",
             mapping_name="shared",
@@ -1265,7 +1265,7 @@ class TestFilteringAndErrorHandling:
             ),
         ):
             warnings_before = len(source.report.warnings)
-            source._submit_and_wait_export(["guid-x"], batch_start=0)
+            source._submit_and_wait_export([V3Guid("guid-x")], batch_start=0)
             warnings_after = len(source.report.warnings)
         assert warnings_after == warnings_before
 
@@ -1283,7 +1283,7 @@ class TestFilteringAndErrorHandling:
                 ),
             ),
         ):
-            source._submit_and_wait_export(["guid-y"], batch_start=7)
+            source._submit_and_wait_export([V3Guid("guid-y")], batch_start=7)
         assert len(source.report.warnings) >= 1
         last_warning_str = "".join(
             f"{w.title} {w.message}" for w in source.report.warnings

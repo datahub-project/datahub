@@ -610,7 +610,7 @@ class InformaticaClient:
             return {}
         return _parse_taskflow_export_package(resp.iter_content, report=self.report)
 
-    def submit_export_job(self, object_ids: List[str]) -> str:
+    def submit_export_job(self, object_ids: Sequence[str]) -> str:
         body = {
             "objects": [
                 {"id": obj_id, "includeDependencies": False} for obj_id in object_ids
@@ -774,7 +774,7 @@ class InformaticaClient:
     @staticmethod
     def _resolve_entry_mapping_id(
         entry_name: str,
-        submitted_ids: List[str],
+        submitted_ids: Sequence[str],
         index: int,
         assigned_ids: Optional[set[str]] = None,
     ) -> str:
