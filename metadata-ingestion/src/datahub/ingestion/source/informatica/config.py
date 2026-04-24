@@ -330,6 +330,17 @@ class InformaticaSourceConfig(
         le=600,
     )
 
+    max_concurrent_export_jobs: int = Field(
+        default=4,
+        description=(
+            "Maximum number of v3 export jobs to run concurrently. Each job covers "
+            "one batch of mappings. Increase to reduce lineage wall-clock time on "
+            "large orgs; decrease if hitting IDMC rate limits."
+        ),
+        ge=1,
+        le=8,
+    )
+
     # Stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

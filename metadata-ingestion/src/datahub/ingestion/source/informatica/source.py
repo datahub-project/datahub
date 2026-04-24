@@ -1,5 +1,6 @@
 import logging
 import re
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import (
     Callable,
@@ -975,28 +976,63 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             logger.info("No mappings to extract lineage for.")
             return
         batch_size = self.config.export_batch_size
-        for batch_start in range(0, len(self._mapping_ids), batch_size):
-            batch = self._mapping_ids[batch_start : batch_start + batch_size]
-            try:
-                yield from self._process_export_batch(batch, batch_start)
-            except (
-                InformaticaApiError,
-                InformaticaLoginError,
-                requests.RequestException,
-            ) as e:
-                # Per-entry parse/zip failures are reported deeper in the client;
-                # only expected IDMC/network errors are warned here so unexpected
-                # ones still propagate with a stack trace.
-                self.report.warning(
-                    title="IDMC export batch failed",
-                    message="Lineage for this batch will be missing.",
-                    context=f"batch_start={batch_start}, size={len(batch)}",
-                    exc=e,
-                )
-                self.report.export_jobs_failed.append(f"batch@{batch_start}: {e}")
+        batches = [
+            (self._mapping_ids[i : i + batch_size], i)
+            for i in range(0, len(self._mapping_ids), batch_size)
+        ]
+        # submit+wait runs concurrently; download+parse+emit stays on main thread.
+        future_to_batch: Dict[Future[str], Tuple[List[str], int]] = {}
+        with ThreadPoolExecutor(
+            max_workers=self.config.max_concurrent_export_jobs
+        ) as executor:
+            for batch, batch_start in batches:
+                future_to_batch[
+                    executor.submit(self._submit_and_wait_export, batch, batch_start)
+                ] = (batch, batch_start)
+            for future in as_completed(future_to_batch):
+                batch, batch_start = future_to_batch[future]
+                try:
+                    job_id = future.result()
+                except (
+                    InformaticaApiError,
+                    InformaticaLoginError,
+                    requests.RequestException,
+                ) as e:
+                    self.report.warning(
+                        title="IDMC export batch failed",
+                        message="Lineage for this batch will be missing.",
+                        context=f"batch_start={batch_start}, size={len(batch)}",
+                        exc=e,
+                    )
+                    self.report.export_jobs_failed.append(f"batch@{batch_start}: {e}")
+                    continue
+                if job_id:
+                    for lineage_info in self.client.download_and_parse_export(
+                        job_id, batch
+                    ):
+                        yield from self._emit_lineage(lineage_info)
         # Final pass: bubble each last-MT's outputs up to its Taskflow's
         # orchestrate so the Taskflow Lineage view has the full pipeline.
         yield from self._emit_orchestrate_aggregated_lineage()
+
+    def _submit_and_wait_export(self, batch: List[str], batch_start: int) -> str:
+        """Submit one export batch and block until complete. Returns job_id on
+        success, empty string on non-success (warning already recorded)."""
+        job_id = self.client.submit_export_job(batch)
+        status = self.client.wait_for_export(job_id)
+        if status.state != ExportJobState.SUCCESSFUL:
+            if status.state != ExportJobState.TIMEOUT:
+                self.report.warning(
+                    title="IDMC export job did not succeed",
+                    message="Lineage for this batch will be missing.",
+                    context=(
+                        f"job_id={job_id}, state={status.state.value}, "
+                        f"batch_start={batch_start}, "
+                        f"message={status.message or '<none>'}"
+                    ),
+                )
+            return ""
+        return job_id
 
     def _emit_orchestrate_aggregated_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Emit each orchestrate's final ``DataJobInputOutput`` with the
@@ -1016,28 +1052,6 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                     inputDatajobs=[state.last_mt_urn],
                 ),
             ).as_workunit()
-
-    def _process_export_batch(
-        self, batch: List[str], batch_start: int
-    ) -> Iterable[MetadataWorkUnit]:
-        job_id = self.client.submit_export_job(batch)
-        status = self.client.wait_for_export(job_id)
-        if status.state != ExportJobState.SUCCESSFUL:
-            # TIMEOUT is already reported inside wait_for_export; other
-            # non-success states get a warning with IDMC's status.message.
-            if status.state != ExportJobState.TIMEOUT:
-                self.report.warning(
-                    title="IDMC export job did not succeed",
-                    message="Lineage for this batch will be missing.",
-                    context=(
-                        f"job_id={job_id}, state={status.state.value}, "
-                        f"batch_start={batch_start}, "
-                        f"message={status.message or '<none>'}"
-                    ),
-                )
-            return
-        for lineage_info in self.client.download_and_parse_export(job_id, batch):
-            yield from self._emit_lineage(lineage_info)
 
     def _load_connections(self) -> None:
         """Load all connections into cache, keyed by federatedId and id (separate dicts)."""

@@ -1,3 +1,4 @@
+import threading
 from typing import Any, List
 from unittest.mock import MagicMock, patch
 
@@ -1189,12 +1190,67 @@ class TestFilteringAndErrorHandling:
         # ``batch@N`` identifies which mapping_id slice failed.
         assert "batch@1" in source.report.export_jobs_failed[0]
 
-    def test_process_export_batch_timeout_does_not_duplicate_warning(self):
-        # ``wait_for_export`` already reports TIMEOUT; the calling
-        # ``_process_export_batch`` must NOT emit a second "did not
-        # succeed" warning for the same failure. FAILED/UNKNOWN states
-        # still get the caller-side warning (with status.message), but
-        # TIMEOUT is suppressed to avoid duplicate report noise.
+    def test_extract_lineage_submits_batches_concurrently(self):
+        # All submit_export_job calls must be in-flight before any
+        # wait_for_export returns — i.e. the ThreadPoolExecutor is actually
+        # used for concurrency, not sequentially one-at-a-time.
+        source = _make_source(export_batch_size=1, max_concurrent_export_jobs=4)
+        source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
+        source._mapping_ids = ["g1", "g2", "g3"]
+
+        submit_barrier = threading.Barrier(3, timeout=5)
+        submitted: List[str] = []
+
+        def _submit(batch: List[str]) -> str:
+            submitted.append(batch[0])
+            submit_barrier.wait()  # blocks until all 3 submits have been called
+            return f"job-{batch[0]}"
+
+        with (
+            patch.object(source.client, "submit_export_job", side_effect=_submit),
+            patch.object(
+                source.client,
+                "wait_for_export",
+                return_value=MagicMock(state=ExportJobState.SUCCESSFUL, message=""),
+            ),
+            patch.object(
+                source.client, "download_and_parse_export", return_value=iter([])
+            ),
+        ):
+            list(source._extract_lineage())
+
+        assert sorted(submitted) == ["g1", "g2", "g3"]
+
+    def test_extract_lineage_one_failure_does_not_cancel_other_batches(self):
+        # A failure in one concurrent future must not prevent the others
+        # from completing — error isolation across threads.
+        source = _make_source(export_batch_size=1, max_concurrent_export_jobs=4)
+        source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
+        source._mapping_ids = ["ok-1", "fail", "ok-2"]
+
+        def _submit(batch: List[str]) -> str:
+            if batch == ["fail"]:
+                raise InformaticaApiError("boom")
+            return f"job-{batch[0]}"
+
+        with (
+            patch.object(source.client, "submit_export_job", side_effect=_submit),
+            patch.object(
+                source.client,
+                "wait_for_export",
+                return_value=MagicMock(state=ExportJobState.SUCCESSFUL, message=""),
+            ),
+            patch.object(
+                source.client, "download_and_parse_export", return_value=iter([])
+            ),
+        ):
+            list(source._extract_lineage())
+
+        assert len(source.report.export_jobs_failed) == 1
+
+    def test_submit_and_wait_timeout_does_not_duplicate_warning(self):
+        # ``wait_for_export`` already reports TIMEOUT; ``_submit_and_wait_export``
+        # must NOT emit a second warning. FAILED/UNKNOWN still get a warning.
         source = _make_source()
         with (
             patch.object(source.client, "submit_export_job", return_value="job-x"),
@@ -1205,18 +1261,14 @@ class TestFilteringAndErrorHandling:
                     state=ExportJobState.TIMEOUT, message="polling gave up"
                 ),
             ),
-            patch.object(
-                source.client, "download_and_parse_export", return_value=iter([])
-            ),
         ):
             warnings_before = len(source.report.warnings)
-            list(source._process_export_batch(["guid-x"], batch_start=0))
+            source._submit_and_wait_export(["guid-x"], batch_start=0)
             warnings_after = len(source.report.warnings)
         assert warnings_after == warnings_before
 
-    def test_process_export_batch_failed_state_includes_status_message(self):
-        # FAILED/UNKNOWN states carry IDMC's ``status.message`` into the
-        # report warning so the ``Asset - export`` hint reaches operators.
+    def test_submit_and_wait_failed_state_includes_status_message(self):
+        # FAILED/UNKNOWN states carry IDMC's ``status.message`` into the warning.
         source = _make_source()
         with (
             patch.object(source.client, "submit_export_job", return_value="job-y"),
@@ -1228,11 +1280,8 @@ class TestFilteringAndErrorHandling:
                     message="Asset - export privilege required",
                 ),
             ),
-            patch.object(
-                source.client, "download_and_parse_export", return_value=iter([])
-            ),
         ):
-            list(source._process_export_batch(["guid-y"], batch_start=7))
+            source._submit_and_wait_export(["guid-y"], batch_start=7)
         assert len(source.report.warnings) >= 1
         last_warning_str = "".join(
             f"{w.title} {w.message}" for w in source.report.warnings
