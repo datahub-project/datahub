@@ -125,16 +125,11 @@ def test_get_sources_from_query_with_none_default_schema():
     # The value must be passed through unchanged so the schema qualifier
     # is dropped entirely from the URN (`filter(None, ...)` in
     # SchemaResolver.get_urn_for_table), instead of being literally "None".
-    #
-    # Note: pydantic types `default_schema` as `str`, so this `None`
-    # assignment is intentionally type-bypassing (`# type: ignore` below).
-    # The defensive coverage matters because the bug surfaced via subclasses
-    # / runtime mutation that fed `None` into the field in production.
     test_query = """
         insert into target select * from source
     """
     lineage_extractor = get_lineage_extractor()
-    lineage_extractor.config.default_schema = None  # type: ignore[assignment]
+    lineage_extractor.config.default_schema = None
 
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
         db_name="test", query=test_query
@@ -163,6 +158,27 @@ def test_parse_alter_table_rename():
         "storage_v2_stg",
         "storage_v2",
     )
+
+
+def test_parse_alter_table_rename_none_default_schema_with_qualifier():
+    # When the query already qualifies the schema, default_schema=None is fine:
+    # the parsed schema is used and no fallback is needed.
+    assert parse_alter_table_rename(
+        None, "alter table my_schema.foo rename to bar"
+    ) == (
+        "my_schema",
+        "foo",
+        "bar",
+    )
+
+
+def test_parse_alter_table_rename_raises_on_none_schema():
+    # Regression guard for the ALTER TABLE rename path of the original
+    # `str(None)` bug: when the query lacks a schema qualifier AND
+    # default_schema is None, the function must raise instead of returning
+    # None (which would silently produce `db.None.tbl` URNs in the caller).
+    with pytest.raises(ValueError, match="default_schema is None"):
+        parse_alter_table_rename(None, "alter table foo rename to bar")
 
 
 def get_lineage_extractor() -> RedshiftSqlLineage:

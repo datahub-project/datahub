@@ -52,6 +52,13 @@ class RedshiftProfiler(GenericProfiler):
             for schema in tables.get(db, {}):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
+                schema_container_key = gen_schema_key(
+                    db_name=db,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
                 for table in tables[db].get(schema, {}):
                     if table.is_external_table() or self.report.is_shared_database:
                         if not self.config.profiling.profile_external_tables:
@@ -74,31 +81,16 @@ class RedshiftProfiler(GenericProfiler):
                             # Continue, since we were unable to retrieve cheap profiling stats from svv_table_info.
                             continue
 
-                    # Emit the profile work unit
                     profile_request = self.get_profile_request(table, schema, db)
                     if profile_request is not None:
-                        # When include_tables=False, gen_dataset_workunits is never
-                        # called for this table, so the dataset entity lacks the
-                        # container and dataPlatformInstance aspects that place it
-                        # correctly in the UI hierarchy. Emit them here so profiled
-                        # datasets are properly nested under their schema containers.
-                        # We do this only after get_profile_request returns a
-                        # non-None request so we don't create "ghost" dataset
-                        # entities for tables that won't actually be profiled (any
-                        # reason that makes get_profile_request return None: e.g.
-                        # table_pattern denial, profile_pattern denial, zero
-                        # columns, size/row limits, or recently profiled via
-                        # stateful ingestion).
+                        # include_tables=False skips gen_dataset_workunits, which
+                        # normally emits container + dataPlatformInstance. Emit
+                        # them here, gated on a non-None profile_request so we
+                        # don't create ghost entities for tables filtered out
+                        # by patterns, size limits, or recent profiling.
                         if not self.config.include_tables:
                             dataset_urn = self.dataset_urn_builder(
                                 profile_request.pretty_name
-                            )
-                            schema_container_key = gen_schema_key(
-                                db_name=db,
-                                schema=schema,
-                                platform=self.platform,
-                                platform_instance=self.config.platform_instance,
-                                env=self.config.env,
                             )
                             yield from add_table_to_schema_container(
                                 dataset_urn,
