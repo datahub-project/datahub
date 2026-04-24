@@ -15,6 +15,12 @@ class WorkbookKey(ContainerKey):
     workbookId: str
 
 
+class DataModelKey(ContainerKey):
+    # UUID (stable across renames). ``dataModelUrlId`` is still surfaced
+    # via customProperties.
+    dataModelId: str
+
+
 class Workspace(BaseModel):
     workspaceId: str
     name: str
@@ -115,5 +121,89 @@ class File(BaseModel):
     parentId: str
     path: str
     type: str
+    urlId: Optional[str] = None
     badge: Optional[str] = None
     workspaceId: Optional[str] = None
+
+
+class SigmaDataModelColumn(BaseModel):
+    columnId: str
+    name: str
+    # Scopes this column to a specific DM element. The /columns endpoint
+    # returns columns across all elements in one flat list.
+    elementId: Optional[str] = None
+    label: Optional[str] = None
+    formula: Optional[str] = None
+
+
+class SigmaDataModelElement(BaseModel):
+    """A single element inside a Sigma Data Model (all transformation
+    tables, no visualizations).
+    """
+
+    elementId: str
+    name: str
+    type: Optional[str] = None
+    vizualizationType: Optional[str] = None
+    columns: List[SigmaDataModelColumn] = []
+    # From /lineage, filtered to this element. Each entry is either an
+    # intra-DM elementId or an ``inode-<suffix>`` for external upstreams.
+    source_ids: List[str] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _discard_api_bare_string_columns(cls, values: Dict) -> Dict:
+        # The real /elements endpoint returns ``columns`` as bare strings.
+        # Rich SigmaDataModelColumn objects come from /columns and are
+        # attached in ``_assemble_data_model``. Filter to dict entries so a
+        # hypothetical mixed payload retains its well-formed rows instead
+        # of being dropped wholesale.
+        if isinstance(values, dict):
+            raw_columns = values.get("columns")
+            if isinstance(raw_columns, list) and any(
+                not isinstance(c, dict) for c in raw_columns
+            ):
+                values = {
+                    **values,
+                    "columns": [c for c in raw_columns if isinstance(c, dict)],
+                }
+        return values
+
+
+class SigmaDataModel(BaseModel):
+    dataModelId: str  # UUID; stable across renames
+    name: str
+    description: Optional[str] = None
+    createdBy: Optional[str] = None
+    createdAt: datetime
+    updatedAt: datetime
+    url: Optional[str] = None
+    # Human-readable slug used by Sigma in URLs and lineage references
+    # (``<dataModelUrlId>/<suffix>`` in workbook sourceIds).
+    urlId: Optional[str] = None
+    latestVersion: Optional[int] = None
+    workspaceId: Optional[str] = None
+    path: Optional[str] = None
+    badge: Optional[str] = None
+    elements: List[SigmaDataModelElement] = []
+
+    def get_url_id(self) -> str:
+        """Return the DM's URL identifier: explicit ``urlId`` if set,
+        else the last segment of ``url``, else the UUID. Blank / whitespace
+        values are treated as missing so they do not become bridge keys that
+        collide with other empty-urlId DMs.
+        """
+        if self.urlId and self.urlId.strip():
+            return self.urlId
+        if self.url:
+            last_segment = self.url.split("/")[-1]
+            if last_segment:
+                return last_segment
+        return self.dataModelId
+
+    def get_element_urn_part(self, element: SigmaDataModelElement) -> str:
+        # ``<dataModelId>.<elementId>`` keyed off the immutable UUID.
+        # ``urlId`` can be reissued across renames and would churn URNs.
+        # Collision with a slug is unlikely: Sigma urlIds are url-safe
+        # tokens without dots.
+        return f"{self.dataModelId}.{element.elementId}"

@@ -49,6 +49,9 @@ class Constant:
     WORKBOOK = "workbook"
     BADGE = "badge"
     NEXTPAGE = "nextPage"
+    NEXTPAGETOKEN = "nextPageToken"
+    DATA_MODEL = "data-model"
+    DATA_MODEL_ID = "dataModelId"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
@@ -59,6 +62,8 @@ class WorkspaceCounts(BaseModel):
     datasets_count: int = 0
     elements_count: int = 0
     pages_count: int = 0
+    data_models_count: int = 0
+    data_model_elements_count: int = 0
 
     def is_empty(self) -> bool:
         return (
@@ -66,6 +71,8 @@ class WorkspaceCounts(BaseModel):
             and self.datasets_count == 0
             and self.elements_count == 0
             and self.pages_count == 0
+            and self.data_models_count == 0
+            and self.data_model_elements_count == 0
         )
 
     def as_obj(self) -> dict:
@@ -74,6 +81,8 @@ class WorkspaceCounts(BaseModel):
             "datasets_count": self.datasets_count,
             "elements_count": self.elements_count,
             "pages_count": self.pages_count,
+            "data_models_count": self.data_models_count,
+            "data_model_elements_count": self.data_model_elements_count,
         }
 
 
@@ -105,6 +114,16 @@ class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
             self.workspace_counts[workspace_id] = WorkspaceCounts()
         self.workspace_counts[workspace_id].pages_count += 1
 
+    def increment_data_models_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].data_models_count += 1
+
+    def increment_data_model_elements_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].data_model_elements_count += 1
+
     def as_obj(self) -> dict:
         return {
             "filtered": self.dropped_entities.as_obj(),
@@ -128,12 +147,29 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workbooks: EntityFilterReport = EntityFilterReport.field(type="workbook")
     workbooks_without_workspace: int = 0
 
+    data_models: EntityFilterReport = EntityFilterReport.field(type="data_model")
+    data_models_without_workspace: int = 0
+
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
 
-    # Sheet upstreams skipped because the upstream element was filtered out of
-    # the chart map (e.g. a pivot-table blocked by get_page_elements's allowlist).
+    # Sheet upstream skipped because the upstream element was filtered out
+    # of the chart map (e.g. pivot-table blocked by page-element allowlist).
     num_filtered_sheet_upstreams: int = 0
+
+    # DM element emission / upstream resolution.
+    data_model_elements_emitted: int = 0
+    data_model_element_intra_upstreams: int = 0
+    data_model_element_external_upstreams: int = 0
+    data_model_element_upstreams_unresolved: int = 0
+
+    # /columns entries with ``elementId = None`` (DM-global calculations),
+    # dropped because there is no element Dataset to attach them to.
+    data_model_columns_without_element_dropped: int = 0
+
+    # Duplicate ``column.name`` on a single DM element, dropped to avoid
+    # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
+    data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -195,4 +231,20 @@ class SigmaSourceConfig(
     workbook_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
+    )
+    ingest_data_models: bool = pydantic.Field(
+        default=False,
+        description="Whether to ingest Sigma Data Models. Each Data Model is emitted "
+        "as a Container with one Dataset per element inside it (plus per-element "
+        "``SchemaMetadata`` and ``UpstreamLineage``). Default is ``False`` because "
+        "enabling this introduces a new entity class to the graph — existing tenants "
+        "will see new Containers and Datasets appear on first ingest and will need "
+        "to factor those into any soft-delete policy if they later disable this flag. "
+        "Enabling this issues ``/dataModels/{id}/elements``, ``/columns`` and "
+        "``/lineage`` calls per Data Model independently of ``extract_lineage``.",
+    )
+    data_model_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter Sigma Data Model names in ingestion. "
+        "Requires ingest_data_models to be enabled.",
     )

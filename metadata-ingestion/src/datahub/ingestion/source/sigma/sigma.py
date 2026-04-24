@@ -39,10 +39,13 @@ from datahub.ingestion.source.sigma.config import (
     WorkspaceCounts,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DataModelKey,
     DatasetUpstream,
     Element,
     Page,
     SheetUpstream,
+    SigmaDataModel,
+    SigmaDataModelElement,
     SigmaDataset,
     Workbook,
     WorkbookKey,
@@ -79,11 +82,13 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     InputFieldClass,
     InputFieldsClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
@@ -101,7 +106,10 @@ logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
-    subtype_modifier=[SourceCapabilityModifier.SIGMA_WORKSPACE],
+    subtype_modifier=[
+        SourceCapabilityModifier.SIGMA_WORKSPACE,
+        SourceCapabilityModifier.SIGMA_DATA_MODEL,
+    ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default.")
@@ -119,6 +127,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     - Sigma Workspaces and Workbooks as Container.
     - Sigma Datasets
     - Pages as Dashboard and its Elements as Charts
+    - Sigma Data Models as Container, with one Dataset per element inside the Data Model.
     """
 
     config: SigmaSourceConfig
@@ -130,6 +139,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
+        # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
+        # ``inode-<urlId>`` upstreams.
+        self.sigma_dataset_urn_by_url_id: Dict[str, str] = {}
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -287,6 +299,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self, dataset: SigmaDataset
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._gen_sigma_dataset_urn(dataset.get_urn_part())
+        # Record the url_id -> urn mapping for DM element ``inode-<urlId>``
+        # upstream resolution.
+        self.sigma_dataset_urn_by_url_id[dataset.get_urn_part()] = dataset_urn
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -331,6 +346,292 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     tags=[TagAssociationClass(builder.make_tag_urn(dataset.badge))]
                 ),
             ).as_workunit()
+
+    def _gen_data_model_key(self, data_model_id: str) -> DataModelKey:
+        return DataModelKey(
+            dataModelId=data_model_id,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+        )
+
+    def _gen_data_model_element_urn(
+        self, data_model: SigmaDataModel, element: SigmaDataModelElement
+    ) -> str:
+        return builder.make_dataset_urn_with_platform_instance(
+            name=data_model.get_element_urn_part(element),
+            env=self.config.env,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+        )
+
+    def _resolve_dm_element_external_upstream(self, source_id: str) -> Optional[str]:
+        """Resolve an ``inode-<suffix>`` source_id to a Sigma Dataset URN.
+
+        Returns the URN if the suffix matches a Sigma Dataset ingested in
+        this run; otherwise ``None``. We do not fabricate URNs for targets
+        (un-ingested Sigma Datasets, warehouse tables) we didn't emit.
+        """
+        if not source_id.startswith("inode-"):
+            return None
+        suffix = source_id[len("inode-") :]
+        return self.sigma_dataset_urn_by_url_id.get(suffix)
+
+    def _gen_data_model_element_upstream_lineage(
+        self,
+        element: SigmaDataModelElement,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+    ) -> Optional[UpstreamLineage]:
+        # Success counters bump once per unique URN; diamond source_ids
+        # resolving to the same URN should not inflate the signal.
+        upstream_urns: List[str] = []
+        seen: Set[str] = set()
+        for source_id in element.source_ids:
+            upstream_urn: Optional[str] = None
+            shape: str = ""
+            if source_id in elementId_to_dataset_urn:
+                upstream_urn = elementId_to_dataset_urn[source_id]
+                shape = "intra"
+            elif source_id.startswith("inode-"):
+                upstream_urn = self._resolve_dm_element_external_upstream(source_id)
+                shape = "external"
+                if upstream_urn is None:
+                    self.reporter.data_model_element_upstreams_unresolved += 1
+                    logger.debug(
+                        "DM %s element %s: external upstream %r unresolved",
+                        data_model.dataModelId,
+                        element.elementId,
+                        source_id,
+                    )
+            else:
+                # Cross-DM ``<prefix>/<suffix>`` shapes and any other
+                # unknown shape are counted as unresolved here. Cross-DM
+                # resolution arrives in a follow-up PR.
+                self.reporter.data_model_element_upstreams_unresolved += 1
+                logger.debug(
+                    "DM %s element %s: upstream source_id %r has an unknown shape",
+                    data_model.dataModelId,
+                    element.elementId,
+                    source_id,
+                )
+
+            if upstream_urn and upstream_urn not in seen:
+                upstream_urns.append(upstream_urn)
+                seen.add(upstream_urn)
+                if shape == "intra":
+                    self.reporter.data_model_element_intra_upstreams += 1
+                elif shape == "external":
+                    self.reporter.data_model_element_external_upstreams += 1
+
+        if not upstream_urns:
+            return None
+        # Sort for deterministic emission order: Sigma's /lineage API does
+        # not document ordering, and Upstream entries have no semantic order.
+        upstream_urns.sort()
+        return UpstreamLineage(
+            upstreams=[
+                Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
+                for urn in upstream_urns
+            ]
+        )
+
+    def _gen_data_model_element_schema_metadata(
+        self, element_dataset_urn: str, element: SigmaDataModelElement
+    ) -> MetadataWorkUnit:
+        # Dedup by ``fieldPath`` within the element: Sigma can return two
+        # columns with the same name (e.g. a calculated field shadowing a
+        # native column), and GMS rejects / non-deterministically dedupes
+        # duplicate ``fieldPath``s. Keep the first; count the rest.
+        seen_field_paths: Set[str] = set()
+        fields: List[SchemaFieldClass] = []
+        for column in element.columns:
+            if not column.name:
+                continue
+            if column.name in seen_field_paths:
+                self.reporter.data_model_element_columns_duplicate_fieldpath_dropped += 1
+                continue
+            seen_field_paths.add(column.name)
+            fields.append(
+                SchemaFieldClass(
+                    fieldPath=column.name,
+                    type=SchemaFieldDataTypeClass(StringTypeClass()),
+                    nativeDataType="String",
+                    description=column.label or None,
+                )
+            )
+        schema_metadata = SchemaMetadataClass(
+            schemaName=element.name,
+            platform=builder.make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=fields,
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=element_dataset_urn, aspect=schema_metadata
+        ).as_workunit()
+
+    def _gen_data_model_element_workunits(
+        self,
+        data_model: SigmaDataModel,
+        data_model_key: DataModelKey,
+        data_model_container_urn: str,
+        elementId_to_dataset_urn: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        dm_url_id = data_model.get_url_id()
+        paths = data_model.path.split("/")[1:] if data_model.path else []
+        workspace_container_urn: Optional[str] = None
+        if data_model.workspaceId:
+            workspace_container_urn = builder.make_container_urn(
+                self._gen_workspace_key(data_model.workspaceId)
+            )
+
+        for element in data_model.elements:
+            element_dataset_urn = elementId_to_dataset_urn[element.elementId]
+
+            yield self._gen_entity_status_aspect(element_dataset_urn)
+
+            # description is empty: Sigma's /elements API has no
+            # element-level description. qualifiedName uses "/" as the
+            # separator; names containing "/" are disambiguated by URN.
+            element_properties = DatasetProperties(
+                name=element.name,
+                description="",
+                qualifiedName=f"{data_model.name}/{element.name}",
+                customProperties={
+                    "dataModelId": data_model.dataModelId,
+                    "dataModelUrlId": dm_url_id,
+                    "elementId": element.elementId,
+                    "type": element.type or "Unknown",
+                },
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=element_dataset_urn, aspect=element_properties
+            ).as_workunit()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=element_dataset_urn,
+                aspect=SubTypesClass(
+                    typeNames=[DatasetSubTypes.SIGMA_DATA_MODEL_ELEMENT]
+                ),
+            ).as_workunit()
+
+            dpi_aspect = self._gen_dataplatform_instance_aspect(element_dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
+
+            yield self._gen_data_model_element_schema_metadata(
+                element_dataset_urn, element
+            )
+
+            yield from add_entity_to_container(
+                container_key=data_model_key,
+                entity_type="dataset",
+                entity_urn=element_dataset_urn,
+            )
+
+            # BrowsePaths: workspace urn, DM path segments, DM Container
+            # urn (typed so UI breadcrumbs are clickable), element name.
+            # Orphan / personal-space DMs lack a workspace container; skip
+            # that entry rather than duplicating the DM Container URN.
+            browse_entries: List[BrowsePathEntryClass] = []
+            if workspace_container_urn:
+                browse_entries.append(
+                    BrowsePathEntryClass(
+                        id=workspace_container_urn, urn=workspace_container_urn
+                    )
+                )
+            browse_entries.extend(BrowsePathEntryClass(id=path) for path in paths)
+            browse_entries.append(
+                BrowsePathEntryClass(
+                    id=data_model_container_urn, urn=data_model_container_urn
+                )
+            )
+            # ``element.name`` can be empty for anonymous worksheet joins;
+            # fall back to the elementId so the breadcrumb always renders.
+            browse_entries.append(
+                BrowsePathEntryClass(id=element.name or element.elementId)
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=element_dataset_urn,
+                aspect=BrowsePathsV2Class(browse_entries),
+            ).as_workunit()
+
+            upstream_lineage = self._gen_data_model_element_upstream_lineage(
+                element, data_model, elementId_to_dataset_urn
+            )
+            if upstream_lineage is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=element_dataset_urn, aspect=upstream_lineage
+                ).as_workunit()
+
+            self.reporter.data_model_elements_emitted += 1
+            if data_model.workspaceId:
+                self.reporter.workspaces.increment_data_model_elements_count(
+                    data_model.workspaceId
+                )
+
+    def _gen_data_model_workunit(
+        self,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a DM as a Container plus one Dataset per element, with
+        intra-DM and external UpstreamLineage on each element.
+        """
+        data_model_key = self._gen_data_model_key(data_model.dataModelId)
+        data_model_container_urn = builder.make_container_urn(data_model_key)
+
+        owner_username = (
+            self.sigma_api.get_user_name(data_model.createdBy)
+            if data_model.createdBy
+            else None
+        )
+        parent_container_key: Optional[WorkspaceKey] = (
+            self._gen_workspace_key(data_model.workspaceId)
+            if data_model.workspaceId
+            else None
+        )
+        extra_properties: Dict[str, str] = {
+            "dataModelId": data_model.dataModelId,
+            "dataModelUrlId": data_model.get_url_id(),
+        }
+        if data_model.latestVersion is not None:
+            extra_properties["latestVersion"] = str(data_model.latestVersion)
+        if data_model.path:
+            extra_properties["path"] = data_model.path
+        # Flag personal-space / unlisted DMs. Lowercase ``"true"`` matches
+        # the JSON boolean convention used by other DataHub connectors.
+        if data_model.workspaceId is None:
+            extra_properties["isPersonalDataModel"] = "true"
+
+        yield from gen_containers(
+            container_key=data_model_key,
+            name=data_model.name,
+            sub_types=[BIContainerSubTypes.SIGMA_DATA_MODEL],
+            parent_container_key=parent_container_key,
+            description=data_model.description or "",
+            external_url=data_model.url,
+            extra_properties=extra_properties,
+            owner_urn=(
+                builder.make_user_urn(owner_username)
+                if self.config.ingest_owner and owner_username
+                else None
+            ),
+            tags=[data_model.badge] if data_model.badge else None,
+            created=int(data_model.createdAt.timestamp() * 1000),
+            last_modified=int(data_model.updatedAt.timestamp() * 1000),
+        )
+
+        if data_model.workspaceId:
+            self.reporter.workspaces.increment_data_models_count(data_model.workspaceId)
+
+        yield from self._gen_data_model_element_workunits(
+            data_model,
+            data_model_key,
+            data_model_container_urn,
+            elementId_to_dataset_urn,
+        )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -398,9 +699,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Returns (dataset_inputs, chart_input_urns).
 
-        dataset_inputs: Sigma Dataset / warehouse-table URNs → SQL-parsed warehouse URNs
-            (non-empty only for Dataset upstreams matched against the SQL query;
-            empty list for unmatched warehouse-table URNs).
+        dataset_inputs: Sigma Dataset / warehouse-table / DM element URNs to
+            SQL-parsed warehouse URNs (non-empty only for Sigma Dataset
+            upstreams matched against the SQL query; empty list otherwise).
         chart_input_urns: sorted list of chart URNs from intra-workbook sheet upstreams.
         """
         dataset_inputs: Dict[str, List[str]] = {}
@@ -428,10 +729,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for node_id, upstream in element.upstream_sources.items():
             if isinstance(upstream, DatasetUpstream):
                 sigma_dataset_id = node_id.split("-")[-1]
+                upstream_name_lower = upstream.name.lower()
                 for in_table_urn in list(sql_parser_in_tables):
                     if (
                         DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
-                        in upstream.name.lower()
+                        in upstream_name_lower
                     ):
                         dataset_urn = self._gen_sigma_dataset_urn(sigma_dataset_id)
                         if dataset_urn not in dataset_inputs:
@@ -495,7 +797,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
                     externalUrl=element.url,
-                    inputs=list(dataset_inputs.keys()),
+                    inputs=sorted(dataset_inputs.keys()),
                     inputEdges=(
                         [
                             EdgeClass(destinationUrn=urn, sourceUrn=chart_urn)
@@ -552,11 +854,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma workbook page to Datahub dashboard
         """
-        # Build once at workbook scope — intra-workbook lineage can cross pages so
-        # this map must cover all elements before any individual page is processed.
-        # Keys intentionally mirror the chart-emission allow-list in get_page_elements
-        # (type in {"table","visualization"}), so filtered element types (pivot-table,
-        # input-table, etc.) are absent from both the map and the emitted chart entities.
+        # Built once at workbook scope since intra-workbook lineage can
+        # cross pages. Keys mirror the chart-emission allowlist in
+        # get_page_elements (type in {"table","visualization"}).
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,
@@ -710,14 +1010,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Datahub Ingestion framework invoke this method
-        """
+        """DataHub Ingestion framework entry point."""
         logger.info("Sigma plugin execution is started")
         self.sigma_api.fill_workspaces()
 
         for dataset in self.sigma_api.get_sigma_datasets():
             yield from self._gen_dataset_workunit(dataset)
+        # Data Models are emitted before Workbooks. Cross-DM references,
+        # personal-space DM discovery, and workbook-to-DM linking arrive
+        # in a follow-up PR.
+        if self.config.ingest_data_models:
+            for data_model in self.sigma_api.get_data_models():
+                elementId_to_dataset_urn: Dict[str, str] = {
+                    element.elementId: self._gen_data_model_element_urn(
+                        data_model, element
+                    )
+                    for element in data_model.elements
+                }
+                yield from self._gen_data_model_workunit(
+                    data_model, elementId_to_dataset_urn
+                )
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 

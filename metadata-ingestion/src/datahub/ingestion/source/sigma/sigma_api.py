@@ -2,10 +2,10 @@ import functools
 import logging
 import sys
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Set
+from typing import Any, Deque, Dict, List, Optional, Set, Type, TypeVar
 
 import requests
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -21,6 +21,9 @@ from datahub.ingestion.source.sigma.data_classes import (
     File,
     Page,
     SheetUpstream,
+    SigmaDataModel,
+    SigmaDataModelColumn,
+    SigmaDataModelElement,
     SigmaDataset,
     Workbook,
     Workspace,
@@ -28,6 +31,8 @@ from datahub.ingestion.source.sigma.data_classes import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class SigmaAPI:
@@ -355,16 +360,14 @@ class SigmaAPI:
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
     ) -> Dict[str, ElementUpstream]:
-        """
-        Returns upstream sources keyed by nodeId. Admits Sigma Dataset nodes
-        (type="dataset") and intra-workbook element nodes (type="sheet"). Walks
-        through join pass-through nodes transparently. Warehouse table nodes
-        (type="table") are skipped here — their lineage comes from the SQL-parse path.
+        """Return upstream sources keyed by nodeId, admitting Sigma Dataset
+        (``dataset``) and intra-workbook element (``sheet``) nodes. Walks
+        through ``join`` pass-through nodes. Warehouse tables (``table``)
+        come from the SQL-parse path and are skipped here.
 
-        Uses BFS from the queried element's own sheet node, following edges in
-        reverse (target→source), so only nodes reachable on the actual upstream
-        path are captured. This prevents spurious attribution from sibling edges
-        that happen to appear in the same response payload.
+        BFS from the queried element's sheet node, following edges in
+        reverse (target-to-source), so only reachable upstreams are
+        captured (sibling edges in the payload do not leak in).
         """
         upstream_sources: Dict[str, ElementUpstream] = {}
 
@@ -400,9 +403,8 @@ class SigmaAPI:
         try:
             dependencies = response_dict[Constant.DEPENDENCIES]
 
-            # Build reverse adjacency: target nodeId → list of source nodeIds.
-            # Per-edge isolation: a malformed edge skips only itself; valid edges
-            # before and after it still populate the adjacency map.
+            # Reverse adjacency (target nodeId -> source nodeIds). A
+            # malformed edge skips itself; others still populate.
             edges_by_target: Dict[str, List[str]] = {}
             for edge in response_dict[Constant.EDGES]:
                 try:
@@ -416,10 +418,9 @@ class SigmaAPI:
                         exc=e,
                     )
 
-            # Collect all seed nodes — sheet nodes whose elementId matches the queried
-            # element. Today Sigma returns exactly one, but the API contract is not
-            # documented; if multiple ever appear, BFS from all of them so no upstream
-            # reachable only from a secondary seed is silently dropped.
+            # Seeds: sheet nodes whose elementId matches the queried
+            # element. Sigma typically returns one, but we BFS from all of
+            # them defensively.
             seed_node_ids = [
                 node_id
                 for node_id, node_data in dependencies.items()
@@ -440,7 +441,7 @@ class SigmaAPI:
                     context=f"element={element.name}, workbook={workbook.name}, seed_count={len(seed_node_ids)}",
                 )
 
-            # BFS from all seeds, walking edges in reverse (target → source).
+            # BFS from all seeds, walking edges in reverse (target to source).
             visited: Set[str] = set(seed_node_ids)
             queue: Deque[str] = deque(seed_node_ids)
 
@@ -451,8 +452,7 @@ class SigmaAPI:
                         continue
                     visited.add(source_node_id)
 
-                    # Per-node isolation: one malformed node skips rather than
-                    # blanking the entire element's lineage.
+                    # Per-node isolation: a malformed node skips itself.
                     try:
                         source_node = dependencies[source_node_id]
                     except (KeyError, AttributeError, TypeError) as e:
@@ -473,17 +473,16 @@ class SigmaAPI:
                             workbook,
                         )
                     except (KeyError, AttributeError, TypeError, ValidationError) as e:
-                        # ValidationError is caught inside _process_lineage_node for
-                        # pydantic construction failures; this outer catch is defence-in-depth
-                        # for any unexpected ValidationError that escapes the helper.
+                        # Defence-in-depth; the helper already handles
+                        # ValidationError internally.
                         self.report.warning(
                             message="Failed to parse Sigma lineage node",
                             context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                             exc=e,
                         )
         except (KeyError, AttributeError, TypeError, ValidationError) as e:
-            # Structural errors in setup phase only (missing DEPENDENCIES/EDGES key,
-            # malformed edge fields, non-dict entries during seed search).
+            # Structural errors in the setup phase (missing keys, malformed
+            # edges, non-dict seed entries).
             self.report.warning(
                 message="Failed to parse Sigma element lineage response",
                 context=f"element={element.name}, workbook={workbook.name}",
@@ -569,6 +568,217 @@ class SigmaAPI:
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
+            )
+            return []
+
+    def _paginated_entries(
+        self, base_url: str, model_cls: Type[T], error_ctx: str
+    ) -> List[T]:
+        """Page through a Sigma list endpoint, parsing each entry into
+        ``model_cls``. Handles both pagination shapes (``nextPage`` and
+        ``nextPageToken``). Swallows HTTP/JSON errors so a broken page
+        does not abort the containing ingestion loop.
+        """
+        # Use ``&`` as the separator if the base URL already has query
+        # params (e.g. an ``api_url`` routed through a proxy), so
+        # pagination does not collide with existing params.
+        separator = "&" if "?" in base_url else "?"
+        url = base_url
+        results: List[T] = []
+        try:
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for entry in response_dict.get(Constant.ENTRIES, []):
+                    results.append(model_cls.model_validate(entry))
+                next_page = response_dict.get(Constant.NEXTPAGE)
+                next_token = response_dict.get(Constant.NEXTPAGETOKEN)
+                if next_page:
+                    url = f"{base_url}{separator}page={next_page}"
+                elif next_token:
+                    url = f"{base_url}{separator}nextPageToken={next_token}"
+                else:
+                    break
+            return results
+        except Exception as e:
+            self._log_http_error(message=f"{error_ctx} Exception: {e}")
+            return []
+
+    def _get_data_model_elements(
+        self, data_model_id: str
+    ) -> List[SigmaDataModelElement]:
+        logger.debug(f"Fetching elements for data model '{data_model_id}'.")
+        return self._paginated_entries(
+            f"{self.config.api_url}/dataModels/{data_model_id}/elements",
+            SigmaDataModelElement,
+            f"Unable to fetch elements for data model '{data_model_id}'.",
+        )
+
+    def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
+        logger.debug(f"Fetching columns for data model '{data_model_id}'.")
+        return self._paginated_entries(
+            f"{self.config.api_url}/dataModels/{data_model_id}/columns",
+            SigmaDataModelColumn,
+            f"Unable to fetch columns for data model '{data_model_id}'.",
+        )
+
+    def _get_data_model_lineage_entries(
+        self, data_model_id: str
+    ) -> List[Dict[str, Any]]:
+        """Return raw entries from the DM /lineage endpoint. ``element``
+        entries have ``sourceIds`` holding either an intra-DM elementId
+        or an ``inode-<suffix>`` for external upstreams.
+        """
+        logger.debug(f"Fetching lineage for data model '{data_model_id}'.")
+        url = f"{self.config.api_url}/dataModels/{data_model_id}/lineage"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code in (400, 403, 404, 500):
+                logger.debug(
+                    f"Lineage not available for data model '{data_model_id}' "
+                    f"(status {response.status_code})."
+                )
+                return []
+            response.raise_for_status()
+            response_dict = response.json()
+            entries = response_dict.get(Constant.ENTRIES, [])
+            return [entry for entry in entries if isinstance(entry, dict)]
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch lineage for data model '{data_model_id}'. Exception: {e}"
+            )
+            return []
+
+    def _assemble_data_model(
+        self, data_model: SigmaDataModel, file_meta: Optional[File]
+    ) -> None:
+        """Fetch and attach elements, per-element columns, and per-element sourceIds."""
+        if file_meta is not None:
+            # Fill only when the DM payload did not carry the field, so a
+            # future vendor change that populates these on ``/dataModels``
+            # directly cannot be silently overridden by ``/files``.
+            if data_model.workspaceId is None:
+                data_model.workspaceId = file_meta.workspaceId
+            if data_model.path is None:
+                data_model.path = file_meta.path
+            if data_model.badge is None:
+                data_model.badge = file_meta.badge
+            if data_model.urlId is None and file_meta.urlId:
+                data_model.urlId = file_meta.urlId
+
+        elements = self._get_data_model_elements(data_model.dataModelId)
+        columns = self._get_data_model_columns(data_model.dataModelId)
+        lineage_entries = self._get_data_model_lineage_entries(data_model.dataModelId)
+
+        columns_by_element: Dict[str, List[SigmaDataModelColumn]] = {}
+        for column in columns:
+            if column.elementId is None:
+                # DM-global calculations: no element to attach to.
+                self.report.data_model_columns_without_element_dropped += 1
+                continue
+            columns_by_element.setdefault(column.elementId, []).append(column)
+
+        source_ids_by_element: Dict[str, List[str]] = {}
+        for entry in lineage_entries:
+            entry_type = entry.get(Constant.TYPE)
+            if entry_type == "element":
+                element_id = entry.get(Constant.ELEMENTID)
+                source_ids = entry.get("sourceIds") or []
+                if element_id and isinstance(source_ids, list):
+                    source_ids_by_element[element_id] = [
+                        s for s in source_ids if isinstance(s, str)
+                    ]
+            # ``type: dataset`` / ``type: table`` entries are resolved
+            # on the fly from their ``inode-<id>`` source_ids; no DM-side
+            # stash is needed.
+
+        for element in elements:
+            element.columns = columns_by_element.get(element.elementId, [])
+            element.source_ids = source_ids_by_element.get(element.elementId, [])
+
+        data_model.elements = elements
+
+    def get_data_models(self) -> List[SigmaDataModel]:
+        logger.debug("Fetching all accessible data models metadata.")
+        base_url = url = f"{self.config.api_url}/dataModels"
+        # Match ``_paginated_entries``: handle a proxied ``api_url`` that
+        # already carries a query string so pagination does not collide.
+        separator = "&" if "?" in base_url else "?"
+        data_model_files_metadata = self._get_files_metadata(
+            file_type=Constant.DATA_MODEL
+        )
+        try:
+            data_models: List[SigmaDataModel] = []
+            while True:
+                response = self._get_api_call(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for dm_dict in response_dict.get(Constant.ENTRIES, []):
+                    try:
+                        data_model = SigmaDataModel.model_validate(dm_dict)
+                    except ValidationError as e:
+                        self.report.warning(
+                            message="Failed to parse Sigma Data Model payload",
+                            context=f"entry={dm_dict!r}",
+                            exc=e,
+                        )
+                        continue
+
+                    file_meta = data_model_files_metadata.get(data_model.dataModelId)
+
+                    # DM-pattern filter runs before workspace lookup to
+                    # short-circuit three extra HTTP calls per filtered DM.
+                    # (get_sigma_workbooks/datasets check workspace first
+                    # because their payload is already complete.)
+                    if not self.config.data_model_pattern.allowed(data_model.name):
+                        self.report.data_models.dropped(
+                            f"{data_model.name} ({data_model.dataModelId})"
+                        )
+                        continue
+
+                    workspace = None
+                    candidate_workspace_id = (
+                        file_meta.workspaceId if file_meta else None
+                    )
+                    if candidate_workspace_id:
+                        workspace = self.get_workspace(candidate_workspace_id)
+
+                    if workspace:
+                        if self.config.workspace_pattern.allowed(workspace.name):
+                            self.report.data_models.processed(
+                                f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                            )
+                            self._assemble_data_model(data_model, file_meta)
+                            data_models.append(data_model)
+                        else:
+                            self.report.data_models.dropped(
+                                f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
+                            )
+                    elif self.config.ingest_shared_entities:
+                        self.report.data_models_without_workspace += 1
+                        self.report.data_models.processed(
+                            f"{data_model.name} ({data_model.dataModelId}) (no workspace)"
+                        )
+                        self._assemble_data_model(data_model, file_meta)
+                        data_models.append(data_model)
+                    else:
+                        self.report.data_models.dropped(
+                            f"{data_model.name} ({data_model.dataModelId}) (no workspace, ingest_shared_entities=False)"
+                        )
+
+                next_page = response_dict.get(Constant.NEXTPAGE)
+                next_token = response_dict.get(Constant.NEXTPAGETOKEN)
+                if next_page:
+                    url = f"{base_url}{separator}page={next_page}"
+                elif next_token:
+                    url = f"{base_url}{separator}nextPageToken={next_token}"
+                else:
+                    break
+            return data_models
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch sigma data models. Exception: {e}"
             )
             return []
 
