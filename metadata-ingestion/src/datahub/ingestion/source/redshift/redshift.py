@@ -1006,6 +1006,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         lineage_extractor: RedshiftSqlLineage,
     ) -> Iterable[MetadataWorkUnit]:
+        # DATASHARE-DIAG: Morningstar datashare lineage diagnostic. Always
+        # runs read-only SELECTs against svv_*/pg_* views and logs results
+        # so we can debug datashare visibility, namespace matching, and
+        # PlatformResource resolution from the customer's logs. Safe for
+        # any deployment; does not modify Redshift state.
+        if self.config.include_share_lineage:
+            self._log_datashare_diagnostics(connection, database)
+
         if self.config.include_share_lineage:
             outbound_shares = self.data_dictionary.get_outbound_datashares(connection)
             yield from auto_workunit(
@@ -1014,6 +1022,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             if self.db and self.db.is_shared_database():
                 inbound_share = self.db.get_inbound_share()
+                logger.info(
+                    f"[DATASHARE-DIAG] inbound_share resolved from svv_redshift_databases.options: "
+                    f"{inbound_share!r}"
+                )
                 if inbound_share is None:
                     self.report.warning(
                         title="Upstream lineage of inbound datashare will be missing",
@@ -1025,6 +1037,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                         inbound_share, self.get_all_tables()[database]
                     ):
                         lineage_extractor.aggregator.add(known_lineage)
+            else:
+                logger.info(
+                    f"[DATASHARE-DIAG] Skipping inbound share lineage: "
+                    f"db={self.db!r} is_shared_database="
+                    f"{self.db.is_shared_database() if self.db else None}. "
+                    f"To enable Hop-1 bridge lineage, target a database with "
+                    f"database_type='shared' (see svv_redshift_databases output above)."
+                )
 
         # TODO: distinguish between definition level lineage and audit log based lineage.
         # Definition level lineage should never be skipped
@@ -1049,6 +1069,117 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.redundant_lineage_run_skip_handler.update_state(
                 lineage_extractor.start_time, lineage_extractor.end_time
             )
+
+    def _log_datashare_diagnostics(
+        self,
+        connection: redshift_connector.Connection,
+        database: str,
+    ) -> None:
+        """DATASHARE-DIAG: Read-only diagnostic dump for datashare lineage debugging.
+
+        This method only runs SELECT statements against svv_*/pg_* system views.
+        It does not modify any Redshift state. Each query is wrapped in try/except
+        so that a permission failure on one query does not abort the others or the
+        ingestion. All output is prefixed with [DATASHARE-DIAG] for easy grep.
+
+        Triggered when ``include_share_lineage`` is True. Intended to be reverted
+        before merge — this is a temporary debugging branch.
+        """
+        diag = "[DATASHARE-DIAG]"
+        logger.info("=" * 80)
+        logger.info(f"{diag} BEGIN diagnostic dump for database={database!r}")
+        logger.info(
+            f"{diag} recipe config: "
+            f"platform_instance={self.config.platform_instance!r} "
+            f"env={self.config.env!r} "
+            f"include_share_lineage={self.config.include_share_lineage} "
+            f"match_fully_qualified_names={getattr(self.config, 'match_fully_qualified_names', None)}"
+        )
+        logger.info(
+            f"{diag} self.db={self.db!r} "
+            f"is_shared_database="
+            f"{self.db.is_shared_database() if self.db else None}"
+        )
+        if self.db is not None:
+            try:
+                inbound = self.db.get_inbound_share()
+                logger.info(f"{diag} parsed inbound share from options: {inbound!r}")
+            except Exception as e:
+                logger.warning(f"{diag} get_inbound_share() raised: {e!r}")
+
+        # All queries below are READ-ONLY. They use system catalog views and
+        # functions only and do not modify any data.
+        diagnostic_queries: List[tuple] = [
+            (
+                "current_user_and_namespace",
+                "SELECT current_user AS current_user, current_namespace AS current_namespace;",
+            ),
+            (
+                "all_visible_databases",
+                "SELECT database_name, database_type, database_options "
+                "FROM svv_redshift_databases "
+                "ORDER BY database_type, database_name;",
+            ),
+            (
+                "svv_datashares_inbound_outbound",
+                "SELECT share_type, share_name, "
+                "TRIM(producer_namespace) AS producer_namespace, "
+                "TRIM(COALESCE(consumer_namespace, '')) AS consumer_namespace, "
+                "source_database, consumer_database "
+                "FROM svv_datashares "
+                "WHERE share_type IN ('INBOUND','OUTBOUND') "
+                "ORDER BY share_type, share_name;",
+            ),
+            (
+                f"has_usage_on_target_database({database})",
+                f"SELECT current_user AS user, "
+                f"has_database_privilege(current_user, '{database}', 'USAGE') AS has_usage;",
+            ),
+            (
+                f"schema_count_in_target_database({database})",
+                f"SELECT schema_name, COUNT(*) AS table_count "
+                f"FROM svv_redshift_tables "
+                f"WHERE database_name = '{database}' "
+                f"GROUP BY schema_name "
+                f"ORDER BY schema_name;",
+            ),
+            (
+                f"schemas_in_target_database({database})",
+                f"SELECT schema_name "
+                f"FROM svv_redshift_schemas "
+                f"WHERE database_name = '{database}' "
+                f"ORDER BY schema_name;",
+            ),
+        ]
+
+        for label, query in diagnostic_queries:
+            logger.info(f"{diag} ---- {label} ----")
+            logger.info(f"{diag} SQL: {query}")
+            try:
+                cursor = self.data_dictionary.get_query_result(connection, query)
+                col_names = (
+                    [d[0] for d in cursor.description] if cursor.description else []
+                )
+                rows = cursor.fetchall()
+                logger.info(
+                    f"{diag} {label}: {len(rows)} row(s) returned. columns={col_names}"
+                )
+                # Cap row dump to keep logs manageable on big clusters.
+                row_cap = 200
+                for i, row in enumerate(rows[:row_cap]):
+                    logger.info(f"{diag}   row[{i}]: {row}")
+                if len(rows) > row_cap:
+                    logger.info(
+                        f"{diag}   ... {len(rows) - row_cap} more row(s) truncated"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"{diag} {label}: query FAILED — {type(e).__name__}: {e}. "
+                    f"This is non-fatal; continuing with remaining diagnostics."
+                )
+
+        logger.info(f"{diag} END diagnostic dump for database={database!r}")
+        logger.info("=" * 80)
 
     def _should_ingest_lineage(self) -> bool:
         if (

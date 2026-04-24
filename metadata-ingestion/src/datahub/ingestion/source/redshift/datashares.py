@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Iterable, List, Optional, Union
 
 from pydantic import BaseModel
@@ -22,6 +23,13 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
 from datahub.utilities.search_utils import LogicalOperator
+
+logger: logging.Logger = logging.getLogger(__name__)
+
+# DATASHARE-DIAG: temporary diagnostic prefix for Morningstar datashare lineage
+# investigation. This branch only adds read-only logging; revert before merge.
+_DIAG = "[DATASHARE-DIAG]"
+_MAX_LOGGED_EDGES = 25  # per (schema, share) — to avoid log spam on large shares
 
 
 class OutboundSharePlatformResource(BaseModel):
@@ -64,6 +72,10 @@ class RedshiftDatasharesHelper:
     def to_platform_resource(
         self, shares: List[OutboundDatashare]
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        logger.info(
+            f"{_DIAG} to_platform_resource: outbound_shares_count={len(shares)} "
+            f"platform_instance={self.config.platform_instance!r} env={self.config.env!r}"
+        )
         if not shares:
             self.report.outbound_shares_count = 0
             return
@@ -74,6 +86,12 @@ class RedshiftDatasharesHelper:
 
         for share in shares:
             producer_namespace = share.producer_namespace
+            logger.info(
+                f"{_DIAG} outbound_share: share_name={share.share_name!r} "
+                f"producer_namespace={producer_namespace!r} "
+                f"source_database={share.source_database!r} "
+                f"platform_resource_key={share.get_key()!r}"
+            )
             try:
                 platform_resource_key = PlatformResourceKey(
                     platform=self.platform,
@@ -111,11 +129,33 @@ class RedshiftDatasharesHelper:
         share: Union[InboundDatashare, PartialInboundDatashare],
         tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]],
     ) -> Iterable[KnownLineageMapping]:
+        logger.info(
+            f"{_DIAG} generate_lineage: inbound_share={share.get_description()} "
+            f"consumer_database={getattr(share, 'consumer_database', None)!r} "
+            f"local_schemas={list(tables.keys())} "
+            f"local_table_count={sum(len(v) for v in tables.values())}"
+        )
         upstream_share = self.find_upstream_share(share)
 
         if not upstream_share:
+            logger.warning(
+                f"{_DIAG} generate_lineage: NO upstream share resolved → "
+                f"bridge lineage will be EMPTY for inbound share "
+                f"{share.get_description()}"
+            )
             return
 
+        logger.info(
+            f"{_DIAG} resolved upstream share: "
+            f"namespace={upstream_share.namespace!r} "
+            f"share_name={upstream_share.share_name!r} "
+            f"source_database={upstream_share.source_database!r} "
+            f"platform_instance={upstream_share.platform_instance!r} "
+            f"env={upstream_share.env!r}"
+        )
+
+        edges_emitted = 0
+        edges_logged = 0
         for schema in tables:
             for table in tables[schema]:
                 dataset_urn = self.gen_dataset_urn(
@@ -130,14 +170,37 @@ class RedshiftDatasharesHelper:
                     upstream_share.env,
                 )
 
+                if edges_logged < _MAX_LOGGED_EDGES:
+                    logger.info(
+                        f"{_DIAG} bridge_edge[{edges_logged}]: "
+                        f"upstream={upstream_dataset_urn} "
+                        f"downstream={dataset_urn}"
+                    )
+                    edges_logged += 1
+
+                edges_emitted += 1
                 yield KnownLineageMapping(
                     upstream_urn=upstream_dataset_urn, downstream_urn=dataset_urn
                 )
 
+        logger.info(
+            f"{_DIAG} generate_lineage DONE: "
+            f"share={share.get_description()} edges_emitted={edges_emitted} "
+            f"(first {min(edges_logged, _MAX_LOGGED_EDGES)} logged above)"
+        )
+
     def find_upstream_share(
         self, share: Union[InboundDatashare, PartialInboundDatashare]
     ) -> Optional[OutboundSharePlatformResource]:
+        logger.info(
+            f"{_DIAG} find_upstream_share: looking up share={share.get_description()} "
+            f"share_type={type(share).__name__}"
+        )
         if not self.graph:
+            logger.warning(
+                f"{_DIAG} find_upstream_share: graph is None — cannot search "
+                f"PlatformResources. Configure datahub-rest sink or top-level datahub_api."
+            )
             self.report.warning(
                 title="Upstream lineage of inbound datashare will be missing",
                 message="Missing datahub graph. Either use the datahub-rest sink or "
@@ -145,6 +208,19 @@ class RedshiftDatasharesHelper:
             )
         else:
             resources = self.get_platform_resources(self.graph, share)
+            logger.info(
+                f"{_DIAG} find_upstream_share: PlatformResource search returned "
+                f"{len(resources)} result(s)"
+            )
+            for idx, r in enumerate(resources):
+                ri = r.resource_info
+                logger.info(
+                    f"{_DIAG}   resource[{idx}]: "
+                    f"primary_key={getattr(ri, 'primary_key', None)!r} "
+                    f"resource_type={getattr(ri, 'resource_type', None)!r} "
+                    f"secondary_keys={getattr(ri, 'secondary_keys', None)!r} "
+                    f"value={getattr(ri, 'value', None)!r}"
+                )
 
             if len(resources) == 0 or (
                 not any(
@@ -156,6 +232,11 @@ class RedshiftDatasharesHelper:
                     ]
                 )
             ):
+                logger.warning(
+                    f"{_DIAG} find_upstream_share: no matching {PLATFORM_RESOURCE_TYPE} "
+                    f"PlatformResource for {share.get_description()} — bridge lineage "
+                    f"WILL NOT be generated."
+                )
                 self.report.info(
                     title="Upstream lineage of inbound datashare will be missing",
                     message="Missing platform resource for share. "
@@ -195,6 +276,11 @@ class RedshiftDatasharesHelper:
         # we may receive only partial information about inbound share
         # Alternate option to get InboundDatashare using svv_datashares requires superuser
         if isinstance(share, PartialInboundDatashare):
+            logger.info(
+                f"{_DIAG} get_platform_resources: PARTIAL search "
+                f"share_name={share.share_name!r} "
+                f"producer_namespace_prefix={share.producer_namespace_prefix!r}*"
+            )
             return list(
                 PlatformResource.search_by_filters(
                     graph,
@@ -218,6 +304,9 @@ class RedshiftDatasharesHelper:
                     .end(),
                 )
             )
+        logger.info(
+            f"{_DIAG} get_platform_resources: EXACT search by primary_key={share.get_key()!r}"
+        )
         return list(
             PlatformResource.search_by_key(
                 graph, key=share.get_key(), primary=True, is_exact=True
