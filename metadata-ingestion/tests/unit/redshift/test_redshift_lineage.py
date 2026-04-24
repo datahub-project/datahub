@@ -122,8 +122,14 @@ def test_get_sources_from_query_with_none_default_schema():
     # `self.config.default_schema` with `str(...)`, which turned a Python
     # `None` into the literal string "None" and produced URNs like
     # `urn:li:dataset:(...,db.none.tbl,PROD)` for unqualified table refs.
-    # The value should be passed through unchanged so sqlglot can fall
-    # back to its empty-string behaviour instead of injecting "None".
+    # The value must be passed through unchanged so the schema qualifier
+    # is dropped entirely from the URN (`filter(None, ...)` in
+    # SchemaResolver.get_urn_for_table), instead of being literally "None".
+    #
+    # Note: pydantic types `default_schema` as `str`, so this `None`
+    # assignment is intentionally type-bypassing (`# type: ignore` below).
+    # The defensive coverage matters because the bug surfaced via subclasses
+    # / runtime mutation that fed `None` into the field in production.
     test_query = """
         insert into target select * from source
     """
@@ -140,8 +146,7 @@ def test_get_sources_from_query_with_none_default_schema():
     assert ".none." not in lineage.urn
     assert ".None." not in lineage.urn
     assert (
-        lineage.urn
-        == "urn:li:dataset:(urn:li:dataPlatform:redshift,test.source,PROD)"
+        lineage.urn == "urn:li:dataset:(urn:li:dataPlatform:redshift,test.source,PROD)"
     )
 
 

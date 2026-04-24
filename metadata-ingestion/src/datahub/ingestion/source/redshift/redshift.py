@@ -549,6 +549,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     owner_urn=schema_owner_urn,
                     ownership_type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
+            else:
+                logger.debug(
+                    f"Skipping schema container emission for {database}.{schema.name}: "
+                    "include_tables, include_views and profiling are all disabled, "
+                    "so the container would have no datasets to nest under it."
+                )
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(

@@ -74,35 +74,44 @@ class RedshiftProfiler(GenericProfiler):
                             # Continue, since we were unable to retrieve cheap profiling stats from svv_table_info.
                             continue
 
-                    # When include_tables=False, gen_dataset_workunits is never called, so
-                    # the dataset entity lacks the container and dataPlatformInstance aspects
-                    # that place it correctly in the UI hierarchy. Emit them here so profiled
-                    # datasets are properly nested under their schema containers.
-                    if not self.config.include_tables:
-                        dataset_name = self.get_dataset_name(table.name, schema, db)
-                        dataset_urn = self.dataset_urn_builder(dataset_name)
-                        schema_container_key = gen_schema_key(
-                            db_name=db,
-                            schema=schema,
-                            platform=self.platform,
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env,
-                        )
-                        yield from add_table_to_schema_container(
-                            dataset_urn,
-                            parent_container_key=schema_container_key,
-                        )
-                        dpi_aspect = get_dataplatform_instance_aspect(
-                            dataset_urn=dataset_urn,
-                            platform=self.platform,
-                            platform_instance=self.config.platform_instance,
-                        )
-                        if dpi_aspect:
-                            yield dpi_aspect
-
                     # Emit the profile work unit
                     profile_request = self.get_profile_request(table, schema, db)
                     if profile_request is not None:
+                        # When include_tables=False, gen_dataset_workunits is never
+                        # called for this table, so the dataset entity lacks the
+                        # container and dataPlatformInstance aspects that place it
+                        # correctly in the UI hierarchy. Emit them here so profiled
+                        # datasets are properly nested under their schema containers.
+                        # We do this only after get_profile_request returns a
+                        # non-None request so we don't create "ghost" dataset
+                        # entities for tables that won't actually be profiled (any
+                        # reason that makes get_profile_request return None: e.g.
+                        # table_pattern denial, profile_pattern denial, zero
+                        # columns, size/row limits, or recently profiled via
+                        # stateful ingestion).
+                        if not self.config.include_tables:
+                            dataset_urn = self.dataset_urn_builder(
+                                profile_request.pretty_name
+                            )
+                            schema_container_key = gen_schema_key(
+                                db_name=db,
+                                schema=schema,
+                                platform=self.platform,
+                                platform_instance=self.config.platform_instance,
+                                env=self.config.env,
+                            )
+                            yield from add_table_to_schema_container(
+                                dataset_urn,
+                                parent_container_key=schema_container_key,
+                            )
+                            dpi_aspect = get_dataplatform_instance_aspect(
+                                dataset_urn=dataset_urn,
+                                platform=self.platform,
+                                platform_instance=self.config.platform_instance,
+                            )
+                            if dpi_aspect:
+                                yield dpi_aspect
+
                         self.report.report_entity_profiled(profile_request.pretty_name)
                         profile_requests.append(profile_request)
 
