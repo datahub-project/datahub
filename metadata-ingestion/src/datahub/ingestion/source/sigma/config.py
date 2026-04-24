@@ -1,9 +1,8 @@
-import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
@@ -18,8 +17,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class Constant:
@@ -171,6 +168,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
+    # Entries dropped as duplicates by the pagination-level natural-key
+    # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
+    # non-zero indicates an echoed pagination cursor or server-side
+    # overlap between pages -- correctness is preserved (no double
+    # emission) but the signal is surfaced here so operators can spot it.
+    pagination_duplicate_entries_dropped: int = 0
+    # Entries dropped by per-endpoint ``ValidationError`` handling. Only
+    # the first ``_MAX_MALFORMED_WARNINGS_PER_ENDPOINT`` rows per endpoint
+    # emit a user-visible warning to prevent report flooding on a
+    # vendor-wide regression; this counter captures the rest.
+    pagination_malformed_entries_dropped: int = 0
+
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(
@@ -248,18 +257,3 @@ class SigmaSourceConfig(
         description="Regex patterns to filter Sigma Data Model names in ingestion. "
         "Requires ingest_data_models to be enabled.",
     )
-
-    @model_validator(mode="after")
-    def _warn_data_model_pattern_without_ingest(self) -> "SigmaSourceConfig":
-        # Surface mis-configurations loudly; silently ignoring the pattern
-        # has tricked operators into thinking filters were active.
-        if (
-            not self.ingest_data_models
-            and self.data_model_pattern != AllowDenyPattern.allow_all()
-        ):
-            logger.warning(
-                "data_model_pattern is set but ingest_data_models=False; "
-                "the pattern will be ignored. Enable ingest_data_models or "
-                "remove data_model_pattern to silence this warning."
-            )
-        return self

@@ -2,7 +2,19 @@ import functools
 import logging
 import sys
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Set, Tuple, Type, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    Hashable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -648,25 +660,53 @@ class SigmaAPI:
             self._log_http_error(message=f"{error_ctx} Exception: {e}")
             return raw_entries
 
+    # Cap per-endpoint malformed-entry warnings so a vendor regression
+    # that breaks every row cannot flood the report with thousands of
+    # identical warnings. Total dropped count is tracked via the
+    # ``pagination_malformed_entries_dropped`` counter.
+    _MAX_MALFORMED_WARNINGS_PER_ENDPOINT: int = 10
+
     def _paginated_entries(
-        self, base_url: str, model_cls: Type[T], error_ctx: str
+        self,
+        base_url: str,
+        model_cls: Type[T],
+        error_ctx: str,
+        dedup_key: Optional[Callable[[T], Hashable]] = None,
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
         ``model_cls``. Shares pagination / cycle-protection logic with
         :meth:`_paginated_raw_entries`. Per-entry ``ValidationError``
         drops only that entry (so one malformed row cannot empty the
-        whole list).
+        whole list). ``dedup_key`` lets callers collapse duplicates by
+        a natural key so an echoed pagination cursor (or server-side
+        overlap between pages) cannot leak duplicate aspects downstream
+        -- matters because the same element/column emitted twice
+        double-counts counters and re-upserts the same aspect for the
+        same URN.
         """
         results: List[T] = []
+        seen_keys: Set[Hashable] = set()
+        malformed_warned = 0
         for entry in self._paginated_raw_entries(base_url, error_ctx):
             try:
-                results.append(model_cls.model_validate(entry))
+                parsed = model_cls.model_validate(entry)
             except ValidationError as ve:
-                self.report.warning(
-                    message=f"{error_ctx} Dropped malformed entry.",
-                    context=f"entry={entry!r}",
-                    exc=ve,
-                )
+                self.report.pagination_malformed_entries_dropped += 1
+                if malformed_warned < self._MAX_MALFORMED_WARNINGS_PER_ENDPOINT:
+                    self.report.warning(
+                        message=f"{error_ctx} Dropped malformed entry.",
+                        context=f"entry={entry!r}",
+                        exc=ve,
+                    )
+                    malformed_warned += 1
+                continue
+            if dedup_key is not None:
+                key = dedup_key(parsed)
+                if key in seen_keys:
+                    self.report.pagination_duplicate_entries_dropped += 1
+                    continue
+                seen_keys.add(key)
+            results.append(parsed)
         return results
 
     def _get_data_model_elements(
@@ -677,6 +717,7 @@ class SigmaAPI:
             f"{self.config.api_url}/dataModels/{data_model_id}/elements",
             SigmaDataModelElement,
             f"Unable to fetch elements for data model '{data_model_id}'.",
+            dedup_key=lambda element: element.elementId,
         )
 
     def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
@@ -685,6 +726,7 @@ class SigmaAPI:
             f"{self.config.api_url}/dataModels/{data_model_id}/columns",
             SigmaDataModelColumn,
             f"Unable to fetch columns for data model '{data_model_id}'.",
+            dedup_key=lambda column: column.columnId,
         )
 
     def _get_data_model_lineage_entries(
@@ -695,15 +737,35 @@ class SigmaAPI:
         or an ``inode-<suffix>`` for external upstreams. Paginated via
         :meth:`_paginated_raw_entries` so large DMs whose lineage spans
         multiple pages are not silently truncated. Sigma returns
-        400/403/404/500 for DMs with no lineage graph (empty DMs or
-        permission-scoped views); those are swallowed silently.
+        400/403/404 for DMs with no lineage graph (empty DMs or
+        permission-scoped views); those are swallowed silently. 5xx
+        responses are *not* in ``silent_statuses`` -- a globally
+        degraded Sigma region would otherwise produce zero lineage
+        aspects with zero warnings, which is worse than a loud
+        warning per affected DM. Raw entries are deduped by
+        ``(type, nodeId)`` to defuse the same cursor-echo / pagination
+        overlap concern that :meth:`_paginated_entries` guards against
+        for typed models.
         """
         logger.debug(f"Fetching lineage for data model '{data_model_id}'.")
-        return self._paginated_raw_entries(
+        raw = self._paginated_raw_entries(
             f"{self.config.api_url}/dataModels/{data_model_id}/lineage",
             f"Unable to fetch lineage for data model '{data_model_id}'.",
-            silent_statuses=(400, 403, 404, 500),
+            silent_statuses=(400, 403, 404),
         )
+        seen: Set[Tuple[str, str]] = set()
+        deduped: List[Dict[str, Any]] = []
+        for entry in raw:
+            key = (str(entry.get(Constant.TYPE, "")), str(entry.get("nodeId", "")))
+            if key == ("", ""):
+                deduped.append(entry)
+                continue
+            if key in seen:
+                self.report.pagination_duplicate_entries_dropped += 1
+                continue
+            seen.add(key)
+            deduped.append(entry)
+        return deduped
 
     def _assemble_data_model(
         self, data_model: SigmaDataModel, file_meta: Optional[File]
@@ -766,6 +828,7 @@ class SigmaAPI:
             f"{self.config.api_url}/dataModels",
             SigmaDataModel,
             "Unable to fetch sigma data models.",
+            dedup_key=lambda dm: dm.dataModelId,
         )
         data_models: List[SigmaDataModel] = []
         for data_model in raw_data_models:
@@ -782,7 +845,16 @@ class SigmaAPI:
                 continue
 
             workspace = None
-            candidate_workspace_id = file_meta.workspaceId if file_meta else None
+            # Prefer ``/files`` workspaceId (authoritative for the folder
+            # tree) and fall back to the ``/dataModels`` payload so a DM
+            # whose ``/files`` row is missing workspace (admin-perm /
+            # legacy-tenant edge case, same shape as workbook L833-L839
+            # below) but whose payload names an allowed workspace still
+            # routes through the normal workspace-pattern branch instead
+            # of being dropped / gated behind ``ingest_shared_entities``.
+            candidate_workspace_id = (
+                file_meta.workspaceId if file_meta else None
+            ) or data_model.workspaceId
             if candidate_workspace_id:
                 workspace = self.get_workspace(candidate_workspace_id)
 

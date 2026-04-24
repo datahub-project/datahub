@@ -19,8 +19,24 @@ class WorkbookKey(ContainerKey):
 
 
 class DataModelKey(ContainerKey):
-    # UUID (stable across renames). ``dataModelUrlId`` is still surfaced
-    # via customProperties.
+    """Container key for a Sigma Data Model.
+
+    Keyed on ``dataModelId`` (the Sigma-assigned UUID, stable across
+    renames). ``dataModelUrlId`` is surfaced on ``customProperties`` for
+    deep-linking back into Sigma.
+
+    Multi-environment note: ``ContainerKey`` already namespaces the
+    generated container URN by ``platform`` and (when set) by
+    ``platform_instance``, but *not* by ``env``. Operators running two
+    recipes against the same tenant with different ``env`` values (e.g.
+    ``DEV`` vs ``PROD``) should set a distinct ``platform_instance`` per
+    environment so the DM Containers do not collide on a single URN.
+    Element Datasets use ``make_dataset_urn_with_platform_instance``
+    which *is* env-scoped, so this caveat only applies to the Container
+    layer. This mirrors the existing ``WorkspaceKey`` / ``WorkbookKey``
+    shape in this connector.
+    """
+
     dataModelId: str
 
 

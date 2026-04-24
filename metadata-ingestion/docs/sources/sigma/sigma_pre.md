@@ -24,6 +24,18 @@ This source extracts the following:
     not return per-column types.
   - Column-level lineage is not emitted yet; `SchemaMetadata` is
     present, so CLL can be added later without re-ingestion.
+  - External upstreams to Sigma Datasets only resolve when the
+    referenced dataset is ingested in the same recipe run. Splitting
+    Sigma Datasets and Data Models into separate recipes will leave
+    those upstreams unresolved (tracked on
+    `data_model_element_upstreams_unresolved` in the report); keep both
+    in one recipe, or tolerate the gap, until a follow-up adds an
+    opt-in URN-pattern fallback.
+  - The DM Container URN is keyed on `platform` and
+    `platform_instance` but not `env`. Multi-environment deployments
+    against the same tenant should set a distinct `platform_instance`
+    per env so DM Containers do not collide on a single URN. Element
+    Datasets are already env-scoped.
 
 ### Prerequisites
 

@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     add_entity_to_container,
@@ -142,6 +142,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
         # ``inode-<urlId>`` upstreams.
         self.sigma_dataset_urn_by_url_id: Dict[str, str] = {}
+        # Surface as a structured report warning so operators running
+        # under ``--strict`` or CI dashboards that gate on report
+        # warnings (rather than stdout logs) notice the misconfiguration.
+        if (
+            not self.config.ingest_data_models
+            and self.config.data_model_pattern != AllowDenyPattern.allow_all()
+        ):
+            self.reporter.warning(
+                title="data_model_pattern ignored",
+                message="data_model_pattern is set but ingest_data_models is "
+                "False -- the pattern has no effect. Enable ingest_data_models "
+                "or remove data_model_pattern to silence this warning.",
+            )
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -548,9 +561,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             # BrowsePaths: workspace urn, DM path segments, DM Container
-            # urn (typed so UI breadcrumbs are clickable), element name.
-            # Orphan / personal-space DMs lack a workspace container; skip
-            # that entry rather than duplicating the DM Container URN.
+            # urn (typed so UI breadcrumbs are clickable). Matches the
+            # terminal-at-parent shape used by the rest of this connector
+            # (_gen_entity_browsepath_aspect) -- the element's own name
+            # is rendered from DatasetProperties, not the breadcrumb, so
+            # appending it here produced a duplicate unclickable crumb.
+            # Orphan / personal-space DMs lack a workspace container;
+            # skip that entry rather than duplicating the DM Container
+            # URN.
             browse_entries: List[BrowsePathEntryClass] = []
             if workspace_container_urn:
                 browse_entries.append(
@@ -563,11 +581,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 BrowsePathEntryClass(
                     id=data_model_container_urn, urn=data_model_container_urn
                 )
-            )
-            # ``element.name`` can be empty for anonymous worksheet joins;
-            # fall back to the elementId so the breadcrumb always renders.
-            browse_entries.append(
-                BrowsePathEntryClass(id=element.name or element.elementId)
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=element_dataset_urn,

@@ -871,3 +871,165 @@ class TestPaginatedRawEntries:
         with patch.object(api, "_get_api_call", side_effect=[page1, page2]):
             entries = api._get_data_model_lineage_entries("dm-id")
         assert [e["nodeId"] for e in entries] == ["e1", "e2", "e3"]
+
+    def test_lineage_500_surfaces_warning(self) -> None:
+        """M3 regression: a 500 on ``/lineage`` is *not* in
+        ``silent_statuses`` for DM lineage, so a degraded Sigma region
+        leaves a loud warning instead of producing zero aspects with
+        zero telemetry. 404 stays silent (empty DMs).
+        """
+        api = _create_sigma_api()
+        five_hundred = MagicMock(status_code=500)
+        five_hundred.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "500 Server Error"
+        )
+        with patch.object(api, "_get_api_call", return_value=five_hundred):
+            entries = api._get_data_model_lineage_entries("dm-id")
+        assert entries == []
+        assert any("Unable to fetch lineage" in w.message for w in api.report.warnings)
+
+
+class TestPaginatedEntriesDedup:
+    """Regression coverage for review C1: an echoed pagination cursor
+    (or any server-side overlap between pages) must not leak duplicate
+    typed entries to downstream emitters. The cycle guard itself still
+    appends entries from the first *two* pages before firing; the
+    natural-key dedup at the typed layer is what prevents double-MCP
+    emission.
+    """
+
+    def test_paginated_entries_dedupes_by_key(self) -> None:
+        api = _create_sigma_api()
+        import datetime as _dt
+
+        def _dm_payload(data_model_id: str) -> Dict[str, Any]:
+            return {
+                "dataModelId": data_model_id,
+                "name": f"dm-{data_model_id}",
+                "createdAt": _dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+                "updatedAt": _dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            }
+
+        # Two pages, each returning the same DM -- simulates the broken
+        # proxy in test_breaks_on_repeated_nextPageToken but at the typed
+        # layer. Only one DM must survive.
+        page1 = _paginated_response([_dm_payload("dm-1")], next_page_token="same-tok")
+        with patch.object(api, "_get_api_call", return_value=page1):
+            results = api._paginated_entries(
+                "https://api.example.com/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                dedup_key=lambda dm: dm.dataModelId,
+            )
+        assert [dm.dataModelId for dm in results] == ["dm-1"]
+        assert api.report.pagination_duplicate_entries_dropped == 1
+
+    def test_paginated_entries_without_dedup_key_keeps_duplicates(self) -> None:
+        """Callers that do not opt in to dedup retain existing
+        behavior. Guards against silently breaking non-DM callers.
+        """
+        api = _create_sigma_api()
+        import datetime as _dt
+
+        dm_payload = {
+            "dataModelId": "dm-1",
+            "name": "dm-1",
+            "createdAt": _dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            "updatedAt": _dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        }
+        page1 = _paginated_response([dm_payload], next_page_token="same-tok")
+        with patch.object(api, "_get_api_call", return_value=page1):
+            results = api._paginated_entries(
+                "https://api.example.com/dataModels",
+                SigmaDataModel,
+                "ctx",
+            )
+        assert [dm.dataModelId for dm in results] == ["dm-1", "dm-1"]
+        assert api.report.pagination_duplicate_entries_dropped == 0
+
+    def test_lineage_raw_dedupes_by_type_nodeid(self) -> None:
+        """Lineage entries are raw dicts -- dedup happens in
+        ``_get_data_model_lineage_entries`` keyed on ``(type, nodeId)``.
+        """
+        api = _create_sigma_api()
+        # Same ``(type, nodeId)`` echoed across two pages must collapse.
+        page1 = _paginated_response(
+            [
+                {"type": "element", "nodeId": "e1", "sourceIds": []},
+                {"type": "element", "nodeId": "e2", "sourceIds": ["e1"]},
+            ],
+            next_page_token="same-tok",
+        )
+        with patch.object(api, "_get_api_call", return_value=page1):
+            entries = api._get_data_model_lineage_entries("dm-id")
+        assert [e["nodeId"] for e in entries] == ["e1", "e2"]
+        assert api.report.pagination_duplicate_entries_dropped == 2
+
+    def test_get_data_models_workspace_fallback_to_payload(self) -> None:
+        """C2 regression: when ``/files`` is missing the DM row (or has
+        no workspaceId) but the ``/dataModels`` payload names an
+        allowed workspace, route through the workspace branch instead
+        of dropping the DM (which is what the old ``file_meta`` only
+        path did).
+        """
+        import datetime as _dt
+
+        from datahub.ingestion.source.sigma.data_classes import Workspace
+
+        api = _create_sigma_api()
+        dm_payload = {
+            "dataModelId": "dm-uuid-1",
+            "name": "My DM",
+            "workspaceId": "ws-from-payload",
+            "createdAt": _dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            "updatedAt": _dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        }
+        ws = Workspace(
+            workspaceId="ws-from-payload",
+            name="Marketing",
+            createdBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        )
+        with (
+            patch.object(api, "_get_files_metadata", return_value={}),
+            patch.object(
+                api,
+                "_paginated_entries",
+                return_value=[SigmaDataModel.model_validate(dm_payload)],
+            ),
+            patch.object(api, "get_workspace", return_value=ws) as mock_ws,
+            patch.object(api, "_assemble_data_model"),
+        ):
+            results = api.get_data_models()
+        assert [dm.dataModelId for dm in results] == ["dm-uuid-1"]
+        mock_ws.assert_called_once_with("ws-from-payload")
+        # ``ingest_shared_entities`` stays at its default False; the DM
+        # still lands because the payload workspace resolved normally.
+        assert api.report.data_models_without_workspace == 0
+
+    def test_paginated_entries_rate_limits_malformed_warnings(self) -> None:
+        """m7: a malformed-row storm appends at most
+        ``_MAX_MALFORMED_WARNINGS_PER_ENDPOINT`` context entries to the
+        single merged warning (same title/message collapses to one
+        StructuredLogEntry), with the full drop count tallied on
+        ``pagination_malformed_entries_dropped`` for visibility.
+        """
+        api = _create_sigma_api()
+        bad_rows = [{"broken": True} for _ in range(25)]
+        resp = _paginated_response(bad_rows)
+        with patch.object(api, "_get_api_call", return_value=resp):
+            results = api._paginated_entries(
+                "https://api.example.com/dataModels",
+                SigmaDataModel,
+                "ctx",
+            )
+        assert results == []
+        assert api.report.pagination_malformed_entries_dropped == 25
+        # Same (title, message) -> one StructuredLogEntry.
+        entries = list(api.report.warnings)
+        assert len(entries) == 1
+        # Each ``self.report.warning(...)`` call appended one context
+        # string; rate-limiter stopped after
+        # ``_MAX_MALFORMED_WARNINGS_PER_ENDPOINT`` of them.
+        assert len(entries[0].context) == api._MAX_MALFORMED_WARNINGS_PER_ENDPOINT
