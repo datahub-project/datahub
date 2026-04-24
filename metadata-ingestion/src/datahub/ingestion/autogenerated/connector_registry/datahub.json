@@ -1857,6 +1857,12 @@
           "description": "Table-level lineage via v3 Export API",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.informatica.source.InformaticaSource",
