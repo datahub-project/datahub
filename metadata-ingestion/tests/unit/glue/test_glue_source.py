@@ -1,13 +1,12 @@
 import json
-from collections import defaultdict
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Type, cast
+from typing import Any, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
 import pytest
+import time_machine
 from botocore.stub import Stubber
-from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
@@ -20,6 +19,7 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
 from datahub.ingestion.source.state.sql_common_state import (
@@ -49,14 +49,17 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
+    get_dataflow_graph_response_3,
     get_delta_tables_response_1,
     get_delta_tables_response_2,
     get_jobs_response,
     get_jobs_response_empty,
     get_object_body_1,
     get_object_body_2,
+    get_object_body_3,
     get_object_response_1,
     get_object_response_2,
+    get_object_response_3,
     get_object_tagging,
     get_tables_lineage_response_1,
     get_tables_response_1,
@@ -178,7 +181,7 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -217,6 +220,11 @@ def test_glue_ingest(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -246,6 +254,14 @@ def test_glue_ingest(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -353,7 +369,7 @@ def test_get_databases_filters_by_catalog():
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
         test_resources_dir
@@ -387,6 +403,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             "type": "console"
         },
         "pipeline_name": "statefulpipeline",
+        "run_id": "glue-2020_04_14-07_00_00-xds5dj",
     }
 
     with patch(
@@ -528,7 +545,7 @@ def test_glue_with_malformed_delta_schema_ingest(
         (None, "glue_mces.json", "glue_mces_golden_table_lineage.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_include_table_lineage(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -571,6 +588,11 @@ def test_glue_ingest_include_table_lineage(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -602,6 +624,14 @@ def test_glue_ingest_include_table_lineage(
                     "Key": "scripts/job-2.py",
                 },
             )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
+                },
+            )
 
             mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
             glue_stubber.assert_no_pending_responses()
@@ -623,7 +653,7 @@ def test_glue_ingest_include_table_lineage(
         (None, "glue_mces.json", "glue_mces_golden_table_column_lineage.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_include_column_lineage(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -723,7 +753,7 @@ def test_glue_ingest_include_column_lineage(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_with_profiling(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -770,7 +800,7 @@ def test_glue_ingest_with_profiling(
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_with_lake_formation_tag_extraction(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -908,6 +938,11 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -937,6 +972,14 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -1055,17 +1098,10 @@ def test_process_dataflow_node_jdbc(
         dbtable=dbtable,
     )
 
-    new_dataset_ids: List[str] = []
-    new_dataset_mces: List[Any] = []
-    s3_formats: DefaultDict[str, Set[Any]] = defaultdict(set)
-
-    result = source.process_dataflow_node(
-        node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
-    )
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert result["urn"] == expected_urn
-    assert new_dataset_mces == []
 
 
 def test_process_dataflow_node_jdbc_missing_url() -> None:
@@ -1085,7 +1121,7 @@ def test_process_dataflow_node_jdbc_missing_url() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is None
     assert source.report.warnings
@@ -1150,7 +1186,7 @@ def test_process_dataflow_node_glue_connection_jdbc(
         "DataSource0", "DataSource", "My PG Connection", dbtable
     )
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert result["urn"] == expected_urn
@@ -1194,7 +1230,7 @@ def test_process_dataflow_node_glue_connection_native(
         "DataSource0", "DataSource", "My Connection", dbtable
     )
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert result["urn"] == expected_urn
@@ -1216,7 +1252,7 @@ def test_process_dataflow_node_glue_connection_missing_dbtable() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is None
     assert source.report.warnings
@@ -1232,7 +1268,7 @@ def test_process_dataflow_node_glue_connection_fetch_failure() -> None:
     flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
     node = _make_glue_connection_node("DataSource0", "DataSource", "Missing", "mytable")
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is None
     assert source.report.warnings
@@ -1337,7 +1373,7 @@ def test_process_dataflow_node_glue_connection_query_fallback(
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert expected_dbtable in result["urn"]
@@ -1368,7 +1404,7 @@ def test_process_dataflow_node_glue_connection_query_multi_table() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert not source.report.warnings
@@ -1402,7 +1438,7 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
         "LineNumber": 1,
     }
 
-    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+    result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
     assert (
@@ -1434,3 +1470,36 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
 )
 def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
     assert _sanitize_jdbc_url(raw_url) == expected_safe
+
+
+@pytest.mark.parametrize(
+    "secret_name",
+    [
+        "password",
+        "sfPassword",
+        "PASSWORD",
+        "secret",
+        "client_secret",
+        "aws_secret_access_key",
+    ],
+)
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_glue_redact_job_script_secret_fields(secret_name):
+    secret_value = "kjdsg8uh834jksdnj"
+
+    script = f"""
+        datasource = glueContext.create_dynamic_frame.from_options(
+            frame = transformed,
+            connection_type = "postgresql",
+            connection_options = {{
+                "url": "jdbc:postgresql://your-PostgresqlDB-Endpoint",
+                "dbtable": "your_table",
+                "user": "your-Posgresql-User",
+                "{secret_name}": "{secret_value}"
+            }}
+        )
+    """
+
+    assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
+        secret_value, "*****"
+    )

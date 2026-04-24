@@ -1,9 +1,11 @@
 import functools
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from collections import deque
+from typing import Any, Deque, Dict, List, Optional, Set
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -13,9 +15,12 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DatasetUpstream,
     Element,
+    ElementUpstream,
     File,
     Page,
+    SheetUpstream,
     SigmaDataset,
     Workbook,
     Workspace,
@@ -294,14 +299,76 @@ class SigmaAPI:
             )
             return []
 
+    def _process_lineage_node(
+        self,
+        source_node_id: str,
+        source_node: Dict,
+        upstream_sources: Dict[str, "ElementUpstream"],
+        queue: "Deque[str]",
+        element: Element,
+        workbook: Workbook,
+    ) -> None:
+        """Dispatch one BFS node into upstream_sources or re-enqueue it (join)."""
+        source_type = source_node.get(Constant.TYPE)
+        if source_type == "dataset":
+            try:
+                upstream_sources[source_node_id] = DatasetUpstream(
+                    name=source_node.get(Constant.NAME),
+                )
+            except ValidationError as e:
+                self.report.warning(
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
+                )
+        elif source_type == "sheet":
+            element_id = source_node.get(Constant.ELEMENTID)
+            if element_id is None:
+                self.report.warning(
+                    message="Sheet upstream node missing elementId",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                )
+                return
+            try:
+                upstream_sources[source_node_id] = SheetUpstream(
+                    name=source_node.get(Constant.NAME),
+                    element_id=element_id,
+                )
+            except ValidationError as e:
+                self.report.warning(
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
+                )
+        elif source_type == "join":
+            # Pass-through node: enqueue for continued BFS traversal.
+            queue.append(source_node_id)
+        elif source_type == "table":
+            # Warehouse table: handled by SQL-parse path; terminal for BFS.
+            pass
+        else:
+            self.report.warning(
+                message="Unknown Sigma lineage node type",
+                context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
+            )
+
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
-    ) -> Dict[str, str]:
+    ) -> Dict[str, ElementUpstream]:
         """
-        Returns upstream dataset sources with keys as id and values as name of that dataset
+        Returns upstream sources keyed by nodeId. Admits Sigma Dataset nodes
+        (type="dataset") and intra-workbook element nodes (type="sheet"). Walks
+        through join pass-through nodes transparently. Warehouse table nodes
+        (type="table") are skipped here — their lineage comes from the SQL-parse path.
+
+        Uses BFS from the queried element's own sheet node, following edges in
+        reverse (target→source), so only nodes reachable on the actual upstream
+        path are captured. This prevents spurious attribution from sibling edges
+        that happen to appear in the same response payload.
         """
+        upstream_sources: Dict[str, ElementUpstream] = {}
+
         try:
-            upstream_sources: Dict[str, str] = {}
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/lineage/elements/{element.elementId}"
             )
@@ -320,23 +387,111 @@ class SigmaAPI:
                     f"Lineage not supported for element {element.name} of workbook '{workbook.name}' (400 Bad Request)"
                 )
                 return upstream_sources
-
             response.raise_for_status()
             response_dict = response.json()
-            for edge in response_dict[Constant.EDGES]:
-                source_type = response_dict[Constant.DEPENDENCIES][
-                    edge[Constant.SOURCE]
-                ][Constant.TYPE]
-                if source_type == "dataset":
-                    upstream_sources[edge[Constant.SOURCE]] = response_dict[
-                        Constant.DEPENDENCIES
-                    ][edge[Constant.SOURCE]][Constant.NAME]
-            return upstream_sources
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch lineage for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
+        except requests.exceptions.RequestException as e:
+            self.report.warning(
+                message="Failed to fetch Sigma element lineage",
+                context=f"element={element.name}, workbook={workbook.name}",
+                exc=e,
             )
             return {}
+
+        try:
+            dependencies = response_dict[Constant.DEPENDENCIES]
+
+            # Build reverse adjacency: target nodeId → list of source nodeIds.
+            # Per-edge isolation: a malformed edge skips only itself; valid edges
+            # before and after it still populate the adjacency map.
+            edges_by_target: Dict[str, List[str]] = {}
+            for edge in response_dict[Constant.EDGES]:
+                try:
+                    edges_by_target.setdefault(edge[Constant.TARGET], []).append(
+                        edge[Constant.SOURCE]
+                    )
+                except (KeyError, TypeError) as e:
+                    self.report.warning(
+                        message="Skipping malformed Sigma lineage edge",
+                        context=f"edge={edge!r}, element={element.name}, workbook={workbook.name}",
+                        exc=e,
+                    )
+
+            # Collect all seed nodes — sheet nodes whose elementId matches the queried
+            # element. Today Sigma returns exactly one, but the API contract is not
+            # documented; if multiple ever appear, BFS from all of them so no upstream
+            # reachable only from a secondary seed is silently dropped.
+            seed_node_ids = [
+                node_id
+                for node_id, node_data in dependencies.items()
+                if node_data.get(Constant.TYPE) == "sheet"
+                and node_data.get(Constant.ELEMENTID) == element.elementId
+            ]
+
+            if not seed_node_ids:
+                self.report.warning(
+                    message="Could not find sheet node for element in lineage response",
+                    context=f"element={element.name}, workbook={workbook.name}",
+                )
+                return {}
+
+            if len(seed_node_ids) > 1:
+                self.report.warning(
+                    message="Multiple seed sheet nodes found for element in lineage response",
+                    context=f"element={element.name}, workbook={workbook.name}, seed_count={len(seed_node_ids)}",
+                )
+
+            # BFS from all seeds, walking edges in reverse (target → source).
+            visited: Set[str] = set(seed_node_ids)
+            queue: Deque[str] = deque(seed_node_ids)
+
+            while queue:
+                current_id = queue.popleft()
+                for source_node_id in edges_by_target.get(current_id, []):
+                    if source_node_id in visited:
+                        continue
+                    visited.add(source_node_id)
+
+                    # Per-node isolation: one malformed node skips rather than
+                    # blanking the entire element's lineage.
+                    try:
+                        source_node = dependencies[source_node_id]
+                    except (KeyError, AttributeError, TypeError) as e:
+                        self.report.warning(
+                            message="Failed to parse Sigma lineage node",
+                            context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                            exc=e,
+                        )
+                        continue
+
+                    try:
+                        self._process_lineage_node(
+                            source_node_id,
+                            source_node,
+                            upstream_sources,
+                            queue,
+                            element,
+                            workbook,
+                        )
+                    except (KeyError, AttributeError, TypeError, ValidationError) as e:
+                        # ValidationError is caught inside _process_lineage_node for
+                        # pydantic construction failures; this outer catch is defence-in-depth
+                        # for any unexpected ValidationError that escapes the helper.
+                        self.report.warning(
+                            message="Failed to parse Sigma lineage node",
+                            context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                            exc=e,
+                        )
+        except (KeyError, AttributeError, TypeError, ValidationError) as e:
+            # Structural errors in setup phase only (missing DEPENDENCIES/EDGES key,
+            # malformed edge fields, non-dict entries during seed search).
+            self.report.warning(
+                message="Failed to parse Sigma element lineage response",
+                context=f"element={element.name}, workbook={workbook.name}",
+                exc=e,
+            )
+            return {}
+
+        return upstream_sources
 
     def _get_element_sql_query(
         self, element: Element, workbook: Workbook

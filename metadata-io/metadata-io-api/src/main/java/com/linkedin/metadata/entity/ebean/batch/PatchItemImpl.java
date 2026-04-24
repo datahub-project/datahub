@@ -215,6 +215,11 @@ public class PatchItemImpl implements PatchMCP {
       return this;
     }
 
+    public PatchItemImpl.PatchItemImplBuilder patch(GenericJsonPatch genericPatch) {
+      this.genericJsonPatch = genericPatch;
+      return patch(genericPatch.getJsonPatch());
+    }
+
     public PatchItemImpl build(EntityRegistry entityRegistry) {
       urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
       log.debug("entity type = {}", this.urn.getEntityType());

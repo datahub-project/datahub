@@ -2,9 +2,8 @@ import { UserOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
 import { Select, Spin } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import AssignRoleConfirmation from '@app/identity/user/AssignRoleConfirmation';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
@@ -59,6 +58,7 @@ export default function SelectRole({
     refetch,
 }: Props) {
     const client = useApolloClient();
+    const theme = useTheme();
     const rolesMap: Map<string, DataHubRole> = new Map();
     selectRoleOptions.forEach((role) => {
         rolesMap.set(role.urn, role);
@@ -130,7 +130,7 @@ export default function SelectRole({
                 }
                 value={currentRoleUrn}
                 onChange={(e) => onSelectRole(e as string)}
-                color={currentRoleUrn === NO_ROLE_URN ? ANTD_GRAY[6] : undefined}
+                color={currentRoleUrn === NO_ROLE_URN ? theme.colors.textDisabled : undefined}
                 showSearch
                 filterOption={false}
                 searchValue={rolesSearchQuery}

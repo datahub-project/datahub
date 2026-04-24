@@ -52,6 +52,7 @@ import sageMakerLogo from '@images/sagemakerlogo.png';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import snowplowLogo from '@images/snowplowlogo.png';
 import sparkLogo from '@images/sparklogo.png';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
@@ -190,6 +191,8 @@ export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const SNOWPLOW = 'snowplow';
+export const SNOWPLOW_URN = `urn:li:dataPlatform:${SNOWPLOW}`;
 export const FABRIC = 'fabric';
 export const FABRIC_URN = `urn:li:dataPlatform:${FABRIC}`;
 export const FABRIC_DATA_FACTORY = 'fabric-data-factory';
@@ -240,6 +243,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [S3_URN]: s3Logo,
     [SAGE_MAKER_URN]: sageMakerLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
+    [SNOWPLOW_URN]: snowplowLogo,
     [STREAMLIT_URN]: streamlitLogo,
     [SPARK_URN]: sparkLogo,
     [TABLEAU_URN]: tableauLogo,
