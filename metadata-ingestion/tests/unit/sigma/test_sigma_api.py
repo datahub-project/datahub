@@ -683,7 +683,7 @@ class TestAssembleDataModelFileMetaFallback:
     def _dm(self, **overrides: object) -> SigmaDataModel:
         import datetime as _dt
 
-        base = {
+        base: Dict[str, object] = {
             "dataModelId": "dm-uuid-1",
             "name": "My DM",
             "createdAt": _dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
@@ -693,7 +693,7 @@ class TestAssembleDataModelFileMetaFallback:
         return SigmaDataModel.model_validate(base)
 
     def _file(self, **overrides: object) -> File:
-        base = {
+        base: Dict[str, object] = {
             "id": "file-1",
             "name": "My DM",
             "parentId": "folder-1",
