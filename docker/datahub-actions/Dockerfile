@@ -37,6 +37,13 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     unzip \
     bash
 
+# PAM's unix_chkpwd is setuid/setgid in many images for interactive logins. This container does
+# not rely on PAM password checks; clearing bits avoids ABC/DoD-style SUID-SGID file findings
+# (e.g. suid_or_guid_set on /usr/bin/unix_chkpwd) without affecting the DataHub app runtime.
+RUN for f in /usr/bin/unix_chkpwd /usr/sbin/unix_chkpwd; do \
+    if [ -f "$f" ]; then chmod u-s,g-s "$f"; fi; \
+  done
+
 RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
     ln -sf /usr/bin/python3 /usr/bin/python
 
@@ -380,7 +387,18 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/datahub-actions/[all]'
 
-# Block network access to PyPI - locked variant has no runtime pip installs for ingestion CLI
+# No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
+# Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).
+USER root
+COPY ./docker/snippets/strip_pip_uv_from_venvs.sh /tmp/strip_pip_uv_from_venvs.sh
+RUN chmod 755 /tmp/strip_pip_uv_from_venvs.sh
+USER datahub
+RUN sh /tmp/strip_pip_uv_from_venvs.sh
+USER 0
+RUN rm -f /tmp/strip_pip_uv_from_venvs.sh && apk del --no-cache uv
+USER datahub
+
+# Defense in depth: if any pip/uv-style tool is reintroduced, default index URL is unusable.
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
