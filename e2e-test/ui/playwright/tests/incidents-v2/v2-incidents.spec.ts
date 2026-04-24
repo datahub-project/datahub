@@ -92,11 +92,12 @@ test.describe('Incidents V2', () => {
     test('can update incident & resolve incident', async ({ page, logger, logDir }) => {
         test.setTimeout(120000);
         const incidentsPage = new IncidentsPage(page, logger, logDir);
-        await incidentsPage.navigateToKafkaDatasetIncidents();
 
-        // Open the incident created in the previous test.
-        // Expand the CRITICAL group first since incidents are collapsed by default.
-        await incidentsPage.expandGroupIfNeeded('CRITICAL');
+        // Navigate and wait for the incident created in the previous test.
+        // The incidents resolver queries Elasticsearch, which has a reindexing delay after
+        // the previous test's mutation.  navigateToKafkaDatasetIncidentsAndWaitForRow retries
+        // the navigate → expand cycle until ES catches up (up to ~20 s total).
+        await incidentsPage.navigateToKafkaDatasetIncidentsAndWaitForRow(newIncidentName, 'CRITICAL');
         await expect(incidentsPage.getIncidentRow(newIncidentName)).toBeVisible({ timeout: 15000 });
         await incidentsPage.clickIncidentRow(newIncidentName);
 

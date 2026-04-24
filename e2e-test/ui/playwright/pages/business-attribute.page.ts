@@ -189,6 +189,17 @@ export class BusinessAttributePage extends BasePage {
         await expect(this.page.getByText('of 0')).not.toBeVisible();
     }
 
+    async expectRelatedEntitiesExist(): Promise<void> {
+        // Elasticsearch indexing can lag behind a GraphQL mutation by several seconds.
+        // Reload the page periodically until the count is non-zero, ensuring the ES
+        // index has caught up before asserting that related entities are present.
+        await expect(async () => {
+            await this.page.reload();
+            await this.page.waitForLoadState('networkidle');
+            await expect(this.page.getByText('of 0')).not.toBeVisible({ timeout: 5000 });
+        }).toPass({ timeout: 45000, intervals: [3000] });
+    }
+
     getBusinessAttributeSection(_fieldName: string): Locator {
         // In the V2 entity view, SidebarSection sets data-testid="sidebar-section-content-{title}".
         return this.page.locator('[data-testid="sidebar-section-content-Business Attribute"]');

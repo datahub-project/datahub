@@ -93,12 +93,11 @@ export class WelcomeModalPage extends BasePage {
     }
 
     async closeViaGetStarted(): Promise<void> {
-        // The Get Started button is rendered via rightComponent only after the carousel's
-        // afterChange callback fires and React updates currentSlide to the last index.
-        // The button is positioned absolutely at the bottom of the carousel container (bottom: -2px)
-        // and may be outside the modal's visible scroll area even though it is in the DOM.
-        // Wait for it to be attached, scroll it into view, then force-click to bypass viewport checks.
-        await this.getStartedButton.waitFor({ state: 'attached', timeout: 10000 });
+        // clickLastCarouselDot already waited for the button to be attached.
+        // Short safety timeout here in case of unexpected state; the button is positioned
+        // absolutely at the bottom of the carousel container (bottom: -2px) so we
+        // scroll it into view and force-click to bypass viewport checks.
+        await this.getStartedButton.waitFor({ state: 'attached', timeout: 5000 });
         await this.getStartedButton.scrollIntoViewIfNeeded();
         await this.getStartedButton.click({ force: true });
         await this.modal.waitFor({ state: 'hidden' });
@@ -129,8 +128,40 @@ export class WelcomeModalPage extends BasePage {
         await this.waitForCarouselReady();
         await this.lastCarouselDot.waitFor({ state: 'visible', timeout: 10000 });
         await this.lastCarouselDot.click();
-        // Same as clickCarouselDot: no DOM signal for the slide animation end.
-        await this.page.waitForTimeout(500);
+
+        // React-slick fires afterChange via setTimeout(fn, speed) — NOT via transitionend.
+        // A ResizeObserver on .slick-list can call onWindowResized(), which clears
+        // animationEndCallback (line 242 in inner-slider.js) if the DOM shifts during
+        // animation (e.g. video/image layout reflows). This silently drops afterChange,
+        // so setCurrentSlide(lastIndex) is never called and the Get Started button
+        // never renders.
+        //
+        // If the carousel is already on the last slide when clicked, slideHandler
+        // returns early with state=null (no transition, no new callback).
+        //
+        // Fix: wait for the button as the ground truth. On failure, navigate to slide 0
+        // first (so the next click is a real transition) then re-click the last dot.
+        const buttonReady = await this.getStartedButton
+            .waitFor({ state: 'attached', timeout: 5000 })
+            .then(() => true)
+            .catch(() => false);
+
+        if (!buttonReady) {
+            // Move to slide 0 so the carousel's internal currentSlide != lastIndex,
+            // ensuring the next click triggers a full slideHandler run (not early-return).
+            await this.carouselDots.first().click({ force: true });
+            // slick-active is set at animation START, not when afterChange fires.
+            // We must wait for afterChange to complete for slide 0 before re-clicking the
+            // last dot — otherwise react-slick's internal currentSlide has not committed yet
+            // and the subsequent click may trigger slideHandler while still mid-animation,
+            // causing afterChange to be dropped again by the ResizeObserver race.
+            // react-slick's default animation speed is 500 ms, so 700 ms covers the
+            // setTimeout(afterChange, speed) call with margin.
+            await this.waitForSlideChange(0, 5000).catch(() => {});
+            await this.page.waitForTimeout(700);
+            await this.lastCarouselDot.click({ force: true });
+            await this.getStartedButton.waitFor({ state: 'attached', timeout: 20000 });
+        }
     }
 
     async expectSlide1Visible(): Promise<void> {
@@ -154,6 +185,9 @@ export class WelcomeModalPage extends BasePage {
 
     async expectFinalSlideVisible(): Promise<void> {
         await this.waitForCarouselReady();
+        // clickLastCarouselDot already confirmed the Get Started button is attached,
+        // which requires afterChange to have fired and React to have re-rendered with
+        // currentSlide === lastIndex. The heading is visible in the same render cycle.
         await expect(this.finalSlideHeading).toBeVisible();
     }
 
