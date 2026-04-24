@@ -1,4 +1,5 @@
-from typing import Dict
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -706,22 +707,24 @@ class TestAssembleDataModelFileMetaFallback:
         base.update(overrides)
         return File.model_validate(base)
 
-    def _patch_fetches(self, api: SigmaAPI) -> None:
+    @contextmanager
+    def _patched_fetches(self, api: SigmaAPI) -> Iterator[None]:
         # Short-circuit the three per-DM fetches; we only care about the
-        # fill-from-file-meta block.
-        patch.object(api, "_get_data_model_elements", return_value=[]).start()
-        patch.object(api, "_get_data_model_columns", return_value=[]).start()
-        patch.object(api, "_get_data_model_lineage_entries", return_value=[]).start()
+        # fill-from-file-meta block. Nested context managers guarantee
+        # cleanup even if a test assertion raises, unlike ``patch.stopall``.
+        with (
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_columns", return_value=[]),
+            patch.object(api, "_get_data_model_lineage_entries", return_value=[]),
+        ):
+            yield
 
     def test_fills_missing_fields_from_file_meta(self) -> None:
         api = _create_sigma_api()
-        self._patch_fetches(api)
         dm = self._dm(workspaceId=None, path=None, urlId=None, badge=None)
 
-        try:
+        with self._patched_fetches(api):
             api._assemble_data_model(dm, self._file())
-        finally:
-            patch.stopall()
 
         assert dm.workspaceId == "ws-from-file"
         assert dm.path == "Acryl Data/Marketing"
@@ -733,7 +736,6 @@ class TestAssembleDataModelFileMetaFallback:
         vendor change that populates these directly must not be silently
         overwritten by ``/files``."""
         api = _create_sigma_api()
-        self._patch_fetches(api)
         dm = self._dm(
             workspaceId="ws-from-dm",
             path="DM Path",
@@ -741,10 +743,8 @@ class TestAssembleDataModelFileMetaFallback:
             badge="dm-badge",
         )
 
-        try:
+        with self._patched_fetches(api):
             api._assemble_data_model(dm, self._file())
-        finally:
-            patch.stopall()
 
         assert dm.workspaceId == "ws-from-dm"
         assert dm.path == "DM Path"
@@ -753,15 +753,121 @@ class TestAssembleDataModelFileMetaFallback:
 
     def test_none_file_meta_is_safe(self) -> None:
         api = _create_sigma_api()
-        self._patch_fetches(api)
         dm = self._dm(workspaceId=None, path=None, urlId=None, badge=None)
 
-        try:
+        with self._patched_fetches(api):
             api._assemble_data_model(dm, None)
-        finally:
-            patch.stopall()
 
         assert dm.workspaceId is None
         assert dm.path is None
         assert dm.urlId is None
         assert dm.badge is None
+
+
+def _paginated_response(
+    entries: List[Dict[str, Any]],
+    *,
+    next_page: Any = None,
+    next_page_token: Any = None,
+    status_code: int = 200,
+) -> MagicMock:
+    resp = MagicMock(status_code=status_code)
+    resp.json.return_value = {
+        "entries": entries,
+        "nextPage": next_page,
+        "nextPageToken": next_page_token,
+    }
+    return resp
+
+
+class TestPaginatedRawEntries:
+    """Regression coverage for ``_paginated_raw_entries`` (review M2, M3).
+
+    ``_paginated_entries`` shares the same HTTP loop, so cycle protection
+    and multi-page aggregation are covered transitively.
+    """
+
+    def test_collects_entries_across_pages_via_nextPage(self) -> None:
+        api = _create_sigma_api()
+        responses = [
+            _paginated_response([{"id": "a"}, {"id": "b"}], next_page=2),
+            _paginated_response([{"id": "c"}], next_page=None),
+        ]
+        with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/lineage",
+                "test ctx",
+            )
+        assert [e["id"] for e in entries] == ["a", "b", "c"]
+        assert mock_get.call_count == 2
+        # Second call must include the ``page=2`` cursor.
+        assert "page=2" in mock_get.call_args_list[1].args[0]
+
+    def test_collects_entries_across_pages_via_nextPageToken(self) -> None:
+        api = _create_sigma_api()
+        responses = [
+            _paginated_response([{"id": "a"}], next_page_token="tok-2"),
+            _paginated_response([{"id": "b"}], next_page_token=None),
+        ]
+        with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/foo", "test ctx"
+            )
+        assert [e["id"] for e in entries] == ["a", "b"]
+        assert "nextPageToken=tok-2" in mock_get.call_args_list[1].args[0]
+
+    def test_breaks_on_repeated_nextPageToken(self) -> None:
+        """A broken Sigma proxy that echoes the same cursor forever must
+        not hang ingestion or duplicate rows."""
+        api = _create_sigma_api()
+        # Every response returns the same token; without cycle protection
+        # this would loop indefinitely.
+        looping = _paginated_response([{"id": "x"}], next_page_token="same-tok")
+        with patch.object(api, "_get_api_call", return_value=looping) as mock_get:
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/foo", "test ctx"
+            )
+        # Page 1 is consumed (one entry); page 2 returns the same cursor
+        # and is also consumed (second entry); page 3's repeat cursor is
+        # detected and the loop breaks.
+        assert len(entries) == 2
+        assert mock_get.call_count == 2
+        assert any(
+            "cursor repeated" in warning.message.lower()
+            for warning in api.report.warnings
+        )
+
+    def test_silent_statuses_swallow_first_page_error(self) -> None:
+        """``/lineage`` returns 404 for DMs with no lineage graph; the
+        paginator must treat that as an empty list without warning.
+        """
+        api = _create_sigma_api()
+        empty_404 = MagicMock(status_code=404)
+        with patch.object(api, "_get_api_call", return_value=empty_404):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/lineage",
+                "test ctx",
+                silent_statuses=(400, 403, 404, 500),
+            )
+        assert entries == []
+        assert not api.report.warnings
+
+    def test_lineage_paginated_across_pages(self) -> None:
+        """End-to-end: ``_get_data_model_lineage_entries`` returns every
+        page of lineage, not just the first. Review M2 regression.
+        """
+        api = _create_sigma_api()
+        page1 = _paginated_response(
+            [
+                {"type": "element", "nodeId": "e1", "sourceIds": []},
+                {"type": "element", "nodeId": "e2", "sourceIds": ["e1"]},
+            ],
+            next_page=2,
+        )
+        page2 = _paginated_response(
+            [{"type": "element", "nodeId": "e3", "sourceIds": ["e2"]}],
+            next_page=None,
+        )
+        with patch.object(api, "_get_api_call", side_effect=[page1, page2]):
+            entries = api._get_data_model_lineage_entries("dm-id")
+        assert [e["nodeId"] for e in entries] == ["e1", "e2", "e3"]

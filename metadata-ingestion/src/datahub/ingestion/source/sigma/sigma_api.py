@@ -2,7 +2,7 @@ import functools
 import logging
 import sys
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Set, Type, TypeVar
+from typing import Any, Deque, Dict, List, Optional, Set, Tuple, Type, TypeVar
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -571,44 +571,69 @@ class SigmaAPI:
             )
             return []
 
-    def _paginated_entries(
-        self, base_url: str, model_cls: Type[T], error_ctx: str
-    ) -> List[T]:
-        """Page through a Sigma list endpoint, parsing each entry into
-        ``model_cls``. Handles both pagination shapes (``nextPage`` and
-        ``nextPageToken``). HTTP/JSON errors abort pagination and surface
-        a report warning; per-entry ``ValidationError`` drops only that
-        entry (so one malformed row cannot empty the whole list).
+    def _paginated_raw_entries(
+        self,
+        base_url: str,
+        error_ctx: str,
+        silent_statuses: Tuple[int, ...] = (),
+    ) -> List[Dict[str, Any]]:
+        """Page through a Sigma list endpoint and return raw ``entries``
+        dicts. Handles both pagination shapes (``nextPage`` and
+        ``nextPageToken``) and guards against pathological proxies that
+        return the same cursor twice in a row (which would otherwise loop
+        forever and accumulate duplicates). HTTP/JSON errors abort
+        pagination and surface a report warning; partial results
+        collected before the failure are preserved. ``silent_statuses``
+        lets callers treat expected "no data" statuses (e.g. 404 from
+        Sigma's /lineage on empty DMs) as an empty list without emitting
+        a warning -- applied only to the first page so later-page
+        failures still surface.
         """
         # Use ``&`` as the separator if the base URL already has query
         # params (e.g. an ``api_url`` routed through a proxy), so
         # pagination does not collide with existing params.
         separator = "&" if "?" in base_url else "?"
         url = base_url
-        results: List[T] = []
+        raw_entries: List[Dict[str, Any]] = []
+        # Cycle protection: a broken proxy (or caching layer) can echo the
+        # same ``nextPage`` / ``nextPageToken`` back on every call. Track
+        # the normalized cursor values we've already followed and break
+        # the loop rather than hanging ingestion.
+        seen_cursors: Set[str] = set()
+        first_page = True
         try:
             while True:
                 response = self._get_api_call(url)
+                if first_page and response.status_code in silent_statuses:
+                    logger.debug(
+                        f"{error_ctx} Swallowed expected status "
+                        f"{response.status_code} on first page."
+                    )
+                    return raw_entries
+                first_page = False
                 response.raise_for_status()
                 response_dict = response.json()
                 for entry in response_dict.get(Constant.ENTRIES, []):
-                    try:
-                        results.append(model_cls.model_validate(entry))
-                    except ValidationError as ve:
-                        self.report.warning(
-                            message=f"{error_ctx} Dropped malformed entry.",
-                            context=f"entry={entry!r}",
-                            exc=ve,
-                        )
+                    if isinstance(entry, dict):
+                        raw_entries.append(entry)
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
-                    url = f"{base_url}{separator}page={next_page}"
+                    cursor = f"page={next_page}"
                 elif next_token:
-                    url = f"{base_url}{separator}nextPageToken={next_token}"
+                    cursor = f"nextPageToken={next_token}"
                 else:
                     break
-            return results
+                if cursor in seen_cursors:
+                    self.report.warning(
+                        message=f"{error_ctx} Pagination cursor repeated; aborting.",
+                        context=f"url={base_url}, cursor={cursor}, "
+                        f"entries_so_far={len(raw_entries)}",
+                    )
+                    break
+                seen_cursors.add(cursor)
+                url = f"{base_url}{separator}{cursor}"
+            return raw_entries
         except Exception as e:
             # Surface HTTP/JSON pagination failures so the operator sees
             # them in the ingestion report; ``_log_http_error`` alone is
@@ -617,11 +642,32 @@ class SigmaAPI:
             # collected before the break are preserved.
             self.report.warning(
                 message=f"{error_ctx} Pagination aborted.",
-                context=f"url={url}, partial_results={len(results)}",
+                context=f"url={url}, partial_results={len(raw_entries)}",
                 exc=e,
             )
             self._log_http_error(message=f"{error_ctx} Exception: {e}")
-            return results
+            return raw_entries
+
+    def _paginated_entries(
+        self, base_url: str, model_cls: Type[T], error_ctx: str
+    ) -> List[T]:
+        """Page through a Sigma list endpoint, parsing each entry into
+        ``model_cls``. Shares pagination / cycle-protection logic with
+        :meth:`_paginated_raw_entries`. Per-entry ``ValidationError``
+        drops only that entry (so one malformed row cannot empty the
+        whole list).
+        """
+        results: List[T] = []
+        for entry in self._paginated_raw_entries(base_url, error_ctx):
+            try:
+                results.append(model_cls.model_validate(entry))
+            except ValidationError as ve:
+                self.report.warning(
+                    message=f"{error_ctx} Dropped malformed entry.",
+                    context=f"entry={entry!r}",
+                    exc=ve,
+                )
+        return results
 
     def _get_data_model_elements(
         self, data_model_id: str
@@ -646,27 +692,18 @@ class SigmaAPI:
     ) -> List[Dict[str, Any]]:
         """Return raw entries from the DM /lineage endpoint. ``element``
         entries have ``sourceIds`` holding either an intra-DM elementId
-        or an ``inode-<suffix>`` for external upstreams.
+        or an ``inode-<suffix>`` for external upstreams. Paginated via
+        :meth:`_paginated_raw_entries` so large DMs whose lineage spans
+        multiple pages are not silently truncated. Sigma returns
+        400/403/404/500 for DMs with no lineage graph (empty DMs or
+        permission-scoped views); those are swallowed silently.
         """
         logger.debug(f"Fetching lineage for data model '{data_model_id}'.")
-        url = f"{self.config.api_url}/dataModels/{data_model_id}/lineage"
-        try:
-            response = self._get_api_call(url)
-            if response.status_code in (400, 403, 404, 500):
-                logger.debug(
-                    f"Lineage not available for data model '{data_model_id}' "
-                    f"(status {response.status_code})."
-                )
-                return []
-            response.raise_for_status()
-            response_dict = response.json()
-            entries = response_dict.get(Constant.ENTRIES, [])
-            return [entry for entry in entries if isinstance(entry, dict)]
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch lineage for data model '{data_model_id}'. Exception: {e}"
-            )
-            return []
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/dataModels/{data_model_id}/lineage",
+            f"Unable to fetch lineage for data model '{data_model_id}'.",
+            silent_statuses=(400, 403, 404, 500),
+        )
 
     def _assemble_data_model(
         self, data_model: SigmaDataModel, file_meta: Optional[File]

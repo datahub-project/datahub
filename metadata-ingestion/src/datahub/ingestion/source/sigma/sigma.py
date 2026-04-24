@@ -502,10 +502,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # any description a user edited in the UI. qualifiedName uses
             # "/" as the separator; names containing "/" are still
             # disambiguated by the element URN.
+            # ``?:nodeId=<elementId>`` is Sigma's standard deep-link shape
+            # (same pattern used for workbook elements in sigma_api.py);
+            # gate on ``data_model.url`` because it is ``Optional[str]``.
+            element_external_url: Optional[str] = (
+                f"{data_model.url}?:nodeId={element.elementId}"
+                if data_model.url
+                else None
+            )
             element_properties = DatasetProperties(
                 name=element.name,
                 description=None,
                 qualifiedName=f"{data_model.name}/{element.name}",
+                externalUrl=element_external_url,
                 customProperties={
                     "dataModelId": data_model.dataModelId,
                     "dataModelUrlId": dm_url_id,
@@ -618,7 +627,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             name=data_model.name,
             sub_types=[BIContainerSubTypes.SIGMA_DATA_MODEL],
             parent_container_key=parent_container_key,
-            description=data_model.description or "",
+            # Pass ``None`` through (rather than ``""``) when Sigma has no
+            # description so ``ContainerProperties`` aspect-replace cannot
+            # blank out a description the user edited in the DataHub UI.
+            # Mirrors the element-Dataset fix above.
+            description=data_model.description,
             external_url=data_model.url,
             extra_properties=extra_properties,
             owner_urn=(

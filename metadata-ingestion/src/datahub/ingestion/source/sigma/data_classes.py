@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from datetime import datetime
 from typing import Annotated, Dict, List, Literal, Optional, Union
@@ -5,6 +6,8 @@ from typing import Annotated, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
+
+logger = logging.getLogger(__name__)
 
 
 class WorkspaceKey(ContainerKey):
@@ -160,12 +163,24 @@ class SigmaDataModelElement(BaseModel):
         # Rich SigmaDataModelColumn objects come from /columns and are
         # attached in ``_assemble_data_model``. Filter to dict entries so a
         # hypothetical mixed payload retains its well-formed rows instead
-        # of being dropped wholesale.
+        # of being dropped wholesale. If /columns later fails, the element
+        # will render with an empty schema; the debug log below lets
+        # operators spot that the element had column names on /elements
+        # but they were intentionally discarded pending /columns.
         if isinstance(values, dict):
             raw_columns = values.get("columns")
             if isinstance(raw_columns, list) and any(
                 not isinstance(c, dict) for c in raw_columns
             ):
+                bare = [c for c in raw_columns if not isinstance(c, dict)]
+                logger.debug(
+                    "Discarded %d bare-string column(s) from /elements for "
+                    "element %r (elementId=%s); rich columns will come from "
+                    "/columns.",
+                    len(bare),
+                    values.get("name"),
+                    values.get("elementId"),
+                )
                 values = {
                     **values,
                     "columns": [c for c in raw_columns if isinstance(c, dict)],
