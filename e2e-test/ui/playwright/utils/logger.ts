@@ -51,13 +51,14 @@ const fileFormat = winston.format.combine(winston.format.timestamp(), winston.fo
 export function createLogger(logDir: string, testMeta: TestMeta): DataHubLogger {
   const transports: winston.transport[] = [];
 
-  if (!process.env.CI) {
+  if (!process.env.CI || !logDir) {
     transports.push(new winston.transports.Console({ format: consoleFormat }));
   }
 
   // In CI write structured JSON logs to files so they can be archived.
   // Append the retry index to the filename so retried attempts don't overwrite the first run.
-  if (process.env.CI) {
+  // logDir may be empty for infrastructure fixtures (e.g. seeding); skip file transport in that case.
+  if (process.env.CI && logDir) {
     fs.mkdirSync(logDir, { recursive: true });
     const retrySuffix = testMeta.retry > 0 ? `-retry${testMeta.retry}` : '';
     transports.push(

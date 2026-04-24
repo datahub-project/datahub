@@ -48,13 +48,13 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 
 ## Image Variants
 
-Both `datahub-ingestion` and `datahub-actions` are available only as **full**, **slim**, and **locked** (Ubuntu-based; no Alpine variants).
+`datahub-ingestion` and `datahub-actions` are available as **full**, **slim**, and **locked** (no Alpine variants). **`datahub-ingestion`** is Ubuntu 24.04–based. **`datahub-actions`** is built on **Wolfi** ([`cgr.dev/chainguard/wolfi-base`](https://cgr.dev/chainguard/wolfi-base); override the base with Docker build arg `WOLFI_BASE_IMAGE` if needed).
 
-| Variant          | Base OS      | Image Size | Use Case                                |
-| ---------------- | ------------ | ---------- | --------------------------------------- |
-| `full` (default) | Ubuntu 24.04 | Largest    | All connectors, maximum compatibility   |
-| `slim`           | Ubuntu 24.04 | Medium     | Common connectors, good balance         |
-| `locked`         | Ubuntu 24.04 | Medium     | Air-gapped environments (pypi disabled) |
+| Variant          | Image size | Use case                                |
+| ---------------- | ---------- | --------------------------------------- |
+| `full` (default) | Largest    | All connectors, maximum compatibility   |
+| `slim`           | Medium     | Common connectors, good balance         |
+| `locked`         | Medium     | Air-gapped environments (pypi disabled) |
 
 ### Variant Tag Format
 
