@@ -186,7 +186,7 @@ Each term is emitted as a `GlossaryTerm` with:
 - `term_source: EXTERNAL` and a `source_url` linking directly to the term in the Dataplex console
 - `custom_properties` carrying `project_id`, `location`, `glossary_id`, and `term_id`
 
-When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires `roles/resourcemanager.projectViewer` on all configured projects and issues O(terms × entries_locations × project_ids) REST calls, so it can be slow for large environments.
+When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires `roles/resourcemanager.projectViewer` on all configured projects. Lookups are parallelised across terms using `max_workers_glossary` workers.
 
 **Configuration:**
 
