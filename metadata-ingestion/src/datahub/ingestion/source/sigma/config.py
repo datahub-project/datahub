@@ -194,11 +194,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
     data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
     data_model_element_cross_dm_upstreams_dm_unknown: int = 0
-    # Producer DM was discovered by the iterative loop and then dropped by
-    # ``workspace_pattern`` or ``data_model_pattern``. Distinct from
-    # ``dm_unknown`` so operators can see "I asked to exclude this" vs
-    # "source system is missing this".
-    data_model_element_cross_dm_upstreams_excluded_by_filter: int = 0
     data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
     data_model_element_cross_dm_upstreams_self_reference: int = 0
 

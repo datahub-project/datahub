@@ -168,10 +168,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
-        # urlId prefixes that discovery fetched and then dropped (workspace-
-        # or pattern-filtered). Used by the cross-DM resolver to distinguish
-        # "operator asked to exclude this producer" from "producer missing".
-        self.dm_excluded_url_ids: Set[str] = set()
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -457,7 +453,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None, "self_reference"
 
         if not consuming_element.name:
-            # ``dm_unknown`` wins if the producer DM isn't registered.
             if other_dm_url_id not in self.dm_container_urn_by_url_id:
                 return None, "dm_unknown"
             return None, "consumer_name_missing"
@@ -467,10 +462,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # be ``{}`` for a registered DM with only blank-named elements, which
         # we must not conflate with "DM never registered".
         if other_dm_url_id not in self.dm_container_urn_by_url_id:
-            # Distinguish "operator filtered this producer out" from
-            # "producer missing" so report triage is not misleading.
-            if other_dm_url_id in self.dm_excluded_url_ids:
-                return None, "excluded_by_filter"
             return None, "dm_unknown"
         name_map = self.dm_element_urn_by_name.get(other_dm_url_id, {})
 
@@ -513,8 +504,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.data_model_element_cross_dm_upstreams_consumer_name_missing += 1
         elif outcome == "dm_unknown":
             self.reporter.data_model_element_cross_dm_upstreams_dm_unknown += 1
-        elif outcome == "excluded_by_filter":
-            self.reporter.data_model_element_cross_dm_upstreams_excluded_by_filter += 1
         elif outcome == "name_unmatched_but_dm_known":
             self.reporter.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known += 1
         # ``malformed`` has no dedicated counter; falls into the caller's
@@ -1525,8 +1514,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if discovered_dm is None:
                         self.reporter.data_model_external_reference_unresolved += 1
                         continue
-                    # Re-apply ``workspace_pattern`` so a denied workspace
-                    # cannot leak DMs via cross-DM references. If the DM
+                    # Re-apply ``workspace_pattern`` / ``data_model_pattern``
+                    # so a denied workspace or DM name cannot leak via
+                    # cross-DM references. Filtered orphans are treated as
+                    # never-registered (``dm_unknown`` at resolution time)
+                    # because the operator never opted them in. If the DM
                     # has a workspaceId but the workspace is unreachable
                     # (admin-only / deleted), mirror the listed-DM path:
                     # count under ``data_models_without_workspace``.
@@ -1541,7 +1533,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 f"{discovered_dm.name} ({discovered_dm.dataModelId}) "
                                 f"in {workspace.name} (discovered, workspace_pattern denied)"
                             )
-                            self.dm_excluded_url_ids.add(prefix)
                             continue
                         if workspace is None:
                             self.reporter.data_models_without_workspace += 1
@@ -1550,7 +1541,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             f"{discovered_dm.name} ({discovered_dm.dataModelId}) "
                             f"(discovered, filtered by data_model_pattern)"
                         )
-                        self.dm_excluded_url_ids.add(prefix)
                         continue
                     self.reporter.data_model_external_references_discovered += 1
                     all_data_models.append(discovered_dm)
