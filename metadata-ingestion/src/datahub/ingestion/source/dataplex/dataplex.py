@@ -4,14 +4,18 @@ This source extracts metadata from Google Dataplex Universal Catalog, including:
 - Entries (Universal Catalog) as Datasets with source platform URNs (bigquery, gcs, etc.)
 - BigQuery Projects as Containers (project-level containers)
 - BigQuery Datasets as Containers (dataset-level containers, nested under project containers)
+- Business Glossary entities (GlossaryNode, GlossaryTerm) from Dataplex Business Glossary API
+- Term-to-asset associations via Dataplex lookupEntryLinks API (opt-in)
 
 Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
 from itertools import product
-from typing import Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
+import google.auth
+import google.auth.transport.requests
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
 from google.cloud.datacatalog_lineage import LineageClient
@@ -35,10 +39,13 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
+from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
 )
-from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.ingestion.source.dataplex.dataplex_glossary import (
+    DataplexGlossaryProcessor,
+)
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -52,6 +59,25 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_project_numbers(
+    project_ids: List[str],
+    credentials: Optional[service_account.Credentials],
+) -> Dict[str, str]:
+    """Resolve GCP project IDs to project numbers via the Resource Manager API.
+
+    The Dataplex lookupEntryLinks REST API requires project NUMBER (not project ID)
+    inside glossary term entry paths. Called once at startup when
+    include_glossaries=True.
+    """
+    from google.cloud import resourcemanager_v3
+
+    rm_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
+    return {
+        pid: rm_client.get_project(name=f"projects/{pid}").name.split("/")[-1]
+        for pid in project_ids
+    }
 
 
 @platform_name("Google Cloud Knowledge Catalog (Dataplex)", id="dataplex")
@@ -85,6 +111,10 @@ logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.TEST_CONNECTION,
     "Enabled by default",
+)
+@capability(
+    SourceCapability.GLOSSARY_TERMS,
+    "Optionally enabled via configuration `include_glossaries`",
 )
 class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex Universal Catalog.
@@ -139,11 +169,15 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
       queries the Dataplex Lineage API across all configured project/location
       pairs with the configured retry logic.
 
+    - The glossary stage lists all glossaries across configured glossary_locations,
+      then fetches categories and terms per glossary in parallel using
+      ``max_workers_glossary`` workers.
+
     - Thread safety: ``DataplexEntriesReport`` and ``DataplexLineageReport``
       protect all mutable fields with an internal ``threading.Lock`` initialised
       in ``__post_init__``.  ``DataplexEntriesProcessor`` uses ``_container_lock``
       for atomic check+add on ``_emitted_project_containers`` and
-      ``_entry_data_lock`` for appends to the shared ``entry_data`` list.
+      ``_entry_data_lock`` for appends to the shared ``DataplexContext.entry_data`` list.
       The GCP gRPC clients (``CatalogServiceClient``, ``LineageClient``) are
       thread-safe and shared across all workers.
     """
@@ -176,15 +210,15 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: DataplexReport = DataplexReport()
 
-        # Track entry data for lineage extraction across all configured projects.
-        self.entry_data: list[EntryDataTuple] = []
-
         creds = self.config.get_credentials()
         credentials = (
             service_account.Credentials.from_service_account_info(creds)
             if creds
             else None
         )
+
+        # Shared context — all processors read/write to this single object.
+        self.ctx_data = DataplexContext(config=self.config, credentials=credentials)
 
         # Catalog client for Entry Groups and Entries extraction
         self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
@@ -224,9 +258,53 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             config=self.config,
             catalog_client=self.catalog_client,
             report=self.report.entries_report,
-            entry_data=self.entry_data,
             source_report=self.report,
+            ctx=self.ctx_data,
         )
+
+        # Glossary processor — only instantiated when glossary ingestion is enabled.
+        self.glossary_processor: Optional[DataplexGlossaryProcessor] = None
+        if self.config.include_glossaries:
+            glossary_client = dataplex_v1.BusinessGlossaryServiceClient(
+                credentials=credentials
+            )
+
+            if self.config.include_glossary_term_associations:
+                # Project numbers are required for the lookupEntryLinks term entry path.
+                # Requires roles/resourcemanager.projectViewer on all configured projects.
+                try:
+                    self.ctx_data.project_numbers = _resolve_project_numbers(
+                        self.config.project_ids, credentials
+                    )
+                except exceptions.GoogleAPICallError as exc:
+                    self.report.failure(
+                        title="Failed to resolve GCP project numbers",
+                        message=(
+                            "Could not resolve project numbers via the Resource Manager API. "
+                            "Ensure the service account has roles/resourcemanager.projectViewer "
+                            "on all configured projects."
+                        ),
+                        context=str(self.config.project_ids),
+                        exc=exc,
+                    )
+                    raise
+                raw_creds = (
+                    credentials
+                    if credentials is not None
+                    else google.auth.default(
+                        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                    )[0]
+                )
+                self.ctx_data.authed_session = (
+                    google.auth.transport.requests.AuthorizedSession(raw_creds)
+                )
+
+            self.glossary_processor = DataplexGlossaryProcessor(
+                ctx=self.ctx_data,
+                glossary_client=glossary_client,
+                report=self.report.glossary_report,
+                source_report=self.report,
+            )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -303,11 +381,45 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     exc=exc,
                 )
 
+        if self.config.include_glossaries and self.glossary_processor:
+            with self.report.new_stage(
+                "Processing Dataplex Business Glossaries (parallel)"
+            ):
+                try:
+                    yield from self.glossary_processor.process_glossaries(
+                        project_ids=self.config.project_ids,
+                        max_workers=self.config.max_workers_glossary,
+                    )
+                except exceptions.GoogleAPICallError as exc:
+                    self.report.warning(
+                        title="Failed to process Dataplex glossaries",
+                        message="Error while extracting Business Glossary entities.",
+                        context=str(self.config.project_ids),
+                        exc=exc,
+                    )
+
+            if self.config.include_glossary_term_associations:
+                with self.report.new_stage(
+                    "Extracting Dataplex term-asset associations (parallel)"
+                ):
+                    try:
+                        yield from self.glossary_processor.process_term_associations(
+                            project_ids=self.config.project_ids,
+                            max_workers=self.config.max_workers_glossary,
+                        )
+                    except Exception as exc:
+                        self.report.warning(
+                            title="Failed to extract term-asset associations",
+                            message="Error while calling lookupEntryLinks.",
+                            context=str(self.config.project_ids),
+                            exc=exc,
+                        )
+
         if self.config.include_lineage and self.lineage_extractor:
             with self.report.new_stage(
                 "Extracting Dataplex lineage across configured projects (parallel)"
             ):
-                if len(self.entry_data) == 0:
+                if len(self.ctx_data.entry_data) == 0:
                     logger.info(
                         "No entries found for lineage extraction across configured projects"
                     )
@@ -315,7 +427,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
                 logger.info(
                     "Extracting lineage for %s entries across %s configured projects",
-                    len(self.entry_data),
+                    len(self.ctx_data.entry_data),
                     len(self.config.project_ids),
                 )
                 lineage_project_location_pairs = (
@@ -324,7 +436,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
                 try:
                     yield from self.lineage_extractor.get_lineage_workunits(
-                        self.entry_data,
+                        self.ctx_data.entry_data,
                         active_lineage_project_location_pairs=lineage_project_location_pairs,
                         max_workers=self.config.max_workers_lineage,
                     )
