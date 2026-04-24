@@ -419,11 +419,6 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   }
 
   @Override
-  public void addBulk(DocWriteRequest<?> writeRequest) {
-    delegate.addBulk(writeRequest);
-  }
-
-  @Override
   public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
     delegate.addBulk(urn, writeRequest);
   }
