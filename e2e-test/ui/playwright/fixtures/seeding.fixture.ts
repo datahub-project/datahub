@@ -331,6 +331,8 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
 
       await use();
     },
-    { auto: true, scope: 'worker' },
+    // 90 s: ingestMcps + 15 s ES index wait + network overhead can exceed the
+    // default fixture timeout (which mirrors the 30 s test timeout).
+    { auto: true, scope: 'worker', timeout: 90_000 },
   ],
 });
