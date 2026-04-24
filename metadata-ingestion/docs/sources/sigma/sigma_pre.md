@@ -57,7 +57,7 @@ This source extracts the following:
     another DM's element (`sourceIds = ["<otherDmUrlId>/<suffix>"]`) and
     the name bridge cannot match the consuming element's name against
     any producer-DM element, the resolver falls back to binding the
-    edge to the producer's sole element *iff* the producer DM contains
+    edge to the producer's sole element _iff_ the producer DM contains
     exactly one element. This covers the CSV-upload / single-asset
     personal-DM case where either side has been renamed (by
     construction, there is only one possible target). The fallback bumps
