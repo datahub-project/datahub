@@ -839,42 +839,52 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             message="Mapping Tasks will be missing from ingestion output.",
             context="/public/core/v3/objects?type=MTT",
         )
-        for mt in mapping_tasks:
-            if self._excluded_by_folder_filter(mt.path):
-                self.report.report_filtered(
-                    "folder-excluded",
-                    "MTT",
-                    f"name={mt.name!r} path={mt.path}",
+        try:
+            for mt in mapping_tasks:
+                if self._excluded_by_folder_filter(mt.path):
+                    self.report.report_filtered(
+                        "folder-excluded",
+                        "MTT",
+                        f"name={mt.name!r} path={mt.path}",
+                    )
+                    continue
+                # ``mapping_pattern`` filters by the referenced Mapping's name,
+                # not the MT name.
+                v2_mapping = (
+                    self._v2_mappings_by_v2_id.get(mt.mapping_id)
+                    if mt.mapping_id
+                    else None
                 )
-                continue
-            # ``mapping_pattern`` filters by the referenced Mapping's name,
-            # not the MT name.
-            v2_mapping = (
-                self._v2_mappings_by_v2_id.get(mt.mapping_id) if mt.mapping_id else None
-            )
-            mapping_name = mt.mapping_name or (v2_mapping.name if v2_mapping else "")
-            if mapping_name and not self.config.mapping_pattern.allowed(mapping_name):
-                self.report.mappings_filtered += 1
-                self.report.report_filtered(
-                    "pattern",
-                    "MTT",
-                    f"name={mt.name!r} mapping={mapping_name!r}",
+                mapping_name = mt.mapping_name or (
+                    v2_mapping.name if v2_mapping else ""
                 )
-                continue
-            self.report.mapping_tasks_scanned += 1
-            logger.debug(
-                "Emitting MappingTask: name=%s path=%s mapping_id=%s",
-                mt.name,
-                mt.path or "<empty>",
-                mt.mapping_id or "<empty>",
-            )
-            if not mt.path:
-                self.report.report_filtered(
-                    "mtt-empty-path",
-                    "MTT",
-                    f"name={mt.name!r} mapping={mt.mapping_id!r}",
+                if mapping_name and not self.config.mapping_pattern.allowed(
+                    mapping_name
+                ):
+                    self.report.mappings_filtered += 1
+                    self.report.report_filtered(
+                        "pattern",
+                        "MTT",
+                        f"name={mt.name!r} mapping={mapping_name!r}",
+                    )
+                    continue
+                self.report.mapping_tasks_scanned += 1
+                logger.debug(
+                    "Emitting MappingTask: name=%s path=%s mapping_id=%s",
+                    mt.name,
+                    mt.path or "<empty>",
+                    mt.mapping_id or "<empty>",
                 )
-            yield from self._emit_mapping_task(mt)
+                if not mt.path:
+                    self.report.report_filtered(
+                        "mtt-empty-path",
+                        "MTT",
+                        f"name={mt.name!r} mapping={mt.mapping_id!r}",
+                    )
+                yield from self._emit_mapping_task(mt)
+        finally:
+            self._v2_mappings_by_guid.clear()
+            self._v2_mappings_by_v2_id.clear()
 
     def _emit_mapping_task(self, mt: IdmcMappingTask) -> Iterable[Entity]:
         """Emit a Mapping Task as DataFlow + inner ``transform`` DataJob.
