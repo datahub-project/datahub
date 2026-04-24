@@ -498,9 +498,9 @@
             },
             "fields": [
                 {
-                    "fieldPath": "team1",
+                    "fieldPath": "city",
                     "nullable": false,
-                    "description": "Team 1",
+                    "description": "City",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -511,9 +511,9 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "city",
+                    "fieldPath": "team1",
                     "nullable": false,
-                    "description": "City",
+                    "description": "Team 1",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -709,9 +709,9 @@
             },
             "fields": [
                 {
-                    "fieldPath": "team1",
+                    "fieldPath": "city",
                     "nullable": false,
-                    "description": "Team 1",
+                    "description": "City",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -722,9 +722,9 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "city",
+                    "fieldPath": "team1",
                     "nullable": false,
-                    "description": "City",
+                    "description": "Team 1",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -880,9 +880,9 @@
             },
             "fields": [
                 {
-                    "fieldPath": "team1",
+                    "fieldPath": "Calc (1)",
                     "nullable": false,
-                    "description": "Team 1",
+                    "description": "Calc",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -893,9 +893,9 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "Calc (1)",
+                    "fieldPath": "team1",
                     "nullable": false,
-                    "description": "Calc",
+                    "description": "Team 1",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
