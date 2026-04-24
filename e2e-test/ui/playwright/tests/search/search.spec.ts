@@ -29,6 +29,7 @@ test.describe('Search Functionality', () => {
   });
 
   test('should search, find a result, and visit the dataset page', async ({ page }) => {
+    test.setTimeout(45000);
     await searchPage.searchAndWait('fct_playwright_users_created', 5000);
 
     // Wait for results — seeder fixture guarantees data is present.

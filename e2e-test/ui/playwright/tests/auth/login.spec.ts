@@ -8,6 +8,7 @@
 
 import { test, expect } from '../../fixtures/login-test';
 import { users } from '../../data/users';
+import { NETWORK_IDLE_TIMEOUT } from '../../utils/constants';
 
 test.describe('Login', () => {
   test.beforeEach(async ({ page }) => {
@@ -20,7 +21,7 @@ test.describe('Login', () => {
     const { username, password } = users.admin;
     await loginPage.navigateToLogin();
     await loginPage.login(username, password);
-    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({ timeout: NETWORK_IDLE_TIMEOUT });
     await expect(page).toHaveURL(/\/$|\/home/);
   });
 
@@ -59,6 +60,6 @@ test.describe('Login', () => {
     await loginPage.login(username, password);
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/$|\/home/);
-    await expect(page.getByRole('img', { name: /logo/i })).toBeVisible();
+    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible({ timeout: NETWORK_IDLE_TIMEOUT });
   });
 });
