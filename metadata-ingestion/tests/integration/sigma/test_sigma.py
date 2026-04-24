@@ -2759,7 +2759,12 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
     output_path = f"{tmp_path}/sigma_orphan_dm_discovery_mces.json"
-    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    # ``ingest_shared_entities=True`` enables the discovery loop: orphan DMs
+    # (personal-space, no workspace) can never emit under the default
+    # ``False`` setting because ``get_data_models`` gates on workspace.
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
     pipeline.run()
     pipeline.raise_from_status()
 
@@ -3071,7 +3076,11 @@ def test_sigma_ingest_data_models_orphan_dm_unreachable(
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
     output_path = f"{tmp_path}/sigma_orphan_dm_unreachable_mces.json"
-    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    # ``ingest_shared_entities=True`` to reach the discovery loop; the 403
+    # is what degrades the edge to ``dm_unknown`` + bumps unresolved.
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
     pipeline.run()
     # Pipeline must complete without raising even when producer DM is 403.
     pipeline.raise_from_status()
@@ -4023,6 +4032,31 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
         }
     )
     existing_listing["total"] = len(existing_listing["entries"])
+    # get_data_models gates on file_meta.workspaceId (not the listing's
+    # workspaceId), so the duplicate also needs a /files entry or it is
+    # dropped as "no workspace" before reaching the bridge-map collision.
+    files_listing = override_data[
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model"
+    ]["json"]
+    files_listing["entries"].append(
+        {
+            "id": duplicate_dm_id,
+            "urlId": "CDJLIyOhUoKBSEVI8Wr4n",
+            "name": "Reissued Slug DM",
+            "type": "data-model",
+            "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+            "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+            "permission": "edit",
+            "path": "Acryl Data",
+            "badge": None,
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2026-04-16T18:57:31.928Z",
+            "updatedAt": "2026-04-16T19:02:22.085Z",
+            "isArchived": False,
+        }
+    )
+    files_listing["total"] = len(files_listing["entries"])
     override_data[
         f"https://aws-api.sigmacomputing.com/v2/dataModels/{duplicate_dm_id}/elements"
     ] = {
@@ -4348,7 +4382,12 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
         f"expected ≥2 element_dm_edges_deduped hits on a 3-way diamond, "
         f"got {report.element_dm_edges_deduped}"
     )
-    assert report.element_dm_edges_resolved == 1
+    # Two chart-to-DM edges resolve across the workbook: dmRefElem01
+    # (single non-diamond ref, from _apply_dm_bridge_workbook_overrides)
+    # and dmRefElem02 (the diamond — 3 sourceIds collapse to 1 edge).
+    # dmRefElem03 name-unmatches. The diamond dedup is validated above by
+    # ``element_dm_edges_deduped >= 2`` and the ChartInfo.inputs count.
+    assert report.element_dm_edges_resolved == 2
 
 
 @pytest.mark.integration

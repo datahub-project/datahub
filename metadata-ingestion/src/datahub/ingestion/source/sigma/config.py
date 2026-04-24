@@ -189,6 +189,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
     data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
     data_model_element_cross_dm_upstreams_dm_unknown: int = 0
+    # Producer DM was discovered by the iterative loop and then dropped by
+    # ``workspace_pattern`` or ``data_model_pattern``. Distinct from
+    # ``dm_unknown`` so operators can see "I asked to exclude this" vs
+    # "source system is missing this".
+    data_model_element_cross_dm_upstreams_excluded_by_filter: int = 0
     data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
     data_model_element_cross_dm_upstreams_self_reference: int = 0
 
@@ -298,7 +303,9 @@ class SigmaSourceConfig(
         "``SchemaMetadata`` and ``UpstreamLineage``). Default is ``False`` because "
         "enabling this introduces a new entity class to the graph — existing tenants "
         "will see new Containers and Datasets appear on first ingest and will need "
-        "to factor those into any soft-delete policy if they later disable this flag.",
+        "to factor those into any soft-delete policy if they later disable this flag. "
+        "Enabling this issues ``/dataModels/{id}/elements``, ``/columns`` and "
+        "``/lineage`` calls per Data Model independently of ``extract_lineage``.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

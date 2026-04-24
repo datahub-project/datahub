@@ -808,6 +808,9 @@ class SigmaAPI:
     def get_data_models(self) -> List[SigmaDataModel]:
         logger.debug("Fetching all accessible data models metadata.")
         base_url = url = f"{self.config.api_url}/dataModels"
+        # Match ``_paginated_entries``: handle a proxied ``api_url`` that
+        # already carries a query string so pagination does not collide.
+        separator = "&" if "?" in base_url else "?"
         data_model_files_metadata = self._get_files_metadata(
             file_type=Constant.DATA_MODEL
         )
@@ -873,9 +876,9 @@ class SigmaAPI:
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
-                    url = f"{base_url}?page={next_page}"
+                    url = f"{base_url}{separator}page={next_page}"
                 elif next_token:
-                    url = f"{base_url}?nextPageToken={next_token}"
+                    url = f"{base_url}{separator}nextPageToken={next_token}"
                 else:
                     break
             return data_models

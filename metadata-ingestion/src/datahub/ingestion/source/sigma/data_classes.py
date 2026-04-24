@@ -202,12 +202,16 @@ class SigmaDataModel(BaseModel):
 
     def get_url_id(self) -> str:
         """Return the DM's URL identifier: explicit ``urlId`` if set,
-        else the last segment of ``url``, else the UUID.
+        else the last segment of ``url``, else the UUID. Blank / whitespace
+        values are treated as missing so they do not become bridge keys that
+        collide with other empty-urlId DMs.
         """
-        if self.urlId:
+        if self.urlId and self.urlId.strip():
             return self.urlId
         if self.url:
-            return self.url.split("/")[-1]
+            last_segment = self.url.split("/")[-1]
+            if last_segment:
+                return last_segment
         return self.dataModelId
 
     def get_element_urn_part(self, element: SigmaDataModelElement) -> str:

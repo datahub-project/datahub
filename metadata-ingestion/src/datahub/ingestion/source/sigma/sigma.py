@@ -157,6 +157,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
+        # urlId prefixes that discovery fetched and then dropped (workspace-
+        # or pattern-filtered). Used by the cross-DM resolver to distinguish
+        # "operator asked to exclude this producer" from "producer missing".
+        self.dm_excluded_url_ids: Set[str] = set()
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -422,9 +426,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 return None, "dm_unknown"
             return None, "consumer_name_missing"
 
-        name_map = self.dm_element_urn_by_name.get(other_dm_url_id)
-        if not name_map:
+        # Registration (dm_container_urn_by_url_id) is the single source of
+        # truth for ``dm_unknown``. ``dm_element_urn_by_name`` can legitimately
+        # be ``{}`` for a registered DM with only blank-named elements, which
+        # we must not conflate with "DM never registered".
+        if other_dm_url_id not in self.dm_container_urn_by_url_id:
+            # Distinguish "operator filtered this producer out" from
+            # "producer missing" so report triage is not misleading.
+            if other_dm_url_id in self.dm_excluded_url_ids:
+                return None, "excluded_by_filter"
             return None, "dm_unknown"
+        name_map = self.dm_element_urn_by_name.get(other_dm_url_id, {})
 
         candidates = name_map.get(consuming_element.name.lower())
         if not candidates:
@@ -465,6 +477,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.data_model_element_cross_dm_upstreams_consumer_name_missing += 1
         elif outcome == "dm_unknown":
             self.reporter.data_model_element_cross_dm_upstreams_dm_unknown += 1
+        elif outcome == "excluded_by_filter":
+            self.reporter.data_model_element_cross_dm_upstreams_excluded_by_filter += 1
         elif outcome == "name_unmatched_but_dm_known":
             self.reporter.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known += 1
         # ``malformed`` has no dedicated counter; falls into the caller's
@@ -669,7 +683,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     id=data_model_container_urn, urn=data_model_container_urn
                 )
             )
-            browse_entries.append(BrowsePathEntryClass(id=element.name))
+            # ``element.name`` can be empty for anonymous worksheet joins;
+            # fall back to the elementId so the breadcrumb always renders.
+            browse_entries.append(
+                BrowsePathEntryClass(id=element.name or element.elementId)
+            )
             yield MetadataChangeProposalWrapper(
                 entityUrn=element_dataset_urn,
                 aspect=BrowsePathsV2Class(browse_entries),
@@ -1078,7 +1096,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
                     externalUrl=element.url,
-                    inputs=list(dataset_inputs.keys()),
+                    inputs=sorted(dataset_inputs.keys()),
                     inputEdges=(
                         [
                             EdgeClass(destinationUrn=urn, sourceUrn=chart_urn)
@@ -1361,6 +1379,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 f"{discovered_dm.name} ({discovered_dm.dataModelId}) "
                                 f"in {workspace.name} (discovered, workspace_pattern denied)"
                             )
+                            self.dm_excluded_url_ids.add(prefix)
                             continue
                         if workspace is None:
                             self.reporter.data_models_without_workspace += 1
@@ -1369,16 +1388,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             f"{discovered_dm.name} ({discovered_dm.dataModelId}) "
                             f"(discovered, filtered by data_model_pattern)"
                         )
+                        self.dm_excluded_url_ids.add(prefix)
                         continue
                     self.reporter.data_model_external_references_discovered += 1
                     all_data_models.append(discovered_dm)
                     pending.append(discovered_dm)
 
+            # Cheap insurance against a theoretical duplicate where the
+            # same DM lands in ``all_data_models`` via both the listed and
+            # discovered paths (relies on Sigma always returning ``urlId``
+            # on ``/v2/dataModels``; if that ever changes we still emit
+            # once per ``dataModelId``).
+            emitted_data_model_ids: Set[str] = set()
             for data_model in all_data_models:
                 if data_model.dataModelId in self.dm_collided_data_model_ids:
                     # First DM owns the bridge key; emitting this one would
                     # produce an unlinked orphan. Counter already bumped.
                     continue
+                if data_model.dataModelId in emitted_data_model_ids:
+                    continue
+                emitted_data_model_ids.add(data_model.dataModelId)
                 yield from self._gen_data_model_workunit(
                     data_model, elementId_maps_by_dm[data_model.dataModelId]
                 )
