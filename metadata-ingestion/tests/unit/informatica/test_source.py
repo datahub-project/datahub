@@ -20,6 +20,8 @@ from datahub.ingestion.source.informatica.models import (
     MappingLineageInfo,
     TaskflowDefinition,
     TaskflowStep,
+    V2Id,
+    V3Guid,
 )
 from datahub.ingestion.source.informatica.source import (
     InformaticaSource,
@@ -594,7 +596,7 @@ class TestEntityEmission:
         # the MT's customProperties so users can find the underlying mapping
         # without leaving DataHub.
         source = _make_source()
-        source._v2_mappings_by_v2_id["m-1"] = IdmcMapping(
+        source._v2_mappings_by_v2_id[V2Id("m-1")] = IdmcMapping(
             v2_id="m-1", name="my_mapping", asset_frs_guid="guid-1"
         )
         mt = IdmcMappingTask(
@@ -615,7 +617,7 @@ class TestEntityEmission:
         # that references that Mapping. It also appends the v3 GUID to
         # ``_mapping_ids`` (deduplicated) for the export batch.
         source = _make_source()
-        source._v2_mappings_by_v2_id["m-1"] = IdmcMapping(
+        source._v2_mappings_by_v2_id[V2Id("m-1")] = IdmcMapping(
             v2_id="m-1", name="my_mapping", asset_frs_guid="guid-1"
         )
         mt = IdmcMappingTask(
@@ -626,8 +628,8 @@ class TestEntityEmission:
         )
         _, job = list(source._emit_mapping_task(mt))
         assert isinstance(job, DataJob)
-        assert source._mapping_v3_to_mt_job_urns["guid-1"] == [str(job.urn)]
-        assert source._mapping_ids == ["guid-1"]
+        assert source._mapping_v3_to_mt_job_urns[V3Guid("guid-1")] == [str(job.urn)]
+        assert source._mapping_ids == [V3Guid("guid-1")]
 
     def test_emit_mapping_task_skips_lineage_fanout_when_mapping_unknown(self):
         # Orphaned MT (v2 enrichment didn't find the mapping): no fan-out
@@ -651,7 +653,7 @@ class TestEntityEmission:
         # One Mapping with two MTs referencing it: both MT DataJob URNs land
         # in the fan-out list so the lineage phase emits lineage to both.
         source = _make_source()
-        source._v2_mappings_by_v2_id["m-1"] = IdmcMapping(
+        source._v2_mappings_by_v2_id[V2Id("m-1")] = IdmcMapping(
             v2_id="m-1", name="shared", asset_frs_guid="guid-1"
         )
         for mt_name in ("nightly", "hourly"):
@@ -662,10 +664,10 @@ class TestEntityEmission:
                 mapping_name="shared",
             )
             list(source._emit_mapping_task(mt))
-        urns = source._mapping_v3_to_mt_job_urns["guid-1"]
+        urns = source._mapping_v3_to_mt_job_urns[V3Guid("guid-1")]
         assert len(urns) == 2
         # Export batch deduped to one mapping despite two MTs.
-        assert source._mapping_ids == ["guid-1"]
+        assert source._mapping_ids == [V3Guid("guid-1")]
 
     def test_extract_ownership_disabled_suppresses_owners(self):
         source = _make_source(extract_ownership=False)
@@ -757,7 +759,7 @@ class TestLineageEmission:
         mt_job_urn = (
             "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
         )
-        source._mapping_v3_to_mt_job_urns["guid-42"] = [mt_job_urn]
+        source._mapping_v3_to_mt_job_urns[V3Guid("guid-42")] = [mt_job_urn]
         lineage = MappingLineageInfo(
             mapping_id="guid-42",
             mapping_name="my_map",
@@ -856,7 +858,7 @@ class TestLineageEmission:
 
     def test_emit_lineage_skips_when_no_resolvable_tables(self):
         source = _make_source()
-        source._mapping_v3_to_mt_job_urns["m-1"] = [
+        source._mapping_v3_to_mt_job_urns[V3Guid("m-1")] = [
             "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
         ]
         lineage = MappingLineageInfo(
@@ -885,8 +887,8 @@ class TestLineageEmission:
             db_schema="APPS",
         )
         mt_urn = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt,PROD),transform)"
-        source._mapping_v3_to_mt_job_urns["guid-1"] = [mt_urn]
-        source._mapping_v3_to_mt_job_urns["guid-2"] = [mt_urn]
+        source._mapping_v3_to_mt_job_urns[V3Guid("guid-1")] = [mt_urn]
+        source._mapping_v3_to_mt_job_urns[V3Guid("guid-2")] = [mt_urn]
 
         shared_src = LineageTable(
             table_name="SHARED_SRC", connection_federated_id="fed"
@@ -935,7 +937,7 @@ class TestLineageEmission:
             id="c", name="prod", conn_type="Oracle", federated_id="fed"
         )
         first_mt = "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
-        source._mapping_v3_to_mt_job_urns["guid-1"] = [first_mt]
+        source._mapping_v3_to_mt_job_urns[V3Guid("guid-1")] = [first_mt]
         # Deliberately leave ``_mt_predecessors`` empty.
         lineage = MappingLineageInfo(
             mapping_id="guid-1",
@@ -1126,7 +1128,7 @@ class TestFilteringAndErrorHandling:
         source._connections_by_fed_id["fed"] = IdmcConnection(
             id="c", name="n", conn_type="", federated_id="fed"
         )
-        source._mapping_ids = [f"guid-{i}" for i in range(5)]
+        source._mapping_ids = [V3Guid(f"guid-{i}") for i in range(5)]
         submitted_batches: List[List[str]] = []
 
         def _submit(batch: List[str]) -> str:
@@ -1162,7 +1164,7 @@ class TestFilteringAndErrorHandling:
         source._connections_by_fed_id["fed"] = IdmcConnection(
             id="c", name="n", conn_type="", federated_id="fed"
         )
-        source._mapping_ids = ["guid-a", "guid-b", "guid-c"]
+        source._mapping_ids = [V3Guid("guid-a"), V3Guid("guid-b"), V3Guid("guid-c")]
         submitted: List[List[str]] = []
 
         def _submit(batch: List[str]) -> str:
@@ -1196,7 +1198,7 @@ class TestFilteringAndErrorHandling:
         # used for concurrency, not sequentially one-at-a-time.
         source = _make_source(export_batch_size=1, max_concurrent_export_jobs=4)
         source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
-        source._mapping_ids = ["g1", "g2", "g3"]
+        source._mapping_ids = [V3Guid("g1"), V3Guid("g2"), V3Guid("g3")]
 
         submit_barrier = threading.Barrier(3, timeout=5)
         submitted: List[str] = []
@@ -1226,7 +1228,7 @@ class TestFilteringAndErrorHandling:
         # from completing — error isolation across threads.
         source = _make_source(export_batch_size=1, max_concurrent_export_jobs=4)
         source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
-        source._mapping_ids = ["ok-1", "fail", "ok-2"]
+        source._mapping_ids = [V3Guid("ok-1"), V3Guid("fail"), V3Guid("ok-2")]
 
         def _submit(batch: List[str]) -> str:
             if batch == ["fail"]:
@@ -1302,7 +1304,7 @@ class TestTaskflowStepEmission:
         source = _make_source()
         # Simulate earlier phases populating the MT job URN caches so Taskflow
         # steps can resolve their task references.
-        source._mt_v2_id_to_job_urn["01DM-1"] = (
+        source._mt_v2_id_to_job_urn[V2Id("01DM-1")] = (
             "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
         )
         source._mt_name_to_job_urn["enrich_customers"] = (

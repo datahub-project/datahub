@@ -15,6 +15,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
     TypedDict,
 )
 from urllib.parse import urlencode
@@ -665,7 +666,7 @@ class InformaticaClient:
     def download_and_parse_export(
         self,
         job_id: str,
-        submitted_ids: List[str],
+        submitted_ids: Sequence[str],
     ) -> Iterator[MappingLineageInfo]:
         """Download export ZIP and yield one MappingLineageInfo per mapping.
 

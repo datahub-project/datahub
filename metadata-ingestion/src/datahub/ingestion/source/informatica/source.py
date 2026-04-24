@@ -798,7 +798,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         that wasn't emitted (e.g. filtered by pattern).
         """
         if step.task_ref_id and step.task_ref_id in self._mt_v2_id_to_job_urn:
-            return self._mt_v2_id_to_job_urn[step.task_ref_id]
+            return self._mt_v2_id_to_job_urn[V2Id(step.task_ref_id)]
         if step.task_ref_name and step.task_ref_name in self._mt_name_to_job_urn:
             return self._mt_name_to_job_urn[step.task_ref_name]
         return None
@@ -898,7 +898,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         v2_mapping = (
             self._v2_mappings_by_v2_id.get(mt.mapping_id) if mt.mapping_id else None
         )
-        mapping_v3_guid = v2_mapping.asset_frs_guid if v2_mapping else ""
+        mapping_v3_guid: V3Guid = (
+            v2_mapping.asset_frs_guid if v2_mapping else V3Guid("")
+        )
         mapping_name = mt.mapping_name or (v2_mapping.name if v2_mapping else "")
         custom_props = self._mt_custom_props(mt, mapping_name, mapping_v3_guid)
         task_tags = self._tag_list(mt.tags)
@@ -927,7 +929,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         custom_props: Dict[str, str],
         task_tags: Optional[List[TagUrn]],
         browse_entries: List[BrowsePathEntryClass],
-        mapping_v3_guid: str,
+        mapping_v3_guid: V3Guid,
     ) -> DataJob:
         """Build the MT's inner ``transform`` DataJob and register its
         URN in the indexes the lineage + Taskflow-step phases consume
@@ -981,7 +983,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             for i in range(0, len(self._mapping_ids), batch_size)
         ]
         # submit+wait runs concurrently; download+parse+emit stays on main thread.
-        future_to_batch: Dict[Future[str], Tuple[List[str], int]] = {}
+        future_to_batch: Dict[Future[str], Tuple[List[V3Guid], int]] = {}
         with ThreadPoolExecutor(
             max_workers=self.config.max_concurrent_export_jobs
         ) as executor:
@@ -1015,7 +1017,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         # orchestrate so the Taskflow Lineage view has the full pipeline.
         yield from self._emit_orchestrate_aggregated_lineage()
 
-    def _submit_and_wait_export(self, batch: List[str], batch_start: int) -> str:
+    def _submit_and_wait_export(self, batch: List[V3Guid], batch_start: int) -> str:
         """Submit one export batch and block until complete. Returns job_id on
         success, empty string on non-success (warning already recorded)."""
         job_id = self.client.submit_export_job(batch)
