@@ -7,12 +7,14 @@ This source extracts the following:
 - Workspaces and workbooks within that workspaces as Container.
 - Sigma Datasets as Datahub Datasets.
 - Pages as Datahub dashboards and elements present inside pages as charts.
-- Sigma Data Models as Containers, with each element as a Dataset inside the
-  Container. Opt-in via `ingest_data_models: true` (default `false`). Each
-  element Dataset carries `SchemaMetadata` and `UpstreamLineage` for intra-DM
-  element references and external upstreams (Sigma Datasets ingested in the
-  same run). Cross-DM lineage and workbook-to-DM element links are not emitted
-  in this release and will arrive in a follow-up.
+- Sigma Data Models as Containers, with each element as a Dataset
+  inside the Container (opt-in via `ingest_data_models: true`; default
+  `false`). `UpstreamLineage` is emitted on each element for intra-DM,
+  cross-DM, external (warehouse / Sigma Dataset), and workbook-to-DM
+  references. Personal-space DMs referenced from ingested DMs are
+  discovered on demand and gated by `ingest_shared_entities` and
+  `data_model_pattern`. Report counters under
+  `data_model_*` / `element_dm_*` surface per-shape resolution outcomes.
 
   Notes:
 
@@ -27,17 +29,19 @@ This source extracts the following:
     "unknown" from "actually a string."
   - Column-level lineage is not emitted yet; `SchemaMetadata` is
     present, so CLL can be added later without re-ingestion.
-  - External upstreams to Sigma Datasets only resolve when the
-    referenced dataset is ingested in the same recipe run. Splitting
-    Sigma Datasets and Data Models into separate recipes will leave
-    those upstreams unresolved. The report tracks these under
-    `data_model_element_upstreams_unresolved_external` (split out from
-    `data_model_element_upstreams_unknown_shape`, which counts source_id
-    shapes this release does not parse — e.g. cross-DM refs). The
-    aggregate `data_model_element_upstreams_unresolved` is kept for
-    dashboards that already read it. Keep Sigma Datasets and Data Models
-    in the same recipe, or tolerate the gap, until a follow-up adds an
-    opt-in URN-pattern fallback.
+  - Unresolved upstream references (Sigma Dataset not ingested, DM not
+    reachable, element name not matched) are suppressed rather than
+    fabricated as dangling URNs. External upstreams to Sigma Datasets
+    only resolve when the referenced dataset is ingested in the same
+    recipe run. Splitting Sigma Datasets and Data Models into separate
+    recipes will leave those upstreams unresolved. The report splits
+    these between `data_model_element_upstreams_unresolved_external`
+    (target Sigma Dataset exists but wasn't ingested this run) and
+    `data_model_element_upstreams_unknown_shape` (cross-DM refs that
+    couldn't be resolved, or any future source_id shape this release
+    doesn't parse); the aggregate `data_model_element_upstreams_unresolved`
+    is retained for dashboards that already read it. Re-run with
+    broader patterns to materialize them.
   - Setting `ingest_data_models: true` issues `/dataModels/{id}/elements`
     and `/columns` calls per DM unconditionally, but the per-DM
     `/lineage` call is gated on `extract_lineage: true`. If you opt out

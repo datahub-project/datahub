@@ -27,6 +27,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DataModelElementUpstream,
     DatasetUpstream,
     Element,
     ElementUpstream,
@@ -53,6 +54,10 @@ class SigmaAPI:
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
+        # Track source_type values we've already warned about to keep the
+        # report summary readable on large tenants with repeated unknown
+        # node types.
+        self._unknown_lineage_node_types_warned: Set[str] = set()
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff
@@ -357,17 +362,56 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
-        elif source_type == "join":
-            # Pass-through node: enqueue for continued BFS traversal.
-            queue.append(source_node_id)
-        elif source_type == "table":
-            # Warehouse table: handled by SQL-parse path; terminal for BFS.
-            pass
-        else:
-            self.report.warning(
-                message="Unknown Sigma lineage node type",
-                context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
+        elif source_type == "data-model":
+            # Node id shape is "<dataModelUrlId>/<opaque_suffix>"; we carry
+            # the prefix and the DM-side ``name`` for name-based matching
+            # at emit time.
+            dm_url_id = (
+                source_node_id.split("/")[0]
+                if "/" in source_node_id
+                else source_node_id
             )
+            if not dm_url_id:
+                self.report.warning(
+                    message="Sigma data-model lineage node missing url-id prefix",
+                    context=(
+                        f"node={source_node_id}, element={element.name}, "
+                        f"workbook={workbook.name}"
+                    ),
+                )
+                return
+            try:
+                # Uses the API-reported DM-side name. The edge-only
+                # synthesis path below uses the workbook element's own
+                # name instead; the two diverge only if the workbook
+                # element was renamed after the DM link.
+                upstream_sources[source_node_id] = DataModelElementUpstream(
+                    name=source_node.get(Constant.NAME),
+                    data_model_url_id=dm_url_id,
+                )
+            except ValidationError as e:
+                self.report.warning(
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
+                )
+        elif source_type == "join":
+            queue.append(source_node_id)  # pass-through
+        elif source_type == "table":
+            pass  # terminal; warehouse lineage comes from SQL parsing
+        else:
+            # Warn once per unknown source_type to avoid log spam.
+            warn_key = source_type if isinstance(source_type, str) else "<non-str>"
+            if warn_key not in self._unknown_lineage_node_types_warned:
+                self._unknown_lineage_node_types_warned.add(warn_key)
+                self.report.warning(
+                    message="Unknown Sigma lineage node type",
+                    context=(
+                        f"type={source_type!r}, element={element.name}, "
+                        f"workbook={workbook.name} (further occurrences of "
+                        f"this type will be suppressed)"
+                    ),
+                )
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
@@ -463,6 +507,38 @@ class SigmaAPI:
                     if source_node_id in visited:
                         continue
                     visited.add(source_node_id)
+
+                    # Workbook-to-DM-element reference: the node
+                    # ``<dmUrlId>/<suffix>`` appears only as an edge source
+                    # (not as a ``dependencies`` key). Synthesize the
+                    # upstream from the edge. The edge carries no DM-side
+                    # name, so we fall back to the workbook element's own
+                    # name (Sigma's default mirrors the DM element name).
+                    # A user rename degrades to
+                    # ``element_dm_edge_name_unmatched_but_dm_known``.
+                    if source_node_id not in dependencies and "/" in source_node_id:
+                        dm_url_id, _, suffix = source_node_id.partition("/")
+                        if dm_url_id and suffix:
+                            try:
+                                upstream_sources[source_node_id] = (
+                                    DataModelElementUpstream(
+                                        name=element.name,
+                                        data_model_url_id=dm_url_id,
+                                    )
+                                )
+                                self.report.element_dm_edge_synthesized_from_edge_only += 1
+                            except ValidationError as e:
+                                self.report.warning(
+                                    message="Failed to synthesize Sigma DM upstream from edges-only node",
+                                    context=(
+                                        f"node={source_node_id}, element={element.name}, "
+                                        f"workbook={workbook.name}"
+                                    ),
+                                    exc=e,
+                                )
+                            continue
+                        # Malformed (empty prefix or suffix): fall through
+                        # so the legacy dispatch surfaces a warning.
 
                     # Per-node isolation: a malformed node skips itself.
                     try:
@@ -904,6 +980,36 @@ class SigmaAPI:
             element.source_ids = source_ids_by_element.get(element.elementId, [])
 
         data_model.elements = elements
+
+    def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
+        """Fetch a DM by its urlId (not UUID). Used to resolve personal-space
+        or otherwise unlisted DMs referenced from another DM's /lineage.
+
+        Returns None on non-200 so the caller can count and continue.
+        """
+        logger.debug(f"Fetching data model by url_id '{url_id}'.")
+        url = f"{self.config.api_url}/dataModels/{url_id}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code != 200:
+                logger.debug(
+                    f"Data model '{url_id}' not reachable (status {response.status_code})."
+                )
+                return None
+            data = response.json()
+            # By-urlId responses return ``dataModelUrlId`` and a null
+            # ``urlId``; by-UUID responses use ``urlId``. Normalize.
+            if "dataModelUrlId" in data and not data.get("urlId"):
+                data["urlId"] = data["dataModelUrlId"]
+            dm = SigmaDataModel.model_validate(data)
+            # No file_meta: these DMs are not in /files.
+            self._assemble_data_model(dm, file_meta=None)
+            return dm
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch data model by url_id '{url_id}'. Exception: {e}"
+            )
+            return None
 
     def get_data_models(self) -> List[SigmaDataModel]:
         logger.debug("Fetching all accessible data models metadata.")
