@@ -199,6 +199,9 @@ jobs:
 
           # Static mapping: datahub integration test dir name → connector-tests connector name
           # Update this when acryldata/connector-tests adds or removes connectors
+          # TODO: Remove this mapping once both of the following are true:
+          #   (i)  ci-decisions.json surfaces the canonical connector name (not the test-dir name)
+          #   (ii) acryldata/connector-tests organises its tests in directories using those same names
           CONNECTORS=$(jq -r '.test_matrix[].connector' ci-decisions/ci-decisions.json 2>/dev/null | \
             while IFS= read -r name; do
               case "$name" in
