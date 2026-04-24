@@ -3,7 +3,6 @@ import { message } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
-import { buildViewSelectOptions } from '@app/chat/utils/chatViews';
 import { useUserContext } from '@app/context/useUserContext';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
 import { removeServiceAccountFromListCache } from '@app/identity/serviceAccount/cacheUtils';
@@ -262,7 +261,11 @@ export function useServiceAccountViewOptions(): { viewOptions: SelectOption[]; l
 
     const viewOptions = useMemo(() => {
         const views = (data?.listGlobalViews?.views ?? []) as DataHubView[];
-        return buildViewSelectOptions(views);
+        return views.map((view) => ({
+            value: view.urn,
+            label: view.name,
+            description: view.description || undefined,
+        }));
     }, [data]);
 
     return { viewOptions, loading };
