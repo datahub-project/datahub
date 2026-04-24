@@ -197,6 +197,37 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 
   Skipping step 1 and going directly to `false` means the checkpoint still has users marked as primary from the old code, and stateful ingestion will soft-delete them.
 
+## v1.5.0.3
+
+Patch release focused on security and dependency updates (Play frontend and Java stack, Python ingestion), OIDC and native sign-up fixes, and Docker/CI maintenance.
+
+- #17030: Jetty upgrade with refreshed Gradle lockfiles.
+- #17114: Reactor Netty 1.2.17.
+- #17112: Apache Shiro 2.1.0 (CVE-2026-23903).
+- #17110: pac4j 6.4.1 (CVE-2026-40458).
+- #17113: Hibernate Validator upgrade (CVE-2025-35036).
+- #17132: jakarta.mail 1.6.8 (CVE-2025-7962).
+- #17140: OpenTelemetry Java agent 2.27.0.
+- #17152: `maven-artifact` 3.9.15.
+- #17092: Python `cryptography` raised to >= 46.0.7.
+- #17116: Ingestion lockfile updates for aiohttp, pytest, and tighter declared bounds.
+- #17131: Ingestion constraints for Authlib (>= 1.6.11) and pypdf (>= 6.10.2) addressing GHSA-jj8c-mmj3-mmgv and GHSA-4pxv-j86v-mhcw.
+- Docker-bundled Python virtualenvs: `lxml` version floor for CVE-2026-41066.
+- #17045: `constraints.txt` included in lock file materialization for more reproducible ingestion installs.
+
+### Bug Fixes
+
+- #17032: OIDC post-login redirect cookie handling.
+- Play Framework: add `play-java-forms` at runtime for native sign-up email validation; smoke tests use valid email addresses for those flows.
+- Shiro/pac4j: `AuthModule` refactored so the runtime no longer depends on `master`-only build artifacts for authentication wiring.
+
+### Build, Docker, and Tooling
+
+- #17156: Slimmer `datahub-actions` image build; test-only dependency moves; documentation updates for redacting certain Excel-sourced content.
+- #17133: `datahub-upgrade` image bundles kubectl v1.35.4.
+- macOS: pin JPype1 below 1.7.0 so dependency resolution keeps compatible wheels on Apple Silicon (reflected in ingestion `constraints.txt`).
+- CI: pin remaining GitHub Actions to full commit SHAs for supply-chain hardening.
+
 ## v1.4.0
 
 ### Breaking Changes

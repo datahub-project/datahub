@@ -34,6 +34,6 @@ test.describe('Login with Theme V2', () => {
     const { username, password } = users.admin;
     await page.goto('/');
     await loginPage.login(username, password);
-    await expect(page.getByRole('button', { name: 'Discover' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Discover', exact: true })).toBeVisible();
   });
 });
