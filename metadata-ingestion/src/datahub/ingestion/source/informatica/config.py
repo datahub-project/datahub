@@ -319,6 +319,17 @@ class InformaticaSourceConfig(
         le=600,
     )
 
+    request_timeout_secs: int = Field(
+        default=DEFAULT_REQUEST_TIMEOUT_SECS,
+        description=(
+            "HTTP timeout in seconds for IDMC API requests. Raise this for large "
+            "deployments where /api/v2/mapping or /api/v2/connection returns many "
+            "records and the default 60s is insufficient."
+        ),
+        ge=5,
+        le=600,
+    )
+
     # Stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

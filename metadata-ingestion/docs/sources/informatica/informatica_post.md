@@ -24,6 +24,7 @@ Every input/output dataset URN referenced by mapping lineage receives a minimal 
 - **No execution history** — the connector does not ingest Activity Monitor runs as DataProcessInstances.
 - **Taskflow step DAG requires `Asset - export`** — Taskflow step ordering lives in a `taskflowModel` XML document fetched via the v3 Export API. Ingestion will silently no-op the step chain for Taskflows the user can't export (the Taskflow itself is still emitted as a DataFlow with its `orchestrate` DataJob, but that orchestrate won't have an `inputDatajobs` chain). The report includes `taskflows_with_steps` so you can confirm coverage.
 - **Single-user auth only** — service-principal / federated SSO login is not supported; use a native IDMC user.
+- **v2 API endpoints are not paginated** — `/api/v2/mapping` and `/api/v2/connection` return all records in a single response; the IDMC v2 API does not honour `limit`, `skip`, or `maxRecordsCount` parameters (verified against a live instance). For orgs with very large numbers of mappings (>10k) or connections (>1k), the single call may exceed `request_timeout_secs` or produce a very large response. Mitigations: raise `request_timeout_secs`, or use `tag_filter_names` to scope ingestion to a tagged subset of objects.
 
 ### Troubleshooting
 

@@ -26,7 +26,6 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.informatica.config import (
     DEFAULT_LOGIN_TIMEOUT_SECS,
-    DEFAULT_REQUEST_TIMEOUT_SECS,
     DEFAULT_SESSION_VALIDATION_TIMEOUT_SECS,
     InformaticaSourceConfig,
 )
@@ -298,7 +297,7 @@ class InformaticaClient:
             params=params,
             json=json_body,
             stream=stream,
-            timeout=DEFAULT_REQUEST_TIMEOUT_SECS,
+            timeout=self.config.request_timeout_secs,
         )
         self.report.report_api_call()
         return resp
