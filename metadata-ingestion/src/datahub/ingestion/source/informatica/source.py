@@ -53,6 +53,8 @@ from datahub.ingestion.source.informatica.models import (
     LineageTable,
     MappingLineageInfo,
     TaskflowStep,
+    V2Id,
+    V3Guid,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -164,17 +166,15 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         self._connections_by_fed_id: Dict[str, IdmcConnection] = {}
         self._connections_by_id: Dict[str, IdmcConnection] = {}
         # Two indexes into v2 /api/v2/mapping — MT→Mapping refs use v2 ids,
-        # export batches use v3 GUIDs. State dict keys are plain str for
-        # test ergonomics; model-level V2Id/V3Guid NewTypes enforce the
-        # invariant on the boundary.
-        self._v2_mappings_by_guid: Dict[str, IdmcMapping] = {}
-        self._v2_mappings_by_v2_id: Dict[str, IdmcMapping] = {}
-        self._mapping_ids: List[str] = []
+        # export batches use v3 GUIDs.
+        self._v2_mappings_by_guid: Dict[V3Guid, IdmcMapping] = {}
+        self._v2_mappings_by_v2_id: Dict[V2Id, IdmcMapping] = {}
+        self._mapping_ids: List[V3Guid] = []
         # v3 GUID → MT DataJob URNs that run that mapping (fan-out).
-        self._mapping_v3_to_mt_job_urns: Dict[str, List[str]] = {}
+        self._mapping_v3_to_mt_job_urns: Dict[V3Guid, List[str]] = {}
         # MT lookups for Taskflow step resolution — steps reference MTs by
         # either v2 id or name, so we index both.
-        self._mt_v2_id_to_job_urn: Dict[str, str] = {}
+        self._mt_v2_id_to_job_urn: Dict[V2Id, str] = {}
         self._mt_name_to_job_urn: Dict[str, str] = {}
         # MT DataJob URN → its step-order predecessors in any Taskflow.
         # Ordered + deduplicated so the same predecessor isn't added twice.
