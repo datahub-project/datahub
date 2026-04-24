@@ -1859,3 +1859,211 @@ class TestGetDataModelsPerDmIsolation:
             f"expected a structured warning pinpointing the bad DM; "
             f"got warnings {warning_titles!r}"
         )
+
+
+class TestGetDataModelByUrlIdHttpStatusSurfaced:
+    """PR2 review M1: a non-200 on the orphan-DM fetch used to be
+    silently downgraded to ``logger.debug``, making 429 (rate-limited,
+    retry later) indistinguishable from 403 / 404 (genuinely
+    forbidden / deleted) in the ingestion report. Operators saw a
+    single aggregate ``data_model_external_reference_unresolved``
+    tick up with no hint at the cause. These tests pin that:
+
+    1. any non-200 produces a structured ``SourceReport.warning`` with
+       the status code in the title/context;
+    2. 429 additionally bumps the dedicated
+       ``data_model_external_reference_rate_limited`` counter so
+       telemetry dashboards can alert on rate-limiting specifically.
+    """
+
+    def test_429_after_retries_bumps_rate_limit_counter_and_warns(self) -> None:
+        api = _create_sigma_api()
+        rate_limited = MagicMock(status_code=429)
+        with patch.object(api, "_get_api_call", return_value=rate_limited):
+            result = api.get_data_model_by_url_id("some-url-id")
+        assert result is None, (
+            "a 429 after the urllib3 retry budget must still resolve to "
+            "None so the caller treats the DM as unresolved"
+        )
+        assert api.report.data_model_external_reference_rate_limited == 1, (
+            "429s must bump the dedicated rate-limit counter so "
+            "dashboards can distinguish transient rate-limiting from "
+            "steady-state 'DM is forbidden'"
+        )
+        warning_titles = [w.title or "" for w in api.report.warnings]
+        assert any("rate-limited" in t.lower() for t in warning_titles), (
+            f"expected a rate-limit-specific warning title; "
+            f"got titles {warning_titles!r}"
+        )
+
+    def test_403_surfaces_warning_with_status_code(self) -> None:
+        """403 is the common case (admin-scope revoked / personal
+        space not shared). Previously silent; now a structured
+        warning with ``status=403`` in the context so the operator
+        can grep the report.
+        """
+        api = _create_sigma_api()
+        forbidden = MagicMock(status_code=403)
+        with patch.object(api, "_get_api_call", return_value=forbidden):
+            result = api.get_data_model_by_url_id("some-url-id")
+        assert result is None
+        # 403 is *not* rate limiting, so the rate-limit counter must
+        # stay at zero -- otherwise alerting on it would fire for
+        # steady-state authz denials.
+        assert api.report.data_model_external_reference_rate_limited == 0
+        warnings = api.report.warnings
+        assert any("403" in (w.title or "") for w in warnings), (
+            f"expected the status code in the warning title; "
+            f"got {[w.title for w in warnings]!r}"
+        )
+        # ``context`` is accumulated into a list on ``StructuredLogEntry``;
+        # stringify for substring matching so this is robust to the
+        # framework-side format (list vs str) changing shape.
+        assert any("status=403" in str(w.context) for w in warnings), (
+            f"expected status=403 in the warning context for triage; "
+            f"got {[w.context for w in warnings]!r}"
+        )
+
+    def test_200_path_still_returns_a_data_model(self) -> None:
+        """Guardrail: the added status branching must not regress the
+        happy path. A 200 response still resolves and returns a
+        ``SigmaDataModel`` with no warnings surfaced.
+        """
+        import datetime as _dt
+
+        api = _create_sigma_api()
+        ok = MagicMock(status_code=200)
+        ok.json.return_value = {
+            "dataModelUrlId": "url-orphan",
+            "urlId": None,
+            "dataModelId": "dm-orphan",
+            "name": "Orphan DM",
+            "createdAt": _dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            "updatedAt": _dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        }
+        with (
+            patch.object(api, "_get_api_call", return_value=ok),
+            patch.object(api, "_assemble_data_model"),
+        ):
+            result = api.get_data_model_by_url_id("url-orphan")
+        assert result is not None
+        assert result.dataModelId == "dm-orphan"
+        assert api.report.data_model_external_reference_rate_limited == 0
+        assert api.report.warnings == []
+
+
+class TestMaxPersonalDmDiscoveryRoundsBounds:
+    """PR2 review M2: ``max_personal_dm_discovery_rounds`` is a safety
+    cap; ``0`` / negative values used to be silently accepted and
+    would trip the "cap reached" warning immediately on the first
+    discovery iteration, confusing operators who set ``0`` thinking
+    it would disable the loop. The field now declares ``ge=1`` so
+    pydantic rejects those values at config-parse time with a clear
+    error. Disabling discovery is documented via
+    ``ingest_shared_entities: False``.
+    """
+
+    def test_zero_rejected(self) -> None:
+        with pytest.raises(Exception) as exc_info:
+            SigmaSourceConfig(
+                client_id="c",
+                client_secret="s",
+                max_personal_dm_discovery_rounds=0,
+            )
+        # Pydantic V2 raises ``ValidationError``; the exact class depends
+        # on the pydantic version this repo pins, so match on the
+        # message instead of the type.
+        assert "max_personal_dm_discovery_rounds" in str(exc_info.value)
+
+    def test_negative_rejected(self) -> None:
+        with pytest.raises(Exception) as exc_info:
+            SigmaSourceConfig(
+                client_id="c",
+                client_secret="s",
+                max_personal_dm_discovery_rounds=-3,
+            )
+        assert "max_personal_dm_discovery_rounds" in str(exc_info.value)
+
+    def test_one_accepted(self) -> None:
+        """``1`` is the minimum and matches the existing integration
+        test that pins the cap-triggered warning behavior; guard
+        that the pydantic bound did not off-by-one the lower edge.
+        """
+        cfg = SigmaSourceConfig(
+            client_id="c",
+            client_secret="s",
+            max_personal_dm_discovery_rounds=1,
+        )
+        assert cfg.max_personal_dm_discovery_rounds == 1
+
+
+class TestDataModelContainerUrnPlatformInstanceDisjoint:
+    """PR2 review coverage gap: ``DataModelKey`` threads ``platform_instance``
+    through to the DM Container URN. Without this, two ingestions against
+    the same Sigma tenant under different ``platform_instance`` values
+    would collide on one Container URN and silently overwrite each
+    other's aspects. The invariant is "same dataModelId, different
+    platform_instance => disjoint URNs." The integration-test matrix
+    only covers the ``platform_instance=None`` case (because that is
+    the recipe-default for the golden fixture), so this cheap unit
+    pin prevents a future ``DataModelKey`` refactor from dropping
+    ``instance`` out of the key without a loud test failure.
+    """
+
+    def _source(self, platform_instance: Optional[str]) -> SigmaSource:
+        from datahub.ingestion.api.common import PipelineContext
+
+        cfg = SigmaSourceConfig(
+            client_id="c",
+            client_secret="s",
+            platform_instance=platform_instance,
+        )
+        with patch.object(SigmaAPI, "_generate_token"):
+            return SigmaSource(ctx=PipelineContext(run_id="test"), config=cfg)
+
+    def test_dm_container_urns_disjoint_across_platform_instances(self) -> None:
+        prod = self._source("prod")
+        staging = self._source("staging")
+        none_inst = self._source(None)
+
+        dm_id = "dm-same-id"
+        prod_urn = prod._gen_data_model_key(dm_id).as_urn()
+        staging_urn = staging._gen_data_model_key(dm_id).as_urn()
+        none_urn = none_inst._gen_data_model_key(dm_id).as_urn()
+
+        # Three distinct URNs -- the whole point of platform_instance.
+        assert len({prod_urn, staging_urn, none_urn}) == 3, (
+            f"DM Container URNs collided across platform_instance values: "
+            f"prod={prod_urn!r}, staging={staging_urn!r}, none={none_urn!r}. "
+            "DataModelKey.instance is likely not being honored."
+        )
+
+
+class TestPaginatorWarningTitleIncludesStatusCode:
+    """PR2 review M1 (minor part): the paginator's exception-path
+    warning used to have an HTTP-status-agnostic title, making it
+    impossible to triage "429 on page N" vs "malformed JSON" without
+    opening each warning. The title is now suffixed with
+    ``(HTTP <status>)`` when the exception is a ``requests.HTTPError``
+    with an attached response; non-HTTP failures keep the original
+    title so ``LossyList`` rate-limiting still groups them.
+    """
+
+    def test_429_after_retries_emits_http_status_in_title(self) -> None:
+        api = _create_sigma_api()
+        rate_limited = MagicMock(status_code=429)
+        http_error = requests.exceptions.HTTPError("429 Too Many Requests")
+        http_error.response = rate_limited
+        rate_limited.raise_for_status.side_effect = http_error
+        with patch.object(api, "_get_api_call", return_value=rate_limited):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels",
+                "Unable to fetch sigma data models.",
+            )
+        assert entries == []
+        titles = [w.title or "" for w in api.report.warnings]
+        assert any("HTTP 429" in t for t in titles), (
+            f"expected 'HTTP 429' in the paginator warning title so "
+            f"operators can triage rate-limited pages specifically; "
+            f"got titles {titles!r}"
+        )

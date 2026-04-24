@@ -728,7 +728,20 @@ class SigmaAPI:
             # debug-level and would leave the DM looking healthy while its
             # elements/columns are silently missing. Partial results
             # collected before the break are preserved.
+            #
+            # Include the HTTP status code in the warning title when we
+            # can extract it (``requests.HTTPError`` from
+            # ``raise_for_status``) so operators can triage "429 after
+            # retries" separately from "malformed JSON" / "connection
+            # reset" without opening every warning. Title stays stable
+            # for non-HTTP failures (LossyList rate-limits by title).
+            title = "Sigma paginated endpoint aborted"
+            if isinstance(e, requests.HTTPError) and e.response is not None:
+                title = (
+                    f"Sigma paginated endpoint aborted (HTTP {e.response.status_code})"
+                )
             self.report.warning(
+                title=title,
                 message=f"{error_ctx} Pagination aborted.",
                 context=f"url={url}, partial_results={len(raw_entries)}",
                 exc=e,
@@ -986,15 +999,46 @@ class SigmaAPI:
         or otherwise unlisted DMs referenced from another DM's /lineage.
 
         Returns None on non-200 so the caller can count and continue.
+        The HTTP status code is surfaced in the report warning so operators
+        can distinguish 429 (rate-limited, re-run the pipeline) from 403 /
+        404 (genuinely forbidden / deleted). 429s (after the urllib3 retry
+        budget has been exhausted) additionally bump a dedicated
+        ``data_model_external_reference_rate_limited`` counter.
         """
         logger.debug(f"Fetching data model by url_id '{url_id}'.")
         url = f"{self.config.api_url}/dataModels/{url_id}"
         try:
             response = self._get_api_call(url)
             if response.status_code != 200:
-                logger.debug(
-                    f"Data model '{url_id}' not reachable (status {response.status_code})."
-                )
+                status = response.status_code
+                if status == 429:
+                    self.report.data_model_external_reference_rate_limited += 1
+                    self.report.warning(
+                        title="Sigma API rate-limited while fetching orphan Data Model",
+                        message=(
+                            "Retry budget exhausted on 429; this DM will be "
+                            "reported as unresolved for the rest of the run. "
+                            "Re-run the ingestion to pick up the cross-DM "
+                            "edge, or investigate the Sigma API rate limit."
+                        ),
+                        context=f"url_id={url_id}, status={status}",
+                    )
+                else:
+                    # 401 / 403 / 404 / 5xx (after retries) land here. Emit
+                    # a low-severity structured entry so operators can
+                    # triage without stdout tailing; the warning is
+                    # rate-limited by LossyList on the report side.
+                    self.report.warning(
+                        title=f"Sigma orphan Data Model fetch returned {status}",
+                        message=(
+                            "Cross-DM reference could not be resolved; "
+                            "treating as ``dm_unknown`` for the rest of "
+                            "the run. Common causes: DM deleted, admin "
+                            "scope revoked, personal space not shared with "
+                            "the ingest principal."
+                        ),
+                        context=f"url_id={url_id}, status={status}",
+                    )
                 return None
             data = response.json()
             # By-urlId responses return ``dataModelUrlId`` and a null

@@ -53,6 +53,19 @@ This source extracts the following:
     against the same tenant should set a distinct `platform_instance`
     per env so DM Containers do not collide on a single URN. Element
     Datasets are already env-scoped.
+  - **Cross-DM lineage is name-based.** Sigma's `/lineage` endpoint
+    identifies cross-DM producer elements by free-text `name` only
+    (there is no stable element ID on the upstream node), so the
+    resolver matches producer and consumer elements by
+    case-insensitive `name`. Renaming an element in the producing DM
+    between runs silently moves the edge: the old target loses the
+    upstream and the new target may never match. The counter that
+    ticks up is `data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known`
+    — a non-zero value usually means an upstream rename, not a
+    connector bug. For single-element producer DMs, the fallback
+    above recovers the edge automatically; for multi-element DMs
+    operators should treat a jump in that counter as a re-ingest
+    prompt.
   - **Single-element cross-DM fallback.** When a DM element references
     another DM's element (`sourceIds = ["<otherDmUrlId>/<suffix>"]`) and
     the name bridge cannot match the consuming element's name against

@@ -199,9 +199,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     # Personal-space / unlisted DMs discovered via /v2/dataModels/{urlId}.
     # ``_discovered``: an unlisted DM was fetched and added to the run.
-    # ``_unresolved``: fetch returned non-200 (usually 403).
+    # ``_unresolved``: fetch returned non-200 (usually 403 / 404).
+    # ``_rate_limited``: fetch returned 429 after the urllib3 retry budget
+    #   was exhausted -- sub-count of ``_unresolved`` surfaced separately
+    #   so operators can distinguish "Sigma is rate-limiting us" (transient,
+    #   re-run the job) from "the DM is genuinely forbidden or deleted"
+    #   (steady-state). ``_unresolved`` is still bumped for 429 so the
+    #   aggregate stays accurate.
     data_model_external_references_discovered: int = 0
     data_model_external_reference_unresolved: int = 0
+    data_model_external_reference_rate_limited: int = 0
 
     # /columns entries with ``elementId = None`` (DM-global calculations),
     # dropped because there is no element Dataset to attach them to.
@@ -329,12 +336,17 @@ class SigmaSourceConfig(
     )
     max_personal_dm_discovery_rounds: int = pydantic.Field(
         default=20,
+        ge=1,
         description="Belt-and-braces safety cap on the number of passes the "
         "personal-space Data Model discovery loop is allowed to make. Each "
         "pass fetches ``/v2/dataModels/{urlId}`` for every newly-seen "
         "cross-DM ``<urlId>`` prefix; the loop terminates naturally when "
         "``unresolved_seen`` plateaus (monotonically growing set), so under "
-        "a well-behaved API this cap is never hit. Exists to protect "
+        "a well-behaved API this cap is never hit. Must be ``>= 1`` -- set "
+        "``ingest_shared_entities: False`` (or leave it at the default) if "
+        "the goal is to disable personal-space discovery entirely; ``0`` / "
+        "negative values are rejected because the first pass is required "
+        "to prepopulate the bridge maps for listed DMs. Exists to protect "
         "against pathological Sigma payloads (e.g. a chain of personal-space "
         "DMs that keep referencing newly-discovered personal-space DMs) by "
         "breaking with a ``SourceReport.warning`` instead of looping "
