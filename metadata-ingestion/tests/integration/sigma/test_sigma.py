@@ -1544,9 +1544,7 @@ def test_sigma_ingest_data_models_shared_entity_no_workspace(
 
 
 @pytest.mark.integration
-def test_sigma_ingest_data_models_pattern_filter(
-    pytestconfig, tmp_path, requests_mock
-):
+def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
     """``data_model_pattern`` deny should drop the DM: no Container and no
     element Datasets emitted for it."""
 
