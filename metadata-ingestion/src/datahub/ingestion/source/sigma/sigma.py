@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     add_entity_to_container,
@@ -156,10 +156,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
-        if (
-            not self.config.ingest_data_models
-            and self.config.data_model_pattern != AllowDenyPattern.allow_all()
-        ):
+        #
+        # We compare the ``allow`` / ``deny`` lists directly rather than
+        # against ``AllowDenyPattern.allow_all()`` because
+        # ``AllowDenyPattern.__eq__`` is ``__dict__``-based and has two
+        # ``@cached_property`` compiled-regex attributes; once either
+        # side's ``.allowed()`` has been invoked its ``__dict__`` gains
+        # a cache entry the other side doesn't have, flipping equality
+        # to False. Today nothing calls ``.allowed()`` before this
+        # check, but any future reorder in ``__init__`` would silently
+        # emit a spurious warning -- the direct list check is
+        # cache-state-independent.
+        dm_pattern = self.config.data_model_pattern
+        _dm_pattern_is_default = (
+            dm_pattern.allow == [".*"]
+            and not dm_pattern.deny
+            and dm_pattern.ignoreCase is True
+        )
+        if not self.config.ingest_data_models and not _dm_pattern_is_default:
             self.reporter.warning(
                 title="data_model_pattern ignored",
                 message="data_model_pattern is set but ingest_data_models is "
@@ -529,8 +543,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element.elementId,
                 dropped_column_ids_by_name,
             )
+        # Sort fields by ``column.name`` (== ``fieldPath``) so the emitted
+        # ``SchemaMetadata`` is stable across runs even if Sigma's
+        # ``/columns`` response re-orders. Without this, a Sigma-side
+        # reorder would churn the aspect on every ingest (re-upserting
+        # the same field set under different ordering), showing up as
+        # spurious graph updates in downstream consumers of the
+        # aspect-version timeline. The API does not document an
+        # ordering contract, so we enforce our own.
         fields: List[SchemaFieldClass] = []
-        for column in by_name.values():
+        for column in sorted(by_name.values(), key=lambda c: c.name):
             fields.append(
                 SchemaFieldClass(
                     fieldPath=column.name,

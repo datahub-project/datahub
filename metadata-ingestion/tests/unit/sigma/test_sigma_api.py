@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +14,7 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.metadata.schema_classes import SchemaMetadataClass
 
 
 def _create_sigma_api() -> SigmaAPI:
@@ -1111,3 +1112,205 @@ class TestPaginatedEntriesDedup:
         # string; rate-limiter stopped after
         # ``_MAX_MALFORMED_WARNINGS_PER_ENDPOINT`` of them.
         assert len(entries[0].context) == api._MAX_MALFORMED_WARNINGS_PER_ENDPOINT
+
+
+def _create_sigma_source(
+    ingest_data_models: bool = True,
+    data_model_pattern_overrides: Optional[Dict[str, Any]] = None,
+) -> SigmaSource:
+    """Build a minimal :class:`SigmaSource` for unit tests. The API
+    constructor normally issues a token-exchange request; we patch that
+    out so tests don't need network access.
+    """
+    from datahub.ingestion.api.common import PipelineContext
+
+    config_kwargs: Dict[str, Any] = {
+        "client_id": "test_client_id",
+        "client_secret": "test_secret",
+        "ingest_data_models": ingest_data_models,
+    }
+    if data_model_pattern_overrides is not None:
+        config_kwargs["data_model_pattern"] = data_model_pattern_overrides
+    config = SigmaSourceConfig.model_validate(config_kwargs)
+    ctx = PipelineContext(run_id="sigma-unit-test")
+    with patch.object(SigmaAPI, "_generate_token"):
+        return SigmaSource(config=config, ctx=ctx)
+
+
+class TestSchemaMetadataEmission:
+    """Covers ``_gen_data_model_element_schema_metadata`` invariants that
+    downstream consumers depend on: stable field ordering across runs
+    (Maj-2) and deterministic duplicate-fieldPath tie-breaking.
+    """
+
+    @staticmethod
+    def _extract_schema(source: SigmaSource, element: Any) -> SchemaMetadataClass:
+        wu = source._gen_data_model_element_schema_metadata(
+            element_dataset_urn=(
+                "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-test.elem1,PROD)"
+            ),
+            element=element,
+        )
+        aspect = wu.metadata.aspect  # type: ignore[union-attr]
+        assert isinstance(aspect, SchemaMetadataClass), (
+            f"expected SchemaMetadata aspect, got {type(aspect).__name__}"
+        )
+        return aspect
+
+    @classmethod
+    def _schema_field_paths(cls, source: SigmaSource, element: Any) -> List[str]:
+        schema_metadata = cls._extract_schema(source, element)
+        return [field.fieldPath for field in schema_metadata.fields]
+
+    @staticmethod
+    def _make_element(columns: List[Dict[str, Any]]) -> Any:
+        """Construct a :class:`SigmaDataModelElement` from raw column
+        dicts. The element's ``_discard_api_bare_string_columns``
+        validator runs in ``mode="before"`` and discards any non-dict
+        entry in ``columns``, so tests must pass column dicts (mirroring
+        the real ``/columns`` JSON payload), not pre-parsed column
+        instances.
+        """
+        from datahub.ingestion.source.sigma.data_classes import SigmaDataModelElement
+
+        return SigmaDataModelElement.model_validate(
+            {"elementId": "elem1", "name": "Elem 1", "columns": columns}
+        )
+
+    def test_field_order_is_stable_across_columns_reorder(self) -> None:
+        """Maj-2 regression: Sigma's ``/columns`` endpoint has no
+        documented ordering contract. Any reorder must not change the
+        emitted ``SchemaMetadata.fields`` ordering, otherwise every
+        ingest re-upserts the aspect with different ``fieldPath`` order
+        and downstream aspect-version timelines churn.
+        """
+        source = _create_sigma_source()
+        columns_a = [
+            {"columnId": "c1", "name": "zebra"},
+            {"columnId": "c2", "name": "alpha"},
+            {"columnId": "c3", "name": "mango"},
+        ]
+        columns_b = list(reversed(columns_a))
+        paths_a = self._schema_field_paths(source, self._make_element(columns_a))
+        paths_b = self._schema_field_paths(source, self._make_element(columns_b))
+        assert paths_a == ["alpha", "mango", "zebra"]
+        assert paths_a == paths_b
+
+    def test_duplicate_fieldpath_tiebreak_prefers_formula(self) -> None:
+        """Tie-break rule 1: when two columns share a ``fieldPath``,
+        the row with a non-empty ``formula`` wins -- that's the
+        user-authored calculated field and the one Sigma surfaces in
+        the UI. Pins which row survives, not just that a dedup
+        happened.
+        """
+        source = _create_sigma_source()
+        element = self._make_element(
+            [
+                {
+                    "columnId": "c_native_aaaa",
+                    "name": "metric",
+                    "label": "native row",
+                },
+                {
+                    "columnId": "c_calc_zzzz",
+                    "name": "metric",
+                    "label": "calc row",
+                    "formula": "SUM([amount])",
+                },
+            ]
+        )
+        schema_metadata = self._extract_schema(source, element)
+        assert len(schema_metadata.fields) == 1
+        assert schema_metadata.fields[0].description == "calc row", (
+            "formula-carrying row must win regardless of iteration order; "
+            "got the native-row description instead"
+        )
+        assert (
+            source.reporter.data_model_element_columns_duplicate_fieldpath_dropped == 1
+        )
+
+    def test_duplicate_fieldpath_tiebreak_uses_smallest_column_id(self) -> None:
+        """Tie-break rule 2: when both columns have (or both lack) a
+        ``formula``, the row with the lexicographically smallest
+        ``columnId`` wins. Stability across runs is the contract;
+        string compare is fine because Sigma columnIds are UUIDs.
+        """
+        source = _create_sigma_source()
+        element = self._make_element(
+            [
+                {"columnId": "zzzz", "name": "metric", "label": "second by id"},
+                {"columnId": "aaaa", "name": "metric", "label": "first by id"},
+            ]
+        )
+        schema_metadata = self._extract_schema(source, element)
+        assert len(schema_metadata.fields) == 1
+        assert schema_metadata.fields[0].description == "first by id", (
+            "tie-break must pick the smallest columnId regardless of the "
+            "input order; got the higher-id row instead"
+        )
+
+
+class TestDataModelPatternWarning:
+    """Maj-3 regression: the ``data_model_pattern`` check in
+    ``SigmaSource.__init__`` must remain robust even if
+    ``AllowDenyPattern.__eq__`` (which is ``__dict__``-based and
+    sensitive to the ``@cached_property`` compiled-regex caches) gets
+    confused by cache state. The current check compares the underlying
+    ``allow`` / ``deny`` / ``ignoreCase`` fields directly, so it does
+    not depend on any equality-via-``__dict__`` identity.
+    """
+
+    def test_default_pattern_does_not_warn(self) -> None:
+        source = _create_sigma_source(ingest_data_models=False)
+        assert not any(
+            "data_model_pattern ignored" in (w.title or "")
+            for w in source.reporter.warnings
+        )
+
+    def test_non_default_pattern_warns_when_dm_disabled(self) -> None:
+        source = _create_sigma_source(
+            ingest_data_models=False,
+            data_model_pattern_overrides={"allow": ["^foo.*$"]},
+        )
+        assert any(
+            "data_model_pattern ignored" in (w.title or "")
+            for w in source.reporter.warnings
+        ), "expected a warning when data_model_pattern is set but DMs are off"
+
+    def test_warning_survives_cached_regex_state(self) -> None:
+        """Regression guard for ``AllowDenyPattern`` cache-state
+        fragility: calling ``.allowed()`` on the pattern materializes
+        its ``@cached_property`` compiled-regex caches into the
+        instance's ``__dict__``. ``AllowDenyPattern.__eq__`` compares
+        ``__dict__`` directly, so if any future ``__init__`` reorder
+        triggers ``.allowed()`` on ``data_model_pattern`` before this
+        check runs, a ``!= AllowDenyPattern.allow_all()`` comparison
+        would spuriously flip True (the fresh ``allow_all()`` has no
+        cache entries) and the warning would fire even though the
+        pattern is the default. The direct ``allow``/``deny``
+        check we use now is cache-state-independent; this test pins
+        that invariant.
+        """
+        from datahub.ingestion.api.common import PipelineContext
+
+        config = SigmaSourceConfig.model_validate(
+            {
+                "client_id": "test_client_id",
+                "client_secret": "test_secret",
+                "ingest_data_models": False,
+            }
+        )
+        config.data_model_pattern.allowed("warm-up-cache")
+        assert "_compiled_allow" in config.data_model_pattern.__dict__, (
+            "test setup invariant: expected .allowed() to populate the "
+            "@cached_property backing store so the regression scenario "
+            "is actually reproduced"
+        )
+
+        ctx = PipelineContext(run_id="sigma-unit-test")
+        with patch.object(SigmaAPI, "_generate_token"):
+            source = SigmaSource(config=config, ctx=ctx)
+        assert not any(
+            "data_model_pattern ignored" in (w.title or "")
+            for w in source.reporter.warnings
+        )
