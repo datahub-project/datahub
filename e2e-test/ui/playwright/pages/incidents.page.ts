@@ -277,10 +277,23 @@ export class IncidentsPage extends BasePage {
 
     async selectStage(stage: string): Promise<void> {
         const value = STAGE_LABEL_TO_VALUE[stage];
-        if (value) {
-            await this.selectDropdownOptionByValue(this.stageSelectTrigger, this.stageOptionsList, value);
-        } else {
-            await this.selectDropdownOption(this.stageSelectTrigger, this.stageOptionsList, stage);
+        // Retry up to 3 times: the stage dropdown can silently fail to register when
+        // an in-flight React re-render (e.g. linked-asset loading) commits between the
+        // trigger click and the option click, causing the dropdown to close prematurely.
+        // IncidentStagePill renders <div title="${stage}"> inside the SelectBase; a
+        // missing title means the selection did not take effect and we should retry.
+        for (let attempt = 0; attempt < 3; attempt++) {
+            if (value) {
+                await this.selectDropdownOptionByValue(this.stageSelectTrigger, this.stageOptionsList, value);
+            } else {
+                await this.selectDropdownOption(this.stageSelectTrigger, this.stageOptionsList, stage);
+            }
+            const confirmed = await this.stageSelectTrigger
+                .locator(`[title="${stage}"]`)
+                .isVisible()
+                .catch(() => false);
+            if (confirmed) return;
+            await this.page.waitForTimeout(300);
         }
     }
 
