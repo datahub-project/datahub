@@ -1122,18 +1122,23 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             ),
             (
                 "svv_datashares_inbound_outbound",
+                # NOTE: serverless Redshift's svv_datashares does NOT have a
+                # consumer_namespace column, so we omit it. Provisioned
+                # clusters have it but we can survive without.
                 "SELECT share_type, share_name, "
                 "TRIM(producer_namespace) AS producer_namespace, "
-                "TRIM(COALESCE(consumer_namespace, '')) AS consumer_namespace, "
                 "source_database, consumer_database "
                 "FROM svv_datashares "
                 "WHERE share_type IN ('INBOUND','OUTBOUND') "
                 "ORDER BY share_type, share_name;",
             ),
             (
-                f"has_usage_on_target_database({database})",
+                f"connect_privilege_on_target_database({database})",
+                # NOTE: 'USAGE' is not a recognized privilege type for
+                # has_database_privilege() on Redshift; CONNECT is the closest
+                # general-purpose check that works for both local and shared DBs.
                 f"SELECT current_user AS user, "
-                f"has_database_privilege(current_user, '{database}', 'USAGE') AS has_usage;",
+                f"has_database_privilege(current_user, '{database}', 'CONNECT') AS has_connect;",
             ),
             (
                 f"schema_count_in_target_database({database})",

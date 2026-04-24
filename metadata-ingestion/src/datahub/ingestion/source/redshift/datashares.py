@@ -246,15 +246,38 @@ class RedshiftDatasharesHelper:
                 )
             else:
                 # Ideally we should get only one resource as primary key is namespace+share
-                # and type is "OUTBOUND_DATASHARE"
+                # and type is "OUTBOUND_DATASHARE". However in practice multiple
+                # PlatformResources can exist for the same (namespace, share) when the
+                # producer ingestion has been re-run with a different platform_instance
+                # or env (e.g. an early run had no platform_instance and was later
+                # corrected). The PlatformResource URN includes platform_instance, so
+                # those become distinct entities and both come back from the search.
+                #
+                # Strategy:
+                #   1. Parse all resources of the right type.
+                #   2. Among them, prefer ones that have a non-empty platform_instance
+                #      set on the OutboundSharePlatformResource value. A producer
+                #      recipe without platform_instance is the legacy/stale case and
+                #      generates upstream URNs that do not actually exist in DataHub
+                #      once the producer has been re-ingested with platform_instance.
+                #   3. If multiple candidates remain, pick the first and warn so the
+                #      operator can clean up the stale resource.
+                parsed: List[OutboundSharePlatformResource] = []
                 for resource in resources:
                     try:
                         assert (
                             resource.resource_info is not None
                             and resource.resource_info.value is not None
                         )
-                        return resource.resource_info.value.as_pydantic_object(
-                            OutboundSharePlatformResource, True
+                        if (
+                            resource.resource_info.resource_type
+                            != PLATFORM_RESOURCE_TYPE
+                        ):
+                            continue
+                        parsed.append(
+                            resource.resource_info.value.as_pydantic_object(
+                                OutboundSharePlatformResource, True
+                            )
                         )
                     except Exception as e:
                         self.report.warning(
@@ -263,6 +286,49 @@ class RedshiftDatasharesHelper:
                             context=share.get_description(),
                             exc=e,
                         )
+
+                if not parsed:
+                    return None
+
+                with_pi = [p for p in parsed if p.platform_instance]
+                without_pi = [p for p in parsed if not p.platform_instance]
+
+                if with_pi and without_pi:
+                    logger.warning(
+                        f"{_DIAG} find_upstream_share: found "
+                        f"{len(with_pi)} resource(s) with platform_instance and "
+                        f"{len(without_pi)} without — preferring resource(s) with "
+                        f"platform_instance set. Stale resource(s) without "
+                        f"platform_instance should be cleaned up: "
+                        f"{[(p.namespace, p.share_name, p.env) for p in without_pi]}"
+                    )
+
+                preferred = with_pi or without_pi
+
+                if len(preferred) > 1:
+                    chosen = preferred[0]
+                    logger.warning(
+                        f"{_DIAG} find_upstream_share: {len(preferred)} candidate "
+                        f"resources remain after preference filter; picking first. "
+                        f"Chosen: namespace={chosen.namespace!r} "
+                        f"share_name={chosen.share_name!r} "
+                        f"platform_instance={chosen.platform_instance!r} "
+                        f"env={chosen.env!r}. "
+                        f"All candidates: "
+                        f"{[(p.namespace, p.share_name, p.platform_instance, p.env) for p in preferred]}"
+                    )
+                    self.report.warning(
+                        title="Multiple matching outbound datashare PlatformResources",
+                        message=(
+                            "Found more than one OUTBOUND_DATASHARE PlatformResource "
+                            "matching this inbound share even after preferring those "
+                            "with a platform_instance. Picking the first; consider "
+                            "cleaning up duplicates."
+                        ),
+                        context=share.get_description(),
+                    )
+
+                return preferred[0]
 
         return None
 

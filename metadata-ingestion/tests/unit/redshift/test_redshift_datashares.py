@@ -312,6 +312,125 @@ class TestDatasharesHelper:
             in list(report.warnings)[0].message
         )
 
+    def test_generate_lineage_prefers_resource_with_platform_instance(self):
+        """
+        Repro for Morningstar: two PlatformResources match the same share
+        because the producer was first ingested without platform_instance and
+        later re-ingested with one. Both come back from the search. The
+        connector must pick the resource that has platform_instance set,
+        otherwise upstream URNs do not point at any real DataHub entity.
+        """
+        config = get_redshift_config()
+        report = RedshiftReport()
+        graph = get_datahub_graph()
+        helper = RedshiftDatasharesHelper(config, report, graph)
+
+        share = PartialInboundDatashare(
+            producer_namespace_prefix="183ee9c2-",
+            share_name="consumer_dows_non_prod",
+            consumer_database="testing_datashare",
+        )
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
+            "schema1": [RedshiftTable(name="table1", comment=None, created=None)],
+        }
+
+        def mock_search_by_filters(*args, **kwargs):
+            stale = PlatformResource.create(
+                key=PlatformResourceKey(
+                    platform="redshift",
+                    platform_instance=None,
+                    resource_type="OUTBOUND_DATASHARE",
+                    primary_key="183ee9c2-c552-4f1c-8f36-87f8da6d3eba.consumer_dows_non_prod",
+                ),
+                value=OutboundSharePlatformResource(
+                    namespace="183ee9c2-c552-4f1c-8f36-87f8da6d3eba",
+                    platform_instance=None,
+                    env="PROD",
+                    source_database="consumer_zone__non_prod",
+                    share_name="consumer_dows_non_prod",
+                ),
+            )
+            current = PlatformResource.create(
+                key=PlatformResourceKey(
+                    platform="redshift",
+                    platform_instance="ingestion_cluster_stg",
+                    resource_type="OUTBOUND_DATASHARE",
+                    primary_key="183ee9c2-c552-4f1c-8f36-87f8da6d3eba.consumer_dows_non_prod",
+                ),
+                value=OutboundSharePlatformResource(
+                    namespace="183ee9c2-c552-4f1c-8f36-87f8da6d3eba",
+                    platform_instance="ingestion_cluster_stg",
+                    env="STG",
+                    source_database="consumer_zone__non_prod",
+                    share_name="consumer_dows_non_prod",
+                ),
+            )
+            return [stale, current]
+
+        with patch.object(PlatformResource, "search_by_filters") as mocked_method:
+            mocked_method.side_effect = mock_search_by_filters
+            result = list(helper.generate_lineage(share, tables))
+
+        assert len(result) == 1
+        assert result[0] == KnownLineageMapping(
+            upstream_urn=(
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,"
+                "ingestion_cluster_stg.consumer_zone__non_prod.schema1.table1,STG)"
+            ),
+            downstream_urn=(
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,"
+                "consumer_instance.testing_datashare.schema1.table1,PROD)"
+            ),
+        )
+
+    def test_generate_lineage_falls_back_when_only_legacy_resource(self):
+        """
+        If the only matching PlatformResource has no platform_instance (e.g.
+        a customer who has never re-ingested the producer with platform_instance
+        set), still produce lineage from it rather than dropping silently.
+        """
+        config = get_redshift_config()
+        report = RedshiftReport()
+        graph = get_datahub_graph()
+        helper = RedshiftDatasharesHelper(config, report, graph)
+
+        share = PartialInboundDatashare(
+            producer_namespace_prefix="ns-",
+            share_name="legacy_share",
+            consumer_database="c",
+        )
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
+            "s": [RedshiftTable(name="t", comment=None, created=None)],
+        }
+
+        def mock_search_by_filters(*args, **kwargs):
+            return [
+                PlatformResource.create(
+                    key=PlatformResourceKey(
+                        platform="redshift",
+                        platform_instance=None,
+                        resource_type="OUTBOUND_DATASHARE",
+                        primary_key="ns-1.legacy_share",
+                    ),
+                    value=OutboundSharePlatformResource(
+                        namespace="ns-1",
+                        platform_instance=None,
+                        env="PROD",
+                        source_database="src_db",
+                        share_name="legacy_share",
+                    ),
+                )
+            ]
+
+        with patch.object(PlatformResource, "search_by_filters") as mocked_method:
+            mocked_method.side_effect = mock_search_by_filters
+            result = list(helper.generate_lineage(share, tables))
+
+        assert len(result) == 1
+        assert result[0].upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,src_db.s.t,PROD)"
+        )
+
     def test_generate_lineage_shared_database_with_no_tables(self):
         """
         Test generate_lineage with valid share but empty tables dictionary.
