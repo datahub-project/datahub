@@ -9,6 +9,7 @@ import pytest
 from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
+from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
     DataplexEntriesReport,
@@ -27,13 +28,14 @@ class TestDataplexEntriesProcessorDesign:
         report = DataplexEntriesReport()
         source_report = Mock()
         catalog_client = Mock(spec=dataplex_v1.CatalogServiceClient)
+        ctx = DataplexContext(config=config, credentials=None)
 
         return DataplexEntriesProcessor(
             config=config,
             catalog_client=catalog_client,
             report=report,
-            entry_data=[],
             source_report=source_report,
+            ctx=ctx,
         )
 
     def test_entries_report_tracks_counts_and_default_sampling(self) -> None:
@@ -142,8 +144,8 @@ class TestDataplexEntriesProcessorDesign:
             config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data=[],
             source_report=Mock(),
+            ctx=DataplexContext(config=config, credentials=None),
         )
 
         entry = Mock(spec=dataplex_v1.Entry)
@@ -552,8 +554,8 @@ class TestDataplexParallelEntries:
             config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data=[],
             source_report=Mock(),
+            ctx=DataplexContext(config=config, credentials=None),
         )
 
     def test_process_entries_collects_all_entries(
@@ -656,12 +658,13 @@ class TestDataplexParallelEntries:
         self,
     ) -> None:
         """Two parallel workers encountering the same project container emit it once."""
+        config = DataplexConfig(project_ids=["proj-1"], env="PROD")
         processor = DataplexEntriesProcessor(
-            config=DataplexConfig(project_ids=["proj-1"], env="PROD"),
+            config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data=[],
             source_report=Mock(),
+            ctx=DataplexContext(config=config, credentials=None),
         )
 
         project_container = Mock()

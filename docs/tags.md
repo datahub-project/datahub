@@ -1,3 +1,7 @@
+---
+title: Tags Overview
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Tags

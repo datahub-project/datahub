@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: Custom Properties Overview
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';

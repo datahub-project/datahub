@@ -478,6 +478,7 @@ datahub-rest = [
 dataplex = [
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
+    { name = "google-cloud-resource-manager" },
     { name = "protobuf" },
     { name = "tenacity" },
 ]
@@ -2396,6 +2397,7 @@ requires-dist = [
     { name = "google-cloud-resource-manager", marker = "extra == 'bigquery'", specifier = "<2.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'bigquery-queries'", specifier = "<2.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'bigquery-slim'", specifier = "<2.0.0" },
+    { name = "google-cloud-resource-manager", marker = "extra == 'dataplex'", specifier = "<2.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'docs'", specifier = "<2.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'fivetran'", specifier = "<2.0.0" },

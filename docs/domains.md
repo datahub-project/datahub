@@ -1,3 +1,7 @@
+---
+title: Domains Overview
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Domains

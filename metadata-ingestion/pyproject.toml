@@ -387,6 +387,7 @@ datahub-rest = [
 dataplex = [
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-dataplex<3.0.0",
+    "google-cloud-resource-manager<2.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
