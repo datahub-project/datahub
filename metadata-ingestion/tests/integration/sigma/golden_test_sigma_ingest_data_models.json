@@ -503,10 +503,10 @@
                     "description": "Team 1",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "unknown",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -516,10 +516,10 @@
                     "description": "City",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "unknown",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -714,10 +714,10 @@
                     "description": "Team 1",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "unknown",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -727,10 +727,10 @@
                     "description": "City",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "unknown",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -885,10 +885,10 @@
                     "description": "Team 1",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "unknown",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -898,10 +898,10 @@
                     "description": "Calc",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "unknown",
                     "recursive": false,
                     "isPartOfKey": false
                 }
