@@ -946,6 +946,37 @@ class TestPaginatedRawEntries:
         assert entries == []
         assert any("Unable to fetch lineage" in w.message for w in api.report.warnings)
 
+    def test_paginator_500_on_page_2_surfaces_warning_preserves_page_1(self) -> None:
+        """``_paginated_raw_entries`` applies ``silent_statuses`` only to
+        the first page (docstring invariant). A 5xx on page 2 must
+        surface a ``report.warning`` *and* preserve the page-1 entries
+        already collected -- otherwise a transient mid-pagination
+        failure would produce a silently-truncated entity feed.
+        """
+        api = _create_sigma_api()
+        page1 = _paginated_response([{"id": "a"}, {"id": "b"}], next_page=2)
+        five_hundred = MagicMock(status_code=500)
+        http_error = requests.exceptions.HTTPError("500 Server Error")
+        http_error.response = five_hundred
+        five_hundred.raise_for_status.side_effect = http_error
+        # Even with silent_statuses covering 500 (as /lineage *doesn't*
+        # -- but this isolates the "page 2 + silent_statuses ignored"
+        # invariant explicitly), the page-2 500 must still surface.
+        with patch.object(api, "_get_api_call", side_effect=[page1, five_hundred]):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/foo",
+                "test ctx",
+                silent_statuses=(400, 403, 404, 500),
+            )
+        # Page-1 entries are preserved ("partial results before the break").
+        assert [e["id"] for e in entries] == ["a", "b"]
+        # Page-2 failure surfaces as a loud warning, regardless of
+        # silent_statuses -- because the page-2 path does not consult it.
+        assert any("Pagination aborted" in w.message for w in api.report.warnings), (
+            "a 5xx on page 2 must surface a warning even when silent_statuses "
+            "would swallow it on page 1"
+        )
+
 
 class TestPaginatedEntriesDedup:
     """Regression coverage for pagination dedup: an echoed cursor (or

@@ -3545,6 +3545,239 @@ def test_sigma_ingest_data_models_orphan_dm_two_hop_discovery(
 
 
 @pytest.mark.integration
+def test_sigma_ingest_data_models_orphan_dm_discovery_cap_surfaces_warning(
+    pytestconfig, tmp_path, requests_mock
+):
+    """``max_personal_dm_discovery_rounds`` cap fires a loud
+    ``SourceReport.warning`` and stops further orphan fetches.
+
+    This is the belt-and-braces sibling to
+    ``test_sigma_ingest_data_models_orphan_dm_two_hop_discovery``: that
+    test pins natural termination, this one pins the explicit cap. Uses
+    the same consumer -> orphan B -> orphan C chain but sets the cap at
+    ``1`` so the loop breaks on round 1 before orphan B is fetched.
+    Expected:
+    - 0 orphans discovered (cap fires before the first per-prefix fetch).
+    - Cap warning surfaced in ``SourceReport.warnings``.
+    - Consumer's cross-DM edge to orphan B degrades to ``dm_unknown``
+      (never registered in bridges).
+    - No producer Container / Dataset entities emitted (cap aborted fetch).
+    - ``GET /v2/dataModels/{orphan_b_url_id}`` is NEVER called.
+    """
+    import json
+
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
+    consumer_element_id = "1DYf5I08WO"
+
+    orphan_b_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    orphan_b_suffix_in_consumer = "vACRd1GzJS"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [
+                            f"{orphan_b_dm_url_id}/{orphan_b_suffix_in_consumer}"
+                        ],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # Orphan B by-urlId is wired up but must NEVER be fetched when the
+        # cap is 1 -- the loop breaks before issuing any orphan fetch.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_b_dm_url_id}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dataModelId": "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624",
+                "dataModelUrlId": orphan_b_dm_url_id,
+                "name": "Should Not Be Fetched",
+                "url": f"https://app.sigmacomputing.com/acryldata/data-model/{orphan_b_dm_url_id}",
+                "path": "My Documents",
+                "latestVersion": 1,
+                "ownerId": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdAt": "2026-04-16T18:57:31.928Z",
+                "updatedAt": "2026-04-16T19:02:22.085Z",
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_orphan_dm_cap_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_shared_entities=True,
+            max_personal_dm_discovery_rounds=1,
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    # No orphan gets fetched -- the cap aborts the discovery loop before
+    # the first per-prefix fetch.
+    assert report.data_model_external_references_discovered == 0, (
+        f"expected 0 orphans discovered when cap=1 fires, got "
+        f"{report.data_model_external_references_discovered}"
+    )
+    # Consumer's cross-DM edge degrades to dm_unknown (DM never registered).
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 1
+
+    # Cap warning must be surfaced -- operators need to know discovery was
+    # aborted mid-run so they can raise the cap or investigate a cycle.
+    assert any(
+        "discovery cap reached" in w.title.lower()
+        for w in report.warnings
+        if w.title is not None
+    ), (
+        f"expected a ``discovery cap reached`` warning, got "
+        f"{[w.title for w in report.warnings]}"
+    )
+
+    # Orphan B must NEVER be fetched -- the cap fires before the loop
+    # issues any ``/dataModels/{urlId}`` call.
+    orphan_b_hits = [
+        req
+        for req in requests_mock.request_history
+        if req.url.endswith(f"/dataModels/{orphan_b_dm_url_id}")
+    ]
+    assert len(orphan_b_hits) == 0, (
+        f"cap at round 1 must prevent the orphan B fetch, but saw "
+        f"{len(orphan_b_hits)} fetches"
+    )
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # No producer URNs may appear in the output stream.
+    producer_mces = [
+        mce
+        for mce in mces
+        if "Should Not Be Fetched" in json.dumps(mce)
+        or orphan_b_dm_url_id in mce.get("entityUrn", "")
+    ]
+    assert len(producer_mces) == 0, (
+        f"no orphan B entities should be emitted when cap blocks the fetch, "
+        f"got {len(producer_mces)}"
+    )
+
+
+@pytest.mark.integration
 def test_sigma_ingest_data_models_orphan_dm_malformed_payload_safe(
     pytestconfig, tmp_path, requests_mock
 ):

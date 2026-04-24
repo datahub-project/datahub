@@ -869,6 +869,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             self.reporter.data_models_bridge_key_collision += 1
             self.dm_collided_data_model_ids.add(data_model.dataModelId)
+            # Collided DMs are filtered out of emission by
+            # ``dm_collided_data_model_ids`` in ``get_workunits_internal``
+            # (see the emission loop). No downstream consumer reads the
+            # per-element map for a collided DM, so skip the allocation
+            # entirely and return an empty dict -- the first-registered
+            # DM's maps win uniformly.
+            return {}
 
         name_map: Dict[str, List[str]] = {}
         elementId_to_dataset_urn: Dict[str, str] = {}
@@ -881,11 +888,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 name_map.setdefault(element.name.lower(), []).append(
                     element_dataset_urn
                 )
-
-        if container_collision:
-            # Skip all bridge-map writes on collision so the first
-            # registration wins uniformly.
-            return elementId_to_dataset_urn
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map
@@ -1085,6 +1087,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 candidates = sorted(raw_candidates)
                 return candidates[0], candidates
 
+        # Intentional asymmetry with ``_resolve_dm_element_cross_dm_upstream``:
+        # that path falls back to the producer DM's sole element when the
+        # producer has exactly one element, because cross-DM source_ids
+        # (``<prefix>/<suffix>``) don't always carry a matching name on the
+        # ``type: element`` row. Here, the workbook-to-DM edge is
+        # synthesized (edge-only / formula-parsed) with ``upstream.name``
+        # *set to the DM element's name at synthesis time* -- a mismatch
+        # against every ``name_map`` key indicates the DM element was
+        # renamed after the workbook last referenced it, not an
+        # ambiguous-resolution gap. Falling back to the sole element
+        # would silently bind the edge to the post-rename element, so we
+        # surface via ``element_dm_edge_name_unmatched_but_dm_known`` and
+        # let operators decide whether to re-save the workbook.
         if dm_known:
             self.reporter.element_dm_edge_name_unmatched_but_dm_known += 1
         else:
