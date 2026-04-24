@@ -1479,11 +1479,15 @@ def test_sigma_ingest_data_models_lineage_http_error(
         for mce in mces
     ), "DM Container should still be emitted despite lineage 500"
 
-    # No upstreamLineage aspects should exist for any DM element.
+    # No upstreamLineage aspects should exist for any DM element. Filter
+    # on the ``dataModelId`` UUID (the URN-keying component) so this is a
+    # real regression guard -- ``urlId`` would never appear in a URN and
+    # make the assertion pass tautologically.
+    dm_uuid = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
     dm_element_upstreams = [
         mce
         for mce in mces
-        if "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        if dm_uuid in mce.get("entityUrn", "")
         and mce.get("aspectName") == "upstreamLineage"
     ]
     assert dm_element_upstreams == [], (
@@ -1543,10 +1547,15 @@ def test_sigma_ingest_data_models_extract_lineage_false(
         for mce in mces
     ), "DM Container should still be emitted with extract_lineage=False"
 
+    # DM element URNs embed the immutable ``dataModelId`` UUID (not the
+    # mutable ``urlId``) per the URN-keying invariant documented in
+    # updating-datahub.md -- filter on the UUID so this is a real positive
+    # assertion, not one that tautologically collapses to ``[]``.
+    dm_uuid = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
     element_schema_aspects = [
         mce
         for mce in mces
-        if "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        if dm_uuid in mce.get("entityUrn", "")
         and mce.get("aspectName") == "schemaMetadata"
     ]
     assert element_schema_aspects, (
@@ -1557,7 +1566,7 @@ def test_sigma_ingest_data_models_extract_lineage_false(
     dm_element_upstreams = [
         mce
         for mce in mces
-        if "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        if dm_uuid in mce.get("entityUrn", "")
         and mce.get("aspectName") == "upstreamLineage"
     ]
     assert dm_element_upstreams == [], (
