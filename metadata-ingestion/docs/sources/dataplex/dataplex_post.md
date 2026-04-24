@@ -186,16 +186,16 @@ Each term is emitted as a `GlossaryTerm` with:
 - `term_source: EXTERNAL` and a `source_url` linking directly to the term in the Dataplex console
 - `custom_properties` carrying `project_id`, `location`, `glossary_id`, and `term_id`
 
-When `include_glossary_term_associations` is enabled (default), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked.
+When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires `roles/resourcemanager.projectViewer` on all configured projects and issues O(terms × entries_locations × project_ids) REST calls, so it can be slow for large environments.
 
 **Configuration:**
 
-| Field                                | Default    | Description                                                            |
-| ------------------------------------ | ---------- | ---------------------------------------------------------------------- |
-| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`   |
-| `include_glossary_term_associations` | `true`     | Attach glossary terms to linked datasets via `lookupEntryLinks`        |
-| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global` |
-| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups   |
+| Field                                | Default    | Description                                                                                                               |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                     |
+| `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires `roles/resourcemanager.projectViewer` (opt-in) |
+| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                    |
+| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                      |
 
 **Example:**
 
@@ -208,11 +208,13 @@ source:
     entries_locations:
       - "us"
 
-    # Business Glossary (all enabled by default)
+    # Business Glossary ingestion (enabled by default)
     include_glossaries: true
-    include_glossary_term_associations: true
     glossary_locations:
       - "global"
+
+    # Term-to-asset associations (opt-in; requires roles/resourcemanager.projectViewer)
+    # include_glossary_term_associations: true
 ```
 
 ### Limitations
