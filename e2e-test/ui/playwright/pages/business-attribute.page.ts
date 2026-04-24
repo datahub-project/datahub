@@ -178,7 +178,7 @@ export class BusinessAttributePage extends BasePage {
     }
 
     async expectTextNotVisible(text: string): Promise<void> {
-        await expect(this.page.getByText(text).first()).not.toBeVisible();
+        await expect(this.page.getByText(text).first()).toBeHidden();
     }
 
     async expectRelatedEntitiesCount(pattern: RegExp): Promise<void> {
@@ -186,7 +186,7 @@ export class BusinessAttributePage extends BasePage {
     }
 
     async expectNoRelatedEntities(): Promise<void> {
-        await expect(this.page.getByText('of 0')).not.toBeVisible();
+        await expect(this.page.getByText('of 0')).toBeHidden();
     }
 
     async expectRelatedEntitiesExist(): Promise<void> {
@@ -234,7 +234,7 @@ export class BusinessAttributePage extends BasePage {
         await doneBtn.waitFor({ state: 'visible' });
         await expect(doneBtn).toBeEnabled();
         await doneBtn.evaluate((el: HTMLElement) => el.click());
-        await expect(doneBtn).not.toBeVisible();
+        await expect(doneBtn).toBeHidden();
     }
 
     async removeAttributeFromSection(section: Locator, attributeName: string): Promise<void> {

@@ -83,7 +83,7 @@ export class DatasetPage extends BasePage {
         await doneBtn.waitFor({ state: 'visible' });
         await expect(doneBtn).toBeEnabled();
         await doneBtn.evaluate((el: HTMLElement) => el.click());
-        await expect(doneBtn).not.toBeVisible();
+        await expect(doneBtn).toBeHidden();
 
         await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
     }
@@ -121,7 +121,7 @@ export class DatasetPage extends BasePage {
 
     async expectBusinessAttributeNotOnField(fieldName: string, attributeName: string): Promise<void> {
         const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-        await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible();
+        await expect(businessAttributeSection.getByText(attributeName)).toBeHidden();
     }
 
     async expectTagOnFieldFromAttribute(fieldName: string, tagName: string): Promise<void> {
