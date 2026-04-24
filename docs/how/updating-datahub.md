@@ -214,6 +214,11 @@ Patch release focused on security and dependency updates (Play frontend and Java
 - #17131: Ingestion constraints for Authlib (>= 1.6.11) and pypdf (>= 6.10.2) addressing GHSA-jj8c-mmj3-mmgv and GHSA-4pxv-j86v-mhcw.
 - Docker-bundled Python virtualenvs: `lxml` version floor for CVE-2026-41066.
 - #17045: `constraints.txt` included in lock file materialization for more reproducible ingestion installs.
+- #17182: `locked` datahub-actions removes pip/uv
+
+### Notable Changes
+
+- datahub-actions moved to wolfi-base image
 
 ### Bug Fixes
 

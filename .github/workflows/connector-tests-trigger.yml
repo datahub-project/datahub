@@ -310,7 +310,7 @@ jobs:
             --arg url "$WHEEL_URL" \
             --arg check_run_id "$CHECK_RUN_ID" \
             --arg connectors "$CONNECTORS" \
-            '{event_type: $event, client_payload: {pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url, check_run_id: $check_run_id} + (if $connectors != "" then {connectors: $connectors} else {} end)}' \
+            '{event_type: $event, client_payload: ({pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url, check_run_id: $check_run_id} + (if $connectors != "" then {connectors: $connectors} else {} end))}' \
           | gh api "/repos/acryldata/connector-tests/dispatches" --input -
 
           if [ -n "$CONNECTORS" ]; then
