@@ -1133,7 +1133,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if not upstream.name:
                     # SQL-bridge cannot run without a name, so no chart-to-
                     # Sigma-dataset edge is emitted for this upstream.
+                    # The previous ``DatasetUpstream.name: str`` contract
+                    # raised a Pydantic ``ValidationError`` that surfaced
+                    # as a ``SourceReport.warning`` with full Pydantic
+                    # context. Now that ``name`` is ``Optional[str]``,
+                    # surface equivalent context through ``report.warning``
+                    # (``LossyList``-backed -- auto-truncates after N
+                    # entries, so this is already rate-limited) alongside
+                    # the counter so production operators can triage which
+                    # upstream / which workbook element triggered the drop.
                     self.reporter.chart_dataset_upstream_name_missing += 1
+                    self.reporter.warning(
+                        title="Sigma workbook dataset upstream dropped (name missing)",
+                        message="A workbook element references a Sigma Dataset "
+                        "upstream whose ``name`` field was ``null`` on the "
+                        "``/workbooks/{id}/lineage`` payload. No chart-to-"
+                        "Sigma-dataset edge can be SQL-correlated for this "
+                        "upstream; the edge is skipped. See the "
+                        "``chart_dataset_upstream_name_missing`` counter for "
+                        "the aggregate drop count.",
+                        context=(
+                            f"node={node_id}, sigma_dataset_id={sigma_dataset_id}, "
+                            f"element={element.name} ({element.elementId}), "
+                            f"workbook={workbook.name} ({workbook.workbookId})"
+                        ),
+                    )
                     continue
                 upstream_name_lower = upstream.name.lower()
                 for in_table_urn in list(sql_parser_in_tables):
@@ -1441,7 +1465,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             ).as_workunit()
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         """DataHub Ingestion framework entry point."""
         logger.info("Sigma plugin execution is started")
         self.sigma_api.fill_workspaces()
@@ -1485,7 +1509,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # source_ids. ``unresolved_seen`` prevents failed-fetch retries.
             unresolved_seen: Set[str] = set()
             pending = list(all_data_models)
+            # Belt-and-braces cap on discovery passes. The loop terminates
+            # naturally because ``unresolved_seen`` monotonically grows and
+            # ``get_data_model_by_url_id`` returns None on 4xx (filtered DMs
+            # are also seen-marked), so the set of reachable ``urlId`` prefixes
+            # is finite. The cap exists to protect against pathological
+            # Sigma payloads (e.g. a chain of personal-space DMs that each
+            # reference newly-discovered personal-space DMs) by degrading
+            # gracefully with a ``SourceReport.warning`` rather than looping
+            # unbounded.
+            max_rounds = self.config.max_personal_dm_discovery_rounds
+            discovery_round = 0
             while pending:
+                discovery_round += 1
                 for dm in pending:
                     # Defensive against re-enqueue via a different urlId
                     # for the same dataModelId.
@@ -1501,6 +1537,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Skip the per-prefix fetches entirely. Bridges for listed
                 # DMs remain populated from the prepopulate step above.
                 if not self.config.ingest_shared_entities:
+                    break
+
+                if discovery_round >= max_rounds:
+                    # Defensive: stop before the next API fan-out if we've
+                    # hit the configured cap. Any still-unresolved cross-DM
+                    # prefixes will be counted as ``dm_unknown`` at
+                    # resolution time, matching the filtered-out DM path.
+                    self.reporter.warning(
+                        title="personal-space Data Model discovery cap reached",
+                        message=(
+                            "Personal-space DM discovery reached the "
+                            "``max_personal_dm_discovery_rounds`` cap "
+                            f"({max_rounds}); further ``<urlId>`` prefixes "
+                            "will not be fetched on this run. Cross-DM edges "
+                            "into those DMs will be reported under "
+                            "``element_dm_edge_unresolved`` / "
+                            "``data_model_element_cross_dm_upstreams_dm_unknown``. "
+                            "Raise ``max_personal_dm_discovery_rounds`` if this "
+                            "is legitimate, or investigate the DM graph for a "
+                            "reference cycle."
+                        ),
+                    )
                     break
 
                 new_unresolved = self._collect_unresolved_cross_dm_prefixes(pending)

@@ -53,6 +53,22 @@ This source extracts the following:
     against the same tenant should set a distinct `platform_instance`
     per env so DM Containers do not collide on a single URN. Element
     Datasets are already env-scoped.
+  - **Single-element cross-DM fallback.** When a DM element references
+    another DM's element (`sourceIds = ["<otherDmUrlId>/<suffix>"]`) and
+    the name bridge cannot match the consuming element's name against
+    any producer-DM element, the resolver falls back to binding the
+    edge to the producer's sole element *iff* the producer DM contains
+    exactly one element. This covers the CSV-upload / single-asset
+    personal-DM case where either side has been renamed (by
+    construction, there is only one possible target). The fallback bumps
+    `data_model_element_cross_dm_upstreams_single_element_fallback`
+    instead of `_resolved`, so it is distinguishable in the report.
+    Semantics: if the producer DM is later edited to add a second
+    element and the user renames the consumer to point at the new one,
+    the fallback no longer fires and the previously-emitted edge will
+    reflect whatever name matches at the next ingest — i.e. the edge
+    tracks "current state of Sigma," not "state at edge-creation time."
+    This matches how Sigma's own UI resolves the reference.
 
 ### Prerequisites
 

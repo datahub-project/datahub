@@ -327,3 +327,16 @@ class SigmaSourceConfig(
         description="Regex patterns to filter Sigma Data Model names in ingestion. "
         "Requires ingest_data_models to be enabled.",
     )
+    max_personal_dm_discovery_rounds: int = pydantic.Field(
+        default=20,
+        description="Belt-and-braces safety cap on the number of passes the "
+        "personal-space Data Model discovery loop is allowed to make. Each "
+        "pass fetches ``/v2/dataModels/{urlId}`` for every newly-seen "
+        "cross-DM ``<urlId>`` prefix; the loop terminates naturally when "
+        "``unresolved_seen`` plateaus (monotonically growing set), so under "
+        "a well-behaved API this cap is never hit. Exists to protect "
+        "against pathological Sigma payloads (e.g. a chain of personal-space "
+        "DMs that keep referencing newly-discovered personal-space DMs) by "
+        "breaking with a ``SourceReport.warning`` instead of looping "
+        "unbounded.",
+    )

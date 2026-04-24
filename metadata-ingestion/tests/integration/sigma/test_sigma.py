@@ -3216,6 +3216,530 @@ def test_sigma_ingest_data_models_orphan_dm_unreachable(
     )
 
 
+@pytest.mark.integration
+def test_sigma_ingest_data_models_orphan_dm_two_hop_discovery(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Two-hop personal-space DM discovery terminates cleanly.
+
+    Pins the termination invariant of the discovery loop: each newly-fetched
+    personal-space DM is itself scanned for cross-DM references, so a chain
+    ``consumer (workspace) -> orphan B -> orphan C`` must be fully resolved
+    across two loop iterations without re-fetching already-seen prefixes.
+
+    This is the belt-and-braces check behind
+    ``max_personal_dm_discovery_rounds``: the monotonically-growing
+    ``unresolved_seen`` set guarantees termination under a well-behaved API;
+    this test exercises a real two-hop payload to make that contract
+    explicit.
+
+    Assertions:
+    1. Both orphan DMs are discovered (``data_model_external_references_discovered == 2``)
+       and none are marked unresolved.
+    2. ``GET /v2/dataModels/{urlId}`` is called exactly once per orphan
+       prefix -- the second iteration must not re-fetch orphan B.
+    3. Both orphan Containers are emitted with ``isPersonalDataModel="true"``.
+    4. ``consumer -> orphan_b`` and ``orphan_b -> orphan_c`` cross-DM edges
+       resolve (``data_model_element_cross_dm_upstreams_resolved == 2``).
+    """
+    import json
+
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
+    consumer_element_id = "1DYf5I08WO"
+
+    orphan_b_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    orphan_b_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    orphan_b_element_id = "wcUd3nEUAv"
+    orphan_b_suffix_in_consumer = "vACRd1GzJS"
+
+    orphan_c_dm_id = "a7c1c1f0-1111-2222-3333-444455556666"
+    orphan_c_dm_url_id = "OrphanCUrlId000000000"
+    orphan_c_element_id = "OrphanCElem"
+    orphan_c_suffix_in_b = "TTTTTTTTTT"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # --- Consumer DM (round 0) ---
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [
+                            f"{orphan_b_dm_url_id}/{orphan_b_suffix_in_consumer}"
+                        ],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # --- Orphan B (discovered round 1) -- references orphan C ---
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_b_dm_url_id}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dataModelId": orphan_b_dm_id,
+                "dataModelUrlId": orphan_b_dm_url_id,
+                "name": "Test Data",
+                "url": f"https://app.sigmacomputing.com/acryldata/data-model/{orphan_b_dm_url_id}",
+                "path": "My Documents",
+                "latestVersion": 1,
+                "ownerId": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdAt": "2026-04-16T18:57:31.928Z",
+                "updatedAt": "2026-04-16T19:02:22.085Z",
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_b_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": orphan_b_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_b_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_b_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": orphan_b_element_id,
+                        "type": "element",
+                        "sourceIds": [f"{orphan_c_dm_url_id}/{orphan_c_suffix_in_b}"],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # --- Orphan C (discovered round 2) -- terminal, no further cross-DM refs ---
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_c_dm_url_id}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dataModelId": orphan_c_dm_id,
+                "dataModelUrlId": orphan_c_dm_url_id,
+                "name": "Test Data",
+                "url": f"https://app.sigmacomputing.com/acryldata/data-model/{orphan_c_dm_url_id}",
+                "path": "My Documents",
+                "latestVersion": 1,
+                "ownerId": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                "createdAt": "2026-04-16T18:57:31.928Z",
+                "updatedAt": "2026-04-16T19:02:22.085Z",
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_c_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": orphan_c_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_c_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{orphan_c_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_orphan_dm_two_hop_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    assert report.data_model_external_references_discovered == 2, (
+        f"expected 2 orphans discovered across two hops, got "
+        f"{report.data_model_external_references_discovered}"
+    )
+    assert report.data_model_external_reference_unresolved == 0
+    assert report.data_model_element_cross_dm_upstreams_resolved == 2, (
+        f"expected 2 cross-DM edges resolved (consumer->B and B->C), got "
+        f"{report.data_model_element_cross_dm_upstreams_resolved}"
+    )
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 0
+
+    # Termination-invariant guard: each orphan ``urlId`` must be fetched
+    # exactly once. If the loop ever re-queued an already-seen prefix,
+    # this count would jump to >=2 for at least one orphan.
+    by_url_id_hits_b = [
+        req
+        for req in requests_mock.request_history
+        if req.url.endswith(f"/dataModels/{orphan_b_dm_url_id}")
+    ]
+    by_url_id_hits_c = [
+        req
+        for req in requests_mock.request_history
+        if req.url.endswith(f"/dataModels/{orphan_c_dm_url_id}")
+    ]
+    assert len(by_url_id_hits_b) == 1, (
+        f"orphan B /dataModels/{{urlId}} must be fetched exactly once, "
+        f"got {len(by_url_id_hits_b)}"
+    )
+    assert len(by_url_id_hits_c) == 1, (
+        f"orphan C /dataModels/{{urlId}} must be fetched exactly once, "
+        f"got {len(by_url_id_hits_c)}"
+    )
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # Both orphans should emit a Container with isPersonalDataModel="true".
+    orphan_container_props_mces = [
+        mce
+        for mce in mces
+        if mce.get("aspectName") == "containerProperties"
+        and mce.get("aspect", {})
+        .get("json", {})
+        .get("customProperties", {})
+        .get("isPersonalDataModel")
+        == "true"
+    ]
+    assert len(orphan_container_props_mces) == 2, (
+        f"expected 2 personal-space Container props across B and C, got "
+        f"{len(orphan_container_props_mces)}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_orphan_dm_malformed_payload_safe(
+    pytestconfig, tmp_path, requests_mock
+):
+    """``get_data_model_by_url_id`` returning a payload that fails Pydantic
+    validation (e.g. missing ``dataModelId`` on the server side) must not
+    crash the ingestion.
+
+    Contract pin: the by-urlId path's broad ``except Exception`` treats a
+    malformed payload identically to a 4xx -- return None so the caller
+    bumps ``data_model_external_reference_unresolved`` and the consumer's
+    cross-DM edge degrades to ``dm_unknown``. This guards the discovery
+    loop against a Sigma-side regression we don't control (e.g.
+    experimental endpoints that ship inconsistent field names).
+    """
+    import json
+
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
+    consumer_element_id = "1DYf5I08WO"
+
+    producer_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    cross_dm_suffix = "vACRd1GzJS"
+
+    workspace_json = {
+        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+        "name": "Acryl Data",
+        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+        "createdAt": "2024-05-10T09:00:00.000Z",
+        "updatedAt": "2024-05-12T10:00:00.000Z",
+    }
+
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/3ee61405-3be2-4000-ba72-60d36757b95b": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Test Model",
+                        "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                        "createdAt": "2026-04-16T18:57:31.928Z",
+                        "updatedAt": "2026-04-16T19:02:22.085Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "path": "Acryl Data",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Test Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [f"{producer_dm_url_id}/{cross_dm_suffix}"],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # Malformed by-urlId payload: 200 OK, but ``dataModelId`` is absent.
+        # ``SigmaDataModel.model_validate`` will raise ValidationError; the
+        # broad ``except Exception`` in ``get_data_model_by_url_id`` must
+        # swallow it and return None so ingestion continues.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_url_id}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dataModelUrlId": producer_dm_url_id,
+                "name": "Corrupted Producer",
+                "url": f"https://app.sigmacomputing.com/acryldata/data-model/{producer_dm_url_id}",
+                # ``dataModelId`` intentionally omitted -- Pydantic must reject.
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_orphan_dm_malformed_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    # Pipeline MUST NOT raise even on a malformed by-urlId payload.
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    # The malformed payload path degrades identically to the 403 path.
+    assert report.data_model_external_reference_unresolved == 1, (
+        f"expected 1 unresolved on malformed payload, got "
+        f"{report.data_model_external_reference_unresolved}"
+    )
+    assert report.data_model_external_references_discovered == 0
+    assert report.data_model_element_cross_dm_upstreams_dm_unknown == 1
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    consumer_element_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{consumer_dm_id}.{consumer_element_id},PROD)"
+    # Consumer Dataset must emit without a producer-pointing upstream.
+    consumer_upstream_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == consumer_element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(consumer_upstream_mces) == 0, (
+        f"consumer must have no upstreamLineage when producer payload is "
+        f"malformed, got {len(consumer_upstream_mces)}"
+    )
+
+
 def _orphan_dm_mock_fixture() -> Dict[str, Dict[str, Any]]:
     """Build the orphan-DM discovery mock fixture: one workspace-listed
     consumer DM that references an element in a personal-space producer DM
