@@ -90,9 +90,15 @@ class LineageItem:
             self.dataset_lineage_type = DatasetLineageTypeClass.TRANSFORMED
 
 
-def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str, str]:
+def parse_alter_table_rename(
+    default_schema: Optional[str], query: str
+) -> Tuple[str, str, str]:
     """
     Parses an ALTER TABLE ... RENAME TO ... query and returns the schema, previous table name, and new table name.
+
+    Raises ValueError if the query has no schema qualifier and ``default_schema``
+    is ``None`` -- caller should treat this as a parse error rather than emit
+    URNs with a missing schema component.
     """
 
     parsed_query = parse_statement(query, dialect=get_dialect("redshift"))
@@ -103,6 +109,11 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     new_name = rename_clause.this.name
 
     schema = parsed_query.this.db or default_schema
+    if schema is None:
+        raise ValueError(
+            "Could not determine schema for ALTER TABLE rename: query has no "
+            "schema qualifier and default_schema is None"
+        )
 
     return schema, prev_name, new_name
 
@@ -219,7 +230,7 @@ class RedshiftSqlLineage(Closeable):
                 platform=LineageDatasetPlatform.REDSHIFT.value,
                 platform_instance=self.config.platform_instance,
                 default_db=db_name,
-                default_schema=str(self.config.default_schema),
+                default_schema=self.config.default_schema,
                 graph=self.context.graph,
                 env=self.config.env,
             )
