@@ -45,6 +45,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Page,
     SheetUpstream,
     SigmaDataModel,
+    SigmaDataModelColumn,
     SigmaDataModelElement,
     SigmaDataset,
     Workbook,
@@ -82,6 +83,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     InputFieldClass,
     InputFieldsClass,
+    NullTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -98,6 +100,15 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+# The Sigma ``/dataModels/{id}/columns`` endpoint does not currently
+# return a per-column native type on the fields we consume (name,
+# label, formula, elementId). We emit ``NullType`` + this sentinel so
+# that downstream systems can recognize the absence of type info
+# rather than trusting a lie. When the API starts returning a typed
+# column field (or we add SQL-based inference), swap this out here.
+SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
 
 
 @platform_name("Sigma")
@@ -409,20 +420,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
                 if upstream_urn is None:
+                    self.reporter.data_model_element_upstreams_unresolved_external += 1
                     self.reporter.data_model_element_upstreams_unresolved += 1
                     logger.debug(
-                        "DM %s element %s: external upstream %r unresolved",
+                        "DM %s element %s: external upstream %r unresolved "
+                        "(target Sigma Dataset filtered out or not ingested)",
                         data_model.dataModelId,
                         element.elementId,
                         source_id,
                     )
             else:
                 # Cross-DM ``<prefix>/<suffix>`` shapes and any other
-                # unknown shape are counted as unresolved here. Cross-DM
-                # resolution arrives in a follow-up PR.
+                # shape we don't yet parse. Counted separately from
+                # legitimate "external but un-ingested" so operators can
+                # tell "upstream exists but wasn't emitted" (filter or
+                # perm) apart from "we don't yet handle this shape"
+                # (cross-DM resolution arrives in a follow-up PR, plus
+                # any future Sigma vendor shape).
+                self.reporter.data_model_element_upstreams_unknown_shape += 1
                 self.reporter.data_model_element_upstreams_unresolved += 1
                 logger.debug(
-                    "DM %s element %s: upstream source_id %r has an unknown shape",
+                    "DM %s element %s: upstream source_id %r has an unknown shape "
+                    "(not ``inode-`` external, not intra-DM)",
                     data_model.dataModelId,
                     element.elementId,
                     source_id,
@@ -454,21 +473,65 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Dedup by ``fieldPath`` within the element: Sigma can return two
         # columns with the same name (e.g. a calculated field shadowing a
         # native column), and GMS rejects / non-deterministically dedupes
-        # duplicate ``fieldPath``s. Keep the first; count the rest.
-        seen_field_paths: Set[str] = set()
-        fields: List[SchemaFieldClass] = []
+        # duplicate ``fieldPath``s.
+        #
+        # Tie-break is deterministic across runs (review M5):
+        # 1. Prefer the row with a non-empty ``formula`` -- that's the
+        #    user-authored calculated field and the one Sigma surfaces
+        #    in the UI when both exist with the same name.
+        # 2. Fall back to the row with the lexicographically smallest
+        #    ``columnId`` so the choice is stable even without
+        #    ``/columns`` ordering guarantees.
+        # Dropped ``columnId``s are emitted to debug logs so operators
+        # can reconcile against Sigma.
+        def _ranks_above(
+            candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
+        ) -> bool:
+            # Prefer row with formula set (user-authored calc field).
+            # Tie-break: smaller columnId wins so the choice is stable
+            # across runs even if ``/columns`` ordering shifts.
+            if bool(candidate.formula) != bool(incumbent.formula):
+                return bool(candidate.formula)
+            return candidate.columnId < incumbent.columnId
+
+        by_name: Dict[str, SigmaDataModelColumn] = {}
+        dropped_column_ids_by_name: Dict[str, List[str]] = {}
         for column in element.columns:
             if not column.name:
                 continue
-            if column.name in seen_field_paths:
-                self.reporter.data_model_element_columns_duplicate_fieldpath_dropped += 1
+            existing = by_name.get(column.name)
+            if existing is None:
+                by_name[column.name] = column
                 continue
-            seen_field_paths.add(column.name)
+            self.reporter.data_model_element_columns_duplicate_fieldpath_dropped += 1
+            if _ranks_above(column, existing):
+                winner, loser = column, existing
+            else:
+                winner, loser = existing, column
+            by_name[column.name] = winner
+            dropped_column_ids_by_name.setdefault(column.name, []).append(
+                loser.columnId
+            )
+        if dropped_column_ids_by_name:
+            logger.debug(
+                "DM element %s: dropped duplicate-fieldPath columns %s "
+                "(kept the row with formula set, or the lexicographically "
+                "smallest columnId as a tiebreak)",
+                element.elementId,
+                dropped_column_ids_by_name,
+            )
+        fields: List[SchemaFieldClass] = []
+        for column in by_name.values():
             fields.append(
                 SchemaFieldClass(
                     fieldPath=column.name,
-                    type=SchemaFieldDataTypeClass(StringTypeClass()),
-                    nativeDataType="String",
+                    # Sigma's ``/columns`` endpoint does not expose a
+                    # per-column native type today. Emit ``NullType`` +
+                    # a sentinel ``nativeDataType`` so downstream type
+                    # checks recognize "unknown" instead of trusting a
+                    # fake "String" that was never returned by Sigma.
+                    type=SchemaFieldDataTypeClass(NullTypeClass()),
+                    nativeDataType=SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE,
                     description=column.label or None,
                 )
             )

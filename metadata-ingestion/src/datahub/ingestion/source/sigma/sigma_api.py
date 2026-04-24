@@ -733,8 +733,9 @@ class SigmaAPI:
         self, data_model_id: str
     ) -> List[Dict[str, Any]]:
         """Return raw entries from the DM /lineage endpoint. ``element``
-        entries have ``sourceIds`` holding either an intra-DM elementId
-        or an ``inode-<suffix>`` for external upstreams. Paginated via
+        entries carry ``elementId`` + ``sourceIds`` (intra-DM elementIds
+        or ``inode-<suffix>`` for external upstreams); ``dataset`` /
+        ``table`` entries carry ``inodeId``. Paginated via
         :meth:`_paginated_raw_entries` so large DMs whose lineage spans
         multiple pages are not silently truncated. Sigma returns
         400/403/404 for DMs with no lineage graph (empty DMs or
@@ -742,10 +743,18 @@ class SigmaAPI:
         responses are *not* in ``silent_statuses`` -- a globally
         degraded Sigma region would otherwise produce zero lineage
         aspects with zero warnings, which is worse than a loud
-        warning per affected DM. Raw entries are deduped by
-        ``(type, nodeId)`` to defuse the same cursor-echo / pagination
-        overlap concern that :meth:`_paginated_entries` guards against
-        for typed models.
+        warning per affected DM.
+
+        Raw entries are deduped by a shape-aware natural key
+        (``elementId`` for elements, ``inodeId`` for dataset/table,
+        ``nodeId`` as a last-ditch fallback for any future shape) to
+        defuse the same cursor-echo / pagination-overlap concern
+        :meth:`_paginated_entries` guards against for typed models.
+        Picking the *wrong* key silently collapses multiple real rows
+        into one (e.g. keying elements on an absent ``nodeId`` would
+        discard every element after the first), so this function is
+        intentionally conservative: entries whose expected identifier
+        is missing are preserved, not dropped.
         """
         logger.debug(f"Fetching lineage for data model '{data_model_id}'.")
         raw = self._paginated_raw_entries(
@@ -756,10 +765,20 @@ class SigmaAPI:
         seen: Set[Tuple[str, str]] = set()
         deduped: List[Dict[str, Any]] = []
         for entry in raw:
-            key = (str(entry.get(Constant.TYPE, "")), str(entry.get("nodeId", "")))
-            if key == ("", ""):
+            entry_type = str(entry.get(Constant.TYPE, ""))
+            if entry_type == "element":
+                identifier = str(entry.get(Constant.ELEMENTID, ""))
+            elif entry_type in ("dataset", "table"):
+                identifier = str(entry.get("inodeId", ""))
+            else:
+                identifier = str(entry.get("nodeId", ""))
+            # Preserve entries whose natural identifier is absent rather
+            # than collapsing them under the same empty-string key --
+            # the point of dedup is cursor echo, not data loss.
+            if not entry_type or not identifier:
                 deduped.append(entry)
                 continue
+            key = (entry_type, identifier)
             if key in seen:
                 self.report.pagination_duplicate_entries_dropped += 1
                 continue
@@ -786,7 +805,20 @@ class SigmaAPI:
 
         elements = self._get_data_model_elements(data_model.dataModelId)
         columns = self._get_data_model_columns(data_model.dataModelId)
-        lineage_entries = self._get_data_model_lineage_entries(data_model.dataModelId)
+        # Review M6: ``extract_lineage=False`` is a historical opt-out for
+        # the privileged ``/workbooks/{id}/lineage`` surface; users who
+        # set it don't expect the connector to call *any* ``/lineage``
+        # endpoint. Honor that here so ``ingest_data_models=True +
+        # extract_lineage=False`` emits DM Containers + element Datasets
+        # + ``SchemaMetadata`` (the "catalog without upstreams" shape),
+        # rather than silently reaching for the same lineage surface
+        # under a different flag.
+        if self.config.extract_lineage:
+            lineage_entries = self._get_data_model_lineage_entries(
+                data_model.dataModelId
+            )
+        else:
+            lineage_entries = []
 
         columns_by_element: Dict[str, List[SigmaDataModelColumn]] = {}
         for column in columns:

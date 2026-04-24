@@ -20,17 +20,30 @@ This source extracts the following:
     (`urn:li:dataset:(sigma,<dataModelId>.<elementId>,env)`) so
     attachments survive Sigma slug rotation; the slug is captured on
     `customProperties.dataModelUrlId`.
-  - Column types are emitted as `String` — Sigma's `/columns` API does
-    not return per-column types.
+  - Column types are emitted as `NullType` with `nativeDataType: "unknown"` —
+    Sigma's `/columns` API does not return per-column types today. Earlier
+    pre-releases hardcoded `String`; that was a lie (no Sigma side confirms
+    it) and has been softened so downstream type-aware features can tell
+    "unknown" from "actually a string."
   - Column-level lineage is not emitted yet; `SchemaMetadata` is
     present, so CLL can be added later without re-ingestion.
   - External upstreams to Sigma Datasets only resolve when the
     referenced dataset is ingested in the same recipe run. Splitting
     Sigma Datasets and Data Models into separate recipes will leave
-    those upstreams unresolved (tracked on
-    `data_model_element_upstreams_unresolved` in the report); keep both
-    in one recipe, or tolerate the gap, until a follow-up adds an
+    those upstreams unresolved. The report tracks these under
+    `data_model_element_upstreams_unresolved_external` (split out from
+    `data_model_element_upstreams_unknown_shape`, which counts source_id
+    shapes this release does not parse — e.g. cross-DM refs). The
+    aggregate `data_model_element_upstreams_unresolved` is kept for
+    dashboards that already read it. Keep Sigma Datasets and Data Models
+    in the same recipe, or tolerate the gap, until a follow-up adds an
     opt-in URN-pattern fallback.
+  - Setting `ingest_data_models: true` issues `/dataModels/{id}/elements`
+    and `/columns` calls per DM unconditionally, but the per-DM
+    `/lineage` call is gated on `extract_lineage: true`. If you opt out
+    of lineage at the workbook surface, the DM connector also stops
+    hitting any `/lineage` endpoint — DM Containers, element Datasets,
+    and `SchemaMetadata` are still emitted, but without `UpstreamLineage`.
   - The DM Container URN is keyed on `platform` and
     `platform_instance` but not `env`. Multi-environment deployments
     against the same tenant should set a distinct `platform_instance`

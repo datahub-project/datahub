@@ -158,6 +158,14 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
     data_model_element_external_upstreams: int = 0
+    # Split intentionally so operators can triage "upstream dataset
+    # exists but wasn't ingested in this run" (typically a pattern
+    # filter or missing read perm) vs "source_id shape we do not yet
+    # parse" (cross-DM refs ahead of the follow-up PR, or a future
+    # Sigma shape). ``data_model_element_upstreams_unresolved`` is
+    # kept as an aggregate for dashboards that already read it.
+    data_model_element_upstreams_unresolved_external: int = 0
+    data_model_element_upstreams_unknown_shape: int = 0
     data_model_element_upstreams_unresolved: int = 0
 
     # /columns entries with ``elementId = None`` (DM-global calculations),
@@ -245,12 +253,15 @@ class SigmaSourceConfig(
         default=False,
         description="Whether to ingest Sigma Data Models. Each Data Model is emitted "
         "as a Container with one Dataset per element inside it (plus per-element "
-        "``SchemaMetadata`` and ``UpstreamLineage``). Default is ``False`` because "
+        "``SchemaMetadata`` and, when ``extract_lineage`` is also enabled, "
+        "``UpstreamLineage``). Default is ``False`` because "
         "enabling this introduces a new entity class to the graph — existing tenants "
         "will see new Containers and Datasets appear on first ingest and will need "
         "to factor those into any soft-delete policy if they later disable this flag. "
-        "Enabling this issues ``/dataModels/{id}/elements``, ``/columns`` and "
-        "``/lineage`` calls per Data Model independently of ``extract_lineage``.",
+        "Enabling this issues ``/dataModels/{id}/elements`` and ``/columns`` calls "
+        "per Data Model unconditionally; the ``/lineage`` call is only issued when "
+        "``extract_lineage`` is also ``True`` (so users who opt out of lineage at "
+        "the workbook surface don't get a lineage endpoint hit under a different flag).",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

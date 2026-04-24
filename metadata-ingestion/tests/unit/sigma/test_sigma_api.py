@@ -855,22 +855,39 @@ class TestPaginatedRawEntries:
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every
         page of lineage, not just the first. Review M2 regression.
+
+        Uses the real DM ``/lineage`` shape -- ``element`` rows carry
+        ``elementId`` (not ``nodeId``) and ``sourceIds``, ``dataset``
+        rows carry ``inodeId``. Earlier fixture shapes here used a
+        synthetic ``nodeId`` that masked C1.
         """
         api = _create_sigma_api()
         page1 = _paginated_response(
             [
-                {"type": "element", "nodeId": "e1", "sourceIds": []},
-                {"type": "element", "nodeId": "e2", "sourceIds": ["e1"]},
+                {
+                    "type": "dataset",
+                    "name": "PETS",
+                    "inodeId": "inode-PETS",
+                },
+                {"type": "element", "elementId": "e1", "sourceIds": []},
+                {"type": "element", "elementId": "e2", "sourceIds": ["e1"]},
             ],
             next_page=2,
         )
         page2 = _paginated_response(
-            [{"type": "element", "nodeId": "e3", "sourceIds": ["e2"]}],
+            [{"type": "element", "elementId": "e3", "sourceIds": ["e2"]}],
             next_page=None,
         )
         with patch.object(api, "_get_api_call", side_effect=[page1, page2]):
             entries = api._get_data_model_lineage_entries("dm-id")
-        assert [e["nodeId"] for e in entries] == ["e1", "e2", "e3"]
+        assert [
+            (e["type"], e.get("elementId") or e.get("inodeId")) for e in entries
+        ] == [
+            ("dataset", "inode-PETS"),
+            ("element", "e1"),
+            ("element", "e2"),
+            ("element", "e3"),
+        ]
 
     def test_lineage_500_surfaces_warning(self) -> None:
         """M3 regression: a 500 on ``/lineage`` is *not* in
@@ -952,23 +969,79 @@ class TestPaginatedEntriesDedup:
         assert [dm.dataModelId for dm in results] == ["dm-1", "dm-1"]
         assert api.report.pagination_duplicate_entries_dropped == 0
 
-    def test_lineage_raw_dedupes_by_type_nodeid(self) -> None:
-        """Lineage entries are raw dicts -- dedup happens in
-        ``_get_data_model_lineage_entries`` keyed on ``(type, nodeId)``.
+    def test_lineage_raw_dedupes_by_shape_aware_key(self) -> None:
+        """Review C1 regression: dedup must use the *real* DM
+        ``/lineage`` shape -- ``elementId`` for ``type: element`` rows,
+        ``inodeId`` for ``type: dataset`` / ``type: table`` rows. An
+        earlier version of this function keyed on ``(type, nodeId)``
+        which collapsed to ``(type, "")`` for every real entry and
+        silently discarded every element after the first.
+
+        Verifies both:
+        * two echoed-across-pages elements collapse to one (real dedup)
+        * elements with the *same* type but distinct ``elementId``
+          survive (what broke under the old key)
         """
         api = _create_sigma_api()
-        # Same ``(type, nodeId)`` echoed across two pages must collapse.
-        page1 = _paginated_response(
+        # First page has four distinct rows (mixing element + dataset
+        # shapes). Echoed cursor means the paginator will consume a
+        # second page before the cycle guard fires; that second page
+        # is the same payload, so every row is a cross-page duplicate
+        # and must collapse on the natural key.
+        page = _paginated_response(
             [
-                {"type": "element", "nodeId": "e1", "sourceIds": []},
-                {"type": "element", "nodeId": "e2", "sourceIds": ["e1"]},
+                {
+                    "type": "dataset",
+                    "name": "PETS",
+                    "inodeId": "inode-PETS",
+                },
+                {"type": "element", "elementId": "e1", "sourceIds": []},
+                {"type": "element", "elementId": "e2", "sourceIds": ["e1"]},
+                {
+                    "type": "table",
+                    "name": "WAREHOUSE_TBL",
+                    "inodeId": "inode-WAREHOUSE_TBL",
+                },
             ],
             next_page_token="same-tok",
         )
-        with patch.object(api, "_get_api_call", return_value=page1):
+        with patch.object(api, "_get_api_call", return_value=page):
             entries = api._get_data_model_lineage_entries("dm-id")
-        assert [e["nodeId"] for e in entries] == ["e1", "e2"]
-        assert api.report.pagination_duplicate_entries_dropped == 2
+        # All four distinct rows survive -- the old ``nodeId`` key
+        # would have collapsed elements {e1, e2} down to one and both
+        # dataset/table rows to one apiece.
+        assert [
+            (e["type"], e.get("elementId") or e.get("inodeId")) for e in entries
+        ] == [
+            ("dataset", "inode-PETS"),
+            ("element", "e1"),
+            ("element", "e2"),
+            ("table", "inode-WAREHOUSE_TBL"),
+        ]
+        # And the page-2 echo of the same four rows was all duplicates.
+        assert api.report.pagination_duplicate_entries_dropped == 4
+
+    def test_lineage_raw_preserves_entries_missing_natural_key(self) -> None:
+        """C1 correctness invariant: entries whose shape does not carry
+        the expected identifier (a future Sigma shape, or a malformed
+        row) must be *preserved*, not collapsed under a shared empty
+        key that would silently drop all but the first. Contrast with
+        the old behavior where ``(type, "")`` collapsed every one.
+        """
+        api = _create_sigma_api()
+        page = _paginated_response(
+            [
+                {"type": "element"},
+                {"type": "element"},
+                {"type": "dataset", "name": "PETS"},
+            ],
+            next_page=None,
+        )
+        with patch.object(api, "_get_api_call", return_value=page):
+            entries = api._get_data_model_lineage_entries("dm-id")
+        # All three preserved -- none count as dedup drops.
+        assert len(entries) == 3
+        assert api.report.pagination_duplicate_entries_dropped == 0
 
     def test_get_data_models_workspace_fallback_to_payload(self) -> None:
         """C2 regression: when ``/files`` is missing the DM row (or has

@@ -1350,10 +1350,32 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
     )
 
     report = _sigma_report(pipeline)
-    assert report.data_model_element_upstreams_unresolved >= 1, (
-        f"expected the un-ingested dataset reference to bump the unresolved "
-        f"counter, got data_model_element_upstreams_unresolved="
+    # Pin exact counter values so C1 (shape-aware dedup in
+    # ``_get_data_model_lineage_entries``) cannot regress silently:
+    # the fixture has exactly 3 elements -> 1 intra-DM edge (4plNus…
+    # -> 0ui59vLc38), 1 resolved external edge (0ui59vLc38 -> PETS),
+    # 1 unresolved external edge (xloKCITNsP -> un-ingested
+    # UnregisteredDataset), and 0 unknown-shape entries.
+    assert report.data_model_element_intra_upstreams == 1, (
+        f"expected exactly 1 intra-DM upstream, got "
+        f"{report.data_model_element_intra_upstreams}"
+    )
+    assert report.data_model_element_external_upstreams == 1, (
+        f"expected exactly 1 resolved external upstream (PETS), got "
+        f"{report.data_model_element_external_upstreams}"
+    )
+    assert report.data_model_element_upstreams_unresolved == 1, (
+        f"expected exactly 1 unresolved upstream (un-ingested dataset), got "
         f"{report.data_model_element_upstreams_unresolved}"
+    )
+    assert report.data_model_element_upstreams_unresolved_external == 1, (
+        f"unresolved entry is an ``inode-`` external, not an unknown shape; "
+        f"got _unresolved_external="
+        f"{report.data_model_element_upstreams_unresolved_external}"
+    )
+    assert report.data_model_element_upstreams_unknown_shape == 0, (
+        f"fixture has no cross-DM or unknown-shape source_ids; got "
+        f"_unknown_shape={report.data_model_element_upstreams_unknown_shape}"
     )
 
 
