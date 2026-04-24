@@ -2966,6 +2966,7 @@ class TableauSiteSource:
             customProperties=self.get_custom_props_from_dict(
                 datasource,
                 [
+                    c.LUID,
                     c.HAS_EXTRACTS,
                     c.EXTRACT_LAST_REFRESH_TIME,
                     c.EXTRACT_LAST_INCREMENTAL_UPDATE_TIME,
@@ -3547,7 +3548,7 @@ class TableauSiteSource:
                 f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions."
             )
 
-        custom_props = None
+        custom_props: Optional[Dict] = None
         if (
             self.config.permission_ingestion
             and self.config.permission_ingestion.enable_workbooks
@@ -3559,6 +3560,11 @@ class TableauSiteSource:
                 workbook_instance.permissions
             )
 
+        luid_props: Dict = (
+            {c.LUID: str(workbook[c.LUID])} if workbook.get(c.LUID) else {}
+        )
+        extra_props = {**luid_props, **(custom_props or {})}
+
         yield from gen_containers(
             container_key=workbook_container_key,
             name=workbook.get(c.NAME) or "",
@@ -3567,7 +3573,7 @@ class TableauSiteSource:
             sub_types=[BIContainerSubTypes.TABLEAU_WORKBOOK],
             owner_urn=owner_urn,
             external_url=workbook_external_url,
-            extra_properties=custom_props,
+            extra_properties=extra_props or None,
             tags=tags,
         )
 

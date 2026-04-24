@@ -35,8 +35,10 @@ jobs:
 
           WB=$(gh api "/repos/${REPO}/actions/workflows/python-build-pages.yml/runs?head_sha=${SHA}&per_page=1" \
             --jq '.workflow_runs[0].conclusion // empty')
-          MI=$(gh api "/repos/${REPO}/actions/workflows/metadata-ingestion.yml/runs?head_sha=${SHA}&per_page=1" \
-            --jq '.workflow_runs[0].conclusion // empty')
+          MI_RUNS=$(gh api "/repos/${REPO}/actions/workflows/metadata-ingestion.yml/runs?head_sha=${SHA}&per_page=1")
+          MI=$(echo "$MI_RUNS" | jq -r '.workflow_runs[0].conclusion // empty')
+          MI_RUN_ID=$(echo "$MI_RUNS" | jq -r '.workflow_runs[0].id // empty')
+          echo "mi_run_id=${MI_RUN_ID}" >> "$GITHUB_OUTPUT"
 
           echo "Python Build: $WB, Metadata Ingestion: $MI"
 
@@ -162,11 +164,84 @@ jobs:
             echo "has_connector_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Determine target connectors
+        if: >-
+          steps.check-both.outputs.both_passed == 'true' &&
+          steps.pr-info.outputs.has_pr == 'true' &&
+          steps.check-skip.outputs.skip != 'true' &&
+          steps.path-check.outputs.has_connector_changes != 'false'
+        id: connectors
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          MI_RUN_ID: ${{ steps.check-both.outputs.mi_run_id }}
+        run: |
+          if ! gh run download "$MI_RUN_ID" --repo "$REPO" --name "ci-decisions" --dir ci-decisions 2>/dev/null; then
+            echo "::warning::Could not download ci-decisions artifact — running all connector tests"
+            echo "connectors=" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Connector Tests Decision"
+              echo "**Run all (fallback)** — ci-decisions artifact not found."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          RUN_ALL=$(jq -r '.run_all_integration' ci-decisions/ci-decisions.json)
+          if [ "$RUN_ALL" = "true" ]; then
+            echo "run_all_integration=true — running all connector tests"
+            echo "connectors=" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Connector Tests Decision"
+              echo "**Run all** — shared/non-connector files changed."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Static mapping: datahub integration test dir name → connector-tests connector name
+          # Update this when acryldata/connector-tests adds or removes connectors
+          # TODO: Remove this mapping once both of the following are true:
+          #   (i)  ci-decisions.json surfaces the canonical connector name (not the test-dir name)
+          #   (ii) acryldata/connector-tests organises its tests in directories using those same names
+          CONNECTORS=$(jq -r '.test_matrix[].connector' ci-decisions/ci-decisions.json 2>/dev/null | \
+            while IFS= read -r name; do
+              case "$name" in
+                athena)              echo "athena" ;;
+                azure_data_factory)  echo "azure_data_factory" ;;
+                bigquery_v2)         echo "bigquery" ;;
+                fabric)              echo "fabric_onelake" ;;
+                fivetran)            echo "fivetran" ;;
+                looker)              echo "looker" ;;
+                powerbi)             echo "powerbi" ;;
+                redshift)            echo "redshift" ;;
+                sigma)               echo "sigma" ;;
+                snowflake)           echo "snowflake" ;;
+                tableau)             echo "tableau" ;;
+              esac
+            done | sort -u | paste -sd ',')
+
+          if [ -z "$CONNECTORS" ]; then
+            echo "No connector-tests connectors matched — skipping dispatch"
+            echo "connectors=" >> "$GITHUB_OUTPUT"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Connector Tests Decision"
+              echo "**Skipped** — changes do not affect any connector-tests connector."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Target connectors: $CONNECTORS"
+            echo "connectors=$CONNECTORS" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Connector Tests Decision"
+              echo "**Selective** — running: \`$CONNECTORS\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Create skipped check run
         if: >-
           steps.check-both.outputs.both_passed == 'true' &&
           steps.pr-info.outputs.has_pr == 'true' &&
-          (steps.check-skip.outputs.skip == 'true' || steps.path-check.outputs.has_connector_changes == 'false')
+          (steps.check-skip.outputs.skip == 'true' || steps.path-check.outputs.has_connector_changes == 'false' || steps.connectors.outputs.skip == 'true')
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -174,6 +249,8 @@ jobs:
         run: |
           if [ "${{ steps.check-skip.outputs.skip }}" = "true" ]; then
             REASON="Skipped via skip-connector-tests label on the PR."
+          elif [ "${{ steps.connectors.outputs.skip }}" = "true" ]; then
+            REASON="Skipped — PR changes do not affect any connector tested by the connector-tests suite."
           else
             REASON="Skipped because PR changes are limited to tests or docs in metadata-ingestion."
           fi
@@ -191,7 +268,8 @@ jobs:
           steps.check-both.outputs.both_passed == 'true' &&
           steps.pr-info.outputs.has_pr == 'true' &&
           steps.check-skip.outputs.skip != 'true' &&
-          steps.path-check.outputs.has_connector_changes != 'false'
+          steps.path-check.outputs.has_connector_changes != 'false' &&
+          steps.connectors.outputs.skip != 'true'
         id: check-run
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -211,7 +289,8 @@ jobs:
           steps.check-both.outputs.both_passed == 'true' &&
           steps.pr-info.outputs.has_pr == 'true' &&
           steps.check-skip.outputs.skip != 'true' &&
-          steps.path-check.outputs.has_connector_changes != 'false'
+          steps.path-check.outputs.has_connector_changes != 'false' &&
+          steps.connectors.outputs.skip != 'true'
         env:
           # Fine-grained PAT scoped to acryldata/connector-tests with Contents: R/W.
           # To rotate: generate a new token and update this repo secret.
@@ -221,6 +300,7 @@ jobs:
           SOURCE_REPO: ${{ github.repository }}
           WHEEL_URL: ${{ steps.cloudflare.outputs.url }}
           CHECK_RUN_ID: ${{ steps.check-run.outputs.check_run_id }}
+          CONNECTORS: ${{ steps.connectors.outputs.connectors }}
         run: |
           jq -nc \
             --arg event "oss-pr-connector-tests" \
@@ -229,10 +309,15 @@ jobs:
             --arg repo "$SOURCE_REPO" \
             --arg url "$WHEEL_URL" \
             --arg check_run_id "$CHECK_RUN_ID" \
-            '{event_type: $event, client_payload: {pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url, check_run_id: $check_run_id}}' \
+            --arg connectors "$CONNECTORS" \
+            '{event_type: $event, client_payload: {pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url, check_run_id: $check_run_id} + (if $connectors != "" then {connectors: $connectors} else {} end)}' \
           | gh api "/repos/acryldata/connector-tests/dispatches" --input -
 
-          echo "Dispatched for PR #${PR_NUMBER}"
+          if [ -n "$CONNECTORS" ]; then
+            echo "Dispatched for PR #${PR_NUMBER} — connectors: ${CONNECTORS}"
+          else
+            echo "Dispatched for PR #${PR_NUMBER} — all connectors"
+          fi
 
       - name: On failure — mark check run as failed
         if: (failure() || cancelled()) && steps.check-run.outputs.check_run_id != ''

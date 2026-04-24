@@ -35,7 +35,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2021-12-07 07:00:00"
+FROZEN_TIME = "2021-12-07T07:00:00Z"
 
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -533,6 +533,7 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_path_pattern_allow_mces.json"
     golden_file_name: str = "tableau_project_path_pattern_allow_mces_golden.json"
@@ -552,6 +553,7 @@ def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_path_pattern_deny_mces.json"
     golden_file_name: str = "tableau_project_path_pattern_deny_mces_golden.json"
