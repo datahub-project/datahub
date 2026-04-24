@@ -619,6 +619,10 @@ subprojects {
   // Enable dependency locking for all configurations
   dependencyLocking {
     lockAllConfigurations()
+    // Root build.gradle substitutes com.linkedin.avroutil1:helper-all:0.2.138 with
+    // :vendor:avroutil1-helper-all-fork. The external module is never resolved from a repo,
+    // so strict lock validation would fail on existing lockfile lines for helper-all.
+    ignoredDependencies.add("com.linkedin.avroutil1:helper-all")
   }
 
   def gitPropertiesTask = tasks.register("copyGitProperties", Copy) {
