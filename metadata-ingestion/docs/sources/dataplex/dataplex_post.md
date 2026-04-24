@@ -190,12 +190,12 @@ When `include_glossary_term_associations` is enabled (opt-in, default: `false`),
 
 **Configuration:**
 
-| Field                                | Default    | Description                                                                                                               |
-| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Field                                | Default    | Description                                                                                                              |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                     |
 | `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires `roles/resourcemanager.projectViewer` (opt-in) |
-| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                    |
-| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                      |
+| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                   |
+| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                     |
 
 **Example:**
 

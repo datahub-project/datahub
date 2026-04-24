@@ -10,6 +10,7 @@ from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryProcessor,
     DataplexGlossaryReport,
+    GlossaryTermRef,
     _category_node_urn_id,
     _glossary_node_urn_id,
     _parse_parent_urn,
@@ -196,11 +197,11 @@ class TestProcessGlossaries:
 
         # Verify the emitted terms list was populated
         assert len(processor._emitted_terms) == 1
-        proj, loc, glossary_id, term_id = processor._emitted_terms[0]
-        assert proj == "my-project"
-        assert loc == "global"
-        assert glossary_id == "g1"
-        assert term_id == "t1"
+        term_ref = processor._emitted_terms[0]
+        assert term_ref.project_id == "my-project"
+        assert term_ref.location == "global"
+        assert term_ref.glossary_id == "g1"
+        assert term_ref.term_id == "t1"
 
     def test_term_directly_under_glossary(
         self,
@@ -252,7 +253,14 @@ class TestProcessTermAssociations:
         ctx: DataplexContext,
     ) -> None:
         """Seed the processor with one emitted term and one entry in ctx."""
-        processor._emitted_terms = [("my-project", "global", "g1", "t1")]
+        processor._emitted_terms = [
+            GlossaryTermRef(
+                project_id="my-project",
+                location="global",
+                glossary_id="g1",
+                term_id="t1",
+            )
+        ]
         ctx.project_numbers = {"my-project": "123456789"}
         ctx.entry_data = [
             EntryDataTuple(
@@ -381,8 +389,18 @@ class TestProcessTermAssociations:
         """Asset linked to two terms must receive both in a single MCP, not two separate ones."""
         asset_entry_name = "projects/my-project/locations/us/entryGroups/@bigquery/entries/bigquery:my-project.dataset.table1"
         processor._emitted_terms = [
-            ("my-project", "global", "g1", "t1"),
-            ("my-project", "global", "g1", "t2"),
+            GlossaryTermRef(
+                project_id="my-project",
+                location="global",
+                glossary_id="g1",
+                term_id="t1",
+            ),
+            GlossaryTermRef(
+                project_id="my-project",
+                location="global",
+                glossary_id="g1",
+                term_id="t2",
+            ),
         ]
         ctx.project_numbers = {"my-project": "123456789"}
         ctx.entry_data = [
