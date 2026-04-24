@@ -529,32 +529,21 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
 
-            if (
-                self.config.include_tables
-                or self.config.include_views
-                or self.config.is_profiling_enabled()
-            ):
-                schema_owner_urn = None
-                if self.config.extract_ownership and schema.owner:
-                    schema_owner_urn = self._make_owner_urn(schema.owner)
+            schema_owner_urn = None
+            if self.config.extract_ownership and schema.owner:
+                schema_owner_urn = self._make_owner_urn(schema.owner)
 
-                yield from gen_schema_container(
-                    schema=schema.name,
-                    database=database,
-                    schema_container_key=schema_container_key,
-                    database_container_key=database_container_key,
-                    domain_config=self.config.domain,
-                    domain_registry=self.domain_registry,
-                    sub_types=[DatasetSubTypes.SCHEMA],
-                    owner_urn=schema_owner_urn,
-                    ownership_type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-            else:
-                logger.debug(
-                    f"Skipping schema container emission for {database}.{schema.name}: "
-                    "include_tables, include_views and profiling are all disabled, "
-                    "so the container would have no datasets to nest under it."
-                )
+            yield from gen_schema_container(
+                schema=schema.name,
+                database=database,
+                schema_container_key=schema_container_key,
+                database_container_key=database_container_key,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                sub_types=[DatasetSubTypes.SCHEMA],
+                owner_urn=schema_owner_urn,
+                ownership_type=OwnershipTypeClass.TECHNICAL_OWNER,
+            )
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(
