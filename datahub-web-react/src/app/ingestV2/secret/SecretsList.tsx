@@ -357,7 +357,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             itemsPerPage={pageSize}
                             total={totalSecrets}
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={false}
                             hideOnSinglePage
                         />

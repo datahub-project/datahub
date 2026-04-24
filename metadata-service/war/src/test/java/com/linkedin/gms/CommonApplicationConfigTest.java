@@ -188,4 +188,53 @@ public class CommonApplicationConfigTest {
             .anyMatch(bean -> bean.getClass().getName().contains("MBeanContainer")),
         "Server should have MBeanContainer configured for JMX monitoring");
   }
+
+  private ServerConnector applyCustomizerAndGetConnector() {
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+    return (ServerConnector) server.getConnectors()[0];
+  }
+
+  @Test
+  public void testServerAddressUnsetLeavesConnectorHostUnbound() {
+    // Default setup provides no stub for server.address, so getProperty returns null.
+    ServerConnector connector = applyCustomizerAndGetConnector();
+    assertNull(
+        connector.getHost(),
+        "Connector host should remain unset when server.address is not configured,"
+            + " so Jetty binds to all interfaces");
+  }
+
+  @Test
+  public void testServerAddressBlankLeavesConnectorHostUnbound() {
+    // Guards against misconfigurations like SERVER_ADDRESS= (empty env var).
+    when(mockEnvironment.getProperty(eq("server.address"))).thenReturn("   ");
+    ServerConnector connector = applyCustomizerAndGetConnector();
+    assertNull(
+        connector.getHost(), "Connector host should remain unset when server.address is blank");
+  }
+
+  @Test
+  public void testServerAddressValidSetsConnectorHost() {
+    when(mockEnvironment.getProperty(eq("server.address"))).thenReturn("127.0.0.1");
+    ServerConnector connector = applyCustomizerAndGetConnector();
+    assertEquals(
+        connector.getHost(),
+        "127.0.0.1",
+        "Connector host should be set to the configured server.address");
+  }
+
+  @Test(
+      expectedExceptions = IllegalArgumentException.class,
+      timeOut = 5000) // Bound DNS resolution time if the resolver is slow on invalid hostnames.
+  public void testServerAddressInvalidThrows() {
+    // The ".invalid" TLD is RFC 6761 guaranteed non-resolvable, so InetAddress.getByName
+    // is expected to throw UnknownHostException which the code wraps in IllegalArgumentException.
+    when(mockEnvironment.getProperty(eq("server.address")))
+        .thenReturn("not-a-valid-hostname.invalid");
+    applyCustomizerAndGetConnector();
+  }
 }
