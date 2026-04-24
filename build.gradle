@@ -1,4 +1,5 @@
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.api.artifacts.DependencySubstitutions
 
 
 buildscript {
@@ -430,6 +431,15 @@ allprojects {
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
   configurations.all {
+    // Replace LinkedIn’s helper-all 0.2.138 (vulnerable embedded commons-lang3) with the in-repo
+    // fat JAR in :vendor:avroutil1-helper-all-fork. See that module’s build.gradle and dependency locks.
+    resolutionStrategy.dependencySubstitution { DependencySubstitutions s ->
+      // "project(...)" unqualified is Project#project here, not DependencySubstitutions#project; use s.project(...).
+      s.substitute(s.module("com.linkedin.avroutil1:helper-all:0.2.138"))
+        .using(s.project(":vendor:avroutil1-helper-all-fork"))
+        .because("CVE-patched avro-util helper-all (see vendor/avroutil1-helper-all-fork)")
+    }
+
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
     exclude group: "org.springframework.boot", module: "spring-boot-starter-logging"
@@ -619,6 +629,9 @@ subprojects {
   }
 
   plugins.withType(JavaPlugin).configureEach {
+    if (project.name == 'avroutil1-helper-all-fork') {
+      return
+    }
     project.tasks.named(JavaPlugin.CLASSES_TASK_NAME).configure{
       dependsOn gitPropertiesTask
     }
