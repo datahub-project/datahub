@@ -23,6 +23,7 @@ from databricks.sdk.service.catalog import (
     ModelVersionInfo,
     RegisteredModelInfo,
     SchemaInfo,
+    TableConstraint,
     TableInfo,
 )
 from databricks.sdk.service.files import DownloadResponse, FilesAPI
@@ -129,7 +130,21 @@ class QueryFilterWithStatementTypes(QueryFilter):
             QueryFilterWithStatementTypes,
             super().from_dict(d),
         )
-        v.statement_types = d["statement_types"]
+        raw = d.get("statement_types", [])
+        coerced: List[QueryStatementType] = []
+        for item in raw:
+            try:
+                coerced.append(
+                    item
+                    if isinstance(item, QueryStatementType)
+                    else QueryStatementType(item)
+                )
+            except Exception:
+                # Fallback: ignore invalid entries and continue
+                logger.debug(
+                    f"Unable to coerce statement_type {item} to QueryStatementType"
+                )
+        v.statement_types = coerced
         return v
 
 
@@ -306,28 +321,49 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         # Parse them into proper dict/list format
                         signature_data = {}
                         if "inputs" in signature_raw:
-                            try:
-                                signature_data["inputs"] = json.loads(
-                                    signature_raw["inputs"]
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.debug(f"Failed to parse inputs JSON: {e}")
+                            raw_inputs = signature_raw.get("inputs")
+                            if raw_inputs is not None:
+                                if isinstance(raw_inputs, (str, bytes)):
+                                    try:
+                                        signature_data["inputs"] = json.loads(
+                                            raw_inputs
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse inputs JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["inputs"] = raw_inputs
 
                         if "outputs" in signature_raw:
-                            try:
-                                signature_data["outputs"] = json.loads(
-                                    signature_raw["outputs"]
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.debug(f"Failed to parse outputs JSON: {e}")
+                            raw_outputs = signature_raw.get("outputs")
+                            if raw_outputs is not None:
+                                if isinstance(raw_outputs, (str, bytes)):
+                                    try:
+                                        signature_data["outputs"] = json.loads(
+                                            raw_outputs
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse outputs JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["outputs"] = raw_outputs
 
                         if "params" in signature_raw:
-                            try:
-                                signature_data["params"] = json.loads(
-                                    signature_raw["params"]
-                                )
-                            except (json.JSONDecodeError, TypeError) as e:
-                                logger.debug(f"Failed to parse params JSON: {e}")
+                            raw_params = signature_raw.get("params")
+                            if raw_params is not None:
+                                if isinstance(raw_params, (str, bytes)):
+                                    try:
+                                        signature_data["params"] = json.loads(
+                                            raw_params
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse params JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["params"] = raw_params
 
                         return ModelSignature(
                             inputs=signature_data.get("inputs"),
@@ -1119,6 +1155,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             position=obj.position,
             nullable=obj.nullable,
             comment=obj.comment,
+            partition_index=obj.partition_index,
         )
 
     def _create_table(
@@ -1159,6 +1196,35 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             optional_column = self._create_column(table_id, column)
             if optional_column:
                 yield optional_column
+
+    def get_table_constraints(self, table: Table) -> List[TableConstraint]:
+        """Fetch table constraints (PK/FK) via a separate tables.get() call.
+
+        The Databricks tables.list() API does not return table_constraints; a
+        dedicated tables.get() call is required per table. Hive Metastore
+        catalog tables do not support constraints and are skipped.
+
+        Note: this adds one Databricks API call per Unity Catalog table and is
+        subject to the workspace's API rate limits. Enable only via
+        include_table_constraints=True in the connector config.
+        """
+        if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            return []
+        try:
+            table_info = self._workspace_client.tables.get(
+                full_name=table.ref.qualified_table_name
+            )
+            return table_info.table_constraints or []
+        except Exception as e:
+            self.report.report_warning(
+                "table-constraints-fetch",
+                f"Unable to fetch table constraints for {table.ref}: {e}",
+            )
+            logger.warning(
+                f"Unable to fetch table constraints for {table.ref}: {e}",
+                exc_info=True,
+            )
+            return []
 
     def _create_ml_model(
         self, schema: Schema, obj: RegisteredModelInfo
