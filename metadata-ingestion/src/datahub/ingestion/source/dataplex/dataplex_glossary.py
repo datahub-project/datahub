@@ -103,6 +103,16 @@ def _parse_parent_urn(
     raise ValueError(f"Unexpected Dataplex parent field format: {parent!r}")
 
 
+@dataclass
+class GlossaryTermRef:
+    """Identifies a Dataplex glossary term ingested during the glossary phase."""
+
+    project_id: str
+    location: str
+    glossary_id: str
+    term_id: str
+
+
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
@@ -180,9 +190,7 @@ class DataplexGlossaryProcessor:
         self._glossary_client = glossary_client
         self._report = report
         self._source_report = source_report
-        # (project_id, location, glossary_id, term_id) — populated by process_glossaries,
-        # consumed by process_term_associations.
-        self._emitted_terms: List[Tuple[str, str, str, str]] = []
+        self._emitted_terms: List[GlossaryTermRef] = []
         self._emitted_terms_lock = threading.Lock()
 
     # ------------------------------------------------------------------
@@ -341,7 +349,14 @@ class DataplexGlossaryProcessor:
             yield glossary_term
 
             with self._emitted_terms_lock:
-                self._emitted_terms.append((project_id, location, glossary_id, term_id))
+                self._emitted_terms.append(
+                    GlossaryTermRef(
+                        project_id=project_id,
+                        location=location,
+                        glossary_id=glossary_id,
+                        term_id=term_id,
+                    )
+                )
 
     def _list_categories(
         self, project_id: str, location: str, glossary_id: str
@@ -425,17 +440,17 @@ class DataplexGlossaryProcessor:
                 futures = {
                     executor.submit(
                         self._collect_asset_links_for_term,
-                        project_id,
-                        gl_location,
-                        glossary_id,
-                        term_id,
+                        ref.project_id,
+                        ref.location,
+                        ref.glossary_id,
+                        ref.term_id,
                         location_pairs,
                         entry_name_to_urn,
-                    ): (project_id, gl_location, glossary_id, term_id)
-                    for project_id, gl_location, glossary_id, term_id in batch
+                    ): ref
+                    for ref in batch
                 }
                 for future in as_completed(futures):
-                    project_id, gl_location, glossary_id, term_id = futures[future]
+                    ref = futures[future]
                     try:
                         term_urn_str, linked_asset_urns = future.result()
                         for asset_urn in linked_asset_urns:
@@ -447,8 +462,8 @@ class DataplexGlossaryProcessor:
                             title="Term association lookup failed",
                             message="Failed to resolve term-asset links. Skipping term.",
                             context=(
-                                f"project={project_id}, location={gl_location}, "
-                                f"glossary={glossary_id}, term={term_id}"
+                                f"project={ref.project_id}, location={ref.location}, "
+                                f"glossary={ref.glossary_id}, term={ref.term_id}"
                             ),
                             exc=exc,
                         )
