@@ -880,9 +880,14 @@ class TestPaginatedRawEntries:
         """
         api = _create_sigma_api()
         five_hundred = MagicMock(status_code=500)
-        five_hundred.raise_for_status.side_effect = requests.exceptions.HTTPError(
-            "500 Server Error"
-        )
+        # Real ``requests`` attaches the response onto the HTTPError it
+        # raises from ``raise_for_status``; ``_log_http_error`` reads
+        # ``e.response.status_code`` off that, so the mocked error must
+        # carry the response too or the test trips an unrelated
+        # AttributeError before the warning is recorded.
+        http_error = requests.exceptions.HTTPError("500 Server Error")
+        http_error.response = five_hundred
+        five_hundred.raise_for_status.side_effect = http_error
         with patch.object(api, "_get_api_call", return_value=five_hundred):
             entries = api._get_data_model_lineage_entries("dm-id")
         assert entries == []
