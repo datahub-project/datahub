@@ -486,6 +486,69 @@ TypeError: on_task_instance_success() missing 3 required positional arguments: '
 
 The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
 
+### Orphan dataset URNs containing `.None.`
+
+If you see a warning in the Airflow task logs that looks like this:
+
+```text
+WARNING  datahub_airflow_plugin._datahub_ol_adapter: OpenLineage Dataset name
+'mydb.None.public.events' contained 'None'/empty segments; sanitized to
+'mydb.public.events' before producing DataHub URN. Likely upstream bug in the
+producer (unset field interpolated into an f-string).
+```
+
+it means an upstream Airflow operator emitted an OpenLineage Dataset whose
+`name` had the literal string `"None"` baked into one of its dotted segments.
+This is almost always caused by an Apache Airflow provider building the name
+with an f-string like `f"{database}.{self.schema}.{self.table}"` without
+checking whether `self.schema` is `None` — the most well-known case is
+[`S3ToRedshiftOperator`](https://airflow.apache.org/docs/apache-airflow-providers-amazon/stable/transfer/s3_to_redshift.html).
+
+The DataHub plugin sanitizes these names automatically before emitting the URN
+so that lineage stitches correctly to whatever your DataHub native Redshift /
+Snowflake / etc. ingestion source produced for the same physical table — no
+action is required for new lineage. The warning is informational and serves as
+a hint that you may want to file an upstream issue against the offending
+provider.
+
+The warning is **deduplicated per-process** — you will see at most one log
+line per distinct `(original, sanitized)` pair for the lifetime of the worker
+process, not one per task run. If the same buggy operator runs on a 5-minute
+schedule, you'll still only see one warning. A second occurrence with a
+different `original` name (e.g. a different table) will produce a new line.
+
+If a Dataset name consists **entirely** of `"None"` and empty segments
+(pathological producer output), the plugin keeps the original name to avoid
+emitting an empty-name URN and logs a different warning instead:
+
+```text
+WARNING  datahub_airflow_plugin._datahub_ol_adapter: OpenLineage Dataset name
+'None.None' had only 'None'/empty segments; kept original to avoid emitting
+an empty URN.
+```
+
+Such URNs remain reachable in the catalog (so they can be soft-deleted with
+the cleanup commands below) rather than disappearing into an unsearchable
+empty-name URN.
+
+If you have **historical** orphan URNs in DataHub from before upgrading the
+plugin (datasets whose `name` still contains a literal `.None.` segment), they
+will not be cleaned up automatically. **Always preview the deletions first**
+with `--dry-run`, then drop the flag to actually delete:
+
+```shell
+# 1. Preview the URNs that would be soft-deleted (no destructive action).
+datahub delete --platform redshift --soft --query "*.None.*" --dry-run
+
+# 2. Once you've confirmed the list is correct, run the same command
+#    without --dry-run to perform the soft-delete.
+datahub delete --platform redshift --soft --query "*.None.*"
+```
+
+Soft-deleted entities can be restored with
+`datahub delete undo-by-filter --platform redshift` if you delete more than
+you intended.
+
 ### Scheduler stalling
 
 For extremely large Airflow deployments with thousands of tasks, you may see issues where the plugin interferes with the performance of the Airflow scheduler. In those cases, you can set the `DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT=0` environment variable. This makes the DataHub plugin run fully in background threads, but can cause us to miss some metadata if the scheduler shuts down soon after processing a task.
