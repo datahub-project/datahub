@@ -650,20 +650,31 @@ public class OperationContext implements AuthorizationSession {
         throw new ActorAccessException("Actor is not active");
       }
 
-      return new OperationContext(
-          this.operationContextConfig,
-          sessionActor,
-          this.systemActorContext,
-          Objects.requireNonNull(this.searchContext),
-          Objects.requireNonNull(this.authorizationContext),
-          this.entityRegistryContext,
-          this.servicesRegistryContext,
-          this.requestContext,
-          this.retrieverContext,
-          this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
-          this.validationContext,
-          this.systemTelemetryContext,
-          new java.util.ArrayList<>());
+      OperationContext opContext =
+          new OperationContext(
+              this.operationContextConfig,
+              sessionActor,
+              this.systemActorContext,
+              Objects.requireNonNull(this.searchContext),
+              Objects.requireNonNull(this.authorizationContext),
+              this.entityRegistryContext,
+              this.servicesRegistryContext,
+              this.requestContext,
+              this.retrieverContext,
+              this.objectMapperContext != null
+                  ? this.objectMapperContext
+                  : ObjectMapperContext.DEFAULT,
+              this.validationContext,
+              this.systemTelemetryContext,
+              new java.util.ArrayList<>());
+
+      // Always inject current session's authorization into RetrieverContext
+      if (this.retrieverContext instanceof RetrieverContext
+          && this.retrieverContext.getGraphRetriever() != null) {
+        ((RetrieverContext) this.retrieverContext).setAuthorizationSession(opContext);
+      }
+
+      return opContext;
     }
 
     private OperationContext build() {

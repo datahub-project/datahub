@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
+import com.linkedin.metadata.aspect.validation.DomainBasedAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
@@ -78,6 +79,9 @@ public class SpringStandardPluginConfiguration {
   // Authentication validation should consider all change types as best practice
   private static final List<String> AUTH_CHANGE_TYPE_OPERATIONS =
       List.of(CREATE, CREATE_ENTITY, UPDATE, UPSERT, PATCH, DELETE, RESTATE);
+  // Domain-based authorization excludes DELETE (already authorized at API layer)
+  private static final List<String> DOMAIN_AUTH_CHANGE_TYPE_OPERATIONS =
+      List.of(CREATE, CREATE_ENTITY, UPDATE, UPSERT, PATCH, RESTATE);
 
   @Value("${metadataChangeProposal.validation.ignoreUnknown}")
   private boolean ignoreUnknownEnabled;
@@ -462,6 +466,23 @@ public class SpringStandardPluginConfiguration {
                             .entityName(INGESTION_SOURCE_ENTITY_NAME)
                             .aspectName(INGESTION_INFO_ASPECT_NAME)
                             .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "authorization.defaultAuthorizer.domainBasedAuthorizationEnabled",
+      havingValue = "true")
+  public AspectPayloadValidator domainBasedAuthorizationValidator(
+      @Value("${authorization.defaultAuthorizer.domainBasedAuthorizationEnabled:false}")
+          boolean domainBasedAuthorizationEnabled) {
+    return new DomainBasedAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DomainBasedAuthorizationValidator.class.getName())
+                .enabled(domainBasedAuthorizationEnabled)
+                .supportedOperations(DOMAIN_AUTH_CHANGE_TYPE_OPERATIONS)
+                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
                 .build());
   }
 

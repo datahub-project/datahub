@@ -13,6 +13,7 @@ import static io.datahubproject.metadata.context.SystemTelemetryContext.EVENT_SO
 import static io.datahubproject.metadata.context.SystemTelemetryContext.SOURCE_IP_KEY;
 import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
+import com.datahub.authorization.DomainAuthorizationHelper;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +53,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
@@ -70,7 +72,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
-import com.linkedin.metadata.entity.validation.ValidationApiUtils;
+import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -95,6 +97,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
@@ -178,7 +181,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
-  private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
+  private final boolean domainBasedAuthorizationEnabled;
+  private final MetricUtils metricUtils;
 
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
@@ -244,8 +248,29 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
       final boolean enableBrowseV2,
-      @javax.annotation.Nullable
-          final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
+      @Nullable final MetricUtils metricUtils) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        cdcModeChangeLog,
+        preProcessHooks,
+        retry,
+        enableBrowseV2,
+        metricUtils,
+        false);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final boolean cdcModeChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
+      final boolean enableBrowseV2,
+      @Nullable final MetricUtils metricUtils,
+      final boolean domainBasedAuthorizationEnabled) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
@@ -255,6 +280,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
     this.metricUtils = metricUtils;
+    this.domainBasedAuthorizationEnabled = domainBasedAuthorizationEnabled;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
 
@@ -311,8 +337,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setLastObserved(
             changeSystemMetadata.getLastObserved(), SetMode.IGNORE_NULL);
         latestSystemMetadata.setRunId(changeSystemMetadata.getRunId(), SetMode.REMOVE_IF_NULL);
-        latestSystemMetadata.setSchemaVersion(
-            changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
         if (!DataTemplateUtil.areEqual(
             latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate())) {
@@ -1016,24 +1040,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
             .collect(Collectors.toList());
 
-    try (Stream<MCPItem> sideEffectStream =
-        AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())) {
-      Iterable<List<MCPItem>> iterable =
-          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-      StreamSupport.stream(iterable.spliterator(), false)
-          .forEach(
-              sideEffects -> {
-                long count =
-                    ingestProposalAsync(
-                            opContext,
-                            AspectsBatchImpl.builder()
-                                .items(sideEffects)
-                                .retrieverContext(opContext.getRetrieverContext())
-                                .build(opContext))
-                        .count();
-                log.debug("Generated {} MCP SideEffects for async processing", count);
-              });
-    }
+    Iterable<List<MCPItem>> iterable =
+        () ->
+            Iterators.partition(
+                AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())
+                    .iterator(),
+                MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+    StreamSupport.stream(iterable.spliterator(), false)
+        .forEach(
+            sideEffects -> {
+              long count =
+                  ingestProposalAsync(
+                          opContext,
+                          AspectsBatchImpl.builder()
+                              .items(sideEffects)
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .build(opContext))
+                      .count();
+              log.info("Generated {} MCP SideEffects for async processing", count);
+            });
   }
 
   /**
@@ -1233,7 +1258,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           }
 
                           // Database Upsert successfully validated results
-                          log.debug(
+                          log.info(
                               "Ingesting aspects batch to database: {}",
                               AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
 
@@ -1287,10 +1312,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                             .request(writeItem)
                                                             .build())
                                                 .orElse(null);
-                                          } catch (
-                                              com.linkedin.metadata.entity.validation
-                                                      .AspectSizeExceededException
-                                                  e) {
+                                          } catch (AspectSizeExceededException e) {
                                             // Convert to AspectValidationException for uniform
                                             // batch handling
                                             AspectValidationException validationException =
@@ -1569,11 +1591,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             log.error(
                 "Failed to produce MCLs: {}",
                 failedMCLs.stream()
-                    .map(
-                        result -> {
-                          MetadataChangeLog mcl = result.getMetadataChangeLog();
-                          return mcl.getEntityUrn() + "/" + mcl.getAspectName();
-                        })
+                    .map(result -> result.getMetadataChangeLog().getEntityUrn())
                     .collect(Collectors.toList()));
             // TODO restoreIndices?
             throw new RuntimeException("Failed to produce MCLs");
@@ -1678,11 +1696,46 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
-    // Apply MCP observers (pre-transaction metrics collection, external actions).
-    // Only on sync path — async MCPs come back via MCE consumer with async=false.
-    if (!async) {
-      aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+    if (domainBasedAuthorizationEnabled && !opContext.isSystemAuth()) {
+      // Perform domain auth pre-check with the user context for both sync and async paths.
+      // Filter out dataHubExecutionRequest (absent from ENTITY_RESOURCE_PRIVILEGES).
+      List<MetadataChangeProposal> mcps =
+          aspectsBatch.getMCPItems().stream()
+              .map(MCPItem::getMetadataChangeProposal)
+              .filter(Objects::nonNull)
+              .filter(
+                  mcp ->
+                      mcp.getEntityUrn() == null
+                          || !EXECUTION_REQUEST_ENTITY_NAME.equals(
+                              mcp.getEntityUrn().getEntityType()))
+              .collect(Collectors.toList());
+      if (!mcps.isEmpty()) {
+        Map<Urn, Set<Urn>> newDomainsByEntity =
+            DomainExtractionUtils.extractNewDomainsFromMCPs(
+                mcps, opContext.getObjectMapperContext().getObjectMapper());
+        Map<MetadataChangeProposal, Boolean> authResults =
+            DomainAuthorizationHelper.authorizeWithDomains(
+                opContext,
+                opContext.getEntityRegistry(),
+                mcps,
+                newDomainsByEntity,
+                opContext.getAspectRetriever());
+        List<MetadataChangeProposal> failures =
+            authResults.entrySet().stream()
+                .filter(entry -> !entry.getValue())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        if (!failures.isEmpty()) {
+          String errorMessages =
+              failures.stream()
+                  .map(mcp -> String.valueOf(mcp.getEntityUrn()))
+                  .collect(Collectors.joining(", "));
+          throw new ActorAccessException(
+              "User is unauthorized to modify entities: " + errorMessages);
+        }
+      }
     }
+
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
@@ -2499,7 +2552,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           .emitted(emissionStatus.getFirst() != null)
           .build();
     } else {
-      log.debug(
+      log.info(
           "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
           aspectSpec.getName(),
           entityUrn);
@@ -2522,7 +2575,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
             : null;
     return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
-        || ValidationApiUtils.normalizedEqual(oldAspect, newAspect);
+        || Objects.equals(newAspect, oldAspect);
   }
 
   public void produceFailedMCPs(
@@ -2648,7 +2701,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.debug("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
+    log.info("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()
@@ -3074,7 +3127,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {
-                        // Soft delete: set removed=true.
+                        // soft delete by setting status.removed=true (if applicable)
                         final Status statusAspect = new Status();
                         statusAspect.setRemoved(true);
 

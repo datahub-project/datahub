@@ -10,7 +10,7 @@ import javax.annotation.Nonnull;
 
 public class DomainsTemplate implements ArrayMergingTemplate<Domains> {
 
-  private static final String DOMAINS_FIELD_NAME = "domains";
+  public static final String DOMAINS_FIELD_NAME = "domains";
 
   @Override
   public Domains getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
