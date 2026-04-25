@@ -367,9 +367,9 @@ iceberg_common = {
     # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
     #   expected by the connector
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.9.0,<=0.10.0",
-    # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
-    # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
-    "pydantic<2.12",
+    # pyiceberg 0.9.x/0.10.x supports pydantic<3; keep an explicit upper bound
+    # so this extra remains compatible with litellm's current pydantic pin.
+    "pydantic<3.0.0",
     *cachetools_lib,
 }
 
@@ -491,8 +491,8 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.0 for CVE-2026-35030
-    "litellm==1.83.0",
+    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.7 for GHSA-r75f-5x8p-qvmc
+    "litellm==1.83.13",
     # AWS SDK for Bedrock embedding support
     *aws_common,
 }
