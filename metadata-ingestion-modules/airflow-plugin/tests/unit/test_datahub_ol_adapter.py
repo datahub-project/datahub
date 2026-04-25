@@ -15,9 +15,9 @@ DataHub's native Redshift source.
 from __future__ import annotations
 
 import logging
-from types import SimpleNamespace
 
 import pytest
+from openlineage.client.run import Dataset as OpenLineageDataset
 
 from datahub_airflow_plugin._datahub_ol_adapter import (
     _sanitize_ol_dataset_name,
@@ -230,10 +230,8 @@ class TestSanitizeOlDatasetName:
         # produced URN must contain the original name segment, never "" — an
         # empty name produces an unsearchable, untyped dataset entity that is
         # strictly worse than the orphan we were trying to fix.
-        from types import SimpleNamespace
-
         urn = translate_ol_to_datahub_urn(
-            SimpleNamespace(namespace="redshift://h:5439", name="None.None"),
+            OpenLineageDataset(namespace="redshift://h:5439", name="None.None"),
             env="PROD",
         )
         assert urn == ("urn:li:dataset:(urn:li:dataPlatform:redshift,None.None,PROD)")
@@ -245,10 +243,8 @@ class TestTranslateOlToDatahubUrn:
     """End-to-end tests through the public translator."""
 
     @staticmethod
-    def _ol(namespace: str, name: str) -> SimpleNamespace:
-        # Lightweight stand-in for openlineage.client.run.Dataset so we don't
-        # need the OL package installed for these unit tests.
-        return SimpleNamespace(namespace=namespace, name=name)
+    def _ol(namespace: str, name: str) -> OpenLineageDataset:
+        return OpenLineageDataset(namespace=namespace, name=name)
 
     def test_clean_redshift_name_unchanged(self) -> None:
         urn = translate_ol_to_datahub_urn(
