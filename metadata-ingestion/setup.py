@@ -492,7 +492,7 @@ superset_common = {
 
 embedding_common = {
     # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.7 for GHSA-r75f-5x8p-qvmc
-    "litellm==1.83.13",
+    "litellm==1.83.14",
     # AWS SDK for Bedrock embedding support
     *aws_common,
 }
