@@ -159,4 +159,110 @@ describe('schemaFieldExists', () => {
         expect(schemaFieldExists('urn:li:dataset:1', 'userid', nodes)).toBe(false);
         expect(schemaFieldExists('urn:li:dataset:1', 'USERID', nodes)).toBe(false);
     });
+
+    describe('inputFields fallback for Chart/Dashboard endpoints', () => {
+        const createChartNode = (
+            urn: string,
+            inputFieldPaths?: string[],
+            schemaFields?: { fieldPath: string }[],
+        ): LineageEntity => ({
+            id: urn,
+            urn,
+            type: EntityType.Chart,
+            entity: {
+                urn,
+                type: EntityType.Chart,
+                name: 'test chart',
+                ...(schemaFields ? { schemaMetadata: { fields: schemaFields } } : {}),
+                ...(inputFieldPaths
+                    ? {
+                          inputFields: {
+                              fields: inputFieldPaths.map((fp) => ({
+                                  schemaFieldUrn: `urn:li:schemaField:(urn:li:dataset:upstream,${fp})`,
+                                  schemaField: { fieldPath: fp },
+                              })),
+                          },
+                      }
+                    : {}),
+            } as any,
+            isExpanded: {} as any,
+            fetchStatus: {} as any,
+            filters: {} as any,
+        });
+
+        it('returns true for Chart with inputFields when schemaMetadata is absent', () => {
+            const nodes = new Map([['urn:li:chart:1', createChartNode('urn:li:chart:1', ['revenue', 'cost'])]]);
+
+            expect(schemaFieldExists('urn:li:chart:1', 'revenue', nodes)).toBe(true);
+            expect(schemaFieldExists('urn:li:chart:1', 'cost', nodes)).toBe(true);
+        });
+
+        it('returns false for Chart with inputFields when field name is not in inputFields', () => {
+            const nodes = new Map([['urn:li:chart:1', createChartNode('urn:li:chart:1', ['revenue', 'cost'])]]);
+
+            expect(schemaFieldExists('urn:li:chart:1', 'profit', nodes)).toBe(false);
+        });
+
+        it('returns false for Dataset with missing schemaMetadata (existing behavior preserved)', () => {
+            const node: LineageEntity = {
+                id: 'urn:li:dataset:1',
+                urn: 'urn:li:dataset:1',
+                type: EntityType.Dataset,
+                entity: {
+                    urn: 'urn:li:dataset:1',
+                    type: EntityType.Dataset,
+                    name: 'test dataset',
+                } as any,
+                isExpanded: {} as any,
+                fetchStatus: {} as any,
+                filters: {} as any,
+            };
+            const nodes = new Map([['urn:li:dataset:1', node]]);
+
+            expect(schemaFieldExists('urn:li:dataset:1', 'some_field', nodes)).toBe(false);
+        });
+
+        it('normalizes V2 field paths in inputFields comparison', () => {
+            const nodes = new Map([
+                ['urn:li:chart:1', createChartNode('urn:li:chart:1', ['[version=2.0].[type=string].revenue'])],
+            ]);
+
+            expect(schemaFieldExists('urn:li:chart:1', 'revenue', nodes)).toBe(true);
+        });
+
+        it('returns false for Chart with no inputFields and no schemaMetadata', () => {
+            const nodes = new Map([['urn:li:chart:1', createChartNode('urn:li:chart:1')]]);
+
+            expect(schemaFieldExists('urn:li:chart:1', 'revenue', nodes)).toBe(false);
+        });
+
+        it('returns true for Dashboard with inputFields when schemaMetadata is absent', () => {
+            const urn = 'urn:li:dashboard:1';
+            const node: LineageEntity = {
+                id: urn,
+                urn,
+                type: EntityType.Dashboard,
+                entity: {
+                    urn,
+                    type: EntityType.Dashboard,
+                    name: 'test dashboard',
+                    inputFields: {
+                        fields: [
+                            {
+                                schemaFieldUrn: 'urn:li:schemaField:(urn:li:dataset:1,kpi)',
+                                schemaField: { fieldPath: 'kpi' },
+                            },
+                        ],
+                    },
+                } as any,
+                isExpanded: {} as any,
+                fetchStatus: {} as any,
+                filters: {} as any,
+            };
+            const nodes = new Map([[urn, node]]);
+
+            expect(schemaFieldExists(urn, 'kpi', nodes)).toBe(true);
+            expect(schemaFieldExists(urn, 'missing', nodes)).toBe(false);
+        });
+    });
 });

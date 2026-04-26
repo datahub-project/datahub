@@ -29,6 +29,8 @@ interface TentativeEdge {
     operationRef?: FineGrainedOperationRef;
 }
 
+const INPUTFIELDS_ENTITY_TYPES = new Set([EntityType.Chart, EntityType.Dashboard]);
+
 /**
  * Check if a schema field exists in a dataset's schema
  * @param datasetUrn URN of the dataset
@@ -38,16 +40,30 @@ interface TentativeEdge {
  */
 export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
-    if (!node?.entity?.schemaMetadata?.fields) {
-        return false;
-    }
+    if (!node?.entity) return false;
 
     // Normalize both paths to V1 format for comparison, since fineGrainedLineages paths
     // are downgraded to V1 in EntityRegistry but schema field paths may still be V2
     const normalizedFieldPath = downgradeV2FieldPath(fieldPath);
-    return node.entity.schemaMetadata.fields.some(
-        (field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath,
-    );
+
+    if (
+        node.entity.schemaMetadata?.fields?.some(
+            (field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath,
+        )
+    ) {
+        return true;
+    }
+
+    // Chart and Dashboard entities carry columns via inputFields rather than schemaMetadata.
+    // Fall back to inputFields to restore the V1-era behavior removed in PR #16680.
+    // This preserves the anti-phantom intent of PR #6470 — the field must still exist somewhere.
+    if (INPUTFIELDS_ENTITY_TYPES.has(node.entity.type as EntityType)) {
+        return !!node.entity.inputFields?.fields?.some(
+            (f) => f?.schemaField && downgradeV2FieldPath(f.schemaField.fieldPath) === normalizedFieldPath,
+        );
+    }
+
+    return false;
 }
 
 /**
