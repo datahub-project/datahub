@@ -141,11 +141,31 @@ jobs:
             --project-directory docker/profiles \
             --profile quickstart-consumers \
             --profile quickstart-ai \
-            up -d --quiet-pull --wait --wait-timeout 900
+            up -d --quiet-pull
 
       # -----------------------------------------------------------------------
       # Post-startup tuning (matches existing smoke test conventions)
       # -----------------------------------------------------------------------
+
+      # Wait for GMS to be reachable before tuning OpenSearch.
+      # ollama-model-init is a one-shot init container that exits with 0 once
+      # the model is pulled and warmed up; we poll for both GMS and Ollama
+      # readiness rather than relying on `docker compose --wait`, which treats
+      # any container exit (even successful) as a failure.
+      - name: Wait for GMS to be ready
+        run: |
+          echo "Waiting for GMS at http://localhost:8080/health..."
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✓ GMS is ready (attempt ${i})"
+              exit 0
+            fi
+            echo "  Attempt ${i}/90 — GMS not ready yet, waiting 10s..."
+            sleep 10
+          done
+          echo "ERROR: GMS did not become ready within 900s."
+          docker ps -a
+          exit 1
 
       - name: Relax OpenSearch disk threshold
         run: |
@@ -156,16 +176,16 @@ jobs:
 
       # -----------------------------------------------------------------------
       # Wait for Ollama model to be fully loaded.
-      # ollama-model-init warms it up inside the container network, but we also
-      # probe from the CI runner (via the mapped port) to confirm readiness
-      # before handing off to the smoke tests.
+      # ollama-model-init pulls the model and warms it up inside the container
+      # network. We also probe from the CI runner (via the mapped port) to
+      # confirm the model is hot before handing off to the smoke tests.
       # -----------------------------------------------------------------------
 
       - name: Wait for Ollama model readiness
         run: |
           MODEL="${{ env.LOCAL_EMBEDDING_MODEL }}"
           echo "Waiting for Ollama model '${MODEL}' to respond at localhost:11434..."
-          for i in $(seq 1 40); do
+          for i in $(seq 1 60); do
             if curl -sf -X POST http://localhost:11434/v1/embeddings \
                 -H "Content-Type: application/json" \
                 -d "{\"model\":\"${MODEL}\",\"input\":\"readiness probe\"}" \
@@ -173,10 +193,10 @@ jobs:
               echo "✓ Ollama model '${MODEL}' is ready (attempt ${i})"
               exit 0
             fi
-            echo "  Attempt ${i}/40 — model not ready yet, waiting 10s..."
+            echo "  Attempt ${i}/60 — model not ready yet, waiting 10s..."
             sleep 10
           done
-          echo "ERROR: Ollama model '${MODEL}' did not become ready within 400s."
+          echo "ERROR: Ollama model '${MODEL}' did not become ready within 600s."
           exit 1
 
       # -----------------------------------------------------------------------
