@@ -164,11 +164,15 @@ class TestMarketplaceBusinessLogic:
     def test_owner_pattern_regex_matching(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
     ) -> None:
-        """Test that owner patterns use proper regex matching."""
+        """Owner-pattern regex matches against the listing title.
+
+        Uses ``group:``-prefixed values so this tests the regex-match path
+        rather than the typed-input validator in ``_normalize_owner_urn``.
+        """
         config_dict = base_config.copy()
         config_dict["marketplace"]["internal_marketplace_owner_patterns"] = {
-            "^Acme": ["acme-team"],
-            "Weather": ["weather-team"],
+            "^Acme": ["group:acme-team"],
+            "Weather": ["group:weather-team"],
         }
 
         handler = create_handler(config_dict, mock_listings)
@@ -177,10 +181,10 @@ class TestMarketplaceBusinessLogic:
         listing = handler._marketplace_listings["ACME.DATA.LISTING"]
         owners = handler._resolve_owners_for_listing(listing)
 
-        assert "urn:li:corpuser:acme-team" in owners, (
+        assert "urn:li:corpGroup:acme-team" in owners, (
             "Should match ^Acme (starts with Acme)"
         )
-        assert "urn:li:corpuser:weather-team" not in owners, (
+        assert "urn:li:corpGroup:weather-team" not in owners, (
             "Should NOT match Weather because title is 'Acme Data', which doesn't contain 'Weather'"
         )
 

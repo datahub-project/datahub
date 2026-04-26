@@ -2,11 +2,11 @@ import json
 import logging
 import re
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
-from datahub.emitter.mce_builder import make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import make_group_urn, make_tag_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DomainKey, gen_data_product, gen_domain
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -18,7 +18,6 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeMarketplaceAccessEvent,
     SnowflakeMarketplaceListing,
     SnowflakeMarketplacePurchase,
     SnowflakeProviderShare,
@@ -26,6 +25,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeIdentifierBuilder,
+    SnowsightUrlBuilder,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
@@ -33,19 +33,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.structured import (
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
-    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
-    DatasetUserUsageCountsClass,
+    GlobalTagsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     OwnershipTypeClass,
+    TagAssociationClass,
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DataTypeUrn, EntityTypeUrn, StructuredPropertyUrn
 from datahub.specific.dataproduct import DataProductPatchBuilder
-
-if TYPE_CHECKING:
-    from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -92,13 +90,15 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
         identifiers: SnowflakeIdentifierBuilder,
-        domain_registry: Optional["DomainRegistry"] = None,
+        domain_registry: Optional[DomainRegistry] = None,
+        snowsight_url_builder: Optional[SnowsightUrlBuilder] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.connection = connection
         self.identifiers = identifiers
         self.domain_registry = domain_registry
+        self.snowsight_url_builder = snowsight_url_builder
 
         self._marketplace_listings: Dict[str, SnowflakeMarketplaceListing] = {}
         self._marketplace_purchases: Dict[str, SnowflakeMarketplacePurchase] = {}
@@ -318,17 +318,48 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 exc=e,
             )
 
-    def _normalize_owner_urn(self, owner: str) -> str:
+    def _build_marketplace_listing_url(self, listing_global_name: str) -> str:
+        """Build a Snowsight URL for a marketplace listing.
+
+        Uses ``SnowsightUrlBuilder`` when available so the URL respects region,
+        account locator, PrivateLink, and the ``snowflakecomputing.cn`` domain.
+        Falls back to a path-only ``app.snowflake.com`` URL.
+        """
+        if self.snowsight_url_builder is not None:
+            url = self.snowsight_url_builder.get_external_url_for_internal_marketplace_listing(
+                listing_global_name
+            )
+            if url:
+                return url
+        return f"https://app.snowflake.com/#/data-products/marketplace/internal/listing/{listing_global_name}"
+
+    _EMAIL_SHAPE_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+    def _normalize_owner_urn(self, owner: str) -> Optional[str]:
+        """Map a Snowflake owner string to a DataHub URN, or None if free-form.
+
+        Snowflake's ``request_approver`` / ``support_contact`` fields accept
+        arbitrary text ("Data Governance Team", "TBD", "#data-help on Slack").
+        Minting a corpuser URN from each of those would pollute the user
+        directory, so we only accept existing URNs, ``user:``/``group:``
+        prefixes, and email-shaped values.
+        """
         if not owner:
-            return owner
+            return None
         val = owner.strip()
+        if not val:
+            return None
         if val.startswith("urn:li:corpuser:") or val.startswith("urn:li:corpGroup:"):
             return val
         if val.lower().startswith("user:"):
-            return make_user_urn(val.split(":", 1)[1])
+            ident = val.split(":", 1)[1].strip()
+            return make_user_urn(ident) if ident else None
         if val.lower().startswith("group:"):
-            return make_group_urn(val.split(":", 1)[1])
-        return make_user_urn(val)
+            ident = val.split(":", 1)[1].strip()
+            return make_group_urn(ident) if ident else None
+        if self._EMAIL_SHAPE_RE.match(val):
+            return make_user_urn(val)
+        return None
 
     def _resolve_owners_for_listing(
         self, listing: SnowflakeMarketplaceListing
@@ -348,7 +379,10 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     or re.search(pattern, global_name, flags=re.IGNORECASE)
                     or re.search(pattern, provider, flags=re.IGNORECASE)
                 ):
-                    owners.extend(self._normalize_owner_urn(o) for o in owner_vals)
+                    for o in owner_vals:
+                        urn = self._normalize_owner_urn(o)
+                        if urn:
+                            owners.append(urn)
         except (KeyError, AttributeError, re.error) as e:
             self.structured_reporter.warning(
                 title="Optional owner pattern matching failed",
@@ -517,6 +551,16 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     doc_links.append(url)
             result["documentation_links"] = doc_links
 
+        except SnowflakePermissionError as e:
+            # DESCRIBE AVAILABLE LISTING needs IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE.
+            # Treat as a soft-failure so the rest of the marketplace stage still runs.
+            self.structured_reporter.warning(
+                title="Marketplace listing enrichment skipped (insufficient permissions)",
+                message=f"Could not run DESCRIBE AVAILABLE LISTING for {listing.listing_global_name}",
+                context="Grant IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE to the ingestion role "
+                "to populate marketplace listing details (description, documentation links, contacts).",
+                exc=e,
+            )
         except (KeyError, ValueError, json.JSONDecodeError) as e:
             self.structured_reporter.warning(
                 title="Optional listing enrichment failed",
@@ -752,7 +796,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             if urn and urn not in owner_urns:
                 owner_urns.append(urn)
 
-        marketplace_url = f"https://app.snowflake.com/marketplace/internal/listing/{listing.listing_global_name}"
+        marketplace_url = self._build_marketplace_listing_url(
+            listing.listing_global_name
+        )
 
         description = details.get("description") or listing.description
         if not description:
@@ -980,61 +1026,62 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         return None
 
     def _enhance_purchased_datasets(self) -> Iterable[MetadataWorkUnit]:
+        """Stamp marketplace context onto each imported (purchased) database.
+
+        The regular Snowflake pipeline already emits these databases as DataHub
+        Containers via ``gen_database_containers``. We attach only additive
+        aspects (``globalTags`` and ``institutionalMemory``) here so we don't
+        clobber the container's properties; richer purchase metadata lives on
+        the Data Product (which is wired to the database via
+        ``DataProductContains``).
+        """
         for purchase in self._marketplace_purchases.values():
-            dataset_identifier = self.identifiers.snowflake_identifier(
+            container_urn = self.identifiers.gen_database_key(
                 purchase.database_name
-            )
-            database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
-
-            marketplace_properties = {
-                "marketplace_purchase": "true",
-                "database_type": "IMPORTED_DATABASE",
-                "owner": purchase.owner,
-                "purchase_date": purchase.purchase_date.isoformat(),
-            }
-
-            if purchase.comment:
-                marketplace_properties["comment"] = purchase.comment
+            ).as_urn()
 
             listing_global_name = self._find_listing_for_purchase(purchase)
-
-            if (
-                listing_global_name
-                and listing_global_name in self._marketplace_listings
-            ):
-                data_product_urn = self.identifiers.gen_marketplace_data_product_urn(
-                    listing_global_name
-                )
-                marketplace_properties["data_product_source"] = data_product_urn
-                marketplace_properties["marketplace_listing_global_name"] = (
-                    listing_global_name
-                )
-
-                listing = self._marketplace_listings[listing_global_name]
-                marketplace_properties["marketplace_provider"] = (
-                    listing.organization_profile_name
-                )
-                purchase_status = "INSTALLED"
-            else:
-                purchase_status = "UNKNOWN_LISTING"
-
-            marketplace_properties["purchase_status"] = purchase_status
-
-            enhanced_properties = DatasetPropertiesClass(
-                name=purchase.database_name,
-                qualifiedName=purchase.database_name.upper(),
-                customProperties=marketplace_properties,
-                description=purchase.comment
-                or "Database imported from internal marketplace",
+            listing: Optional[SnowflakeMarketplaceListing] = (
+                self._marketplace_listings.get(listing_global_name)
+                if listing_global_name
+                else None
             )
 
+            tags = [make_tag_urn("Marketplace:Imported")]
+            if listing is not None and listing.organization_profile_name:
+                tags.append(
+                    make_tag_urn(
+                        f"Marketplace:Provider:{listing.organization_profile_name}"
+                    )
+                )
+
             yield MetadataChangeProposalWrapper(
-                entityUrn=database_urn, aspect=enhanced_properties
+                entityUrn=container_urn,
+                aspect=GlobalTagsClass(tags=[TagAssociationClass(tag=t) for t in tags]),
             ).as_workunit()
 
-            self.report.report_marketplace_dataset_enhanced()
+            if listing is not None:
+                listing_url = self._build_marketplace_listing_url(
+                    listing.listing_global_name
+                )
+                memory_elements = [
+                    InstitutionalMemoryMetadataClass(
+                        url=listing_url,
+                        description=(
+                            f"Marketplace Listing: {listing.title or listing.listing_global_name}"
+                        ),
+                        createStamp=AuditStamp(
+                            time=int(purchase.purchase_date.timestamp() * 1000),
+                            actor="urn:li:corpuser:datahub",
+                        ),
+                    )
+                ]
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=container_urn,
+                    aspect=InstitutionalMemoryClass(elements=memory_elements),
+                ).as_workunit()
 
-            # Note: Data Products do not currently participate in Dataset lineage aspects.
+            self.report.report_marketplace_dataset_enhanced()
 
     def _parse_share_objects(self, share_objects_str: str) -> List[str]:
         """
@@ -1065,97 +1112,80 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             logger.warning(f"Failed to parse share objects: {e}")
             return []
 
+    _USAGE_OBJECT_DOMAINS = frozenset(
+        {"table", "view", "materialized view", "materialized_view", "external table"}
+    )
+
     def _create_marketplace_usage_statistics(self) -> Iterable[MetadataWorkUnit]:
+        """Emit ``DatasetUsageStatistics`` for marketplace listing access.
+
+        ``LISTING_ACCESS_HISTORY`` is provider-side, so this only produces rows
+        on provider / "both"-mode accounts; consumer-side usage of an imported
+        database flows through the regular usage pipeline on ``QUERY_HISTORY``.
+
+        Bucketing is done in SQL via ``DATE_TRUNC`` (one workunit per row at
+        its ``BUCKET_START_TIME``). ``userCounts`` is intentionally omitted:
+        ``CONSUMER_ACCOUNT_NAME`` is a Snowflake account, not a person, and
+        minting ``urn:li:corpuser:`` URNs from account names would pollute the
+        user directory.
+        """
         start_time_millis = int(self.config.marketplace.start_time.timestamp() * 1000)
         end_time_millis = int(self.config.marketplace.end_time.timestamp() * 1000)
+        bucket_duration = self.config.marketplace.bucket_duration
 
         try:
             cur = self.connection.query(
                 SnowflakeQuery.marketplace_listing_access_history(
-                    start_time_millis, end_time_millis
+                    start_time_millis,
+                    end_time_millis,
+                    bucket_duration=str(bucket_duration),
                 )
             )
 
-            usage_by_listing_db: Dict[
-                str, Dict[str, List[SnowflakeMarketplaceAccessEvent]]
-            ] = defaultdict(lambda: defaultdict(list))
-
             for row in cur:
-                databases = self._parse_share_objects(
-                    row.get("SHARE_OBJECTS_ACCESSED", "[]")
-                )
-
-                share_objects_raw = row.get("SHARE_OBJECTS_ACCESSED", "[]")
-                share_objects: List[Dict[str, Any]] = (
-                    json.loads(share_objects_raw)
-                    if isinstance(share_objects_raw, str)
-                    else share_objects_raw
-                )
-
-                event = SnowflakeMarketplaceAccessEvent(
-                    event_timestamp=row["EVENT_TIMESTAMP"],
-                    listing_global_name=row["LISTING_GLOBAL_NAME"],
-                    consumer_account_name=row["CONSUMER_ACCOUNT_NAME"],
-                    query_id=row["QUERY_ID"],
-                    share_name=row["SHARE_NAME"],
-                    share_objects_accessed=share_objects,
-                )
-
-                listing_name = event.listing_global_name
-                for db_name in databases:
-                    usage_by_listing_db[listing_name][db_name].append(event)
-
-            for listing_name, db_events in usage_by_listing_db.items():
-                if listing_name not in self._marketplace_listings:
-                    logger.debug(f"Skipping usage for filtered listing: {listing_name}")
+                listing_name = row.get("LISTING_GLOBAL_NAME")
+                if not listing_name or listing_name not in self._marketplace_listings:
                     continue
 
-                for database_name, events in db_events.items():
-                    if database_name not in self._marketplace_purchases:
-                        logger.debug(
-                            f"Skipping usage for unknown database: {database_name}"
-                        )
-                        continue
+                object_domain = str(row.get("OBJECT_DOMAIN", "") or "").lower()
+                if object_domain not in self._USAGE_OBJECT_DOMAINS:
+                    continue
 
-                    dataset_identifier = self.identifiers.snowflake_identifier(
-                        database_name
-                    )
-                    database_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+                object_name = row.get("OBJECT_NAME")
+                if not object_name:
+                    continue
 
-                    unique_accounts: Set[str] = set(
-                        event.consumer_account_name for event in events
-                    )
-                    total_queries = len(set(event.query_id for event in events))
+                parts = [p.strip('"') for p in str(object_name).split(".")]
+                if len(parts) != 3:
+                    continue
+                db_name, schema_name, table_name = parts
+                if not self._is_table_allowed(db_name, schema_name, table_name):
+                    continue
 
-                    account_query_counts: Dict[str, int] = defaultdict(int)
-                    for event in events:
-                        account_query_counts[event.consumer_account_name] += 1
+                table_urn = self._create_table_urn(db_name, schema_name, table_name)
 
-                    user_counts = [
-                        DatasetUserUsageCountsClass(
-                            user=make_user_urn(account_name.lower()),
-                            count=query_count,
-                        )
-                        for account_name, query_count in sorted(
-                            account_query_counts.items()
-                        )
-                    ]
+                bucket_start = row.get("BUCKET_START_TIME")
+                if bucket_start is None:
+                    continue
+                bucket_millis = int(bucket_start.timestamp() * 1000)
 
-                    usage_stats = DatasetUsageStatisticsClass(
-                        timestampMillis=start_time_millis,
-                        eventGranularity=TimeWindowSizeClass(
-                            unit=self.config.marketplace.bucket_duration, multiple=1
-                        ),
-                        totalSqlQueries=total_queries,
-                        uniqueUserCount=len(unique_accounts),
-                        userCounts=user_counts,
-                    )
+                total_queries = int(row.get("TOTAL_QUERIES") or 0)
+                unique_accounts = int(row.get("UNIQUE_ACCOUNTS") or 0)
 
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=database_urn, aspect=usage_stats
-                    ).as_workunit()
+                usage_stats = DatasetUsageStatisticsClass(
+                    timestampMillis=bucket_millis,
+                    eventGranularity=TimeWindowSizeClass(
+                        unit=bucket_duration, multiple=1
+                    ),
+                    totalSqlQueries=total_queries,
+                    uniqueUserCount=unique_accounts,
+                )
 
-                    self.report.marketplace_usage_events_processed += len(events)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=table_urn, aspect=usage_stats
+                ).as_workunit()
+
+                self.report.marketplace_usage_events_processed += total_queries
 
         except SnowflakePermissionError as e:
             self.structured_reporter.warning(

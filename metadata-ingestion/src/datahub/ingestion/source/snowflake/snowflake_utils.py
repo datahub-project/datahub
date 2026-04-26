@@ -136,6 +136,11 @@ class SnowsightUrlBuilder:
     ) -> Optional[str]:
         return f"{self.snowsight_base_url}#/streamlit-apps/{db_name}.{schema_name}.{app_name}"
 
+    def get_external_url_for_internal_marketplace_listing(
+        self, listing_global_name: str
+    ) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/data-products/marketplace/internal/listing/{listing_global_name}"
+
 
 class SnowflakeFilter:
     def __init__(

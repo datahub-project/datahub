@@ -1143,47 +1143,27 @@ def default_query_results(  # noqa: C901
             },
         ]
     elif "LISTING_ACCESS_HISTORY" in query:
-        # Return marketplace usage events with correct schema
-        # LISTING_ACCESS_HISTORY has: QUERY_DATE, QUERY_TOKEN, LISTING_GLOBAL_NAME,
-        # CONSUMER_ACCOUNT_NAME, SHARE_NAME, SHARE_OBJECTS_ACCESSED
+        # Pre-aggregated rows: one (bucket, listing, accessed object) tuple per row.
         return [
             {
-                "EVENT_TIMESTAMP": datetime(2022, 6, 6, 10, 30, 0, 0).replace(
+                "BUCKET_START_TIME": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc
                 ),
-                "QUERY_ID": "query-token-001",
                 "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "CONSUMER_ACCOUNT_NAME": "PARTNER_CORP",
-                "SHARE_NAME": "CUSTOMER_360_SHARE",
-                "SHARE_OBJECTS_ACCESSED": json.dumps(
-                    [
-                        {
-                            "objectName": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
-                            "objectDomain": "Table",
-                        },
-                        {
-                            "objectName": "DEMO_DATABASE.PUBLIC.ORDERS",
-                            "objectDomain": "Table",
-                        },
-                    ]
-                ),
+                "OBJECT_NAME": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
+                "OBJECT_DOMAIN": "Table",
+                "TOTAL_QUERIES": 2,
+                "UNIQUE_ACCOUNTS": 2,
             },
             {
-                "EVENT_TIMESTAMP": datetime(2022, 6, 6, 14, 45, 0, 0).replace(
+                "BUCKET_START_TIME": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc
                 ),
-                "QUERY_ID": "query-token-002",
                 "LISTING_GLOBAL_NAME": "ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
-                "CONSUMER_ACCOUNT_NAME": "ANALYTICS_TEAM",
-                "SHARE_NAME": "CUSTOMER_360_SHARE",
-                "SHARE_OBJECTS_ACCESSED": json.dumps(
-                    [
-                        {
-                            "objectName": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
-                            "objectDomain": "Table",
-                        },
-                    ]
-                ),
+                "OBJECT_NAME": "DEMO_DATABASE.PUBLIC.ORDERS",
+                "OBJECT_DOMAIN": "Table",
+                "TOTAL_QUERIES": 1,
+                "UNIQUE_ACCOUNTS": 1,
             },
         ]
     elif query.startswith("DESCRIBE AVAILABLE LISTING"):

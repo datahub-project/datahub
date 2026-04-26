@@ -26,8 +26,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
 )
 from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
+    GlobalTagsClass,
     InstitutionalMemoryClass,
     StructuredPropertiesClass,
 )
@@ -98,36 +98,15 @@ def mock_purchases() -> List[Dict[str, Any]]:
 
 @pytest.fixture
 def mock_usage_events() -> List[Dict[str, Any]]:
+    """Pre-aggregated rows from the bucketed marketplace_listing_access_history query."""
     return [
         {
-            "EVENT_TIMESTAMP": datetime(2024, 6, 1, 10, 0, 0, tzinfo=timezone.utc),
-            "QUERY_ID": "query-token-001",
+            "BUCKET_START_TIME": datetime(2024, 6, 1, 0, 0, 0, tzinfo=timezone.utc),
             "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
-            "CONSUMER_ACCOUNT_NAME": "PARTNER_CORP",
-            "SHARE_NAME": "ACME_SHARE",
-            "SHARE_OBJECTS_ACCESSED": json.dumps(
-                [
-                    {
-                        "objectName": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
-                        "objectDomain": "Table",
-                    },
-                ]
-            ),
-        },
-        {
-            "EVENT_TIMESTAMP": datetime(2024, 6, 1, 14, 0, 0, tzinfo=timezone.utc),
-            "QUERY_ID": "query-token-002",
-            "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
-            "CONSUMER_ACCOUNT_NAME": "ANALYTICS_TEAM",
-            "SHARE_NAME": "ACME_SHARE",
-            "SHARE_OBJECTS_ACCESSED": json.dumps(
-                [
-                    {
-                        "objectName": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
-                        "objectDomain": "Table",
-                    },
-                ]
-            ),
+            "OBJECT_NAME": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
+            "OBJECT_DOMAIN": "Table",
+            "TOTAL_QUERIES": 2,
+            "UNIQUE_ACCOUNTS": 2,
         },
     ]
 
@@ -205,30 +184,31 @@ class TestMarketplaceBasicFunctionality:
         data_product_urns = _get_data_product_urns(wus)
         assert len(data_product_urns) == 2
 
-        # Verify dataset enhancement for DEMO_DATABASE
-        dataset_props_wus = [
+        demo_container_urn = handler.identifiers.gen_database_key(
+            "DEMO_DATABASE"
+        ).as_urn()
+        demo_tag_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
-            and hasattr(wu.metadata, "entityUrn")
-            and "demo_database" in cast(str, wu.metadata.entityUrn).lower()
+            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
+            and getattr(wu.metadata, "entityUrn", None) == demo_container_urn
         ]
-        assert len(dataset_props_wus) == 1
+        assert len(demo_tag_wus) == 1
+        tags = cast(GlobalTagsClass, demo_tag_wus[0].metadata.aspect).tags  # type: ignore[union-attr]
+        tag_urns = {t.tag for t in tags}
+        assert "urn:li:tag:Marketplace:Imported" in tag_urns
+        assert "urn:li:tag:Marketplace:Provider:INTERNAL" in tag_urns
 
-        # Verify the enhanced properties have marketplace metadata
-        assert hasattr(dataset_props_wus[0].metadata, "aspect")
-        demo_db_props = cast(
-            DatasetPropertiesClass, dataset_props_wus[0].metadata.aspect
-        )
-        assert demo_db_props.customProperties["marketplace_purchase"] == "true"
-        assert demo_db_props.customProperties["database_type"] == "IMPORTED_DATABASE"
-        assert (
-            "ACME.DATA.LISTING"
-            in demo_db_props.customProperties["marketplace_listing_global_name"]
-        )
+        demo_memory_wus = [
+            wu
+            for wu in wus
+            if isinstance(
+                getattr(wu.metadata, "aspect", None), InstitutionalMemoryClass
+            )
+            and getattr(wu.metadata, "entityUrn", None) == demo_container_urn
+        ]
+        assert len(demo_memory_wus) == 1
 
-        # Verify report metrics
         assert handler.report.marketplace_listings_scanned == 2
         assert handler.report.marketplace_purchases_scanned == 2
         assert handler.report.marketplace_data_products_created == 2
@@ -279,10 +259,10 @@ class TestMarketplaceBasicFunctionality:
 
         assert len(dp_props) == 1
         props = dp_props[0]
-        # externalUrl should be set to the Snowflake marketplace URL
-        assert (
-            props.externalUrl
-            == "https://app.snowflake.com/marketplace/internal/listing/ACME.DATA.LISTING"
+        # No SnowsightUrlBuilder is plumbed through in unit tests, so we expect
+        # the cross-account fallback form.
+        assert props.externalUrl == (
+            "https://app.snowflake.com/#/data-products/marketplace/internal/listing/ACME.DATA.LISTING"
         )
         # Mapped properties should be present
         assert (
@@ -375,7 +355,8 @@ class TestListingPurchaseMatching:
     def test_unknown_listing_purchase_status(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
     ) -> None:
-        """Test that purchases without matching listings get UNKNOWN_LISTING status."""
+        """Unmatched purchases get the Marketplace:Imported tag but no
+        listing-link InstitutionalMemory entry."""
         unknown_purchase = [
             {
                 "DATABASE_NAME": "UNKNOWN_DB",
@@ -388,19 +369,35 @@ class TestListingPurchaseMatching:
         handler = create_handler(base_config, mock_listings, unknown_purchase)
         wus = list(handler.get_marketplace_workunits())
 
-        # Find the dataset properties for UNKNOWN_DB
-        dataset_props_wus = [
+        unknown_container_urn = handler.identifiers.gen_database_key(
+            "UNKNOWN_DB"
+        ).as_urn()
+
+        tag_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
-            and hasattr(wu.metadata, "entityUrn")
-            and "unknown_db" in cast(str, wu.metadata.entityUrn).lower()
+            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
+            and getattr(wu.metadata, "entityUrn", None) == unknown_container_urn
         ]
+        assert len(tag_wus) == 1
+        tag_urns = {
+            t.tag
+            for t in cast(GlobalTagsClass, tag_wus[0].metadata.aspect).tags  # type: ignore[union-attr]
+        }
+        assert "urn:li:tag:Marketplace:Imported" in tag_urns
+        assert not any(
+            t.startswith("urn:li:tag:Marketplace:Provider:") for t in tag_urns
+        )
 
-        assert len(dataset_props_wus) == 1
-        props = cast(DatasetPropertiesClass, dataset_props_wus[0].metadata.aspect)  # type: ignore[union-attr]
-        assert props.customProperties["purchase_status"] == "UNKNOWN_LISTING"
+        memory_wus = [
+            wu
+            for wu in wus
+            if isinstance(
+                getattr(wu.metadata, "aspect", None), InstitutionalMemoryClass
+            )
+            and getattr(wu.metadata, "entityUrn", None) == unknown_container_urn
+        ]
+        assert len(memory_wus) == 0
 
 
 # Share Objects Parsing Tests
@@ -531,86 +528,75 @@ class TestMarketplaceUsageStatistics:
         mock_purchases: List[Dict[str, Any]],
         mock_usage_events: List[Dict[str, Any]],
     ) -> None:
-        """Test that usage statistics are created correctly."""
+        """Each row produces one usage workunit on the real table Dataset URN,
+        with ``userCounts`` omitted (consumer accounts aren't users)."""
         handler = create_handler(
             base_config, mock_listings, mock_purchases, mock_usage_events
         )
         wus = list(handler.get_marketplace_workunits())
 
-        # Find usage statistics workunit
         usage_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(
+            if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
         ]
 
-        assert len(usage_wus) >= 1
+        assert len(usage_wus) == 1
+        usage_wu = usage_wus[0]
 
-        # Verify usage statistics
-        usage_stats = cast(DatasetUsageStatisticsClass, usage_wus[0].metadata.aspect)  # type: ignore[union-attr]
+        entity_urn = cast(str, getattr(usage_wu.metadata, "entityUrn", ""))
+        assert entity_urn.startswith("urn:li:dataset:")
+        assert "demo_database.public.customers" in entity_urn.lower()
+
+        usage_stats = cast(DatasetUsageStatisticsClass, usage_wu.metadata.aspect)  # type: ignore[union-attr]
         assert usage_stats.totalSqlQueries == 2
         assert usage_stats.uniqueUserCount == 2
-        user_counts = usage_stats.userCounts
-        assert user_counts is not None
-        assert len(user_counts) == 2
-        user_urns = {uc.user for uc in user_counts}
-        assert "urn:li:corpuser:partner_corp" in user_urns
-        assert "urn:li:corpuser:analytics_team" in user_urns
-        assert all(uc.userEmail is None for uc in user_counts)
+        assert usage_stats.userCounts is None
+        assert usage_stats.timestampMillis == int(
+            datetime(2024, 6, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
+        )
 
-        # Verify report metrics
         assert handler.report.marketplace_usage_events_processed == 2
 
-    def test_usage_statistics_grouped_by_database(
+    def test_usage_statistics_one_row_per_table_per_bucket(
         self,
         base_config: Dict[str, Any],
         mock_listings: List[Dict[str, Any]],
         mock_purchases: List[Dict[str, Any]],
     ) -> None:
-        """Test that usage events are correctly grouped by database."""
-        # Usage events accessing different databases
-        usage_with_multiple_dbs = [
+        """One workunit per (bucket, listing, accessed object) row."""
+        usage_rows = [
             {
-                "EVENT_TIMESTAMP": datetime(2024, 6, 1, 10, 0, 0, tzinfo=timezone.utc),
-                "QUERY_ID": "query-001",
+                "BUCKET_START_TIME": datetime(2024, 6, 1, 0, 0, 0, tzinfo=timezone.utc),
                 "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
-                "CONSUMER_ACCOUNT_NAME": "PARTNER_CORP",
-                "SHARE_NAME": "SHARE1",
-                "SHARE_OBJECTS_ACCESSED": json.dumps(
-                    [
-                        {
-                            "objectName": "DEMO_DATABASE.PUBLIC.TABLE1",
-                            "objectDomain": "Table",
-                        },
-                        {
-                            "objectName": "WEATHER_DB.PUBLIC.TABLE2",
-                            "objectDomain": "Table",
-                        },
-                    ]
-                ),
+                "OBJECT_NAME": "DEMO_DATABASE.PUBLIC.TABLE1",
+                "OBJECT_DOMAIN": "Table",
+                "TOTAL_QUERIES": 5,
+                "UNIQUE_ACCOUNTS": 3,
+            },
+            {
+                "BUCKET_START_TIME": datetime(2024, 6, 1, 0, 0, 0, tzinfo=timezone.utc),
+                "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
+                "OBJECT_NAME": "WEATHER_DB.PUBLIC.TABLE2",
+                "OBJECT_DOMAIN": "Table",
+                "TOTAL_QUERIES": 2,
+                "UNIQUE_ACCOUNTS": 1,
             },
         ]
 
-        handler = create_handler(
-            base_config, mock_listings, mock_purchases, usage_with_multiple_dbs
-        )
+        handler = create_handler(base_config, mock_listings, mock_purchases, usage_rows)
         wus = list(handler.get_marketplace_workunits())
 
-        # Should have usage stats for both databases
         usage_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(
+            if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
         ]
 
-        # We have 2 purchases (DEMO_DATABASE and WEATHER_DB), both accessed in one query
-        # So we should have 2 usage workunits (one per database)
         assert len(usage_wus) == 2
 
     def test_usage_statistics_skips_unknown_listings(
@@ -619,10 +605,9 @@ class TestMarketplaceUsageStatistics:
         mock_purchases: List[Dict[str, Any]],
         mock_usage_events: List[Dict[str, Any]],
     ) -> None:
-        """Test that usage for unknown listings is skipped."""
+        """Rows referencing an unknown listing are dropped."""
         config_dict = base_config.copy()
 
-        # No listings loaded, so usage should be skipped
         handler = create_handler(
             config_dict,
             mock_listings=[],
@@ -631,46 +616,43 @@ class TestMarketplaceUsageStatistics:
         )
         wus = list(handler.get_marketplace_workunits())
 
-        # Should have no usage statistics workunits
         usage_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(
+            if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
         ]
 
         assert len(usage_wus) == 0
 
-    def test_usage_statistics_skips_unknown_databases(
+    def test_usage_statistics_skips_non_table_objects(
         self,
         base_config: Dict[str, Any],
         mock_listings: List[Dict[str, Any]],
-        mock_usage_events: List[Dict[str, Any]],
+        mock_purchases: List[Dict[str, Any]],
     ) -> None:
-        """Test that usage for unknown databases is skipped."""
-        config_dict = base_config.copy()
-
-        # No purchases loaded, so usage should be skipped
-        handler = create_handler(
-            config_dict,
-            mock_listings=mock_listings,
-            mock_purchases=[],
-            mock_usage=mock_usage_events,
-        )
+        """Non-table object domains (functions, stages, ...) are ignored."""
+        usage_rows = [
+            {
+                "BUCKET_START_TIME": datetime(2024, 6, 1, 0, 0, 0, tzinfo=timezone.utc),
+                "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
+                "OBJECT_NAME": "DEMO_DATABASE.PUBLIC.MY_FUNC",
+                "OBJECT_DOMAIN": "Function",
+                "TOTAL_QUERIES": 5,
+                "UNIQUE_ACCOUNTS": 3,
+            },
+        ]
+        handler = create_handler(base_config, mock_listings, mock_purchases, usage_rows)
         wus = list(handler.get_marketplace_workunits())
 
-        # Should have no usage statistics workunits
         usage_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(
+            if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
         ]
-
         assert len(usage_wus) == 0
 
 
@@ -693,14 +675,15 @@ class TestMarketplaceConfiguration:
         data_product_urns = _get_data_product_urns(wus)
         assert len(data_product_urns) == 2
 
-        # No dataset enhancements or lineage
-        dataset_props_wus = [
+        container_tag_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
+            and cast(str, getattr(wu.metadata, "entityUrn", "")).startswith(
+                "urn:li:container:"
+            )
         ]
-        assert len(dataset_props_wus) == 0
+        assert len(container_tag_wus) == 0
 
     def test_purchases_only_configuration(
         self, base_config: Dict[str, Any], mock_purchases: List[Dict[str, Any]]
@@ -711,16 +694,17 @@ class TestMarketplaceConfiguration:
         handler = create_handler(config_dict, None, mock_purchases, None)
         wus = list(handler.get_marketplace_workunits())
 
-        # Should only have dataset enhancement workunits
-        dataset_props_wus = [
+        container_tag_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
+            and cast(str, getattr(wu.metadata, "entityUrn", "")).startswith(
+                "urn:li:container:"
+            )
         ]
-        assert len(dataset_props_wus) == 2
+        assert len(container_tag_wus) == 2
 
-        # No data products or lineage
+        # No data products
         data_product_urns = _get_data_product_urns(wus)
         assert len(data_product_urns) == 0
 
@@ -729,13 +713,25 @@ class TestMarketplaceConfiguration:
         base_config: Dict[str, Any],
         mock_listings: List[Dict[str, Any]],
         mock_purchases: List[Dict[str, Any]],
-        mock_usage_events: List[Dict[str, Any]],
     ) -> None:
         """Test that marketplace config uses its own time windows (BaseTimeWindowConfig)."""
         from datetime import datetime, timezone
 
         custom_start = datetime(2024, 6, 1, tzinfo=timezone.utc)
         custom_end = datetime(2024, 7, 1, tzinfo=timezone.utc)
+
+        # Bucket timestamp is now sourced from the SQL row, not from start_time.
+        bucket_time = datetime(2024, 6, 5, 12, 0, 0, tzinfo=timezone.utc)
+        usage_rows = [
+            {
+                "BUCKET_START_TIME": bucket_time,
+                "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
+                "OBJECT_NAME": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
+                "OBJECT_DOMAIN": "Table",
+                "TOTAL_QUERIES": 1,
+                "UNIQUE_ACCOUNTS": 1,
+            },
+        ]
 
         config_dict = base_config.copy()
         config_dict["marketplace"] = {
@@ -745,24 +741,21 @@ class TestMarketplaceConfiguration:
             "bucket_duration": "HOUR",
         }
 
-        handler = create_handler(
-            config_dict, mock_listings, mock_purchases, mock_usage_events
-        )
+        handler = create_handler(config_dict, mock_listings, mock_purchases, usage_rows)
         wus = list(handler.get_marketplace_workunits())
 
         usage_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(
+            if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
         ]
 
-        assert len(usage_wus) >= 1
+        assert len(usage_wus) == 1
         usage_stats = cast(DatasetUsageStatisticsClass, usage_wus[0].metadata.aspect)  # type: ignore[union-attr]
 
-        assert usage_stats.timestampMillis == int(custom_start.timestamp() * 1000)
+        assert usage_stats.timestampMillis == int(bucket_time.timestamp() * 1000)
         assert usage_stats.eventGranularity is not None
         assert usage_stats.eventGranularity.unit == "HOUR"
 
@@ -805,10 +798,16 @@ class TestMarketplaceEdgeCases:
     def test_marketplace_owner_patterns_apply_correctly(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
     ) -> None:
-        """Test that owner patterns are correctly applied to marketplace listings."""
+        """Typed owner inputs (URNs, ``user:``/``group:`` prefixes, emails)
+        resolve to ownership URNs; free-form strings are dropped."""
         config_dict = base_config.copy()
         config_dict["marketplace"]["internal_marketplace_owner_patterns"] = {
-            "^Acme.*": ["acme-team", "urn:li:corpGroup:data"],
+            "^Acme.*": [
+                "acme-team",
+                "urn:li:corpGroup:data",
+                "user:alice@acme.example",
+                "group:data-platform",
+            ],
             "Weather": ["weather-team"],
         }
 
@@ -818,9 +817,11 @@ class TestMarketplaceEdgeCases:
         acme_listing = handler._marketplace_listings["ACME.DATA.LISTING"]
         owners = handler._resolve_owners_for_listing(acme_listing)
 
-        assert len(owners) == 2
-        assert "urn:li:corpuser:acme-team" in owners
         assert "urn:li:corpGroup:data" in owners
+        assert "urn:li:corpuser:alice@acme.example" in owners
+        assert "urn:li:corpGroup:data-platform" in owners
+        assert "urn:li:corpuser:acme-team" not in owners
+        assert len(owners) == 3
 
     def test_structured_property_definitions_created_correctly(
         self, base_config: Dict[str, Any]
@@ -912,7 +913,7 @@ class TestMarketplaceEdgeCases:
     def test_purchase_without_comment(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
     ) -> None:
-        """Test purchase without comment field."""
+        """Purchase with no comment still gets a Marketplace tag, no memory link."""
         purchase_no_comment = [
             {
                 "DATABASE_NAME": "NO_COMMENT_DB",
@@ -925,13 +926,23 @@ class TestMarketplaceEdgeCases:
         handler = create_handler(base_config, mock_listings, purchase_no_comment)
         wus = list(handler.get_marketplace_workunits())
 
-        # Should still create dataset enhancement with UNKNOWN_LISTING status
-        dataset_props_wus = [
+        container_urn = handler.identifiers.gen_database_key("NO_COMMENT_DB").as_urn()
+
+        tag_wus = [
             wu
             for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
+            and getattr(wu.metadata, "entityUrn", None) == container_urn
         ]
-        assert len(dataset_props_wus) == 1
-        props = cast(DatasetPropertiesClass, dataset_props_wus[0].metadata.aspect)  # type: ignore[union-attr]
-        assert props.customProperties["purchase_status"] == "UNKNOWN_LISTING"
+        assert len(tag_wus) == 1
+
+        memory_wus = [
+            wu
+            for wu in wus
+            if isinstance(
+                getattr(wu.metadata, "aspect", None), InstitutionalMemoryClass
+            )
+            and getattr(wu.metadata, "entityUrn", None) == container_urn
+        ]
+        assert len(memory_wus) == 0
+        assert handler.report.marketplace_enhanced_datasets == 1

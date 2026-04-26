@@ -87,7 +87,8 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
         assert report.marketplace_purchases_scanned == 1
         assert report.marketplace_data_products_created == 2
         assert report.marketplace_enhanced_datasets == 1
-        assert report.marketplace_usage_events_processed == 2
+        # Sum of TOTAL_QUERIES across the bucketed rows: 2 (CUSTOMERS) + 1 (ORDERS).
+        assert report.marketplace_usage_events_processed == 3
 
         # Verify the output matches expectations
         mce_helpers.check_golden_file(
@@ -173,5 +174,5 @@ def test_snowflake_marketplace_with_filtering(
         assert report.marketplace_purchases_scanned == 1
         assert report.marketplace_data_products_created == 1
         assert report.marketplace_enhanced_datasets == 1
-        # Marketplace usage is tracked independently - only ACME_CORP events counted (2 events)
-        assert report.marketplace_usage_events_processed == 2
+        # Sum of TOTAL_QUERIES across the bucketed rows for the ACME_CORP listing.
+        assert report.marketplace_usage_events_processed == 3

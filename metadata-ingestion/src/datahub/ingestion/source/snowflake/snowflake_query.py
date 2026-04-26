@@ -1439,26 +1439,34 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def marketplace_listing_access_history(
-        start_time_millis: int, end_time_millis: int
+        start_time_millis: int,
+        end_time_millis: int,
+        bucket_duration: str = "DAY",
     ) -> str:
-        """Get internal marketplace listing access history (from data exchanges).
+        """Internal marketplace listing access history, bucketed and flattened.
 
-        CONSUMER_ACCOUNT_NAME is the consuming organization's Snowflake account name,
-        not an individual user — LISTING_ACCESS_HISTORY is a provider-side view.
+        ``DATE_TRUNC`` produces one row per bucket (matching the pattern in
+        ``snowflake_usage_v2``), and ``LATERAL FLATTEN`` over
+        ``SHARE_OBJECTS_ACCESSED`` produces one row per accessed object, so the
+        Python side can emit usage directly on real ``urn:li:dataset:`` URNs
+        without further aggregation.
         """
         return f"""
             SELECT
-                QUERY_DATE AS "EVENT_TIMESTAMP",
-                QUERY_TOKEN AS "QUERY_ID",
-                LISTING_GLOBAL_NAME AS "LISTING_GLOBAL_NAME",
-                CONSUMER_ACCOUNT_NAME AS "CONSUMER_ACCOUNT_NAME",
-                SHARE_NAME AS "SHARE_NAME",
-                SHARE_OBJECTS_ACCESSED AS "SHARE_OBJECTS_ACCESSED"
-            FROM SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY
-            WHERE QUERY_DATE >= to_timestamp_ltz({start_time_millis}, 3)
-            AND QUERY_DATE < to_timestamp_ltz({end_time_millis}, 3)
-            AND IS_SHARE = TRUE
-            ORDER BY QUERY_DATE DESC
+                DATE_TRUNC('{bucket_duration}', h.QUERY_DATE) AS "BUCKET_START_TIME",
+                h.LISTING_GLOBAL_NAME AS "LISTING_GLOBAL_NAME",
+                f.value:"objectName"::STRING AS "OBJECT_NAME",
+                f.value:"objectDomain"::STRING AS "OBJECT_DOMAIN",
+                COUNT(DISTINCT h.QUERY_TOKEN) AS "TOTAL_QUERIES",
+                COUNT(DISTINCT h.CONSUMER_ACCOUNT_NAME) AS "UNIQUE_ACCOUNTS"
+            FROM SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY h,
+                 LATERAL FLATTEN(input => h.SHARE_OBJECTS_ACCESSED) f
+            WHERE h.QUERY_DATE >= to_timestamp_ltz({start_time_millis}, 3)
+              AND h.QUERY_DATE < to_timestamp_ltz({end_time_millis}, 3)
+              AND h.IS_SHARE = TRUE
+              AND f.value:"objectName" IS NOT NULL
+            GROUP BY 1, 2, 3, 4
+            ORDER BY 1, 2, 3
             """
 
     @staticmethod
