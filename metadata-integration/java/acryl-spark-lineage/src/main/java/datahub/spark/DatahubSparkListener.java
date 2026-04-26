@@ -60,7 +60,7 @@ import scala.Option;
 public class DatahubSparkListener extends SparkListener {
   private static final Logger log = LoggerFactory.getLogger(DatahubSparkListener.class);
   private final Map<String, Instant> batchLastUpdated = new HashMap<String, Instant>();
-  private final OpenLineageSparkListener listener;
+  private OpenLineageSparkListener listener;
   private DatahubEventEmitter emitter;
   private Config datahubConf = ConfigFactory.empty();
   private SparkAppContext appContext;
@@ -78,7 +78,8 @@ public class DatahubSparkListener extends SparkListener {
   public DatahubSparkListener(SparkConf conf) throws URISyntaxException {
     this.conf = ((SparkConf) Objects.requireNonNull(conf)).clone();
 
-    listener = new OpenLineageSparkListener(conf);
+    // Listener will be created lazily in initializeContextFactoryIfNotInitialized
+    // after we can inject our custom DatahubEventEmitter via ContextFactory
     log.info(
         "Initializing DatahubSparkListener. Version: {} with Spark version: {}",
         VersionUtil.getVersion(),
@@ -103,7 +104,7 @@ public class DatahubSparkListener extends SparkListener {
 
     log.info("Application start called");
     this.appContext = getSparkAppContext(applicationStart);
-    initializeContextFactoryIfNotInitialized();
+    initializeContextFactoryIfNotInitialized(applicationStart.appName());
     listener.onApplicationStart(applicationStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.info("onApplicationStart completed successfully in {} ms", elapsedTime);
@@ -307,6 +308,7 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
 
     log.debug("Task end called");
     listener.onTaskEnd(taskEnd);
@@ -316,6 +318,7 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onJobEnd(SparkListenerJobEnd jobEnd) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
 
     log.debug("Job end called");
     listener.onJobEnd(jobEnd);
@@ -335,6 +338,8 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onOtherEvent(SparkListenerEvent event) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
+
     log.debug("Other event called {}", event.getClass().getName());
     listener.onOtherEvent(event);
   }
@@ -398,7 +403,13 @@ public class DatahubSparkListener extends SparkListener {
       emitter.setConfig(datahubConfig);
       contextFactory = new ContextFactory(emitter, meterRegistry, config);
       circuitBreaker = new CircuitBreakerFactory(config.getCircuitBreaker()).build();
-      OpenLineageSparkListener.init(contextFactory);
+
+      // In OpenLineage 1.37.0+, the static init() method was removed.
+      // Instead, we use overrideDefaultFactoryForTests() to inject our custom ContextFactory
+      // before creating the listener. The method name says "ForTests" but it's the official
+      // way to inject a custom emitter - see OpenLineageSparkListener source code.
+      OpenLineageSparkListener.overrideDefaultFactoryForTests(contextFactory);
+      listener = new OpenLineageSparkListener(sparkConf);
     } catch (URISyntaxException e) {
       log.error("Unable to parse OpenLineage endpoint. Lineage events will not be collected", e);
     }

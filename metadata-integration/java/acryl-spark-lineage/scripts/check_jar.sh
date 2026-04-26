@@ -25,28 +25,22 @@ for jarFile in ${jarFiles}; do
       grep -v "git.properties" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
-      grep -v "io/swagger" |\
       grep -v "JavaSpring" |\
       grep -v "java-header-style.xml" |\
       grep -v "xml-header-style.xml" |\
       grep -v "license.header" |\
       grep -v "module-info.class" |\
-      grep -v "com/google/" |\
-      grep -v "org/codehaus/" |\
       grep -v "client.properties" |\
       grep -v "kafka" |\
       grep -v "win/" |\
       grep -v "include/" |\
       grep -v "linux/" |\
       grep -v "darwin" |\
+      grep -v "aix" |\
       grep -v "MetadataChangeProposal.avsc" |\
       grep -v "io.openlineage" |\
-      grep -v "org.apache" |\
-      grep -v "aix" |\
-      grep -v "io/micrometer/" |\
       grep -v "library.properties|rootdoc.txt" \|
-      grep -v "com/ibm/.*" |\
-      grep -v "org/publicsuffix"
+      grep -v "com/ibm/.*"
 
 
 if [ $? -ne 0 ]; then

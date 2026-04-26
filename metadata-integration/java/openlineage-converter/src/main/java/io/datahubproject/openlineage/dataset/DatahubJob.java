@@ -200,6 +200,16 @@ public class DatahubJob {
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     log.info("Adding DataJob edges to {}", jobUrn);
+
+    // Skip emitting empty dataJobInputOutput to avoid clobbering later emissions that have data.
+    // When coalesced emission fires on early events (e.g., START), all sets are empty and the
+    // UPSERT path would create the aspect with empty arrays. Later PATCH emissions then fail to
+    // override the empty UPSERT, causing output edges to be lost.
+    if (inputEdges.isEmpty() && outputEdges.isEmpty() && parentJobs.isEmpty()) {
+      log.info("Skipping dataJobInputOutput emission for {} - no edges to emit yet", jobUrn);
+      return;
+    }
+
     if (config.isUsePatch() && (!parentJobs.isEmpty() || !inSet.isEmpty() || !outSet.isEmpty())) {
       DataJobInputOutputPatchBuilder dataJobInputOutputPatchBuilder =
           new DataJobInputOutputPatchBuilder().urn(jobUrn);
@@ -239,7 +249,7 @@ public class DatahubJob {
           Objects.requireNonNull(dataJobInputOutputMcp.getAspect())
               .getValue()
               .asString(Charset.defaultCharset()));
-      mcps.add(dataJobInputOutputPatchBuilder.build());
+      mcps.add(dataJobInputOutputMcp);
 
     } else {
       FineGrainedLineageArray fgls = mergeFinegrainedLineages();

@@ -113,8 +113,9 @@ public class RemovePathPatternUtils {
   }
 
   private static Optional<Pattern> getPattern(OpenLineageContext context) {
-    return Optional.of(context.getSparkContext())
-        .map(sparkContext -> sparkContext.get().conf())
+    return context
+        .getSparkContext()
+        .map(sparkContext -> sparkContext.conf())
         .filter(conf -> conf.contains(SPARK_OPENLINEAGE_DATASET_REMOVE_PATH_PATTERN))
         .map(conf -> conf.get(SPARK_OPENLINEAGE_DATASET_REMOVE_PATH_PATTERN))
         .map(pattern -> Pattern.compile(pattern));
@@ -154,7 +155,7 @@ public class RemovePathPatternUtils {
   private static String removePathPattern(String datasetName) {
     // TODO: The reliance on global-mutable state here should be changed
     //  this led to problems in the PathUtilsTest class, where some tests interfered with others
-    log.info("Removing path pattern from dataset name {}", datasetName);
+    log.debug("Removing path pattern from dataset name {}", datasetName);
     Optional<SparkConf> conf = loadSparkConf();
     if (!conf.isPresent()) {
       return datasetName;
@@ -172,12 +173,10 @@ public class RemovePathPatternUtils {
           HdfsPathDataset.create(new URI(datasetName), datahubOpenlineageConfig);
       log.debug("Transformed path is {}", hdfsPath.getDatasetPath());
       return hdfsPath.getDatasetPath();
-    } catch (InstantiationException e) {
+    } catch (InstantiationException | URISyntaxException e) {
       log.warn(
           "Unable to convert dataset {} to path the exception was {}", datasetName, e.getMessage());
       return datasetName;
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
     }
   }
 }
