@@ -19,6 +19,7 @@ def test_sibling_ref() -> None:
     result = extract_bracket_refs("[col]")
     assert len(result) == 1
     ref = result[0]
+    assert ref.raw == "[col]"
     assert ref.source == "col"
     assert ref.column is None
     assert ref.is_parameter is False
@@ -28,6 +29,7 @@ def test_cross_element_ref() -> None:
     result = extract_bracket_refs("[Source/col]")
     assert len(result) == 1
     ref = result[0]
+    assert ref.raw == "[Source/col]"
     assert ref.source == "Source"
     assert ref.column == "col"
     assert ref.is_parameter is False
@@ -127,9 +129,73 @@ def test_brackets_inside_string_literal_ignored() -> None:
     assert result[1].source == "fallback"
 
 
+def test_brackets_inside_single_quoted_string_literal_ignored() -> None:
+    """Brackets inside single-quoted string literals are also ignored."""
+    result = extract_bracket_refs("If([a], '[dummy]', [b])")
+    assert len(result) == 2
+    assert result[0].source == "a"
+    assert result[1].source == "b"
+
+
 def test_escaped_quote_inside_string_literal() -> None:
     r"""A `\"` escape inside a string literal should not prematurely close the string."""
     result = extract_bracket_refs(r'If([a] = "say \"hi\"", [b], [c])')
     assert len(result) == 3
     sources = [r.source for r in result]
     assert sources == ["a", "b", "c"]
+
+
+# --- Missing-test additions from review ---
+
+
+def test_multi_slash_body() -> None:
+    """A body with multiple `/` separators: source is first segment, column gets the rest."""
+    result = extract_bracket_refs("[a/b/c]")
+    assert len(result) == 1
+    ref = result[0]
+    assert ref.source == "a"
+    assert ref.column == "b/c"
+
+
+def test_adjacent_brackets() -> None:
+    """Two bracket refs with no whitespace between them both parse correctly."""
+    result = extract_bracket_refs("[a][b]")
+    assert len(result) == 2
+    assert result[0].source == "a"
+    assert result[1].source == "b"
+
+
+def test_escaped_close_bracket_in_body() -> None:
+    r"""A `\]` inside a body is unescaped to `]`; the bracket closes on the next unescaped `]`."""
+    result = extract_bracket_refs(r"[col\]name]")
+    assert len(result) == 1
+    ref = result[0]
+    assert ref.source == "col]name"
+    assert ref.column is None
+
+
+def test_whitespace_inside_brackets_stripped() -> None:
+    """Leading/trailing whitespace in source and column is stripped for exact-name lookup."""
+    result = extract_bracket_refs("[ col ]")
+    assert len(result) == 1
+    ref = result[0]
+    assert ref.raw == "[ col ]"  # raw preserves original
+    assert ref.source == "col"  # source is normalized
+
+    result2 = extract_bracket_refs("[ Source / col ]")
+    assert len(result2) == 1
+    assert result2[0].source == "Source"
+    assert result2[0].column == "col"
+
+
+def test_bracket_body_with_quote_pins_current_behavior() -> None:
+    """A quote inside a bracket body may be mutilated if it pairs with a quote elsewhere.
+
+    This test pins the CURRENT (imperfect) behavior. If this becomes a
+    production issue, replace _strip_string_literals with a stateful scanner.
+    """
+    # Unbalanced quote: the lone `"` inside the bracket can't form a string
+    # literal so the body is captured intact.
+    result = extract_bracket_refs('[col"name]')
+    assert len(result) == 1
+    assert result[0].source == 'col"name'
