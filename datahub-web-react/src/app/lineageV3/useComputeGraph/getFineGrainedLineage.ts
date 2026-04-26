@@ -57,8 +57,7 @@ export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: 
     // Dataset endpoints retain the strict schemaMetadata gate (anti-phantom).
     // Dashboard endpoints are intentionally NOT included: V3 lineage GraphQL
     // does not fetch `inputFields` on Dashboard, so a TS fallback would gate
-    // on data that never arrives. See follow-up ticket [TBD] for the
-    // end-to-end Dashboard fix.
+    // on data that never arrives.
     if (node.entity.type === EntityType.Chart && node.entity.inputFields?.fields) {
         return node.entity.inputFields.fields.some(
             (f) => f?.schemaField && downgradeV2FieldPath(f.schemaField.fieldPath) === normalizedFieldPath,
