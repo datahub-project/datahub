@@ -852,9 +852,11 @@ class DocumentChunkingSource(Source):
         )
 
         # Build SemanticContent aspect
-        # Map key should be model identifier (e.g., cohere_embed_v3)
+        # Prefer the server-sourced key (authoritative); fall back to local derivation.
         assert self.config.embedding.model is not None
-        if "embed-english-v3" in self.config.embedding.model:
+        if self.config.embedding.model_embedding_key:
+            model_key = self.config.embedding.model_embedding_key
+        elif "embed-english-v3" in self.config.embedding.model:
             model_key = "cohere_embed_v3"
         else:
             model_key = self.config.embedding.model.replace("-", "_").replace(".", "_")
@@ -1106,11 +1108,23 @@ class DocumentChunkingSource(Source):
                 model_name = f"openai/{model_name}"
             return model_name, None
 
+        elif embedding_config.provider == "local":
+            if not embedding_config.model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Local embedding model not specified",
+                    mitigation_message="Set embedding.model to a model available on your local server (e.g., 'nomic-embed-text')",
+                )
+            model_name = embedding_config.model
+            if not model_name.startswith("openai/"):
+                model_name = f"openai/{model_name}"
+            return model_name, None
+
         else:
             return None, CapabilityReport(
                 capable=False,
                 failure_reason=f"Unsupported embedding provider: {embedding_config.provider}",
-                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai'",
+                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local'",
             )
 
     @staticmethod

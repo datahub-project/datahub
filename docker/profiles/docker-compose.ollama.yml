@@ -30,17 +30,31 @@ services:
       retries: 5
       start_period: 10s
 
-  # One-shot init container that pulls the default embedding model on first start.
-  # Runs once and exits — subsequent starts skip the pull if the model is already cached.
+  # One-shot init container that pulls the embedding model and warms it up.
+  # The warmup request loads the GGUF into memory so the first real search query
+  # is not delayed by cold-model loading.  Runs once and exits.
   ollama-model-init:
     image: ollama/ollama:latest
     profiles: *ollama-quickstart-profiles
+    restart: "no"
     depends_on:
       ollama:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["/bin/sh", "-c", "ollama pull ${LOCAL_EMBEDDING_MODEL:-nomic-embed-text}"]
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        MODEL="${LOCAL_EMBEDDING_MODEL:-nomic-embed-text}"
+        echo "Pulling model: $$MODEL"
+        ollama pull "$$MODEL"
+        echo "Warming up model: $$MODEL"
+        curl -sf -X POST http://ollama:11434/v1/embeddings \
+          -H 'Content-Type: application/json' \
+          -d "{\"model\":\"$$MODEL\",\"input\":\"DataHub semantic search warmup\"}" \
+          > /dev/null
+        echo "Model $$MODEL is ready"
     volumes:
       - ollama_data:/root/.ollama
 

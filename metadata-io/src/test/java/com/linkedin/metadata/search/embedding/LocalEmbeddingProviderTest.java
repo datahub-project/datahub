@@ -114,6 +114,33 @@ public class LocalEmbeddingProviderTest {
     provider.embed("test", null);
   }
 
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = ".*ollama serve.*")
+  public void testWrappedConnectExceptionSurfacesHelpfulMessage() throws Exception {
+    // HttpClient sometimes wraps ConnectException inside IOException — ensure the hint still fires.
+    IOException wrapped = new IOException("Connection refused");
+    wrapped.initCause(new ConnectException("Connection refused"));
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenThrow(wrapped);
+
+    provider.embed("test", null);
+  }
+
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testIoExceptionRetryExhaustedThrows() throws Exception {
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenThrow(new IOException("Connection reset"))
+        .thenThrow(new IOException("Connection reset"));
+
+    try {
+      provider.embed("test", null);
+    } finally {
+      verify(mockHttpClient, times(2))
+          .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
+  }
+
   @Test(expectedExceptions = RuntimeException.class)
   public void testHttp500IsRetriedThenFails() throws Exception {
     when(mockResponse.statusCode()).thenReturn(500);

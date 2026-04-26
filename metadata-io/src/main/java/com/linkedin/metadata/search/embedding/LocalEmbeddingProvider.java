@@ -48,8 +48,10 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
   public static final String DEFAULT_MODEL = "nomic-embed-text";
   public static final String DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings";
 
-  // Local inference can be slower than cloud APIs — use a longer timeout.
-  private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
+  // Short connect timeout: if we can't reach the server in 10s it isn't running.
+  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+  // Long request timeout: cold model loading (GGUF from disk) can take 60s+ on slow hardware.
+  private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(120);
   private static final int MAX_ATTEMPTS = 2;
 
   private final String endpoint;
@@ -66,7 +68,7 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
         endpoint,
         defaultModel,
         HttpClient.newBuilder()
-            .connectTimeout(DEFAULT_TIMEOUT)
+            .connectTimeout(CONNECT_TIMEOUT)
             .version(HttpClient.Version.HTTP_1_1)
             .build());
   }
@@ -94,17 +96,16 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
       try {
         return embedInternal(text, modelToUse);
       } catch (ConnectException e) {
-        // Connection refused means the local server isn't running — not retryable.
-        throw new RuntimeException(
-            String.format(
-                "Cannot connect to local embedding server at %s. "
-                    + "Is it running? Start Ollama with: ollama serve",
-                endpoint),
-            e);
+        // Connection refused — server isn't running. Not retryable.
+        throw newConnectError(e);
       } catch (RuntimeException e) {
         lastException = e;
         break;
       } catch (Exception e) {
+        // HttpClient sometimes wraps ConnectException in IOException — check cause.
+        if (e.getCause() instanceof ConnectException) {
+          throw newConnectError(e.getCause());
+        }
         lastException = e;
         if (attempt < MAX_ATTEMPTS) {
           log.warn(
@@ -126,6 +127,15 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
         cause);
   }
 
+  private RuntimeException newConnectError(Throwable cause) {
+    return new RuntimeException(
+        String.format(
+            "Cannot connect to local embedding server at %s. "
+                + "Is it running? Start Ollama with: ollama serve",
+            endpoint),
+        cause);
+  }
+
   @Nonnull
   private float[] embedInternal(@Nonnull String text, @Nonnull String modelToUse)
       throws IOException, InterruptedException {
@@ -140,7 +150,7 @@ public class LocalEmbeddingProvider implements EmbeddingProvider {
     HttpRequest request =
         HttpRequest.newBuilder()
             .uri(URI.create(endpoint))
-            .timeout(DEFAULT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
             .header("Content-Type", "application/json")
             // Ollama ignores this header; included for compatibility with servers that require
             // a non-empty bearer token (e.g., LM Studio).

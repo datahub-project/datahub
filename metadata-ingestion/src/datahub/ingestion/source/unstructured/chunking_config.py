@@ -7,6 +7,8 @@ from pydantic import Field, field_validator
 from datahub.configuration import env_vars
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
+_LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
+
 
 class ServerEmbeddingConfig(ConfigModel):
     """Embedding configuration fetched from DataHub server via AppConfig API."""
@@ -148,7 +150,7 @@ class EmbeddingConfig(ConfigModel):
         if provider == "local":
             endpoint = os.environ.get(
                 "LOCAL_EMBEDDING_ENDPOINT",
-                "http://localhost:11434/v1/embeddings",
+                _LOCAL_EMBEDDING_DEFAULT_ENDPOINT,
             )
 
         config = cls(

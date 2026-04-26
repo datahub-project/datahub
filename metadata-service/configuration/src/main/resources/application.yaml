@@ -421,7 +421,7 @@ elasticsearch:
           m: ${ELASTICSEARCH_SEMANTIC_M:16}
         # nomic-embed-text (Ollama default, 768 dimensions)
         nomic_embed_text:
-          vectorDimension: 768
+          vectorDimension: ${LOCAL_EMBEDDING_VECTOR_DIMENSION:768}
           knnEngine: faiss
           spaceType: cosinesimil
           efConstruction: 128

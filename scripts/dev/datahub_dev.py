@@ -1205,16 +1205,23 @@ def cmd_docs(args: argparse.Namespace) -> int:
 # Env vars written to DEV_ENV_FILE (and therefore propagated to GMS) when
 # `start --ai` is used.  Ollama listens on the Docker service name "ollama"
 # inside the compose network; the test runner on the host uses localhost:11434.
-_AI_ENV_VARS = {
+_AI_SEMANTIC_SEARCH_VARS = {
     "EMBEDDING_PROVIDER_TYPE": "local",
     # Enables the kNN index mapping in OpenSearch/Elasticsearch
     "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED": "true",
     # Enables the SemanticSearchService bean and semanticSearchAcrossEntities GraphQL field
     "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED": "true",
-    # GMS reaches Ollama via the Docker compose service name
-    "LOCAL_EMBEDDING_ENDPOINT": "http://ollama:11434/v1/embeddings",
-    "LOCAL_EMBEDDING_MODEL": "nomic-embed-text",
 }
+
+# Default endpoint / model for the managed Ollama container (Docker-internal hostname).
+_MANAGED_OLLAMA_ENDPOINT = "http://ollama:11434/v1/embeddings"
+_DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
+
+# Keys cleared by --no-ai
+_AI_ALL_KEYS = list(_AI_SEMANTIC_SEARCH_VARS.keys()) + [
+    "LOCAL_EMBEDDING_ENDPOINT",
+    "LOCAL_EMBEDDING_MODEL",
+]
 
 
 def _write_env_var(key: str, value: str) -> None:
@@ -1235,6 +1242,53 @@ def _write_env_var(key: str, value: str) -> None:
     DEV_ENV_FILE.write_text("\n".join(new_lines) + "\n")
 
 
+def _clear_env_var(key: str) -> None:
+    """Remove a KEY entry from DEV_ENV_FILE (no-op if the key is not present)."""
+    if not DEV_ENV_FILE.exists():
+        return
+    existing_lines = DEV_ENV_FILE.read_text().splitlines()
+    new_lines = [l for l in existing_lines if not l.strip().startswith(f"{key}=")]
+    DEV_ENV_FILE.write_text("\n".join(new_lines) + "\n")
+
+
+def _wait_for_ollama_model_ready(
+    endpoint: str, model: str, timeout: int = 180
+) -> bool:
+    """
+    Poll the embeddings endpoint until the model responds successfully.
+
+    Returns True when ready, False on timeout.  This detects both Ollama not
+    yet running AND the model still being loaded (cold GGUF load from disk).
+    """
+    import json
+    import time
+    import urllib.error
+    import urllib.request
+
+    payload = json.dumps({"model": model, "input": "warmup"}).encode()
+    deadline = time.monotonic() + timeout
+    attempt = 0
+    while time.monotonic() < deadline:
+        attempt += 1
+        try:
+            req = urllib.request.Request(
+                endpoint,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10):
+                return True
+        except Exception:
+            elapsed = int(time.monotonic() - (deadline - timeout))
+            if attempt == 1 or elapsed % 15 == 0:
+                _log(
+                    f"  Waiting for Ollama model '{model}' to load... ({elapsed}s elapsed)"
+                )
+            time.sleep(3)
+    return False
+
+
 def cmd_start(args: argparse.Namespace) -> int:
     """Start (or restart) DataHub via quickstartDebug, then wait for readiness."""
     conflicts = _find_conflicting_projects()
@@ -1242,21 +1296,48 @@ def cmd_start(args: argparse.Namespace) -> int:
         _stop_conflicting_projects(conflicts)
 
     task = CONFIG.gradle_quickstart_task
+    ai_mode = getattr(args, "ai", False)
+    no_ai_mode = getattr(args, "no_ai", False)
+    embeddings_endpoint: str | None = getattr(args, "embeddings_endpoint", None)
+    embeddings_model: str = getattr(args, "embeddings_model", None) or _DEFAULT_EMBEDDING_MODEL
 
-    if getattr(args, "ai", False):
-        task = "quickstartDebugAi"
-        _log("AI mode: writing embedding env vars to dev env file...")
-        for k, v in _AI_ENV_VARS.items():
-            _write_env_var(k, v)
-            _log(f"  {k}={v}")
-        _log(
-            "  Ollama will start alongside GMS (profile: debug-ai). "
-            "Model pull may take a few minutes on first run."
-        )
-        _log(
-            "  To run smoke tests from the host, use "
-            "LOCAL_EMBEDDING_ENDPOINT=http://localhost:11434/v1/embeddings"
-        )
+    if no_ai_mode:
+        _log("Clearing AI embedding env vars from dev env file...")
+        for k in _AI_ALL_KEYS:
+            _clear_env_var(k)
+            _log(f"  cleared {k}")
+        _log("AI mode disabled. Run 'env restart' to apply.")
+
+    elif ai_mode:
+        byo_mode = embeddings_endpoint is not None
+
+        if byo_mode:
+            # BYO server: use the developer's own endpoint, no managed Ollama container.
+            _log(f"AI mode (BYO embeddings server): {embeddings_endpoint}")
+            for k, v in _AI_SEMANTIC_SEARCH_VARS.items():
+                _write_env_var(k, v)
+            _write_env_var("LOCAL_EMBEDDING_ENDPOINT", embeddings_endpoint)
+            _write_env_var("LOCAL_EMBEDDING_MODEL", embeddings_model)
+            _log(f"  LOCAL_EMBEDDING_ENDPOINT={embeddings_endpoint}")
+            _log(f"  LOCAL_EMBEDDING_MODEL={embeddings_model}")
+        else:
+            # Managed Ollama: start the built-in container on the debug-ai profile.
+            task = "quickstartDebugAi"
+            _log("AI mode (managed Ollama): writing embedding env vars...")
+            for k, v in _AI_SEMANTIC_SEARCH_VARS.items():
+                _write_env_var(k, v)
+            _write_env_var("LOCAL_EMBEDDING_ENDPOINT", _MANAGED_OLLAMA_ENDPOINT)
+            _write_env_var("LOCAL_EMBEDDING_MODEL", embeddings_model)
+            _log(f"  LOCAL_EMBEDDING_ENDPOINT={_MANAGED_OLLAMA_ENDPOINT}")
+            _log(f"  LOCAL_EMBEDDING_MODEL={embeddings_model}")
+            _log(
+                "  Ollama will start alongside GMS (profile: debug-ai). "
+                "Model pull + warmup may take a few minutes on first run."
+            )
+            _log(
+                "  To reach Ollama from the host (smoke tests), use: "
+                "LOCAL_EMBEDDING_ENDPOINT=http://localhost:11434/v1/embeddings"
+            )
 
     _log(f"Starting DataHub via {task}...")
     result = _run(
@@ -1270,7 +1351,24 @@ def cmd_start(args: argparse.Namespace) -> int:
 
     _log("Waiting for services to become ready...")
     wait_args = argparse.Namespace(timeout=args.timeout)
-    return cmd_wait(wait_args)
+    rc = cmd_wait(wait_args)
+    if rc != 0:
+        return rc
+
+    # In managed Ollama mode, wait for the model to be fully loaded before
+    # returning — eliminates cold-start delay on the first semantic search query.
+    if ai_mode and not no_ai_mode and embeddings_endpoint is None:
+        host_endpoint = "http://localhost:11434/v1/embeddings"
+        _log(f"Waiting for Ollama model '{embeddings_model}' to be ready...")
+        if _wait_for_ollama_model_ready(host_endpoint, embeddings_model, timeout=300):
+            _log(f"Ollama model '{embeddings_model}' is ready — semantic search enabled.")
+        else:
+            _log(
+                f"WARNING: Timed out waiting for Ollama model '{embeddings_model}'. "
+                "Semantic search may be slow on the first query while the model loads."
+            )
+
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -1345,9 +1443,40 @@ def build_parser() -> argparse.ArgumentParser:
         "--ai",
         action="store_true",
         help=(
-            "Start with Ollama local embedding support (quickstartDebugAi profile). "
-            "Writes EMBEDDING_PROVIDER_TYPE=local and related vars to the dev env file, "
-            "then starts Ollama alongside GMS."
+            "Enable AI / semantic search features. By default starts a managed Ollama "
+            "container (quickstartDebugAi profile). Use --embeddings-endpoint to bring "
+            "your own server instead."
+        ),
+    )
+    start_p.add_argument(
+        "--no-ai",
+        action="store_true",
+        dest="no_ai",
+        help=(
+            "Clear all AI embedding env vars set by a previous --ai run. "
+            "Run 'env restart' afterwards to apply."
+        ),
+    )
+    start_p.add_argument(
+        "--embeddings-endpoint",
+        dest="embeddings_endpoint",
+        metavar="URL",
+        help=(
+            "URL of an existing OpenAI-compatible embeddings server "
+            "(e.g. http://localhost:11434/v1/embeddings). "
+            "When set with --ai, skips the managed Ollama container and uses this server instead. "
+            "Works with Ollama, LM Studio, llama.cpp, or any /v1/embeddings endpoint."
+        ),
+    )
+    start_p.add_argument(
+        "--embeddings-model",
+        dest="embeddings_model",
+        metavar="MODEL",
+        default=_DEFAULT_EMBEDDING_MODEL,
+        help=(
+            f"Embedding model to use (default: {_DEFAULT_EMBEDDING_MODEL}). "
+            "In managed mode, this model is pulled and warmed up in the Ollama container. "
+            "In BYO mode, the model must already be available on the specified server."
         ),
     )
     start_p.add_argument(
