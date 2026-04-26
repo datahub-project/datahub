@@ -14,7 +14,7 @@ Feature summary:
     commit SHA, and workflow run URL.
 - Raw scan report attachments on create:
   - For newly created issues, attach matching raw scanner JSON files (Trivy/Grype) when
-    ``--raw-report-paths`` is provided.
+    ``--raw-report-paths`` is passed once per raw file (repeat the flag).
   - Upload files via Linear signed upload URLs, then create issue attachments that reference the
     uploaded assets.
 - Existing issue reconciliation:
@@ -87,7 +87,6 @@ from utils.security_scan_utils import (
 
 LINEAR_GRAPHQL = "https://api.linear.app/graphql"
 MAX_TITLE_LEN = 250
-REFS_HTML_MARKER = "<!-- datahub-security-scan-refs -->"
 REFS_SECTION_HEADER = "### Git branch/tag scan history"
 REFS_SECTION_INTRO = (
     "CI records each **branch** or **tag** where this finding was reported (UTC timestamps). "
@@ -967,11 +966,7 @@ def _create_issue_relations_cve_or_pkg(
 
 
 def _comment_has_refs_anchor(body: str) -> bool:
-    if REFS_HTML_MARKER in body:
-        return True
-    if LEGACY_REFS_MARKER in body or REFS_SECTION_HEADER in body:
-        return True
-    return any(h in body for h in LEGACY_REFS_HEADERS)
+    return _comment_has_refs_anchor_util(body)
 
 
 def _get_marker_comment_id(
@@ -1118,12 +1113,12 @@ def main() -> int:
     )
     p.add_argument(
         "--raw-report-paths",
-        nargs="*",
+        action="append",
         type=Path,
-        default=[],
-        help="Optional raw scanner reports to upload as Linear issue attachments on create.",
+        help="Optional raw scanner report; repeat the flag for each file (uploaded as issue attachments on create).",
     )
     args = p.parse_args()
+    raw_report_path_list: list[Path] = list(args.raw_report_paths or [])
     scanner = args.scanner.strip().lower()
 
     api_key = os.environ.get("LINEAR_SECURITY_SCAN_API_KEY", "").strip()
@@ -1245,7 +1240,7 @@ def main() -> int:
             created += 1
             print(f"Created issue: {linear_title} ({issue_id})")
             issue_raw_reports = _raw_report_paths_for_occurrences(
-                args.raw_report_paths, occ, scanner
+                raw_report_path_list, occ, scanner
             )
             for raw_report in issue_raw_reports:
                 if not raw_report.is_file():

@@ -63,7 +63,7 @@ def split_image_ref(target: str) -> tuple[str, str]:
 
 
 def linear_priority_for_scan_severity(severity_upper: str | None) -> int | None:
-    """Map scanner severities to Linear numeric priority."""
+    """Map scanner severities to Linear numeric priority (0=none; 1–4 = urgent→low)."""
     if not severity_upper:
         return None
     s = severity_upper.strip().upper()
@@ -71,18 +71,26 @@ def linear_priority_for_scan_severity(severity_upper: str | None) -> int | None:
         return 1
     if s == "HIGH":
         return 2
+    if s == "MEDIUM":
+        return 3
+    if s == "LOW":
+        return 4
     return None
 
 
 def linear_due_date_for_scan_severity(severity_upper: str | None) -> str | None:
-    """Linear IssueCreateInput.dueDate (UTC YYYY-MM-DD)."""
+    """Linear IssueCreateInput.dueDate (UTC); today + 15/35/180/360 days for critical/high/medium/low."""
     if not severity_upper:
         return None
     s = severity_upper.strip().upper()
     if s == "CRITICAL":
-        days = 16
+        days = 15
     elif s == "HIGH":
-        days = 31
+        days = 35
+    elif s == "MEDIUM":
+        days = 180
+    elif s == "LOW":
+        days = 360
     else:
         return None
     day = datetime.now(timezone.utc).date() + timedelta(days=days)
@@ -286,11 +294,36 @@ mutation FileUpload($filename: String!, $contentType: String!, $size: Int!) {
     return upload_url, asset_url, hdrs
 
 
+def _merge_gcs_put_headers(
+    upload_headers: dict[str, str] | None, content_type: str
+) -> dict[str, str]:
+    """Ensure ``Content-Type`` is set; ``fileUpload`` may return empty ``headers`` (GCS PUT 400)."""
+    out: dict[str, str] = {}
+    for k, v in dict(upload_headers or {}).items():
+        if k.lower() == "content-type" and not (str(v).strip() if v is not None else ""):
+            continue
+        out[k] = v
+    if not any(name.lower() == "content-type" for name in out):
+        out["Content-Type"] = content_type
+    return out
+
+
 def upload_file_to_signed_url(
-    upload_url: str, upload_headers: dict[str, str], payload: bytes
+    upload_url: str,
+    upload_headers: dict[str, str] | None,
+    payload: bytes,
+    *,
+    content_type: str,
 ) -> None:
-    resp = requests.put(upload_url, headers=upload_headers, data=payload, timeout=300)
-    resp.raise_for_status()
+    merged = _merge_gcs_put_headers(upload_headers, content_type)
+    resp = requests.put(
+        upload_url, headers=merged, data=payload, timeout=300
+    )
+    if not resp.ok:
+        body = (resp.text or "")[:2000]
+        raise RuntimeError(
+            f"GCS upload failed: HTTP {resp.status_code} for {upload_url!r} — {body}"
+        )
 
 
 def create_issue_attachment(api_key: str, issue_id: str, title: str, url: str) -> str:
@@ -334,7 +367,9 @@ def attach_file_to_issue(api_key: str, issue_id: str, file_path: Path, title: st
         content_type=content_type,
         size=len(payload),
     )
-    upload_file_to_signed_url(upload_url, upload_headers, payload)
+    upload_file_to_signed_url(
+        upload_url, upload_headers, payload, content_type=content_type
+    )
     return create_issue_attachment(api_key, issue_id, title=title, url=asset_url)
 
 

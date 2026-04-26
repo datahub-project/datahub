@@ -195,6 +195,14 @@ def test_merge_refs_comment_is_deduplicated():
     )
     assert second.count("**Branch**: `main`") == 1
     assert utils.comment_has_refs_anchor(second)
+    assert "[//]: # (datahub-security-scan-refs)" in second
+    assert "### Git branch/tag scan history" in second
+    assert "<!--" not in second
+
+
+def test_comment_has_refs_anchor_still_finds_legacy_html_block():
+    body = "<!-- datahub-security-scan-refs\n### Git branch/tag scan history\n-->\n"
+    assert utils.comment_has_refs_anchor(body)
 
 
 def test_issue_pairs_cve_or_pkg_connects_transitively():
