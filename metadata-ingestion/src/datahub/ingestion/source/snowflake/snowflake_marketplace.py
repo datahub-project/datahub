@@ -1138,7 +1138,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 SnowflakeQuery.marketplace_listing_access_history(
                     start_time_millis,
                     end_time_millis,
-                    bucket_duration=str(bucket_duration),
+                    time_bucket_size=bucket_duration,
                 )
             )
 

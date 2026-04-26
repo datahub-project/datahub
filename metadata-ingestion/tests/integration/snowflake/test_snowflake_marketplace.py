@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import cast
 from unittest import mock
 
@@ -8,14 +9,20 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.testing import mce_helpers
 from tests.integration.snowflake.common import (
-    FROZEN_TIME,
     default_query_results,
 )
 
 pytestmark = pytest.mark.integration_batch_2
 
+# Use a tz-aware datetime (rather than the naive ``FROZEN_TIME`` string from
+# ``common.py``) so audit-stamp timestamps are stable regardless of the host's
+# TZ env var. The naive form would resolve to a different UTC instant on a
+# JST-configured developer machine vs. a UTC CI runner, which makes the golden
+# file order-dependent when other suites mutate ``TZ`` mid-run.
+FROZEN_TIME_UTC = datetime(2022, 6, 7, 17, 0, 0, tzinfo=timezone.utc)
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+
+@time_machine.travel(FROZEN_TIME_UTC, tick=False)
 def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -99,7 +106,7 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
         )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
+@time_machine.travel(FROZEN_TIME_UTC, tick=False)
 def test_snowflake_marketplace_with_filtering(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

@@ -1441,7 +1441,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def marketplace_listing_access_history(
         start_time_millis: int,
         end_time_millis: int,
-        bucket_duration: str = "DAY",
+        time_bucket_size: BucketDuration = BucketDuration.DAY,
     ) -> str:
         """Internal marketplace listing access history, bucketed and flattened.
 
@@ -1450,10 +1450,14 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         ``SHARE_OBJECTS_ACCESSED`` produces one row per accessed object, so the
         Python side can emit usage directly on real ``urn:li:dataset:`` URNs
         without further aggregation.
+
+        All interpolated values are type-constrained: timestamps are ``int``
+        and ``time_bucket_size`` is a ``BucketDuration`` ``StrEnum`` (only
+        ``DAY`` / ``HOUR``), so this is not user-controlled SQL.
         """
         return f"""
             SELECT
-                DATE_TRUNC('{bucket_duration}', h.QUERY_DATE) AS "BUCKET_START_TIME",
+                DATE_TRUNC('{time_bucket_size.value}', h.QUERY_DATE) AS "BUCKET_START_TIME",
                 h.LISTING_GLOBAL_NAME AS "LISTING_GLOBAL_NAME",
                 f.value:"objectName"::STRING AS "OBJECT_NAME",
                 f.value:"objectDomain"::STRING AS "OBJECT_DOMAIN",
