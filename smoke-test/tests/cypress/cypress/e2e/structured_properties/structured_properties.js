@@ -310,4 +310,106 @@ describe("Verify manage structured properties functionalities", () => {
     cy.goToStructuredProperties();
     cy.deleteStructuredProperty(property);
   });
+
+  it("Verify single-select dropdown supports search/filter on allowed values", () => {
+    const propName = "Cypress SingleSelect Search Test";
+    const propQualifiedName = "cypress_singleselect_search_test";
+    const allowedValues = [
+      "Alpha",
+      "Bravo",
+      "Charlie",
+      "Delta",
+      "Echo",
+      "Foxtrot",
+    ];
+    let createdUrn;
+
+    // Create structured property with 6 allowed values via GraphQL (6 values triggers Select dropdown)
+    cy.request({
+      method: "POST",
+      url: "/api/v2/graphql",
+      body: {
+        query: `
+          mutation createStructuredProperty($input: CreateStructuredPropertyInput!) {
+            createStructuredProperty(input: $input) {
+              urn
+            }
+          }
+        `,
+        variables: {
+          input: {
+            id: propQualifiedName,
+            qualifiedName: propQualifiedName,
+            displayName: propName,
+            valueType: "urn:li:dataType:datahub.string",
+            cardinality: "SINGLE",
+            entityTypes: ["urn:li:entityType:datahub.dataset"],
+            allowedValues: allowedValues.map((v) => ({ stringValue: v })),
+          },
+        },
+      },
+    }).then((resp) => {
+      expect(resp.status).to.eq(200);
+      createdUrn = resp.body.data.createStructuredProperty.urn;
+    });
+
+    // Navigate to dataset and open Properties tab
+    cy.goToDataset(datasetUrn, datasetName);
+    cy.get('[data-testid="Properties-entity-tab-header"]').click();
+    cy.get('[data-testid="add-structured-prop-button"]').click();
+
+    // Select our test property from the dropdown menu
+    cy.get("body .ant-dropdown-menu")
+      .should("be.visible")
+      .within(() => {
+        cy.contains(propName).click();
+      });
+
+    // Open the single-select dropdown and verify the search input exists
+    cy.get(".ant-select-selector").last().click();
+    cy.get(".ant-select-dropdown")
+      .should("be.visible")
+      .within(() => {
+        cy.get(".ant-select-item").should("have.length", allowedValues.length);
+      });
+
+    // Type a search term and verify filtering works
+    cy.get(".ant-select-selection-search-input").last().type("Cha");
+    cy.get(".ant-select-dropdown")
+      .should("be.visible")
+      .within(() => {
+        cy.contains(".ant-select-item", "Charlie").should("be.visible");
+        cy.contains(".ant-select-item", "Alpha").should("not.exist");
+        cy.contains(".ant-select-item", "Foxtrot").should("not.exist");
+      });
+
+    // Select "Charlie" and confirm it is applied
+    cy.get(".ant-select-dropdown")
+      .contains(".ant-select-item", "Charlie")
+      .click();
+    cy.get(".ant-select-selector").last().should("contain.text", "Charlie");
+
+    // Close modal without saving (escape key) to avoid polluting dataset data
+    cy.get("body").type("{esc}");
+
+    // Cleanup: delete the structured property via GraphQL
+    cy.then(() => {
+      cy.request({
+        method: "POST",
+        url: "/api/v2/graphql",
+        body: {
+          query: `
+            mutation deleteStructuredProperty($input: DeleteStructuredPropertyInput!) {
+              deleteStructuredProperty(input: $input)
+            }
+          `,
+          variables: {
+            input: { urn: createdUrn },
+          },
+        },
+      }).then((resp) => {
+        expect(resp.status).to.eq(200);
+      });
+    });
+  });
 });
