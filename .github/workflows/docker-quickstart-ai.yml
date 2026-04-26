@@ -216,7 +216,8 @@ jobs:
           source venv/bin/activate
           pytest tests/semantic/test_local_embedding_provider.py \
             -v \
-            --junit-xml=junit.smoke-ai.xml
+            --junit-xml=junit.smoke-ai.xml \
+            --timeout=120
         env:
           DATAHUB_GMS_URL: "http://localhost:8080"
           LOCAL_EMBEDDING_PROVIDER_TESTS: "true"
