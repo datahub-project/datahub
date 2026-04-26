@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from datetime import datetime
-from typing import Annotated, Dict, List, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -115,7 +115,32 @@ class Element(BaseModel):
     vizualizationType: Optional[str] = None
     query: Optional[str] = None
     columns: List[str] = []
+    # name → formula mapping populated when column entries carry formula data.
+    # Populated by the model_validator below; defaults to {} for plain string columns.
+    column_formulas: Dict[str, Optional[str]] = {}
     upstream_sources: Dict[str, "ElementUpstream"] = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_column_formulas(cls, values: Any) -> Any:
+        """Allow columns to be either plain strings or dicts with name+formula.
+
+        When the API (or a test fixture) returns column entries as objects like
+        {"name": "Col", "formula": "[Source/Col]"}, this validator:
+          - Replaces `columns` with a plain list of names (backward-compatible).
+          - Populates `column_formulas` with the name→formula mapping.
+
+        When columns are already strings (existing behaviour), column_formulas
+        stays empty and the formula-resolution path skips those columns.
+        """
+        raw_columns = values.get("columns", [])
+        if raw_columns and isinstance(raw_columns[0], dict):
+            values["columns"] = [col.get("name", "") for col in raw_columns]
+            values["column_formulas"] = {
+                col.get("name", ""): col.get("formula") or None
+                for col in raw_columns
+            }
+        return values
 
     def get_urn_part(self):
         return self.elementId

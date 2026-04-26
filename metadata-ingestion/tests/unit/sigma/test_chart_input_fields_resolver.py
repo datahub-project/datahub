@@ -1,0 +1,362 @@
+"""Unit tests for the chart InputFields resolver helpers (T1.8).
+
+Cases are drawn directly from M0 stage-3 probe data
+(probe_sigma_t1_m0_charts_classification.json) and the handoff spec.
+"""
+
+from __future__ import annotations
+
+from typing import Dict, List, Optional
+from unittest.mock import MagicMock
+
+from datahub.ingestion.source.sigma.data_classes import Element, Page, Workbook
+from datahub.ingestion.source.sigma.formula_parser import BracketRef
+from datahub.ingestion.source.sigma.sigma import SigmaSource
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_element(
+    element_id: str,
+    name: str,
+    columns: Optional[List[str]] = None,
+) -> Element:
+    return Element(
+        elementId=element_id,
+        name=name,
+        url=f"https://example.com/{element_id}",
+        type="table",
+        columns=columns or [],
+    )
+
+
+def _make_element_with_formula(
+    element_id: str,
+    name: str,
+    col_formulas: Dict[str, Optional[str]],
+) -> Element:
+    """Build an Element whose columns carry formula data (dict format)."""
+    raw_columns = [{"name": col, "formula": formula} for col, formula in col_formulas.items()]
+    return Element(
+        elementId=element_id,
+        name=name,
+        url=f"https://example.com/{element_id}",
+        type="table",
+        columns=raw_columns,  # type: ignore[arg-type]
+    )
+
+
+def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
+    """Create a minimal SigmaSource with a mocked API for unit testing."""
+    from datahub.ingestion.source.sigma.config import SigmaSourceConfig
+
+    config_dict = {
+        "client_id": "test",
+        "client_secret": "test",
+        **(config_overrides or {}),
+    }
+    config = SigmaSourceConfig.model_validate(config_dict)
+    source = SigmaSource.__new__(SigmaSource)
+    source.config = config
+    source.reporter = MagicMock()
+    source.reporter.chart_input_fields_resolved_intra_workbook = 0
+    source.reporter.chart_input_fields_resolved_warehouse_table = 0
+    source.reporter.chart_input_fields_skipped_sibling = 0
+    source.reporter.chart_input_fields_skipped_parameter = 0
+    source.reporter.chart_input_fields_skipped_unresolved = 0
+    return source
+
+
+# ---------------------------------------------------------------------------
+# _build_workbook_element_index
+# ---------------------------------------------------------------------------
+
+
+def _make_workbook_with_elements(pages_elements: List[List[Element]]) -> Workbook:
+    pages = []
+    for i, elements in enumerate(pages_elements):
+        page = Page(
+            pageId=f"page{i}",
+            name=f"Page {i}",
+            elements=elements,
+        )
+        pages.append(page)
+    return Workbook(
+        workbookId="wb1",
+        name="Test WB",
+        ownerId="o1",
+        createdBy="o1",
+        updatedBy="o1",
+        createdAt="2024-01-01T00:00:00Z",
+        updatedAt="2024-01-01T00:00:00Z",
+        url="https://example.com/wb",
+        path="root",
+        latestVersion=1,
+        pages=pages,
+    )
+
+
+class TestBuildWorkbookElementIndex:
+    def test_single_element(self) -> None:
+        e = _make_element("e1", "My Table")
+        wb = _make_workbook_with_elements([[e]])
+        idx = SigmaSource._build_workbook_element_index(wb)
+        assert idx == {"My Table": [e]}
+
+    def test_name_collision_three_elements(self) -> None:
+        """Live probe found 3 elements named 'random data model' in one workbook."""
+        e1 = _make_element("AAOgK0f3ag", "random data model")
+        e2 = _make_element("k7i_W7UYCg", "random data model")
+        e3 = _make_element("lBjhSbH_Jp", "random data model")
+        wb = _make_workbook_with_elements([[e1, e2], [e3]])
+        idx = SigmaSource._build_workbook_element_index(wb)
+        assert set(elem.elementId for elem in idx["random data model"]) == {
+            "AAOgK0f3ag",
+            "k7i_W7UYCg",
+            "lBjhSbH_Jp",
+        }
+
+    def test_cross_page_elements(self) -> None:
+        e1 = _make_element("e1", "Source")
+        e2 = _make_element("e2", "Downstream")
+        wb = _make_workbook_with_elements([[e1], [e2]])
+        idx = SigmaSource._build_workbook_element_index(wb)
+        assert "Source" in idx
+        assert "Downstream" in idx
+
+
+# ---------------------------------------------------------------------------
+# _build_workbook_warehouse_table_index
+# ---------------------------------------------------------------------------
+
+
+class TestBuildWorkbookWarehouseTableIndex:
+    def test_direct_warehouse_entry(self) -> None:
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,FIVETRAN.LOG.FIVETRAN_LOG__CONNECTOR_STATUS,PROD)"
+        idx = SigmaSource._build_workbook_warehouse_table_index({urn: []})
+        assert idx["FIVETRAN_LOG__CONNECTOR_STATUS"] == urn
+
+    def test_sigma_dataset_with_warehouse_entry(self) -> None:
+        sigma_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,abc123,PROD)"
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.PETS,PROD)"
+        idx = SigmaSource._build_workbook_warehouse_table_index({sigma_urn: [wh_urn]})
+        assert idx["PETS"] == wh_urn
+
+    def test_case_insensitive_key(self) -> None:
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.my_table,PROD)"
+        idx = SigmaSource._build_workbook_warehouse_table_index({urn: []})
+        # Key is always uppercased.
+        assert "MY_TABLE" in idx
+
+    def test_empty_inputs(self) -> None:
+        assert SigmaSource._build_workbook_warehouse_table_index({}) == {}
+
+
+# ---------------------------------------------------------------------------
+# _resolve_chart_formula_upstream
+# ---------------------------------------------------------------------------
+
+
+def _make_ref(
+    source: str,
+    column: Optional[str],
+    is_parameter: bool = False,
+) -> BracketRef:
+    raw = f"{source}/{column}" if column else source
+    return BracketRef(raw=raw, source=source, column=column, is_parameter=is_parameter)
+
+
+class TestResolveChartFormulaUpstream:
+    """Test cases drawn from M0 stage-3 probe samples."""
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+
+    # --- parameter ref ---
+
+    def test_parameter_ref_returns_none(self) -> None:
+        ref = _make_ref("P_Failure_or_Resync", None, is_parameter=True)
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            wb_element_index={},
+            wb_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_parameter == 1
+
+    # --- sibling / bare [col] ref ---
+
+    def test_sibling_ref_bare_col_returns_none(self) -> None:
+        ref = _make_ref("Log Id", None)
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="1ESOHOLBNY",
+            chart_upstream_element_ids=set(),
+            wb_element_index={},
+            wb_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_sibling == 1
+
+    # --- intra-workbook element ref ---
+
+    def test_intra_workbook_single_match(self) -> None:
+        """[random data model/Calc] with only AAOgK0f3ag in upstream set."""
+        upstream_elem = _make_element("AAOgK0f3ag", "random data model")
+        ref = _make_ref("random data model", "Calc")
+        chart_urn = "urn:li:chart:(sigma,AAOgK0f3ag)"
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"AAOgK0f3ag"},
+            wb_element_index={"random data model": [upstream_elem]},
+            wb_warehouse_table_index={},
+            elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
+        )
+        assert result == (chart_urn, "Calc")
+        assert self.src.reporter.chart_input_fields_resolved_intra_workbook == 1
+
+    def test_intra_workbook_collision_only_one_in_upstream(self) -> None:
+        """Three elements named 'random data model'; only AAOgK0f3ag is upstream."""
+        e1 = _make_element("AAOgK0f3ag", "random data model")
+        e2 = _make_element("k7i_W7UYCg", "random data model")
+        e3 = _make_element("lBjhSbH_Jp", "random data model")
+        ref = _make_ref("random data model", "toss_decision")
+        chart_urn = "urn:li:chart:(sigma,AAOgK0f3ag)"
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"AAOgK0f3ag"},
+            wb_element_index={"random data model": [e1, e2, e3]},
+            wb_warehouse_table_index={},
+            elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
+        )
+        assert result == (chart_urn, "toss_decision")
+        assert self.src.reporter.chart_input_fields_resolved_intra_workbook == 1
+
+    def test_intra_workbook_collision_no_upstream_match_returns_none(self) -> None:
+        """Name collision without lineage-upstream filter → None (no match)."""
+        e1 = _make_element("k7i_W7UYCg", "random data model")
+        e2 = _make_element("lBjhSbH_Jp", "random data model")
+        ref = _make_ref("random data model", "Calc")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            # Neither collision element is in the upstream set.
+            chart_upstream_element_ids=set(),
+            wb_element_index={"random data model": [e1, e2]},
+            wb_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result is None
+        # Falls through to unresolved (no warehouse match either).
+        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
+
+    def test_intra_workbook_collision_ambiguous_multiple_upstream_matches_returns_none(
+        self,
+    ) -> None:
+        """If >1 collision elements are all in the upstream set → ambiguous → None."""
+        e1 = _make_element("k7i_W7UYCg", "random data model")
+        e2 = _make_element("lBjhSbH_Jp", "random data model")
+        ref = _make_ref("random data model", "Calc")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"k7i_W7UYCg", "lBjhSbH_Jp"},
+            wb_element_index={"random data model": [e1, e2]},
+            wb_warehouse_table_index={},
+            elementId_to_chart_urn={"k7i_W7UYCg": "urn:a", "lBjhSbH_Jp": "urn:b"},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
+
+    # --- warehouse table ref ---
+
+    def test_warehouse_table_ref_resolves(self) -> None:
+        """[FIVETRAN_LOG__CONNECTOR_STATUS/Connector Health] → warehouse URN."""
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,FIVETRAN.LOG.FIVETRAN_LOG__CONNECTOR_STATUS,PROD)"
+        ref = _make_ref("FIVETRAN_LOG__CONNECTOR_STATUS", "Connector Health")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="4Buu0C7LnB",
+            chart_upstream_element_ids=set(),
+            wb_element_index={},
+            wb_warehouse_table_index={"FIVETRAN_LOG__CONNECTOR_STATUS": wh_urn},
+            elementId_to_chart_urn={},
+        )
+        assert result == (wh_urn, "Connector Health")
+        assert self.src.reporter.chart_input_fields_resolved_warehouse_table == 1
+
+    def test_warehouse_table_ref_case_insensitive(self) -> None:
+        """Warehouse table index lookup is case-insensitive."""
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.MY_TABLE,PROD)"
+        ref = _make_ref("my_table", "col")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            wb_element_index={},
+            wb_warehouse_table_index={"MY_TABLE": wh_urn},
+            elementId_to_chart_urn={},
+        )
+        assert result == (wh_urn, "col")
+
+    # --- unresolvable ref ---
+
+    def test_unresolvable_ref_returns_none(self) -> None:
+        """[NonexistentSource/col] matches neither index → None."""
+        ref = _make_ref("NonexistentSource", "col")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            wb_element_index={},
+            wb_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
+
+    # --- sibling refs from M0 sample formulas ---
+
+    def test_sibling_refs_from_failures_formula(self) -> None:
+        """CountDistinctIf([Log Id], [status] = ...) has two sibling refs."""
+        from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
+
+        formula = 'CountDistinctIf([Log Id], [status] = "FAILURE" or [status] = "FAILURE_WITH_TASK")'
+        refs = extract_bracket_refs(formula)
+        assert all(r.column is None for r in refs)
+        for ref in refs:
+            result = self.src._resolve_chart_formula_upstream(
+                ref,
+                chart_element_id="1ESOHOLBNY",
+                chart_upstream_element_ids=set(),
+                wb_element_index={},
+                wb_warehouse_table_index={},
+                elementId_to_chart_urn={},
+            )
+            assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_sibling >= len(refs)
+
+    def test_selected_metric_param_and_siblings(self) -> None:
+        """Switch([P_Failure_or_Resync], ...) has param + sibling refs → all None."""
+        from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
+
+        formula = 'Switch([P_Failure_or_Resync], "Failure", [Failures], "Resync", [Forced Resyncs])'
+        refs = extract_bracket_refs(formula)
+        for ref in refs:
+            result = self.src._resolve_chart_formula_upstream(
+                ref,
+                chart_element_id="1ESOHOLBNY",
+                chart_upstream_element_ids=set(),
+                wb_element_index={},
+                wb_warehouse_table_index={},
+                elementId_to_chart_urn={},
+            )
+            assert result is None

@@ -54,6 +54,10 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.sigma.formula_parser import (
+    BracketRef,
+    extract_bracket_refs,
+)
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -1166,6 +1170,98 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.element_dm_edge.unresolved += 1
         return None, []
 
+    @staticmethod
+    def _build_workbook_element_index(
+        workbook: Workbook,
+    ) -> Dict[str, List[Element]]:
+        """Map element name → list of elements with that name across all workbook pages.
+
+        Multiple entries for the same name indicate a name collision; callers must
+        disambiguate via lineage sourceIds.  Verified live: at least one workbook in
+        the test tenant has 3 elements named 'random data model'.
+        """
+        index: Dict[str, List[Element]] = {}
+        for page in workbook.pages:
+            for element in page.elements:
+                index.setdefault(element.name, []).append(element)
+        return index
+
+    @staticmethod
+    def _build_workbook_warehouse_table_index(
+        dataset_inputs: Dict[str, List[str]],
+    ) -> Dict[str, str]:
+        """Map uppercase short table name → warehouse Dataset URN.
+
+        Sigma chart formulas reference warehouse tables by their short identifier
+        (e.g. 'FIVETRAN_LOG__CONNECTOR_STATUS'), not by the full 3-part name.
+        This index is built from the SQL-parsed dataset_inputs for the current element:
+          - Sigma Dataset entries (value=[warehouse_urn, …]) contribute warehouse URNs.
+          - Direct unmatched warehouse entries (value=[]) contribute the key URN itself.
+        """
+        index: Dict[str, str] = {}
+        for dataset_urn, warehouse_urns in dataset_inputs.items():
+            candidates: List[str] = warehouse_urns if warehouse_urns else [dataset_urn]
+            for urn in candidates:
+                try:
+                    short = DatasetUrn.from_string(urn).name.split(".")[-1].upper()
+                    index[short] = urn
+                except Exception:
+                    pass
+        return index
+
+    def _resolve_chart_formula_upstream(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        wb_element_index: Dict[str, List[Element]],
+        wb_warehouse_table_index: Dict[str, str],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a single bracket ref to (entity_urn, field_path), or None.
+
+        Resolution order:
+          1. is_parameter → None (skip; no lineage value).
+          2. column is None (bare [col]) → None (sibling ref within same element).
+          3. wb_element_index match filtered by chart_upstream_element_ids
+             → upstream chart URN + ref.column.  Ambiguous (>1 match) → None.
+          4. wb_warehouse_table_index match → warehouse Dataset URN + ref.column.
+          5. else → None (unresolved; caller increments counter via return value).
+        """
+        if ref.is_parameter:
+            self.reporter.chart_input_fields_skipped_parameter += 1
+            return None
+
+        if ref.column is None:
+            self.reporter.chart_input_fields_skipped_sibling += 1
+            return None
+
+        candidates = wb_element_index.get(ref.source, [])
+        upstream_matches = [
+            elem
+            for elem in candidates
+            if elem.elementId in chart_upstream_element_ids
+            and elem.elementId != chart_element_id
+        ]
+        if len(upstream_matches) == 1:
+            elem_urn = elementId_to_chart_urn.get(upstream_matches[0].elementId)
+            if elem_urn:
+                self.reporter.chart_input_fields_resolved_intra_workbook += 1
+                return (elem_urn, ref.column)
+        elif len(upstream_matches) > 1:
+            # Ambiguous name collision not resolved by lineage filter.
+            self.reporter.chart_input_fields_skipped_unresolved += 1
+            return None
+
+        wh_urn = wb_warehouse_table_index.get(ref.source.upper())
+        if wh_urn:
+            self.reporter.chart_input_fields_resolved_warehouse_table += 1
+            return (wh_urn, ref.column)
+
+        self.reporter.chart_input_fields_skipped_unresolved += 1
+        return None
+
     def _get_element_input_details(
         self,
         element: Element,
@@ -1298,6 +1394,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         all_input_fields: List[InputFieldClass],
         paths: List[str],
         elementId_to_chart_urn: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -1360,17 +1457,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     self.dataset_upstream_urn_mapping[dataset_urn] = warehouse_urns
 
-            element_input_fields = [
-                InputFieldClass(
-                    schemaFieldUrn=builder.make_schema_field_urn(chart_urn, column),
-                    schemaField=SchemaFieldClass(
-                        fieldPath=column,
-                        type=SchemaFieldDataTypeClass(StringTypeClass()),
-                        nativeDataType="String",  # Make type default as Sting
-                    ),
-                )
-                for column in element.columns
-            ]
+            # Build per-element context for formula-based InputFields resolution.
+            chart_upstream_eids: Set[str] = {
+                upstream.element_id
+                for upstream in element.upstream_sources.values()
+                if isinstance(upstream, SheetUpstream)
+            }
+            wb_warehouse_table_index = self._build_workbook_warehouse_table_index(
+                dataset_inputs
+            )
+
+            element_input_fields: List[InputFieldClass] = []
+            for column in element.columns:
+                formula = element.column_formulas.get(column)
+                if formula is None:
+                    self.reporter.chart_input_fields_columns_no_formula += 1
+                    continue
+                for ref in extract_bracket_refs(formula):
+                    resolved = self._resolve_chart_formula_upstream(
+                        ref,
+                        chart_element_id=element.elementId,
+                        chart_upstream_element_ids=chart_upstream_eids,
+                        wb_element_index=wb_element_index,
+                        wb_warehouse_table_index=wb_warehouse_table_index,
+                        elementId_to_chart_urn=elementId_to_chart_urn,
+                    )
+                    if resolved is None:
+                        continue
+                    upstream_urn, field_path = resolved
+                    element_input_fields.append(
+                        InputFieldClass(
+                            schemaFieldUrn=builder.make_schema_field_urn(
+                                upstream_urn, field_path
+                            ),
+                            schemaField=SchemaFieldClass(
+                                fieldPath=field_path,
+                                type=SchemaFieldDataTypeClass(StringTypeClass()),
+                                nativeDataType="STRING",
+                            ),
+                        )
+                    )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -1385,9 +1511,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma workbook page to Datahub dashboard
         """
-        # Built once at workbook scope since intra-workbook lineage can
-        # cross pages. Keys mirror the chart-emission allowlist in
-        # get_page_elements (type in {"table","visualization"}).
+        # Both maps are built once at workbook scope — intra-workbook lineage can
+        # cross pages, so all elements must be indexed before processing any page.
+        # Keys mirror the chart-emission allow-list in get_page_elements
+        # (type in {"table","visualization"}); filtered types are absent from both.
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,
@@ -1397,6 +1524,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for page in workbook.pages
             for element in page.elements
         }
+        wb_element_index = self._build_workbook_element_index(workbook)
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
@@ -1422,7 +1550,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields, paths, elementId_to_chart_urn
+                page.elements,
+                workbook,
+                all_input_fields,
+                paths,
+                elementId_to_chart_urn,
+                wb_element_index,
             )
 
             yield MetadataChangeProposalWrapper(

@@ -1408,6 +1408,278 @@ def test_sigma_ingest_data_models_disabled(pytestconfig, tmp_path, requests_mock
 
 
 @pytest.mark.integration
+def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
+    """
+    Exercises chart InputFields with formula-resolved upstreams (T1.8).
+
+    Fixture topology (all on page "InputFieldsPage"):
+      - sourceElem   : table, upstream of downstream elements (warehouse table lineage)
+      - warehouseElem: table, column "[FIVETRAN_LOG__SAMPLE/some_col]" → warehouse URN
+      - downstreamElem: table, column "[T Source/col]" → sourceElem chart URN
+      - noFormulaElem : table, columns have no formula → zero InputFields entries
+      - paramSiblingElem: columns "[P_param]" + "[bare_col]" → zero entries (param + sibling)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data: Dict[str, Dict] = {
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"pageId": "InputFieldsPage", "name": "InputFields Page"},
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages/InputFieldsPage/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        # Source element — downstream's upstream via intra-workbook lineage.
+                        "elementId": "sourceElem01",
+                        "type": "table",
+                        "name": "T Source",
+                        "columns": [
+                            {"name": "col", "formula": None},
+                        ],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Intra-workbook downstream: [T Source/col] → sourceElem01 URN.
+                        "elementId": "downstreamElem01",
+                        "type": "table",
+                        "name": "T Downstream",
+                        "columns": [
+                            {"name": "col", "formula": "[T Source/col]"},
+                        ],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Warehouse ref: [FIVETRAN_LOG__SAMPLE/some_col] resolved via SQL.
+                        "elementId": "warehouseElem01",
+                        "type": "table",
+                        "name": "T Warehouse",
+                        "columns": [
+                            {
+                                "name": "some_col",
+                                "formula": "[FIVETRAN_LOG__SAMPLE/some_col]",
+                            },
+                        ],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Columns without formulas → zero InputFields entries.
+                        "elementId": "noFormulaElem01",
+                        "type": "table",
+                        "name": "T No Formula",
+                        "columns": ["col_a", "col_b"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Parameter + sibling refs → zero InputFields entries.
+                        "elementId": "paramSiblingElem01",
+                        "type": "table",
+                        "name": "T Param Sibling",
+                        "columns": [
+                            {"name": "monthly_target", "formula": "[P_Monthly_Spend_Target]"},
+                            {"name": "derived", "formula": "[monthly_target]"},
+                        ],
+                        "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 5,
+                "nextPage": None,
+            },
+        },
+        # sourceElem01: warehouse table upstream only (no sheet upstreams to resolve).
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/sourceElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_source": {
+                        "nodeId": "tgt_source",
+                        "elementId": "sourceElem01",
+                        "name": "T Source",
+                        "type": "sheet",
+                    },
+                    "inode-warehouseA": {
+                        "nodeId": "inode-warehouseA",
+                        "name": "SOME_WAREHOUSE_TABLE",
+                        "type": "table",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "inode-warehouseA",
+                        "target": "tgt_source",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        # downstreamElem01: intra-workbook sheet upstream → sourceElem01.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/downstreamElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_downstream": {
+                        "nodeId": "tgt_downstream",
+                        "elementId": "downstreamElem01",
+                        "name": "T Downstream",
+                        "type": "sheet",
+                    },
+                    "src_source": {
+                        "nodeId": "src_source",
+                        "elementId": "sourceElem01",
+                        "name": "T Source",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_source",
+                        "target": "tgt_downstream",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        # warehouseElem01: warehouse table upstream with a known SQL short-name.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/warehouseElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_warehouse": {
+                        "nodeId": "tgt_warehouse",
+                        "elementId": "warehouseElem01",
+                        "name": "T Warehouse",
+                        "type": "sheet",
+                    },
+                    "inode-fivetran": {
+                        "nodeId": "inode-fivetran",
+                        "name": "FIVETRAN_LOG__SAMPLE",
+                        "type": "table",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "inode-fivetran",
+                        "target": "tgt_warehouse",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/noFormulaElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_noformula": {
+                        "nodeId": "tgt_noformula",
+                        "elementId": "noFormulaElem01",
+                        "name": "T No Formula",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/paramSiblingElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_paramsib": {
+                        "nodeId": "tgt_paramsib",
+                        "elementId": "paramSiblingElem01",
+                        "name": "T Param Sibling",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        # SQL queries
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/sourceElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/downstreamElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # warehouseElem01 has a SQL query so the parser can resolve the warehouse URN.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/warehouseElem01/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "elementId": "warehouseElem01",
+                "name": "T Warehouse",
+                "sql": "select SOME_COL from LONG_TAIL_COMPANIONS.FIVETRAN.FIVETRAN_LOG__SAMPLE limit 1000",
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/noFormulaElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/paramSiblingElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_chart_input_fields_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_sigma_extract_lineage.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 

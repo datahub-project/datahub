@@ -260,6 +260,14 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
+    # Chart InputFields resolution counters (T1.8).
+    chart_input_fields_resolved_intra_workbook: int = 0
+    chart_input_fields_resolved_warehouse_table: int = 0
+    chart_input_fields_skipped_sibling: int = 0
+    chart_input_fields_skipped_parameter: int = 0
+    chart_input_fields_skipped_unresolved: int = 0
+    chart_input_fields_columns_no_formula: int = 0
+
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(

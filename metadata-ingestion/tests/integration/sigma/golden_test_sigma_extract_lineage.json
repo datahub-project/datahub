@@ -10,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101661,
+        "lastObserved": 1777173668269,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -40,7 +40,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101662,
+        "lastObserved": 1777173668270,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -56,7 +56,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101663,
+        "lastObserved": 1777173668270,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101663,
+        "lastObserved": 1777173668270,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -100,7 +100,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101664,
+        "lastObserved": 1777173668271,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -121,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101665,
+        "lastObserved": 1777173668271,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -137,7 +137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101675,
+        "lastObserved": 1777173668279,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -169,7 +169,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101675,
+        "lastObserved": 1777173668279,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -185,7 +185,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101676,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -211,7 +211,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101677,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -229,7 +229,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101677,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -249,7 +249,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101678,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -273,7 +273,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101678,
+        "lastObserved": 1777173668281,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -289,23 +289,47 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513100094,
+        "lastObserved": 1777173668281,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "dashboardInfo",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {
+                "path": "Acryl Data",
+                "latestVersion": "2"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
+            "title": "Acryl Workbook",
+            "description": "",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [
+                {
+                    "sourceUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+                    "destinationUrn": "urn:li:dashboard:(sigma,InputFieldsPage)"
+                }
+            ],
+            "lastModified": {
+                "created": {
+                    "time": 1713188691477,
+                    "actor": "urn:li:corpuser:datahub"
+                },
+                "lastModified": {
+                    "time": 1713189117302,
+                    "actor": "urn:li:corpuser:datahub"
+                }
+            }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101684,
+        "lastObserved": 1777173668281,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -323,51 +347,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513100095,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "path": "New Acryl Data",
-                "latestVersion": "2"
-            },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
-            "title": "Acryl Workbook",
-            "description": "",
-            "charts": [],
-            "datasets": [],
-            "dashboards": [
-                {
-                    "sourceUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
-                    "destinationUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)"
-                },
-                {
-                    "sourceUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
-                    "destinationUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)"
-                }
-            ],
-            "lastModified": {
-                "created": {
-                    "time": 1713188691477,
-                    "actor": "urn:li:corpuser:datahub"
-                },
-                "lastModified": {
-                    "time": 1713189117302,
-                    "actor": "urn:li:corpuser:datahub"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1732535136409,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -393,7 +373,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513100096,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -413,116 +393,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513100096,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "ElementsCount": "2"
-            },
-            "title": "Page 1",
-            "description": "",
-            "charts": [
-                "urn:li:chart:(sigma,kH0MeihtGs)",
-                "urn:li:chart:(sigma,Ml9C5ezT5W)"
-            ],
-            "datasets": [],
-            "dashboards": [],
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718004101685,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718004101687,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "VizualizationType": "levelTable",
-                "type": "table"
-            },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=kH0MeihtGs&:fullScreen=true",
-            "title": "ADOPTIONS",
-            "description": "",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "inputs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718004101688,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:b83da80a4d444484521d9f7aca958742",
-                    "urn": "urn:li:container:b83da80a4d444484521d9f7aca958742"
-                },
-                {
-                    "id": "Acryl Workbook"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1732545849249,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -534,11 +405,11 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:b83da80a4d444484521d9f7aca958742"
+            "container": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513100096,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -552,8 +423,8 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:b83da80a4d444484521d9f7aca958742",
-                    "urn": "urn:li:container:b83da80a4d444484521d9f7aca958742"
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
                     "id": "Acryl Workbook"
@@ -562,54 +433,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732545849248,
+        "lastObserved": 1777173668283,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777173678665,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:b83da80a4d444484521d9f7aca958742",
-                    "urn": "urn:li:container:b83da80a4d444484521d9f7aca958742"
-                },
-                {
-                    "id": "Acryl Workbook"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1732545849252,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -618,130 +449,29 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101693,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "VizualizationType": "bar",
-                "type": "visualization"
-            },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=Ml9C5ezT5W&:fullScreen=true",
-            "title": "Count of Profile Id by Status",
-            "description": "",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "inputs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718004101694,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777173678666,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:b83da80a4d444484521d9f7aca958742",
-                    "urn": "urn:li:container:b83da80a4d444484521d9f7aca958742"
-                },
-                {
-                    "id": "Acryl Workbook"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1732545849255,
+        "lastObserved": 1777173668283,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777173678667,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718004101703,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "ElementsCount": "1"
+                "ElementsCount": "5"
             },
-            "title": "Page 2",
+            "title": "InputFields Page",
             "description": "",
             "charts": [
-                "urn:li:chart:(sigma,tQJu5N1l81)"
+                "urn:li:chart:(sigma,sourceElem01)",
+                "urn:li:chart:(sigma,downstreamElem01)",
+                "urn:li:chart:(sigma,warehouseElem01)",
+                "urn:li:chart:(sigma,noFormulaElem01)",
+                "urn:li:chart:(sigma,paramSiblingElem01)"
             ],
             "datasets": [],
             "dashboards": [],
@@ -758,38 +488,22 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101703,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718004101706,
+        "lastObserved": 1777173668283,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:b83da80a4d444484521d9f7aca958742",
-                    "urn": "urn:li:container:b83da80a4d444484521d9f7aca958742"
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
                     "id": "Acryl Workbook"
@@ -798,14 +512,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732545849260,
+        "lastObserved": 1777173668284,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668284,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
@@ -814,8 +544,8 @@
                 "VizualizationType": "levelTable",
                 "type": "table"
             },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=tQJu5N1l81&:fullScreen=true",
-            "title": "PETS ADOPTIONS JOIN",
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=sourceElem01&:fullScreen=true",
+            "title": "T Source",
             "description": "",
             "lastModified": {
                 "created": {
@@ -831,14 +561,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101707,
+        "lastObserved": 1777173668284,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
@@ -847,22 +577,22 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777173678669,
+        "lastObserved": 1777173668285,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:b83da80a4d444484521d9f7aca958742",
-                    "urn": "urn:li:container:b83da80a4d444484521d9f7aca958742"
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
                     "id": "Acryl Workbook"
@@ -871,14 +601,283 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732545849264,
+        "lastObserved": 1777173668285,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668285,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "levelTable",
+                "type": "table"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=downstreamElem01&:fullScreen=true",
+            "title": "T Downstream",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [],
+            "inputEdges": [
+                {
+                    "sourceUrn": "urn:li:chart:(sigma,downstreamElem01)",
+                    "destinationUrn": "urn:li:chart:(sigma,sourceElem01)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668285,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
+                    "schemaField": {
+                        "fieldPath": "col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "STRING",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173957816,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668286,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668302,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "levelTable",
+                "type": "table"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=warehouseElem01&:fullScreen=true",
+            "title": "T Warehouse",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.fivetran.fivetran_log__sample,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668303,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.fivetran.fivetran_log__sample,PROD),some_col)",
+                    "schemaField": {
+                        "fieldPath": "some_col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "STRING",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173957819,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668303,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668303,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "levelTable",
+                "type": "table"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=noFormulaElem01&:fullScreen=true",
+            "title": "T No Formula",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
@@ -887,7 +886,120 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777173678669,
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "levelTable",
+                "type": "table"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=paramSiblingElem01&:fullScreen=true",
+            "title": "T Param Sibling",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668305,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668305,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -913,7 +1025,54 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101717,
+        "lastObserved": 1777173668305,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
+                    "schemaField": {
+                        "fieldPath": "col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "STRING",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.fivetran.fivetran_log__sample,PROD),some_col)",
+                    "schemaField": {
+                        "fieldPath": "some_col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "STRING",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173957822,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -929,7 +1088,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101718,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -945,7 +1104,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101718,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -963,7 +1122,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101719,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -989,7 +1148,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101719,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1005,7 +1164,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101720,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1021,7 +1180,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101720,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1037,7 +1196,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718004101721,
+        "lastObserved": 1777173668307,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
