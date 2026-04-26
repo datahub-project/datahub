@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { LineageEntity, createEdgeId } from '@app/lineageV3/common';
-import getFineGrainedLineage, {
-    schemaFieldExists,
-} from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
+import getFineGrainedLineage, { schemaFieldExists } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 
 import { EntityType } from '@types';
 
