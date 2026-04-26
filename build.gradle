@@ -49,7 +49,7 @@ buildscript {
   ext.log4jVersion = '2.25.4'
   ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   ext.rhinoVersion = '1.7.15.1' // CVE-2025-66453 (NativeNumber.toFixed / DToA DoS); also 1.8.1, 1.7.14.1
-  // Spark-lineage only (spark-lineage-legacy, acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
+  // Spark-lineage only (acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
   ext.sparkLineageDnsjavaVersion = '3.6.0'           // CVE-2024-25638
   ext.sparkLineageJettisonVersion = '1.5.2'          // CVE-2022-40150, CVE-2022-45685, CVE-2022-45693, CVE-2023-1436, CVE-2022-40149
   ext.sparkLineageNimbusJoseJwtVersion = '10.0.2'    // CVE-2023-52428; min 9.37.2, use 10.x to avoid downgrading
@@ -559,7 +559,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 }
 
 // Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
-configure(subprojects.findAll { it.name == 'spark-lineage-legacy' || it.name == 'acryl-spark-lineage' }) {
+configure(subprojects.findAll { it.name == 'acryl-spark-lineage' }) {
   configurations.all {
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
