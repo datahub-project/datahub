@@ -29,8 +29,6 @@ interface TentativeEdge {
     operationRef?: FineGrainedOperationRef;
 }
 
-const INPUTFIELDS_ENTITY_TYPES = new Set([EntityType.Chart, EntityType.Dashboard]);
-
 /**
  * Check if a schema field exists in a dataset's schema
  * @param datasetUrn URN of the dataset
@@ -54,11 +52,15 @@ export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: 
         return true;
     }
 
-    // Chart and Dashboard entities carry columns via inputFields rather than schemaMetadata.
-    // Fall back to inputFields to restore the V1-era behavior removed in PR #16680.
-    // This preserves the anti-phantom intent of PR #6470 — the field must still exist somewhere.
-    if (INPUTFIELDS_ENTITY_TYPES.has(node.entity.type as EntityType)) {
-        return !!node.entity.inputFields?.fields?.some(
+    // Charts carry their column schema in `inputFields[].schemaField`, not
+    // `schemaMetadata.fields`. Fall back to that for Chart endpoints only.
+    // Dataset endpoints retain the strict schemaMetadata gate (anti-phantom).
+    // Dashboard endpoints are intentionally NOT included: V3 lineage GraphQL
+    // does not fetch `inputFields` on Dashboard, so a TS fallback would gate
+    // on data that never arrives. See follow-up ticket [TBD] for the
+    // end-to-end Dashboard fix.
+    if (node.entity.type === EntityType.Chart && node.entity.inputFields?.fields) {
+        return node.entity.inputFields.fields.some(
             (f) => f?.schemaField && downgradeV2FieldPath(f.schemaField.fieldPath) === normalizedFieldPath,
         );
     }

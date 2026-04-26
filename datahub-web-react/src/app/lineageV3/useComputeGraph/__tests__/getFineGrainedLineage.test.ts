@@ -160,7 +160,7 @@ describe('schemaFieldExists', () => {
         expect(schemaFieldExists('urn:li:dataset:1', 'USERID', nodes)).toBe(false);
     });
 
-    describe('inputFields fallback for Chart/Dashboard endpoints', () => {
+    describe('inputFields fallback for Chart endpoints', () => {
         const createChartNode = (
             urn: string,
             inputFieldPaths?: string[],
@@ -236,7 +236,11 @@ describe('schemaFieldExists', () => {
             expect(schemaFieldExists('urn:li:chart:1', 'revenue', nodes)).toBe(false);
         });
 
-        it('returns true for Dashboard with inputFields when schemaMetadata is absent', () => {
+        // T1.9 (Path 1) deliberately does NOT relax the gate for Dashboard
+        // endpoints. V3 GraphQL does not fetch Dashboard inputFields, so a
+        // TS fallback would be ineffective. Tracked separately for end-to-end
+        // fix.
+        it('returns false for Dashboard with inputFields (intentional gap — GraphQL does not fetch Dashboard inputFields)', () => {
             const urn = 'urn:li:dashboard:1';
             const node: LineageEntity = {
                 id: urn,
@@ -261,7 +265,7 @@ describe('schemaFieldExists', () => {
             };
             const nodes = new Map([[urn, node]]);
 
-            expect(schemaFieldExists(urn, 'kpi', nodes)).toBe(true);
+            expect(schemaFieldExists(urn, 'kpi', nodes)).toBe(false);
             expect(schemaFieldExists(urn, 'missing', nodes)).toBe(false);
         });
     });
