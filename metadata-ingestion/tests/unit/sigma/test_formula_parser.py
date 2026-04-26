@@ -113,3 +113,23 @@ def test_multiline_formula() -> None:
 def test_empty_bracket_skipped() -> None:
     """Empty brackets `[]` don't match — the body must be 1+ chars."""
     assert extract_bracket_refs("[]") == []
+
+
+def test_brackets_inside_string_literal_ignored() -> None:
+    """Brackets inside double-quoted string literals must not produce lineage refs.
+
+    `"[failed]"` is a string constant, not a column reference.
+    Regression for the quote-awareness review finding.
+    """
+    result = extract_bracket_refs('If([status] = "FAILURE", "[failed]", [fallback])')
+    assert len(result) == 2
+    assert result[0].source == "status"
+    assert result[1].source == "fallback"
+
+
+def test_escaped_quote_inside_string_literal() -> None:
+    r"""A `\"` escape inside a string literal should not prematurely close the string."""
+    result = extract_bracket_refs(r'If([a] = "say \"hi\"", [b], [c])')
+    assert len(result) == 3
+    sources = [r.source for r in result]
+    assert sources == ["a", "b", "c"]

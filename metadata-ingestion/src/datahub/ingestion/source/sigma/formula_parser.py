@@ -36,6 +36,17 @@ class BracketRef:
 
 _BRACKET_RE = re.compile(r"\[((?:[^\[\]\\]|\\.)+)\]")
 _PARAM_RE = re.compile(r"^P_")
+# Matches a double-quoted string literal, respecting `\"` escapes.
+# Sigma uses double quotes for string literals; brackets inside them are not column refs.
+_STRING_LITERAL_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
+
+
+def _strip_string_literals(formula: str) -> str:
+    """Replace double-quoted string literals with spaces to neutralise bracket-like content.
+
+    Preserves overall string length so any future positional debugging stays accurate.
+    """
+    return _STRING_LITERAL_RE.sub(lambda m: " " * len(m.group()), formula)
 
 
 def _split_unescaped_slash(body: str) -> List[str]:
@@ -61,7 +72,7 @@ def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
     if not formula:
         return []
     out: List[BracketRef] = []
-    for raw_body in _BRACKET_RE.findall(formula):
+    for raw_body in _BRACKET_RE.findall(_strip_string_literals(formula)):
         parts = _split_unescaped_slash(raw_body)
         source_raw = parts[0]
         column_raw = "/".join(parts[1:]) if len(parts) > 1 else None
