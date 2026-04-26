@@ -46,9 +46,14 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere", "openai"]] = Field(
+    provider: Optional[Literal["bedrock", "cohere", "openai", "local"]] = Field(
         default=None,
-        description="Embedding provider (bedrock uses AWS, cohere/openai use API key). If not set, loads from server.",
+        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). If not set, loads from server.",
+    )
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="Endpoint URL for local embedding server (e.g., http://localhost:11434/v1/embeddings). "
+        "Only used when provider='local'. Falls back to LOCAL_EMBEDDING_ENDPOINT env var.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -132,8 +137,19 @@ class EmbeddingConfig(ConfigModel):
         Returns:
             EmbeddingConfig populated with server values
         """
+        import os
+
         # Normalize provider from server format to local format
         provider = cls._normalize_provider_from_server(server_config.provider)
+
+        # For local provider, read endpoint from env (Docker-internal URL on the server
+        # differs from the host-side URL needed by the Python client).
+        endpoint: Optional[str] = None
+        if provider == "local":
+            endpoint = os.environ.get(
+                "LOCAL_EMBEDDING_ENDPOINT",
+                "http://localhost:11434/v1/embeddings",
+            )
 
         config = cls(
             provider=provider,
@@ -141,6 +157,7 @@ class EmbeddingConfig(ConfigModel):
             model_embedding_key=server_config.model_embedding_key,
             aws_region=server_config.aws_region,
             api_key=api_key,
+            endpoint=endpoint,
         )
         # Set private field after construction
         config._server_config = server_config
@@ -218,12 +235,14 @@ class EmbeddingConfig(ConfigModel):
             return "cohere"
         if "openai" in provider_lower:
             return "openai"
+        if "local" in provider_lower:
+            return "local"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere", "openai"]:  # type: ignore
+    ) -> Literal["bedrock", "cohere", "openai", "local"]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
@@ -232,6 +251,8 @@ class EmbeddingConfig(ConfigModel):
             return "cohere"
         elif normalized == "openai":
             return "openai"
+        elif normalized == "local":
+            return "local"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 

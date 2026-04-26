@@ -1202,25 +1202,70 @@ def cmd_docs(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+# Env vars written to DEV_ENV_FILE (and therefore propagated to GMS) when
+# `start --ai` is used.  Ollama listens on the Docker service name "ollama"
+# inside the compose network; the test runner on the host uses localhost:11434.
+_AI_ENV_VARS = {
+    "EMBEDDING_PROVIDER_TYPE": "local",
+    # Enables the kNN index mapping in OpenSearch/Elasticsearch
+    "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED": "true",
+    # Enables the SemanticSearchService bean and semanticSearchAcrossEntities GraphQL field
+    "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED": "true",
+    # GMS reaches Ollama via the Docker compose service name
+    "LOCAL_EMBEDDING_ENDPOINT": "http://ollama:11434/v1/embeddings",
+    "LOCAL_EMBEDDING_MODEL": "nomic-embed-text",
+}
+
+
+def _write_env_var(key: str, value: str) -> None:
+    """Write a single KEY=VALUE into DEV_ENV_FILE, replacing any existing entry."""
+    if not DEV_ENV_FILE.exists():
+        DEV_ENV_FILE.touch()
+    existing_lines = DEV_ENV_FILE.read_text().splitlines()
+    found = False
+    new_lines = []
+    for line in existing_lines:
+        if line.strip().startswith(f"{key}="):
+            new_lines.append(f"{key}={value}")
+            found = True
+        else:
+            new_lines.append(line)
+    if not found:
+        new_lines.append(f"{key}={value}")
+    DEV_ENV_FILE.write_text("\n".join(new_lines) + "\n")
+
+
 def cmd_start(args: argparse.Namespace) -> int:
     """Start (or restart) DataHub via quickstartDebug, then wait for readiness."""
     conflicts = _find_conflicting_projects()
     if conflicts:
         _stop_conflicting_projects(conflicts)
 
-    _log(f"Starting DataHub via {CONFIG.gradle_quickstart_task}...")
+    task = CONFIG.gradle_quickstart_task
+
+    if getattr(args, "ai", False):
+        task = "quickstartDebugAi"
+        _log("AI mode: writing embedding env vars to dev env file...")
+        for k, v in _AI_ENV_VARS.items():
+            _write_env_var(k, v)
+            _log(f"  {k}={v}")
+        _log(
+            "  Ollama will start alongside GMS (profile: debug-ai). "
+            "Model pull may take a few minutes on first run."
+        )
+        _log(
+            "  To run smoke tests from the host, use "
+            "LOCAL_EMBEDDING_ENDPOINT=http://localhost:11434/v1/embeddings"
+        )
+
+    _log(f"Starting DataHub via {task}...")
     result = _run(
-        [
-            "./gradlew",
-            CONFIG.gradle_quickstart_task,
-        ],
+        ["./gradlew", task],
         capture=False,
         timeout=1200,
     )
     if result.returncode != 0:
-        _log(
-            f"{CONFIG.gradle_quickstart_task} failed. Check the output above for errors."
-        )
+        _log(f"{task} failed. Check the output above for errors.")
         return 1
 
     _log("Waiting for services to become ready...")
@@ -1295,6 +1340,15 @@ def build_parser() -> argparse.ArgumentParser:
     # start
     start_p = subparsers.add_parser(
         "start", help="Start DataHub (quickstartDebug) and wait for readiness"
+    )
+    start_p.add_argument(
+        "--ai",
+        action="store_true",
+        help=(
+            "Start with Ollama local embedding support (quickstartDebugAi profile). "
+            "Writes EMBEDDING_PROVIDER_TYPE=local and related vars to the dev env file, "
+            "then starts Ollama alongside GMS."
+        ),
     )
     start_p.add_argument(
         "--timeout",

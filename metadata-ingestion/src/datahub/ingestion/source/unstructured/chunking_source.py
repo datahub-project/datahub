@@ -192,6 +192,12 @@ class DocumentChunkingSource(Source):
                         "OpenAI API key is required when using openai provider. "
                         "Set openai.api_key in your recipe or the OPENAI_API_KEY environment variable."
                     )
+            elif self.config.embedding.provider == "local":
+                # Ollama / any OpenAI-compatible local server.
+                # litellm routes "openai/<model>" to the custom api_base endpoint.
+                model_name = self.config.embedding.model
+                assert model_name is not None
+                self.embedding_model = f"openai/{model_name}"
             else:
                 raise ValueError(
                     f"Unsupported embedding provider: {self.config.embedding.provider}"
@@ -751,13 +757,35 @@ class DocumentChunkingSource(Source):
             for i in range(0, len(texts), self.config.embedding.batch_size):
                 batch = texts[i : i + self.config.embedding.batch_size]
 
-                # Use litellm.embedding() which works with both Bedrock and Cohere
+                # Resolve api_base for local provider (Ollama / OpenAI-compatible).
+                # litellm expects the base URL without the /embeddings suffix.
+                api_base: Optional[str] = None
+                api_key: Optional[str] = None
+                if self.config.embedding.provider == "local":
+                    raw_endpoint = self.config.embedding.endpoint or os.environ.get(
+                        "LOCAL_EMBEDDING_ENDPOINT",
+                        "http://localhost:11434/v1/embeddings",
+                    )
+                    api_base = (
+                        raw_endpoint[: -len("/embeddings")]
+                        if raw_endpoint.endswith("/embeddings")
+                        else raw_endpoint
+                    )
+                    api_key = "local"  # litellm requires a value; Ollama ignores it
+                else:
+                    api_key = (
+                        self.config.embedding.api_key.get_secret_value()
+                        if self.config.embedding.api_key
+                        else None
+                    )
+
+                # Use litellm.embedding() which works with Bedrock, Cohere, OpenAI, and
+                # local OpenAI-compatible servers.
                 response = litellm.embedding(
                     model=self.embedding_model,
                     input=batch,
-                    api_key=self.config.embedding.api_key.get_secret_value()
-                    if self.config.embedding.api_key
-                    else None,  # Only used for Cohere
+                    api_key=api_key,
+                    api_base=api_base,
                     aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
                 )
 
