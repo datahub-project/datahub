@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { LineageEntity } from '@app/lineageV3/common';
-import { schemaFieldExists } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
+import { LineageEntity, createEdgeId } from '@app/lineageV3/common';
+import getFineGrainedLineage, {
+    schemaFieldExists,
+} from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 
 import { EntityType } from '@types';
 
@@ -268,5 +270,74 @@ describe('schemaFieldExists', () => {
             expect(schemaFieldExists(urn, 'kpi', nodes)).toBe(false);
             expect(schemaFieldExists(urn, 'missing', nodes)).toBe(false);
         });
+    });
+});
+
+// Anti-phantom end-to-end tests: verify getFineGrainedLineage itself honours the gate.
+describe('getFineGrainedLineage — anti-phantom invariant', () => {
+    const datasetUrn = 'urn:li:dataset:(urn:li:dataPlatform:hive,D,PROD)';
+    const chartUrn = 'urn:li:chart:(sigma,C)';
+
+    const makeDatasetNode = (fields: string[]): LineageEntity => ({
+        id: datasetUrn,
+        urn: datasetUrn,
+        type: EntityType.Dataset,
+        entity: {
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            name: 'dataset_D',
+            schemaMetadata: { fields: fields.map((fieldPath) => ({ fieldPath })) },
+        } as any,
+        isExpanded: {} as any,
+        fetchStatus: {} as any,
+        filters: {} as any,
+    });
+
+    const makeChartNode = (inputFieldPaths: string[]): LineageEntity => ({
+        id: chartUrn,
+        urn: chartUrn,
+        type: EntityType.Chart,
+        entity: {
+            urn: chartUrn,
+            type: EntityType.Chart,
+            name: 'chart_C',
+            inputFields: {
+                fields: inputFieldPaths.map((fp) => ({
+                    schemaFieldUrn: `urn:li:schemaField:(${datasetUrn},${fp})`,
+                    schemaField: { fieldPath: fp },
+                })),
+            },
+        } as any,
+        isExpanded: {} as any,
+        fetchStatus: {} as any,
+        filters: {} as any,
+    });
+
+    it('drops column edge when upstream Dataset field is absent from schemaMetadata (phantom guard)', () => {
+        // Dataset D has only "real"; Chart C points at "ghost" — edge must be dropped.
+        const nodes = new Map([
+            [datasetUrn, makeDatasetNode(['real'])],
+            [chartUrn, makeChartNode(['ghost'])],
+        ]);
+
+        const result = getFineGrainedLineage({ nodes, edges: new Map(), rootType: EntityType.Dataset });
+
+        expect(result.indirect.downstream.size).toBe(0);
+        expect(result.indirect.upstream.size).toBe(0);
+    });
+
+    it('emits column edge when upstream Dataset field exists in schemaMetadata (T1.9 positive path)', () => {
+        // Dataset D has "revenue"; Chart C's inputField also points at "revenue" — edge must appear.
+        const nodes = new Map([
+            [datasetUrn, makeDatasetNode(['revenue'])],
+            [chartUrn, makeChartNode(['revenue'])],
+        ]);
+
+        const edges = new Map([[createEdgeId(datasetUrn, chartUrn), { isDisplayed: true } as any]]);
+
+        const result = getFineGrainedLineage({ nodes, edges, rootType: EntityType.Dataset });
+
+        // At least one column-level edge must be present in the downstream map.
+        expect(result.indirect.downstream.size).toBeGreaterThan(0);
     });
 });
