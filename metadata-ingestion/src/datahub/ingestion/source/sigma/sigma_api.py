@@ -615,7 +615,50 @@ class SigmaAPI:
             )
         return None
 
-    def get_page_elements(self, workbook: Workbook, page: Page) -> List[Element]:
+    def get_workbook_column_formulas(
+        self, workbook_id: str
+    ) -> Dict[str, Dict[str, Optional[str]]]:
+        """Fetch per-element column formulas from GET /workbooks/{id}/columns.
+
+        Returns: elementId → {column_name: formula_or_None}
+
+        The /columns endpoint is the authoritative source for column formulas
+        in production; the page-elements endpoint returns columns as plain strings.
+        """
+        result: Dict[str, Dict[str, Optional[str]]] = {}
+        url = f"{self.config.api_url}/workbooks/{workbook_id}/columns"
+        try:
+            while True:
+                response = self._get_api_call(url)
+                if response.status_code == 404:
+                    logger.debug(
+                        f"Column formulas not available for workbook {workbook_id}"
+                    )
+                    return result
+                response.raise_for_status()
+                response_dict = response.json()
+                for col in response_dict.get(Constant.ENTRIES, []):
+                    elem_id = col.get(Constant.ELEMENTID)
+                    name = col.get(Constant.NAME)
+                    formula: Optional[str] = col.get("formula") or None
+                    if elem_id and name:
+                        result.setdefault(elem_id, {})[name] = formula
+                next_page = response_dict.get(Constant.NEXTPAGE)
+                if not next_page:
+                    break
+                url = f"{self.config.api_url}/workbooks/{workbook_id}/columns?page={next_page}"
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch column formulas for workbook {workbook_id}. Exception: {e}"
+            )
+        return result
+
+    def get_page_elements(
+        self,
+        workbook: Workbook,
+        page: Page,
+        column_formulas_by_element: Optional[Dict[str, Dict[str, Optional[str]]]] = None,
+    ) -> List[Element]:
         try:
             elements: List[Element] = []
             response = self._get_api_call(
@@ -638,6 +681,10 @@ class SigmaAPI:
                     f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 )
                 element = Element.model_validate(element_dict)
+                if column_formulas_by_element is not None:
+                    element.column_formulas = column_formulas_by_element.get(
+                        element.elementId, {}
+                    )
                 if (
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
@@ -657,13 +704,20 @@ class SigmaAPI:
     def get_workbook_pages(self, workbook: Workbook) -> List[Page]:
         try:
             pages: List[Page] = []
+            column_formulas_by_element: Dict[str, Dict[str, Optional[str]]] = {}
+            if self.config.extract_lineage:
+                column_formulas_by_element = self.get_workbook_column_formulas(
+                    workbook.workbookId
+                )
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages"
             )
             response.raise_for_status()
             for page_dict in response.json()[Constant.ENTRIES]:
                 page = Page.model_validate(page_dict)
-                page.elements = self.get_page_elements(workbook, page)
+                page.elements = self.get_page_elements(
+                    workbook, page, column_formulas_by_element
+                )
                 pages.append(page)
             return pages
         except Exception as e:

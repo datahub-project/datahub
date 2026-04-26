@@ -123,15 +123,17 @@ class Element(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _extract_column_formulas(cls, values: Any) -> Any:
-        """Allow columns to be either plain strings or dicts with name+formula.
+        """Accept columns as plain strings or as dicts with name+formula.
 
-        When the API (or a test fixture) returns column entries as objects like
-        {"name": "Col", "formula": "[Source/Col]"}, this validator:
+        In production, the page-elements endpoint returns columns as plain strings
+        and formulas are hydrated externally from GET /workbooks/{id}/columns via
+        SigmaAPI.get_workbook_column_formulas().
+
+        In unit tests, column entries may be passed as dicts like
+        {"name": "Col", "formula": "[Source/Col]"} to bypass the API layer.
+        When dict entries are detected this validator:
           - Replaces `columns` with a plain list of names (backward-compatible).
           - Populates `column_formulas` with the name→formula mapping.
-
-        When columns are already strings (existing behaviour), column_formulas
-        stays empty and the formula-resolution path skips those columns.
         """
         raw_columns = values.get("columns", [])
         if raw_columns and isinstance(raw_columns[0], dict):

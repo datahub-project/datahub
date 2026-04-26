@@ -1189,22 +1189,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _build_workbook_warehouse_table_index(
         dataset_inputs: Dict[str, List[str]],
-    ) -> Dict[str, str]:
-        """Map uppercase short table name → warehouse Dataset URN.
+    ) -> Dict[str, List[str]]:
+        """Map uppercase short table name → list of warehouse Dataset URNs.
 
         Sigma chart formulas reference warehouse tables by their short identifier
         (e.g. 'FIVETRAN_LOG__CONNECTOR_STATUS'), not by the full 3-part name.
         This index is built from the SQL-parsed dataset_inputs for the current element:
           - Sigma Dataset entries (value=[warehouse_urn, …]) contribute warehouse URNs.
           - Direct unmatched warehouse entries (value=[]) contribute the key URN itself.
+
+        Multiple URNs under the same short name indicate a schema-level collision.
+        Callers must resolve only when exactly one candidate is present.
         """
-        index: Dict[str, str] = {}
+        index: Dict[str, List[str]] = {}
         for dataset_urn, warehouse_urns in dataset_inputs.items():
             candidates: List[str] = warehouse_urns if warehouse_urns else [dataset_urn]
             for urn in candidates:
                 try:
                     short = DatasetUrn.from_string(urn).name.split(".")[-1].upper()
-                    index[short] = urn
+                    index.setdefault(short, []).append(urn)
                 except Exception:
                     pass
         return index
@@ -1216,7 +1219,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         chart_element_id: str,
         chart_upstream_element_ids: Set[str],
         wb_element_index: Dict[str, List[Element]],
-        wb_warehouse_table_index: Dict[str, str],
+        wb_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
@@ -1226,7 +1229,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           2. column is None (bare [col]) → None (sibling ref within same element).
           3. wb_element_index match filtered by chart_upstream_element_ids
              → upstream chart URN + ref.column.  Ambiguous (>1 match) → None.
-          4. wb_warehouse_table_index match → warehouse Dataset URN + ref.column.
+          4. wb_warehouse_table_index match with exactly one candidate
+             → warehouse Dataset URN + ref.column.
+             Two or more candidates (same short name, different schemas) → None.
           5. else → None (unresolved; caller increments counter via return value).
         """
         if ref.is_parameter:
@@ -1254,10 +1259,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_input_fields_skipped_unresolved += 1
             return None
 
-        wh_urn = wb_warehouse_table_index.get(ref.source.upper())
-        if wh_urn:
+        wh_candidates = wb_warehouse_table_index.get(ref.source.upper(), [])
+        if len(wh_candidates) == 1:
             self.reporter.chart_input_fields_resolved_warehouse_table += 1
-            return (wh_urn, ref.column)
+            return (wh_candidates[0], ref.column)
+        elif len(wh_candidates) > 1:
+            # Two warehouse tables share the same short name (different schemas).
+            self.reporter.chart_input_fields_skipped_unresolved += 1
+            return None
 
         self.reporter.chart_input_fields_skipped_unresolved += 1
         return None

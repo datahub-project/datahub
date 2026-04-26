@@ -422,6 +422,16 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         },
     }
 
+    # Default empty columns response — tests that don't exercise formula resolution
+    # override this; tests that do add their own entry via override_data.
+    api_vs_response[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+
     api_vs_response.update(override_data)
 
     for url in api_vs_response:
@@ -1443,9 +1453,7 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "elementId": "sourceElem01",
                         "type": "table",
                         "name": "T Source",
-                        "columns": [
-                            {"name": "col", "formula": None},
-                        ],
+                        "columns": ["col"],
                         "vizualizationType": "levelTable",
                     },
                     {
@@ -1453,9 +1461,7 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "elementId": "downstreamElem01",
                         "type": "table",
                         "name": "T Downstream",
-                        "columns": [
-                            {"name": "col", "formula": "[T Source/col]"},
-                        ],
+                        "columns": ["col"],
                         "vizualizationType": "levelTable",
                     },
                     {
@@ -1463,12 +1469,7 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "elementId": "warehouseElem01",
                         "type": "table",
                         "name": "T Warehouse",
-                        "columns": [
-                            {
-                                "name": "some_col",
-                                "formula": "[FIVETRAN_LOG__SAMPLE/some_col]",
-                            },
-                        ],
+                        "columns": ["some_col"],
                         "vizualizationType": "levelTable",
                     },
                     {
@@ -1484,11 +1485,44 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "elementId": "paramSiblingElem01",
                         "type": "table",
                         "name": "T Param Sibling",
-                        "columns": [
-                            {"name": "monthly_target", "formula": "[P_Monthly_Spend_Target]"},
-                            {"name": "derived", "formula": "[monthly_target]"},
-                        ],
+                        "columns": ["monthly_target", "derived"],
                         "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 5,
+                "nextPage": None,
+            },
+        },
+        # Real production path: formula data comes from GET /workbooks/{id}/columns.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "sourceElem01",
+                        "name": "col",
+                        "formula": None,
+                    },
+                    {
+                        "elementId": "downstreamElem01",
+                        "name": "col",
+                        "formula": "[T Source/col]",
+                    },
+                    {
+                        "elementId": "warehouseElem01",
+                        "name": "some_col",
+                        "formula": "[FIVETRAN_LOG__SAMPLE/some_col]",
+                    },
+                    {
+                        "elementId": "paramSiblingElem01",
+                        "name": "monthly_target",
+                        "formula": "[P_Monthly_Spend_Target]",
+                    },
+                    {
+                        "elementId": "paramSiblingElem01",
+                        "name": "derived",
+                        "formula": "[monthly_target]",
                     },
                 ],
                 "total": 5,

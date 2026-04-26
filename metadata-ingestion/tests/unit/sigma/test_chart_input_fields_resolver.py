@@ -136,13 +136,13 @@ class TestBuildWorkbookWarehouseTableIndex:
     def test_direct_warehouse_entry(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,FIVETRAN.LOG.FIVETRAN_LOG__CONNECTOR_STATUS,PROD)"
         idx = SigmaSource._build_workbook_warehouse_table_index({urn: []})
-        assert idx["FIVETRAN_LOG__CONNECTOR_STATUS"] == urn
+        assert idx["FIVETRAN_LOG__CONNECTOR_STATUS"] == [urn]
 
     def test_sigma_dataset_with_warehouse_entry(self) -> None:
         sigma_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,abc123,PROD)"
         wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.PETS,PROD)"
         idx = SigmaSource._build_workbook_warehouse_table_index({sigma_urn: [wh_urn]})
-        assert idx["PETS"] == wh_urn
+        assert idx["PETS"] == [wh_urn]
 
     def test_case_insensitive_key(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.my_table,PROD)"
@@ -152,6 +152,14 @@ class TestBuildWorkbookWarehouseTableIndex:
 
     def test_empty_inputs(self) -> None:
         assert SigmaSource._build_workbook_warehouse_table_index({}) == {}
+
+    def test_collision_two_urns_same_short_name(self) -> None:
+        """Two tables in different schemas with the same leaf name produce a list of 2."""
+        urn1 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA1.ORDERS,PROD)"
+        urn2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA2.ORDERS,PROD)"
+        idx = SigmaSource._build_workbook_warehouse_table_index({urn1: [], urn2: []})
+        assert len(idx["ORDERS"]) == 2
+        assert set(idx["ORDERS"]) == {urn1, urn2}
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +295,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="4Buu0C7LnB",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={"FIVETRAN_LOG__CONNECTOR_STATUS": wh_urn},
+            wb_warehouse_table_index={"FIVETRAN_LOG__CONNECTOR_STATUS": [wh_urn]},
             elementId_to_chart_urn={},
         )
         assert result == (wh_urn, "Connector Health")
@@ -302,10 +310,26 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={"MY_TABLE": wh_urn},
+            wb_warehouse_table_index={"MY_TABLE": [wh_urn]},
             elementId_to_chart_urn={},
         )
         assert result == (wh_urn, "col")
+
+    def test_warehouse_table_ambiguous_collision_returns_none(self) -> None:
+        """Two warehouse URNs with the same leaf name → ambiguous → None."""
+        urn1 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA1.ORDERS,PROD)"
+        urn2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA2.ORDERS,PROD)"
+        ref = _make_ref("ORDERS", "id")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            wb_element_index={},
+            wb_warehouse_table_index={"ORDERS": [urn1, urn2]},
+            elementId_to_chart_urn={},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
 
     # --- unresolvable ref ---
 
