@@ -762,9 +762,10 @@ class DocumentChunkingSource(Source):
                 api_base: Optional[str] = None
                 api_key: Optional[str] = None
                 if self.config.embedding.provider == "local":
-                    raw_endpoint = self.config.embedding.endpoint or os.environ.get(
-                        "LOCAL_EMBEDDING_ENDPOINT",
-                        "http://localhost:11434/v1/embeddings",
+                    raw_endpoint = (
+                        self.config.embedding.endpoint
+                        or os.environ.get("LOCAL_EMBEDDING_ENDPOINT")
+                        or "http://localhost:11434/v1/embeddings"
                     )
                     api_base = (
                         raw_endpoint[: -len("/embeddings")]
