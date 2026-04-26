@@ -79,6 +79,8 @@ include ':metadata-service:iceberg-catalog'
 include ':metadata-service:events-service'
 include ':datahub-actions'
 include ':datahub-agent-context'
+// CVE-patched fork of com.linkedin.avroutil1:helper-all (in-repo JAR; see build.gradle dependencySubstitution)
+include 'vendor:avroutil1-helper-all-fork'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');

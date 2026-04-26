@@ -35,6 +35,20 @@ export class BasePage {
     await this.page.waitForLoadState('networkidle');
   }
 
+  async goBack(): Promise<void> {
+    await this.page.goBack();
+    await this.waitForPageLoad();
+  }
+
+  async reload(): Promise<void> {
+    await this.page.reload();
+    await this.waitForPageLoad();
+  }
+
+  async getCurrentUrl(): Promise<string> {
+    return this.page.url();
+  }
+
   async getTitle(): Promise<string> {
     return this.page.title();
   }

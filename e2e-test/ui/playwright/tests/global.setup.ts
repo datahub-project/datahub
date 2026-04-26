@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test as setup, request } from '@playwright/test';
 import { readGmsToken } from '../fixtures/login';
-import { deleteEntities } from '../fixtures/cleanup';
+import { deleteEntities } from '../utils/cleanup';
 import { gmsUrl } from '../utils/constants';
 
 const ADMIN_USERNAME = 'datahub';

@@ -120,31 +120,33 @@ class PipelineProcessor(EntityProcessor):
                 )
                 return
 
-            # Filter pipelines by label matching deployment_environment (if set)
-            # deployment_environment is already normalized to uppercase by config validator
-            if self.config.deployment_environment:
-                target_env = self.config.deployment_environment
+            # Filter pipelines by their Snowplow `label` field (if set).
+            # The label is free-form text set by the operator — not a structured
+            # env field — so we match case-insensitively. The config validator
+            # already uppercases pipeline_label.
+            if self.config.pipeline_label:
+                target_label = self.config.pipeline_label
                 matching_pipelines = []
                 for p in physical_pipelines:
                     if not p.label:
-                        # Pipeline has no environment label — include by default
+                        # Pipeline has no label — include by default
                         logger.info(
                             f"Pipeline '{p.name}' has no label, including it "
-                            f"(cannot determine if it matches deployment_environment='{target_env}')"
+                            f"(cannot determine if it matches pipeline_label='{target_label}')"
                         )
                         matching_pipelines.append(p)
-                    elif p.label.upper() != target_env:
+                    elif p.label.upper() != target_label:
                         logger.info(
                             f"Filtering out pipeline '{p.name}' "
-                            f"(label='{p.label}' does not match deployment_environment='{target_env}')"
+                            f"(label='{p.label}' does not match pipeline_label='{target_label}')"
                         )
-                        self.report.report_pipeline_filtered_by_env(p.name)
+                        self.report.report_pipeline_filtered_by_label(p.name)
                     else:
                         matching_pipelines.append(p)
 
                 if not matching_pipelines:
                     logger.warning(
-                        f"No pipelines match deployment_environment={target_env} "
+                        f"No pipelines match pipeline_label={target_label} "
                         f"(found {len(physical_pipelines)} pipelines with labels: "
                         f"{[p.label for p in physical_pipelines]}). "
                         "Skipping pipeline extraction."

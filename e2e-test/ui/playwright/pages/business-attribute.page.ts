@@ -1,5 +1,5 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { BasePage } from './base-page';
+import { BasePage } from './base.page';
 import { GraphQLHelper } from '../helpers/graphql-helper';
 import type { DataHubLogger } from '../utils/logger';
 
@@ -156,7 +156,8 @@ export class BusinessAttributePage extends BasePage {
     `;
 
     const response = await graphqlHelper.executeQuery(query);
-    const enabled = response?.data?.appConfig?.featureFlags?.businessAttributeEntityEnabled || false;
+    const data = response?.data as { appConfig?: { featureFlags?: { businessAttributeEntityEnabled?: boolean } } } | undefined;
+    const enabled = data?.appConfig?.featureFlags?.businessAttributeEntityEnabled ?? false;
 
     this.logger?.info('businessAttributeEntityEnabled', { enabled });
     return enabled;

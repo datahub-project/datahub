@@ -15,7 +15,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { IncidentsPage } from '../../pages/incidents-page';
+import { IncidentsPage } from '../../pages/incidents.page';
 
 test.use({ featureName: 'incidents-v2' });
 

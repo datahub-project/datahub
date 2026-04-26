@@ -1,5 +1,5 @@
 ---
-title: Business Glossary
+title: Business Glossary Guide
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
