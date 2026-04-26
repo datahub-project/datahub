@@ -103,9 +103,7 @@ def _require_ollama_or_skip(endpoint: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _verify_local_embedding_key(
-    auth_session, urn: str, expected_key: str
-) -> dict:
+def _verify_local_embedding_key(auth_session, urn: str, expected_key: str) -> dict:
     """Verify semanticContent exists and uses the expected embedding model key."""
     semantic_content = verify_semantic_content(auth_session, urn)
     embeddings = semantic_content.get("embeddings", {})
@@ -206,9 +204,8 @@ class TestLocalEmbeddingProvider:
             )
 
         semantic_config = (
-            result.get("data", {})
-            .get("appConfig", {})
-            .get("semanticSearchConfig") or {}
+            result.get("data", {}).get("appConfig", {}).get("semanticSearchConfig")
+            or {}
         )
         provider_type = semantic_config.get("embeddingProviderType")
 
@@ -254,15 +251,15 @@ class TestLocalEmbeddingProvider:
         run_ingestion(auth_session, recipe_path)
         wait_for_writes_to_sync(mcp_only=True)
 
-        logger.info(
-            f"Waiting {INDEXING_WAIT_SECONDS}s for semantic index refresh..."
-        )
+        logger.info(f"Waiting {INDEXING_WAIT_SECONDS}s for semantic index refresh...")
         time.sleep(INDEXING_WAIT_SECONDS)
 
         # Verify semanticContent with expected model key
         for urn in urns:
             _verify_local_embedding_key(auth_session, urn, EXPECTED_EMBEDDING_KEY)
-            logger.info(f"  ✓ {urn}: local embedding with key '{EXPECTED_EMBEDDING_KEY}' verified")
+            logger.info(
+                f"  ✓ {urn}: local embedding with key '{EXPECTED_EMBEDDING_KEY}' verified"
+            )
 
         logger.info(
             f"✓ Local embedding generation confirmed with model key '{EXPECTED_EMBEDDING_KEY}'"
@@ -303,9 +300,7 @@ class TestLocalEmbeddingProvider:
         run_ingestion(auth_session, recipe_path)
         wait_for_writes_to_sync(mcp_only=True)
 
-        logger.info(
-            f"Waiting {INDEXING_WAIT_SECONDS}s for semantic index refresh..."
-        )
+        logger.info(f"Waiting {INDEXING_WAIT_SECONDS}s for semantic index refresh...")
         time.sleep(INDEXING_WAIT_SECONDS)
 
         # Step 3: Verify semanticContent exists for each document
@@ -324,7 +319,9 @@ class TestLocalEmbeddingProvider:
         result = search_documents_semantic(auth_session, test_query)
 
         if "errors" in result:
-            pytest.fail(f"GraphQL errors from semanticSearchAcrossEntities: {result['errors']}")
+            pytest.fail(
+                f"GraphQL errors from semanticSearchAcrossEntities: {result['errors']}"
+            )
 
         search_data = result.get("data", {}).get("semanticSearchAcrossEntities", {})
         total = search_data.get("total", 0)
@@ -337,9 +334,9 @@ class TestLocalEmbeddingProvider:
         result_urns = [item.get("entity", {}).get("urn") for item in search_results]
 
         our_doc_urns = [f"urn:li:document:{doc_id}" for doc_id in doc_ids]
-        access_doc_urn = our_doc_urns[1]   # "Data Access Request Process"
+        access_doc_urn = our_doc_urns[1]  # "Data Access Request Process"
         getting_started_urn = our_doc_urns[0]  # "Getting Started with DataHub"
-        churn_doc_urn = our_doc_urns[2]    # "Machine Learning Model: Churn Prediction"
+        churn_doc_urn = our_doc_urns[2]  # "Machine Learning Model: Churn Prediction"
 
         ranks = {
             urn: result_urns.index(urn) if urn in result_urns else float("inf")
