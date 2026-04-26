@@ -64,6 +64,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #17086 (Ingestion / Sigma) Intra-workbook element-to-element lineage is now emitted via `ChartInfo.inputEdges`. On the next ingestion run, new chart→chart edges will appear in the lineage graph for any Sigma workbook where one element feeds another. This is additive — no existing dataset or warehouse lineage edges are removed.
 - #16358 (Ingestion / dbt) **dbt URN lowercasing is now configurable via `convert_urns_to_lowercase`.** Previously, dbt unconditionally lowercased all target-platform URNs with no way to disable it. This caused lineage breaks with case-sensitive platforms like BigQuery when table names contained uppercase characters (e.g. `AM100` lowercased to `am100`). The default is `true` (preserving existing behavior). Users on case-sensitive platforms like BigQuery should set `convert_urns_to_lowercase: false` in their dbt recipe to preserve original identifier casing.
 - (Frontend) The OIDC post-login redirect cookie (`REDIRECT_URL`) format has changed. It now stores a plain Base64-encoded URL string instead of the previous serialized format. Any in-flight `REDIRECT_URL` cookies set before the upgrade will fail to decode; affected users will be redirected to the DataHub home page (`/`) after their next SSO login instead of the page they originally requested. No action is required — users simply log in again and the new cookie format takes effect automatically.
 - **(Operations / Helm)** Added `global.datahub.monitoring.metricsMode` with three modes: `legacy` (default), `jmx_and_actuator`, and `actuator_only`, so JMX vs Spring Boot Actuator scraping can be chosen cluster-wide. See the [Micrometer transition plan](../advanced/monitoring.md#micrometer-transition-plan).
@@ -171,7 +172,7 @@ Patch release focused on dependency and security updates (Java stack, Python ing
 
 - #16829 / #16828: Spring bumped to 6.2.17 and Netty to 4.1.132.Final.
 - #16950: Patched Rhino, Logback, and Commons Lang3 for CVEs.
-- OpenTelemetry API/SDK and instrumentation upgraded (Docker images use `opentelemetry-javaagent` 2.26.1; JMX Prometheus agent unchanged at 0.20.0); addresses CVE-2026-33701.
+- OpenTelemetry API/SDK and instrumentation upgraded (Docker images use `opentelemetry-javaagent` 2.27.0; JMX Prometheus agent unchanged at 0.20.0); addresses CVE-2026-33701.
 - #16822 / #16868 / #16955: Python ingestion dependency fixes (CVE-2024-27459), raised `pyOpenSSL` floor with expanded security constraints, and LiteLLM 1.83.0 for CVE-2026-35030.
 
 ### Bug Fixes
@@ -195,6 +196,42 @@ Patch release focused on dependency and security updates (Java stack, Python ing
   3. On subsequent runs, users will no longer be emitted, but stateful ingestion will safely skip them (they were already marked non-primary in the checkpoint).
 
   Skipping step 1 and going directly to `false` means the checkpoint still has users marked as primary from the old code, and stateful ingestion will soft-delete them.
+
+## v1.5.0.3
+
+Patch release focused on security and dependency updates (Play frontend and Java stack, Python ingestion), OIDC and native sign-up fixes, and Docker/CI maintenance.
+
+- #17030: Jetty upgrade with refreshed Gradle lockfiles.
+- #17114: Reactor Netty 1.2.17.
+- #17112: Apache Shiro 2.1.0 (CVE-2026-23903).
+- #17110: pac4j 6.4.1 (CVE-2026-40458).
+- #17113: Hibernate Validator upgrade (CVE-2025-35036).
+- #17132: jakarta.mail 1.6.8 (CVE-2025-7962).
+- #17140: OpenTelemetry Java agent 2.27.0.
+- #17152: `maven-artifact` 3.9.15.
+- #17092: Python `cryptography` raised to >= 46.0.7.
+- #17116: Ingestion lockfile updates for aiohttp, pytest, and tighter declared bounds.
+- #17131: Ingestion constraints for Authlib (>= 1.6.11) and pypdf (>= 6.10.2) addressing GHSA-jj8c-mmj3-mmgv and GHSA-4pxv-j86v-mhcw.
+- Docker-bundled Python virtualenvs: `lxml` version floor for CVE-2026-41066.
+- #17045: `constraints.txt` included in lock file materialization for more reproducible ingestion installs.
+- #17182: `locked` datahub-actions removes pip/uv
+
+### Notable Changes
+
+- datahub-actions moved to wolfi-base image
+
+### Bug Fixes
+
+- #17032: OIDC post-login redirect cookie handling.
+- Play Framework: add `play-java-forms` at runtime for native sign-up email validation; smoke tests use valid email addresses for those flows.
+- Shiro/pac4j: `AuthModule` refactored so the runtime no longer depends on `master`-only build artifacts for authentication wiring.
+
+### Build, Docker, and Tooling
+
+- #17156: Slimmer `datahub-actions` image build; test-only dependency moves; documentation updates for redacting certain Excel-sourced content.
+- #17133: `datahub-upgrade` image bundles kubectl v1.35.4.
+- macOS: pin JPype1 below 1.7.0 so dependency resolution keeps compatible wheels on Apple Silicon (reflected in ingestion `constraints.txt`).
+- CI: pin remaining GitHub Actions to full commit SHAs for supply-chain hardening.
 
 ## v1.4.0
 

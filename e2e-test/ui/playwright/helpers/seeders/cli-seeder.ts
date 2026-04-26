@@ -2,8 +2,8 @@ import { Page } from '@playwright/test';
 import * as fs from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { extractUrn, waitForSync, type Mcp, type Urn } from './seeder-utils';
-import { gmsUrl as resolveGmsUrl } from '../utils/constants';
+import { extractUrn, waitForSync, type Mcp, type Urn } from '../seeder-utils';
+import { gmsUrl as resolveGmsUrl } from '../../utils/constants';
 
 const execAsync = promisify(exec);
 

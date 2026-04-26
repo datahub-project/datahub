@@ -29,7 +29,6 @@ com.google.j2objc:j2objc-annotations:3.1=pegasusPlugin,restClient,restClientComp
 com.google.protobuf:protobuf-java-util:3.25.5=pegasusPlugin,restClient,restClientCompile,testRestClient
 com.google.protobuf:protobuf-java:3.25.8=pegasusPlugin,restClient,restClientCompile,testRestClient
 com.ibm.icu:icu4j:69.1=compileClasspath,dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testDataTemplate,testRestClient,testRuntimeClasspath
-com.linkedin.avroutil1:helper-all:0.2.138=compileClasspath,pegasusPlugin,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.linkedin.parseq:parseq-batching:5.1.2=pegasusPlugin,restClient,restClientCompile,testRestClient
 com.linkedin.parseq:parseq-restli-client:5.1.2=pegasusPlugin,restClient,restClientCompile,testRestClient
 com.linkedin.parseq:parseq:5.1.2=pegasusPlugin,restClient,restClientCompile,testRestClient

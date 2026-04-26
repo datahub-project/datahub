@@ -17,7 +17,7 @@
     "typescript": "^5.3.0"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "winston": "^3.19.0"

@@ -9,8 +9,8 @@
  */
 
 import { test } from '../../fixtures/base-test';
-import { BusinessAttributePage } from '../../pages/business-attribute-page';
-import { DatasetPage } from '../../pages/dataset-page';
+import { BusinessAttributePage } from '../../pages/business-attribute.page';
+import { DatasetPage } from '../../pages/dataset.page';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
 
 test.use({ featureName: 'business-attributes' });

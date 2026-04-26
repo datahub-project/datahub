@@ -113,9 +113,15 @@ class RedshiftConfig(
         )
     )
 
-    default_schema: str = Field(
+    default_schema: Optional[str] = Field(
         default="public",
-        description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
+        description=(
+            "The default schema to use if the SQL parser fails to parse the "
+            "schema with the `sql_based` lineage collector. Set to `None` "
+            "(or override at runtime) to leave unqualified table references "
+            "without a schema qualifier in the resulting URN, instead of "
+            "forcing them under the default schema."
+        ),
     )
 
     is_serverless: bool = Field(
