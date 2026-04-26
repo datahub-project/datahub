@@ -39,12 +39,12 @@ from tests.consistency_utils import wait_for_writes_to_sync
 from tests.semantic.test_semantic_search import (
     SAMPLE_DOCUMENTS,
     create_documents_with_sdk,
+    create_ingestion_recipe,
     delete_document,
     execute_graphql,
     run_ingestion,
     search_documents_semantic,
     verify_semantic_content,
-    create_ingestion_recipe,
 )
 
 logger = logging.getLogger(__name__)
