@@ -1914,7 +1914,10 @@ class TestGetDataModelByUrlIdHttpStatusSurfaced:
         warnings = api.report.warnings
         # Status code goes into ``context`` (not ``title``) so LossyList
         # groups all non-200 orphan fetches under one stable key.
-        assert any(w.title == "Sigma orphan Data Model fetch returned non-200" for w in warnings), (
+        assert any(
+            w.title == "Sigma orphan Data Model fetch returned non-200"
+            for w in warnings
+        ), (
             f"expected a stable non-200 warning title; "
             f"got {[w.title for w in warnings]!r}"
         )
