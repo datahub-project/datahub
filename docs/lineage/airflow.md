@@ -515,20 +515,23 @@ action is required for new lineage. The warning is informational and serves as
 a hint that you may want to file an upstream issue against the offending
 provider.
 
-The warning is **deduplicated per-process** — you will see at most one log
-line per distinct `(original, sanitized)` pair for the lifetime of the worker
-process, not one per task run. If the same buggy operator runs on a 5-minute
-schedule, you'll still only see one warning. A second occurrence with a
-different `original` name (e.g. a different table) will produce a new line.
+The warning fires **at most once per worker process**. The first buggy name
+the sanitiser sees produces a log line, and subsequent occurrences (same name
+or different) stay silent for the lifetime of that process — the warning is
+an alarm, not a stream, and additional lines would only enumerate the
+symptom. To find the full set of orphans, search DataHub for `.None.` or
+empty segments using the cleanup commands below.
 
 If a Dataset name consists **entirely** of `"None"` and empty segments
 (pathological producer output), the plugin keeps the original name to avoid
-emitting an empty-name URN and logs a different warning instead:
+emitting an empty-name URN and the warning text changes accordingly:
 
 ```text
 WARNING  datahub_airflow_plugin._datahub_ol_adapter: OpenLineage Dataset name
 'None.None' had only 'None'/empty segments; kept original to avoid emitting
-an empty URN.
+an empty URN. The resulting DataHub URN will literally contain 'None.None'
+in its name field — search DataHub for that substring to find orphans and
+report the upstream producer.
 ```
 
 Such URNs remain reachable in the catalog (so they can be soft-deleted with

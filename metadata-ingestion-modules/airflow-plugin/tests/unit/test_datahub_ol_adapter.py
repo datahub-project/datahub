@@ -19,22 +19,20 @@ import logging
 import pytest
 from openlineage.client.run import Dataset as OpenLineageDataset
 
+from datahub_airflow_plugin import _datahub_ol_adapter as adapter
 from datahub_airflow_plugin._datahub_ol_adapter import (
     _sanitize_ol_dataset_name,
-    _warn_all_none_once,
-    _warn_sanitized_once,
     translate_ol_to_datahub_urn,
 )
 
 
 @pytest.fixture(autouse=True)
-def _clear_warning_dedupe_cache() -> None:
-    # The sanitiser dedupes WARNINGs per-process via two ``lru_cache`` helpers.
-    # Tests must observe a fresh process so a warning fires every time we
-    # exercise a path that should warn — otherwise test ordering becomes a
-    # silent dependency.
-    _warn_sanitized_once.cache_clear()
-    _warn_all_none_once.cache_clear()
+def _reset_warning_flag() -> None:
+    # The sanitiser uses a per-process ``_warning_logged`` flag to fire the
+    # WARNING at most once. Tests must observe a fresh process so a warning
+    # actually fires whenever we exercise a path that should warn —
+    # otherwise test ordering becomes a silent dependency.
+    adapter._warning_logged = False
 
 
 class TestSanitizeOlDatasetName:
@@ -174,56 +172,27 @@ class TestSanitizeOlDatasetName:
         # table literally named ``None``.
         assert _sanitize_ol_dataset_name("None") == "None"
 
-    @pytest.mark.parametrize("bad_name", [None, 0, 42, [], {"a": 1}])
-    def test_non_string_input_returned_unchanged(self, bad_name: object) -> None:
-        # Defensive: a buggy upstream provider could set ``ol_uri.name`` to a
-        # Python ``None`` or other non-string. Before this guard, the very
-        # first ``"." in name`` check would raise ``TypeError`` and (in the
-        # Airflow 3 listener) be silently swallowed at DEBUG level. The
-        # contract here is "do not introduce a new failure mode" — let the
-        # pre-existing downstream code handle it however it did before, do
-        # not crash *inside* our sanitiser.
-        assert _sanitize_ol_dataset_name(bad_name) is bad_name  # type: ignore[arg-type]
-
-    def test_warning_is_deduplicated_across_calls(
+    def test_warning_logged_at_most_once_per_process(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        # A heavily-affected customer can call the sanitiser thousands of
-        # times per scheduler cycle on the same broken name. Logging every
-        # occurrence drowns Airflow logs in duplicate diagnostics with no
-        # extra signal. We assert: same (input, output) -> exactly one
-        # WARNING regardless of call count.
-        bad = "mydb.None.public.events"
-
+        # The WARNING is an alarm, not a stream: it fires on the first
+        # buggy name and then stays silent for the lifetime of the worker
+        # process. A heavily-affected customer can call the sanitiser
+        # thousands of times per scheduler cycle (same name, different
+        # names, different categories) and still see just one log line —
+        # additional lines would only enumerate the symptom, not surface
+        # a new bug. Operators discover the full set of orphans by
+        # searching DataHub for ``.None.`` or empty segments.
         with caplog.at_level(logging.WARNING):
+            _sanitize_ol_dataset_name("a.None.b")  # fires
+            _sanitize_ol_dataset_name("c.None.d")  # suppressed
+            _sanitize_ol_dataset_name("None.None")  # suppressed
             for _ in range(50):
-                assert _sanitize_ol_dataset_name(bad) == "mydb.public.events"
-
-        rendered = [
-            r.getMessage()
-            for r in caplog.records
-            if "mydb.None.public.events" in r.getMessage()
-        ]
-        assert len(rendered) == 1, (
-            f"expected exactly one WARNING via dedupe; got {len(rendered)}: {rendered}"
-        )
-
-    def test_warning_dedupe_is_per_distinct_pair(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        # Dedupe must key on the ``(name, sanitized)`` pair, not be global.
-        # Two genuinely different broken names should each produce their own
-        # WARNING, otherwise customers debugging multiple broken DAGs only
-        # learn about the first one.
-        with caplog.at_level(logging.WARNING):
-            _sanitize_ol_dataset_name("a.None.b")
-            _sanitize_ol_dataset_name("c.None.d")
-            _sanitize_ol_dataset_name("a.None.b")  # repeat -> suppressed
-            _sanitize_ol_dataset_name("c.None.d")  # repeat -> suppressed
+                _sanitize_ol_dataset_name("a.None.b")  # all suppressed
 
         rendered = [r.getMessage() for r in caplog.records]
-        assert sum("'a.None.b'" in m for m in rendered) == 1, rendered
-        assert sum("'c.None.d'" in m for m in rendered) == 1, rendered
+        assert len(rendered) == 1, rendered
+        assert "'a.None.b'" in rendered[0]
 
     def test_translate_all_none_input_does_not_produce_empty_urn(self) -> None:
         # End-to-end guard: even on the pathological all-None path the

@@ -1,5 +1,4 @@
 import logging
-from functools import lru_cache
 from typing import TYPE_CHECKING
 
 # Conditional import for OpenLineage (may not be installed)
@@ -26,31 +25,16 @@ OL_SCHEME_TWEAKS = {
 }
 
 
-# Cache size is generous enough to absorb a fleet of distinct buggy names
-# without unbounded growth. 512 is well above any realistic per-process count.
-_WARN_DEDUPE_MAXSIZE = 512
+# Fire the sanitiser warning at most once per worker process
+_warning_logged: bool = False
 
 
-@lru_cache(maxsize=_WARN_DEDUPE_MAXSIZE)
-def _warn_sanitized_once(original: str, sanitized: str) -> None:
-    # One WARNING per distinct (original, sanitized) pair per process.
-    logger.warning(
-        "OpenLineage Dataset name %r contained 'None'/empty segments; "
-        "sanitized to %r before producing DataHub URN. Likely upstream bug "
-        "in the producer (unset field interpolated into an f-string).",
-        original,
-        sanitized,
-    )
-
-
-@lru_cache(maxsize=_WARN_DEDUPE_MAXSIZE)
-def _warn_all_none_once(original: str) -> None:
-    # One WARNING per distinct all-None name per process.
-    logger.warning(
-        "OpenLineage Dataset name %r had only 'None'/empty segments; "
-        "kept original to avoid emitting an empty URN.",
-        original,
-    )
+def _warn_once(message: str, *args: object) -> None:
+    global _warning_logged
+    if _warning_logged:
+        return
+    _warning_logged = True
+    logger.warning(message, *args)
 
 
 def _sanitize_ol_dataset_name(name: str) -> str:
@@ -64,13 +48,10 @@ def _sanitize_ol_dataset_name(name: str) -> str:
     is unset (ING-2018), but the bug class is generic.
 
     Returns the input unchanged on every path that doesn't strictly need
-    rewriting (no-dot, dotted-but-clean, non-string). When every segment is
-    junk we keep the original so the orphan stays *findable* rather than
-    becoming an empty-name URN. Sanitising paths log a deduplicated WARNING.
+    rewriting (no-dot, dotted-but-clean). When every segment is junk we keep
+    the original so the orphan stays *findable* rather than becoming an
+    empty-name URN. Sanitising paths log a deduplicated WARNING.
     """
-    if not isinstance(name, str):
-        return name  # type: ignore[unreachable]
-
     if "." not in name:
         return name
 
@@ -80,11 +61,24 @@ def _sanitize_ol_dataset_name(name: str) -> str:
         return name
 
     if not cleaned:
-        _warn_all_none_once(name)
+        _warn_once(
+            "OpenLineage Dataset name %r had only 'None'/empty segments; kept "
+            "original to avoid emitting an empty URN. The resulting DataHub URN "
+            "will literally contain %r in its name field — search DataHub for "
+            "that substring to find orphans and report the upstream producer.",
+            name,
+            name,
+        )
         return name
 
     sanitized = ".".join(cleaned)
-    _warn_sanitized_once(name, sanitized)
+    _warn_once(
+        "OpenLineage Dataset name %r contained 'None'/empty segments; "
+        "sanitized to %r before producing DataHub URN. Likely upstream bug "
+        "in the producer (unset field interpolated into an f-string).",
+        name,
+        sanitized,
+    )
     return sanitized
 
 
