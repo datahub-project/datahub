@@ -1464,7 +1464,6 @@ def test_sigma_ingest_data_models_lineage_http_error(
     pipeline.run()
     pipeline.raise_from_status()
 
-
     with open(output_path) as f:
         mces = json.load(f)
 
@@ -1937,7 +1936,6 @@ def test_sigma_ingest_data_models_workspaceId_mismatch_uses_files(
         "split-brain C2 is protecting against. Got "
         f"payload_counts={payload_counts}"
     )
-
 
     with open(output_path) as f:
         mces = json.load(f)

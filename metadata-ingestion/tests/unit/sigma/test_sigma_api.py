@@ -1448,7 +1448,6 @@ class TestEagerDatasetUrnMapPopulation:
     """
 
     def test_map_populated_before_any_workunit_is_yielded(self) -> None:
-
         from datahub.ingestion.source.sigma.data_classes import SigmaDataset
 
         source = _create_sigma_source()
@@ -1532,7 +1531,6 @@ class TestChartInputsInsertionOrder:
     """
 
     def test_chart_inputs_preserve_insertion_order(self) -> None:
-
         from datahub.ingestion.source.sigma.data_classes import Element, Workbook
         from datahub.metadata.schema_classes import ChartInfoClass
 
@@ -1616,7 +1614,6 @@ class TestDataModelElementOwner:
     """
 
     def _make_dm_with_one_element(self) -> SigmaDataModel:
-
         from datahub.ingestion.source.sigma.data_classes import (
             SigmaDataModelElement,
         )
