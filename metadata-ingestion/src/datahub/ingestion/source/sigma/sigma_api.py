@@ -1024,7 +1024,7 @@ class SigmaAPI:
                             "Re-run the ingestion to pick up the cross-DM "
                             "edge, or investigate the Sigma API rate limit."
                         ),
-                        context=f"url_id={url_id}, status={status}",
+                        context=f"url_id={url_id}, http_status={status}",
                     )
                 else:
                     # 401 / 403 / 404 / 5xx (after retries) land here. Emit

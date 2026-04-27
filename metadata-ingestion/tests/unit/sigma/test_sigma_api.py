@@ -1912,15 +1912,17 @@ class TestGetDataModelByUrlIdHttpStatusSurfaced:
         # steady-state authz denials.
         assert api.report.data_model_external_reference_rate_limited == 0
         warnings = api.report.warnings
-        assert any("403" in (w.title or "") for w in warnings), (
-            f"expected the status code in the warning title; "
+        # Status code goes into ``context`` (not ``title``) so LossyList
+        # groups all non-200 orphan fetches under one stable key.
+        assert any(w.title == "Sigma orphan Data Model fetch returned non-200" for w in warnings), (
+            f"expected a stable non-200 warning title; "
             f"got {[w.title for w in warnings]!r}"
         )
         # ``context`` is accumulated into a list on ``StructuredLogEntry``;
         # stringify for substring matching so this is robust to the
         # framework-side format (list vs str) changing shape.
-        assert any("status=403" in str(w.context) for w in warnings), (
-            f"expected status=403 in the warning context for triage; "
+        assert any("http_status=403" in str(w.context) for w in warnings), (
+            f"expected http_status=403 in the warning context for triage; "
             f"got {[w.context for w in warnings]!r}"
         )
 
@@ -2040,12 +2042,10 @@ class TestDataModelContainerUrnPlatformInstanceDisjoint:
 
 class TestPaginatorWarningTitleIncludesStatusCode:
     """PR2 review M1 (minor part): the paginator's exception-path
-    warning used to have an HTTP-status-agnostic title, making it
-    impossible to triage "429 on page N" vs "malformed JSON" without
-    opening each warning. The title is now suffixed with
-    ``(HTTP <status>)`` when the exception is a ``requests.HTTPError``
-    with an attached response; non-HTTP failures keep the original
-    title so ``LossyList`` rate-limiting still groups them.
+    warning has a stable title so LossyList can group all aborts
+    under one key; the HTTP status code is surfaced in ``context``
+    so operators can triage "429 on page N" vs "malformed JSON"
+    without the title changing per-call.
     """
 
     def test_429_after_retries_emits_http_status_in_title(self) -> None:
@@ -2060,9 +2060,15 @@ class TestPaginatorWarningTitleIncludesStatusCode:
                 "Unable to fetch sigma data models.",
             )
         assert entries == []
+        # Title is stable so LossyList groups all paginator aborts.
         titles = [w.title or "" for w in api.report.warnings]
-        assert any("HTTP 429" in t for t in titles), (
-            f"expected 'HTTP 429' in the paginator warning title so "
-            f"operators can triage rate-limited pages specifically; "
+        assert any(t == "Sigma paginated endpoint aborted" for t in titles), (
+            f"expected stable 'Sigma paginated endpoint aborted' title; "
             f"got titles {titles!r}"
+        )
+        # HTTP status goes into context so operators can triage per-call.
+        assert any("http_status=429" in str(w.context) for w in api.report.warnings), (
+            f"expected 'http_status=429' in the paginator warning context "
+            f"so operators can triage rate-limited pages specifically; "
+            f"got contexts {[w.context for w in api.report.warnings]!r}"
         )
