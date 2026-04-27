@@ -36,7 +36,28 @@ source:
         # Coordinates
         catalog: "fivetran_catalog"
         log_schema: "fivetran_log"
-     
+
+      # Optional - If destination platform is 'managed_data_lake', provide the
+      # Fivetran Managed Data Lake Service configuration. The Fivetran Platform
+      # Connector log is read through the Snowflake catalog-linked database that
+      # surfaces the data lake; emitted URNs target the underlying AWS Glue
+      # catalog.
+      # managed_data_lake_destination_config:
+      #   # Snowflake CLD coordinates (case-preserving)
+      #   account_id: "abc48144"
+      #   warehouse: "COMPUTE_WH"
+      #   database: "lh_source_fivetran_usw2"
+      #   log_schema: "fivetran_metadata_<suffix>"
+      #
+      #   # Credentials
+      #   username: "${SNOWFLAKE_USER}"
+      #   password: "${SNOWFLAKE_PASS}"
+      #   role: "snowflake_role"
+      #
+      #   # Glue catalog settings
+      #   glue_database_prefix: "fivetran_"  # default
+      #   # preserve_case: true              # default for MDL
+
     # Optional - filter for certain connector names instead of ingesting everything.
     # connector_patterns:
     #   allow:

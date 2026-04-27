@@ -29,6 +29,7 @@ from datahub.ingestion.source.fivetran.config import (
     Constant,
     FivetranSourceConfig,
     FivetranSourceReport,
+    ManagedDataLakeDestinationConfig,
     PlatformDetail,
 )
 from datahub.ingestion.source.fivetran.data_classes import Connector, Job
@@ -193,16 +194,8 @@ class FivetranSource(StatefulIngestionSourceBase):
             if input_dataset_urn:
                 input_dataset_urn_list.append(input_dataset_urn)
 
-            destination_table = (
-                lineage.destination_table
-                if destination_details.include_schema_in_urn
-                else lineage.destination_table.split(".", 1)[1]
-            )
-            output_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=destination_details.platform,
-                table_name=f"{destination_details.database.lower()}.{destination_table}",
-                env=destination_details.env,
-                platform_instance=destination_details.platform_instance,
+            output_dataset_urn = self._build_destination_urn(
+                lineage.destination_table, destination_details
             )
             output_dataset_urn_list.append(output_dataset_urn)
 
@@ -250,6 +243,69 @@ class FivetranSource(StatefulIngestionSourceBase):
                 for k, v in destination_details.model_dump().items()
                 if v is not None and not isinstance(v, bool)
             },
+        )
+
+    def _build_destination_urn(
+        self, destination_table: str, destination_details: PlatformDetail
+    ) -> DatasetUrn:
+        return self.build_destination_urn(
+            destination_table,
+            destination_details,
+            self.config.fivetran_log_config.managed_data_lake_destination_config,
+        )
+
+    @staticmethod
+    def build_destination_urn(
+        destination_table: str,
+        destination_details: PlatformDetail,
+        mdl_cfg: Optional[ManagedDataLakeDestinationConfig] = None,
+    ) -> DatasetUrn:
+        """Construct the destination dataset URN for one lineage edge.
+
+        For relational warehouses (snowflake/bigquery/databricks), emits a
+        three-part `<database>.<schema>.<table>` URN. For the Fivetran Managed
+        Data Lake destination, emits a Glue URN where the Glue database name
+        is derived from the connector schema with the configured prefix
+        (default `fivetran_`).
+        """
+        if destination_details.platform == "managed_data_lake":
+            assert mdl_cfg is not None, (
+                "managed_data_lake_destination_config required when "
+                "destination_platform is 'managed_data_lake' (validated upstream)."
+            )
+            if mdl_cfg.catalog_type == "glue":
+                # destination_table is "<schema>.<table>" — keep the schema part
+                # so we can derive the Glue database name. include_schema_in_urn
+                # is intentionally ignored here because the schema component is
+                # load-bearing (it determines the Glue DB), not just naming.
+                schema, _, table = destination_table.partition(".")
+                glue_db = f"{mdl_cfg.glue_database_prefix}{schema}"
+                return DatasetUrn.create_from_ids(
+                    platform_id="glue",
+                    table_name=f"{glue_db}.{table}",
+                    env=destination_details.env,
+                    platform_instance=destination_details.platform_instance,
+                )
+            raise NotImplementedError(
+                f"managed_data_lake catalog_type={mdl_cfg.catalog_type!r} "
+                "is not implemented yet."
+            )
+
+        # Existing relational-warehouse path. Platform and database are
+        # populated upstream in `_extend_lineage` (defaulting to the log
+        # config's destination_platform / fivetran_log_database).
+        assert destination_details.platform is not None
+        assert destination_details.database is not None
+        table_name = (
+            destination_table
+            if destination_details.include_schema_in_urn
+            else destination_table.split(".", 1)[1]
+        )
+        return DatasetUrn.create_from_ids(
+            platform_id=destination_details.platform,
+            table_name=f"{destination_details.database.lower()}.{table_name}",
+            env=destination_details.env,
+            platform_instance=destination_details.platform_instance,
         )
 
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:

@@ -15,6 +15,7 @@ from datahub.ingestion.source.fivetran.config import (
     DatabricksDestinationConfig,
     FivetranLogConfig,
     FivetranSourceConfig,
+    ManagedDataLakeDestinationConfig,
     PlatformDetail,
     SnowflakeDestinationConfig,
 )
@@ -736,6 +737,220 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
         output_path=f"{output_file}",
         golden_path=f"{golden_file}",
     )
+
+
+def mdl_query_results(query, connector_query_results=default_connector_query_results):
+    """Mocked Fivetran-log query results for the Managed Data Lake destination.
+
+    Uses lowercase database/schema identifiers because the MDL config defaults
+    `preserve_case=True` — the catalog-linked database surfacing the log retains
+    the case of the underlying Glue/Iceberg schema. We rebuild the full query
+    set against the lowercase schema rather than delegating to
+    `default_query_results`, which is hard-coded to the legacy uppercase
+    Snowflake-warehouse path.
+    """
+    fivetran_log_query = FivetranLogQuery()
+    fivetran_log_query.set_schema("fivetran_metadata_test")
+
+    if query == fivetran_log_query.use_database("lh_source_fivetran_usw2"):
+        return []
+    if query == fivetran_log_query.get_connectors_query():
+        return connector_query_results
+    if query == fivetran_log_query.get_table_lineage_query(
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+    ):
+        return [
+            {
+                "connection_id": "calendar_elected",
+                "source_table_id": "10040",
+                "source_table_name": "employee",
+                "source_schema_name": "public",
+                "destination_table_id": "7779",
+                "destination_table_name": "employee",
+                "destination_schema_name": "postgres_public",
+            },
+            {
+                "connection_id": "calendar_elected",
+                "source_table_id": "10041",
+                "source_table_name": "company",
+                "source_schema_name": "public",
+                "destination_table_id": "7780",
+                "destination_table_name": "company",
+                "destination_schema_name": "postgres_public",
+            },
+            {
+                "connection_id": "my_confluent_cloud_connector_id",
+                "source_table_id": "10042",
+                "source_table_name": "my-source-topic",
+                "source_schema_name": "confluent_cloud",
+                "destination_table_id": "7781",
+                "destination_table_name": "my-destination-topic",
+                "destination_schema_name": "confluent_cloud",
+            },
+        ]
+    if query == fivetran_log_query.get_column_lineage_query(
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+    ):
+        return [
+            {
+                "source_table_id": "10040",
+                "destination_table_id": "7779",
+                "source_column_name": "id",
+                "destination_column_name": "id",
+            },
+            {
+                "source_table_id": "10040",
+                "destination_table_id": "7779",
+                "source_column_name": "name",
+                "destination_column_name": "name",
+            },
+            {
+                "source_table_id": "10041",
+                "destination_table_id": "7780",
+                "source_column_name": "id",
+                "destination_column_name": "id",
+            },
+            {
+                "source_table_id": "10041",
+                "destination_table_id": "7780",
+                "source_column_name": "name",
+                "destination_column_name": "name",
+            },
+        ]
+    if query == fivetran_log_query.get_users_query():
+        return [
+            {
+                "user_id": "reapply_phone",
+                "given_name": "Shubham",
+                "family_name": "Jagtap",
+                "email": "abc.xyz@email.com",
+            }
+        ]
+    if query == fivetran_log_query.get_sync_logs_query(
+        syncs_interval=7,
+        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
+    ):
+        return [
+            {
+                "connection_id": "calendar_elected",
+                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
+                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+            },
+            {
+                "connection_id": "my_confluent_cloud_connector_id",
+                "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
+                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+            },
+        ]
+    raise Exception(f"Unknown query {query}")
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_fivetran_with_managed_data_lake_dest(pytestconfig, tmp_path):
+    """End-to-end test for the Fivetran Managed Data Lake destination.
+
+    Verifies that with a lowercase CLD database/schema and `preserve_case=True`:
+      1. The Snowflake-engine path emits queries against the verbatim lowercase
+         identifiers (no `.upper()`).
+      2. The destination URN is a Glue URN of shape
+         `urn:li:dataset:(glue, fivetran_<schema>.<table>, env)`, not a
+         Snowflake URN pointing at the CLD.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
+
+    output_file = tmp_path / "fivetran_test_events.json"
+    golden_file = test_resources_dir / "fivetran_managed_data_lake_golden.json"
+
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
+        connection_magic_mock = MagicMock()
+        connection_magic_mock.execute.side_effect = mdl_query_results
+        mock_create_engine.return_value = connection_magic_mock
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "fivetran-mdl-test",
+                "source": {
+                    "type": "fivetran",
+                    "config": {
+                        "fivetran_log_config": {
+                            "destination_platform": "managed_data_lake",
+                            "managed_data_lake_destination_config": {
+                                "account_id": "testid",
+                                "warehouse": "test_wh",
+                                "username": "test",
+                                "password": "test@123",
+                                "role": "testrole",
+                                # Lowercase database/schema — the case-preserving
+                                # CLD identifiers that the legacy `.upper()`
+                                # path would have failed against.
+                                "database": "lh_source_fivetran_usw2",
+                                "log_schema": "fivetran_metadata_test",
+                                # `preserve_case` defaults to True for MDL.
+                                "catalog_type": "glue",
+                                # Keep the default `glue_database_prefix="fivetran_"`.
+                            },
+                        },
+                        "connector_patterns": {
+                            "allow": ["postgres", "confluent_cloud"]
+                        },
+                        "destination_patterns": {
+                            "allow": [
+                                "interval_unconstitutional",
+                                "my_confluent_cloud_connector_id",
+                            ]
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": f"{output_file}"},
+                },
+            }
+        )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{output_file}",
+        golden_path=f"{golden_file}",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_fivetran_managed_data_lake_destination_config():
+    """The MDL destination config must reuse the SnowflakeConnectionConfig
+    SQLAlchemy URL builder — the engine is Snowflake under the hood since
+    the CLD is what surfaces the log."""
+    mdl_dest = ManagedDataLakeDestinationConfig(
+        account_id="TESTID",
+        warehouse="TEST_WH",
+        username="test",
+        password="test@123",
+        role="TESTROLE",
+        database="LH_SOURCE_FIVETRAN_USW2",
+        log_schema="fivetran_metadata_test",
+    )
+    assert (
+        mdl_dest.get_sql_alchemy_url()
+        == "snowflake://test:test%40123@TESTID?application=acryl_datahub&authenticator=SNOWFLAKE&role=TESTROLE&warehouse=TEST_WH"
+    )
+    # MDL defaults to `preserve_case=True` — case-preserving CLDs are the norm.
+    assert mdl_dest.preserve_case is True
+    assert mdl_dest.catalog_type == "glue"
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

@@ -94,6 +94,17 @@ DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
+    preserve_case: bool = Field(
+        default=False,
+        description=(
+            "Preserve the case of database and schema identifiers when querying "
+            "the Fivetran log. Set this to True when the log lives in a Snowflake "
+            "catalog-linked database (CLD) — e.g., when the Fivetran Managed Data "
+            "Lake Service surfaces logs through Snowflake — where Snowflake's "
+            "default identifier uppercasing breaks lookup against case-preserving "
+            "Glue/Iceberg-backed schemas."
+        ),
+    )
 
 
 class BigQueryDestinationConfig(BigQueryConnectionConfig):
@@ -112,6 +123,57 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
         return warehouse_id
 
 
+class ManagedDataLakeDestinationConfig(SnowflakeConnectionConfig):
+    """Configuration for the Fivetran Managed Data Lake Service.
+
+    The Fivetran Platform Connector log is read through a Snowflake
+    catalog-linked database (CLD), so this config inherits Snowflake
+    connection details. The data tables themselves live in the
+    cloud-native catalog (AWS Glue) and emitted URNs target that catalog
+    rather than Snowflake.
+    """
+
+    database: str = Field(
+        description=(
+            "The Snowflake catalog-linked database that surfaces the "
+            "Fivetran Platform Connector logs (e.g., `LH_SOURCE_FIVETRAN_USW2`)."
+        )
+    )
+    log_schema: str = Field(
+        description=(
+            "The schema within the catalog-linked database that holds the "
+            "Fivetran log tables (e.g., `fivetran_metadata_<suffix>`)."
+        )
+    )
+    preserve_case: bool = Field(
+        default=True,
+        description=(
+            "Preserve the case of database and schema identifiers when "
+            "querying the Fivetran log. Defaults to True for Managed Data "
+            "Lake recipes because catalog-linked databases are case-preserving."
+        ),
+    )
+    catalog_type: Literal["glue", "iceberg_rest", "unity", "biglake", "onelake"] = (
+        Field(
+            default="glue",
+            description=(
+                "The cloud-native catalog backing the Fivetran Managed Data Lake "
+                "destination. Currently `glue` is implemented; other values are "
+                "accepted for forward compatibility but ingestion will raise "
+                "`NotImplementedError` until those branches are wired up."
+            ),
+        )
+    )
+    glue_database_prefix: str = Field(
+        default="fivetran_",
+        description=(
+            "Prefix Fivetran applies when auto-creating Glue databases. "
+            "Glue database name is `<glue_database_prefix><connector_schema>`. "
+            "Only consulted when `catalog_type='glue'`."
+        ),
+    )
+
+
 class FivetranAPIConfig(ConfigModel):
     api_key: TransparentSecretStr = Field(description="Fivetran API key")
     api_secret: TransparentSecretStr = Field(description="Fivetran API secret")
@@ -124,11 +186,16 @@ class FivetranAPIConfig(ConfigModel):
 
 
 class FivetranLogConfig(ConfigModel):
-    destination_platform: Literal["snowflake", "bigquery", "databricks"] = (
-        pydantic.Field(
-            default="snowflake",
-            description="The destination platform where fivetran connector log tables are dumped.",
-        )
+    destination_platform: Literal[
+        "snowflake", "bigquery", "databricks", "managed_data_lake"
+    ] = pydantic.Field(
+        default="snowflake",
+        description=(
+            "The destination platform where fivetran connector log tables are dumped. "
+            "`managed_data_lake` covers the Fivetran Managed Data Lake Service when "
+            "logs are surfaced through a Snowflake catalog-linked database; "
+            "emitted URNs target the underlying AWS Glue catalog."
+        ),
     )
     snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
         default=None,
@@ -142,6 +209,16 @@ class FivetranLogConfig(ConfigModel):
         pydantic.Field(
             default=None,
             description="If destination platform is 'databricks', provide databricks configuration.",
+        )
+    )
+    managed_data_lake_destination_config: Optional[ManagedDataLakeDestinationConfig] = (
+        pydantic.Field(
+            default=None,
+            description=(
+                "If destination platform is 'managed_data_lake', provide the Fivetran "
+                "Managed Data Lake Service configuration (Snowflake CLD connection + "
+                "Glue catalog settings)."
+            ),
         )
     )
     _rename_destination_config = pydantic_renamed_field(
@@ -182,6 +259,12 @@ class FivetranLogConfig(ConfigModel):
             if self.databricks_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'databricks', user must provide databricks destination configuration in the recipe."
+                )
+        elif self.destination_platform == "managed_data_lake":
+            if self.managed_data_lake_destination_config is None:
+                raise ValueError(
+                    "If destination platform is 'managed_data_lake', user must provide "
+                    "managed_data_lake destination configuration in the recipe."
                 )
         else:
             raise ValueError(

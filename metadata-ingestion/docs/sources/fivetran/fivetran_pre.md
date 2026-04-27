@@ -17,7 +17,7 @@ This source extracts the following:
 
 1. Set up and complete initial sync of the [Fivetran Platform Connector](https://fivetran.com/docs/logs/fivetran-platform/setup-guide)
 2. Enable automatic schema updates (default) to avoid sync inconsistencies
-3. Configure the destination platform (Snowflake, BigQuery, or Databricks) in your recipe
+3. Configure the destination platform (Snowflake, BigQuery, Databricks, or Managed Data Lake) in your recipe
 
 ### Prerequisites
 
@@ -30,6 +30,49 @@ To use the Fivetran REST API integration, you need:
 - **Read access** to connection details (`GET /v1/connections/{connection_id}`)
 - The API key must be associated with a user or service account that has access to the connectors you want to ingest
 - The API key inherits permissions from the user or service account it's associated with
+
+#### Fivetran Managed Data Lake Service (AWS Glue + Snowflake catalog-linked database)
+
+The [Fivetran Managed Data Lake Service](https://fivetran.com/docs/destinations/managed-data-lake-service) replicates data to S3 as Iceberg tables and registers them in AWS Glue. The Fivetran Platform Connector log lands in the same Glue data lake, and Snowflake exposes the lake to analysts through a [catalog-linked database (CLD)](https://docs.snowflake.com/en/sql-reference/sql/create-database-catalog-linked) — a read-only Snowflake database whose schemas and tables are virtual surfaces over Glue objects.
+
+To ingest a Fivetran Managed Data Lake destination:
+
+1. Set `destination_platform: managed_data_lake` and supply `managed_data_lake_destination_config`.
+2. Provide the Snowflake connection details that point at the catalog-linked database surfacing the Fivetran Platform Connector log.
+
+The connector emits the destination dataset URN against the AWS Glue platform: `urn:li:dataset:(urn:li:dataPlatform:glue, <glue_database_prefix><schema>.<table>, <env>)`. The Glue database name follows the Fivetran convention `<glue_database_prefix><connector_schema>` (default prefix `fivetran_`).
+
+##### `preserve_case` and catalog-linked databases
+
+Snowflake auto-uppercases unquoted identifiers, but catalog-linked databases retain the original case-preserving identifiers from the underlying catalog (Glue/Iceberg). Recipes targeting Managed Data Lake default `preserve_case: true` so the log query reads from `"fivetran_metadata_<suffix>"` rather than `"FIVETRAN_METADATA_<SUFFIX>"`. The same flag is available on `snowflake_destination_config` for any Snowflake-CLD setup.
+
+##### Example recipe
+
+```yaml
+source:
+  type: fivetran
+  config:
+    fivetran_log_config:
+      destination_platform: managed_data_lake
+      managed_data_lake_destination_config:
+        # Snowflake CLD coordinates
+        account_id: "abc48144"
+        warehouse: "COMPUTE_WH"
+        database: "lh_source_fivetran_usw2"
+        log_schema: "fivetran_metadata_<suffix>"
+
+        # Credentials
+        username: "${SNOWFLAKE_USER}"
+        password: "${SNOWFLAKE_PASS}"
+        role: "fivetran_log_reader"
+
+        # Glue catalog settings
+        glue_database_prefix: "fivetran_" # Fivetran default
+```
+
+##### Lineage scope
+
+The destination URN points at the Glue table, not at the Snowflake CLD table that analysts query. The rendered lineage shows `<source> → <Glue Iceberg table>`; the corresponding Snowflake CLD table is ingested by the Snowflake source as a separate node.
 
 #### Fivetran REST API Configuration
 
