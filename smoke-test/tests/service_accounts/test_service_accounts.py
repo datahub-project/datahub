@@ -207,6 +207,34 @@ def _ensure_service_account_exists(session, urn: str):
     return res_data
 
 
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_service_account_default_view(
+    session, service_account_urn: str, expected_view_urn: Optional[str]
+):
+    """Wait for a service account's default view to reach the expected state."""
+    res_data = list_service_accounts_with_default_view(session)
+    assert res_data.get("data"), f"Failed to list service accounts: {res_data}"
+    assert "errors" not in res_data, f"Unexpected errors: {res_data.get('errors')}"
+
+    accounts = res_data["data"]["listServiceAccounts"]["serviceAccounts"]
+    matching = [sa for sa in accounts if sa["urn"] == service_account_urn]
+    assert len(matching) == 1, f"Expected to find service account {service_account_urn}"
+
+    default_view = matching[0]["defaultView"]
+    if expected_view_urn is None:
+        assert default_view is None, (
+            f"Expected defaultView to be null, got: {default_view}"
+        )
+    else:
+        assert default_view is not None, "Expected defaultView to be set"
+        assert default_view["urn"] == expected_view_urn, (
+            f"Expected view {expected_view_urn}, got {default_view['urn']}"
+        )
+    return matching[0]
+
+
 # Tests
 
 
@@ -530,20 +558,12 @@ def test_service_account_default_view(auth_session):
         assert res_data["data"]["updateServiceAccountDefaultView"] is True
         logger.info("Default view set successfully")
 
-        # Step 4: List and verify the default view is returned
-        res_data = list_service_accounts_with_default_view(auth_session)
-        assert res_data.get("data"), f"Failed to list service accounts: {res_data}"
-        assert "errors" not in res_data
-
-        accounts = res_data["data"]["listServiceAccounts"]["serviceAccounts"]
-        matching = [sa for sa in accounts if sa["urn"] == service_account_urn]
-        assert len(matching) == 1, (
-            f"Expected to find service account {service_account_urn}"
+        # Step 4: List and verify the default view is returned (with retry for eventual consistency)
+        matched = _ensure_service_account_default_view(
+            auth_session, service_account_urn, view_urn
         )
-        assert matching[0]["defaultView"] is not None, "Expected defaultView to be set"
-        assert matching[0]["defaultView"]["urn"] == view_urn
-        assert matching[0]["defaultView"]["name"] == view_name
-        logger.info(f"Verified default view in list: {matching[0]['defaultView']}")
+        assert matched["defaultView"]["name"] == view_name
+        logger.info(f"Verified default view in list: {matched['defaultView']}")
 
         # Step 5: Clear the default view
         res_data = update_service_account_default_view(
@@ -554,15 +574,8 @@ def test_service_account_default_view(auth_session):
         assert res_data["data"]["updateServiceAccountDefaultView"] is True
         logger.info("Default view cleared successfully")
 
-        # Step 6: Verify it's cleared
-        res_data = list_service_accounts_with_default_view(auth_session)
-        assert res_data.get("data")
-        accounts = res_data["data"]["listServiceAccounts"]["serviceAccounts"]
-        matching = [sa for sa in accounts if sa["urn"] == service_account_urn]
-        assert len(matching) == 1
-        assert matching[0]["defaultView"] is None, (
-            f"Expected defaultView to be null after clearing, got: {matching[0]['defaultView']}"
-        )
+        # Step 6: Verify it's cleared (with retry for eventual consistency)
+        _ensure_service_account_default_view(auth_session, service_account_urn, None)
         logger.info("Verified default view is cleared")
 
     finally:
