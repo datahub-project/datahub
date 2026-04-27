@@ -8,12 +8,23 @@ The key difference from `hex` is lineage: `hex-v2` parses SQL directly from each
 
 #### Hex CLI
 
-The `hex` binary must be installed and available on the `PATH` of the machine running ingestion. Download it from the [Hex CLI releases page](https://github.com/hex-inc/hex-cli/releases). Minimum supported version: **1.2.2**.
+The connector requires the `hex` CLI binary (version **1.2.2**). By default, if the binary is not found on `PATH`, it is downloaded automatically from the [Hex CLI releases page](https://github.com/hex-inc/hex-cli/releases) and cached in `~/.datahub/tools/hex/`. No manual installation is required in most environments.
 
-Verify the installation:
+To disable auto-download and manage the binary yourself:
+
+```yaml
+source:
+  type: hex-v2
+  config:
+    auto_install_hex_cli: false
+    hex_cli_path: /path/to/hex
+```
+
+To verify the binary is present before running ingestion:
 
 ```bash
 hex --version
+# should output: hex 1.2.2
 ```
 
 #### Workspace Name

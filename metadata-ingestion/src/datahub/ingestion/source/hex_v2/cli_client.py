@@ -1,7 +1,11 @@
 import json
 import logging
 import os
+import platform
+import shutil
+import stat
 import subprocess
+import tarfile
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -12,7 +16,12 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.hex_v2.constants import HEX_CLI_PAGE_SIZE_MAX
+from datahub.ingestion.source.hex_v2.constants import (
+    HEX_CLI_CACHE_DIR,
+    HEX_CLI_PAGE_SIZE_MAX,
+    HEX_CLI_RELEASE_ASSETS,
+    HEX_CLI_VERSION,
+)
 from datahub.ingestion.source.hex_v2.model import (
     Analytics,
     Category,
@@ -59,11 +68,11 @@ class HexCliClient:
         hex_cli_path: str = "hex",
         timeout_seconds: int = 120,
         page_size: int = 25,
+        auto_install: bool = True,
     ):
         self._token = token
         self._workspace_name = workspace_name
         self._report = report
-        self._hex_cli_path = hex_cli_path
         self._timeout = timeout_seconds
         self._page_size = min(page_size, HEX_CLI_PAGE_SIZE_MAX)
         # Deterministic profile name per workspace so we don't clobber user profiles
@@ -72,6 +81,10 @@ class HexCliClient:
         self._authed = False
         # REST session for endpoints the CLI doesn't expose (e.g. sharing/collections)
         self._api_base_url = "https://app.hex.tech/api/v1"
+        # Resolve the CLI binary path, downloading v{HEX_CLI_VERSION} if necessary
+        self._hex_cli_path = _ensure_hex_binary(
+            configured_path=hex_cli_path, auto_install=auto_install
+        )
         self._session = self._make_session()
 
     # ------------------------------------------------------------------
@@ -457,3 +470,129 @@ def _parse_run_record(data: dict) -> Optional[RunRecord]:
 
 def _utcnow() -> datetime:
     return datetime.now(tz=timezone.utc)
+
+
+# ------------------------------------------------------------------
+# Hex CLI binary resolution + auto-install
+# ------------------------------------------------------------------
+
+_CACHED_CLI_PATH: Optional[str] = None
+
+
+def _ensure_hex_binary(configured_path: str, auto_install: bool) -> str:
+    """
+    Return a path to a working `hex` binary at pinned version HEX_CLI_VERSION.
+
+    Resolution order:
+    1. If `configured_path` points to a working binary at the right version, use it.
+    2. If a cached binary exists in HEX_CLI_CACHE_DIR, use it.
+    3. If `auto_install` is True, download and cache the pinned release, then use it.
+    4. If nothing works, raise RuntimeError with an actionable message.
+    """
+    global _CACHED_CLI_PATH
+    if _CACHED_CLI_PATH:
+        return _CACHED_CLI_PATH
+
+    # 1. Try configured path (typically "hex" on PATH)
+    resolved = shutil.which(configured_path) or (
+        configured_path if os.path.isfile(configured_path) else None
+    )
+    if resolved and _is_correct_version(resolved):
+        logger.debug("Using Hex CLI at %s (version %s)", resolved, HEX_CLI_VERSION)
+        _CACHED_CLI_PATH = resolved
+        return resolved
+
+    # 2. Try cached download
+    cached = HEX_CLI_CACHE_DIR / HEX_CLI_VERSION / "hex"
+    if cached.is_file() and _is_correct_version(str(cached)):
+        logger.debug("Using cached Hex CLI at %s", cached)
+        _CACHED_CLI_PATH = str(cached)
+        return str(cached)
+
+    # 3. Auto-download
+    if not auto_install:
+        raise RuntimeError(
+            f"Hex CLI v{HEX_CLI_VERSION} not found. Install it from "
+            f"https://github.com/hex-inc/hex-cli/releases/tag/v{HEX_CLI_VERSION} "
+            f"or set auto_install_hex_cli: true in your recipe to download automatically."
+        )
+
+    downloaded = _download_hex_cli()
+    _CACHED_CLI_PATH = downloaded
+    return downloaded
+
+
+def _is_correct_version(path: str) -> bool:
+    """Return True if the binary at `path` is HEX_CLI_VERSION."""
+    try:
+        r = subprocess.run(
+            [path, "--version"], capture_output=True, text=True, timeout=10
+        )
+        return HEX_CLI_VERSION in (r.stdout + r.stderr)
+    except Exception:
+        return False
+
+
+def _download_hex_cli() -> str:
+    """Download the pinned Hex CLI release for the current platform, cache, and return path."""
+    system = platform.system()
+    machine = platform.machine()
+
+    asset = HEX_CLI_RELEASE_ASSETS.get((system, machine))
+    if not asset:
+        raise RuntimeError(
+            f"No Hex CLI release available for {system}/{machine}. "
+            f"Install manually from https://github.com/hex-inc/hex-cli/releases/tag/v{HEX_CLI_VERSION}"
+        )
+
+    url = f"https://github.com/hex-inc/hex-cli/releases/download/v{HEX_CLI_VERSION}/{asset}"
+    logger.info(
+        "Downloading Hex CLI v%s for %s/%s from %s",
+        HEX_CLI_VERSION,
+        system,
+        machine,
+        url,
+    )
+
+    dest_dir = HEX_CLI_CACHE_DIR / HEX_CLI_VERSION
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_binary = dest_dir / "hex"
+
+    with tempfile.NamedTemporaryFile(suffix=".tar.xz", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        resp = requests.get(url, stream=True, timeout=120)
+        resp.raise_for_status()
+        with open(tmp_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                f.write(chunk)
+
+        with tarfile.open(tmp_path, "r:xz") as tar:
+            # Archive layout: hex-<platform>/hex  (e.g. hex-aarch64-apple-darwin/hex)
+            hex_member = next(
+                (
+                    m
+                    for m in tar.getmembers()
+                    if m.name.split("/")[-1] == "hex" and m.isfile()
+                ),
+                None,
+            )
+            if hex_member is None:
+                raise RuntimeError(f"Could not find 'hex' binary inside {asset}")
+            extracted = tar.extractfile(hex_member)
+            if extracted is None:
+                raise RuntimeError(f"Failed to extract 'hex' binary from {asset}")
+            with open(dest_binary, "wb") as out:
+                out.write(extracted.read())
+
+        # Make executable
+        dest_binary.chmod(
+            dest_binary.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+        )
+
+        logger.info("Hex CLI v%s installed to %s", HEX_CLI_VERSION, dest_binary)
+        return str(dest_binary)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)

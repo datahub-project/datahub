@@ -30,7 +30,7 @@ Documents are hidden from global search (`show_in_global_context=False`) and lin
 
 #### Hex CLI Dependency
 
-The `hex` binary must be installed and on the `PATH` of the ingestion host. This is a system dependency not managed by DataHub. See the [Hex CLI releases page](https://github.com/hex-inc/hex-cli/releases) for installation instructions.
+The connector pins to Hex CLI **v1.2.2** and downloads it automatically to `~/.datahub/tools/hex/` if not found on `PATH`. Set `auto_install_hex_cli: false` and provide `hex_cli_path` to manage the binary yourself. Platforms supported for auto-download: macOS (arm64, x86\_64) and Linux (arm64, x86\_64). Windows is not supported.
 
 #### Page Size
 
@@ -58,9 +58,9 @@ EXPLORE (visualisation) cells are not emitted as DataHub Chart entities. Their m
 
 ### Troubleshooting
 
-**`hex` binary not found**
+**`hex` binary not found / auto-download fails**
 
-Ensure the Hex CLI is installed and on the `PATH`. Run `hex --version` on the ingestion host to confirm.
+By default the connector auto-downloads Hex CLI v1.2.2 to `~/.datahub/tools/hex/`. If your environment blocks outbound GitHub downloads, set `auto_install_hex_cli: false` and install the binary manually from the [Hex CLI releases page](https://github.com/hex-inc/hex-cli/releases/tag/v1.2.2). Then set `hex_cli_path` to the binary location.
 
 **Export returns no file / silent failure**
 

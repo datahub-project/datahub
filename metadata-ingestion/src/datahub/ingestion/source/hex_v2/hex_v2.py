@@ -58,7 +58,14 @@ class HexV2SourceConfig(
     )
     hex_cli_path: str = Field(
         default="hex",
-        description="Path to the Hex CLI binary. Defaults to 'hex' (must be on PATH).",
+        description="Path to the Hex CLI binary. Defaults to 'hex' (resolved from PATH). "
+        "If not found and auto_install_hex_cli is true, the pinned version is downloaded automatically.",
+    )
+    auto_install_hex_cli: bool = Field(
+        default=True,
+        description="Automatically download the pinned Hex CLI release if the binary is not "
+        "found on PATH. The binary is cached in ~/.datahub/tools/hex/. "
+        "Set to false if you manage the CLI installation yourself.",
     )
     cli_timeout_seconds: int = Field(
         default=120,
@@ -188,6 +195,7 @@ class HexV2Source(StatefulIngestionSourceBase):
             hex_cli_path=config.hex_cli_path,
             timeout_seconds=config.cli_timeout_seconds,
             page_size=config.page_size,
+            auto_install=config.auto_install_hex_cli,
         )
         self.mapper = HexV2Mapper(
             workspace_name=config.workspace_name,
