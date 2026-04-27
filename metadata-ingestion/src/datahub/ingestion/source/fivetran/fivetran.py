@@ -269,33 +269,54 @@ class FivetranSource(StatefulIngestionSourceBase):
         (default `fivetran_`).
         """
         if destination_details.platform == "managed_data_lake":
-            assert mdl_cfg is not None, (
-                "managed_data_lake_destination_config required when "
-                "destination_platform is 'managed_data_lake' (validated upstream)."
-            )
-            if mdl_cfg.catalog_type == "glue":
-                # destination_table is "<schema>.<table>" — keep the schema part
-                # so we can derive the Glue database name. include_schema_in_urn
-                # is intentionally ignored here because the schema component is
-                # load-bearing (it determines the Glue DB), not just naming.
-                schema, _, table = destination_table.partition(".")
-                glue_db = f"{mdl_cfg.glue_database_prefix}{schema}"
-                return DatasetUrn.create_from_ids(
-                    platform_id="glue",
-                    table_name=f"{glue_db}.{table}",
-                    env=destination_details.env,
-                    platform_instance=destination_details.platform_instance,
+            if mdl_cfg is None:
+                raise ValueError(
+                    "managed_data_lake_destination_config is required when "
+                    "destination_platform is 'managed_data_lake'."
                 )
-            raise NotImplementedError(
-                f"managed_data_lake catalog_type={mdl_cfg.catalog_type!r} "
-                "is not implemented yet."
+            # The config validator on `catalog_type` rejects unimplemented
+            # catalog types at recipe-load time, so by the time we're here the
+            # value is guaranteed to be `glue`. The Literal still accepts other
+            # values for forward compatibility.
+            if mdl_cfg.catalog_type != "glue":
+                raise NotImplementedError(
+                    f"managed_data_lake catalog_type={mdl_cfg.catalog_type!r} "
+                    "is not implemented yet."
+                )
+            # destination_table is "<schema>.<table>" — keep the schema part
+            # so we can derive the Glue database name. include_schema_in_urn
+            # is intentionally ignored here because the schema component is
+            # load-bearing (it determines the Glue DB), not just naming.
+            if "." not in destination_table:
+                raise ValueError(
+                    "Expected destination_table in '<schema>.<table>' form to "
+                    "derive the Glue database name; got "
+                    f"{destination_table!r} (no '.' separator). The Glue "
+                    "database is `<glue_database_prefix><schema>` so the "
+                    "schema component is required."
+                )
+            schema, _, table = destination_table.partition(".")
+            glue_db = f"{mdl_cfg.glue_database_prefix}{schema}"
+            return DatasetUrn.create_from_ids(
+                platform_id="glue",
+                table_name=f"{glue_db}.{table}",
+                env=destination_details.env,
+                platform_instance=destination_details.platform_instance,
             )
 
         # Existing relational-warehouse path. Platform and database are
         # populated upstream in `_extend_lineage` (defaulting to the log
         # config's destination_platform / fivetran_log_database).
-        assert destination_details.platform is not None
-        assert destination_details.database is not None
+        if destination_details.platform is None:
+            raise ValueError(
+                "destination_details.platform must be set before constructing "
+                "the destination URN."
+            )
+        if destination_details.database is None:
+            raise ValueError(
+                "destination_details.database must be set before constructing "
+                "the destination URN."
+            )
         table_name = (
             destination_table
             if destination_details.include_schema_in_urn

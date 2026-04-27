@@ -2,10 +2,11 @@ import functools
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import sqlglot
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.fivetran.config import (
@@ -13,6 +14,8 @@ from datahub.ingestion.source.fivetran.config import (
     Constant,
     FivetranLogConfig,
     FivetranSourceReport,
+    ManagedDataLakeDestinationConfig,
+    SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.data_classes import (
     ColumnLineage,
@@ -40,55 +43,52 @@ class FivetranLogAPI:
 
     @staticmethod
     def _setup_snowflake_engine(
-        snowflake_config: Any,
-        database: str,
-        log_schema: str,
-        preserve_case: bool,
+        cfg: Union[SnowflakeDestinationConfig, ManagedDataLakeDestinationConfig],
         fivetran_log_query: FivetranLogQuery,
-    ) -> Tuple[Any, str]:
+    ) -> Engine:
         """Build a Snowflake SQLAlchemy engine and apply USE DATABASE / SET SCHEMA.
 
         Shared between the `snowflake` and `managed_data_lake` destination
         platforms — both read the Fivetran log through Snowflake. When
-        `preserve_case` is True, identifiers are passed through verbatim
+        `cfg.preserve_case` is True, identifiers are passed through verbatim
         (required for catalog-linked databases, where schema/table names
         retain their original lowercase casing).
         """
         engine = create_engine(
-            snowflake_config.get_sql_alchemy_url(),
-            **snowflake_config.get_options(),
+            cfg.get_sql_alchemy_url(),
+            **cfg.get_options(),
         )
 
         # Snowflake auto-uppercases unquoted identifiers. Conventional Snowflake
         # warehouses created via DataHub have always been queried with the
         # ".upper()" path below for backward compatibility. CLDs (and any
         # case-preserving Snowflake schema) need the verbatim path instead.
-        if preserve_case:
-            resolved_database = database
-            resolved_schema = log_schema
+        if cfg.preserve_case:
+            resolved_database = cfg.database
+            resolved_schema = cfg.log_schema
         else:
             resolved_database = (
-                database.upper()
-                if FivetranLogQuery._is_valid_unquoted_identifier(database)
-                else database
+                cfg.database.upper()
+                if FivetranLogQuery._is_valid_unquoted_identifier(cfg.database)
+                else cfg.database
             )
             resolved_schema = (
-                log_schema.upper()
-                if FivetranLogQuery._is_valid_unquoted_identifier(log_schema)
-                else log_schema
+                cfg.log_schema.upper()
+                if FivetranLogQuery._is_valid_unquoted_identifier(cfg.log_schema)
+                else cfg.log_schema
             )
 
         logger.info(
-            f"Using snowflake database: {resolved_database} (original: {database})"
+            f"Using snowflake database: {resolved_database} (original: {cfg.database})"
         )
         engine.execute(fivetran_log_query.use_database(resolved_database))
 
         logger.info(
-            f"Using snowflake schema: {resolved_schema} (original: {log_schema})"
+            f"Using snowflake schema: {resolved_schema} (original: {cfg.log_schema})"
         )
         fivetran_log_query.set_schema(resolved_schema)
 
-        return engine, database
+        return engine
 
     def _initialize_fivetran_variables(
         self,
@@ -106,13 +106,10 @@ class FivetranLogAPI:
                 self.fivetran_log_config.snowflake_destination_config
             )
             if snowflake_destination_config is not None:
-                engine, fivetran_log_database = self._setup_snowflake_engine(
-                    snowflake_destination_config,
-                    snowflake_destination_config.database,
-                    snowflake_destination_config.log_schema,
-                    snowflake_destination_config.preserve_case,
-                    fivetran_log_query,
+                engine = self._setup_snowflake_engine(
+                    snowflake_destination_config, fivetran_log_query
                 )
+                fivetran_log_database = snowflake_destination_config.database
         elif destination_platform == "managed_data_lake":
             mdl_destination_config = (
                 self.fivetran_log_config.managed_data_lake_destination_config
@@ -121,13 +118,10 @@ class FivetranLogAPI:
                 # The Fivetran Managed Data Lake log is read through a Snowflake
                 # catalog-linked database — same engine setup as the snowflake branch,
                 # with preserve_case defaulted to True for CLD compatibility.
-                engine, fivetran_log_database = self._setup_snowflake_engine(
-                    mdl_destination_config,
-                    mdl_destination_config.database,
-                    mdl_destination_config.log_schema,
-                    mdl_destination_config.preserve_case,
-                    fivetran_log_query,
+                engine = self._setup_snowflake_engine(
+                    mdl_destination_config, fivetran_log_query
                 )
+                fivetran_log_database = mdl_destination_config.database
         elif destination_platform == "bigquery":
             bigquery_destination_config = (
                 self.fivetran_log_config.bigquery_destination_config

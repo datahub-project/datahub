@@ -41,19 +41,14 @@ class TestManagedDataLakeConfigValidation:
         "unimplemented_catalog_type",
         ["iceberg_rest", "unity", "biglake", "onelake"],
     )
-    def test_non_glue_catalog_raises_not_implemented_at_urn_time(
-        self, unimplemented_catalog_type
-    ):
-        # The Literal accepts the value (forward-compat for future catalog
-        # backends) but URN construction raises NotImplementedError until
-        # the branch is wired up.
-        details = PlatformDetail(platform="managed_data_lake", env="PROD")
-        with pytest.raises(NotImplementedError, match="not implemented yet"):
-            FivetranSource.build_destination_urn(
-                destination_table="orders.line_items",
-                destination_details=details,
-                mdl_cfg=_mdl_config(catalog_type=unimplemented_catalog_type),
-            )
+    def test_non_glue_catalog_rejected_at_config_load(self, unimplemented_catalog_type):
+        # The Literal accepts the value for forward compatibility, but the
+        # field validator rejects it at recipe-load time so the failure
+        # surfaces before any ingestion work runs (rather than mid-loop in
+        # URN construction). Match a stable substring rather than the full
+        # error wording.
+        with pytest.raises(ValueError, match="catalog_type"):
+            _mdl_config(catalog_type=unimplemented_catalog_type)
 
 
 class TestManagedDataLakeUrnConstruction:
@@ -86,6 +81,30 @@ class TestManagedDataLakeUrnConstruction:
             str(urn)
             == "urn:li:dataset:(urn:li:dataPlatform:glue,ft_orders.line_items,PROD)"
         )
+
+    def test_unqualified_destination_table_raises(self):
+        # If a table name reaches us without a "<schema>." prefix, the Glue
+        # database name can't be derived. Better to fail loudly than to emit
+        # a URN with an empty table component (e.g., `fivetran_orders.`).
+        details = PlatformDetail(platform="managed_data_lake", env="PROD")
+        with pytest.raises(ValueError, match="schema"):
+            FivetranSource.build_destination_urn(
+                destination_table="orders",  # no '.' separator
+                destination_details=details,
+                mdl_cfg=_mdl_config(),
+            )
+
+    def test_missing_mdl_cfg_raises(self):
+        # The instance-method wrapper passes the MDL config through, but the
+        # static method is reachable directly (e.g., from tests). Guard it
+        # with a runtime ValueError rather than a stripped-under-`-O` assert.
+        details = PlatformDetail(platform="managed_data_lake", env="PROD")
+        with pytest.raises(ValueError, match="managed_data_lake_destination_config"):
+            FivetranSource.build_destination_urn(
+                destination_table="orders.line_items",
+                destination_details=details,
+                mdl_cfg=None,
+            )
 
     def test_glue_urn_with_platform_instance(self):
         details = PlatformDetail(

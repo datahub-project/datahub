@@ -158,9 +158,9 @@ class ManagedDataLakeDestinationConfig(SnowflakeConnectionConfig):
             default="glue",
             description=(
                 "The cloud-native catalog backing the Fivetran Managed Data Lake "
-                "destination. Currently `glue` is implemented; other values are "
-                "accepted for forward compatibility but ingestion will raise "
-                "`NotImplementedError` until those branches are wired up."
+                "destination. Currently only `glue` is implemented; other values "
+                "are accepted by the type but rejected at config-load time until "
+                "those branches are wired up."
             ),
         )
     )
@@ -172,6 +172,20 @@ class ManagedDataLakeDestinationConfig(SnowflakeConnectionConfig):
             "Only consulted when `catalog_type='glue'`."
         ),
     )
+
+    @field_validator("catalog_type", mode="after")
+    @classmethod
+    def validate_catalog_type(cls, value: str) -> str:
+        # The Literal is forward-compatible (new catalogs can be added without a
+        # config-shape migration), but the URN-construction branches don't exist
+        # yet. Reject at recipe load time so users see the failure before any
+        # ingestion work runs, not partway through a connector loop.
+        if value != "glue":
+            raise ValueError(
+                f"`catalog_type='{value}'` is not implemented yet; "
+                "only `catalog_type='glue'` is currently supported."
+            )
+        return value
 
 
 class FivetranAPIConfig(ConfigModel):

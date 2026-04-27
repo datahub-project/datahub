@@ -18,38 +18,39 @@ from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 
+def _make_cfg(database: str, log_schema: str, preserve_case: bool) -> MagicMock:
+    """Build a stub config exposing the attrs `_setup_snowflake_engine` reads."""
+    cfg = MagicMock()
+    cfg.get_sql_alchemy_url.return_value = "snowflake://stub"
+    cfg.get_options.return_value = {}
+    cfg.database = database
+    cfg.log_schema = log_schema
+    cfg.preserve_case = preserve_case
+    return cfg
+
+
 def _build_snowflake_setup(
     monkeypatch: pytest.MonkeyPatch, preserve_case: bool
 ) -> Tuple[MagicMock, FivetranLogQuery, str]:
     """Run the static `_setup_snowflake_engine` with mocked engine creation.
 
-    Returns the (engine, query) pair plus the executed-USE-DATABASE statement
-    so tests can assert on the resolved identifier casing.
+    Returns the (engine, query, executed-USE-DATABASE statement) tuple so
+    tests can assert on the resolved identifier casing.
     """
     fake_engine = MagicMock()
-
-    def fake_create_engine(*_args, **_kwargs):
-        return fake_engine
-
-    # Patch in the same module that holds the import.
     monkeypatch.setattr(
         "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine",
-        fake_create_engine,
+        lambda *_a, **_kw: fake_engine,
     )
 
-    snowflake_config = MagicMock()
-    snowflake_config.get_sql_alchemy_url.return_value = "snowflake://stub"
-    snowflake_config.get_options.return_value = {}
-
-    query = FivetranLogQuery()
-    FivetranLogAPI._setup_snowflake_engine(
-        snowflake_config=snowflake_config,
+    cfg = _make_cfg(
         database="lh_source_fivetran_usw2",
         log_schema="fivetran_metadata_test",
         preserve_case=preserve_case,
-        fivetran_log_query=query,
     )
-    # Pull the USE DATABASE statement that hit the engine.
+
+    query = FivetranLogQuery()
+    FivetranLogAPI._setup_snowflake_engine(cfg, query)
     use_db_call = fake_engine.execute.call_args[0][0]
     return fake_engine, query, use_db_call
 
@@ -83,28 +84,25 @@ class TestPreserveCaseSnowflakeBranch:
     ) -> None:
         # Pre-quoted identifiers (e.g., names with special chars) must not
         # be uppercased even on the legacy path — the user has signalled
-        # they want exact control by quoting.
+        # they want exact control by quoting. Pin the exact emitted SQL
+        # since the quote-doubling behaviour is the most fragile part.
         fake_engine = MagicMock()
         monkeypatch.setattr(
             "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine",
             lambda *_a, **_kw: fake_engine,
         )
 
-        snowflake_config = MagicMock()
-        snowflake_config.get_sql_alchemy_url.return_value = "snowflake://stub"
-        snowflake_config.get_options.return_value = {}
-
-        query = FivetranLogQuery()
-        FivetranLogAPI._setup_snowflake_engine(
-            snowflake_config=snowflake_config,
+        cfg = _make_cfg(
             database='"My Mixed-Case DB"',
             log_schema='"My-Schema"',
             preserve_case=False,
-            fivetran_log_query=query,
         )
+        query = FivetranLogQuery()
+        FivetranLogAPI._setup_snowflake_engine(cfg, query)
 
         use_db_sql = fake_engine.execute.call_args[0][0]
-        # Already-quoted input takes the else branch (no .upper()); the inner
-        # quotes get doubled per Snowflake escaping rules.
-        assert '"My Mixed-Case DB"' in use_db_sql
-        assert '"My-Schema"' in query.schema_clause
+        # Pre-quoted input takes the else branch (no .upper()); the wrapping
+        # quotes are doubled per Snowflake escaping rules so the identifier
+        # round-trips correctly when re-quoted by `use_database`/`set_schema`.
+        assert use_db_sql == 'use database """My Mixed-Case DB"""'
+        assert query.schema_clause == '"""My-Schema""".'

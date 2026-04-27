@@ -1,5 +1,6 @@
 import datetime
 from functools import partial
+from typing import Callable, Dict, List
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -58,123 +59,140 @@ default_connector_query_results = [
 ]
 
 
-def default_query_results(
-    query, connector_query_results=default_connector_query_results
-):
-    fivetran_log_query = FivetranLogQuery()
-    # For Snowflake, valid unquoted identifiers are uppercased
-    # "test_database" -> "TEST_DATABASE", "test" -> "TEST"
-    fivetran_log_query.set_schema("TEST")
-    if query == fivetran_log_query.use_database("TEST_DATABASE"):
-        return []
-    if query == fivetran_log_query.get_connectors_query():
-        return connector_query_results
-    elif query == fivetran_log_query.get_table_lineage_query(
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
-    ):
-        return [
-            {
-                "connection_id": "calendar_elected",
-                "source_table_id": "10040",
-                "source_table_name": "employee",
-                "source_schema_name": "public",
-                "destination_table_id": "7779",
-                "destination_table_name": "employee",
-                "destination_schema_name": "postgres_public",
-            },
-            {
-                "connection_id": "calendar_elected",
-                "source_table_id": "10041",
-                "source_table_name": "company",
-                "source_schema_name": "public",
-                "destination_table_id": "7780",
-                "destination_table_name": "company",
-                "destination_schema_name": "postgres_public",
-            },
-            {
-                "connection_id": "my_confluent_cloud_connector_id",
-                "source_table_id": "10042",
-                "source_table_name": "my-source-topic",
-                "source_schema_name": "confluent_cloud",
-                "destination_table_id": "7781",
-                "destination_table_name": "my-destination-topic",
-                "destination_schema_name": "confluent_cloud",
-            },
-        ]
-    elif query == fivetran_log_query.get_column_lineage_query(
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
-    ):
-        return [
-            {
-                "source_table_id": "10040",
-                "destination_table_id": "7779",
-                "source_column_name": "id",
-                "destination_column_name": "id",
-            },
-            {
-                "source_table_id": "10040",
-                "destination_table_id": "7779",
-                "source_column_name": "name",
-                "destination_column_name": "name",
-            },
-            {
-                "source_table_id": "10041",
-                "destination_table_id": "7780",
-                "source_column_name": "id",
-                "destination_column_name": "id",
-            },
-            {
-                "source_table_id": "10041",
-                "destination_table_id": "7780",
-                "source_column_name": "name",
-                "destination_column_name": "name",
-            },
-        ]
-    elif query == fivetran_log_query.get_users_query():
-        return [
-            {
-                "user_id": "reapply_phone",
-                "given_name": "Shubham",
-                "family_name": "Jagtap",
-                "email": "abc.xyz@email.com",
-            }
-        ]
-    elif query == fivetran_log_query.get_sync_logs_query(
-        syncs_interval=7,
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
-    ):
-        return [
-            {
-                "connection_id": "calendar_elected",
-                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
-                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
-                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-            },
-            {
-                "connection_id": "calendar_elected",
-                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
-                "start_time": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
-                "end_time": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
-                "end_message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
-            },
-            {
-                "connection_id": "calendar_elected",
-                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
-                "start_time": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
-                "end_time": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
-                "end_message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
-            },
-            {
-                "connection_id": "my_confluent_cloud_connector_id",
-                "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
-                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
-                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-            },
-        ]
-    # Unreachable code
-    raise Exception(f"Unknown query {query}")
+def _build_query_results_handler(database: str, schema: str) -> Callable[..., List]:
+    """Factory for the mocked Fivetran-log query handler.
+
+    Captures `database` and `schema` so the same mock query bodies work for
+    both the legacy Snowflake-warehouse path (uppercased identifiers) and the
+    Managed Data Lake / catalog-linked-database path (case-preserving
+    identifiers). The only difference between the two callers is the literal
+    identifiers; the lineage / column-lineage / users / sync-logs payloads
+    are shared.
+    """
+
+    def handler(
+        query: str,
+        connector_query_results: List[Dict] = default_connector_query_results,
+    ) -> List[Dict]:
+        fivetran_log_query = FivetranLogQuery()
+        fivetran_log_query.set_schema(schema)
+        if query == fivetran_log_query.use_database(database):
+            return []
+        if query == fivetran_log_query.get_connectors_query():
+            return connector_query_results
+        if query == fivetran_log_query.get_table_lineage_query(
+            connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+        ):
+            return [
+                {
+                    "connection_id": "calendar_elected",
+                    "source_table_id": "10040",
+                    "source_table_name": "employee",
+                    "source_schema_name": "public",
+                    "destination_table_id": "7779",
+                    "destination_table_name": "employee",
+                    "destination_schema_name": "postgres_public",
+                },
+                {
+                    "connection_id": "calendar_elected",
+                    "source_table_id": "10041",
+                    "source_table_name": "company",
+                    "source_schema_name": "public",
+                    "destination_table_id": "7780",
+                    "destination_table_name": "company",
+                    "destination_schema_name": "postgres_public",
+                },
+                {
+                    "connection_id": "my_confluent_cloud_connector_id",
+                    "source_table_id": "10042",
+                    "source_table_name": "my-source-topic",
+                    "source_schema_name": "confluent_cloud",
+                    "destination_table_id": "7781",
+                    "destination_table_name": "my-destination-topic",
+                    "destination_schema_name": "confluent_cloud",
+                },
+            ]
+        if query == fivetran_log_query.get_column_lineage_query(
+            connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+        ):
+            return [
+                {
+                    "source_table_id": "10040",
+                    "destination_table_id": "7779",
+                    "source_column_name": "id",
+                    "destination_column_name": "id",
+                },
+                {
+                    "source_table_id": "10040",
+                    "destination_table_id": "7779",
+                    "source_column_name": "name",
+                    "destination_column_name": "name",
+                },
+                {
+                    "source_table_id": "10041",
+                    "destination_table_id": "7780",
+                    "source_column_name": "id",
+                    "destination_column_name": "id",
+                },
+                {
+                    "source_table_id": "10041",
+                    "destination_table_id": "7780",
+                    "source_column_name": "name",
+                    "destination_column_name": "name",
+                },
+            ]
+        if query == fivetran_log_query.get_users_query():
+            return [
+                {
+                    "user_id": "reapply_phone",
+                    "given_name": "Shubham",
+                    "family_name": "Jagtap",
+                    "email": "abc.xyz@email.com",
+                }
+            ]
+        if query == fivetran_log_query.get_sync_logs_query(
+            syncs_interval=7,
+            connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
+        ):
+            return [
+                {
+                    "connection_id": "calendar_elected",
+                    "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
+                    "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                    "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                    "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+                },
+                {
+                    "connection_id": "calendar_elected",
+                    "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
+                    "start_time": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
+                    "end_time": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
+                    "end_message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
+                },
+                {
+                    "connection_id": "calendar_elected",
+                    "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
+                    "start_time": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
+                    "end_time": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
+                    "end_message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
+                },
+                {
+                    "connection_id": "my_confluent_cloud_connector_id",
+                    "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
+                    "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                    "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                    "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+                },
+            ]
+        raise Exception(f"Unknown query {query}")
+
+    return handler
+
+
+# For Snowflake, valid unquoted identifiers are auto-uppercased by the
+# connector for backward compatibility:
+#   "test_database" -> "TEST_DATABASE", "test" -> "TEST"
+default_query_results = _build_query_results_handler("TEST_DATABASE", "TEST")
 
 
 # Test cases with different schema names that might cause issues
@@ -739,114 +757,13 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
     )
 
 
-def mdl_query_results(query, connector_query_results=default_connector_query_results):
-    """Mocked Fivetran-log query results for the Managed Data Lake destination.
-
-    Uses lowercase database/schema identifiers because the MDL config defaults
-    `preserve_case=True` — the catalog-linked database surfacing the log retains
-    the case of the underlying Glue/Iceberg schema. We rebuild the full query
-    set against the lowercase schema rather than delegating to
-    `default_query_results`, which is hard-coded to the legacy uppercase
-    Snowflake-warehouse path.
-    """
-    fivetran_log_query = FivetranLogQuery()
-    fivetran_log_query.set_schema("fivetran_metadata_test")
-
-    if query == fivetran_log_query.use_database("lh_source_fivetran_usw2"):
-        return []
-    if query == fivetran_log_query.get_connectors_query():
-        return connector_query_results
-    if query == fivetran_log_query.get_table_lineage_query(
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
-    ):
-        return [
-            {
-                "connection_id": "calendar_elected",
-                "source_table_id": "10040",
-                "source_table_name": "employee",
-                "source_schema_name": "public",
-                "destination_table_id": "7779",
-                "destination_table_name": "employee",
-                "destination_schema_name": "postgres_public",
-            },
-            {
-                "connection_id": "calendar_elected",
-                "source_table_id": "10041",
-                "source_table_name": "company",
-                "source_schema_name": "public",
-                "destination_table_id": "7780",
-                "destination_table_name": "company",
-                "destination_schema_name": "postgres_public",
-            },
-            {
-                "connection_id": "my_confluent_cloud_connector_id",
-                "source_table_id": "10042",
-                "source_table_name": "my-source-topic",
-                "source_schema_name": "confluent_cloud",
-                "destination_table_id": "7781",
-                "destination_table_name": "my-destination-topic",
-                "destination_schema_name": "confluent_cloud",
-            },
-        ]
-    if query == fivetran_log_query.get_column_lineage_query(
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
-    ):
-        return [
-            {
-                "source_table_id": "10040",
-                "destination_table_id": "7779",
-                "source_column_name": "id",
-                "destination_column_name": "id",
-            },
-            {
-                "source_table_id": "10040",
-                "destination_table_id": "7779",
-                "source_column_name": "name",
-                "destination_column_name": "name",
-            },
-            {
-                "source_table_id": "10041",
-                "destination_table_id": "7780",
-                "source_column_name": "id",
-                "destination_column_name": "id",
-            },
-            {
-                "source_table_id": "10041",
-                "destination_table_id": "7780",
-                "source_column_name": "name",
-                "destination_column_name": "name",
-            },
-        ]
-    if query == fivetran_log_query.get_users_query():
-        return [
-            {
-                "user_id": "reapply_phone",
-                "given_name": "Shubham",
-                "family_name": "Jagtap",
-                "email": "abc.xyz@email.com",
-            }
-        ]
-    if query == fivetran_log_query.get_sync_logs_query(
-        syncs_interval=7,
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
-    ):
-        return [
-            {
-                "connection_id": "calendar_elected",
-                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
-                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
-                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-            },
-            {
-                "connection_id": "my_confluent_cloud_connector_id",
-                "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
-                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
-                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-            },
-        ]
-    raise Exception(f"Unknown query {query}")
+# Lowercase identifiers — the Managed Data Lake config defaults
+# `preserve_case=True`, so the catalog-linked database surfacing the log
+# retains the case of the underlying Glue/Iceberg schema instead of being
+# auto-uppercased.
+mdl_query_results = _build_query_results_handler(
+    "lh_source_fivetran_usw2", "fivetran_metadata_test"
+)
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -922,6 +839,19 @@ def test_fivetran_with_managed_data_lake_dest(pytestconfig, tmp_path):
 
     pipeline.run()
     pipeline.raise_from_status()
+
+    # Belt-and-braces: the golden file is the primary regression guard, but a
+    # silent regression in `_build_destination_urn` (e.g., a config rename
+    # that flips destination_details.platform back to the relational branch)
+    # would just regenerate the golden and pass. Pin the contract that this
+    # test exists to enforce: at least one Glue URN with the `fivetran_`
+    # prefix must be emitted.
+    output_text = output_file.read_text()
+    assert "urn:li:dataPlatform:glue,fivetran_" in output_text, (
+        "Expected at least one `urn:li:dataPlatform:glue,fivetran_*` dataset "
+        "in the emitted MCEs — the Managed Data Lake destination must emit "
+        "Glue URNs, not Snowflake URNs pointing at the catalog-linked database."
+    )
 
     mce_helpers.check_golden_file(
         pytestconfig,
