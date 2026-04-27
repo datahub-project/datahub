@@ -1,3 +1,4 @@
+import datetime as _dt
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
@@ -683,8 +684,6 @@ class TestAssembleDataModelFileMetaFallback:
     """
 
     def _dm(self, **overrides: object) -> SigmaDataModel:
-        import datetime as _dt
-
         base: Dict[str, object] = {
             "dataModelId": "dm-uuid-1",
             "name": "My DM",
@@ -953,7 +952,6 @@ class TestPaginatedEntriesDedup:
 
     def test_paginated_entries_dedupes_by_key(self) -> None:
         api = _create_sigma_api()
-        import datetime as _dt
 
         def _dm_payload(data_model_id: str) -> Dict[str, Any]:
             return {
@@ -982,7 +980,6 @@ class TestPaginatedEntriesDedup:
         behavior. Guards against silently breaking non-DM callers.
         """
         api = _create_sigma_api()
-        import datetime as _dt
 
         dm_payload = {
             "dataModelId": "dm-1",
@@ -1081,7 +1078,6 @@ class TestPaginatedEntriesDedup:
         of dropping the DM (which is what the old ``file_meta`` only
         path did).
         """
-        import datetime as _dt
 
         from datahub.ingestion.source.sigma.data_classes import Workspace
 
@@ -1452,7 +1448,6 @@ class TestEagerDatasetUrnMapPopulation:
     """
 
     def test_map_populated_before_any_workunit_is_yielded(self) -> None:
-        import datetime as _dt
 
         from datahub.ingestion.source.sigma.data_classes import SigmaDataset
 
@@ -1537,7 +1532,6 @@ class TestChartInputsInsertionOrder:
     """
 
     def test_chart_inputs_preserve_insertion_order(self) -> None:
-        import datetime as _dt
 
         from datahub.ingestion.source.sigma.data_classes import Element, Workbook
         from datahub.metadata.schema_classes import ChartInfoClass
@@ -1622,7 +1616,6 @@ class TestDataModelElementOwner:
     """
 
     def _make_dm_with_one_element(self) -> SigmaDataModel:
-        import datetime as _dt
 
         from datahub.ingestion.source.sigma.data_classes import (
             SigmaDataModelElement,

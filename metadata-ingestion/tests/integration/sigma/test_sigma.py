@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Optional, cast
 
 import pytest
@@ -1099,8 +1100,6 @@ def test_sigma_ingest_data_models_disabled(pytestconfig, tmp_path, requests_mock
     # Same golden as the baseline test — the ingest_data_models=False path
     # should produce identical output to the unconfigured default when no DM
     # mocks are registered.
-    import json
-
     with open(output_path) as f:
         mces = json.load(f)
     assert not any("CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "") for mce in mces)
@@ -1313,8 +1312,6 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
     pipeline.run()
     pipeline.raise_from_status()
 
-    import json
-
     with open(output_path) as f:
         mces = json.load(f)
 
@@ -1467,7 +1464,6 @@ def test_sigma_ingest_data_models_lineage_http_error(
     pipeline.run()
     pipeline.raise_from_status()
 
-    import json
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -1534,8 +1530,6 @@ def test_sigma_ingest_data_models_extract_lineage_false(
         f"call, but got {len(lineage_hits)} requests: "
         f"{[r.url for r in lineage_hits]}"
     )
-
-    import json
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -1611,8 +1605,6 @@ def test_sigma_ingest_data_models_shared_entity_no_workspace(
     report = _sigma_report(pipeline)
     assert report.data_models_without_workspace == 1
 
-    import json
-
     with open(output_path) as f:
         mces = json.load(f)
     assert any(
@@ -1637,8 +1629,6 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
     )
     pipeline.run()
     pipeline.raise_from_status()
-
-    import json
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -1670,8 +1660,6 @@ def test_sigma_ingest_data_models_workspace_pattern_deny(
     pipeline.run()
     pipeline.raise_from_status()
 
-    import json
-
     with open(output_path) as f:
         mces = json.load(f)
     assert not any(
@@ -1692,7 +1680,6 @@ def test_sigma_ingest_data_models_default_off(pytestconfig, tmp_path, requests_m
     default ever flips back to ``True``, this test fails fast so the change
     is intentional and gets a Breaking-Changes release note.
     """
-    import json
 
     # Use the DM-enabled baseline fixture so an accidental flip to ``True``
     # would actually make requests.
@@ -1752,7 +1739,6 @@ def test_sigma_ingest_data_models_elements_http_error(
     leaves the rest of the run healthy. The DM Container should still be
     emitted with zero elements, and the pipeline must not raise.
     """
-    import json
 
     override_data = get_mock_data_model_api()
     override_data[
@@ -1812,7 +1798,6 @@ def test_sigma_ingest_data_models_columns_http_error(
     confirms the third DM-sub-endpoint failure shape is handled via the
     same ``_paginated_entries`` swallow path rather than crashing the run.
     """
-    import json
 
     override_data = get_mock_data_model_api()
     override_data[
@@ -1953,7 +1938,6 @@ def test_sigma_ingest_data_models_workspaceId_mismatch_uses_files(
         f"payload_counts={payload_counts}"
     )
 
-    import json
 
     with open(output_path) as f:
         mces = json.load(f)
