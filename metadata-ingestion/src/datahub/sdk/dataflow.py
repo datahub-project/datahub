@@ -8,7 +8,7 @@ from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 from datahub.errors import (
     IngestionAttributionWarning,
 )
@@ -126,7 +126,10 @@ class DataFlow(
 
         # Initialize DataFlowInfoClass directly with name
         self._setdefault_aspect(models.DataFlowInfoClass(name=display_name or name))
-        self._ensure_dataflow_props().env = env
+        # DataFlowInfo.env is a FabricType enum (uppercase); normalize cluster string → uppercase.
+        # The URN identity preserves the original cluster value (e.g. "prod" from Airflow).
+        env_for_aspect = env.upper() if env.upper() in ALL_ENV_TYPES else None
+        self._ensure_dataflow_props().env = env_for_aspect
 
         if description is not None:
             self.set_description(description)
@@ -164,6 +167,7 @@ class DataFlow(
         entity = cls(
             platform=urn.orchestrator,
             name=urn.flow_id,
+            env=urn.cluster,
         )
         return entity._init_from_graph(current_aspects)
 

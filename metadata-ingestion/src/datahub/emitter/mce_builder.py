@@ -72,6 +72,13 @@ Aspect = TypeVar("Aspect", bound=AspectAbstract)
 DEFAULT_ENV = FabricTypeClass.PROD
 ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
+# NOTE: This is lowercase "prod", not the FabricType enum value "PROD".
+# DataFlowKey.cluster is a free-form string (not restricted to FabricType), so "prod" is
+# technically valid in the URN identity. However, the DataFlowInfo.env / DataJobInfo.env
+# aspect fields ARE typed as FabricType and require uppercase values. Code that writes to
+# those aspects (datahub.api, datahub.sdk) must normalize cluster → uppercase before use
+# in aspects. A proper fix would change this default to "PROD", but that would require
+# migrating all existing Airflow URNs (urn:li:dataFlow:(airflow,<dag>,prod) → PROD).
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"

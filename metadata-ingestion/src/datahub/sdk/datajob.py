@@ -185,6 +185,7 @@ class DataJob(
             flow=DataFlow(
                 platform=data_flow_urn.orchestrator,
                 name=data_flow_urn.flow_id,
+                env=data_flow_urn.cluster,
             ),
             name=urn.job_id,
         )
