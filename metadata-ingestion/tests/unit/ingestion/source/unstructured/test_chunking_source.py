@@ -469,7 +469,9 @@ def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_confi
 # ---------------------------------------------------------------------------
 
 
-def _local_config(model: str = "nomic-embed-text", endpoint: str = "") -> DocumentChunkingSourceConfig:
+def _local_config(
+    model: str = "nomic-embed-text", endpoint: str = ""
+) -> DocumentChunkingSourceConfig:
     return DocumentChunkingSourceConfig(
         embedding=EmbeddingConfig(
             provider="local",
@@ -563,8 +565,12 @@ def test_local_provider_api_base_from_env_var(pipeline_context):
         resp.data = [{"embedding": [0.1, 0.2]}]
         return resp
 
-    with patch("litellm.embedding", side_effect=fake_embedding), patch.dict(
-        "os.environ", {"LOCAL_EMBEDDING_ENDPOINT": "http://envhost:11434/v1/embeddings"}
+    with (
+        patch("litellm.embedding", side_effect=fake_embedding),
+        patch.dict(
+            "os.environ",
+            {"LOCAL_EMBEDDING_ENDPOINT": "http://envhost:11434/v1/embeddings"},
+        ),
     ):
         chunk = {"text": "hello", "type": "NarrativeText"}
         source._generate_embeddings([chunk])
@@ -587,8 +593,9 @@ def test_local_provider_api_base_default_fallback(pipeline_context):
         resp.data = [{"embedding": [0.1, 0.2]}]
         return resp
 
-    with patch("litellm.embedding", side_effect=fake_embedding), patch.dict(
-        "os.environ", {}, clear=True
+    with (
+        patch("litellm.embedding", side_effect=fake_embedding),
+        patch.dict("os.environ", {}, clear=True),
     ):
         chunk = {"text": "hello", "type": "NarrativeText"}
         source._generate_embeddings([chunk])
@@ -619,9 +626,17 @@ def test_model_key_uses_explicit_model_embedding_key(pipeline_context):
     fake_embedding_result.data = [{"embedding": [0.0] * 1024}]
     with (
         patch("litellm.embedding", return_value=fake_embedding_result),
-        patch.object(source, "_chunk_elements", return_value=[{"text": "hi", "type": "NarrativeText"}]),
+        patch.object(
+            source,
+            "_chunk_elements",
+            return_value=[{"text": "hi", "type": "NarrativeText"}],
+        ),
     ):
-        workunits = list(source.process_elements_inline("urn:li:document:doc1", [{"type": "NarrativeText", "text": "hi"}]))
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:doc1", [{"type": "NarrativeText", "text": "hi"}]
+            )
+        )
 
     assert any(
         hasattr(wu.metadata, "aspect")
@@ -642,9 +657,17 @@ def test_model_key_normalizes_hyphens_for_local(pipeline_context):
     fake_embedding_result.data = [{"embedding": [0.0] * 768}]
     with (
         patch("litellm.embedding", return_value=fake_embedding_result),
-        patch.object(source, "_chunk_elements", return_value=[{"text": "hi", "type": "NarrativeText"}]),
+        patch.object(
+            source,
+            "_chunk_elements",
+            return_value=[{"text": "hi", "type": "NarrativeText"}],
+        ),
     ):
-        workunits = list(source.process_elements_inline("urn:li:document:doc1", [{"type": "NarrativeText", "text": "hi"}]))
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:doc1", [{"type": "NarrativeText", "text": "hi"}]
+            )
+        )
 
     assert any(
         hasattr(wu.metadata, "aspect")
