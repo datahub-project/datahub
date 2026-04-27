@@ -639,9 +639,8 @@ def test_model_key_uses_explicit_model_embedding_key(pipeline_context):
         )
 
     assert any(
-        hasattr(wu.metadata, "aspect")
-        and hasattr(wu.metadata.aspect, "embeddings")
-        and "my_custom_key" in wu.metadata.aspect.embeddings
+        "my_custom_key"
+        in getattr(getattr(wu.metadata, "aspect", None), "embeddings", {})
         for wu in workunits
     )
 
@@ -670,9 +669,8 @@ def test_model_key_normalizes_hyphens_for_local(pipeline_context):
         )
 
     assert any(
-        hasattr(wu.metadata, "aspect")
-        and hasattr(wu.metadata.aspect, "embeddings")
-        and "nomic_embed_text" in wu.metadata.aspect.embeddings
+        "nomic_embed_text"
+        in getattr(getattr(wu.metadata, "aspect", None), "embeddings", {})
         for wu in workunits
     )
 
