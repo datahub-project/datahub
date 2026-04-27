@@ -126,8 +126,9 @@ class DataFlow(
 
         # Initialize DataFlowInfoClass directly with name
         self._setdefault_aspect(models.DataFlowInfoClass(name=display_name or name))
-        # DataFlowInfo.env is a FabricType enum (uppercase); normalize cluster string → uppercase.
-        # The URN identity preserves the original cluster value (e.g. "prod" from Airflow).
+        # URN cluster is a free-form string; DataFlowInfo.env is a FabricType enum (uppercase
+        # only). Normalize here so the aspect is valid, while the URN retains original casing.
+        # See DEFAULT_FLOW_CLUSTER in mce_builder.py for the full explanation.
         env_for_aspect = env.upper() if env.upper() in ALL_ENV_TYPES else None
         self._ensure_dataflow_props().env = env_for_aspect
 
