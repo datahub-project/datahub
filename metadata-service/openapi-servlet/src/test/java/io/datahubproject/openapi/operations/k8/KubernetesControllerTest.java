@@ -43,10 +43,10 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
@@ -1114,7 +1114,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     when(mockRequest.getRequestURI()).thenReturn("/openapi/operations/k8/status");
 
     var response = nullClientController.getStatus(mockRequest);
-    assertEquals(response.getStatusCodeValue(), 200);
+    assertEquals(response.getStatusCode().value(), 200);
     assertTrue(response.getBody().toString().contains("available=false"));
   }
 
@@ -1134,7 +1134,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     when(mockRequest.getRequestURI()).thenReturn("/openapi/operations/k8/deployments");
 
     var response = nullClientController.listDeployments(mockRequest, 0, 10);
-    assertEquals(response.getStatusCodeValue(), 503);
+    assertEquals(response.getStatusCode().value(), 503);
   }
 
   // ==================== Empty Containers Tests ====================

@@ -19,9 +19,9 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -46,9 +46,9 @@ public class DataHubKafkaProducerFactoryTest extends AbstractTestNGSpringContext
   @Qualifier("dataHubUsageEventProducer")
   GenericProducer<String> dataHubUsageEventProducer;
 
-  @MockBean KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean KafkaHealthChecker kafkaHealthChecker;
 
-  @MockBean MetricUtils metricUtils;
+  @MockitoBean MetricUtils metricUtils;
 
   @Test
   void testInitialization() throws NoSuchFieldException, IllegalAccessException {
