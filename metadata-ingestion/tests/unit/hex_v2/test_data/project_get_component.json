@@ -1,0 +1,18 @@
+{
+  "id": "aabbccdd-1234-5678-9012-abcdef012345",
+  "title": "Shared Revenue Logic",
+  "description": "Reusable SQL component for revenue calculations.",
+  "type": "COMPONENT",
+  "creator": {"email": "alice@example.com"},
+  "owner": {"email": "bob@example.com"},
+  "status": null,
+  "categories": [],
+  "reviews": {"required": false},
+  "analytics": null,
+  "lastEditedAt": "2026-04-10T10:00:00.000Z",
+  "lastPublishedAt": null,
+  "createdAt": "2026-01-15T08:00:00.000Z",
+  "archivedAt": null,
+  "trashedAt": null,
+  "schedules": []
+}
