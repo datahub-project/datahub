@@ -778,12 +778,18 @@ def test_new_powerbi_dataset_returns_none_when_workspace_url_missing():
 
 
 def test_new_powerbi_dataset_default_for_missing_fields_matches_dataclass_contract():
-    """The PR moved scan-result -> PowerBIDataset construction into this helper.
-    `description` is a required `str` on the dataclass, so a missing field must
-    default to "" (not None, which would silently violate the type contract).
-    `configuredBy` is `Optional[str]`, so missing must surface as None.
-    Catches regressions where someone simplifies these to a single `dict.get`
-    pattern and breaks the asymmetric default policy."""
+    """Pin the asymmetric default policy in ``new_powerbi_dataset``:
+
+    - ``description`` is a required ``str`` on ``PowerBIDataset``, so a
+      missing field must default to ``""`` (not ``None``, which would
+      silently violate the type contract).
+    - ``configuredBy`` and ``name`` are ``Optional[str]``, so missing must
+      surface as ``None`` -- the owner-emit branch in
+      ``powerbi.py`` short-circuits on ``if dataset.configuredBy:``.
+
+    Catches regressions where someone collapses these to a uniform
+    ``dict.get`` default pattern and breaks the contract.
+    """
     workspace = _make_workspace("WS-4")
 
     populated = new_powerbi_dataset(
@@ -797,16 +803,59 @@ def test_new_powerbi_dataset_default_for_missing_fields_matches_dataclass_contra
     )
     assert populated.description == "library dataset"
     assert populated.configuredBy == "user@example.com"
+    assert populated.name == "ds"
 
-    missing = new_powerbi_dataset(workspace, {"id": "DS-4b", "name": "ds"})
+    missing = new_powerbi_dataset(workspace, {"id": "DS-4b"})
     assert missing.description == "", (
         "missing description must default to empty string to satisfy "
         "PowerBIDataset.description: str (not Optional[str])"
     )
     assert missing.configuredBy is None, (
-        "missing configuredBy must surface as None so downstream owner "
-        "extraction can short-circuit on `if dataset.configuredBy:`"
+        "missing configuredBy must surface as None so the owner-emit "
+        "branch in powerbi.py can short-circuit on `if dataset.configuredBy:`"
     )
+    assert missing.name is None, (
+        "missing name must surface as None to match PowerBIDataset.name: Optional[str]"
+    )
+
+    explicit_null = new_powerbi_dataset(
+        workspace, {"id": "DS-4c", "name": "ds", "description": None}
+    )
+    assert explicit_null.description == "", (
+        "explicit description=null must coerce to empty string; dict.get "
+        "with a default does not apply when the key is present with None"
+    )
+
+
+def test_new_powerbi_dataset_extracts_dependent_artifact_id_from_relations():
+    """``new_powerbi_dataset`` is the sole site that parses scan-result
+    relations into ``dependent_on_artifact_id``. Pin the contract: first
+    matching relation wins, missing relations leave the field None,
+    relations without dependentOnArtifactId are skipped.
+    """
+    workspace = _make_workspace("WS-DL")
+
+    no_relations = new_powerbi_dataset(workspace, {"id": "DS-DL-a", "name": "n"})
+    assert no_relations.dependent_on_artifact_id is None
+
+    empty_relations = new_powerbi_dataset(
+        workspace, {"id": "DS-DL-b", "name": "n", Constant.RELATIONS: []}
+    )
+    assert empty_relations.dependent_on_artifact_id is None
+
+    with_match = new_powerbi_dataset(
+        workspace,
+        {
+            "id": "DS-DL-c",
+            "name": "n",
+            Constant.RELATIONS: [
+                {"name": "noise"},  # no dependentOnArtifactId; skipped
+                {Constant.DEPENDENT_ON_ARTIFACT_ID: "ART-1"},
+                {Constant.DEPENDENT_ON_ARTIFACT_ID: "ART-2"},  # later match ignored
+            ],
+        },
+    )
+    assert with_match.dependent_on_artifact_id == "ART-1"
 
 
 def test_regular_resolver_get_dataset_parameters_hits_parameters_endpoint():

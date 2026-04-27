@@ -484,19 +484,6 @@ class PowerBiAPI:
                     dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
 
-            # Extract dependent artifact ID from scan result relations (for DirectLake lineage)
-            # The individual dataset API doesn't return relations, but the scan result does
-            relations = dataset_dict.get(Constant.RELATIONS, [])
-            for relation in relations:
-                if relation.get(Constant.DEPENDENT_ON_ARTIFACT_ID):
-                    dataset_instance.dependent_on_artifact_id = relation[
-                        Constant.DEPENDENT_ON_ARTIFACT_ID
-                    ]
-                    logger.debug(
-                        f"Dataset {dataset_id} depends on artifact: {dataset_instance.dependent_on_artifact_id}"
-                    )
-                    break
-
             dataset_map[dataset_instance.id] = dataset_instance
             # set dataset-name
             dataset_name: str = (
