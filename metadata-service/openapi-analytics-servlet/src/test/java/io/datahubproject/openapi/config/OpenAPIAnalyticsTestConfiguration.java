@@ -9,7 +9,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.models.registry.*;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -50,8 +49,6 @@ public class OpenAPIAnalyticsTestConfiguration {
 
     Authentication authentication = Mockito.mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
     AuthenticationContext.setAuthentication(authentication);
 
     return authorizerChain;

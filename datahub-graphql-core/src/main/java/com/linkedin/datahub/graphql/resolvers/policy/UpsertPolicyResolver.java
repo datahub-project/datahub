@@ -72,6 +72,9 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
               String urn =
                   _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
               if (context.getAuthorizer() instanceof AuthorizerChain) {
+                // TODO: either we do not need to invalidate cache manually
+                // or we should use spring cache to support distributed cache.
+                // Current implementation invalidates cache only at one instance
                 ((AuthorizerChain) context.getAuthorizer())
                     .getDefaultAuthorizer()
                     .invalidateCache();

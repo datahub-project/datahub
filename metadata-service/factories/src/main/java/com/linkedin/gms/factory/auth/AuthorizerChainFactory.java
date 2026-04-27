@@ -79,10 +79,7 @@ public class AuthorizerChainFactory {
 
     Optional<Config> optionalConfig = configProvider.load();
     // Register authorizer plugins if present
-    optionalConfig.ifPresent(
-        (config) -> {
-          registerAuthorizer(customAuthorizers, resolver, config);
-        });
+    optionalConfig.ifPresent(config -> registerAuthorizer(customAuthorizers, resolver, config));
 
     return customAuthorizers;
   }
@@ -129,7 +126,7 @@ public class AuthorizerChainFactory {
           IsolatedClassLoader isolatedClassLoader =
               new IsolatedClassLoader(permissionManager, pluginConfig);
           try {
-            Thread.currentThread().setContextClassLoader((ClassLoader) isolatedClassLoader);
+            Thread.currentThread().setContextClassLoader(isolatedClassLoader);
             Authorizer authorizer =
                 (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
             log.info("Initializing plugin {}", pluginConfig.getName());
@@ -137,7 +134,7 @@ public class AuthorizerChainFactory {
             customAuthorizers.add(authorizer);
             log.info("Plugin {} is initialized", pluginConfig.getName());
           } catch (ClassNotFoundException e) {
-            log.debug(String.format("Failed to init the plugin", pluginConfig.getName()));
+            log.debug("Failed to init the plugin: {}", pluginConfig.getName(), e);
             throw new RuntimeException(e);
           } finally {
             Thread.currentThread().setContextClassLoader(contextClassLoader);

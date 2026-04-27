@@ -9,7 +9,6 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
-import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -48,7 +47,6 @@ public class PlatformEntitiesController {
 
   private final OperationContext systemOperationContext;
   private final EntityService<ChangeItemImpl> _entityService;
-  private final CachingEntitySearchService _cachingEntitySearchService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
 

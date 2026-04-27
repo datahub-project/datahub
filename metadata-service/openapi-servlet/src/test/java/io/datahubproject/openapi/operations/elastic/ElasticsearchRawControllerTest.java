@@ -4,8 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
 
@@ -16,6 +15,8 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -79,8 +80,11 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
     AuthenticationContext.setAuthentication(authentication);
 
     // Setup AuthorizerChain to allow access
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    doReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)))
+        .when(authorizerChain)
+        .authorizeBatch(any());
   }
 
   @Test
@@ -150,8 +154,10 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
   @Test
   public void testGetEntityRawUnauthorized() throws Exception {
     // Setup AuthorizerChain to deny access
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+    when(authorizerChain.authorizeBatch(any()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)));
 
     // Prepare request body
     Set<String> urnStrs = new HashSet<>();
