@@ -40,6 +40,7 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     SEMANTIC_MODEL = "Semantic Model"
+    SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -74,6 +75,7 @@ class DatasetContainerSubTypes(StrEnum):
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
     FABRIC_SCHEMA = "Fabric Schema"
+    SNOWFLAKE_STAGE = "Snowflake Stage"
     # Pinecone
     PINECONE_INDEX = "Pinecone Index"
     PINECONE_NAMESPACE = "Pinecone Namespace"
@@ -102,6 +104,8 @@ class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
     PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
+    SNOWFLAKE_TASK_GROUP = "Snowflake Task Group"
+    SNOWFLAKE_PIPE_GROUP = "Snowflake Pipe Group"
 
 
 class JobContainerSubTypes(StrEnum):
@@ -219,6 +223,10 @@ class DataJobSubTypes(StrEnum):
     FABRIC_HDINSIGHT_ACTIVITY = "HDInsight Activity"
     FABRIC_DATA_LAKE_ANALYTICS = "Data Lake Analytics"
     FABRIC_AZURE_ML_EXECUTE_PIPELINE = "Azure ML Execute Pipeline"
+
+    # Snowflake
+    SNOWFLAKE_TASK = "Snowflake Task"
+    SNOWFLAKE_PIPE = "Snowflake Pipe"
 
 
 def create_source_capability_modifier_enum():

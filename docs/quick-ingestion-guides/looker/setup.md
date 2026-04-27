@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: Looker Setup
 ---
 
 # Looker & LookML Ingestion Guide: Setup
