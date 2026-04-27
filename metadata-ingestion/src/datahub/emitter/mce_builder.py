@@ -73,12 +73,15 @@ DEFAULT_ENV = FabricTypeClass.PROD
 ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 # NOTE: This is lowercase "prod", not the FabricType enum value "PROD".
-# DataFlowKey.cluster is a free-form string (not restricted to FabricType), so "prod" is
-# technically valid in the URN identity. However, the DataFlowInfo.env / DataJobInfo.env
-# aspect fields ARE typed as FabricType and require uppercase values. Code that writes to
-# those aspects (datahub.api, datahub.sdk) must normalize cluster → uppercase before use
-# in aspects. A proper fix would change this default to "PROD", but that would require
-# migrating all existing Airflow URNs (urn:li:dataFlow:(airflow,<dag>,prod) → PROD).
+# This creates a two-layer mismatch that every caller must handle:
+#   URN  (DataFlowKey.cluster) - free-form string: "prod" is valid
+#   Aspect (DataFlowInfo.env)  - FabricType enum:  only uppercase "PROD", "DEV", … are valid
+# The aspect's env field is indexed with addToFilters=true ("Environment" facet in search),
+# so it must carry a valid FabricType value. Code that writes to those aspects
+# (datahub.api, datahub.sdk) must normalize cluster → uppercase before writing to the aspect,
+# while keeping the original casing in the URN identity.
+# A proper fix would change this default to "PROD", but that would require migrating all
+# existing Airflow URNs (urn:li:dataFlow:(airflow,<dag>,prod) → PROD).
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
