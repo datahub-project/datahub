@@ -81,7 +81,10 @@ source:
     #     env: DEV
 
     # Optional -- This mapping is optional and only required to configure platform-instance for destination.
-    # A mapping of Fivetran destination id to data platform instance
+    # A mapping of Fivetran destination id to data platform instance.
+    # For `managed_data_lake` destinations, set this to match the platform_instance
+    # used by your AWS Glue source recipe so that emitted Glue URNs align with the
+    # ones the Glue source connector emits and lineage renders end-to-end.
     # destination_to_platform_instance:
     #   destination_id:
     #     platform_instance: cloud_instance

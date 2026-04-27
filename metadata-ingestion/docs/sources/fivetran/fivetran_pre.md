@@ -46,6 +46,21 @@ The connector emits the destination dataset URN against the AWS Glue platform: `
 
 Snowflake auto-uppercases unquoted identifiers, but catalog-linked databases retain the original case-preserving identifiers from the underlying catalog (Glue/Iceberg). Recipes targeting Managed Data Lake default `preserve_case: true` so the log query reads from `"fivetran_metadata_<suffix>"` rather than `"FIVETRAN_METADATA_<SUFFIX>"`. The same flag is available on `snowflake_destination_config` for any Snowflake-CLD setup.
 
+##### Matching the Glue source connector's `platform_instance`
+
+Emitted destination URNs use the Glue platform. If you also ingest the same AWS Glue catalog with DataHub's [Glue source connector](https://docs.datahub.com/docs/generated/ingestion/sources/glue), both connectors must agree on `platform_instance` for the URNs to refer to the same datasets and for lineage to render end-to-end.
+
+Use the existing `destination_to_platform_instance` mapping (keyed by the Fivetran destination ID, visible in the Fivetran UI under **Destinations → Overview**) to set the Glue-side `platform_instance` and `env`:
+
+```yaml
+destination_to_platform_instance:
+  my_fivetran_destination_id:
+    platform_instance: "glue_us_west" # must match what the Glue source recipe uses
+    env: PROD
+```
+
+If you don't run a Glue source connector, the Fivetran-emitted Glue URNs simply stand alone — no `platform_instance` is required, but downstream entities you wire up later must use the same convention.
+
 ##### Example recipe
 
 ```yaml
@@ -68,6 +83,12 @@ source:
 
         # Glue catalog settings
         glue_database_prefix: "fivetran_" # Fivetran default
+
+    # Match the Glue source connector's platform_instance so URNs align.
+    destination_to_platform_instance:
+      my_fivetran_destination_id:
+        platform_instance: "glue_us_west"
+        env: PROD
 ```
 
 ##### Lineage scope

@@ -2,7 +2,7 @@ import functools
 import json
 import logging
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import sqlglot
 from sqlalchemy import create_engine
@@ -192,7 +192,7 @@ class FivetranLogAPI:
     # log queries are authored in Snowflake dialect and need no transpilation.
     _SNOWFLAKE_NATIVE_PLATFORMS = frozenset({"snowflake", "managed_data_lake"})
 
-    def _query(self, query: str) -> List[Dict]:
+    def _query(self, query: str) -> List[Dict[str, Any]]:
         # Automatically transpile snowflake query syntax to the target dialect.
         if (
             self.fivetran_log_config.destination_platform
@@ -209,11 +209,14 @@ class FivetranLogAPI:
 
     def _get_column_lineage_metadata(
         self, connector_ids: List[str]
-    ) -> Dict[Tuple[str, str], List]:
+    ) -> Dict[Tuple[str, str], List[Dict[str, Any]]]:
         """
-        Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>)
+        Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>).
+        Values are raw query-result rows (each a `Dict[str, Any]` produced by `_query`).
         """
-        all_column_lineage: Dict[Tuple[str, str], List] = defaultdict(list)
+        all_column_lineage: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(
+            list
+        )
 
         if not connector_ids:
             return dict(all_column_lineage)
@@ -231,11 +234,16 @@ class FivetranLogAPI:
             all_column_lineage[key].append(column_lineage)
         return dict(all_column_lineage)
 
-    def _get_table_lineage_metadata(self, connector_ids: List[str]) -> Dict[str, List]:
+    def _get_table_lineage_metadata(
+        self, connector_ids: List[str]
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
+        Returns dict of table lineage metadata with key as 'CONNECTOR_ID'.
+        Values are raw query-result rows (each a `Dict[str, Any]` produced by `_query`).
         """
-        connectors_table_lineage_metadata: Dict[str, List] = defaultdict(list)
+        connectors_table_lineage_metadata: Dict[str, List[Dict[str, Any]]] = (
+            defaultdict(list)
+        )
 
         if not connector_ids:
             return dict(connectors_table_lineage_metadata)
