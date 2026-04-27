@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: Tableau Setup
 ---
 
 # Tableau Ingestion Guide: Setup & Prerequisites
