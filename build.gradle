@@ -38,10 +38,11 @@ buildscript {
   ext.jacksonVersion = '2.18.6'
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
   ext.jettyVersion = '12.0.34'
-  // see also datahub-frontend/play.gradle
-  ext.playVersion = '2.8.22'
+  // see also datahub-frontend/play.gradle (Play 3 + Apache Pekko)
+  ext.playVersion = '3.0.10'
   ext.playScalaVersion = '2.13'
-  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.playGradlePluginVersion = '3.1.0-M9'
+  ext.pekkoVersion = '1.0.3' // aligned with org.playframework:play_2.13 bom
   ext.aircompressorVersion = '2.0.3' // CVE-2025-67721: Snappy/LZ4 buffer reuse info leak
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
@@ -87,7 +88,6 @@ buildscript {
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
-    classpath "org.gradle.playframework:gradle-playframework:0.14"
     classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.2"
   }
 }
@@ -123,13 +123,11 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
-    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:10.2.10", // akka-parsing is part of akka-http, so use akka http version
-    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
-    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
-    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
-    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
-    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'pekkoActor': "org.apache.pekko:pekko-actor_$playScalaVersion:$pekkoVersion",
+    'pekkoStream': "org.apache.pekko:pekko-stream_$playScalaVersion:$pekkoVersion",
+    'pekkoActorTyped': "org.apache.pekko:pekko-actor-typed_$playScalaVersion:$pekkoVersion",
+    'pekkoSlf4j': "org.apache.pekko:pekko-slf4j_$playScalaVersion:$pekkoVersion",
+    'pekkoJackson': "org.apache.pekko:pekko-serialization-jackson_$playScalaVersion:$pekkoVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -171,9 +169,8 @@ project.ext.externalDependency = [
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
     'gson': 'com.google.code.gson:gson:2.12.0',
-    'guice': 'com.google.inject:guice:7.0.0',
-    'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
     'guava': 'com.google.guava:guava:33.6.0-jre',
+    'guice': 'com.google.inject:guice:7.0.0',
     'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -260,21 +257,21 @@ project.ext.externalDependency = [
     'parquet': 'org.apache.parquet:parquet-avro:1.17.0',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.17.0',
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
-    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
-    'playWs': "com.typesafe.play:play-ahc-ws-standalone_$playScalaVersion:2.1.10",
-    'playDocs': "com.typesafe.play:play-docs_$playScalaVersion:$playVersion",
-    'playGuice': "com.typesafe.play:play-guice_$playScalaVersion:$playVersion",
+    // org.playframework JARs: no version here — datahub-frontend uses platform(play-bom) and $playVersion on that BOM only.
+    'playCache': "org.playframework:play-cache_$playScalaVersion",
+    'playCaffeineCache': "org.playframework:play-caffeine-cache_$playScalaVersion",
+    'playWs': "org.playframework:play-ahc-ws_$playScalaVersion",
+    'playDocs': "org.playframework:play-docs_$playScalaVersion",
+    'playGuice': "org.playframework:play-guice_$playScalaVersion",
     // Required at runtime for play.data.validation.Constraints (e.g. sign-up email validation);
     // compile-only transitives do not land in the staged Play distribution lib/.
-    'playJavaForms': "com.typesafe.play:play-java-forms_$playScalaVersion:$playVersion",
-    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_$playScalaVersion:$playVersion",
-    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_$playScalaVersion:$playVersion",
-    'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
-    'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
-    'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
+    'playJavaForms': "org.playframework:play-java-forms_$playScalaVersion",
+    'playPekkoHttpServer': "org.playframework:play-pekko-http-server_$playScalaVersion",
+    'playServer': "org.playframework:play-server_$playScalaVersion",
+    'playTest': "org.playframework:play-test_$playScalaVersion",
+    'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
-    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.1-PLAY2.8",
+    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
     'postgresql': 'org.postgresql:postgresql:42.7.8',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
@@ -459,7 +456,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.glassfish', module: 'jakarta.json'
     exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
+    exclude group: "org.apache.pekko", module: "pekko-protobuf-v3_$playScalaVersion"
     exclude group: 'com.typesafe.play', module: 'shaded-oauth'
+    exclude group: 'org.playframework', module: 'shaded-oauth'
     exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
     exclude group: 'commons-lang', module: 'commons-lang'
