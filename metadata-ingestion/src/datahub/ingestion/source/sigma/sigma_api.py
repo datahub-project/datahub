@@ -2,12 +2,12 @@ import functools
 import logging
 import sys
 from collections import deque
+from collections.abc import Hashable
 from typing import (
     Any,
     Callable,
     Deque,
     Dict,
-    Hashable,
     List,
     Optional,
     Set,
