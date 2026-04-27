@@ -678,6 +678,12 @@
           "supported": true
         },
         {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via configuration `include_glossaries`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Project containers are generated instead",
           "subtype_modifier": null,

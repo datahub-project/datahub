@@ -189,6 +189,24 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Analytics.public.sales.*'",
     )
 
+    stage_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stages to filter in ingestion. "
+        "Specify regex to match the entire stage name in database.schema.stage format.",
+    )
+
+    task_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for tasks to filter in ingestion. "
+        "Specify regex to match the entire task name in database.schema.task format.",
+    )
+
+    pipe_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for pipes to filter in ingestion. "
+        "Specify regex to match the entire pipe name in database.schema.pipe format.",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
@@ -436,6 +454,21 @@ class SnowflakeV2Config(
     semantic_views: SemanticViewsConfig = Field(
         default_factory=SemanticViewsConfig,
         description="Configuration for semantic views ingestion.",
+    )
+
+    include_stages: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Stages will be ingested as containers with associated metadata.",
+    )
+
+    include_tasks: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Tasks will be ingested as DataJobs with DAG dependencies and SQL lineage.",
+    )
+
+    include_pipes: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(

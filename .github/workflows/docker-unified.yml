@@ -21,6 +21,7 @@ on:
       - "!.github/scripts/send_failed_tests_to_posthog.py"
       - "!.github/scripts/docker_helpers.sh"
       - "!.github/actions/ci-optimization"
+      - "!.github/actions/restore-dependency-caches"
       - "!.github/scripts/check_python_package.py"
       - "!.github/scripts/parse_failed_cypress_tests.py"
       - "!.github/scripts/parse_failed_pytest_tests.py"
@@ -211,39 +212,20 @@ jobs:
           distribution: "zulu"
           java-version: 21
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: ./.github/actions/restore-dependency-caches
         with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches/modules-2
-            ~/.gradle/caches/jars-*
-            ~/.gradle/caches/transforms-*
-          key: gradle-plugins-cache
-          restore-keys: |
-            gradle-plugins-cache
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          restore_gradle: true
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
@@ -317,49 +299,6 @@ jobs:
             ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
 
-  scan_images:
-    permissions:
-      contents: read # for actions/checkout to fetch code
-      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-    name: Scan images for vulnerabilities
-    runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build]
-    if: ${{ false }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
-    steps:
-      - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - id: download_image
-        name: Download images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
-        run: |
-          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}" --target "${{ matrix.target}}"
-          docker images
-          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        env:
-          TRIVY_OFFLINE_SCAN: true
-          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
-          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
-        with:
-          image-ref: ${{ steps.download_image.outputs.docker_image }}
-          format: "template"
-          template: "@/contrib/sarif.tpl"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          trivy-config: "./trivy.yaml"
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
-        with:
-          sarif_file: "trivy-results.sarif"
-
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
@@ -428,24 +367,15 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 #v5

@@ -1,3 +1,7 @@
+---
+title: DataHub Actions Framework
+---
+
 # ⚡ DataHub Actions Framework
 
 Welcome to DataHub Actions! The Actions framework makes responding to realtime changes in your Metadata Graph easy, enabling you to seamlessly integrate [DataHub](https://github.com/datahub-project/datahub) into a broader events-based architecture.
