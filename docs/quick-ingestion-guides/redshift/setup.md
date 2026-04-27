@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: Redshift Setup
 ---
 
 # Redshift Ingestion Guide: Setup & Prerequisites

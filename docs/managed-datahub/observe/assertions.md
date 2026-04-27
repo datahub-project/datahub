@@ -1,3 +1,7 @@
+---
+title: Assertions Monitoring
+---
+
 # Assertions
 
 :::note Supported Data Platforms
