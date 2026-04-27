@@ -49,6 +49,9 @@ class Constant:
     WORKBOOK = "workbook"
     BADGE = "badge"
     NEXTPAGE = "nextPage"
+    NEXTPAGETOKEN = "nextPageToken"
+    DATA_MODEL = "data-model"
+    DATA_MODEL_ID = "dataModelId"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"
@@ -59,6 +62,8 @@ class WorkspaceCounts(BaseModel):
     datasets_count: int = 0
     elements_count: int = 0
     pages_count: int = 0
+    data_models_count: int = 0
+    data_model_elements_count: int = 0
 
     def is_empty(self) -> bool:
         return (
@@ -66,6 +71,8 @@ class WorkspaceCounts(BaseModel):
             and self.datasets_count == 0
             and self.elements_count == 0
             and self.pages_count == 0
+            and self.data_models_count == 0
+            and self.data_model_elements_count == 0
         )
 
     def as_obj(self) -> dict:
@@ -74,6 +81,8 @@ class WorkspaceCounts(BaseModel):
             "datasets_count": self.datasets_count,
             "elements_count": self.elements_count,
             "pages_count": self.pages_count,
+            "data_models_count": self.data_models_count,
+            "data_model_elements_count": self.data_model_elements_count,
         }
 
 
@@ -105,6 +114,16 @@ class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
             self.workspace_counts[workspace_id] = WorkspaceCounts()
         self.workspace_counts[workspace_id].pages_count += 1
 
+    def increment_data_models_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].data_models_count += 1
+
+    def increment_data_model_elements_count(self, workspace_id: str) -> None:
+        if workspace_id not in self.workspace_counts:
+            self.workspace_counts[workspace_id] = WorkspaceCounts()
+        self.workspace_counts[workspace_id].data_model_elements_count += 1
+
     def as_obj(self) -> dict:
         return {
             "filtered": self.dropped_entities.as_obj(),
@@ -128,12 +147,93 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workbooks: EntityFilterReport = EntityFilterReport.field(type="workbook")
     workbooks_without_workspace: int = 0
 
+    data_models: EntityFilterReport = EntityFilterReport.field(type="data_model")
+    data_models_without_workspace: int = 0
+
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
 
-    # Sheet upstreams skipped because the upstream element was filtered out of
-    # the chart map (e.g. a pivot-table blocked by get_page_elements's allowlist).
+    # Sheet upstream skipped because the upstream element was filtered out
+    # of the chart map (e.g. pivot-table blocked by page-element allowlist).
     num_filtered_sheet_upstreams: int = 0
+
+    # Chart upstream node of type=dataset had ``name=None``. The SQL-bridge
+    # cannot correlate it against a warehouse table, so the chart-to-Sigma-
+    # dataset edge is skipped. Pre-PR this raised ValidationError; this
+    # counter restores the observability signal.
+    chart_dataset_upstream_name_missing: int = 0
+
+    # DM element emission / upstream resolution.
+    data_model_elements_emitted: int = 0
+    data_model_element_intra_upstreams: int = 0
+    data_model_element_external_upstreams: int = 0
+    data_model_element_upstreams_unresolved: int = 0
+
+    # Cross-DM element references (DM-A element pulls from DM-B). Success
+    # counters bump once per unique upstream URN (diamonds deduped).
+    # ``_resolved = _strict + _ambiguous + _single_element_fallback``
+    # (``_ambiguous`` and ``_single_element_fallback`` are sub-shapes of
+    # ``_resolved``; clean strict-name-match = _resolved - _ambiguous -
+    # _single_element_fallback).
+    # Failure counters bump per source_id (each is a distinct missing ref)
+    # and also bump ``data_model_element_upstreams_unresolved``:
+    # ``_name_unmatched_but_dm_known``: producer DM ingested, no name match
+    #   (typically a consumer-side rename).
+    # ``_dm_unknown``: producer DM not in this run.
+    # ``_consumer_name_missing``: consumer element had a blank name; the
+    #   name-bridge was never attempted.
+    # ``_self_reference``: producer prefix matches the consuming DM (API
+    #   payload anomaly; defensively skipped).
+    data_model_element_cross_dm_upstreams_resolved: int = 0
+    data_model_element_cross_dm_upstreams_ambiguous: int = 0
+    data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
+    data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
+    data_model_element_cross_dm_upstreams_dm_unknown: int = 0
+    # Producer DM was discovered by the iterative loop and then dropped by
+    # ``workspace_pattern`` or ``data_model_pattern``. Distinct from
+    # ``dm_unknown`` so operators can see "I asked to exclude this" vs
+    # "source system is missing this".
+    data_model_element_cross_dm_upstreams_excluded_by_filter: int = 0
+    data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
+    data_model_element_cross_dm_upstreams_self_reference: int = 0
+
+    # Personal-space / unlisted DMs discovered via /v2/dataModels/{urlId}.
+    # ``_discovered``: an unlisted DM was fetched and added to the run.
+    # ``_unresolved``: fetch returned non-200 (usually 403).
+    data_model_external_references_discovered: int = 0
+    data_model_external_reference_unresolved: int = 0
+
+    # /columns entries with ``elementId = None`` (DM-global calculations),
+    # dropped because there is no element Dataset to attach them to.
+    data_model_columns_without_element_dropped: int = 0
+
+    # Two DMs claimed the same ``urlId`` bridge key. The first wins; the
+    # second is skipped at emit time to avoid an unlinked orphan. Non-zero
+    # means a reissued slug; see warning log for ``(dataModelId, urlId)``.
+    data_models_bridge_key_collision: int = 0
+
+    # Duplicate ``column.name`` on a single DM element, dropped to avoid
+    # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
+    data_model_element_columns_duplicate_fieldpath_dropped: int = 0
+
+    # Workbook-to-DM-element bridge. Matched by element name.
+    # ``_resolved``: edge emitted as a unique chart input.
+    # ``_deduped``: URN already present on the chart (e.g. diamond lineage).
+    # ``_ambiguous``: multiple elements share the name; deterministic pick.
+    # ``_name_unmatched_but_dm_known``: DM ingested but name did not match
+    #   (no edge; ChartInfo.inputs requires Dataset URNs, not Container URNs).
+    # ``_unresolved``: DM not in this run.
+    element_dm_edges_resolved: int = 0
+    element_dm_edges_deduped: int = 0
+    element_dm_edge_ambiguous: int = 0
+    element_dm_edge_name_unmatched_but_dm_known: int = 0
+    # Lineage node had no ``name``; distinct from the rename-miss counter.
+    element_dm_edge_upstream_name_missing: int = 0
+    element_dm_edge_unresolved: int = 0
+    # Sigma places the DM-reference node only in ``edges[].source`` (not as
+    # a ``dependencies`` key). We synthesize the upstream using the workbook
+    # element's own ``name`` (Sigma's default mirrors the DM element name).
+    element_dm_edge_synthesized_from_edge_only: int = 0
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -195,4 +295,20 @@ class SigmaSourceConfig(
     workbook_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
+    )
+    ingest_data_models: bool = pydantic.Field(
+        default=False,
+        description="Whether to ingest Sigma Data Models. Each Data Model is emitted "
+        "as a Container with one Dataset per element inside it (plus per-element "
+        "``SchemaMetadata`` and ``UpstreamLineage``). Default is ``False`` because "
+        "enabling this introduces a new entity class to the graph — existing tenants "
+        "will see new Containers and Datasets appear on first ingest and will need "
+        "to factor those into any soft-delete policy if they later disable this flag. "
+        "Enabling this issues ``/dataModels/{id}/elements``, ``/columns`` and "
+        "``/lineage`` calls per Data Model independently of ``extract_lineage``.",
+    )
+    data_model_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter Sigma Data Model names in ingestion. "
+        "Requires ingest_data_models to be enabled.",
     )

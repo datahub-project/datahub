@@ -7,6 +7,29 @@ This source extracts the following:
 - Workspaces and workbooks within that workspaces as Container.
 - Sigma Datasets as Datahub Datasets.
 - Pages as Datahub dashboards and elements present inside pages as charts.
+- Sigma Data Models as Containers, with each element as a Dataset
+  inside the Container (opt-in via `ingest_data_models: true`; default
+  `false`). `UpstreamLineage` is emitted on each element for intra-DM,
+  cross-DM, external (warehouse / Sigma Dataset), and workbook-to-DM
+  references. Personal-space DMs referenced from ingested DMs are
+  discovered on demand and gated by `ingest_shared_entities` and
+  `data_model_pattern`. Report counters under
+  `data_model_*` / `element_dm_*` surface per-shape resolution outcomes.
+
+  Notes:
+
+  - Element Dataset URNs are keyed by the immutable Data Model UUID
+    (`urn:li:dataset:(sigma,<dataModelId>.<elementId>,env)`) so
+    attachments survive Sigma slug rotation; the slug is captured on
+    `customProperties.dataModelUrlId`.
+  - Column types are emitted as `String` — Sigma's `/columns` API does
+    not return per-column types.
+  - Column-level lineage is not emitted yet; `SchemaMetadata` is
+    present, so CLL can be added later without re-ingestion.
+  - Unresolved upstream references (Sigma Dataset not ingested, DM not
+    reachable, element name not matched) are suppressed rather than
+    fabricated as dangling URNs. Re-run with broader patterns to
+    materialize them.
 
 ### Prerequisites
 

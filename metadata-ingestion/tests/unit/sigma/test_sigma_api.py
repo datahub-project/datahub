@@ -416,9 +416,14 @@ class TestGetElementUpstreamSources:
         assert "unrelated_sheet" not in result
         assert len(api.report.warnings) == 0
 
-    def test_dataset_node_with_null_name_is_dropped_but_siblings_survive(
+    def test_dataset_node_with_null_name_parses_with_siblings(
         self,
     ) -> None:
+        # ``DatasetUpstream.name`` is ``Optional[str]`` so a null-name node
+        # no longer trips ValidationError at parse time. Both nodes land
+        # in the upstream map; the chart-input path in ``sigma.py`` is
+        # responsible for skipping the edge and bumping
+        # ``chart_dataset_upstream_name_missing``.
         api = _create_sigma_api()
         element = _make_element()
         workbook = _make_workbook()
@@ -462,12 +467,13 @@ class TestGetElementUpstreamSources:
         ):
             result = api._get_element_upstream_sources(element, workbook)
 
-        # good_dataset is returned; null_name_dataset triggers ValidationError → dropped
         assert "good_dataset" in result
         assert isinstance(result["good_dataset"], DatasetUpstream)
         assert result["good_dataset"].name == "GOOD"
-        assert "null_name_dataset" not in result
-        assert len(api.report.warnings) == 1
+        assert "null_name_dataset" in result
+        assert isinstance(result["null_name_dataset"], DatasetUpstream)
+        assert result["null_name_dataset"].name is None
+        assert len(api.report.warnings) == 0
 
     def test_dependencies_reference_missing_node_produces_parse_warning(
         self,
