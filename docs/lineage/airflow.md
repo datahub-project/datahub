@@ -497,12 +497,16 @@ WARNING  datahub_airflow_plugin._datahub_ol_adapter: OpenLineage Dataset name
 producer (unset field interpolated into an f-string).
 ```
 
-it means an upstream Airflow operator emitted an OpenLineage Dataset whose
-`name` had the literal string `"None"` baked into one of its dotted segments.
-This is almost always caused by an Apache Airflow provider building the name
-with an f-string like `f"{database}.{self.schema}.{self.table}"` without
-checking whether `self.schema` is `None` — the most well-known case is
-[`S3ToRedshiftOperator`](https://airflow.apache.org/docs/apache-airflow-providers-amazon/stable/transfer/s3_to_redshift.html).
+it means an upstream OpenLineage producer emitted a Dataset whose `name` had
+the literal string `"None"` baked into one of its dotted segments. This
+happens when the producer builds the name with an f-string and one of the
+interpolated fields is Python `None` (which renders as the four-character
+string `"None"`). One example you can see in upstream source is Apache
+Airflow's `S3ToRedshiftOperator.get_openlineage_facets_on_complete`, which
+constructs the name as
+[`f"{database}.{self.schema}.{self.table}"`](https://github.com/apache/airflow/blob/67b71d376454cc95cf2f5bb17e0f4edb0e05f480/providers/amazon/src/airflow/providers/amazon/aws/transfers/s3_to_redshift.py#L260)
+with no `None` guard — but any producer (Airflow operator, dbt adapter, Spark
+listener, custom integration) following the same pattern can hit it.
 
 The DataHub plugin sanitizes these names automatically before emitting the URN
 so that lineage stitches correctly to whatever your DataHub native Redshift /
