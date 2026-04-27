@@ -1153,6 +1153,23 @@ salesforce = [
     "simple-salesforce<2.0.0",
 ]
 
+sharepoint = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "jsonpath-ng==1.7.0",
+    "litellm==1.83.0",
+    "msal>=1.31.1,<2.0.0",
+    "openpyxl>=3.1.5,<4.0.0",
+    "parse>=1.19.0,<2.0.0",
+    "pyarrow>14.0.0,<24.0.0",
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.12.0,<6.0.0",
+    "unstructured-ingest==0.7.2",
+    "unstructured[md]==0.18.24",
+    "urllib3>=1.26,<3.0",
+    "wcmatch<11.0.0",
+]
+
 sigma = [
     "patchy==2.8.0",
     "requests<3.0.0",
@@ -2150,6 +2167,7 @@ presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"
 salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
+sharepoint = "datahub.ingestion.source.sharepoint.sharepoint_source:SharePointSource"
 demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"

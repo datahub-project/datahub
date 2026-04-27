@@ -367,6 +367,14 @@
         "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    stateful_ingestion:\n      enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:sharepoint",
+        "name": "sharepoint",
+        "displayName": "SharePoint",
+        "description": "Import files and documents from SharePoint as Datasets or Documents with semantic search support.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sharepoint/",
+        "recipe": "source:\n  type: sharepoint\n  config:\n    auth:\n      tenant_id: null\n      client_id: null\n      client_secret: null\n    site:\n      hostname: null\n    mode: data_lake\n    stateful_ingestion:\n      enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
         "displayName": "Other",

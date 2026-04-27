@@ -997,6 +997,16 @@
     displayName: Fabric Data Factory
     type: OTHERS
     logoUrl: "assets/platforms/fabricdatafactorylogo.svg"
+- entityUrn: urn:li:dataPlatform:sharepoint
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: sharepoint
+    displayName: SharePoint
+    type: OTHERS
+    logoUrl: "assets/platforms/sharepointlogo.svg"
 - entityUrn: urn:li:dataPlatform:datahub
   entityType: dataPlatform
   aspectName: dataPlatformInfo

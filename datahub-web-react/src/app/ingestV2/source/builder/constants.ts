@@ -49,6 +49,7 @@ import redshiftLogo from '@images/redshiftlogo.png';
 import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
 import sageMakerLogo from '@images/sagemakerlogo.png';
+import sharepointLogo from '@images/sharepointlogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
@@ -174,6 +175,8 @@ const S3 = 's3';
 const S3_URN = `urn:li:dataPlatform:${S3}`;
 const SAGE_MAKER = 'sagemaker';
 const SAGE_MAKER_URN = `urn:li:dataPlatform:${SAGE_MAKER}`;
+export const SHAREPOINT = 'sharepoint';
+const SHAREPOINT_URN = `urn:li:dataPlatform:${SHAREPOINT}`;
 const SIGMA = 'sigma';
 const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
@@ -257,6 +260,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
+    [SHAREPOINT_URN]: sharepointLogo,
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,

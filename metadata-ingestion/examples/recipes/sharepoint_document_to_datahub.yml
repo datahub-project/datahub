@@ -1,0 +1,67 @@
+# SharePoint to DataHub ingestion recipe (document mode)
+#
+# Ingests SharePoint pages and documents (Word, PDF) as DataHub Document
+# entities, with optional text chunking and semantic embeddings.
+#
+# Prerequisites:
+# 1. Register an Azure AD application (service principal)
+# 2. Grant the application Microsoft Graph API permissions:
+#    - Sites.Read.All (Application)
+#    - Files.Read.All (Application)
+# 3. Grant admin consent for the API permissions
+# 4. Set the environment variables below
+#
+# Installation:
+#   pip install 'acryl-datahub[sharepoint]'
+#
+# Run:
+#   datahub ingest -c sharepoint_document_to_datahub.yml
+
+source:
+  type: sharepoint
+  config:
+    auth:
+      tenant_id: "${AZURE_TENANT_ID}"
+      client_id: "${AZURE_CLIENT_ID}"
+      client_secret: "${AZURE_CLIENT_SECRET}"
+
+    site:
+      hostname: "myorg.sharepoint.com"
+      # Restrict to specific sites (omit to ingest all accessible sites)
+      # site_pattern:
+      #   allow:
+      #     - "/sites/Engineering"
+      #     - "/sites/DataTeam"
+
+    # mode: data_lake  — ingest structured files as Datasets
+    # mode: document   — ingest pages and Office files as Documents (default for this recipe)
+    # mode: both       — run both in a single pipeline
+    mode: document
+
+    # File types to ingest in document mode (default: docx, pdf)
+    # file_types:
+    #   - docx
+    #   - pdf
+
+    # Skip personal OneDrive sites
+    # skip_personal_sites: true
+
+    # Chunking and embedding (fetched from DataHub server by default)
+    # chunking:
+    #   strategy: by_title
+    #   max_chunk_size: 500
+    #
+    # embedding:
+    #   provider: openai
+    #   model: text-embedding-3-small
+    #   api_key: "${OPENAI_API_KEY}"
+
+    # Stateful ingestion removes deleted entities automatically
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    # token: "${DATAHUB_TOKEN}"
