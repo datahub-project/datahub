@@ -537,6 +537,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cassandra.useSsl",
           "ebean.autoCreateDdl",
           "ebean.batchGetMethod",
+          "ebean.queryKeysCountForBatch",
           "ebean.cloudProvider",
           "ebean.driver",
           "ebean.leakTimeMinutes",

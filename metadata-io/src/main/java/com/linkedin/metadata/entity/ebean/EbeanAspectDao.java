@@ -54,6 +54,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,7 +89,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // This may be able to be moved up, 375 is a bit conservative. However, we should be careful to
   // tweak this without
   // more testing.
-  private int queryKeysCount = 375; // 0 means no pagination on keys
+  // Can be configured via ebean.queryKeysCountForBatch in application.yaml
+  private int queryKeysCount = EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT;
 
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
@@ -106,6 +108,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
+    Integer configuredKeysCount = ebeanConfiguration.getQueryKeysCountForBatch();
+    if (configuredKeysCount != null) {
+      this.queryKeysCount = configuredKeysCount;
+    }
     this.metricUtils = metricUtils;
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
@@ -205,12 +211,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
             .collect(Collectors.toList());
 
-    final List<EbeanAspectV2> results;
-    if (forUpdate && canWrite) {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
-    } else {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).findList();
-    }
+    // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
+    // (range_optimizer_max_mem_size)
+    final List<EbeanAspectV2> results =
+        batchGet(new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
 
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
