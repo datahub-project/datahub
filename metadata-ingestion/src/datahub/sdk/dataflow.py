@@ -41,6 +41,25 @@ from datahub.utilities.sentinels import Unset, unset
 logger = logging.getLogger(__name__)
 
 
+def _normalize_env(env: str) -> Optional[str]:
+    """Normalize a URN cluster string to a FabricType enum value for use in aspects.
+
+    URN cluster is a free-form string (e.g. Airflow's default "prod"), but
+    DataFlowInfo.env / DataJobInfo.env are FabricType enum fields that require
+    uppercase values and drive the Environment search filter. Returns None when
+    the value has no matching FabricType, with a debug log.
+    See DEFAULT_FLOW_CLUSTER in mce_builder.py for full context.
+    """
+    env_upper = env.upper()
+    if env_upper in ALL_ENV_TYPES:
+        return env_upper
+    logger.debug(
+        f"{env!r} is not a valid FabricType value; the env aspect field will be None "
+        "and the Environment search filter will not work for this entity."
+    )
+    return None
+
+
 class DataFlow(
     HasPlatformInstance,
     HasSubtype,
@@ -129,19 +148,7 @@ class DataFlow(
 
         # Initialize DataFlowInfoClass directly with name
         self._setdefault_aspect(models.DataFlowInfoClass(name=display_name or name))
-        # URN cluster is a free-form string; DataFlowInfo.env is a FabricType enum (uppercase
-        # only). Normalize here so the aspect is valid, while the URN retains original casing.
-        # See DEFAULT_FLOW_CLUSTER in mce_builder.py for the full explanation.
-        env_upper = env.upper()
-        if env_upper in ALL_ENV_TYPES:
-            env_for_aspect: Optional[str] = env_upper
-        else:
-            logger.debug(
-                f"{env!r} is not a valid FabricType value; DataFlowInfo.env will be None "
-                "and the Environment search filter will not work for this entity."
-            )
-            env_for_aspect = None
-        self._ensure_dataflow_props().env = env_for_aspect
+        self._ensure_dataflow_props().env = _normalize_env(env)
 
         if description is not None:
             self.set_description(description)
