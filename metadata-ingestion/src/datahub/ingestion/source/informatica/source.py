@@ -143,6 +143,7 @@ class InformaticaFolderKey(InformaticaProjectKey):
 @capability(SourceCapability.LINEAGE_COARSE, "Table-level lineage via v3 Export API")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.OWNERSHIP, "From IDMC object createdBy/updatedBy")
+@capability(SourceCapability.TAGS, "IDMC object tags emitted as DataHub GlobalTags")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
     """DataHub ingestion source for Informatica Cloud (IDMC).

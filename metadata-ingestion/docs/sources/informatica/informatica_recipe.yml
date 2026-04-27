@@ -59,6 +59,11 @@ source:
     # Derives owners from IDMC createdBy/updatedBy fields.
     extract_ownership: true
 
+    # Emits IDMC object tags as DataHub GlobalTags on Projects, Folders,
+    # Taskflows, and Mapping Tasks. Defaults to true — tags will be ingested
+    # even if this field is not specified.
+    extract_tags: true
+
     # -------------------------------------------------------------------------
     # Connection → platform overrides
     # -------------------------------------------------------------------------
