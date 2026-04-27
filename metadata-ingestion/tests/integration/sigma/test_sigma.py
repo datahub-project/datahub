@@ -1317,9 +1317,10 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
         "DM Container should be filtered out by data_model_pattern"
     )
     # No element Datasets should have been emitted either — URN part encodes
-    # the DM urlId, so a quick substring check is sufficient.
+    # the DM dataModelId UUID (not the urlId slug), so check by UUID.
     dm_element_present = any(
-        "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "") for mce in mces
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
+        for mce in mces
     )
     assert not dm_element_present, (
         "DM element Datasets should be filtered out by data_model_pattern"
@@ -1384,7 +1385,10 @@ def test_sigma_ingest_data_models_disabled(pytestconfig, tmp_path, requests_mock
     # mocks are registered.
     with open(output_path) as f:
         mces = json.load(f)
-    assert not any("CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "") for mce in mces)
+    assert not any(
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
+        for mce in mces
+    )
 
     # Prove the DM endpoints were never hit — stronger than the absence check
     # above. If ingest_data_models=False, /v2/dataModels should not be
@@ -1918,7 +1922,7 @@ def test_sigma_ingest_data_models_workspace_pattern_deny(
     with open(output_path) as f:
         mces = json.load(f)
     assert not any(
-        "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
         or "0466d89b8ce5ac9b2cd1deecdffe42c1" in mce.get("entityUrn", "")
         for mce in mces
     ), "DM entities should be dropped by workspace_pattern deny"

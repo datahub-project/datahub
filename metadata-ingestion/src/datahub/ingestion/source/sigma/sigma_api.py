@@ -731,19 +731,22 @@ class SigmaAPI:
             #
             # Include the HTTP status code in the warning title when we
             # can extract it (``requests.HTTPError`` from
-            # ``raise_for_status``) so operators can triage "429 after
-            # retries" separately from "malformed JSON" / "connection
-            # reset" without opening every warning. Title stays stable
-            # for non-HTTP failures (LossyList rate-limits by title).
-            title = "Sigma paginated endpoint aborted"
-            if isinstance(e, requests.HTTPError) and e.response is not None:
-                title = (
-                    f"Sigma paginated endpoint aborted (HTTP {e.response.status_code})"
-                )
+            # Surface pagination failures so operators see them in the
+            # ingestion report. HTTP status goes into ``context`` (not
+            # ``title``) so LossyList groups all pagination aborts under
+            # one stable key regardless of status code.
+            http_status: Optional[int] = (
+                e.response.status_code
+                if isinstance(e, requests.HTTPError) and e.response is not None
+                else None
+            )
             self.report.warning(
-                title=title,
+                title="Sigma paginated endpoint aborted",
                 message=f"{error_ctx} Pagination aborted.",
-                context=f"url={url}, partial_results={len(raw_entries)}",
+                context=(
+                    f"url={url}, partial_results={len(raw_entries)}"
+                    + (f", http_status={http_status}" if http_status else "")
+                ),
                 exc=e,
             )
             self._log_http_error(message=f"{error_ctx} Exception: {e}")
@@ -1029,7 +1032,7 @@ class SigmaAPI:
                     # triage without stdout tailing; the warning is
                     # rate-limited by LossyList on the report side.
                     self.report.warning(
-                        title=f"Sigma orphan Data Model fetch returned {status}",
+                        title="Sigma orphan Data Model fetch returned non-200",
                         message=(
                             "Cross-DM reference could not be resolved; "
                             "treating as ``dm_unknown`` for the rest of "
@@ -1037,7 +1040,7 @@ class SigmaAPI:
                             "scope revoked, personal space not shared with "
                             "the ingest principal."
                         ),
-                        context=f"url_id={url_id}, status={status}",
+                        context=f"url_id={url_id}, http_status={status}",
                     )
                 return None
             data = response.json()

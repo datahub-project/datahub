@@ -9,9 +9,11 @@ This source extracts the following:
 - Pages as Datahub dashboards and elements present inside pages as charts.
 - Sigma Data Models as Containers, with each element as a Dataset
   inside the Container (opt-in via `ingest_data_models: true`; default
-  `false`). `UpstreamLineage` is emitted on each element for intra-DM,
-  cross-DM, external (warehouse / Sigma Dataset), and workbook-to-DM
-  references. Personal-space DMs referenced from ingested DMs are
+  `false`). `UpstreamLineage` is emitted on each DM element Dataset for
+  intra-DM, cross-DM, and external (warehouse / Sigma Dataset) upstream
+  references. Workbook-to-DM connections are emitted as `ChartInfo.inputs`
+  on the workbook chart entity (not as `UpstreamLineage` on the DM element
+  Dataset). Personal-space DMs referenced from ingested DMs are
   discovered on demand and gated by `ingest_shared_entities` and
   `data_model_pattern`. Report counters under
   `data_model_*` / `element_dm_*` surface per-shape resolution outcomes.
@@ -35,11 +37,11 @@ This source extracts the following:
     only resolve when the referenced dataset is ingested in the same
     recipe run. Splitting Sigma Datasets and Data Models into separate
     recipes will leave those upstreams unresolved. The report splits
-    these between `data_model_element_upstreams_unresolved_external`
+    these between     `data_model_element_upstreams_unresolved_external`
     (target Sigma Dataset exists but wasn't ingested this run) and
-    `data_model_element_upstreams_unknown_shape` (cross-DM refs that
-    couldn't be resolved, or any future source_id shape this release
-    doesn't parse); the aggregate `data_model_element_upstreams_unresolved`
+    `data_model_element_upstreams_unknown_shape` (source_id shapes this
+    release does not parse — cross-DM refs have their own dedicated
+    `data_model_element_cross_dm_upstreams_*` counters); the aggregate `data_model_element_upstreams_unresolved`
     is retained for dashboards that already read it. Re-run with
     broader patterns to materialize them.
   - Setting `ingest_data_models: true` issues `/dataModels/{id}/elements`
@@ -73,9 +75,10 @@ This source extracts the following:
     edge to the producer's sole element _iff_ the producer DM contains
     exactly one element. This covers the CSV-upload / single-asset
     personal-DM case where either side has been renamed (by
-    construction, there is only one possible target). The fallback bumps
-    `data_model_element_cross_dm_upstreams_single_element_fallback`
-    instead of `_resolved`, so it is distinguishable in the report.
+    construction, there is only one possible target).     The fallback bumps both
+    `data_model_element_cross_dm_upstreams_resolved` (aggregate success
+    count) and `data_model_element_cross_dm_upstreams_single_element_fallback`
+    (sub-shape count), so it is distinguishable in the report.
     Semantics: if the producer DM is later edited to add a second
     element and the user renames the consumer to point at the new one,
     the fallback no longer fires and the previously-emitted edge will
