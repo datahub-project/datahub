@@ -154,24 +154,16 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
       - name: Install Cypress dependencies on ARM

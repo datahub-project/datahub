@@ -32,6 +32,7 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.javaxMail
+  runtimeOnly externalDependency.javaxMailCompat
 
   implementation platform(externalDependency.awsSdk2Bom)
   implementation 'software.amazon.awssdk:s3'
@@ -55,6 +56,9 @@ dependencies {
     }
     implementation(externalDependency.javaxMail) {
       because("previous versions are vulnerable")
+    }
+    implementation(externalDependency.javaxMailCompat) {
+      because("compatibility for libraries that still reference javax.mail.* classes")
     }
     implementation(externalDependency.zookeeper) {
       because("CVE-2023-44981")
