@@ -717,18 +717,19 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
 
     // Add bulk requests
     for (int i = 0; i < 5; i++) {
+      String docId = "bulk-doc-" + i;
       IndexRequest indexRequest =
-          new IndexRequest(TEST_INDEX).id("bulk-doc-" + i).source("bulk_field", "bulk_value_" + i);
-      searchClientShim.addBulk(indexRequest);
+          new IndexRequest(TEST_INDEX).id(docId).source("bulk_field", "bulk_value_" + i);
+      searchClientShim.addBulk(docId, indexRequest);
     }
 
     // Add an update request
     UpdateRequest updateRequest = new UpdateRequest(TEST_INDEX, "bulk-doc-0").doc("updated", true);
-    searchClientShim.addBulk(updateRequest);
+    searchClientShim.addBulk("bulk-doc-0", updateRequest);
 
     // Add a delete request
     DeleteRequest deleteRequest = new DeleteRequest(TEST_INDEX, "bulk-doc-1");
-    searchClientShim.addBulk(deleteRequest);
+    searchClientShim.addBulk("bulk-doc-1", deleteRequest);
 
     // Flush and close bulk processor
     searchClientShim.flushBulkProcessor();

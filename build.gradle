@@ -171,7 +171,7 @@ project.ext.externalDependency = [
     'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
-    'guava': 'com.google.guava:guava:32.1.3-jre',
+    'guava': 'com.google.guava:guava:33.6.0-jre',
     'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -511,6 +511,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.because("gRPC stack aligned to ${rootProject.ext.grpcVersion} (incl. grpc-stub with grpc-netty-shaded)")
       }
     }
+    resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
