@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Literal, NewType, Optional
+from typing import Any, Dict, List, Literal, NewType, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -72,7 +72,7 @@ class IdmcObject(BaseModel):
 
     @field_validator("create_time", "update_time", mode="before")
     @classmethod
-    def _parse_times(cls, v: Any) -> Optional[datetime]:
+    def _parse_times(cls, v: Union[str, datetime, None]) -> Optional[datetime]:
         return _parse_optional_datetime(v)
 
     @field_validator("id")
@@ -165,7 +165,7 @@ def _extract_path(data: Dict[str, Any]) -> str:
     return str(parent) if parent else ""
 
 
-def _parse_tags(raw: Any) -> List[str]:
+def _parse_tags(raw: Optional[List[Union[str, Dict[str, str]]]]) -> List[str]:
     # IDMC returns tags either as strings or dicts with a "name" key.
     if not raw:
         return []
@@ -180,7 +180,7 @@ def _parse_tags(raw: Any) -> List[str]:
     return out
 
 
-def _parse_optional_datetime(v: Any) -> Optional[datetime]:
+def _parse_optional_datetime(v: Union[str, datetime, None]) -> Optional[datetime]:
     if v is None or v == "":
         return None
     if isinstance(v, datetime):
@@ -218,7 +218,7 @@ class IdmcMapping(BaseModel):
 
     @field_validator("create_time", "update_time", mode="before")
     @classmethod
-    def _parse_times(cls, v: Any) -> Optional[datetime]:
+    def _parse_times(cls, v: Union[str, datetime, None]) -> Optional[datetime]:
         return _parse_optional_datetime(v)
 
     @classmethod
@@ -309,7 +309,7 @@ class IdmcMappingTask(BaseModel):
 
     @field_validator("create_time", "update_time", mode="before")
     @classmethod
-    def _parse_times(cls, v: Any) -> Optional[datetime]:
+    def _parse_times(cls, v: Union[str, datetime, None]) -> Optional[datetime]:
         return _parse_optional_datetime(v)
 
     @classmethod
