@@ -1929,7 +1929,6 @@ class TestGetDataModelByUrlIdHttpStatusSurfaced:
         happy path. A 200 response still resolves and returns a
         ``SigmaDataModel`` with no warnings surfaced.
         """
-        import datetime as _dt
 
         api = _create_sigma_api()
         ok = MagicMock(status_code=200)

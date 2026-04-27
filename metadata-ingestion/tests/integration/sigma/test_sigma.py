@@ -1305,7 +1305,6 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
     pipeline.run()
     pipeline.raise_from_status()
     # No golden needed: assert absence of any DM entities in the output.
-    import json
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -1896,32 +1895,6 @@ def test_sigma_ingest_data_models_shared_entity_no_workspace(
 
 
 @pytest.mark.integration
-def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
-    """``data_model_pattern`` deny should drop the DM: no Container and no
-    element Datasets emitted for it."""
-
-    override_data = get_mock_data_model_api()
-    register_mock_api(request_mock=requests_mock, override_data=override_data)
-
-    output_path = f"{tmp_path}/sigma_dm_pattern_deny_mces.json"
-    pipeline = Pipeline.create(
-        _minimal_sigma_pipeline_config(
-            output_path, data_model_pattern={"deny": ["My Data Model.*"]}
-        )
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-
-    with open(output_path) as f:
-        mces = json.load(f)
-    assert not any(
-        "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
-        or "CDJLIyOhUoKBSEVI8Wr4n" in mce.get("entityUrn", "")
-        for mce in mces
-    ), "DM Container and element Datasets should be filtered out by data_model_pattern"
-
-
-@pytest.mark.integration
 def test_sigma_ingest_data_models_workspace_pattern_deny(
     pytestconfig, tmp_path, requests_mock
 ):
@@ -2064,8 +2037,6 @@ def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
     pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
     pipeline.run()
     pipeline.raise_from_status()
-
-    import json
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -2238,8 +2209,6 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
         f"expected 1 rename-induced unmatched, got "
         f"{report.element_dm_edge_name_unmatched_but_dm_known}"
     )
-
-    import json
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -2573,8 +2542,6 @@ def test_sigma_ingest_data_models_cross_dm_upstream(
     assert report.data_model_element_cross_dm_upstreams_ambiguous == 0
     assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
 
-    import json
-
     with open(output_path) as f:
         mces = json.load(f)
 
@@ -2641,7 +2608,6 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
     5. Producer Container has no workspace parent Container.
     6. /v2/dataModels listing called once; /v2/dataModels/{urlId} called once.
     """
-    import json
 
     consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
     consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
@@ -3017,7 +2983,6 @@ def test_sigma_ingest_data_models_orphan_dm_unreachable(
     4. No producer Container / Dataset URNs in the MCE stream.
     5. Pipeline completes without raising.
     """
-    import json
 
     consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
     consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
@@ -3242,7 +3207,6 @@ def test_sigma_ingest_data_models_orphan_dm_two_hop_discovery(
     4. ``consumer -> orphan_b`` and ``orphan_b -> orphan_c`` cross-DM edges
        resolve (``data_model_element_cross_dm_upstreams_resolved == 2``).
     """
-    import json
 
     consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
     consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
@@ -3564,7 +3528,6 @@ def test_sigma_ingest_data_models_orphan_dm_discovery_cap_surfaces_warning(
     - No producer Container / Dataset entities emitted (cap aborted fetch).
     - ``GET /v2/dataModels/{orphan_b_url_id}`` is NEVER called.
     """
-    import json
 
     consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
     consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
@@ -3792,7 +3755,6 @@ def test_sigma_ingest_data_models_orphan_dm_malformed_payload_safe(
     loop against a Sigma-side regression we don't control (e.g.
     experimental endpoints that ship inconsistent field names).
     """
-    import json
 
     consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
     consumer_dm_url_id = "5wwkxte74KSUpjT0C0b0sZ"
@@ -4240,7 +4202,6 @@ def test_sigma_ingest_data_models_orphan_dm_blocked_by_ingest_shared_entities(
     ``data_model_element_cross_dm_upstreams_dm_unknown`` (the producer
     bridge was never registered).
     """
-    import json
 
     override_data = _orphan_dm_mock_fixture()
     register_mock_api(request_mock=requests_mock, override_data=override_data)
@@ -4290,7 +4251,6 @@ def test_sigma_ingest_data_models_orphan_dm_blocked_by_data_model_pattern(
     be dropped before any entity emission. Before the gate fix, the DM
     would slip through since discovery bypassed all filters.
     """
-    import json
 
     override_data = _orphan_dm_mock_fixture()
     register_mock_api(request_mock=requests_mock, override_data=override_data)
@@ -4661,8 +4621,6 @@ def test_sigma_ingest_data_models_cross_dm_diamond_counter_not_inflated(
     assert report.data_model_element_cross_dm_upstreams_ambiguous == 0
     assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
 
-    import json
-
     consumer_element_urn = (
         f"urn:li:dataset:(urn:li:dataPlatform:sigma,"
         f"{consumer_dm_id}.{consumer_element_id},PROD)"
@@ -4711,7 +4669,6 @@ def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_tota
     The fallback must refuse (name_unmatched_but_dm_known, not
     single_element_fallback) because the producer has 2 elements.
     """
-    import json
 
     override_data = _orphan_dm_mock_fixture()
     producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
@@ -4797,7 +4754,6 @@ def test_sigma_ingest_data_models_isPersonalDataModel_lowercase(
     and ``"true"`` across doc and code; this test locks the current
     contract so future drift is caught at CI time.
     """
-    import json
 
     override_data = _orphan_dm_mock_fixture()
     register_mock_api(request_mock=requests_mock, override_data=override_data)
@@ -4852,7 +4808,6 @@ def test_sigma_ingest_data_models_bridge_key_collision_first_wins(
     orphan DM. The ``data_models_bridge_key_collision`` counter must
     bump so operators can audit affected tenants.
     """
-    import json
 
     override_data = get_mock_data_model_api()
     _apply_dm_bridge_workbook_overrides(override_data)
@@ -5130,7 +5085,6 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
     element reached from one chart), not once per sourceId — otherwise
     report triage over-counts and the ambiguity-warning log spams.
     """
-    import json
 
     override_data = get_mock_data_model_api()
     _apply_dm_bridge_workbook_overrides(override_data)
@@ -5255,7 +5209,6 @@ def test_sigma_ingest_data_models_workspace_bypass_via_discovery(
     denied, drop it. Emitted entities for the denied DM must stay empty
     and the cross-DM edge degrades to ``dm_unknown``.
     """
-    import json
 
     override_data = _orphan_dm_mock_fixture()
 
@@ -5347,7 +5300,6 @@ def test_sigma_ingest_data_models_discovery_order_deterministic(
     is emitted before the ``Z`` DM's — which only holds if the loop
     iterates sorted.
     """
-    import json
 
     consumer_dm_id = "cccccccc-cccc-cccc-cccc-cccccccccccc"
     consumer_url_id = "ConsumerUrlId000000"
