@@ -45,10 +45,11 @@ buildscript {
   ext.aircompressorVersion = '2.0.3' // CVE-2025-67721: Snappy/LZ4 buffer reuse info leak
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
-  ext.log4jVersion = '2.25.3'
+  // CVE-2026-34477: Ssl verifyHostName ignored for SMTP/Socket/Syslog appenders; fixed in 2.25.4+
+  ext.log4jVersion = '2.25.4'
   ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   ext.rhinoVersion = '1.7.15.1' // CVE-2025-66453 (NativeNumber.toFixed / DToA DoS); also 1.8.1, 1.7.14.1
-  // Spark-lineage only (spark-lineage-legacy, acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
+  // Spark-lineage only (acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
   ext.sparkLineageDnsjavaVersion = '3.6.0'           // CVE-2024-25638
   ext.sparkLineageJettisonVersion = '1.5.2'          // CVE-2022-40150, CVE-2022-45685, CVE-2022-45693, CVE-2023-1436, CVE-2022-40149
   ext.sparkLineageNimbusJoseJwtVersion = '10.0.2'    // CVE-2023-52428; min 9.37.2, use 10.x to avoid downgrading
@@ -253,9 +254,9 @@ project.ext.externalDependency = [
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    // 1.16.0+ shades jackson 2.19.2 in parquet-jackson (GHSA-72hv-8253-57qq fix; 1.15.2 had 2.18.1)
-    'parquet': 'org.apache.parquet:parquet-avro:1.16.0',
-    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.16.0',
+    // Parquet stack aligned (parquet-jackson comes transitively; 1.16.0+ shades Jackson per GHSA-72hv-8253-57qq)
+    'parquet': 'org.apache.parquet:parquet-avro:1.17.0',
+    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.17.0',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
     'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
@@ -328,7 +329,9 @@ project.ext.externalDependency = [
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
-    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.8'
+    'javaxMail': 'com.sun.mail:jakarta.mail:2.0.2',
+    // Standard compatibility artifact to satisfy legacy javax.mail references while keeping jakarta.mail upgraded.
+    'javaxMailCompat': 'com.sun.mail:javax.mail:1.6.2'
 ]
 
 allprojects {
@@ -556,7 +559,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 }
 
 // Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
-configure(subprojects.findAll { it.name == 'spark-lineage-legacy' || it.name == 'acryl-spark-lineage' }) {
+configure(subprojects.findAll { it.name == 'acryl-spark-lineage' }) {
   configurations.all {
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
