@@ -80,8 +80,12 @@ ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 # so it must carry a valid FabricType value. Code that writes to those aspects
 # (datahub.api, datahub.sdk) must normalize cluster → uppercase before writing to the aspect,
 # while keeping the original casing in the URN identity.
-# A proper fix would change this default to "PROD", but that would require migrating all
-# existing Airflow URNs (urn:li:dataFlow:(airflow,<dag>,prod) → PROD).
+# Two proper fixes exist, both requiring a URN migration for existing Airflow entities:
+#   (A) Change this default to "PROD" and tighten DataFlowKey.cluster to FabricType in
+#       the model, eliminating the mismatch at the source.
+#   (B) Remove the coupling entirely: keep cluster as a free-form string, stop using it
+#       as an env value in the aspects, and fix the Airflow plugin to stop conflating the
+#       two — removing the need for the normalization workaround in datahub.api / datahub.sdk.
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
