@@ -206,6 +206,45 @@ class DataplexConfig(
         description="Stateful ingestion configuration for stale metadata removal.",
     )
 
+    include_glossaries: bool = Field(
+        default=True,
+        description=(
+            "Whether to ingest Dataplex Business Glossary entities as DataHub GlossaryNodes "
+            "and GlossaryTerms. Glossaries, categories, and terms are emitted with correct "
+            "parent hierarchy. Default: True."
+        ),
+    )
+
+    include_glossary_term_associations: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest term-to-asset associations via the Dataplex lookupEntryLinks API. "
+            "For each ingested term, all entries_locations are queried per project to find linked "
+            "assets. Requires roles/resourcemanager.projectViewer on all configured projects to "
+            "resolve GCP project numbers needed by the lookupEntryLinks API."
+        ),
+    )
+
+    glossary_locations: List[str] = Field(
+        default_factory=lambda: ["global"],
+        description=(
+            "GCP locations to scan for Dataplex Business Glossaries. "
+            "Dataplex glossaries are typically created in 'global' but can exist in any location. "
+            "Default: ['global']."
+        ),
+    )
+
+    max_workers_glossary: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description=(
+            "Number of parallel worker threads for glossary ingestion (fetching terms and "
+            "categories per glossary) and term-asset association traversal "
+            "(lookupEntryLinks calls). Default: 10."
+        ),
+    )
+
     dataplex_url: str = Field(
         default="https://console.cloud.google.com/dataplex",
         description="Base URL for Dataplex console (for generating external links).",
@@ -255,6 +294,11 @@ class DataplexConfig(
         if not self.lineage_locations:
             raise ValueError(
                 "At least one lineage location must be specified via lineage_locations."
+            )
+        if self.include_glossaries and not self.glossary_locations:
+            raise ValueError(
+                "At least one glossary location must be specified via glossary_locations "
+                "when include_glossaries is enabled."
             )
 
         return self

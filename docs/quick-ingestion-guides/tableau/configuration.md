@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: Tableau Configuration
 ---
 
 # Configuring Your Tableau Connector to DataHub

@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: Power BI Overview
 ---
 
 # Power BI Ingestion Guide: Overview

@@ -2,7 +2,7 @@
 
 Redshift is a data platform used to store and query analytical or operational data. Learn more in the [official Redshift documentation](https://aws.amazon.com/redshift/).
 
-The DataHub integration for Redshift covers core metadata entities such as datasets/tables/views, schema fields, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Redshift covers core metadata entities such as datasets/tables/views, schema fields, and containers. It also captures table- and column-level lineage, usage statistics, data profiling, ownership, and stateful deletion detection.
 
 ## Concept Mapping
 

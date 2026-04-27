@@ -51,7 +51,16 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_constraints} -e . ${extra_pip_requirements} && " +
+    // Do NOT include extra_pip_requirements here. This task installs metadata-ingestion
+    // into *this module's own venv* solely so that codegen can run. It must not install
+    // plugin-specific packages (e.g. Airflow) into this venv — those belong in the
+    // plugin's own isolated venv (e.g. airflow-plugin/venv/).
+    //
+    // extra_pip_requirements is a global Gradle property propagated from plugin CI builds,
+    // so without this guard 'apache-airflow~=2.7.x' would be injected here. That also
+    // conflicts with --constraint constraints.txt: constraints.txt pins flask 3.x (via
+    // feast→flask-openid in the full dev environment), but Airflow 2.x requires flask<2.3.
+    "uv pip install ${uv_constraints} -e . && " +
     "touch ${sentinel_file}"
 }
 
