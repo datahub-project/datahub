@@ -2,7 +2,7 @@ import functools
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import sqlglot
 from sqlalchemy import create_engine
@@ -92,72 +92,92 @@ class FivetranLogAPI:
 
     def _initialize_fivetran_variables(
         self,
-    ) -> Tuple[Any, FivetranLogQuery, str]:
+    ) -> Tuple[Engine, FivetranLogQuery, str]:
         fivetran_log_query = FivetranLogQuery(
             max_jobs_per_connector=self.fivetran_log_config.max_jobs_per_connector,
             max_table_lineage_per_connector=self.fivetran_log_config.max_table_lineage_per_connector,
             max_column_lineage_per_connector=self.fivetran_log_config.max_column_lineage_per_connector,
         )
         destination_platform = self.fivetran_log_config.destination_platform
-        # For every destination, create sqlalchemy engine,
-        # set db_clause to generate select queries and set fivetran_log_database class variable
+
+        # Each branch fails fast with a ConfigurationError if its destination
+        # config block is missing. The model_validator on FivetranLogConfig
+        # already enforces this in the normal path, but the early-raise pattern
+        # protects programmatic callers (tests, model_construct) and prevents
+        # an UnboundLocalError on `engine` if the validator is bypassed.
         if destination_platform == "snowflake":
             snowflake_destination_config = (
                 self.fivetran_log_config.snowflake_destination_config
             )
-            if snowflake_destination_config is not None:
-                engine = self._setup_snowflake_engine(
-                    snowflake_destination_config, fivetran_log_query
+            if snowflake_destination_config is None:
+                raise ConfigurationError(
+                    "snowflake_destination_config is required when "
+                    "destination_platform is 'snowflake'."
                 )
-                fivetran_log_database = snowflake_destination_config.database
+            engine = self._setup_snowflake_engine(
+                snowflake_destination_config, fivetran_log_query
+            )
+            fivetran_log_database = snowflake_destination_config.database
         elif destination_platform == "managed_data_lake":
             mdl_destination_config = (
                 self.fivetran_log_config.managed_data_lake_destination_config
             )
-            if mdl_destination_config is not None:
-                # The Fivetran Managed Data Lake log is read through a Snowflake
-                # catalog-linked database — same engine setup as the snowflake branch,
-                # with preserve_case defaulted to True for CLD compatibility.
-                engine = self._setup_snowflake_engine(
-                    mdl_destination_config, fivetran_log_query
+            if mdl_destination_config is None:
+                raise ConfigurationError(
+                    "managed_data_lake_destination_config is required when "
+                    "destination_platform is 'managed_data_lake'."
                 )
-                fivetran_log_database = mdl_destination_config.database
+            # The Fivetran Managed Data Lake log is read through a Snowflake
+            # catalog-linked database — same engine setup as the snowflake branch,
+            # with preserve_case defaulted to True for CLD compatibility.
+            engine = self._setup_snowflake_engine(
+                mdl_destination_config, fivetran_log_query
+            )
+            fivetran_log_database = mdl_destination_config.database
         elif destination_platform == "bigquery":
             bigquery_destination_config = (
                 self.fivetran_log_config.bigquery_destination_config
             )
-            if bigquery_destination_config is not None:
-                engine = create_engine(
-                    bigquery_destination_config.get_sql_alchemy_url(),
+            if bigquery_destination_config is None:
+                raise ConfigurationError(
+                    "bigquery_destination_config is required when "
+                    "destination_platform is 'bigquery'."
                 )
-                fivetran_log_query.set_schema(bigquery_destination_config.dataset)
+            engine = create_engine(
+                bigquery_destination_config.get_sql_alchemy_url(),
+            )
+            fivetran_log_query.set_schema(bigquery_destination_config.dataset)
 
-                # The "database" should be the BigQuery project name.
-                result = engine.execute("SELECT @@project_id").fetchone()
-                if result is None:
-                    raise ValueError("Failed to retrieve BigQuery project ID")
-                fivetran_log_database = result[0]
+            # The "database" should be the BigQuery project name.
+            result = engine.execute("SELECT @@project_id").fetchone()
+            if result is None:
+                raise ValueError("Failed to retrieve BigQuery project ID")
+            fivetran_log_database = result[0]
         elif destination_platform == "databricks":
             databricks_destination_config = (
                 self.fivetran_log_config.databricks_destination_config
             )
-            if databricks_destination_config is not None:
-                # Pass connect_args (server_hostname, http_path, credentials_provider)
-                # so the databricks-sql-connector has valid authentication settings.
-                options = {
-                    **databricks_destination_config.get_options(),
-                    "connect_args": get_sql_connection_params(
-                        create_workspace_client(databricks_destination_config)
-                    ),
-                }
-                engine = create_engine(
-                    databricks_destination_config.get_sql_alchemy_url(
-                        databricks_destination_config.catalog
-                    ),
-                    **options,
+            if databricks_destination_config is None:
+                raise ConfigurationError(
+                    "databricks_destination_config is required when "
+                    "destination_platform is 'databricks'."
                 )
-                fivetran_log_query.set_schema(databricks_destination_config.log_schema)
-                fivetran_log_database = databricks_destination_config.catalog
+            # Pass connect_args (server_hostname, http_path, credentials_provider)
+            # so the databricks-sql-connector has valid authentication settings.
+            options = {
+                **databricks_destination_config.get_options(),
+                "connect_args": get_sql_connection_params(
+                    create_workspace_client(databricks_destination_config)
+                ),
+            }
+            engine = create_engine(
+                databricks_destination_config.get_sql_alchemy_url(
+                    databricks_destination_config.catalog
+                ),
+                **options,
+            )
+            fivetran_log_query.set_schema(databricks_destination_config.log_schema)
+            fivetran_log_database = databricks_destination_config.catalog
         else:
             raise ConfigurationError(
                 f"Destination platform '{destination_platform}' is not yet supported."
@@ -183,7 +203,9 @@ class FivetranLogAPI:
             )
         logger.info(f"Executing query: {query}")
         resp = self.engine.execute(query)
-        return [row for row in resp]
+        # Convert SQLAlchemy Row objects to plain dicts at the boundary so
+        # downstream consumers can treat results as dict-like uniformly.
+        return [dict(row) for row in resp]
 
     def _get_column_lineage_metadata(
         self, connector_ids: List[str]
