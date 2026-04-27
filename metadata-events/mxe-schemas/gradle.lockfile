@@ -125,6 +125,7 @@ org.checkerframework:checker-qual:2.6.0=compileClasspath,dataModel,dataTemplate,
 org.codehaus.jackson:jackson-core-asl:1.8.8=pegasusPlugin,restClient,restClientCompile,testRestClient
 org.codehaus.mojo:animal-sniffer-annotations:1.26=pegasusPlugin,restClient,restClientCompile,testRestClient
 org.hdrhistogram:HdrHistogram:2.1.9=pegasusPlugin,restClient,restClientCompile,testRestClient
+org.jspecify:jspecify:1.0.0=pegasusPlugin,restClient,restClientCompile,spotless865458226,testRestClient
 org.knowm.xchart:xchart:3.2.2=pegasusPlugin,restClient,restClientCompile,testRestClient
 org.slf4j:slf4j-api:1.7.30=compileClasspath,dataModel,dataTemplate,dataTemplateCompile,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testRuntimeClasspath
 org.slf4j:slf4j-api:2.0.13=pegasusPlugin,restClient,restClientCompile,testRestClient
