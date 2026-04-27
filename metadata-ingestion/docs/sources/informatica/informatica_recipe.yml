@@ -29,6 +29,8 @@ source:
 
     # Layer 1 (recommended for large orgs): only ingest objects tagged in IDMC
     # with at least one of these names. Tags are matched exactly.
+    # Applies to Projects, Folders, Taskflows, and Mapping Tasks only —
+    # Mappings and Connections are always fetched in full regardless of this filter.
     # tag_filter_names: ["datahub", "critical"]
 
     # Layer 2: filter by project/folder name (regex).
