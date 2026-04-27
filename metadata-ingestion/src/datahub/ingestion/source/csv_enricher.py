@@ -370,8 +370,8 @@ class CSVEnricherSource(Source):
                 resource_urn = row.get("resource", "unknown")
                 self.report.warning(
                     title="Invalid Structured Property Column",
-                    message=f"Ignoring column '{column}' because the property name is empty.",
-                    context=f"resource={resource_urn}",
+                    message=f"Ignoring column because the property name is empty.",
+                    context=f"resource={resource_urn}, column={column}",
                 )
                 continue
 
