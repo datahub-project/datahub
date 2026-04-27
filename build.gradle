@@ -69,6 +69,8 @@ buildscript {
   ext.micrometerVersion = '1.15.1'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
   ext.nettyVersion = '4.1.132.Final' // align all io.netty modules; CVE-2026-33870
+  // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
+  ext.bouncyCastleJdk18onVersion = '1.84'
   // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
   // 1.77.x embeds Netty 4.1.127 (affected by CVE-2025-67735); use 1.79+ (1.80.0 -> shaded 4.1.130.Final).
   // CVE-2026-33870 needs Netty 4.1.132+ inside the shaded jar; upgrade grpc when Maven has a release that bundles it (see grpc-java SECURITY.md table).
@@ -481,7 +483,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
     resolutionStrategy.force "org.apache.hadoop:hadoop-common:${rootProject.ext.hadoop3Version}"
     resolutionStrategy.force "org.apache.hadoop:hadoop-client:${rootProject.ext.hadoop3Version}"
-    resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
+    resolutionStrategy.force "org.bouncycastle:bcpkix-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
+    resolutionStrategy.force "org.bouncycastle:bcprov-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
+    resolutionStrategy.force "org.bouncycastle:bcutil-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
