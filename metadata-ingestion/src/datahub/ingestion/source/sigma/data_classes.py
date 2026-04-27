@@ -139,8 +139,7 @@ class Element(BaseModel):
         if raw_columns and isinstance(raw_columns[0], dict):
             values["columns"] = [col.get("name", "") for col in raw_columns]
             values["column_formulas"] = {
-                col.get("name", ""): col.get("formula") or None
-                for col in raw_columns
+                col.get("name", ""): col.get("formula") or None for col in raw_columns
             }
         return values
 

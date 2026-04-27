@@ -38,7 +38,9 @@ def _make_element_with_formula(
     col_formulas: Dict[str, Optional[str]],
 ) -> Element:
     """Build an Element whose columns carry formula data (dict format)."""
-    raw_columns = [{"name": col, "formula": formula} for col, formula in col_formulas.items()]
+    raw_columns = [
+        {"name": col, "formula": formula} for col, formula in col_formulas.items()
+    ]
     return Element(
         elementId=element_id,
         name=name,
@@ -303,7 +305,9 @@ class TestResolveChartFormulaUpstream:
 
     def test_warehouse_table_ref_case_insensitive(self) -> None:
         """Warehouse table index lookup is case-insensitive."""
-        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.MY_TABLE,PROD)"
+        wh_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.MY_TABLE,PROD)"
+        )
         ref = _make_ref("my_table", "col")
         result = self.src._resolve_chart_formula_upstream(
             ref,

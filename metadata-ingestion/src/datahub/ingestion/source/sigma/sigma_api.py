@@ -657,7 +657,9 @@ class SigmaAPI:
         self,
         workbook: Workbook,
         page: Page,
-        column_formulas_by_element: Optional[Dict[str, Dict[str, Optional[str]]]] = None,
+        column_formulas_by_element: Optional[
+            Dict[str, Dict[str, Optional[str]]]
+        ] = None,
     ) -> List[Element]:
         try:
             elements: List[Element] = []
