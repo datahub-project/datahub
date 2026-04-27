@@ -92,12 +92,20 @@ public class CommonApplicationConfig {
             httpConfig.setSendDateHeader(false);
 
             // See https://github.com/jetty/jetty.project/issues/11890
-            // Configure URI compliance to allow encoded slashes
+            // DataHub URNs routinely appear URL-encoded in paths (e.g. /aspects/{urn})
+            // with gen-delims like ':', '(', ')', ',' percent-encoded as %3A/%28/%29/%2C,
+            // plus encoded slashes (%2F) for platform-instance segments. Jetty 12's
+            // RFC3986-strict default rejects these as ambiguous and returns 400 before
+            // the request reaches the servlet, so we explicitly allow the ambiguous-path
+            // violations URN-encoded paths can produce.
             httpConfig.setUriCompliance(
                 UriCompliance.from(
                     Set.of(
                         UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR,
                         UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING,
+                        UriCompliance.Violation.AMBIGUOUS_PATH_SEGMENT,
+                        UriCompliance.Violation.AMBIGUOUS_PATH_PARAMETER,
+                        UriCompliance.Violation.AMBIGUOUS_EMPTY_SEGMENT,
                         UriCompliance.Violation.SUSPICIOUS_PATH_CHARACTERS)));
             // set this for Servlet 6+
             server
