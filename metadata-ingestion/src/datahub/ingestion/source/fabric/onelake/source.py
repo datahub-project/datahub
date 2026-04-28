@@ -10,9 +10,14 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 
 import logging
 from collections import defaultdict
-from typing import Iterable, Literal, Optional, Union
+from typing import TYPE_CHECKING, Iterable, Literal, Optional, Union
 
 from typing_extensions import assert_never
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.fabric.onelake.schema_client import (
+        SchemaExtractionClient,
+    )
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
@@ -49,6 +54,7 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricLakehouse,
     FabricTable,
+    FabricView,
     FabricWarehouse,
     FabricWorkspace,
 )
@@ -65,6 +71,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger = logging.getLogger(__name__)
 
@@ -159,10 +166,31 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Link client report to source report for reporting
         self.report.client_report = self.client_report
 
+        # SQL parsing aggregator for view lineage.
+        self.aggregator = SqlParsingAggregator(
+            platform=PLATFORM,
+            platform_instance=config.platform_instance,
+            env=config.env,
+            graph=ctx.graph,
+            generate_lineage=True,
+            generate_queries=False,
+            generate_query_subject_fields=False,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            eager_graph_load=False,
+        )
+        self.report.sql_aggregator = self.aggregator.report
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FabricOneLakeSource":
         config = FabricOneLakeSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def _norm(self, name: str) -> str:
+        # Lowercase identifiers used in URNs and schema field paths so they match
+        # what SqlParsingAggregator (sqlglot) emits for view lineage. Display
+        # names keep their original case for the UI.
+        return name.lower() if self.config.convert_urns_to_lowercase else name
 
     def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -214,6 +242,20 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             self.report.report_failure(
                 title="Failed to List Workspaces",
                 message="Unable to retrieve workspaces from Fabric.",
+                context="",
+                exc=e,
+            )
+
+        # Emit lineage / view-parsing workunits accumulated by the
+        # aggregator across all workspaces. Deferred to the end so the
+        # aggregator can resolve cross-item view→table references.
+        try:
+            for mcp in self.aggregator.gen_metadata():
+                yield mcp.as_workunit()
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Generate View Lineage",
+                message="Error draining SQL aggregator for view lineage.",
                 context="",
                 exc=e,
             )
@@ -292,7 +334,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def _process_lakehouse(
         self, workspace: FabricWorkspace, lakehouse: FabricLakehouse
     ) -> Iterable[Union[Container, Dataset]]:
-        """Process a lakehouse and its tables."""
+        """Process a lakehouse and its tables and views."""
         # Create lakehouse container
         lakehouse_key = LakehouseKey(
             platform=PLATFORM,
@@ -313,6 +355,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         yield lakehouse_container
 
+        # Create schema client once (shared between tables and views)
+        schema_client, schema_map = self._create_schema_client_and_map(
+            workspace, lakehouse.id, "Lakehouse", lakehouse.name
+        )
+
+        # Track emitted schema containers to avoid duplicates
+        emitted_schemas: set[str] = set()
+
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -320,12 +370,26 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             "Lakehouse",
             lakehouse_key,
             item_display_name=lakehouse.name,
+            schema_map=schema_map,
+            emitted_schemas=emitted_schemas,
         )
+
+        # Process views (requires SQL endpoint)
+        if self.config.extract_views and schema_client is not None:
+            yield from self._process_item_views(
+                workspace,
+                lakehouse.id,
+                "Lakehouse",
+                lakehouse_key,
+                schema_client=schema_client,
+                schema_map=schema_map,
+                emitted_schemas=emitted_schemas,
+            )
 
     def _process_warehouse(
         self, workspace: FabricWorkspace, warehouse: FabricWarehouse
     ) -> Iterable[Union[Container, Dataset]]:
-        """Process a warehouse and its tables."""
+        """Process a warehouse and its tables and views."""
         # Create warehouse container
         warehouse_key = WarehouseKey(
             platform=PLATFORM,
@@ -346,6 +410,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         yield warehouse_container
 
+        # Create schema client once (shared between tables and views)
+        schema_client, schema_map = self._create_schema_client_and_map(
+            workspace, warehouse.id, "Warehouse", warehouse.name
+        )
+
+        # Track emitted schema containers to avoid duplicates
+        emitted_schemas: set[str] = set()
+
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -353,7 +425,21 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             "Warehouse",
             warehouse_key,
             item_display_name=warehouse.name,
+            schema_map=schema_map,
+            emitted_schemas=emitted_schemas,
         )
+
+        # Process views (requires SQL endpoint)
+        if self.config.extract_views and schema_client is not None:
+            yield from self._process_item_views(
+                workspace,
+                warehouse.id,
+                "Warehouse",
+                warehouse_key,
+                schema_client=schema_client,
+                schema_map=schema_map,
+                emitted_schemas=emitted_schemas,
+            )
 
     def _process_item_tables(
         self,
@@ -362,6 +448,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_type: Literal["Lakehouse", "Warehouse"],
         item_container_key: ContainerKey,
         item_display_name: str,
+        schema_map: dict[tuple[str, str], list[FabricColumn]],
+        emitted_schemas: set[str],
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
@@ -370,56 +458,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 tables = list(self.client.list_lakehouse_tables(workspace.id, item_id))
             else:
                 tables = list(self.client.list_warehouse_tables(workspace.id, item_id))
-
-            # Extract schema metadata if enabled
-            # Fetch all schemas at item level for efficiency (single query per item)
-            schema_map: dict[tuple[str, str], list[FabricColumn]] = {}
-            if self.config.extract_schema.enabled and self.config.sql_endpoint:
-                if not tables:
-                    logger.info(
-                        f"Skipping schema extraction for {item_type} {item_id}: "
-                        "0 tables found, nothing to describe."
-                    )
-                else:
-                    try:
-                        from datahub.ingestion.source.fabric.onelake.schema_client import (
-                            create_schema_extraction_client,
-                        )
-
-                        # Create schema client for this specific workspace/item
-                        # (endpoint URL is item-specific, so we create it here)
-                        # Use the schema report from the source report
-                        schema_client = create_schema_extraction_client(
-                            method=self.config.extract_schema.method,
-                            auth_helper=self.client.auth_helper,
-                            config=self.config.sql_endpoint,
-                            report=self.report.schema_report,
-                            workspace_id=workspace.id,
-                            item_id=item_id,
-                            item_type=item_type,
-                            base_client=self.client,
-                            item_display_name=item_display_name,
-                        )
-
-                        # Get all table schemas for this item in a single batch query
-                        schema_map = schema_client.get_all_table_columns(
-                            workspace_id=workspace.id,
-                            item_id=item_id,
-                        )
-                    except Exception as e:
-                        error_msg = str(e)
-                        logger.warning(
-                            f"Failed to extract schema for item {item_id}: {error_msg}. "
-                            "Tables will be ingested without column metadata."
-                        )
-                        # Report as warning in the main report
-                        self.report.report_warning(
-                            title="Schema Extraction Failed",
-                            message="Failed to extract schema metadata from SQL Analytics Endpoint.",
-                            context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
-                        )
-                        # Schema extraction failed, continue without schema metadata
-                        schema_map = {}
 
             # Group tables by schema
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
@@ -443,48 +481,28 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
             # Process each schema
             for schema_name, schema_tables in tables_by_schema.items():
+                # Schema name as it goes into URNs (lowercased when configured),
+                # vs. the original case kept for display and schema_map lookups.
+                schema_urn_name = self._norm(schema_name)
+                parent_container_key: ContainerKey
                 if self.config.extract_schemas:
-                    # Create schema container key with proper inheritance
-                    if item_type == "Lakehouse":
-                        schema_key: Union[LakehouseSchemaKey, WarehouseSchemaKey] = (
-                            LakehouseSchemaKey(
-                                platform=PLATFORM,
-                                instance=self.config.platform_instance,
-                                env=self.config.env,
-                                workspace_id=workspace.id,
-                                lakehouse_id=item_id,
-                                schema_name=schema_name,
-                            )
-                        )
-                    elif item_type == "Warehouse":
-                        schema_key = WarehouseSchemaKey(
-                            platform=PLATFORM,
-                            instance=self.config.platform_instance,
-                            env=self.config.env,
-                            workspace_id=workspace.id,
-                            warehouse_id=item_id,
-                            schema_name=schema_name,
-                        )
-                    else:
-                        assert_never(item_type)
-
-                    schema_container = Container(
-                        container_key=schema_key,
-                        display_name=schema_name,
-                        subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
-                        parent_container=schema_key.parent_key(),
-                        qualified_name=make_schema_name(
-                            workspace.id, item_id, schema_name
-                        ),
+                    schema_key = self._make_schema_key(
+                        workspace.id, item_id, item_type, schema_urn_name
                     )
-
-                    yield schema_container
-                    self.report.report_schema_scanned()
-
-                    # Pass ContainerKey object, not URN string
-                    parent_container_key: ContainerKey = schema_key
+                    if schema_name not in emitted_schemas:
+                        yield Container(
+                            container_key=schema_key,
+                            display_name=schema_name,
+                            subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
+                            parent_container=schema_key.parent_key(),
+                            qualified_name=make_schema_name(
+                                workspace.id, item_id, schema_urn_name
+                            ),
+                        )
+                        emitted_schemas.add(schema_name)
+                        self.report.report_schema_scanned()
+                    parent_container_key = schema_key
                 else:
-                    # Tables directly under item container (extract_schemas=false)
                     parent_container_key = item_container_key
 
                 # Create table datasets
@@ -550,7 +568,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         columns: list[FabricColumn],
     ) -> Iterable[Dataset]:
         """Create a table dataset with schema metadata."""
-        table_name = make_table_name(workspace.id, item_id, schema_name, table.name)
+        table_name = make_table_name(
+            workspace.id, item_id, self._norm(schema_name), self._norm(table.name)
+        )
 
         # Build schema fields if available
         # Dataset SDK will automatically convert SQL Server types to DataHub types
@@ -561,7 +581,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             # Dataset SDK will handle type conversion via resolve_sql_type()
             schema_fields = [
                 (
-                    col.name,
+                    self._norm(col.name),
                     col.data_type,  # Raw SQL Server type string (e.g., "varchar", "int")
                     col.description or "",
                 )
@@ -586,3 +606,223 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         )
 
         yield dataset
+
+    def _create_schema_client_and_map(
+        self,
+        workspace: FabricWorkspace,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+        item_display_name: str,
+    ) -> tuple[
+        Optional["SchemaExtractionClient"],
+        dict[tuple[str, str], list[FabricColumn]],
+    ]:
+        """Create a schema extraction client and fetch column metadata.
+
+        Returns the client (for reuse by view discovery) and the schema_map.
+        Returns (None, {}) if schema extraction is not enabled or fails.
+        """
+        if not (self.config.extract_schema.enabled and self.config.sql_endpoint):
+            return None, {}
+
+        try:
+            from datahub.ingestion.source.fabric.onelake.schema_client import (
+                SchemaExtractionClient,
+                create_schema_extraction_client,
+            )
+
+            schema_client: SchemaExtractionClient = create_schema_extraction_client(
+                method=self.config.extract_schema.method,
+                auth_helper=self.client.auth_helper,
+                config=self.config.sql_endpoint,
+                report=self.report.schema_report,
+                workspace_id=workspace.id,
+                item_id=item_id,
+                item_type=item_type,
+                base_client=self.client,
+                item_display_name=item_display_name,
+            )
+
+            schema_map = schema_client.get_all_table_columns(
+                workspace_id=workspace.id,
+                item_id=item_id,
+            )
+            return schema_client, schema_map
+        except Exception as e:
+            error_msg = str(e)
+            logger.warning(
+                f"Failed to extract schema for item {item_id}: {error_msg}. "
+                "Tables will be ingested without column metadata."
+            )
+            self.report.report_warning(
+                title="Schema Extraction Failed",
+                message="Failed to extract schema metadata from SQL Analytics Endpoint.",
+                context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
+            )
+            return None, {}
+
+    def _make_schema_key(
+        self,
+        workspace_id: str,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+        schema_name: str,
+    ) -> Union[LakehouseSchemaKey, WarehouseSchemaKey]:
+        """Create a schema container key for the given item type."""
+        if item_type == "Lakehouse":
+            return LakehouseSchemaKey(
+                platform=PLATFORM,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+                workspace_id=workspace_id,
+                lakehouse_id=item_id,
+                schema_name=schema_name,
+            )
+        elif item_type == "Warehouse":
+            return WarehouseSchemaKey(
+                platform=PLATFORM,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+                workspace_id=workspace_id,
+                warehouse_id=item_id,
+                schema_name=schema_name,
+            )
+        else:
+            assert_never(item_type)
+
+    def _process_item_views(
+        self,
+        workspace: FabricWorkspace,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+        item_container_key: ContainerKey,
+        schema_client: "SchemaExtractionClient",
+        schema_map: dict[tuple[str, str], list[FabricColumn]],
+        emitted_schemas: set[str],
+    ) -> Iterable[Union[Container, Dataset]]:
+        """Process views in a lakehouse or warehouse.
+
+        Views are discovered via INFORMATION_SCHEMA.VIEWS on the SQL Analytics Endpoint.
+        Column metadata comes from the shared schema_map (INFORMATION_SCHEMA.COLUMNS
+        already includes view columns).
+        """
+        try:
+            views = schema_client.get_all_views(
+                workspace_id=workspace.id,
+                item_id=item_id,
+            )
+
+            if not views:
+                logger.debug(f"No views found in {item_type} {item_id}")
+                return
+
+            # Group views by schema
+            views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
+            for view in views:
+                normalized_schema = (
+                    view.schema_name
+                    if view.schema_name
+                    else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
+                )
+
+                view_full_name = f"{normalized_schema}.{view.name}"
+                if not self.config.view_pattern.allowed(view_full_name):
+                    self.report.report_view_filtered(view_full_name)
+                    continue
+
+                self.report.report_view_scanned()
+                views_by_schema[normalized_schema].append(view)
+
+            # Process each schema
+            for schema_name, schema_views in views_by_schema.items():
+                schema_urn_name = self._norm(schema_name)
+                parent_container_key: ContainerKey
+                if self.config.extract_schemas:
+                    schema_key = self._make_schema_key(
+                        workspace.id, item_id, item_type, schema_urn_name
+                    )
+                    if schema_name not in emitted_schemas:
+                        yield Container(
+                            container_key=schema_key,
+                            display_name=schema_name,
+                            subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
+                            parent_container=schema_key.parent_key(),
+                            qualified_name=make_schema_name(
+                                workspace.id, item_id, schema_urn_name
+                            ),
+                        )
+                        emitted_schemas.add(schema_name)
+                        self.report.report_schema_scanned()
+                    parent_container_key = schema_key
+                else:
+                    parent_container_key = item_container_key
+
+                # Create view datasets
+                for view in schema_views:
+                    columns = self._get_columns(schema_map, schema_name, view.name)
+                    yield from self._create_view_dataset(
+                        workspace,
+                        item_id,
+                        schema_name,
+                        view,
+                        parent_container_key,
+                        columns,
+                    )
+
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Process Views",
+                message="Unable to discover views from item.",
+                context=f"item_id={item_id}, item_type={item_type}",
+                exc=e,
+            )
+
+    def _create_view_dataset(
+        self,
+        workspace: FabricWorkspace,
+        item_id: str,
+        schema_name: str,
+        view: FabricView,
+        parent_container_key: ContainerKey,
+        columns: list[FabricColumn],
+    ) -> Iterable[Dataset]:
+        """Create a view dataset with schema metadata and view definition."""
+        # Views use the same URN pattern as tables
+        view_name = make_table_name(
+            workspace.id, item_id, self._norm(schema_name), self._norm(view.name)
+        )
+
+        schema_fields = None
+        if columns:
+            schema_fields = [
+                (self._norm(col.name), col.data_type, col.description or "")
+                for col in columns
+            ]
+        else:
+            logger.debug(
+                f"No schema metadata available for view {schema_name}.{view.name}"
+            )
+
+        dataset = Dataset(
+            platform=PLATFORM,
+            name=view_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            description=view.description,
+            display_name=view.name,
+            parent_container=parent_container_key,
+            schema=schema_fields,
+            subtype=DatasetSubTypes.VIEW,
+            view_definition=view.view_definition,
+            parse_view_lineage=False,
+        )
+
+        yield dataset
+
+        if view.view_definition:
+            self.aggregator.add_view_definition(
+                view_urn=str(dataset.urn),
+                view_definition=view.view_definition,
+                default_db=f"{workspace.id}.{item_id}",
+                default_schema=self._norm(schema_name),
+            )

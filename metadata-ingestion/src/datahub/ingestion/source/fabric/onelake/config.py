@@ -142,6 +142,14 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns to filter views by name. "
+            "Format: 'schema.view_name' or just 'view_name' for default schema."
+        ),
+    )
+
     # Feature flags
     extract_lakehouses: bool = Field(
         default=True,
@@ -151,6 +159,16 @@ class FabricOneLakeSourceConfig(
     extract_warehouses: bool = Field(
         default=True,
         description="Whether to extract warehouses and their tables.",
+    )
+
+    extract_views: bool = Field(
+        default=True,
+        description=(
+            "Whether to extract views and their definitions. "
+            "Requires extract_schema.enabled=True and a configured sql_endpoint, "
+            "because views are discovered via INFORMATION_SCHEMA.VIEWS over the "
+            "SQL Analytics Endpoint."
+        ),
     )
 
     extract_schemas: bool = Field(
@@ -202,4 +220,19 @@ class FabricOneLakeSourceConfig(
                     "sql_endpoint.enabled must be True when extract_schema.enabled=True "
                     "and extract_schema.method='sql_analytics_endpoint'"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def validate_view_extraction_prerequisites(self):
+        """Views require a working SQL Analytics Endpoint via schema extraction."""
+        if self.extract_views and (
+            not self.extract_schema.enabled or self.sql_endpoint is None
+        ):
+            raise ValueError(
+                "extract_views=True requires extract_schema.enabled=True and a "
+                "configured sql_endpoint, because view discovery uses the SQL "
+                "Analytics Endpoint (INFORMATION_SCHEMA.VIEWS). "
+                "Either set extract_views=False to disable view extraction, or "
+                "enable extract_schema and configure sql_endpoint."
+            )
         return self
