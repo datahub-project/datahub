@@ -4,7 +4,7 @@ import time
 import warnings
 from datetime import timedelta
 from typing import Any, Dict
-from unittest.mock import ANY, MagicMock, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
 from requests import Response, Session
@@ -2422,6 +2422,26 @@ class TestRequestsSessionConfig:
         ):
             adapter.init_poolmanager(10, 10)
         assert "socket_options" not in mock.call_args.kwargs
+
+    def test_tcp_keepalive_socket_options_reach_proxy_manager(self):
+        """Socket options are forwarded to proxy_manager_for so keepalive is active on proxied connections."""
+        adapter = _KeepAliveHTTPAdapter()
+        with patch.object(HTTPAdapter, "proxy_manager_for") as mock:
+            adapter.proxy_manager_for("http://proxy:8080")
+        assert "socket_options" in mock.call_args.kwargs
+        assert len(mock.call_args.kwargs["socket_options"]) > 0
+
+    def test_tcp_keepalive_socket_options_logs_on_platform_error(self):
+        """_socket_options logs and returns None when the platform raises on socket option access."""
+        import datahub.emitter.rest_emitter as module
+
+        mock_socket = MagicMock()
+        type(mock_socket).SOL_SOCKET = PropertyMock(
+            side_effect=OSError("not supported")
+        )
+        with patch.object(module, "socket", mock_socket):
+            opts = _KeepAliveHTTPAdapter._socket_options()
+        assert opts is None
 
     def test_datahub_rest_emitter_uses_keepalive_adapter(self):
         """DataHubRestEmitter wires _KeepAliveHTTPAdapter for both http and https."""
