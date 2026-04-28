@@ -13,6 +13,9 @@ x-datahub-frontend-service: &datahub-frontend-service
   environment: &datahub-frontend-service-env
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     DATAHUB_GMS_HOST: ${DATAHUB_GMS_HOST:-datahub-gms}
+    # Play 3 maps this to play.http.secret.key; HS256 requires >=256 bits (see ApplicationSecret).
+    # Overrides env_file when unset on host; use a long random value in production.
+    DATAHUB_SECRET: ${DATAHUB_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
     PLAY_HTTP_CONTEXT: ${DATAHUB_BASE_PATH:-/}
     DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
