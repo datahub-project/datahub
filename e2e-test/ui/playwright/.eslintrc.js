@@ -32,7 +32,6 @@ module.exports = {
         'playwright/no-skipped-test': 'off',
         'playwright/no-conditional-in-test': 'off',
 
-        // All output must go through the DataHubLogger class — never use console directly.
         'no-console': 'error',
     },
     env: {
