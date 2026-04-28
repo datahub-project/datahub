@@ -8,6 +8,7 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
 from requests import Response, Session
+from requests.adapters import HTTPAdapter
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -2404,12 +2405,32 @@ class TestRequestsSessionConfig:
             session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
         )
 
+    def test_tcp_keepalive_socket_options_reach_pool_manager(self):
+        """Socket options are forwarded to init_poolmanager so keepalive is actually active."""
+        adapter = _KeepAliveHTTPAdapter()
+        with patch.object(HTTPAdapter, "init_poolmanager") as mock:
+            adapter.init_poolmanager(10, 10)
+        assert "socket_options" in mock.call_args.kwargs
+        assert len(mock.call_args.kwargs["socket_options"]) > 0
+
     def test_tcp_keepalive_degrades_gracefully(self):
-        """Session builds successfully even when keepalive socket options are unavailable."""
-        with patch.object(_KeepAliveHTTPAdapter, "_socket_options", return_value=None):
-            session = RequestsSessionConfig().build_session()
+        """When keepalive is unavailable, init_poolmanager is called without socket_options."""
+        adapter = _KeepAliveHTTPAdapter()
+        with (
+            patch.object(_KeepAliveHTTPAdapter, "_socket_options", return_value=None),
+            patch.object(HTTPAdapter, "init_poolmanager") as mock,
+        ):
+            adapter.init_poolmanager(10, 10)
+        assert "socket_options" not in mock.call_args.kwargs
+
+    def test_datahub_rest_emitter_uses_keepalive_adapter(self):
+        """DataHubRestEmitter wires _KeepAliveHTTPAdapter for both http and https."""
+        emitter = DataHubRestEmitter("http://localhost:8080")
         assert isinstance(
-            session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+            emitter._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+        assert isinstance(
+            emitter._session.get_adapter("http://example.com"), _KeepAliveHTTPAdapter
         )
 
 
