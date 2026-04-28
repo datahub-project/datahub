@@ -1,60 +1,20 @@
-
 // Change this to listen on a different port
 project.ext.httpPort = 9001
 project.ext.playBinaryBaseName = "datahub-frontend"
 
-runPlay {
-  httpPort = project.ext.httpPort
-}
-
-configurations {
-  play
+tasks.named("playRun").configure {
+  it.httpPort = project.ext.httpPort
 }
 
 ext {
-  nimbusJoseJwtVersion = "9.41.2"
+  nimbusJoseJwtVersion = "9.47"
   oauth2OidcSdkVersion = "11.20.1"
 }
 
 dependencies {
+  // Single version source for org.playframework:* deps below (see externalDependency.play* in root build.gradle).
+  implementation platform("org.playframework:play-bom_${rootProject.ext.playScalaVersion}:${rootProject.ext.playVersion}")
   implementation project(':datahub-web-react')
-
-  constraints {
-    play(externalDependency.pac4j)
-    play(externalDependency.playPac4j)
-    play("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
-    play("com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion")
-    implementation(externalDependency.pac4j)
-    implementation(externalDependency.playPac4j)
-    implementation("com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion")
-    testImplementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
-
-    play(externalDependency.jacksonDataBind)
-    play("com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion")
-    play(externalDependency.jsonSmart)
-    play("io.netty:netty-all:${rootProject.ext.nettyVersion}")
-    play(externalDependency.playJavaForms)
-
-    implementation(externalDependency.nettyReactor) {
-    }
-
-    implementation(externalDependency.nettyCore) {
-    }
-
-    implementation(externalDependency.commonsText) {
-      because("previous versions are vulnerable to CVE-2022-42889")
-    }
-    implementation(externalDependency.hibernateValidator) {
-      because("CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (Hibernate Validator EL interpolation)")
-    }
-    play(externalDependency.hibernateValidator) {
-      because("CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (Hibernate Validator EL interpolation)")
-    }
-    implementation(externalDependency.snappy) {
-      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
-    }
-    // commons-beanutils: forced in root build.gradle (CVE-2025-48734)
-  }
 
   implementation project(":metadata-service:restli-client")
   implementation project(":metadata-service:auth-config")
@@ -71,35 +31,47 @@ dependencies {
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
-  implementation externalDependency.akkaHttp
-  implementation externalDependency.akkaActor
-  implementation externalDependency.akkaStream
-  implementation externalDependency.akkaActorTyped
-  implementation externalDependency.akkaSlf4j
-  implementation externalDependency.akkaJackson
-  implementation externalDependency.akkaParsing
 
+  implementation "org.playframework:play-java_${rootProject.ext.playScalaVersion}"
+  implementation externalDependency.pekkoActor
+  implementation externalDependency.pekkoStream
+  implementation externalDependency.pekkoActorTyped
+  implementation externalDependency.pekkoSlf4j
+  implementation externalDependency.pekkoJackson
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava
 
-  implementation externalDependency.pac4j
-  implementation externalDependency.playPac4j
-  implementation "com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion"
+  implementation("com.nimbusds:nimbus-jose-jwt:${nimbusJoseJwtVersion}")
+  implementation(externalDependency.pac4j)
+  implementation(externalDependency.playPac4j)
   implementation externalDependency.jsonSmart
-  
   implementation externalDependency.shiroCore
-
   implementation externalDependency.playCache
   implementation externalDependency.playCaffeineCache
   implementation externalDependency.playWs
   implementation externalDependency.playServer
-  implementation externalDependency.playAkkaHttpServer
+  implementation externalDependency.playPekkoHttpServer
   implementation externalDependency.playJavaForms
   implementation externalDependency.playFilters
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+
+  implementation externalDependency.commonsText
+  implementation externalDependency.hibernateValidator
+  implementation externalDependency.snappy
+  implementation(externalDependency.nettyReactor) {}
+  implementation(externalDependency.nettyCore) {
+    // Align Netty with other modules
+  }
+  constraints {
+    implementation(externalDependency.jacksonDataBind)
+    implementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
+    implementation("com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion")
+    testImplementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
+    implementation("io.netty:netty-all:${rootProject.ext.nettyVersion}")
+  }
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
@@ -110,59 +82,32 @@ dependencies {
   testImplementation externalDependency.junitJupiterApi
   testRuntimeOnly externalDependency.junitJupiterEngine
 
-  // Ensure MockWebServer version matches OkHttp version to avoid internal API incompatibilities
   testImplementation('com.squareup.okhttp3:mockwebserver:5.0.0-alpha.14') {
     because("MockWebServer 4.x is incompatible with OkHttp 5.x internal APIs")
   }
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
-  runtimeOnly externalDependency.guicePlay
+  // Guice is a transitive dependency of org.playframework:play-guice (Play BOM); no separate pin.
   runtimeOnly externalDependency.opentelemetryExporter
   runtimeOnly externalDependency.openTelemetryExporterLogging
   runtimeOnly externalDependency.openTelemetryExporterCommon
-  runtimeOnly (externalDependency.playDocs) {
-    exclude group: 'com.typesafe.akka', module: "akka-http-core_$playScalaVersion"
+  runtimeOnly(externalDependency.playDocs) {
+    exclude group: 'org.apache.pekko', module: "pekko-http-core_${rootProject.ext.playScalaVersion}"
   }
   runtimeOnly externalDependency.playGuice
   implementation externalDependency.log4j2Api
-
   implementation externalDependency.logbackClassic
-
   annotationProcessor externalDependency.lombok
-}
-
-play {
-  platform {
-    playVersion = "2.8.22" // see also top level build.gradle
-    scalaVersion = "2.13"
-    javaVersion = JavaVersion.VERSION_21
-  }
-
-  injectedRoutesGenerator = true
 }
 
 test {
   useJUnitPlatform()
-
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
-
   def playJava17CompatibleJvmArgs = [
-          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-          //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-          //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-          //"--add-opens=java.base/java.io=ALL-UNNAMED",
-          //"--add-opens=java.base/java.net=ALL-UNNAMED",
-          //"--add-opens=java.base/java.nio=ALL-UNNAMED",
-          "--add-opens=java.base/java.util=ALL-UNNAMED",
-          //"--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
-          //"--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
-          //"--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-          //"--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
-          //"--add-opens=java.base/sun.security.action=ALL-UNNAMED",
-          //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
-          //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
   ]
   jvmArgs = playJava17CompatibleJvmArgs
 }

@@ -46,9 +46,7 @@ export async function waitForSync(
   gmsToken?: string,
   timeout: number = 30_000,
 ): Promise<void> {
-  const headers: Record<string, string> = gmsToken
-    ? { Authorization: `Bearer ${gmsToken}` }
-    : {};
+  const headers: Record<string, string> = gmsToken ? { Authorization: `Bearer ${gmsToken}` } : {};
 
   const deadline = Date.now() + timeout;
 
