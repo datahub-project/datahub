@@ -422,7 +422,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1705300200000,
+                        "time": 1705320000000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -462,8 +462,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705300200000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-sro6ea",
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-d56xql",
         "lastRunId": "no-run-id-provided"
     }
 },

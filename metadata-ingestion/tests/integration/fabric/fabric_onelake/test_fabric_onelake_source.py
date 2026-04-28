@@ -6,6 +6,7 @@ produces the expected metadata events.
 
 import json
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,7 +25,7 @@ from datahub.ingestion.source.fabric.onelake.models import (
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
 from datahub.testing import mce_helpers
 
-FROZEN_TIME = "2024-01-15 12:00:00"
+FROZEN_TIME = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
