@@ -60,7 +60,10 @@ class SigmaAPI:
         self._unknown_lineage_node_types_warned: Set[str] = set()
         self.session = requests.Session()
 
-        # Configure retry strategy for 429/503 with exponential backoff
+        # Configure retry strategy for 429/503 with exponential backoff.
+        # raise_on_status=False must stay False: get_data_model_by_url_id
+        # inspects response.status_code to surface 429 explicitly; if True,
+        # exhausted retries raise MaxRetryError and bypass that branch.
         retry_strategy = Retry(
             total=3,
             status_forcelist=[429, 503],
@@ -695,9 +698,9 @@ class SigmaAPI:
         raw_entries: List[Dict[str, Any]] = []
         # Cycle protection: a broken proxy (or caching layer) can echo the
         # same ``nextPage`` / ``nextPageToken`` back on every call. Track
-        # the normalized cursor values we've already followed and break
-        # the loop rather than hanging ingestion.
-        seen_cursors: Set[str] = set()
+        # (kind, value) tuples so a cycle that crosses cursor types is also
+        # detected (e.g. page=1 → nextPageToken=1 → page=1 repeating).
+        seen_cursors: Set[Tuple[str, str]] = set()
         first_page = True
         try:
             while True:
@@ -717,19 +720,21 @@ class SigmaAPI:
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
+                    cursor_key: Tuple[str, str] = ("page", str(next_page))
                     cursor = f"page={next_page}"
                 elif next_token:
+                    cursor_key = ("nextPageToken", str(next_token))
                     cursor = f"nextPageToken={next_token}"
                 else:
                     break
-                if cursor in seen_cursors:
+                if cursor_key in seen_cursors:
                     self.report.warning(
                         message=f"{error_ctx} Pagination cursor repeated; aborting.",
                         context=f"url={base_url}, cursor={cursor}, "
                         f"entries_so_far={len(raw_entries)}",
                     )
                     break
-                seen_cursors.add(cursor)
+                seen_cursors.add(cursor_key)
                 url = f"{base_url}{separator}{cursor}"
             return raw_entries
         except Exception as e:

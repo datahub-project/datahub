@@ -848,6 +848,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model.workspaceId
                 )
 
+    def _register_dm_alias(self, alias: str, canonical_key: str) -> None:
+        """Register *alias* as a secondary lookup key pointing at the same
+        bridge-map entries as *canonical_key*.
+
+        Called when the discovery loop fetches a DM by a stale/rotated slug
+        that differs from the DM's current canonical urlId. The canonical key
+        must already be present in ``dm_container_urn_by_url_id`` (either from
+        the round-1 prepopulate or from ``_prepopulate_dm_bridge_maps``).
+        No-ops if the alias already maps to any DM or if alias == canonical_key.
+        """
+        if alias == canonical_key or alias in self.dm_container_urn_by_url_id:
+            return
+        container_urn = self.dm_container_urn_by_url_id.get(canonical_key)
+        if container_urn is None:
+            return
+        self.dm_container_urn_by_url_id[alias] = container_urn
+        self.dm_element_urn_by_name[alias] = self.dm_element_urn_by_name.get(
+            canonical_key, {}
+        )
+        self.dm_total_element_count_by_url_id[alias] = (
+            self.dm_total_element_count_by_url_id.get(canonical_key, 0)
+        )
+
     def _prepopulate_dm_bridge_maps(
         self,
         data_model: SigmaDataModel,
@@ -919,21 +942,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # element" before attributing an unmatched-name reference.
         self.dm_total_element_count_by_url_id[bridge_key] = len(data_model.elements)
 
-        # Register the requested discovery prefix as an alias when Sigma
-        # returns a different canonical urlId for the same DM (slug rotation).
-        # Source_ids referencing the old prefix still need to resolve to the
-        # same container URN / name maps; without the alias they would fall
-        # through to ``dm_unknown``.
-        if requested_alias and requested_alias != bridge_key:
-            # Only register if the alias is not already claimed by a different DM.
-            if requested_alias not in self.dm_container_urn_by_url_id:
-                self.dm_container_urn_by_url_id[requested_alias] = (
-                    data_model_container_urn
-                )
-                self.dm_element_urn_by_name[requested_alias] = name_map
-                self.dm_total_element_count_by_url_id[requested_alias] = len(
-                    data_model.elements
-                )
+        if requested_alias:
+            self._register_dm_alias(requested_alias, bridge_key)
 
         return elementId_to_dataset_urn
 
@@ -1713,6 +1723,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 discovered_dm, requested_alias=prefix
                             )
                         )
+                    elif prefix != discovered_dm.get_url_id():
+                        # DM is already registered from the listed path, but
+                        # the discovery prefix differs from the canonical urlId
+                        # (slug rotation). Register the old slug as an alias so
+                        # source_ids carrying it still resolve correctly.
+                        self._register_dm_alias(prefix, discovered_dm.get_url_id())
 
             # Cheap insurance against a theoretical duplicate where the
             # same DM lands in ``all_data_models`` via both the listed and
