@@ -427,7 +427,7 @@ class InformaticaSourceReport(StaleEntityRemovalSourceReport):
     projects_filtered: int = 0
     folders_filtered: int = 0
     taskflows_filtered: int = 0
-    mappings_filtered: int = 0
+    mapping_tasks_filtered: int = 0
 
     connections_resolved: int = 0
     connections_unresolved: LossyList[str] = field(default_factory=LossyList)

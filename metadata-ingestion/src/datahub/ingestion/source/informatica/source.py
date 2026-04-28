@@ -174,10 +174,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         self._mapping_ids: List[V3Guid] = []
         # v3 GUID → MT DataJob URNs that run that mapping (fan-out).
         self._mapping_v3_to_mt_job_urns: Dict[V3Guid, List[str]] = {}
-        # MT lookups for Taskflow step resolution — steps reference MTs by
-        # either v2 id or name, so we index both.
         self._mt_v2_id_to_job_urn: Dict[V2Id, str] = {}
-        self._mt_name_to_job_urn: Dict[str, str] = {}
         # MT DataJob URN → its step-order predecessors in any Taskflow.
         # Ordered + deduplicated so the same predecessor isn't added twice.
         self._mt_predecessors: Dict[str, List[str]] = {}
@@ -798,10 +795,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         Prefers v2 id over name. ``None`` if the step references an MT
         that wasn't emitted (e.g. filtered by pattern).
         """
-        if step.task_ref_id and step.task_ref_id in self._mt_v2_id_to_job_urn:
-            return self._mt_v2_id_to_job_urn[V2Id(step.task_ref_id)]
-        if step.task_ref_name and step.task_ref_name in self._mt_name_to_job_urn:
-            return self._mt_name_to_job_urn[step.task_ref_name]
+        if step.task_ref_id:
+            return self._mt_v2_id_to_job_urn.get(V2Id(step.task_ref_id))
         return None
 
     def _extract_mappings_and_tasks(self) -> Iterable[Entity]:
@@ -850,24 +845,12 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                         f"name={mt.name!r} path={mt.path}",
                     )
                     continue
-                # ``mapping_pattern`` filters by the referenced Mapping's name,
-                # not the MT name.
-                v2_mapping = (
-                    self._v2_mappings_by_v2_id.get(mt.mapping_id)
-                    if mt.mapping_id
-                    else None
-                )
-                mapping_name = mt.mapping_name or (
-                    v2_mapping.name if v2_mapping else ""
-                )
-                if mapping_name and not self.config.mapping_pattern.allowed(
-                    mapping_name
-                ):
-                    self.report.mappings_filtered += 1
+                if not self.config.mapping_task_pattern.allowed(mt.name):
+                    self.report.mapping_tasks_filtered += 1
                     self.report.report_filtered(
                         "pattern",
                         "MTT",
-                        f"name={mt.name!r} mapping={mapping_name!r}",
+                        f"name={mt.name!r} path={mt.path}",
                     )
                     continue
                 self.report.mapping_tasks_scanned += 1
@@ -905,9 +888,15 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         mapping_name = mt.mapping_name or (v2_mapping.name if v2_mapping else "")
         custom_props = self._mt_custom_props(mt, mapping_name, mapping_v3_guid)
         task_tags = self._tag_list(mt.tags)
+        if not mt.v2_id:
+            logger.warning(
+                "Mapping Task %r has no v2_id; falling back to name for URN, "
+                "which may collide with same-named MTs in other folders.",
+                mt.name,
+            )
         flow = DataFlow(
             platform=PLATFORM,
-            name=_safe_flow_id(mt.name, fallback=mt.v2_id or mt.name),
+            name=_safe_flow_id(mt.v2_id, fallback=mt.name),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=mt.name,
@@ -933,9 +922,7 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         mapping_v3_guid: V3Guid,
     ) -> DataJob:
         """Build the MT's inner ``transform`` DataJob and register its
-        URN in the indexes the lineage + Taskflow-step phases consume
-        (``_mapping_v3_to_mt_job_urns``, ``_mapping_ids``,
-        ``_mt_v2_id_to_job_urn``, ``_mt_name_to_job_urn``).
+        URN in the indexes the lineage + Taskflow-step phases consume.
         """
         job = DataJob(
             name=MAPPING_JOB_ID,
@@ -964,8 +951,6 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                 self._mapping_ids.append(mapping_v3_guid)
         if mt.v2_id:
             self._mt_v2_id_to_job_urn[mt.v2_id] = job_urn
-        if mt.name:
-            self._mt_name_to_job_urn[mt.name] = job_urn
         return job
 
     def _extract_lineage(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:

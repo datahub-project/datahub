@@ -571,11 +571,10 @@ class TestEntityEmission:
         flow, job = entities
         assert isinstance(flow, DataFlow)
         assert isinstance(job, DataJob)
-        # flow_id uses the MT's human-readable name so the Navigate tree
-        # shows "nightly_task" rather than the opaque v2 id. v2 id is
-        # retained in customProperties for IDMC cross-reference.
-        assert "nightly_task" in str(flow.urn)
-        assert "mt-1" not in str(flow.urn)
+        # flow_id is the v2_id (unique per MT) so same-named MTs in different
+        # folders get distinct URNs. The human-readable name is display_name.
+        assert "mt-1" in str(flow.urn)
+        assert "nightly_task" not in str(flow.urn)
         assert flow.display_name == "nightly_task"
         assert "mttask/" not in str(flow.urn)
         assert flow.custom_properties.get("v3Id") == "mt-1"
@@ -1307,7 +1306,7 @@ class TestTaskflowStepEmission:
         source._mt_v2_id_to_job_urn[V2Id("01DM-1")] = (
             "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-1,PROD),transform)"
         )
-        source._mt_name_to_job_urn["enrich_customers"] = (
+        source._mt_v2_id_to_job_urn[V2Id("mt-2")] = (
             "urn:li:dataJob:(urn:li:dataFlow:(informatica,mt-2,PROD),transform)"
         )
         return source
@@ -1343,7 +1342,7 @@ class TestTaskflowStepEmission:
                     step_id="s2",
                     step_name="Enrich customers",
                     step_type="data",
-                    task_ref_name="enrich_customers",
+                    task_ref_id="mt-2",
                     predecessor_step_ids=["s1"],
                 ),
             ],

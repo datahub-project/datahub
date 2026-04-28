@@ -169,10 +169,10 @@ class InformaticaSourceConfig(
     )
 
     # Filtering — Layer 2: Fine-tune by name
-    mapping_pattern: AllowDenyPattern = Field(
+    mapping_task_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
-            "Regex patterns to filter mappings by name. "
+            "Regex patterns to filter Mapping Tasks by name. "
             "Applied globally across all matched projects/folders."
         ),
     )
