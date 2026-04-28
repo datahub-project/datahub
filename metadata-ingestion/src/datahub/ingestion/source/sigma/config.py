@@ -9,7 +9,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -132,6 +132,29 @@ class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
 
 
 @dataclass
+class ElementDmEdgeReport(Report):
+    """Workbook-to-DM-element bridge counters. Matched by element name."""
+
+    # Edge emitted as a unique chart input.
+    resolved: int = 0
+    # URN already present on the chart (e.g. diamond lineage).
+    deduped: int = 0
+    # Multiple elements share the name; deterministic pick.
+    ambiguous: int = 0
+    # DM ingested but name did not match (no edge; ChartInfo.inputs requires
+    # Dataset URNs, not Container URNs).
+    name_unmatched_but_dm_known: int = 0
+    # Lineage node had no ``name``; distinct from the rename-miss counter.
+    upstream_name_missing: int = 0
+    # DM not in this run.
+    unresolved: int = 0
+    # Sigma places the DM-reference node only in ``edges[].source`` (not as a
+    # ``dependencies`` key). We synthesize the upstream using the workbook
+    # element's own ``name`` (Sigma's default mirrors the DM element name).
+    synthesized_from_edge_only: int = 0
+
+
+@dataclass
 class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workspaces: SigmaWorkspaceEntityFilterReport = field(
         default_factory=SigmaWorkspaceEntityFilterReport
@@ -235,24 +258,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # vendor-wide regression; this counter captures the rest.
     pagination_malformed_entries_dropped: int = 0
 
-    # Workbook-to-DM-element bridge. Matched by element name.
-    # ``_resolved``: edge emitted as a unique chart input.
-    # ``_deduped``: URN already present on the chart (e.g. diamond lineage).
-    # ``_ambiguous``: multiple elements share the name; deterministic pick.
-    # ``_name_unmatched_but_dm_known``: DM ingested but name did not match
-    #   (no edge; ChartInfo.inputs requires Dataset URNs, not Container URNs).
-    # ``_unresolved``: DM not in this run.
-    element_dm_edge_resolved: int = 0
-    element_dm_edge_deduped: int = 0
-    element_dm_edge_ambiguous: int = 0
-    element_dm_edge_name_unmatched_but_dm_known: int = 0
-    # Lineage node had no ``name``; distinct from the rename-miss counter.
-    element_dm_edge_upstream_name_missing: int = 0
-    element_dm_edge_unresolved: int = 0
-    # Sigma places the DM-reference node only in ``edges[].source`` (not as
-    # a ``dependencies`` key). We synthesize the upstream using the workbook
-    # element's own ``name`` (Sigma's default mirrors the DM element name).
-    element_dm_edge_synthesized_from_edge_only: int = 0
+    element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):

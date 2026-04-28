@@ -524,7 +524,7 @@ class SigmaAPI:
                     # name, so we fall back to the workbook element's own
                     # name (Sigma's default mirrors the DM element name).
                     # A user rename degrades to
-                    # ``element_dm_edge_name_unmatched_but_dm_known``.
+                    # ``element_dm_edge.name_unmatched_but_dm_known``.
                     if source_node_id not in dependencies and "/" in source_node_id:
                         dm_url_id, _, suffix = source_node_id.partition("/")
                         if dm_url_id and suffix:
@@ -535,7 +535,7 @@ class SigmaAPI:
                                         data_model_url_id=dm_url_id,
                                     )
                                 )
-                                self.report.element_dm_edge_synthesized_from_edge_only += 1
+                                self.report.element_dm_edge.synthesized_from_edge_only += 1
                             except ValidationError as e:
                                 self.report.warning(
                                     title="Sigma DM upstream synthesis from edge-only node failed",

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Literal, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -110,6 +110,17 @@ logger = logging.getLogger(__name__)
 # rather than trusting a lie. When the API starts returning a typed
 # column field (or we add SQL-based inference), swap this out here.
 SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
+
+CrossDmOutcome = Literal[
+    "strict",
+    "ambiguous",
+    "single_element_fallback",
+    "malformed",
+    "self_reference",
+    "consumer_name_missing",
+    "dm_unknown",
+    "name_unmatched_but_dm_known",
+]
 
 
 @platform_name("Sigma")
@@ -427,10 +438,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         suffix = source_id[len("inode-") :]
         return self.sigma_dataset_urn_by_url_id.get(suffix)
 
-CrossDmOutcome = Literal["strict", "ambiguous", "single_element_fallback", "malformed",
-                            "self_reference", "consumer_name_missing", "dm_unknown",
-                            "name_unmatched_but_dm_known"]
-                            
     def _resolve_dm_element_cross_dm_upstream(
         self,
         source_id: str,
@@ -1117,7 +1124,7 @@ CrossDmOutcome = Literal["strict", "ambiguous", "single_element_fallback", "malf
           (``ChartInfo.inputs`` requires Dataset URNs, not Container URNs).
         - ``candidates`` is the name-matched URN list (0 = miss, 1 = unique,
           >=2 = ambiguous). The caller uses it to bump
-          ``element_dm_edge_ambiguous`` once per unique chart-to-DM edge.
+          ``element_dm_edge.ambiguous`` once per unique chart-to-DM edge.
 
         Candidates are sorted deterministically by their Dataset URN
         (which embeds ``dataModelId.elementId``), so the pick is stable
@@ -1129,9 +1136,9 @@ CrossDmOutcome = Literal["strict", "ambiguous", "single_element_fallback", "malf
 
         if not upstream.name:
             if dm_known:
-                self.reporter.element_dm_edge_upstream_name_missing += 1
+                self.reporter.element_dm_edge.upstream_name_missing += 1
             else:
-                self.reporter.element_dm_edge_unresolved += 1
+                self.reporter.element_dm_edge.unresolved += 1
             return None, []
 
         if name_map:
@@ -1151,12 +1158,12 @@ CrossDmOutcome = Literal["strict", "ambiguous", "single_element_fallback", "malf
         # renamed after the workbook last referenced it, not an
         # ambiguous-resolution gap. Falling back to the sole element
         # would silently bind the edge to the post-rename element, so we
-        # surface via ``element_dm_edge_name_unmatched_but_dm_known`` and
+        # surface via ``element_dm_edge.name_unmatched_but_dm_known`` and
         # let operators decide whether to re-save the workbook.
         if dm_known:
-            self.reporter.element_dm_edge_name_unmatched_but_dm_known += 1
+            self.reporter.element_dm_edge.name_unmatched_but_dm_known += 1
         else:
-            self.reporter.element_dm_edge_unresolved += 1
+            self.reporter.element_dm_edge.unresolved += 1
         return None, []
 
     def _get_element_input_details(
@@ -1259,14 +1266,14 @@ CrossDmOutcome = Literal["strict", "ambiguous", "single_element_fallback", "malf
                     if dm_urn in dataset_inputs:
                         # Diamond reference: same DM element reached via
                         # multiple lineage nodeIds on this chart.
-                        self.reporter.element_dm_edge_deduped += 1
+                        self.reporter.element_dm_edge.deduped += 1
                     else:
                         dataset_inputs[dm_urn] = []
-                        self.reporter.element_dm_edge_resolved += 1
+                        self.reporter.element_dm_edge.resolved += 1
                         # Count ambiguity once per chart-to-DM edge, not
                         # once per diamond sourceId.
                         if len(candidates) > 1:
-                            self.reporter.element_dm_edge_ambiguous += 1
+                            self.reporter.element_dm_edge.ambiguous += 1
                             logger.warning(
                                 "Ambiguous DM element name %r in DM %s: "
                                 "%d candidates (%s). Picked lowest URN "
@@ -1635,7 +1642,7 @@ CrossDmOutcome = Literal["strict", "ambiguous", "single_element_fallback", "malf
                             "remaining unresolved ``<urlId>`` prefixes will "
                             "not be fetched on this run. Cross-DM edges into "
                             "those DMs will be reported under "
-                            "``element_dm_edge_unresolved`` / "
+                            "``element_dm_edge.unresolved`` / "
                             "``data_model_element_cross_dm_upstreams_dm_unknown``. "
                             "Raise ``max_personal_dm_discovery_rounds`` if this "
                             "is legitimate, or investigate the DM graph for a "

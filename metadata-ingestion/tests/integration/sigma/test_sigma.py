@@ -1269,7 +1269,7 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
 def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
     """``data_model_pattern`` denies the DM, so no DM entities emitted and
     workbook elements previously bridging to the DM degrade to
-    ``element_dm_edge_unresolved`` (bridge maps never registered)."""
+    ``element_dm_edge.unresolved`` (bridge maps never registered)."""
 
     override_data: Dict[str, Dict] = get_mock_data_model_api()
     _apply_dm_bridge_workbook_overrides(override_data)
@@ -1329,12 +1329,12 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
     )
 
     report = _sigma_report(pipeline)
-    assert report.element_dm_edge_resolved == 0
-    assert report.element_dm_edge_name_unmatched_but_dm_known == 0
+    assert report.element_dm_edge.resolved == 0
+    assert report.element_dm_edge.name_unmatched_but_dm_known == 0
     # All three DM-bridge workbook elements must end up as unresolved because
     # the bridge maps were never populated (DM was denied).
-    assert report.element_dm_edge_unresolved == 3, (
-        f"expected 3 unresolved DM edges, got {report.element_dm_edge_unresolved}"
+    assert report.element_dm_edge.unresolved == 3, (
+        f"expected 3 unresolved DM edges, got {report.element_dm_edge.unresolved}"
     )
     # No DM-element Dataset URN should end up in any ChartInfo.inputs either.
     for mce in mces:
@@ -1935,7 +1935,7 @@ def test_sigma_ingest_data_models_lineage_node_missing_name(
     pytestconfig, tmp_path, requests_mock
 ):
     """Workbook lineage ``data-model`` node without a ``name`` field counts
-    under ``element_dm_edge_upstream_name_missing`` (not
+    under ``element_dm_edge.upstream_name_missing`` (not
     ``_name_unmatched_but_dm_known``). This mirrors the cross-DM path's
     ``_consumer_name_missing`` split so triage can distinguish "API gave
     us no name" from "a user renamed the DM element after linking"."""
@@ -1982,19 +1982,19 @@ def test_sigma_ingest_data_models_lineage_node_missing_name(
     pipeline.raise_from_status()
 
     report = _sigma_report(pipeline)
-    # dmRefElem01: DM node has no name, counts as element_dm_edge_upstream_name_missing.
+    # dmRefElem01: DM node has no name, counts as element_dm_edge.upstream_name_missing.
     # dmRefElem02: name="random data model", resolves (ambiguous, but a hit).
     # dmRefElem03: name="name_not_in_dm", DM known but no matching element
-    #              counts as element_dm_edge_name_unmatched_but_dm_known.
-    assert report.element_dm_edge_upstream_name_missing == 1, (
+    #              counts as element_dm_edge.name_unmatched_but_dm_known.
+    assert report.element_dm_edge.upstream_name_missing == 1, (
         f"expected 1 upstream_name_missing, got "
-        f"{report.element_dm_edge_upstream_name_missing}"
+        f"{report.element_dm_edge.upstream_name_missing}"
     )
-    assert report.element_dm_edge_name_unmatched_but_dm_known == 1, (
+    assert report.element_dm_edge.name_unmatched_but_dm_known == 1, (
         f"expected 1 name_unmatched_but_dm_known, got "
-        f"{report.element_dm_edge_name_unmatched_but_dm_known}"
+        f"{report.element_dm_edge.name_unmatched_but_dm_known}"
     )
-    assert report.element_dm_edge_resolved == 1
+    assert report.element_dm_edge.resolved == 1
 
 
 @pytest.mark.integration
@@ -2072,8 +2072,8 @@ def test_sigma_ingest_data_models_ambiguous_name_deterministic_pick(
     # diamond-pattern test
     # (``test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamond``)
     # pins the no-over-count behavior for repeated sourceIds.
-    assert report.element_dm_edge_ambiguous == 1, (
-        f"expected element_dm_edge_ambiguous=1, got {report.element_dm_edge_ambiguous}"
+    assert report.element_dm_edge.ambiguous == 1, (
+        f"expected element_dm_edge.ambiguous=1, got {report.element_dm_edge.ambiguous}"
     )
 
 
@@ -2094,8 +2094,8 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
     1. ``DataModelElementUpstream`` is synthesized from the edge alone,
     2. the workbook element's own ``name`` is used as the DM element name
        (Sigma's default — user rename degrades to the existing
-       ``element_dm_edge_name_unmatched_but_dm_known`` counter), and
-    3. the ``element_dm_edge_synthesized_from_edge_only`` counter tracks
+       ``element_dm_edge.name_unmatched_but_dm_known`` counter), and
+    3. the ``element_dm_edge.synthesized_from_edge_only`` counter tracks
        how many refs travelled this path, so the legacy "DM in dependencies"
        path's coverage — retained defensively — stays distinguishable.
     """
@@ -2196,9 +2196,9 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
 
     # All 3 workbook-to-DM refs travelled the synthesized path (none were
     # present in dependencies), so the counter bumps once per ref.
-    assert report.element_dm_edge_synthesized_from_edge_only == 3, (
+    assert report.element_dm_edge.synthesized_from_edge_only == 3, (
         f"expected 3 synthesized DM refs, got "
-        f"{report.element_dm_edge_synthesized_from_edge_only}"
+        f"{report.element_dm_edge.synthesized_from_edge_only}"
     )
 
     # dmRefElem01: "2313213123.test.231" (unique name, single DM element
@@ -2207,13 +2207,13 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
     #              deterministic pick-lowest resolves to 0ui59vLc38).
     # dmRefElem03: user-renamed name, unmatched; DM is known to this run
     #                so the name-unmatched-but-known counter bumps.
-    assert report.element_dm_edge_resolved == 2, (
+    assert report.element_dm_edge.resolved == 2, (
         f"expected 2 resolved bridge edges (01 + 02), got "
-        f"{report.element_dm_edge_resolved}"
+        f"{report.element_dm_edge.resolved}"
     )
-    assert report.element_dm_edge_name_unmatched_but_dm_known == 1, (
+    assert report.element_dm_edge.name_unmatched_but_dm_known == 1, (
         f"expected 1 rename-induced unmatched, got "
-        f"{report.element_dm_edge_name_unmatched_but_dm_known}"
+        f"{report.element_dm_edge.name_unmatched_but_dm_known}"
     )
 
     with open(output_path) as f:
@@ -5101,7 +5101,7 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
     resolve to the same DM element URN, so only the first becomes a
     ``ChartInfo.inputs`` entry and the rest hit the dedupe branch.
 
-    Regression pin for M3 fix: ``element_dm_edge_ambiguous`` should bump
+    Regression pin for M3 fix: ``element_dm_edge.ambiguous`` should bump
     **once** (the ambiguity is a DM-side property — one ambiguous DM
     element reached from one chart), not once per sourceId — otherwise
     report triage over-counts and the ambiguity-warning log spams.
@@ -5195,21 +5195,21 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
     report = _sigma_report(pipeline)
     # Ambiguity is a property of the DM element (not per-sourceId), so
     # the counter must bump exactly once for this chart-to-DM edge.
-    assert report.element_dm_edge_ambiguous == 1, (
-        f"expected element_dm_edge_ambiguous=1 (per-unique-chart-to-DM-edge), "
-        f"got {report.element_dm_edge_ambiguous}"
+    assert report.element_dm_edge.ambiguous == 1, (
+        f"expected element_dm_edge.ambiguous=1 (per-unique-chart-to-DM-edge), "
+        f"got {report.element_dm_edge.ambiguous}"
     )
     # The other two diamond paths are dedupe hits.
-    assert report.element_dm_edge_deduped >= 2, (
-        f"expected ≥2 element_dm_edge_deduped hits on a 3-way diamond, "
-        f"got {report.element_dm_edge_deduped}"
+    assert report.element_dm_edge.deduped >= 2, (
+        f"expected >=2 element_dm_edge.deduped hits on a 3-way diamond, "
+        f"got {report.element_dm_edge.deduped}"
     )
     # Two chart-to-DM edges resolve across the workbook: dmRefElem01
     # (single non-diamond ref, from _apply_dm_bridge_workbook_overrides)
     # and dmRefElem02 (the diamond — 3 sourceIds collapse to 1 edge).
     # dmRefElem03 name-unmatches. The diamond dedup is validated above by
-    # ``element_dm_edge_deduped >= 2`` and the ChartInfo.inputs count.
-    assert report.element_dm_edge_resolved == 2
+    # ``element_dm_edge.deduped >= 2`` and the ChartInfo.inputs count.
+    assert report.element_dm_edge.resolved == 2
 
 
 @pytest.mark.integration
