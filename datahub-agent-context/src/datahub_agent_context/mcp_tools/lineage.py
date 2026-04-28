@@ -564,33 +564,6 @@ def _find_lineage_path(
         )
 
 
-def _no_path_found_response(
-    source_urn: str,
-    target_urn: str,
-    source_column: Optional[str],
-    target_column: Optional[str],
-) -> dict:
-    """Return a structured 'no path found' response instead of raising an error.
-
-    Agent/LLM callers expect a dict response, not an exception, when no lineage
-    exists between two assets.
-    """
-    source_label = source_urn + (f".{source_column}" if source_column else "")
-    target_label = target_urn + (f".{target_column}" if target_column else "")
-    return {
-        "message": f"No lineage path found between {source_label} and {target_label}.",
-        "source": {
-            "urn": source_urn,
-            **({"column": source_column} if source_column else {}),
-        },
-        "target": {
-            "urn": target_urn,
-            **({"column": target_column} if target_column else {}),
-        },
-        "pathCount": 0,
-        "paths": [],
-    }
-
 
 def get_lineage_paths_between(
     source_urn: str,
@@ -661,6 +634,8 @@ def get_lineage_paths_between(
 
     Raises:
         ValueError: If column parameters are mismatched or invalid
+        ItemNotFoundError: If no lineage path found (converted to a message dict
+            by create_context_wrapper when called through the agent adapter)
     """
     # Normalize column parameters
     if source_column == "null" or source_column == "":
@@ -715,24 +690,22 @@ def get_lineage_paths_between(
                 )
                 return result
             except ItemNotFoundError:
-                # Not found in either direction — return a friendly message
-                # instead of raising, so agent/LLM callers get a usable response.
-                return _no_path_found_response(
-                    source_urn, target_urn, source_column, target_column
-                )
+                # Not found in either direction
+                raise ItemNotFoundError(
+                    f"No lineage path found between {source_urn}"
+                    + (f".{source_column}" if source_column else "")
+                    + f" and {target_urn}"
+                    + (f".{target_column}" if target_column else "")
+                    + " in either upstream or downstream direction"
+                ) from None
     else:
         # User specified direction explicitly
-        try:
-            return _find_lineage_path(
-                query_urn=query_urn,
-                target_full_urn=target_full_urn,
-                source_urn=source_urn,
-                target_urn=target_urn,
-                source_column=source_column,
-                target_column=target_column,
-                direction=direction,
-            )
-        except ItemNotFoundError:
-            return _no_path_found_response(
-                source_urn, target_urn, source_column, target_column
-            )
+        return _find_lineage_path(
+            query_urn=query_urn,
+            target_full_urn=target_full_urn,
+            source_urn=source_urn,
+            target_urn=target_urn,
+            source_column=source_column,
+            target_column=target_column,
+            direction=direction,
+        )
