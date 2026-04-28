@@ -3544,7 +3544,8 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Sigma Workspace"
+            "Sigma Workspace",
+            "Sigma Data Model"
           ],
           "supported": true
         },
