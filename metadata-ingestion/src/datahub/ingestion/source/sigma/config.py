@@ -242,8 +242,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # ``_name_unmatched_but_dm_known``: DM ingested but name did not match
     #   (no edge; ChartInfo.inputs requires Dataset URNs, not Container URNs).
     # ``_unresolved``: DM not in this run.
-    element_dm_edges_resolved: int = 0
-    element_dm_edges_deduped: int = 0
+    element_dm_edge_resolved: int = 0
+    element_dm_edge_deduped: int = 0
     element_dm_edge_ambiguous: int = 0
     element_dm_edge_name_unmatched_but_dm_known: int = 0
     # Lineage node had no ``name``; distinct from the rename-miss counter.

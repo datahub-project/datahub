@@ -85,6 +85,20 @@ This source extracts the following:
     reflect whatever name matches at the next ingest — i.e. the edge
     tracks "current state of Sigma," not "state at edge-creation time."
     This matches how Sigma's own UI resolves the reference.
+  - **Ambiguous cross-DM name matches.** When two or more elements in a
+    producer DM share the same case-insensitive name, the resolver
+    cannot determine which element is the intended upstream. It picks
+    the lexicographically smallest Dataset URN among the candidates
+    (stable and deterministic across runs) and increments
+    `data_model_element_cross_dm_upstreams_ambiguous`. The emitted
+    lineage edge is technically valid but may point at the wrong
+    element — a `logger.warning` is also emitted at ingestion time so
+    the ambiguous pick is visible in the connector log. The root cause
+    is a naming collision on the Sigma side: renaming one of the
+    duplicates in Sigma will let the resolver match precisely and
+    clear the counter. This is distinct from the rename case above:
+    here the name *is* found but is not unique, whereas the rename case
+    produces a name-miss (`data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known`).
 
 ### Prerequisites
 

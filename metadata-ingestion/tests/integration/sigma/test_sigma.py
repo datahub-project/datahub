@@ -1327,7 +1327,7 @@ def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, request
     )
 
     report = _sigma_report(pipeline)
-    assert report.element_dm_edges_resolved == 0
+    assert report.element_dm_edge_resolved == 0
     assert report.element_dm_edge_name_unmatched_but_dm_known == 0
     # All three DM-bridge workbook elements must end up as unresolved because
     # the bridge maps were never populated (DM was denied).
@@ -1992,7 +1992,7 @@ def test_sigma_ingest_data_models_lineage_node_missing_name(
         f"expected 1 name_unmatched_but_dm_known, got "
         f"{report.element_dm_edge_name_unmatched_but_dm_known}"
     )
-    assert report.element_dm_edges_resolved == 1
+    assert report.element_dm_edge_resolved == 1
 
 
 @pytest.mark.integration
@@ -2205,9 +2205,9 @@ def test_sigma_ingest_data_models_edges_only_dm_ref_synthesized(
     #              deterministic pick-lowest resolves to 0ui59vLc38).
     # dmRefElem03: user-renamed name, unmatched; DM is known to this run
     #                so the name-unmatched-but-known counter bumps.
-    assert report.element_dm_edges_resolved == 2, (
+    assert report.element_dm_edge_resolved == 2, (
         f"expected 2 resolved bridge edges (01 + 02), got "
-        f"{report.element_dm_edges_resolved}"
+        f"{report.element_dm_edge_resolved}"
     )
     assert report.element_dm_edge_name_unmatched_but_dm_known == 1, (
         f"expected 1 rename-induced unmatched, got "
@@ -3517,16 +3517,21 @@ def test_sigma_ingest_data_models_orphan_dm_discovery_cap_surfaces_warning(
     pytestconfig, tmp_path, requests_mock
 ):
     """``max_personal_dm_discovery_rounds`` cap fires a loud
-    ``SourceReport.warning`` and stops further orphan fetches.
+    ``SourceReport.warning`` and stops further orphan fetches, but
+    only when there are unresolved prefixes to abandon (so the warning
+    never fires spuriously when no cross-DM prefixes need fetching).
 
     This is the belt-and-braces sibling to
     ``test_sigma_ingest_data_models_orphan_dm_two_hop_discovery``: that
     test pins natural termination, this one pins the explicit cap. Uses
     the same consumer -> orphan B -> orphan C chain but sets the cap at
-    ``1`` so the loop breaks on round 1 before orphan B is fetched.
+    ``1`` so the loop collects unresolved prefixes in round 1 (bridge
+    prepop), sees orphan B as unresolved, and breaks with a warning
+    before issuing any per-prefix fetch.
     Expected:
     - 0 orphans discovered (cap fires before the first per-prefix fetch).
-    - Cap warning surfaced in ``SourceReport.warnings``.
+    - Cap warning surfaced in ``SourceReport.warnings`` (non-empty
+      unresolved set triggers it).
     - Consumer's cross-DM edge to orphan B degrades to ``dm_unknown``
       (never registered in bridges).
     - No producer Container / Dataset entities emitted (cap aborted fetch).
@@ -3752,11 +3757,12 @@ def test_sigma_ingest_data_models_orphan_dm_malformed_payload_safe(
     validation (e.g. missing ``dataModelId`` on the server side) must not
     crash the ingestion.
 
-    Contract pin: the by-urlId path's broad ``except Exception`` treats a
-    malformed payload identically to a 4xx -- return None so the caller
-    bumps ``data_model_external_reference_unresolved`` and the consumer's
-    cross-DM edge degrades to ``dm_unknown``. This guards the discovery
-    loop against a Sigma-side regression we don't control (e.g.
+    Contract pin: the by-urlId path's broad ``except Exception`` path
+    returns None (so the caller bumps ``data_model_external_reference_unresolved``
+    and the consumer's cross-DM edge degrades to ``dm_unknown``) AND emits
+    a ``SourceReport.warning`` with a stable title so the failure is visible
+    in the ingestion report — parity with the non-200 path. This guards the
+    discovery loop against a Sigma-side regression we don't control (e.g.
     experimental endpoints that ship inconsistent field names).
     """
 
@@ -3914,13 +3920,22 @@ def test_sigma_ingest_data_models_orphan_dm_malformed_payload_safe(
 
     report = _sigma_report(pipeline)
 
-    # The malformed payload path degrades identically to the 403 path.
+    # The malformed payload path degrades identically to the non-200 path:
+    # counter bumped, cross-DM edge dm_unknown, AND a report.warning emitted.
     assert report.data_model_external_reference_unresolved == 1, (
         f"expected 1 unresolved on malformed payload, got "
         f"{report.data_model_external_reference_unresolved}"
     )
     assert report.data_model_external_references_discovered == 0
     assert report.data_model_element_cross_dm_upstreams_dm_unknown == 1
+    assert any(
+        "exception" in (w.title or "").lower()
+        or "orphan data model fetch raised" in (w.title or "").lower()
+        for w in report.warnings
+    ), (
+        f"expected a report.warning from the except branch of "
+        f"get_data_model_by_url_id, got: {[w.title for w in report.warnings]}"
+    )
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -5183,16 +5198,16 @@ def test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamo
         f"got {report.element_dm_edge_ambiguous}"
     )
     # The other two diamond paths are dedupe hits.
-    assert report.element_dm_edges_deduped >= 2, (
-        f"expected ≥2 element_dm_edges_deduped hits on a 3-way diamond, "
-        f"got {report.element_dm_edges_deduped}"
+    assert report.element_dm_edge_deduped >= 2, (
+        f"expected ≥2 element_dm_edge_deduped hits on a 3-way diamond, "
+        f"got {report.element_dm_edge_deduped}"
     )
     # Two chart-to-DM edges resolve across the workbook: dmRefElem01
     # (single non-diamond ref, from _apply_dm_bridge_workbook_overrides)
     # and dmRefElem02 (the diamond — 3 sourceIds collapse to 1 edge).
     # dmRefElem03 name-unmatches. The diamond dedup is validated above by
-    # ``element_dm_edges_deduped >= 2`` and the ChartInfo.inputs count.
-    assert report.element_dm_edges_resolved == 2
+    # ``element_dm_edge_deduped >= 2`` and the ChartInfo.inputs count.
+    assert report.element_dm_edge_resolved == 2
 
 
 @pytest.mark.integration

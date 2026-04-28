@@ -727,14 +727,10 @@ class SigmaAPI:
             # them in the ingestion report; ``_log_http_error`` alone is
             # debug-level and would leave the DM looking healthy while its
             # elements/columns are silently missing. Partial results
-            # collected before the break are preserved.
-            #
-            # Include the HTTP status code in the warning title when we
-            # can extract it (``requests.HTTPError`` from
-            # Surface pagination failures so operators see them in the
-            # ingestion report. HTTP status goes into ``context`` (not
-            # ``title``) so LossyList groups all pagination aborts under
-            # one stable key regardless of status code.
+            # collected before the failure are preserved.
+            # HTTP status goes into ``context`` (not ``title``) so LossyList
+            # groups all pagination aborts under one stable key regardless
+            # of status code.
             http_status: Optional[int] = (
                 e.response.status_code
                 if isinstance(e, requests.HTTPError) and e.response is not None
@@ -1055,6 +1051,17 @@ class SigmaAPI:
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch data model by url_id '{url_id}'. Exception: {e}"
+            )
+            self.report.warning(
+                title="Sigma orphan Data Model fetch raised exception",
+                message=(
+                    "An unexpected exception occurred while fetching or "
+                    "assembling the cross-DM reference; treating as "
+                    "``dm_unknown`` for the rest of the run. Common causes: "
+                    "Pydantic validation failure on a malformed 200 payload, "
+                    "network error inside element/column/lineage assembly."
+                ),
+                context=f"url_id={url_id}, exception={type(e).__name__}: {e}",
             )
             return None
 

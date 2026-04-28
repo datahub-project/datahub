@@ -446,9 +446,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not other_dm_url_id or not suffix:
             return None, "malformed"
 
+        # Primary self-reference check: current urlId slug or UUID.
+        # Extended check: if the urlId was rotated, a stale lineage record may
+        # reference the old slug. Compare container URNs so that any historical
+        # alias that maps to the same DM is caught rather than misclassified as
+        # ``dm_unknown`` (wasted API call + misleading triage counter).
+        consuming_container_urn = self.dm_container_urn_by_url_id.get(
+            consuming_data_model.get_url_id()
+        ) or self.dm_container_urn_by_url_id.get(consuming_data_model.dataModelId)
         if (
             other_dm_url_id == consuming_data_model.get_url_id()
             or other_dm_url_id == consuming_data_model.dataModelId
+            or (
+                consuming_container_urn is not None
+                and self.dm_container_urn_by_url_id.get(other_dm_url_id)
+                == consuming_container_urn
+            )
         ):
             return None, "self_reference"
 
@@ -1206,10 +1219,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if dm_urn in dataset_inputs:
                         # Diamond reference: same DM element reached via
                         # multiple lineage nodeIds on this chart.
-                        self.reporter.element_dm_edges_deduped += 1
+                        self.reporter.element_dm_edge_deduped += 1
                     else:
                         dataset_inputs[dm_urn] = []
-                        self.reporter.element_dm_edges_resolved += 1
+                        self.reporter.element_dm_edge_resolved += 1
                         # Count ambiguity once per chart-to-DM edge, not
                         # once per diamond sourceId.
                         if len(candidates) > 1:
@@ -1554,34 +1567,44 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if not self.config.ingest_shared_entities:
                     break
 
-                if discovery_round >= max_rounds:
-                    # Defensive: stop before the next API fan-out if we've
-                    # hit the configured cap. Any still-unresolved cross-DM
-                    # prefixes will be counted as ``dm_unknown`` at
-                    # resolution time, matching the filtered-out DM path.
-                    self.reporter.warning(
-                        title="personal-space Data Model discovery cap reached",
-                        message=(
-                            "Personal-space DM discovery reached the "
-                            "``max_personal_dm_discovery_rounds`` cap "
-                            f"({max_rounds}); further ``<urlId>`` prefixes "
-                            "will not be fetched on this run. Cross-DM edges "
-                            "into those DMs will be reported under "
-                            "``element_dm_edge_unresolved`` / "
-                            "``data_model_element_cross_dm_upstreams_dm_unknown``. "
-                            "Raise ``max_personal_dm_discovery_rounds`` if this "
-                            "is legitimate, or investigate the DM graph for a "
-                            "reference cycle."
-                        ),
-                    )
-                    break
-
                 new_unresolved = self._collect_unresolved_cross_dm_prefixes(pending)
                 # Sort for deterministic discovery order (set iteration is
                 # hash-randomized across Python interpreter runs).
                 unresolved = sorted(new_unresolved - unresolved_seen)
                 unresolved_seen |= new_unresolved
                 pending = []
+
+                if not unresolved:
+                    # Natural termination: no new prefixes to explore.
+                    break
+
+                if discovery_round >= max_rounds:
+                    # Defensive: stop before the next API fan-out only when
+                    # there are actually unresolved prefixes to abandon.
+                    # Checking after collecting unresolved ensures the warning
+                    # never fires spuriously when ``max_personal_dm_discovery_rounds``
+                    # is set to a low value but the graph was already fully
+                    # resolved in earlier rounds (e.g. the common case where
+                    # all listed-DM bridges are prepopulated in round 1 and
+                    # no orphan prefixes remain).
+                    self.reporter.warning(
+                        title="personal-space Data Model discovery cap reached",
+                        message=(
+                            "Personal-space DM discovery reached the "
+                            "``max_personal_dm_discovery_rounds`` cap "
+                            f"({max_rounds}); {len(unresolved)} ``<urlId>`` "
+                            "prefix(es) will not be fetched on this run. "
+                            "Cross-DM edges into those DMs will be reported "
+                            "under ``element_dm_edge_unresolved`` / "
+                            "``data_model_element_cross_dm_upstreams_dm_unknown``. "
+                            "Raise ``max_personal_dm_discovery_rounds`` if this "
+                            "is legitimate, or investigate the DM graph for a "
+                            "reference cycle."
+                        ),
+                        context=f"abandoned_prefixes={unresolved[:10]}",
+                    )
+                    break
+
                 for prefix in unresolved:
                     discovered_dm = self.sigma_api.get_data_model_by_url_id(prefix)
                     if discovered_dm is None:
@@ -1608,7 +1631,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             )
                             continue
                         if workspace is None:
+                            # For discovered DMs, drop rather than emitting
+                            # with a phantom parent Container URN that points
+                            # at a workspace that was never produced in this
+                            # run (403 / deleted workspace). Consistent with
+                            # the workspace_pattern-denied path above.
+                            self.reporter.data_models.dropped(
+                                f"{discovered_dm.name} ({discovered_dm.dataModelId}) "
+                                f"(discovered, workspace {discovered_dm.workspaceId} "
+                                f"unreachable or deleted)"
+                            )
                             self.reporter.data_models_without_workspace += 1
+                            continue
                     if not self.config.data_model_pattern.allowed(discovered_dm.name):
                         self.reporter.data_models.dropped(
                             f"{discovered_dm.name} ({discovered_dm.dataModelId}) "

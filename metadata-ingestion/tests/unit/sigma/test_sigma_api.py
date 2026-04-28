@@ -1958,12 +1958,12 @@ class TestGetDataModelByUrlIdHttpStatusSurfaced:
 
 class TestMaxPersonalDmDiscoveryRoundsBounds:
     """PR2 review M2: ``max_personal_dm_discovery_rounds`` is a safety
-    cap; ``0`` / negative values used to be silently accepted and
-    would trip the "cap reached" warning immediately on the first
-    discovery iteration, confusing operators who set ``0`` thinking
-    it would disable the loop. The field now declares ``ge=1`` so
-    pydantic rejects those values at config-parse time with a clear
-    error. Disabling discovery is documented via
+    cap; ``0`` / negative values are rejected by pydantic (``ge=1``)
+    at config-parse time with a clear error. The cap warning only
+    fires when the abandoned unresolved set is non-empty (i.e. when
+    the cap is actually cutting off work), so operators who set low
+    values for fast-termination do not see spurious warnings on every
+    run. Disabling discovery entirely is documented via
     ``ingest_shared_entities: False``.
     """
 
