@@ -427,12 +427,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         suffix = source_id[len("inode-") :]
         return self.sigma_dataset_urn_by_url_id.get(suffix)
 
+CrossDmOutcome = Literal["strict", "ambiguous", "single_element_fallback", "malformed",
+                            "self_reference", "consumer_name_missing", "dm_unknown",
+                            "name_unmatched_but_dm_known"]
+                            
     def _resolve_dm_element_cross_dm_upstream(
         self,
         source_id: str,
         consuming_element: SigmaDataModelElement,
         consuming_data_model: SigmaDataModel,
-    ) -> Tuple[Optional[str], str]:
+    ) -> Tuple[Optional[str], CrossDmOutcome]:
         """Resolve a cross-DM ``sourceId`` (``<otherDmUrlId>/<suffix>``) to
         the referenced DM element Dataset URN.
 
