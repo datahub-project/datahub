@@ -11,7 +11,6 @@ dependencies {
     implementation externalDependency.fabric8KubernetesClient
 
     implementation externalDependency.slf4jApi
-    implementation externalDependency.jakartaAnnotationApi
     // Newer Spring libraries require JDK17 classes, allow for JDK11
     compileOnly externalDependency.springBootAutoconfigureJdk11
 

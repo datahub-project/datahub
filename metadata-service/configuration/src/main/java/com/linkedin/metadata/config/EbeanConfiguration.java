@@ -1,6 +1,5 @@
 package com.linkedin.metadata.config;
 
-import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,24 +27,14 @@ public class EbeanConfiguration {
   private boolean autoCreateDdl;
   private boolean postgresUseIamAuth;
   private String batchGetMethod;
-  private Integer queryKeysCountForBatch;
-
-  @PostConstruct
-  public void validateConfiguration() {
-    if (queryKeysCountForBatch != null) {
-      if (queryKeysCountForBatch <= 0) {
-        log.warn(
-            "Invalid queryKeysCountForBatch: {}. Must be positive. Using default value {}.",
-            queryKeysCountForBatch,
-            DEFAULT_QUERY_KEYS_COUNT);
-        this.queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT; // Let default apply
-      } else if (queryKeysCountForBatch > 5000) {
-        log.warn(
-            "queryKeysCountForBatch {} is very large. May cause memory issues. Consider <= 5000.",
-            queryKeysCountForBatch);
-      }
-    }
-  }
+  private Integer queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT;
 
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
+
+  public Integer getQueryKeysCountForBatch() {
+    if (this.queryKeysCountForBatch <= 0) {
+      this.queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT;
+    }
+    return this.queryKeysCountForBatch;
+  }
 }
