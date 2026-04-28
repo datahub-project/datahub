@@ -188,14 +188,180 @@ def test_whitespace_inside_brackets_stripped() -> None:
     assert result2[0].column == "col"
 
 
-def test_bracket_body_with_quote_pins_current_behavior() -> None:
-    """A quote inside a bracket body may be mutilated if it pairs with a quote elsewhere.
+def test_bracket_body_with_unpaired_quote() -> None:
+    """A lone `"` inside a bracket body is a literal column-name character.
 
-    This test pins the CURRENT (imperfect) behavior. If this becomes a
-    production issue, replace _strip_string_literals with a stateful scanner.
+    The unbalanced quote can't form a string literal so the body is captured
+    intact. This case was handled correctly by the old regex impl; the scanner
+    preserves the behavior.
     """
-    # Unbalanced quote: the lone `"` inside the bracket can't form a string
-    # literal so the body is captured intact.
     result = extract_bracket_refs('[col"name]')
     assert len(result) == 1
     assert result[0].source == 'col"name'
+
+
+# --- Refactor regression tests (stateful scanner) ---
+
+
+def test_bracket_body_with_paired_quote() -> None:
+    """Regression for the layered-regex paired-quote bug.
+
+    Before refactor, the literal-stripper turned `"x"` into `   `, mutilating
+    the column name. The state machine treats the brackets as a single span;
+    quote characters inside the span are literal column-name characters.
+    """
+    result = extract_bracket_refs('If([col"x"col] = "x", 1, 0)')
+    assert len(result) == 1
+    assert result[0].source == 'col"x"col'
+    assert result[0].column is None
+
+
+def test_literal_backslash_before_slash() -> None:
+    r"""Regression for the lookbehind-cannot-distinguish-`\\/`-from-`\/` bug.
+
+    `\\/` means: literal backslash, then real (unescaped) slash separator.
+    The first `\` consumes the second `\` as a literal; the `/` is then
+    the first unescaped slash.
+    """
+    result = extract_bracket_refs(r"[A\\/B]")
+    assert len(result) == 1
+    assert result[0].source == "A\\"
+    assert result[0].column == "B"
+
+
+def test_balanced_quote_does_not_destroy_innocent_brackets() -> None:
+    """Regression for the literal-stripper-spans-multiple-brackets bug.
+
+    Layered regex: the string-literal pre-pass greedily matches from the
+    first `"` (inside `[a"b]`) to the next `"` (in `"hello"`), replacing
+    21 characters with spaces. Both `]`s and the entire `[innocent]` ref
+    are destroyed; the bracket regex finds 0 matches.
+
+    State machine: `"` inside IN_BRACKET is a literal column-name char,
+    so `[a"b]` parses cleanly with source='a"b'; `[innocent]` is a
+    separate untouched span; `"hello"` is a string-literal in NORMAL
+    state with no brackets inside. Emit 2 refs.
+    """
+    result = extract_bracket_refs('[a"b] + [innocent] + "hello"')
+    assert len(result) == 2
+    assert result[0].source == 'a"b'
+    assert result[0].column is None
+    assert result[1].source == "innocent"
+    assert result[1].column is None
+
+
+def test_nested_bracket_in_body_treated_as_literal() -> None:
+    """Decision: `[` inside IN_BRACKET is appended as a literal column-name
+    character; the FIRST `]` closes the outer bracket. Trailing `c]` after
+    the close becomes NORMAL-state noise.
+
+    Behavior change vs regex (which matched the innermost `[b]` only and
+    silently dropped `a` and `c]`). Documented in the module's decision
+    matrix.
+    """
+    result = extract_bracket_refs("[a[b]c]")
+    assert len(result) == 1
+    assert result[0].source == "a[b"
+    assert result[0].column is None
+
+
+def test_p_star_sibling_treated_as_parameter() -> None:
+    """Documented ambiguity: `[P_foo]` cannot be disambiguated from
+    formula text alone. The parser flags `is_parameter=True` on the
+    heuristic `source.startswith("P_") AND column is None`. The resolver
+    will skip parameter refs; a real column literally named `P_foo` will
+    be missed. Trade-off documented in the decision matrix; if a customer
+    hits this, file a follow-up to make the heuristic configurable.
+    """
+    result = extract_bracket_refs("[P_foo]")
+    assert len(result) == 1
+    assert result[0].source == "P_foo"
+    assert result[0].column is None
+    assert result[0].is_parameter is True
+
+
+# --- Decision matrix: explicit tests for every degenerate-input row ---
+
+
+def test_whitespace_only_bracket_skipped() -> None:
+    """Decision: whitespace-only bracket body is silently skipped (empty after strip)."""
+    assert extract_bracket_refs("[ ]") == []
+
+
+def test_empty_source_with_column_skipped() -> None:
+    """Decision: `[/col]` has empty source; skip rather than emit unresolvable ref."""
+    assert extract_bracket_refs("[/col]") == []
+
+
+def test_empty_column_after_slash_skipped() -> None:
+    """Decision: `[source/]` has empty column; skip rather than emit unresolvable ref."""
+    assert extract_bracket_refs("[source/]") == []
+
+
+def test_whitespace_only_around_slash_skipped() -> None:
+    """Decision: `[ / ]` has both source and column empty after strip; skip."""
+    assert extract_bracket_refs("[ / ]") == []
+
+
+def test_double_backslash_body_emits() -> None:
+    r"""Decision: `[\\]` — escape_peek consumes the second `\` as literal; source is
+    a single backslash character. Emitted since source is non-empty; the downstream
+    resolver will not find a column named `\` and will skip gracefully.
+
+    Behavior change from regex: old impl produced source='\\' (two backslashes,
+    no escape processing); scanner produces source='\' (one backslash).
+    """
+    result = extract_bracket_refs(r"[\\]")
+    assert len(result) == 1
+    assert result[0].source == "\\"
+
+
+def test_lone_escape_at_bracket_end_skipped() -> None:
+    r"""Decision: `[\]` — the `\` escape_peeks the `]`, consuming it as literal;
+    the scanner reaches EOF still in IN_BRACKET → unterminated bracket → skip.
+    """
+    assert extract_bracket_refs(r"[\]") == []
+
+
+def test_unterminated_bracket_skipped() -> None:
+    """Decision: unterminated `[` reaches EOF; emit nothing."""
+    assert extract_bracket_refs("foo [bar baz") == []
+
+
+def test_unterminated_string_continues_scanning() -> None:
+    """Decision: unterminated `"` is treated as if quote pairs at EOF; brackets
+    after the open-quote are inside-string and ignored.
+
+    Note: pre-refactor regex behavior would parse `[not_a_ref]` because the
+    literal-stripper non-greedy match required a closing quote. Document this
+    as an intentional behavior change.
+    """
+    assert extract_bracket_refs('foo "still in string [not_a_ref]') == []
+
+
+# --- Remaining Probe A cases not covered elsewhere ---
+
+
+def test_doubled_brackets_in_string_literal_ignored() -> None:
+    """Doubled brackets inside a double-quoted string literal produce no refs."""
+    result = extract_bracket_refs('Replace([col], "[[nested]]", "")')
+    assert len(result) == 1
+    assert result[0].source == "col"
+
+
+# --- Stable-ordering invariant ---
+
+
+def test_two_refs_stable_order() -> None:
+    """Single-pass scanner: refs are emitted in left-to-right formula order.
+
+    This is a structural guarantee of the scanner (not just a side-effect)
+    because refs are appended to `out` exactly when their closing `]` is
+    encountered, which happens left-to-right.
+    """
+    result = extract_bracket_refs("If([Source/A], [Source/B], 0)")
+    assert len(result) == 2
+    assert result[0].source == "Source"
+    assert result[0].column == "A"
+    assert result[1].source == "Source"
+    assert result[1].column == "B"
