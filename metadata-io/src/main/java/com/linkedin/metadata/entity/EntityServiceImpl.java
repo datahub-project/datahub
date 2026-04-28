@@ -311,6 +311,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setLastObserved(
             changeSystemMetadata.getLastObserved(), SetMode.IGNORE_NULL);
         latestSystemMetadata.setRunId(changeSystemMetadata.getRunId(), SetMode.REMOVE_IF_NULL);
+        latestSystemMetadata.setSchemaVersion(
+            changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
         if (!DataTemplateUtil.areEqual(
             latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate())) {
@@ -1676,6 +1678,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    // Apply MCP observers (pre-transaction metrics collection, external actions).
+    // Only on sync path — async MCPs come back via MCE consumer with async=false.
+    if (!async) {
+      aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+    }
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
@@ -3067,7 +3074,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {
-                        // soft delete by setting status.removed=true (if applicable)
+                        // Soft delete: set removed=true.
                         final Status statusAspect = new Status();
                         statusAspect.setRemoved(true);
 

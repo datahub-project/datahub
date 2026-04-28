@@ -96,7 +96,7 @@ mutation updateDashboard {
         urn: "urn:li:dashboard:(looker,baz)",
         input: {
             editableProperties: {
-                description: "My new desription"
+                description: "My new description"
             }
         }
     ) {

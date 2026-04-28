@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.kubernetes;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +19,7 @@ import com.linkedin.metadata.config.kubernetes.KubernetesScaleDownConfiguration;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentList;
@@ -27,6 +30,7 @@ import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import io.fabric8.kubernetes.client.dsl.ScalableResource;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
@@ -955,12 +959,18 @@ public class KubernetesApiAccessorTest {
             .withNewMetadata()
             .withName("gms")
             .withNamespace(NAMESPACE)
+            .withGeneration(3L)
             .endMetadata()
             .withNewSpec()
             .withReplicas(2)
             .endSpec()
             .withNewStatus()
+            .withObservedGeneration(3L)
+            .withReplicas(2)
             .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .withUnavailableReplicas(0)
             .endStatus()
             .build();
     KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
@@ -979,6 +989,593 @@ public class KubernetesApiAccessorTest {
     when(resource.get()).thenReturn(deployment);
     KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
     accessor.waitForRollout("gms", NAMESPACE);
+  }
+
+  @Test
+  public void testFormatRolloutProgressSnapshotWhenStatusNull() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withName("gms")
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .build();
+    deployment.setStatus(null);
+    String s = KubernetesApiAccessor.formatRolloutProgressSnapshot(deployment);
+    assertTrue(s.contains("desired=2"));
+    assertTrue(s.contains("generation=1"));
+    assertTrue(s.contains("status=null"));
+  }
+
+  @Test
+  public void testFormatRolloutProgressSnapshotWhenDesiredReplicasUnset() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withName("gms")
+            .endMetadata()
+            .withNewSpec()
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(1)
+            .endStatus()
+            .build();
+    deployment.getSpec().setReplicas(null);
+    String s = KubernetesApiAccessor.formatRolloutProgressSnapshot(deployment);
+    assertTrue(s.contains("desired=null"));
+    assertTrue(s.contains("observedGeneration=1"));
+  }
+
+  @Test
+  public void testFormatRolloutProgressSnapshotUsesNullPlaceholdersForUnsetStatusInts() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(2L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(1)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(2L)
+            .endStatus()
+            .build();
+    String s = KubernetesApiAccessor.formatRolloutProgressSnapshot(deployment);
+    assertTrue(s.contains("desired=1"));
+    assertTrue(s.contains("generation=2"));
+    assertTrue(s.contains("observedGeneration=2"));
+    assertTrue(s.contains("unavailable=null"));
+    assertTrue(s.contains("replicas=null"));
+    assertTrue(s.contains("updated=null"));
+    assertTrue(s.contains("available=null"));
+    assertTrue(s.contains("ready=null"));
+  }
+
+  @Test
+  public void testWaitForRolloutHitsProgressLogPathWhenIntervalElapses() {
+    Deployment stuck =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(2L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .endStatus()
+            .build();
+    Deployment complete =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(2L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(2L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .withUnavailableReplicas(0)
+            .endStatus()
+            .build();
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setRolloutPollSeconds(1);
+    config.setRolloutMaxWaitSeconds(30);
+    config.setRolloutProgressLogIntervalSeconds(1);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL apps =
+        mock(io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL.class);
+    MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deploymentsOp =
+        mock(MixedOperation.class);
+    RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
+    when(client.apps()).thenReturn(apps);
+    when(apps.deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(anyString())).thenReturn(deploymentsOp);
+    when(deploymentsOp.withName("gms")).thenReturn(resource);
+    when(resource.get()).thenReturn(stuck, stuck, complete);
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    accessor.waitForRollout("gms", NAMESPACE);
+    verify(resource, atLeast(3)).get();
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenObservedGenerationBehind() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(5L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(4L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .endStatus()
+            .build();
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenUpdatedButNotAvailable() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(1)
+            .withReadyReplicas(1)
+            .endStatus()
+            .build();
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteTrueForZeroReplicasAfterReconcile() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(2L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(0)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(2L)
+            .withReplicas(0)
+            .withUpdatedReplicas(0)
+            .withAvailableReplicas(0)
+            .withReadyReplicas(0)
+            .withUnavailableReplicas(0)
+            .endStatus()
+            .build();
+    assertTrue(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteTrueViaReplicaCountsWhenNoConditions() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .withUnavailableReplicas(0)
+            .endStatus()
+            .build();
+    assertTrue(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenScaleToZeroStillHasPods() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(0)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(1)
+            .withUpdatedReplicas(0)
+            .withAvailableReplicas(0)
+            .withReadyReplicas(0)
+            .endStatus()
+            .build();
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenUnavailableReplicasPositive() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .withUnavailableReplicas(1)
+            .endStatus()
+            .build();
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenExtraReplicaDuringRollout() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(3)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .withUnavailableReplicas(0)
+            .endStatus()
+            .build();
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testWaitForRolloutTimesOutWhenObservedGenerationNeverAdvances() {
+    Deployment stuck =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(2L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .endStatus()
+            .build();
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setRolloutPollSeconds(1);
+    config.setRolloutMaxWaitSeconds(2);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL apps =
+        mock(io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL.class);
+    MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deploymentsOp =
+        mock(MixedOperation.class);
+    RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
+    when(client.apps()).thenReturn(apps);
+    when(apps.deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(anyString())).thenReturn(deploymentsOp);
+    when(deploymentsOp.withName("gms")).thenReturn(resource);
+    when(resource.get()).thenReturn(stuck);
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    assertThrows(RuntimeException.class, () -> accessor.waitForRollout("gms", NAMESPACE));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenDeploymentNull() {
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(null));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenSpecNull() {
+    Deployment deployment = new Deployment();
+    deployment.setMetadata(
+        new ObjectMetaBuilder().withName("gms").withNamespace(NAMESPACE).build());
+    deployment.setSpec(null);
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenStatusNull() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withName("gms")
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .build();
+    deployment.setStatus(null);
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenObservedGenerationNullButGenerationSet() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .endStatus()
+            .build();
+    deployment.getStatus().setObservedGeneration(null);
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteTrueWhenMetadataGenerationUnset() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withName("gms")
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(1)
+            .endSpec()
+            .withNewStatus()
+            .withReplicas(1)
+            .withUpdatedReplicas(1)
+            .withAvailableReplicas(1)
+            .withReadyReplicas(1)
+            .withUnavailableReplicas(0)
+            .endStatus()
+            .build();
+    assertTrue(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testIsDeploymentRolloutCompleteFalseWhenScaleToZeroButReadyNonZero() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(0)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(0)
+            .withUpdatedReplicas(0)
+            .withAvailableReplicas(0)
+            .withReadyReplicas(1)
+            .endStatus()
+            .build();
+    assertFalse(KubernetesApiAccessor.isDeploymentRolloutComplete(deployment));
+  }
+
+  @Test
+  public void testWaitForRolloutReturnsWhenDeploymentGetReturnsNull() {
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setRolloutPollSeconds(1);
+    config.setRolloutMaxWaitSeconds(10);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL apps =
+        mock(io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL.class);
+    MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deploymentsOp =
+        mock(MixedOperation.class);
+    RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
+    when(client.apps()).thenReturn(apps);
+    when(apps.deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(anyString())).thenReturn(deploymentsOp);
+    when(deploymentsOp.withName("missing")).thenReturn(resource);
+    when(resource.get()).thenReturn(null);
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    accessor.waitForRollout("missing", NAMESPACE);
+    verify(resource).get();
+  }
+
+  @Test
+  public void testWaitForRolloutReturnsWhenDeploymentSpecNull() {
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setRolloutPollSeconds(1);
+    config.setRolloutMaxWaitSeconds(10);
+    Deployment noSpec = new Deployment();
+    noSpec.setMetadata(new ObjectMetaBuilder().withName("gms").build());
+    noSpec.setSpec(null);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL apps =
+        mock(io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL.class);
+    MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deploymentsOp =
+        mock(MixedOperation.class);
+    RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
+    when(client.apps()).thenReturn(apps);
+    when(apps.deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(anyString())).thenReturn(deploymentsOp);
+    when(deploymentsOp.withName("gms")).thenReturn(resource);
+    when(resource.get()).thenReturn(noSpec);
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    accessor.waitForRollout("gms", NAMESPACE);
+  }
+
+  @Test
+  public void testWaitForRolloutPollsUntilRolloutComplete() {
+    Deployment incomplete =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(2)
+            .withUpdatedReplicas(1)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .withUnavailableReplicas(0)
+            .endStatus()
+            .build();
+    Deployment complete =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(1L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .withReplicas(2)
+            .withUpdatedReplicas(2)
+            .withAvailableReplicas(2)
+            .withReadyReplicas(2)
+            .withUnavailableReplicas(0)
+            .endStatus()
+            .build();
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setRolloutPollSeconds(1);
+    config.setRolloutMaxWaitSeconds(30);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL apps =
+        mock(io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL.class);
+    MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deploymentsOp =
+        mock(MixedOperation.class);
+    RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
+    when(client.apps()).thenReturn(apps);
+    when(apps.deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(anyString())).thenReturn(deploymentsOp);
+    when(deploymentsOp.withName("gms")).thenReturn(resource);
+    when(resource.get()).thenReturn(incomplete, complete);
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    accessor.waitForRollout("gms", NAMESPACE);
+    verify(resource, atLeast(2)).get();
+  }
+
+  @Test
+  public void testWaitForRolloutThrowsWhenInterruptedDuringSleep() throws Exception {
+    Deployment stuck =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withGeneration(2L)
+            .endMetadata()
+            .withNewSpec()
+            .withReplicas(2)
+            .endSpec()
+            .withNewStatus()
+            .withObservedGeneration(1L)
+            .endStatus()
+            .build();
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setRolloutPollSeconds(10);
+    config.setRolloutMaxWaitSeconds(120);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL apps =
+        mock(io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL.class);
+    MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deploymentsOp =
+        mock(MixedOperation.class);
+    RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
+    when(client.apps()).thenReturn(apps);
+    when(apps.deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(anyString())).thenReturn(deploymentsOp);
+    when(deploymentsOp.withName("gms")).thenReturn(resource);
+    when(resource.get()).thenReturn(stuck);
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    AtomicReference<Throwable> caught = new AtomicReference<>();
+    Thread worker =
+        new Thread(
+            () -> {
+              try {
+                accessor.waitForRollout("gms", NAMESPACE);
+              } catch (Throwable t) {
+                caught.set(t);
+              }
+            });
+    worker.start();
+    Thread.sleep(300);
+    worker.interrupt();
+    worker.join(15000);
+    assertNotNull(caught.get());
+    assertTrue(caught.get() instanceof RuntimeException);
+    assertTrue(caught.get().getMessage().contains("Interrupted"));
+  }
+
+  @Test
+  public void testDeleteScaledObjectSwallowsGenericDeleteException() {
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setKedaGroup("keda.sh");
+    config.setKedaVersion("v1alpha1");
+    config.setKedaScaledObjectsPlural("scaledobjects");
+    config.setRolloutPollSeconds(1);
+    config.setRolloutMaxWaitSeconds(60);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.MixedOperation genericOp =
+        mock(io.fabric8.kubernetes.client.dsl.MixedOperation.class);
+    io.fabric8.kubernetes.client.dsl.NonNamespaceOperation nsOp =
+        mock(io.fabric8.kubernetes.client.dsl.NonNamespaceOperation.class);
+    Resource genericResource = mock(Resource.class);
+    when(client.genericKubernetesResources(any())).thenReturn(genericOp);
+    when(genericOp.inNamespace(anyString())).thenReturn(nsOp);
+    when(nsOp.withName("so")).thenReturn(genericResource);
+    when(genericResource.delete()).thenThrow(new RuntimeException("forbidden: user cannot delete"));
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    accessor.deleteScaledObject("so", NAMESPACE);
+    verify(genericResource).delete();
+  }
+
+  @Test
+  public void testDeleteScaledObjectSwallowsNoMatchesForKindException() {
+    KubernetesScaleDownConfiguration config = new KubernetesScaleDownConfiguration();
+    config.setKedaGroup("keda.sh");
+    config.setKedaVersion("v1alpha1");
+    config.setKedaScaledObjectsPlural("scaledobjects");
+    config.setRolloutPollSeconds(1);
+    config.setRolloutMaxWaitSeconds(60);
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.MixedOperation genericOp =
+        mock(io.fabric8.kubernetes.client.dsl.MixedOperation.class);
+    io.fabric8.kubernetes.client.dsl.NonNamespaceOperation nsOp =
+        mock(io.fabric8.kubernetes.client.dsl.NonNamespaceOperation.class);
+    Resource genericResource = mock(Resource.class);
+    when(client.genericKubernetesResources(any())).thenReturn(genericOp);
+    when(genericOp.inNamespace(anyString())).thenReturn(nsOp);
+    when(nsOp.withName("so")).thenReturn(genericResource);
+    when(genericResource.delete())
+        .thenThrow(new RuntimeException("no matches for kind \"ScaledObject\" in version"));
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client, config);
+    accessor.deleteScaledObject("so", NAMESPACE);
   }
 
   @Test

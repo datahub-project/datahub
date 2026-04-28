@@ -18,6 +18,7 @@ Most examples include both a "host app" and a "remote app." For DataHub, you onl
 Edit [`mfe.config.local.yaml`](/datahub-frontend/conf/mfe.config.local.yaml) to resemble the following:
 
 ```yaml
+topLevelMenuTitle: My Apps
 subNavigationMode: false
 microFrontends:
     - id: HelloWorld

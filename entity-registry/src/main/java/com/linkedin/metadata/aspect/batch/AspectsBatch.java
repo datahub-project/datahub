@@ -166,6 +166,19 @@ public interface AspectsBatch {
         .flatMap(mcpSideEffect -> mcpSideEffect.postApply(items, retrieverContext));
   }
 
+  default void applyMCPObservers(Collection<? extends BatchItem> items) {
+    applyMCPObservers(items, getRetrieverContext());
+  }
+
+  static void applyMCPObservers(
+      Collection<? extends BatchItem> items, @Nonnull RetrieverContext retrieverContext) {
+    retrieverContext
+        .getAspectRetriever()
+        .getEntityRegistry()
+        .getAllMCPObservers()
+        .forEach(observer -> observer.apply(items, retrieverContext));
+  }
+
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {
     return applyMCLSideEffects(items, getRetrieverContext());
   }

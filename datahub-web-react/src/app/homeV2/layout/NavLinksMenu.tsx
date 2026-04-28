@@ -40,20 +40,20 @@ const LinkWrapper = styled.span`
     height: 52px;
     width: 52px;
     line-height: 0;
-    box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0);
+    box-shadow: none;
     transition: all 200ms ease;
-    color: #f9fafc;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 
     &:hover {
         cursor: pointer;
-        background-color: #4b39bc;
-        box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0.15);
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrandHover};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
 
     & svg {
         width: 24px;
         height: 24px;
-        fill: #f9fafc;
+        fill: ${(props) => props.theme.colors.textOnFillDefault};
     }
 `;
 
@@ -69,16 +69,17 @@ const SubMenu = styled.div`
 // Used to style the submenu
 const SubMenuContent = styled.div`
     border-radius: 12px;
-    background: rgba(92, 63, 209, 0.95);
-    box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
+    background: ${(props) => props.theme.colors.bgSurfaceBrand};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     padding: 8px;
 `;
 
 const SubMenuTitle = styled.div`
     border-radius: 12px;
-    background: #2f2477;
+    background: ${(props) => props.theme.colors.bgSurfaceBrandHover};
     padding: 8px 12px;
     font: 700 12px/20px Mulish;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     margin-bottom: 4px;
 `;
 
@@ -87,7 +88,7 @@ const SubMenuLink = styled.div`
     padding: 4px 12px 12px 12px;
 
     &:hover {
-        background-color: #4b39bc;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrandHover};
     }
 `;
 

@@ -33,7 +33,7 @@ public class SqlSetupConfig {
   @Getter
   private String ebeanUrl;
 
-  @Value("${featureFlags.zduStage10:false}")
+  @Value("${featureFlags.createSchemaVersionIndex:false}")
   private boolean createSchemaVersionIndex;
 
   /**

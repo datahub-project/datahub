@@ -432,6 +432,38 @@ get_jobs_response = {
             "NumberOfWorkers": 10,
             "GlueVersion": "2.0",
         },
+        {
+            "Name": "test-job-3",
+            "Description": "The third test job",
+            "Role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
+            "CreatedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
+            "LastModifiedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
+            "ExecutionProperty": {"MaxConcurrentRuns": 1},
+            "Command": {
+                "Name": "glueetl",
+                "ScriptLocation": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-3.py",
+                "PythonVersion": "3",
+            },
+            "DefaultArguments": {
+                "--TempDir": "s3://aws-glue-assets-123412341234-us-west-2/temporary/",
+                "--class": "GlueApp",
+                "--enable-continuous-cloudwatch-log": "true",
+                "--enable-glue-datacatalog": "true",
+                "--enable-metrics": "true",
+                "--enable-spark-ui": "true",
+                "--encryption-type": "sse-s3",
+                "--job-bookmark-option": "job-bookmark-enable",
+                "--job-language": "python",
+                "--spark-event-logs-path": "s3://aws-glue-assets-123412341234-us-west-2/sparkHistoryLogs/",
+            },
+            "MaxRetries": 3,
+            "AllocatedCapacity": 10,
+            "Timeout": 2880,
+            "MaxCapacity": 10.0,
+            "WorkerType": "G.1X",
+            "NumberOfWorkers": 10,
+            "GlueVersion": "2.0",
+        },
     ]
 }
 # for job 1
@@ -766,6 +798,11 @@ get_dataflow_graph_response_2 = {
         },
     ],
 }
+# for job 3
+get_dataflow_graph_response_3: dict[str, Any] = {
+    "DagNodes": [],
+    "DagEdges": [],
+}
 
 get_object_body_1 = """
 import sys
@@ -879,6 +916,34 @@ DataSink0 = glueContext.write_dynamic_frame.from_options(frame = Transform3, con
 ## @return: Transform0
 ## @inputs: [frame = Transform1]
 Transform0 = SplitFields.apply(frame = Transform1, paths = ["yr", "quarter", "month", "dayofmonth", "dayofweek", "flightdate", "uniquecarrier", "airlineid", "carrier"], name2 = "Transform0Output1", name1 = "Transform0Output0", transformation_ctx = "Transform0")
+job.commit()
+"""
+
+get_object_body_3 = """
+import sys
+from awsglue.utils import getResolvedOptions
+from pyspark.sql import SparkSession
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+spark = (
+    SparkSession.builder
+    .config("spark.sql.catalogImplementation", "hive")
+    .config("spark.hadoop.hive.metastore.client.factory.class", "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory")
+    .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+    .config("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+    .config("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
+    .config("spark.sql.catalog.glue_catalog.warehouse", warehouse)
+    .config("spark.sql.iceberg.handle-timestamp-without-timezone", "true")
+    .getOrCreate()
+)
+glueContext = GlueContext(spark.sparkContext, sparkSession=spark)
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+df = glueContext.create_dynamic_frame.from_options(connection_type = "postgresql", connection_options = {"url": "jdbc:postgresql://my-db-endpoint:5432/dbname", "password": "mypassword"}, transformation_ctx = "df")
+df.createOrReplaceTempView("myDataSource")
+spark.sql("CREATE TABLE IF NOT EXISTS glue_catalog.warehouse.items_agg USING iceberg TBLPROPERTIES ('format-version'='2') AS (SELECT name, count(1) as num_items FROM myDataSource);")
 job.commit()
 """
 
@@ -1188,6 +1253,10 @@ def get_object_response_1() -> Dict[str, Any]:
 
 def get_object_response_2() -> Dict[str, Any]:
     return mock_get_object_response(get_object_body_2)
+
+
+def get_object_response_3() -> Dict[str, Any]:
+    return mock_get_object_response(get_object_body_3)
 
 
 def get_bucket_tagging() -> Dict[str, Any]:

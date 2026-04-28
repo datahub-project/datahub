@@ -2,7 +2,7 @@
 
 Notion is a documentation or collaboration platform. Learn more in the [official Notion documentation](https://www.notion.so/).
 
-The DataHub integration for Notion covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Notion covers document/workspace entities and hierarchy context for knowledge assets. It also captures stateful deletion detection.
 
 Ingest pages and databases from Notion workspaces as DataHub Document entities with optional semantic embeddings.
 

@@ -37,7 +37,7 @@ DataHub's "core" Entity types model the Data Assets that comprise the Modern Dat
 
 1. **[Data Platform](docs/generated/metamodel/entities/dataPlatform.md)**: A type of Data "Platform". That is, an external system that is involved in processing, storing, or visualizing Data Assets. Examples include MySQL, Snowflake, Redshift, and S3.
 2. **[Dataset](docs/generated/metamodel/entities/dataset.md)**: A collection of data. Tables, Views, Streams, Document Collections, and Files are all modeled as "Datasets" on DataHub. Datasets can have tags, owners, links, glossary terms, and descriptions attached to them. They can also have specific sub-types, such as "View", "Collection", "Stream", "Explore", and more. Examples include Postgres Tables, MongoDB Collections, or S3 files.
-3. **[Chart](docs/generated/metamodel/entities/chart.md)**: A single data vizualization derived from a Dataset. A single Chart can be a part of multiple Dashboards. Charts can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include a Superset or Looker Chart.
+3. **[Chart](docs/generated/metamodel/entities/chart.md)**: A single data visualization derived from a Dataset. A single Chart can be a part of multiple Dashboards. Charts can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include a Superset or Looker Chart.
 4. **[Dashboard](docs/generated/metamodel/entities/dashboard.md)**: A collection of Charts for visualization. Dashboards can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include a Superset or Mode Dashboard.
 5. **[Data Job](docs/generated/metamodel/entities/dataJob.md)** (Task): An executable job that processes data assets, where "processing" implies consuming data, producing data, or both. Data Jobs can have tags, owners, links, glossary terms, and descriptions attached to them. They must belong to a single Data Flow. Examples include an Airflow Task.
 6. **[Data Flow](docs/generated/metamodel/entities/dataFlow.md)** (Pipeline): An executable collection of Data Jobs with dependencies among them, or a DAG. Data Jobs can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include an Airflow DAG.
@@ -514,7 +514,7 @@ my_emitter.emit(mcpw)
 
 ###### Performing an aggregation on a Timeseries aspect
 
-Aggreations on timeseries aspects can be performed by the GMS REST API for `/analytics?action=getTimeseriesStats` which
+Aggregations on timeseries aspects can be performed by the GMS REST API for `/analytics?action=getTimeseriesStats` which
 accepts the following params.
 
 - `entityName` - The name of the entity the aspect is associated with.
@@ -581,7 +581,7 @@ curl --location --request POST 'http://localhost:8080/analytics?action=getTimese
     ]
 }'
 
-# SAMPLE RESPOSNE
+# SAMPLE RESPONSE
 {
     "value": {
         "filter": {

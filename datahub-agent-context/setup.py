@@ -66,7 +66,9 @@ mypy_stubs = {
 }
 
 langchain_requirements = {
-    "langchain-core>=1.2.7,<2.0.0",
+    "langchain>=1.0.0,<2.0.0",
+    "langchain-core>=1.0.0,<2.0.0",
+    "langchain-mcp-adapters>=0.1.0,<1.0.0",
 }
 
 google_adk_requirements = {

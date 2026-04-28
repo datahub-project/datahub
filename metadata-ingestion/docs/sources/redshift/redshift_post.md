@@ -86,6 +86,16 @@ profiling:
   profile_table_level_only: true
 ```
 
+#### Ownership
+
+Enable ownership extraction by setting `extract_ownership: true` in your recipe:
+
+```yaml
+extract_ownership: true
+```
+
+This extracts owners for tables, views, and schemas from the Redshift catalog and emits them as `TECHNICAL_OWNER` in DataHub. If `email_domain` is configured, owner usernames are suffixed with `@{email_domain}` to produce consistent URNs with usage statistics. **Note:** ownership is applied in overwrite mode — any manually-set owners in DataHub will be replaced on each ingestion run.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

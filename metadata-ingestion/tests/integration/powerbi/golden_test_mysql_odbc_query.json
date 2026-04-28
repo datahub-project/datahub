@@ -336,8 +336,11 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "id": "Employees",
                     "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                },
+                {
+                    "id": "EmployeeReport"
                 }
             ]
         }

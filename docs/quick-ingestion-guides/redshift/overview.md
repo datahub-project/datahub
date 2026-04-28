@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: Redshift Overview
 ---
 
 # Redshift Ingestion Guide: Overview

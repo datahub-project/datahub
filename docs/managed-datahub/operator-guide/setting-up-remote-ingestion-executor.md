@@ -231,7 +231,7 @@ Required parameters:
 
 4. **Configure Secret Mounting (Optional)**
 
-Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Secret CRDs. This enables runtime secret updates without executor restarts.
+Starting from DataHub Cloud v0.3.8.2, you can manage secrets using Kubernetes Secrets. This enables runtime secret updates without executor restarts.
 
 Create a Kubernetes secret:
 
@@ -254,12 +254,49 @@ extraVolumeMounts:
     name: datahub-secret-store
 ```
 
+To mount secrets from one or more Kubernetes Secrets, rename hyphenated keys, and combine them into `/mnt/secrets`, use `subPath`:
+
+```yaml
+extraVolumes:
+  - name: snowflake-secret
+    secret:
+      secretName: my-snowflake-secret
+  - name: postgres-secret
+    secret:
+      secretName: my-postgres-secret
+extraVolumeMounts:
+  - mountPath: /mnt/secrets/MY_SNOWFLAKE_PRIVATE_KEY
+    name: snowflake-secret
+    subPath: snowflake-private-key
+    readOnly: true
+  - mountPath: /mnt/secrets/MY_SNOWFLAKE_PRIVATE_KEY_PASSWORD
+    name: snowflake-secret
+    subPath: snowflake-private-key-password
+    readOnly: true
+  - mountPath: /mnt/secrets/SOME_POSTGRES_PASSWORD
+    name: postgres-secret
+    subPath: postgres-password
+    readOnly: true
+```
+
+This mounts only the specified keys and renames them to valid secret names (underscores instead of hyphens).
+
+**Naming conventions:**
+
+- Use `UPPER_CASE` names for mounted secret files (e.g., `DB_PASSWORD`, `API_KEY`)
+- Secret substitution is **case-sensitive**: `${DB_PASSWORD}` and `${db_password}` are different and must match the filename exactly
+- No whitespace or special characters with the exception of underscores (see [Secret Resolution](../../secret-resolution.md))
+- Secrets must be flat files directly in `/mnt/secrets/`—nested paths, relative paths, etc. are not supported
+
+See [Kubernetes Secrets documentation](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-files-from-a-pod) for more volume mount options.
+
 :::note
 Secret Configuration:
 
 - Default mount path: `/mnt/secrets` (override with `DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR`)
 - Default file size limit: 1MB (override with `DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN`)
 - Reference secrets in ingestion recipes using `${SECRET_NAME}` syntax
+- **Important**: Secret names must not contain whitespace or special characters with the exception of underscores. See [Secret Resolution](../../secret-resolution.md) for details.
 
 :::
 
@@ -297,9 +334,39 @@ helm upgrade \
 
 For configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
+### Deploy using Docker
+
+The Remote Executor image can be run directly using Docker, though this is not recommended for production scenarios. The following example is provided for testing purposes or as an example configuration for setting up Remote Executor in high-availability environments other than Kubernetes or AWS ECS:
+
+1. **Registry Access Configuration**
+
+To access the private DataHub Cloud container registry, you'll need to contact your DataHub Cloud representative for specific requirements.
+
+2. **Run Docker Container**
+
+Run the Docker container:
+
+```bash
+docker run -it \
+    --env DATAHUB_GMS_URL="https://<your-company>.acryl.io" \
+    --env DATAHUB_GMS_HOST="<your-company>.acryl.io" \
+    --env DATAHUB_GMS_TOKEN="<token>" \
+    --env DATAHUB_EXECUTOR_POOL_ID="remote" \
+    --env DATAHUB_EXECUTOR_MODE=worker \
+    --name acryl-executor-worker \
+    <docker-image>
+```
+
+Required parameters:
+
+- `DATAHUB_GMS_URL`: Your DataHub Cloud URL (must start with `https://`)
+- `DATAHUB_GMS_HOST`: Your DataHub Cloud URL (raw domain name)
+- `DATAHUB_GMS_TOKEN`: Your Remote Executor Access Token
+- `DATAHUB_EXECUTOR_POOL_ID`: Your Executor Pool ID
+
 ## Checking Remote Executor status
 
-Once you have successfully deployed the Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
+Once you have successfully deployed the Remote Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
 
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/pool-list-after.png?raw=true"/>
@@ -307,7 +374,7 @@ Once you have successfully deployed the Executor in your environment, DataHub wi
 
 ## Assigning Ingestion Sources to an Executor Pool
 
-After you have created an Executor Pool and deployed the Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.
+After you have created an Executor Pool and deployed the Remote Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.
 
 1. Navigate to **Manage Data Sources** in DataHub Cloud
 2. Edit an existing Source or click **Create new source**
@@ -326,6 +393,160 @@ New Ingestion Sources will automatically use your designated Default Pool if you
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
 </p>
+
+## Using Cloud Secret Managers
+
+You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager at runtime. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.
+
+:::note
+This is different from the AWS Secrets Manager integration used by the [ECS CloudFormation deployment](#deploy-on-amazon-ecs), where secrets are wired into the executor container at deploy time via the `SECRET_NAME=SECRET_ARN` template parameter. That mechanism still works as before and requires the ECS task to be restarted whenever a secret value changes. The integration described in this section runs inside the executor itself, looks up secrets on demand, and applies to both ECS and Kubernetes deployments.
+:::
+
+Secrets are referenced using the standard `${SECRET_NAME}` syntax — no changes needed to existing configurations. The executor automatically prepends a configurable prefix (default: `datahub-`) when looking up secrets. For example, `${SNOWFLAKE_PASSWORD}` resolves to a secret named `datahub-SNOWFLAKE_PASSWORD` in your cloud provider. You can override this prefix using `DATAHUB_EXECUTOR_AWS_SM_PREFIX` (for AWS) or `DATAHUB_EXECUTOR_GCP_SM_PREFIX` (for GCP) — for example, setting it to `myapp-` would resolve `${SNOWFLAKE_PASSWORD}` to `myapp-SNOWFLAKE_PASSWORD` instead.
+
+### Naming Rules for Secrets and Prefixes
+
+The full secret name looked up in your cloud provider is `<prefix><variable-name>`. Each part has its own rules:
+
+**Variable name** (the `<variable-name>` part inside `${...}` in your recipe)
+
+The recipe parser extracts variables using the regex `\${(\w+)}`, where `\w` matches only `[A-Za-z0-9_]`. This means:
+
+- ✅ Allowed: ASCII letters, digits, and underscores (e.g., `${SNOWFLAKE_PASSWORD}`, `${db_user_1}`)
+- ❌ Not allowed: hyphens, dots, slashes, `@`, `+`, `=`, or any other special character
+
+**Use `UPPER_SNAKE_CASE` or `lower_snake_case`** for variable names.
+
+For full details on recipe variable syntax (including bash-style defaults), see [Secret Resolution in Recipes](../../secret-resolution.md).
+
+**Prefix** (`DATAHUB_EXECUTOR_AWS_SM_PREFIX` / `DATAHUB_EXECUTOR_GCP_SM_PREFIX`)
+
+The prefix must match `^[A-Za-z0-9_-]*$` — letters, digits, underscores, and hyphens. This is the intersection of AWS Secrets Manager and GCP Secret Manager naming rules and is enforced at startup; an invalid prefix causes the executor to fail with a configuration error. A non-empty prefix is recommended so the executor's IAM permissions can be scoped to a name pattern (see the IAM examples below).
+
+**Combined cloud secret name** (`<prefix><variable-name>`)
+
+**Examples**
+
+| Recipe reference        | Prefix     | Cloud secret name            | Result                    |
+| ----------------------- | ---------- | ---------------------------- | ------------------------- |
+| `${SNOWFLAKE_PASSWORD}` | `datahub-` | `datahub-SNOWFLAKE_PASSWORD` | ✅ Resolved               |
+| `${db_user_1}`          | `prod_`    | `prod_db_user_1`             | ✅ Resolved               |
+| `${SNOWFLAKE_PASSWORD}` | _(empty)_  | `SNOWFLAKE_PASSWORD`         | ✅ Resolved               |
+| `${snowflake-password}` | `datahub-` | _(never extracted)_          | ❌ Literal passed through |
+| `${snowflake.password}` | `datahub-` | _(never extracted)_          | ❌ Literal passed through |
+
+### AWS Secrets Manager
+
+#### 1. Create your secrets
+
+Store each credential as a plain string value:
+
+```bash
+aws secretsmanager create-secret --region us-west-2 \
+  --name "datahub-SNOWFLAKE_PASSWORD" \
+  --secret-string "my-secret-value"
+```
+
+#### 2. Grant the executor IAM permissions
+
+The pod running the executor needs the following IAM permissions. Attach this policy to the pod's IAM role ([IRSA](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) on EKS, or [Task Role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html) on ECS):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:BatchGetSecretValue",
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:datahub-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "secretsmanager:ListSecrets",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+If you use a custom prefix, update the `Resource` pattern to match (e.g., `myapp-*` instead of `datahub-*`).
+
+#### 3. Enable on the executor
+
+Set these environment variables on the executor:
+
+| Variable                            | Required | Default    | Description                                  |
+| ----------------------------------- | -------- | ---------- | -------------------------------------------- |
+| `DATAHUB_EXECUTOR_AWS_SM_ENABLED`   | Yes      | `false`    | Set to `true` to enable                      |
+| `DATAHUB_EXECUTOR_AWS_SM_REGION`    | Yes      | —          | AWS region (e.g., `us-west-2`)               |
+| `DATAHUB_EXECUTOR_AWS_SM_PREFIX`    | No       | `datahub-` | Prefix prepended to secret names             |
+| `DATAHUB_EXECUTOR_SECRET_CACHE_TTL` | No       | `21600`    | Cache duration in seconds (default: 6 hours) |
+
+**Helm example:**
+
+```yaml
+extraEnvs:
+  - name: DATAHUB_EXECUTOR_AWS_SM_ENABLED
+    value: "true"
+  - name: DATAHUB_EXECUTOR_AWS_SM_REGION
+    value: "us-west-2"
+```
+
+For IRSA, annotate the service account:
+
+```yaml
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::<account-id>:role/<executor-role>"
+```
+
+### GCP Secret Manager
+
+#### 1. Create your secrets
+
+```bash
+echo -n "my-secret-value" | gcloud secrets create "datahub-SNOWFLAKE_PASSWORD" \
+  --project="<project-id>" --data-file=-
+```
+
+#### 2. Grant the executor access to secrets
+
+Grant the **Secret Manager Secret Accessor** role (`roles/secretmanager.secretAccessor`) to the executor's GCP service account. On GKE, use [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) to bind a Kubernetes service account to a GCP service account.
+
+The following command grants access to all secrets with the `datahub-` prefix. Update the prefix if you configured a custom one:
+
+```bash
+gcloud projects add-iam-policy-binding "<project-id>" \
+  --member="serviceAccount:<sa>@<project-id>.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor" \
+  --condition='expression=resource.name.startsWith("projects/<project-id>/secrets/datahub-"),title=DataHub executor secrets'
+```
+
+#### 3. Enable on the executor
+
+| Variable                             | Required | Default    | Description                                  |
+| ------------------------------------ | -------- | ---------- | -------------------------------------------- |
+| `DATAHUB_EXECUTOR_GCP_SM_ENABLED`    | Yes      | `false`    | Set to `true` to enable                      |
+| `DATAHUB_EXECUTOR_GCP_SM_PROJECT_ID` | Yes      | —          | GCP project ID                               |
+| `DATAHUB_EXECUTOR_GCP_SM_PREFIX`     | No       | `datahub-` | Prefix prepended to secret names             |
+| `DATAHUB_EXECUTOR_SECRET_CACHE_TTL`  | No       | `21600`    | Cache duration in seconds (default: 6 hours) |
+
+**Helm example:**
+
+```yaml
+extraEnvs:
+  - name: DATAHUB_EXECUTOR_GCP_SM_ENABLED
+    value: "true"
+  - name: DATAHUB_EXECUTOR_GCP_SM_PROJECT_ID
+    value: "my-gcp-project"
+
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: "<sa>@<project-id>.iam.gserviceaccount.com"
+```
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 
@@ -373,9 +594,17 @@ The following environment variables can be configured to manage memory-intensive
 
 ### Frequently Asked Questions
 
-**Do AWS Secrets Manager secrets automatically update in the executor?**
+**Do AWS Secrets Manager secrets wired in via CloudFormation automatically update in the executor?**
 
-No. Secrets are wired into the executor container at deployment time. The ECS Task needs to be restarted when secrets change.
+No. When using the [ECS CloudFormation deployment](#deploy-on-amazon-ecs), secrets passed via the `SECRET_NAME=SECRET_ARN` template parameter are wired into the executor container at deployment time. The ECS Task needs to be restarted when those secrets change.
+
+**Do values resolved by the runtime Cloud Secret Manager integration automatically update in the executor?**
+
+Yes, with a delay. When the executor uses the [runtime Cloud Secret Manager integration](#using-cloud-secret-managers) (AWS Secrets Manager or GCP Secret Manager), resolved values are cached in memory with a 6-hour TTL by default (configurable via `DATAHUB_EXECUTOR_SECRET_CACHE_TTL`). After you update a secret in AWS or GCP, the executor picks up the new value once the cache entry expires.
+
+Each executor workflow (ingestion, assertions, monitor training) uses its own secret manager instance, so caches are not shared between them. They all follow the same TTL behavior, but each instance expires independently from when it first cached a given value.
+
+To force an immediate refresh across all workflows, restart the executor.
 
 **How can I verify successful deployment?**
 

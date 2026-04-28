@@ -73,7 +73,9 @@ public class TemplateUtil {
     JsonNode transformedNodeClone = transformedNode.deepCopy();
     List<Pair<PatchOperationType, String>> paths = getPaths(jsonPatch);
     for (Pair<PatchOperationType, String> operationPath : paths) {
-      String[] keys = operationPath.getSecond().split("/");
+      // Negative limit preserves trailing empty strings for paths ending with "/"
+      // e.g. unattributed operations
+      String[] keys = operationPath.getSecond().split("/", -1);
       JsonNode parent = transformedNodeClone;
 
       // if not remove, skip last key as we only need to populate top level

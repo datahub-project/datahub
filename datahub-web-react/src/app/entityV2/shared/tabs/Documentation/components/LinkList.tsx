@@ -1,10 +1,9 @@
 import { DeleteOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { Button, List, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
@@ -49,6 +48,7 @@ export const LinkList = () => {
     const [editingMetadata, setEditingMetadata] = useState<InstitutionalMemoryMetadata>();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const links = entityData?.institutionalMemory?.elements || [];
 
     const { handleDeleteLink } = useLinkUtils(editingMetadata);
@@ -80,7 +80,7 @@ export const LinkList = () => {
                                         shape="circle"
                                         data-testid="edit-link-button"
                                     >
-                                        <Pencil size={16} color={colors.gray[500]} />
+                                        <Pencil size={16} color={theme.colors.icon} />
                                     </Button>
                                     <Button
                                         onClick={() => handleDeleteLink(link)}

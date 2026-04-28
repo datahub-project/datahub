@@ -2,8 +2,6 @@ import { Select, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 type Props = {
     prefixText: string;
     values: Array<string>;
@@ -13,7 +11,7 @@ type Props = {
 
 const SubHeaderText = styled(Typography.Text)`
     font-size: 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const EmbeddedSelect = styled(Select)`

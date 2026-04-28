@@ -115,7 +115,7 @@ public class ConfigEntitySpecTest {
 
   private AspectSpec createMockAspectSpec(String name) {
     return new AspectSpec(
-        new com.linkedin.metadata.models.annotation.AspectAnnotation(name, false, false, null),
+        new com.linkedin.metadata.models.annotation.AspectAnnotation(name, false, false, null, 1L),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
