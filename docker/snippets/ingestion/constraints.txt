@@ -15,16 +15,18 @@ pyopenssl>=26.0.0
 pyasn1>=0.6.3
 # protobuf (6.x): CVE-2026-0994
 protobuf>=6.33.5,<7.0.0
-# CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
+# CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; keep current patch floor
 # Note: Airflow 2.x constraints pin aiohttp==3.10.10 and 3.x pins 3.12.15, creating a
 # conflict when installing acryl-datahub with Airflow. The airflow-plugin CI accepts the
 # older version; this constraint is safe for Docker images which don't coexist with
 # Airflow's pinned dependencies.
-aiohttp>=3.13.3
+aiohttp>=3.13.4
 pillow>=12.1.1
 setuptools>=80.10.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
-authlib>=1.6.9
+# GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
+# Previous Docker minimum: authlib>=1.6.9
+authlib>=1.6.11
 werkzeug>=3.1.6
 azure-core>=1.38.0
 # CVE-2026-25087: Apache Arrow C++ Use After Free; fixed in pyarrow 23.0.1. Docker minimum.
@@ -45,6 +47,9 @@ google-cloud-aiplatform>=1.133.0
 langgraph>=1.0.10
 langgraph-checkpoint>=4.0.0
 langsmith>=0.6.3
+# CVE-2026-41066: lxml 6.0.x default entity resolution; fixed in 6.1.0. Major cap until reviewed.
+# (unstructured / HTML parsing; bundled venvs such as datahub-documents-bundled.)
+lxml>=6.1.0,<7.0.0
 # mlflow-skinny: CVE-2025-14287, CVE-2025-15031, CVE-2026-2033 (fixed >=3.9.0)
 mlflow-skinny>=3.9.0,<4.0.0
 # ujson: parsing huge out-of-range integers leaked memory in 5.4.0–5.11.0; indent handling

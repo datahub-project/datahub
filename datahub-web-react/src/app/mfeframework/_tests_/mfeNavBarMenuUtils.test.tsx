@@ -9,6 +9,7 @@ import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeN
 describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
     it('returns only valid menu items where flags.showInNav is true and maps navIcon to correct icon', () => {
         const mfeConfig: MFESchema = {
+            topLevelMenuTitle: 'My Apps',
             subNavigationMode: false,
             microFrontends: [
                 {
@@ -78,6 +79,7 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
 
     it('returns items of type DropdownElement when subNavigationMode is true', () => {
         const mfeConfig: MFESchema = {
+            topLevelMenuTitle: 'My Apps',
             subNavigationMode: true,
             microFrontends: [
                 {
@@ -108,13 +110,13 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
     });
 
     it('returns empty array if no microFrontends (getMfeMenuItems)', () => {
-        const mfeConfig: MFESchema = { microFrontends: [], subNavigationMode: false };
+        const mfeConfig: MFESchema = { topLevelMenuTitle: 'My Apps', microFrontends: [], subNavigationMode: false };
         const items = getMfeMenuItems(mfeConfig);
         expect(items).toEqual([]);
     });
 
     it('returns empty array if no microFrontends (getMfeMenuDropdownItems)', () => {
-        const mfeConfig: MFESchema = { microFrontends: [], subNavigationMode: true };
+        const mfeConfig: MFESchema = { topLevelMenuTitle: 'My Apps', microFrontends: [], subNavigationMode: true };
         const items = getMfeMenuDropdownItems(mfeConfig);
         expect(items).toEqual([]);
     });

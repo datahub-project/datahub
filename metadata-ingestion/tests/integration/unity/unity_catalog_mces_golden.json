@@ -2702,21 +2702,32 @@
     "changeType": "PATCH",
     "aspectName": "ownership",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
-                "value": {
-                    "owner": "urn:li:corpuser:account users",
-                    "type": "DATAOWNER"
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
+                    "value": {
+                        "owner": "urn:li:corpuser:account users",
+                        "type": "DATAOWNER"
+                    }
                 }
-            }
-        ]
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2969,21 +2980,32 @@
     "changeType": "PATCH",
     "aspectName": "ownership",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
-                "value": {
-                    "owner": "urn:li:corpuser:account users",
-                    "type": "DATAOWNER"
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:account users/DATAOWNER//",
+                    "value": {
+                        "owner": "urn:li:corpuser:account users",
+                        "type": "DATAOWNER"
+                    }
                 }
-            }
-        ]
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {

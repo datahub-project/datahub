@@ -1,11 +1,10 @@
 ---
 title: "SCIM Integration: Okta and DataHub"
-hide_title: true
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-## SCIM Integration: Okta and DataHub
+# SCIM Integration: Okta and DataHub
 
 <FeatureAvailability saasOnly />
 

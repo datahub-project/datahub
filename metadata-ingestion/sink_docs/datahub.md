@@ -1,3 +1,7 @@
+---
+title: DataHub Sink
+---
+
 # DataHub
 
 ## DataHub Rest

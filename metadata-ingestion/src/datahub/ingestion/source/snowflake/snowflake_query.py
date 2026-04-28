@@ -748,6 +748,18 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         show imported keys in schema "{db_name}"."{schema_name}" """
 
     @staticmethod
+    def show_stages_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW STAGES IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_tasks_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW TASKS IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_pipes_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW PIPES IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
     def operational_data_for_time_window(
         start_time_millis: int, end_time_millis: int
     ) -> str:

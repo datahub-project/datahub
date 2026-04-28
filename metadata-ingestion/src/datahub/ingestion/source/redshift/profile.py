@@ -9,6 +9,11 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.sql.sql_generic_profiler import GenericProfiler
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    gen_schema_key,
+    get_dataplatform_instance_aspect,
+)
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
@@ -47,6 +52,13 @@ class RedshiftProfiler(GenericProfiler):
             for schema in tables.get(db, {}):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
+                schema_container_key = gen_schema_key(
+                    db_name=db,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
                 for table in tables[db].get(schema, {}):
                     if table.is_external_table() or self.report.is_shared_database:
                         if not self.config.profiling.profile_external_tables:
@@ -68,9 +80,30 @@ class RedshiftProfiler(GenericProfiler):
                             )
                             # Continue, since we were unable to retrieve cheap profiling stats from svv_table_info.
                             continue
-                    # Emit the profile work unit
+
                     profile_request = self.get_profile_request(table, schema, db)
                     if profile_request is not None:
+                        # include_tables=False skips gen_dataset_workunits, which
+                        # normally emits container + dataPlatformInstance. Emit
+                        # them here, gated on a non-None profile_request so we
+                        # don't create ghost entities for tables filtered out
+                        # by patterns, size limits, or recent profiling.
+                        if not self.config.include_tables:
+                            dataset_urn = self.dataset_urn_builder(
+                                profile_request.pretty_name
+                            )
+                            yield from add_table_to_schema_container(
+                                dataset_urn,
+                                parent_container_key=schema_container_key,
+                            )
+                            dpi_aspect = get_dataplatform_instance_aspect(
+                                dataset_urn=dataset_urn,
+                                platform=self.platform,
+                                platform_instance=self.config.platform_instance,
+                            )
+                            if dpi_aspect:
+                                yield dpi_aspect
+
                         self.report.report_entity_profiled(profile_request.pretty_name)
                         profile_requests.append(profile_request)
 
