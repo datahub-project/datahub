@@ -1,19 +1,16 @@
 package server
 
-import akka.http.scaladsl.settings.ParserSettings
+import org.apache.pekko.http.scaladsl.settings.ParserSettings
 import play.api.Logger
-import play.core.server.AkkaHttpServer
+import play.core.server.PekkoHttpServer
 import play.core.server.ServerProvider
 
-import scala.concurrent.Future
+/** Custom Pekko HTTP server to override parser settings not exposed via application.conf,
+  * and base-path behavior when `play.http.context` is set.
+  */
+class CustomPekkoHttpServer(context: PekkoHttpServer.Context) extends PekkoHttpServer(context) {
 
-/** Custom Akka HTTP server that allows us to overrides some Akka server settings as the current Play / Akka
- *  versions we're using don't allow us to override these via conf files. Also handles base path redirects
- *  when play.http.context is configured.
- */
-class CustomAkkaHttpServer(context: AkkaHttpServer.Context) extends AkkaHttpServer(context) {
-
-  private lazy val logger = Logger(classOf[CustomAkkaHttpServer])
+  private lazy val logger = Logger(classOf[CustomPekkoHttpServer])
 
   private lazy val basePath: String = {
     val contextPath = context.config.configuration.getOptional[String]("play.http.context").getOrElse("")
@@ -24,7 +21,7 @@ class CustomAkkaHttpServer(context: AkkaHttpServer.Context) extends AkkaHttpServ
 
   protected override def createParserSettings(): ParserSettings = {
     val defaultSettings: ParserSettings = super.createParserSettings()
-    val maxHeaderCountKey = "play.http.server.akka.max-header-count"
+    val maxHeaderCountKey = "play.http.server.pekko.max-header-count"
     if (context.config.configuration.has(maxHeaderCountKey)) {
       val maxHeaderCount = context.config.configuration.get[Int](maxHeaderCountKey)
       logger.info(s"Setting max header count to: $maxHeaderCount")
@@ -35,11 +32,9 @@ class CustomAkkaHttpServer(context: AkkaHttpServer.Context) extends AkkaHttpServ
 
 }
 
-/** A factory that instantiates a CustomAkkaHttpServer. */
-class CustomAkkaHttpServerProvider extends ServerProvider {
+class CustomPekkoHttpServerProvider extends ServerProvider {
   def createServer(context: ServerProvider.Context) = {
-    val serverContext = AkkaHttpServer.Context.fromServerProviderContext(context)
-    new CustomAkkaHttpServer(serverContext)
+    val serverContext = PekkoHttpServer.Context.fromServerProviderContext(context)
+    new CustomPekkoHttpServer(serverContext)
   }
 }
-
