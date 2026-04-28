@@ -944,7 +944,11 @@ class TestPaginatedRawEntries:
         with patch.object(api, "_get_api_call", return_value=five_hundred):
             entries = api._get_data_model_lineage_entries("dm-id")
         assert entries == []
-        assert any("Unable to fetch lineage" in w.message for w in api.report.warnings)
+        assert any(
+            w.title == "Sigma paginated endpoint aborted"
+            and "lineage" in str(w.context)
+            for w in api.report.warnings
+        )
 
     def test_paginator_500_on_page_2_surfaces_warning_preserves_page_1(self) -> None:
         """``_paginated_raw_entries`` applies ``silent_statuses`` only to
