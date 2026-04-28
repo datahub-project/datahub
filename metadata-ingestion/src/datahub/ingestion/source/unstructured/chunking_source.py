@@ -197,7 +197,9 @@ class DocumentChunkingSource(Source):
                 # litellm routes "openai/<model>" to the custom api_base endpoint.
                 model_name = self.config.embedding.model
                 assert model_name is not None
-                self.embedding_model = f"openai/{model_name}"
+                if not model_name.startswith("openai/"):
+                    model_name = f"openai/{model_name}"
+                self.embedding_model = model_name
             else:
                 raise ValueError(
                     f"Unsupported embedding provider: {self.config.embedding.provider}"
@@ -757,22 +759,15 @@ class DocumentChunkingSource(Source):
             for i in range(0, len(texts), self.config.embedding.batch_size):
                 batch = texts[i : i + self.config.embedding.batch_size]
 
-                # Resolve api_base for local provider (Ollama / OpenAI-compatible).
-                # litellm expects the base URL without the /embeddings suffix.
+                # Resolve api_base/api_key for the configured provider.
                 api_base: Optional[str] = None
                 api_key: Optional[str] = None
                 if self.config.embedding.provider == "local":
-                    raw_endpoint = (
-                        self.config.embedding.endpoint
-                        or os.environ.get("LOCAL_EMBEDDING_ENDPOINT")
-                        or "http://localhost:11434/v1/embeddings"
+                    local_kwargs = DocumentChunkingSource._resolve_local_api_kwargs(
+                        self.config.embedding
                     )
-                    api_base = (
-                        raw_endpoint[: -len("/embeddings")]
-                        if raw_endpoint.endswith("/embeddings")
-                        else raw_endpoint
-                    )
-                    api_key = "local"  # litellm requires a value; Ollama ignores it
+                    api_base = local_kwargs["api_base"]
+                    api_key = local_kwargs["api_key"]
                 else:
                     api_key = (
                         self.config.embedding.api_key.get_secret_value()
@@ -1052,6 +1047,21 @@ class DocumentChunkingSource(Source):
             return default_config
 
     @staticmethod
+    def _resolve_local_api_kwargs(embedding_config: "EmbeddingConfig") -> dict:
+        """Return the api_base and api_key kwargs for the local (Ollama-compatible) provider."""
+        raw_endpoint = (
+            embedding_config.endpoint
+            or os.environ.get("LOCAL_EMBEDDING_ENDPOINT")
+            or "http://localhost:11434/v1/embeddings"
+        )
+        api_base = (
+            raw_endpoint[: -len("/embeddings")]
+            if raw_endpoint.endswith("/embeddings")
+            else raw_endpoint
+        )
+        return {"api_base": api_base, "api_key": "local"}
+
+    @staticmethod
     def _validate_provider_config(
         embedding_config: "EmbeddingConfig",
     ) -> tuple[Optional[str], Optional[CapabilityReport]]:
@@ -1210,14 +1220,25 @@ class DocumentChunkingSource(Source):
             test_text = "DataHub semantic search test"
 
             try:
-                response = litellm.embedding(
-                    model=embedding_model,
-                    input=[test_text],
-                    api_key=embedding_config.api_key.get_secret_value()
-                    if embedding_config.api_key
-                    else None,
-                    aws_region_name=embedding_config.aws_region,
-                )
+                if embedding_config.provider == "local":
+                    local_kwargs = DocumentChunkingSource._resolve_local_api_kwargs(
+                        embedding_config
+                    )
+                    response = litellm.embedding(
+                        model=embedding_model,
+                        input=[test_text],
+                        api_key=local_kwargs["api_key"],
+                        api_base=local_kwargs["api_base"],
+                    )
+                else:
+                    response = litellm.embedding(
+                        model=embedding_model,
+                        input=[test_text],
+                        api_key=embedding_config.api_key.get_secret_value()
+                        if embedding_config.api_key
+                        else None,
+                        aws_region_name=embedding_config.aws_region,
+                    )
 
                 # Verify we got an embedding back
                 if not response or not response.data or len(response.data) == 0:

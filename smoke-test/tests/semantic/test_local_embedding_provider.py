@@ -191,7 +191,9 @@ class TestLocalEmbeddingProvider:
                         showSearchFiltersV2
                     }
                     semanticSearchConfig {
-                        embeddingProviderType
+                        embeddingConfig {
+                            provider
+                        }
                     }
                 }
             }
@@ -207,12 +209,13 @@ class TestLocalEmbeddingProvider:
             result.get("data", {}).get("appConfig", {}).get("semanticSearchConfig")
             or {}
         )
-        provider_type = semantic_config.get("embeddingProviderType")
+        embedding_config = semantic_config.get("embeddingConfig") or {}
+        provider_type = embedding_config.get("provider")
 
         if provider_type is None:
             pytest.skip(
-                "semanticSearchConfig.embeddingProviderType not exposed by this server "
-                "(field may not exist in this DataHub version). Skipping check."
+                "semanticSearchConfig.embeddingConfig.provider not exposed by this server. "
+                "Skipping check."
             )
 
         assert provider_type == "local", (

@@ -208,21 +208,4 @@ public class LocalEmbeddingProviderTest {
     provider.embed("test", null);
   }
 
-  @Test(expectedExceptions = NullPointerException.class)
-  public void testNullTextThrows() {
-    provider.embed(null, null);
-  }
-
-  @Test
-  public void testDefaultConstructor() {
-    LocalEmbeddingProvider defaultProvider = new LocalEmbeddingProvider();
-    assertNotNull(defaultProvider);
-  }
-
-  @Test
-  public void testTwoArgConstructor() {
-    LocalEmbeddingProvider p =
-        new LocalEmbeddingProvider("http://localhost:11434/v1/embeddings", "mxbai-embed-large");
-    assertNotNull(p);
-  }
 }

@@ -502,7 +502,7 @@ def test_local_provider_already_prefixed_model(pipeline_context):
         standalone=False,
         graph=None,
     )
-    assert source.embedding_model == "openai/openai/nomic-embed-text"
+    assert source.embedding_model == "openai/nomic-embed-text"
 
 
 def test_local_provider_api_base_strips_embeddings_suffix(pipeline_context):
@@ -701,3 +701,27 @@ def test_validate_provider_config_local_no_model_fails():
     assert model is None
     assert report is not None
     assert not report.capable
+
+
+def test_test_embedding_capability_local_passes_api_base():
+    """test_embedding_capability routes local provider to api_base, not api.openai.com."""
+    config = EmbeddingConfig(
+        provider="local",
+        model="nomic-embed-text",
+        endpoint="http://myollama:11434/v1/embeddings",
+        allow_local_embedding_config=True,
+    )
+    captured: dict = {}
+
+    def fake_embedding(**kwargs):
+        captured.update(kwargs)
+        resp = MagicMock()
+        resp.data = [{"embedding": [0.1, 0.2]}]
+        return resp
+
+    with patch("litellm.embedding", side_effect=fake_embedding):
+        report = DocumentChunkingSource.test_embedding_capability(config)
+
+    assert report.capable
+    assert captured.get("api_base") == "http://myollama:11434/v1"
+    assert captured.get("api_key") == "local"
