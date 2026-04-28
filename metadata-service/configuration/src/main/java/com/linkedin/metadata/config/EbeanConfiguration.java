@@ -38,7 +38,7 @@ public class EbeanConfiguration {
             "Invalid queryKeysCountForBatch: {}. Must be positive. Using default value {}.",
             queryKeysCountForBatch,
             DEFAULT_QUERY_KEYS_COUNT);
-        this.queryKeysCountForBatch = null; // Let default apply
+        this.queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT; // Let default apply
       } else if (queryKeysCountForBatch > 5000) {
         log.warn(
             "queryKeysCountForBatch {} is very large. May cause memory issues. Consider <= 5000.",

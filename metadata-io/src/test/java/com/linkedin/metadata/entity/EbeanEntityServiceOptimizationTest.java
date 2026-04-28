@@ -274,7 +274,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "with retention: existing no-op",
@@ -295,7 +295,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         1,
         1,
         "with retention: existing single change (expect version-history INSERT + UPDATE)",
