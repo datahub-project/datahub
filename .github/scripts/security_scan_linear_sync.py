@@ -23,9 +23,10 @@ Feature summary:
 - Labeling behavior:
   - Apply optional static labels from ``LINEAR_LABEL_IDS`` / ``TRIVY_LINEAR_LABEL_IDS``.
   - Apply component labels mapped from image repositories.
-  - Apply a dynamic ref label using ``SCAN_REF_NAME`` (repository default branch name from CI ---
-    not the container image tag), team-scoped in Linear, reusing an existing label when present or
-    creating one with a random color when absent.
+  - Apply a dynamic ref label using ``SCAN_REF_NAME`` (team-scoped in Linear). CI sets this to the
+    repository default branch when the scanned image tag is ``head`` or ``latest``; otherwise to the
+    image tag (e.g. a release). Reuses an existing label when present or creates one with a random
+    color when absent.
 - Refs comment tracking:
   - Maintain a single marker comment per issue with deduped branch/tag history for where the
     finding was observed.

@@ -35,7 +35,6 @@ buildscript {
   ext.testContainersVersion = '1.21.4'
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
-  ext.jacksonVersion = '2.18.6'
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
   ext.jettyVersion = '12.0.34'
   // see also datahub-frontend/play.gradle (Play 3 + Apache Pekko)
@@ -104,6 +103,13 @@ plugins {
 }
 
 apply from: "gradle/docker/docker-utils.gradle"
+
+// Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
+ext.jacksonVersion = '2.21.1'
+// Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
+ext.jacksonMinorRelease = jacksonVersion.contains('.')
+    ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
+    : jacksonVersion
 
 project.ext.spec = [
     'product' : [
@@ -184,9 +190,9 @@ project.ext.externalDependency = [
     'hibernateValidator': 'org.hibernate.validator:hibernate-validator:6.2.5.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-     // The jacksonBom controls the version of other jackson modules, pin the version once
-     // implementation platform(externalDependency.jacksonBom)
-    'jacksonBom': "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
+    // The jacksonBom controls the version of other jackson modules; pin the version once.
+    // implementation enforcedPlatform(externalDependency.jacksonBom)
+    'jacksonBom': "com.fasterxml.jackson:jackson-bom:${jacksonVersion}",
     'jacksonJDK8': 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8',
     'jacksonDataPropertyFormat': 'com.fasterxml.jackson.dataformat:jackson-dataformat-properties',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core',
@@ -261,7 +267,8 @@ project.ext.externalDependency = [
     'playCache': "org.playframework:play-cache_$playScalaVersion",
     'playCaffeineCache': "org.playframework:play-caffeine-cache_$playScalaVersion",
     'playWs': "org.playframework:play-ahc-ws_$playScalaVersion",
-    'playDocs': "org.playframework:play-docs_$playScalaVersion",
+    // Explicit version so dependency locking / isolated resolves still resolve when BOM order differs.
+    'playDocs': "org.playframework:play-docs_$playScalaVersion:$playVersion",
     'playGuice': "org.playframework:play-guice_$playScalaVersion",
     // Required at runtime for play.data.validation.Constraints (e.g. sign-up email validation);
     // compile-only transitives do not land in the staged Play distribution lib/.
@@ -497,9 +504,13 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
         details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
       }
-      // Align all Jackson modules to jacksonVersion (e.g. play config must not use 2.18.4 / 2.11.4)
+      // Align all Jackson modules to jacksonVersion (e.g. Play pegasusPlugin classpath ~2.10.x).
+      // jackson-annotations uses the minor-only line in Jackson 2.21+ (see jackson-bom).
       if (details.requested.group == 'com.fasterxml.jackson.core' || details.requested.group == 'com.fasterxml.jackson.dataformat' || details.requested.group == 'com.fasterxml.jackson.datatype' || details.requested.group == 'com.fasterxml.jackson.module') {
         def v = rootProject.ext.jacksonVersion
+        if (details.requested.group == 'com.fasterxml.jackson.core' && details.requested.name == 'jackson-annotations') {
+          v = rootProject.ext.jacksonMinorRelease
+        }
         details.useTarget("${details.requested.group}:${details.requested.name}:${v}")
         details.because("Jackson aligned to ${v}")
       }
@@ -516,8 +527,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     }
     resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast)
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
