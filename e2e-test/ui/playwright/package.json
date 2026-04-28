@@ -10,7 +10,7 @@
     "test:ui": "playwright test --ui",
     "show-report": "playwright show-report",
     "codegen": "playwright codegen http://localhost:9002",
-    "lint": "eslint . --ext .ts",
+    "lint": "tsc --noEmit && eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"**/*.ts\"",
     "format:check": "prettier --check \"**/*.ts\""

@@ -40,8 +40,8 @@ module.exports = {
         'playwright/no-force-option': 'warn',
         'playwright/no-wait-for-timeout': 'warn',
 
-        // console is acceptable in utility/cleanup code but not in tests
-        'no-console': 'warn',
+        // All output must go through the DataHubLogger class — never use console directly.
+        'no-console': 'error',
     },
     env: {
         node: true,

@@ -12,9 +12,9 @@ export type Urn = string;
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface Mcp {
-    entityUrn?: string;
-    proposedSnapshot?: Record<string, { urn?: string }>;
-    [key: string]: unknown;
+  entityUrn?: string;
+  proposedSnapshot?: Record<string, { urn?: string }>;
+  [key: string]: unknown;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -24,12 +24,12 @@ export interface Mcp {
  * field and the older `proposedSnapshot` envelope format.
  */
 export function extractUrn(mcp: Mcp): Urn {
-    if (mcp.entityUrn) return mcp.entityUrn;
-    if (mcp.proposedSnapshot) {
-        const snapshot = Object.values(mcp.proposedSnapshot)[0];
-        if (snapshot?.urn) return snapshot.urn;
-    }
-    throw new Error(`Unable to extract URN from MCP: ${JSON.stringify(mcp).slice(0, 120)}`);
+  if (mcp.entityUrn) return mcp.entityUrn;
+  if (mcp.proposedSnapshot) {
+    const snapshot = Object.values(mcp.proposedSnapshot)[0];
+    if (snapshot?.urn) return snapshot.urn;
+  }
+  throw new Error(`Unable to extract URN from MCP: ${JSON.stringify(mcp).slice(0, 120)}`);
 }
 
 /**
@@ -40,40 +40,40 @@ export function extractUrn(mcp: Mcp): Urn {
  * of entity type and avoids GraphQL schema differences across DataHub versions.
  */
 export async function waitForSync(
-    request: APIRequestContext,
-    gmsUrl: string,
-    urns: Urn[],
-    gmsToken?: string,
-    timeout: number = 30_000,
+  request: APIRequestContext,
+  gmsUrl: string,
+  urns: Urn[],
+  gmsToken?: string,
+  timeout: number = 30_000,
 ): Promise<void> {
-    const headers: Record<string, string> = gmsToken ? { Authorization: `Bearer ${gmsToken}` } : {};
+  const headers: Record<string, string> = gmsToken ? { Authorization: `Bearer ${gmsToken}` } : {};
 
-    const deadline = Date.now() + timeout;
+  const deadline = Date.now() + timeout;
 
-    for (const urn of urns) {
-        let found = false;
+  for (const urn of urns) {
+    let found = false;
 
-        while (!found && Date.now() < deadline) {
-            try {
-                const response = await request.get(`${gmsUrl}/entities/${encodeURIComponent(urn)}`, {
-                    headers,
-                    failOnStatusCode: false,
-                });
-                if (response.ok()) {
-                    found = true;
-                    continue;
-                }
-            } catch {
-                // entity not yet indexed — retry
-            }
-            await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    while (!found && Date.now() < deadline) {
+      try {
+        const response = await request.get(`${gmsUrl}/entities/${encodeURIComponent(urn)}`, {
+          headers,
+          failOnStatusCode: false,
+        });
+        if (response.ok()) {
+          found = true;
+          continue;
         }
-
-        if (!found) {
-            throw new Error(`Timeout: entity ${urn} not indexed after ${timeout}ms`);
-        }
+      } catch {
+        // entity not yet indexed — retry
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 500));
     }
 
-    // Extra buffer to allow the search index to catch up.
-    await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
+    if (!found) {
+      throw new Error(`Timeout: entity ${urn} not indexed after ${timeout}ms`);
+    }
+  }
+
+  // Extra buffer to allow the search index to catch up.
+  await new Promise<void>((resolve) => setTimeout(resolve, 2_000));
 }

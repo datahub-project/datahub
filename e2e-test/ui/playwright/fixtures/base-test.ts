@@ -56,41 +56,41 @@ const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture, see
 // ── Additional fixtures built on top of the composition ───────────────────────
 
 type ExtendedFixtures = {
-    /** GMS personal access token for the active user. */
-    gmsToken: string;
-    /** Injects feature-scoped test data from {featureDir}/data/{feature}.json. */
-    featureDataLoader: FeatureDataLoader;
-    /** Per-test URN tracker; auto-flushed after each test (skipped on failure). */
-    cleanup: ScopedCleanup;
+  /** GMS personal access token for the active user. */
+  gmsToken: string;
+  /** Injects feature-scoped test data from {featureDir}/data/{feature}.json. */
+  featureDataLoader: FeatureDataLoader;
+  /** Per-test URN tracker; auto-flushed after each test (skipped on failure). */
+  cleanup: ScopedCleanup;
 };
 
 export const test = composedTest.extend<ExtendedFixtures>({
-    gmsToken: async ({ user }, use) => {
-        await use(readGmsToken(user.username));
-    },
+  gmsToken: async ({ user }, use) => {
+    await use(readGmsToken(user.username));
+  },
 
-    featureDataLoader: async ({ playwright, gmsToken }, use) => {
-        const url = gmsUrl();
-        const request = await playwright.request.newContext({ baseURL: url });
-        try {
-            await use(new RestFeatureDataLoader(request, gmsToken, url));
-        } finally {
-            await request.dispose();
-        }
-    },
+  featureDataLoader: async ({ playwright, gmsToken }, use) => {
+    const url = gmsUrl();
+    const request = await playwright.request.newContext({ baseURL: url });
+    try {
+      await use(new RestFeatureDataLoader(request, gmsToken, url));
+    } finally {
+      await request.dispose();
+    }
+  },
 
-    cleanup: async ({ playwright, gmsToken }, use, testInfo) => {
-        const url = gmsUrl();
-        const request = await playwright.request.newContext({
-            baseURL: url,
-            extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
-        });
-        const scopedCleanup = new ApiScopedCleanup(request, url);
-        await use(scopedCleanup);
-        // Preserve entities on failure so engineers can inspect the broken state.
-        await scopedCleanup.flush(testInfo.status);
-        await request.dispose();
-    },
+  cleanup: async ({ playwright, gmsToken }, use, testInfo) => {
+    const url = gmsUrl();
+    const request = await playwright.request.newContext({
+      baseURL: url,
+      extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
+    });
+    const scopedCleanup = new ApiScopedCleanup(request, url);
+    await use(scopedCleanup);
+    // Preserve entities on failure so engineers can inspect the broken state.
+    await scopedCleanup.flush(testInfo.status);
+    await request.dispose();
+  },
 });
 
 export { expect } from '@playwright/test';

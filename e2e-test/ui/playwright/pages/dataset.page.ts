@@ -3,134 +3,134 @@ import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
 export class DatasetPage extends BasePage {
-    readonly datasetName: Locator;
-    readonly schemaTab: Locator;
-    readonly lineageTab: Locator;
-    readonly propertiesTab: Locator;
+  readonly datasetName: Locator;
+  readonly schemaTab: Locator;
+  readonly lineageTab: Locator;
+  readonly propertiesTab: Locator;
 
-    constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
-        super(page, logger, logDir);
-        this.datasetName = page.locator('[data-testid="dataset-name"]');
-        this.schemaTab = page.locator('[data-testid="schema-tab"]');
-        this.lineageTab = page.locator('[data-testid="lineage-tab"]');
-        this.propertiesTab = page.locator('[data-testid="properties-tab"]');
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
+    super(page, logger, logDir);
+    this.datasetName = page.locator('[data-testid="dataset-name"]');
+    this.schemaTab = page.locator('[data-testid="schema-tab"]');
+    this.lineageTab = page.locator('[data-testid="lineage-tab"]');
+    this.propertiesTab = page.locator('[data-testid="properties-tab"]');
+  }
+
+  async navigateToDataset(urn: string): Promise<void> {
+    await this.navigate(`/dataset/${encodeURIComponent(urn)}`);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async viewSchema(): Promise<void> {
+    await this.schemaTab.click();
+    await this.waitForPageLoad();
+  }
+
+  async viewLineage(): Promise<void> {
+    await this.lineageTab.click();
+    await this.waitForPageLoad();
+  }
+
+  async getDatasetName(): Promise<string> {
+    return (await this.datasetName.textContent()) || '';
+  }
+
+  async closeAnyOpenModal(): Promise<void> {
+    const closeButton = this.page.locator('button[aria-label="Close"]');
+    if (await closeButton.isVisible()) {
+      await closeButton.click();
     }
+  }
 
-    async navigateToDataset(urn: string): Promise<void> {
-        await this.navigate(`/dataset/${encodeURIComponent(urn)}`);
-        await this.page.waitForLoadState('networkidle');
-    }
+  async clickSchemaField(fieldName: string): Promise<void> {
+    // Use the row's id attribute (set by SchemaTable's onRow handler) so the click
+    // reliably hits the row element and triggers the SchemaFieldDrawer to open.
+    await this.page.locator(`#column-${fieldName}`).click();
+  }
 
-    async viewSchema(): Promise<void> {
-        await this.schemaTab.click();
-        await this.waitForPageLoad();
-    }
+  async addBusinessAttributeToField(fieldName: string, attributeName: string): Promise<void> {
+    await this.clickSchemaField(fieldName);
 
-    async viewLineage(): Promise<void> {
-        await this.lineageTab.click();
-        await this.waitForPageLoad();
-    }
+    // The V2 schema field drawer renders the business attribute section inside SidebarSection.
+    // SidebarSection sets data-testid="sidebar-section-content-{title}" on its content container.
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
+    await businessAttributeSection.waitFor({ state: 'visible', timeout: 15000 });
+    // The ant-drawer-body intercepts pointer events so .hover() fails.
+    // Scroll the section into view and dispatch a mouseover event to reveal the "Add Attribute"
+    // button (CSS :hover), then click it via the native DOM click to bypass overlay checks.
+    await businessAttributeSection.evaluate((el: HTMLElement) => el.scrollIntoView({ block: 'center' }));
+    await businessAttributeSection.dispatchEvent('mouseover');
+    const addButton = businessAttributeSection.locator('text=Add Attribute');
+    // If the attribute is already set (e.g. from seed data), "Add Attribute" won't be present — skip.
+    if ((await addButton.count()) === 0) return;
+    await addButton.evaluate((el: HTMLElement) => el.click());
 
-    async getDatasetName(): Promise<string> {
-        return (await this.datasetName.textContent()) || '';
-    }
+    // The Select component requires typing into the inner search input, not fill() on the outer wrapper.
+    const modalSearchInput = this.page
+      .locator('[data-testid="business-attribute-modal-input"]')
+      .locator('.ant-select-selection-search-input');
+    await modalSearchInput.fill(attributeName);
 
-    async closeAnyOpenModal(): Promise<void> {
-        const closeButton = this.page.locator('button[aria-label="Close"]');
-        if (await closeButton.isVisible()) {
-            await closeButton.click();
-        }
-    }
+    // Wait for options to appear, then use ArrowDown + Enter to select without depending on click position.
+    await this.page.locator('[data-testid="business-attribute-option"]').first().waitFor({ state: 'visible' });
+    await modalSearchInput.press('ArrowDown');
+    await modalSearchInput.press('Enter');
 
-    async clickSchemaField(fieldName: string): Promise<void> {
-        // Use the row's id attribute (set by SchemaTable's onRow handler) so the click
-        // reliably hits the row element and triggers the SchemaFieldDrawer to open.
-        await this.page.locator(`#column-${fieldName}`).click();
-    }
+    // Once an option is selected the Done button becomes enabled.
+    // Use evaluate+click() to trigger the React onClick via the native DOM click method,
+    // bypassing the Playwright actionability check that fails due to the modal body overlay.
+    const doneBtn = this.page.locator('[data-testid="add-attribute-from-modal-btn"]');
+    await doneBtn.waitFor({ state: 'visible' });
+    await expect(doneBtn).toBeEnabled();
+    await doneBtn.evaluate((el: HTMLElement) => el.click());
+    await expect(doneBtn).toBeHidden();
 
-    async addBusinessAttributeToField(fieldName: string, attributeName: string): Promise<void> {
-        await this.clickSchemaField(fieldName);
+    await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
+  }
 
-        // The V2 schema field drawer renders the business attribute section inside SidebarSection.
-        // SidebarSection sets data-testid="sidebar-section-content-{title}" on its content container.
-        const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-        await businessAttributeSection.waitFor({ state: 'visible', timeout: 15000 });
-        // The ant-drawer-body intercepts pointer events so .hover() fails.
-        // Scroll the section into view and dispatch a mouseover event to reveal the "Add Attribute"
-        // button (CSS :hover), then click it via the native DOM click to bypass overlay checks.
-        await businessAttributeSection.evaluate((el: HTMLElement) => el.scrollIntoView({ block: 'center' }));
-        await businessAttributeSection.dispatchEvent('mouseover');
-        const addButton = businessAttributeSection.locator('text=Add Attribute');
-        // If the attribute is already set (e.g. from seed data), "Add Attribute" won't be present — skip.
-        if ((await addButton.count()) === 0) return;
-        await addButton.evaluate((el: HTMLElement) => el.click());
+  getBusinessAttributeSection(_fieldName: string): Locator {
+    // In the V2 entity view, the schema field drawer renders a SidebarSection with
+    // data-testid="sidebar-section-content-Business Attribute" for the business attribute content.
+    return this.page.locator('[data-testid="sidebar-section-content-Business Attribute"]');
+  }
 
-        // The Select component requires typing into the inner search input, not fill() on the outer wrapper.
-        const modalSearchInput = this.page
-            .locator('[data-testid="business-attribute-modal-input"]')
-            .locator('.ant-select-selection-search-input');
-        await modalSearchInput.fill(attributeName);
+  async removeBusinessAttributeFromField(fieldName: string, attributeName: string): Promise<void> {
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
 
-        // Wait for options to appear, then use ArrowDown + Enter to select without depending on click position.
-        await this.page.locator('[data-testid="business-attribute-option"]').first().waitFor({ state: 'visible' });
-        await modalSearchInput.press('ArrowDown');
-        await modalSearchInput.press('Enter');
+    // In V2 the close icon may be an img element; use [aria-label="close"] to match both
+    // the old span[aria-label=close] (Ant Design v4) and new img[aria-label="close"] (V2).
+    const closeIcon = businessAttributeSection.locator('[aria-label="close"]').first();
+    // Use evaluate to click directly, bypassing viewport and pointer-event intercept checks.
+    await closeIcon.evaluate((el: HTMLElement) => {
+      el.scrollIntoView({ block: 'center' });
+      el.click();
+    });
 
-        // Once an option is selected the Done button becomes enabled.
-        // Use evaluate+click() to trigger the React onClick via the native DOM click method,
-        // bypassing the Playwright actionability check that fails due to the modal body overlay.
-        const doneBtn = this.page.locator('[data-testid="add-attribute-from-modal-btn"]');
-        await doneBtn.waitFor({ state: 'visible' });
-        await expect(doneBtn).toBeEnabled();
-        await doneBtn.evaluate((el: HTMLElement) => el.click());
-        await expect(doneBtn).toBeHidden();
+    // Scope the confirmation button to the dialog to avoid matching "Yes" text elsewhere.
+    await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).waitFor({ state: 'visible' });
+    await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click({ force: true });
+    await this.page.waitForLoadState('networkidle');
 
-        await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
-    }
+    await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible({ timeout: 15000 });
+  }
 
-    getBusinessAttributeSection(_fieldName: string): Locator {
-        // In the V2 entity view, the schema field drawer renders a SidebarSection with
-        // data-testid="sidebar-section-content-Business Attribute" for the business attribute content.
-        return this.page.locator('[data-testid="sidebar-section-content-Business Attribute"]');
-    }
+  async expectBusinessAttributeOnField(fieldName: string, attributeName: string): Promise<void> {
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
+    await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
+  }
 
-    async removeBusinessAttributeFromField(fieldName: string, attributeName: string): Promise<void> {
-        const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
+  async expectBusinessAttributeNotOnField(fieldName: string, attributeName: string): Promise<void> {
+    const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
+    await expect(businessAttributeSection.getByText(attributeName)).toBeHidden();
+  }
 
-        // In V2 the close icon may be an img element; use [aria-label="close"] to match both
-        // the old span[aria-label=close] (Ant Design v4) and new img[aria-label="close"] (V2).
-        const closeIcon = businessAttributeSection.locator('[aria-label="close"]').first();
-        // Use evaluate to click directly, bypassing viewport and pointer-event intercept checks.
-        await closeIcon.evaluate((el: HTMLElement) => {
-            el.scrollIntoView({ block: 'center' });
-            el.click();
-        });
+  async expectTagOnFieldFromAttribute(fieldName: string, tagName: string): Promise<void> {
+    await this.clickSchemaField(fieldName);
+    await expect(this.page.getByText(tagName)).toBeVisible();
+  }
 
-        // Scope the confirmation button to the dialog to avoid matching "Yes" text elsewhere.
-        await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).waitFor({ state: 'visible' });
-        await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click({ force: true });
-        await this.page.waitForLoadState('networkidle');
-
-        await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible({ timeout: 15000 });
-    }
-
-    async expectBusinessAttributeOnField(fieldName: string, attributeName: string): Promise<void> {
-        const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-        await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
-    }
-
-    async expectBusinessAttributeNotOnField(fieldName: string, attributeName: string): Promise<void> {
-        const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-        await expect(businessAttributeSection.getByText(attributeName)).toBeHidden();
-    }
-
-    async expectTagOnFieldFromAttribute(fieldName: string, tagName: string): Promise<void> {
-        await this.clickSchemaField(fieldName);
-        await expect(this.page.getByText(tagName)).toBeVisible();
-    }
-
-    async expectTermOnFieldFromAttribute(fieldName: string, termName: string): Promise<void> {
-        await this.clickSchemaField(fieldName);
-        await expect(this.page.getByText(termName)).toBeVisible();
-    }
+  async expectTermOnFieldFromAttribute(fieldName: string, termName: string): Promise<void> {
+    await this.clickSchemaField(fieldName);
+    await expect(this.page.getByText(termName)).toBeVisible();
+  }
 }

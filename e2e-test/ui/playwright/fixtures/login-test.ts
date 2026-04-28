@@ -47,26 +47,26 @@ const composedTest = mergeTests(loggerFixture, mockingFixture);
 // ── Extend with a clean unauthenticated context and loginPage ─────────────────
 
 type LoginTestFixtures = {
-    loginPage: LoginPage;
+  loginPage: LoginPage;
 };
 
 export const test = composedTest.extend<LoginTestFixtures>({
-    // Override context so every login test starts with no session cookies.
-    // This ensures login tests cannot accidentally rely on a saved auth state.
-    context: async ({ browser }, use) => {
-        const ctx = await browser.newContext({
-            storageState: undefined,
-            baseURL: process.env.BASE_URL ?? 'http://localhost:9002',
-        });
-        await use(ctx);
-        await ctx.close();
-    },
+  // Override context so every login test starts with no session cookies.
+  // This ensures login tests cannot accidentally rely on a saved auth state.
+  context: async ({ browser }, use) => {
+    const ctx = await browser.newContext({
+      storageState: undefined,
+      baseURL: process.env.BASE_URL ?? 'http://localhost:9002',
+    });
+    await use(ctx);
+    await ctx.close();
+  },
 
-    // Provide loginPage directly so tests don't need to construct it manually.
-    // logger is auto-injected by loggerFixture and passed through to LoginPage.
-    loginPage: async ({ page, logger }, use) => {
-        await use(new LoginPage(page, logger));
-    },
+  // Provide loginPage directly so tests don't need to construct it manually.
+  // logger is auto-injected by loggerFixture and passed through to LoginPage.
+  loginPage: async ({ page, logger }, use) => {
+    await use(new LoginPage(page, logger));
+  },
 });
 
 export { expect } from '@playwright/test';

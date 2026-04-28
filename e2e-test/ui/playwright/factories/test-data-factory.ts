@@ -4,35 +4,35 @@ import { withTimestamp } from '../utils/random';
 export type Urn = string;
 
 export class TestDataFactory {
-    static createDatasetUrn(platform: string, name: string, env: string = 'PROD'): Urn {
-        return `urn:li:dataset:(urn:li:dataPlatform:${platform},${name},${env})`;
-    }
+  static createDatasetUrn(platform: string, name: string, env: string = 'PROD'): Urn {
+    return `urn:li:dataset:(urn:li:dataPlatform:${platform},${name},${env})`;
+  }
 
-    static createUserUrn(username: string): Urn {
-        return `urn:li:corpuser:${username}`;
-    }
+  static createUserUrn(username: string): Urn {
+    return `urn:li:corpuser:${username}`;
+  }
 
-    static createBusinessAttributeUrn(name: string): Urn {
-        return `urn:li:businessAttribute:${name}`;
-    }
+  static createBusinessAttributeUrn(name: string): Urn {
+    return `urn:li:businessAttribute:${name}`;
+  }
 
-    /**
-     * Append a timestamp suffix so test data names are unique and sortable by
-     * creation time. Format: YYYYMMDD_HHmmss.
-     */
-    static withTimestamp(base: string): string {
-        return withTimestamp(base);
-    }
+  /**
+   * Append a timestamp suffix so test data names are unique and sortable by
+   * creation time. Format: YYYYMMDD_HHmmss.
+   */
+  static withTimestamp(base: string): string {
+    return withTimestamp(base);
+  }
 
-    static generateTestDatasetName(): string {
-        return withTimestamp('test_dataset');
-    }
+  static generateTestDatasetName(): string {
+    return withTimestamp('test_dataset');
+  }
 
-    static generateTestUsername(): string {
-        return withTimestamp('test_user');
-    }
+  static generateTestUsername(): string {
+    return withTimestamp('test_user');
+  }
 
-    static generateTestAttributeName(): string {
-        return withTimestamp('test_attribute');
-    }
+  static generateTestAttributeName(): string {
+    return withTimestamp('test_attribute');
+  }
 }

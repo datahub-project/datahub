@@ -19,48 +19,48 @@ import type { Page } from '@playwright/test';
 import type { DataHubLogger } from '../utils/logger';
 
 export class BasePage {
-    constructor(
-        protected readonly page: Page,
-        protected readonly logger?: DataHubLogger,
-        protected readonly logDir?: string,
-    ) {}
+  constructor(
+    protected readonly page: Page,
+    protected readonly logger?: DataHubLogger,
+    protected readonly logDir?: string,
+  ) {}
 
-    async navigate(url: string): Promise<void> {
-        this.logger?.step('navigate', { url });
-        await this.page.goto(url);
-    }
+  async navigate(url: string): Promise<void> {
+    this.logger?.step('navigate', { url });
+    await this.page.goto(url);
+  }
 
-    async waitForPageLoad(): Promise<void> {
-        await this.page.waitForLoadState('domcontentloaded');
-        await this.page.waitForLoadState('networkidle');
-    }
+  async waitForPageLoad(): Promise<void> {
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('networkidle');
+  }
 
-    async goBack(): Promise<void> {
-        await this.page.goBack();
-        await this.waitForPageLoad();
-    }
+  async goBack(): Promise<void> {
+    await this.page.goBack();
+    await this.waitForPageLoad();
+  }
 
-    async reload(): Promise<void> {
-        await this.page.reload();
-        await this.waitForPageLoad();
-    }
+  async reload(): Promise<void> {
+    await this.page.reload();
+    await this.waitForPageLoad();
+  }
 
-    async getCurrentUrl(): Promise<string> {
-        return this.page.url();
-    }
+  async getCurrentUrl(): Promise<string> {
+    return this.page.url();
+  }
 
-    async getTitle(): Promise<string> {
-        return this.page.title();
-    }
+  async getTitle(): Promise<string> {
+    return this.page.title();
+  }
 
-    /**
-     * Capture a named screenshot checkpoint. The file is written to logDir so
-     * it lands alongside the structured logs for this test. Falls back to
-     * Playwright's default output directory when logDir is not provided.
-     */
-    async screenshot(name: string): Promise<void> {
-        const screenshotPath = this.logDir ? path.join(this.logDir, `${name}.png`) : `${name}.png`;
-        this.logger?.step('screenshot', { name, path: screenshotPath });
-        await this.page.screenshot({ path: screenshotPath, fullPage: false });
-    }
+  /**
+   * Capture a named screenshot checkpoint. The file is written to logDir so
+   * it lands alongside the structured logs for this test. Falls back to
+   * Playwright's default output directory when logDir is not provided.
+   */
+  async screenshot(name: string): Promise<void> {
+    const screenshotPath = this.logDir ? path.join(this.logDir, `${name}.png`) : `${name}.png`;
+    this.logger?.step('screenshot', { name, path: screenshotPath });
+    await this.page.screenshot({ path: screenshotPath, fullPage: false });
+  }
 }

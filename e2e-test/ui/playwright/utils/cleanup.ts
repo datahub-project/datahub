@@ -41,53 +41,53 @@ import type { APIRequestContext } from '@playwright/test';
 // ── Public interface ──────────────────────────────────────────────────────────
 
 export interface ScopedCleanup {
-    /** Register one or more URNs for deletion when `flush()` is called. */
-    track(...urns: string[]): void;
+  /** Register one or more URNs for deletion when `flush()` is called. */
+  track(...urns: string[]): void;
 
-    /**
-     * Delete all tracked URNs via the GMS REST API.
-     *
-     * Pass `testStatus` to conditionally skip cleanup on failure:
-     *   - `'passed'` / `'skipped'` → deletes tracked URNs
-     *   - `'failed'` / `'timedOut'` → skips deletion (preserves data for debug)
-     *   - `undefined` → always deletes (unconditional flush)
-     */
-    flush(testStatus?: string): Promise<void>;
+  /**
+   * Delete all tracked URNs via the GMS REST API.
+   *
+   * Pass `testStatus` to conditionally skip cleanup on failure:
+   *   - `'passed'` / `'skipped'` → deletes tracked URNs
+   *   - `'failed'` / `'timedOut'` → skips deletion (preserves data for debug)
+   *   - `undefined` → always deletes (unconditional flush)
+   */
+  flush(testStatus?: string): Promise<void>;
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
 
 export class ApiScopedCleanup implements ScopedCleanup {
-    private readonly trackedUrns: string[] = [];
+  private readonly trackedUrns: string[] = [];
 
-    constructor(
-        private readonly request: APIRequestContext,
-        private readonly gmsUrl: string,
-    ) {}
+  constructor(
+    private readonly request: APIRequestContext,
+    private readonly gmsUrl: string,
+  ) {}
 
-    track(...urns: string[]): void {
-        this.trackedUrns.push(...urns);
+  track(...urns: string[]): void {
+    this.trackedUrns.push(...urns);
+  }
+
+  async flush(testStatus?: string): Promise<void> {
+    const shouldClean = testStatus === undefined || testStatus === 'passed' || testStatus === 'skipped';
+
+    if (!shouldClean) {
+      console.log(
+        `[cleanup] Test status is '${testStatus}' — preserving ${this.trackedUrns.length} entities for post-failure investigation`,
+      );
+      if (this.trackedUrns.length > 0) {
+        console.log(`[cleanup] URNs to clean up manually:\n  ${this.trackedUrns.join('\n  ')}`);
+      }
+      return;
     }
 
-    async flush(testStatus?: string): Promise<void> {
-        const shouldClean = testStatus === undefined || testStatus === 'passed' || testStatus === 'skipped';
+    if (this.trackedUrns.length === 0) return;
 
-        if (!shouldClean) {
-            console.log(
-                `[cleanup] Test status is '${testStatus}' — preserving ${this.trackedUrns.length} entities for post-failure investigation`,
-            );
-            if (this.trackedUrns.length > 0) {
-                console.log(`[cleanup] URNs to clean up manually:\n  ${this.trackedUrns.join('\n  ')}`);
-            }
-            return;
-        }
-
-        if (this.trackedUrns.length === 0) return;
-
-        console.log(`[cleanup] Deleting ${this.trackedUrns.length} tracked entities...`);
-        await deleteEntities(this.request, this.gmsUrl, this.trackedUrns);
-        this.trackedUrns.length = 0;
-    }
+    console.log(`[cleanup] Deleting ${this.trackedUrns.length} tracked entities...`);
+    await deleteEntities(this.request, this.gmsUrl, this.trackedUrns);
+    this.trackedUrns.length = 0;
+  }
 }
 
 // ── Standalone helper (used by global cleanup scripts) ────────────────────────
@@ -103,24 +103,24 @@ export class ApiScopedCleanup implements ScopedCleanup {
  * @param urns     - Entity URNs to hard-delete.
  */
 export async function deleteEntities(request: APIRequestContext, gmsUrl: string, urns: string[]): Promise<void> {
-    const failures: string[] = [];
+  const failures: string[] = [];
 
-    await Promise.all(
-        urns.map(async (urn) => {
-            const response = await request.post(`${gmsUrl}/entities?action=delete`, {
-                data: { urn },
-                headers: { 'Content-Type': 'application/json' },
-                failOnStatusCode: false,
-            });
-            if (!response.ok()) {
-                failures.push(`${urn} (${response.status()})`);
-            }
-        }),
-    );
+  await Promise.all(
+    urns.map(async (urn) => {
+      const response = await request.post(`${gmsUrl}/entities?action=delete`, {
+        data: { urn },
+        headers: { 'Content-Type': 'application/json' },
+        failOnStatusCode: false,
+      });
+      if (!response.ok()) {
+        failures.push(`${urn} (${response.status()})`);
+      }
+    }),
+  );
 
-    if (failures.length > 0) {
-        console.warn(`[cleanup] Failed to delete ${failures.length} entities:\n  ${failures.join('\n  ')}`);
-    } else {
-        console.log(`[cleanup] Deleted ${urns.length} entities`);
-    }
+  if (failures.length > 0) {
+    console.warn(`[cleanup] Failed to delete ${failures.length} entities:\n  ${failures.join('\n  ')}`);
+  } else {
+    console.log(`[cleanup] Deleted ${urns.length} entities`);
+  }
 }

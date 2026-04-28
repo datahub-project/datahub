@@ -27,42 +27,42 @@ import { createLogger, type DataHubLogger } from '../utils/logger';
 // ── Fixture types ─────────────────────────────────────────────────────────────
 
 type LoggerFixtures = {
-    /** Per-test log/screenshot directory derived from testInfo.outputDir. */
-    logDir: string;
-    /** Winston-backed structured logger. Auto-injected into every test. */
-    logger: DataHubLogger;
+  /** Per-test log/screenshot directory derived from testInfo.outputDir. */
+  logDir: string;
+  /** Winston-backed structured logger. Auto-injected into every test. */
+  logger: DataHubLogger;
 };
 
 // ── Fixture implementations ───────────────────────────────────────────────────
 
 export const loggerFixture = base.extend<LoggerFixtures>({
-    // logDir: unique output directory that Playwright already creates per test.
-    // We extend it with a 'logs' sub-folder to keep log files separate from
-    // trace/video artifacts that Playwright stores at the root.
-    logDir: [
-        async ({}, use, testInfo) => {
-            const logDir = path.join(testInfo.outputDir, 'logs');
-            await use(logDir);
-        },
-        { auto: true },
-    ],
+  // logDir: unique output directory that Playwright already creates per test.
+  // We extend it with a 'logs' sub-folder to keep log files separate from
+  // trace/video artifacts that Playwright stores at the root.
+  logDir: [
+    async ({}, use, testInfo) => {
+      const logDir = path.join(testInfo.outputDir, 'logs');
+      await use(logDir);
+    },
+    { auto: true },
+  ],
 
-    // logger: built once per test, automatically closed after the test finishes.
-    logger: [
-        async ({ logDir }, use, testInfo) => {
-            const testMeta = {
-                suite: testInfo.titlePath.slice(0, -1).join(' > '),
-                test: testInfo.title,
-                worker: testInfo.workerIndex,
-                retry: testInfo.retry,
-            };
-            const logger = createLogger(logDir, testMeta);
-            logger.info('test started');
-            await use(logger);
-            logger.info('test finished', { status: testInfo.status });
-        },
-        { auto: true },
-    ],
+  // logger: built once per test, automatically closed after the test finishes.
+  logger: [
+    async ({ logDir }, use, testInfo) => {
+      const testMeta = {
+        suite: testInfo.titlePath.slice(0, -1).join(' > '),
+        test: testInfo.title,
+        worker: testInfo.workerIndex,
+        retry: testInfo.retry,
+      };
+      const logger = createLogger(logDir, testMeta);
+      logger.info('test started');
+      await use(logger);
+      logger.info('test finished', { status: testInfo.status });
+    },
+    { auto: true },
+  ],
 });
 
 export type { DataHubLogger };

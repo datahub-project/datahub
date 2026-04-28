@@ -19,74 +19,74 @@ import { gmsUrl } from '../../utils/constants';
  * ```
  */
 export class GraphQLSeeder {
-    private readonly baseURL: string;
-    private readonly createdUrns: Urn[] = [];
+  private readonly baseURL: string;
+  private readonly createdUrns: Urn[] = [];
 
-    constructor(private readonly page: Page) {
-        this.baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+  constructor(private readonly page: Page) {
+    this.baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+  }
+
+  /** Load a JSON test-data file containing an array of MCPs. */
+  async loadTestData(filePath: string): Promise<Mcp[]> {
+    let content: string;
+    try {
+      content = await fs.readFile(filePath, 'utf-8');
+    } catch (cause) {
+      throw new Error(`Failed to read test data file: ${filePath}`, { cause });
     }
 
-    /** Load a JSON test-data file containing an array of MCPs. */
-    async loadTestData(filePath: string): Promise<Mcp[]> {
-        let content: string;
-        try {
-            content = await fs.readFile(filePath, 'utf-8');
-        } catch (cause) {
-            throw new Error(`Failed to read test data file: ${filePath}`, { cause });
-        }
+    const data: unknown = JSON.parse(content);
+    if (!Array.isArray(data)) {
+      throw new Error(`Test data file must contain a JSON array: ${filePath}`);
+    }
+    return data as Mcp[];
+  }
 
-        const data: unknown = JSON.parse(content);
-        if (!Array.isArray(data)) {
-            throw new Error(`Test data file must contain a JSON array: ${filePath}`);
-        }
-        return data as Mcp[];
+  /** Ingest an array of MCPs via GraphQL soft-delete mutation trick. */
+  async ingestMCPs(mcps: Mcp[]): Promise<Urn[]> {
+    const urns: Urn[] = [];
+
+    for (const mcp of mcps) {
+      const urn = extractUrn(mcp);
+      await this.ingestEntity(urn);
+      urns.push(urn);
+      this.createdUrns.push(urn);
     }
 
-    /** Ingest an array of MCPs via GraphQL soft-delete mutation trick. */
-    async ingestMCPs(mcps: Mcp[]): Promise<Urn[]> {
-        const urns: Urn[] = [];
+    return urns;
+  }
 
-        for (const mcp of mcps) {
-            const urn = extractUrn(mcp);
-            await this.ingestEntity(urn);
-            urns.push(urn);
-            this.createdUrns.push(urn);
-        }
+  /** Wait until all URNs are reachable via the GMS REST API. */
+  async waitForSync(urns: Urn[], timeout?: number): Promise<void> {
+    await waitForSync(this.page.request, gmsUrl(), urns, undefined, timeout);
+  }
 
-        return urns;
-    }
+  getCreatedUrns(): Urn[] {
+    return [...this.createdUrns];
+  }
 
-    /** Wait until all URNs are reachable via the GMS REST API. */
-    async waitForSync(urns: Urn[], timeout?: number): Promise<void> {
-        await waitForSync(this.page.request, gmsUrl(), urns, undefined, timeout);
-    }
+  clearCreatedUrns(): void {
+    this.createdUrns.length = 0;
+  }
 
-    getCreatedUrns(): Urn[] {
-        return [...this.createdUrns];
-    }
+  // ── Private ─────────────────────────────────────────────────────────────────
 
-    clearCreatedUrns(): void {
-        this.createdUrns.length = 0;
-    }
-
-    // ── Private ─────────────────────────────────────────────────────────────────
-
-    private async ingestEntity(urn: Urn): Promise<void> {
-        // The batchUpdateSoftDeleted mutation with deleted:false is the lightest
-        // GraphQL call that guarantees the entity exists in GMS.
-        const mutation = `
+  private async ingestEntity(urn: Urn): Promise<void> {
+    // The batchUpdateSoftDeleted mutation with deleted:false is the lightest
+    // GraphQL call that guarantees the entity exists in GMS.
+    const mutation = `
       mutation updateEntity($input: BatchUpdateSoftDeletedInput!) {
         batchUpdateSoftDeleted(input: $input)
       }
     `;
 
-        const response = await this.page.request.post(`${this.baseURL}/api/v2/graphql`, {
-            data: { query: mutation, variables: { input: { urns: [urn], deleted: false } } },
-        });
+    const response = await this.page.request.post(`${this.baseURL}/api/v2/graphql`, {
+      data: { query: mutation, variables: { input: { urns: [urn], deleted: false } } },
+    });
 
-        if (!response.ok()) {
-            const body = await response.text();
-            throw new Error(`Failed to ingest entity ${urn}: ${response.status()} ${body.slice(0, 200)}`);
-        }
+    if (!response.ok()) {
+      const body = await response.text();
+      throw new Error(`Failed to ingest entity ${urn}: ${response.status()} ${body.slice(0, 200)}`);
     }
+  }
 }
