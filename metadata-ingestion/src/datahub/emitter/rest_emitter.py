@@ -159,6 +159,16 @@ class _KeepAliveHTTPAdapter(HTTPAdapter):
             proxy_kwargs["socket_options"] = opts
         return super().proxy_manager_for(proxy, **proxy_kwargs)
 
+    def send(self, request: Any, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return super().send(request, *args, **kwargs)
+        except requests.exceptions.SSLError:
+            logger.debug(
+                "SSL error on pooled connection, retrying with fresh connection"
+            )
+            self.close()
+            return super().send(request, *args, **kwargs)
+
 
 class _WeightedRetry(Retry):
     _429_count: Optional[int]

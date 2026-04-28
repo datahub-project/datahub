@@ -7,6 +7,7 @@ from typing import Any, Dict
 from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
+import requests
 from requests import Response, Session
 from requests.adapters import HTTPAdapter
 
@@ -2430,6 +2431,26 @@ class TestRequestsSessionConfig:
             adapter.proxy_manager_for("http://proxy:8080")
         assert "socket_options" in mock.call_args.kwargs
         assert len(mock.call_args.kwargs["socket_options"]) > 0
+
+    def test_tcp_keepalive_retries_with_fresh_connection_on_ssl_error(self):
+        """On SSLError the pool is closed and the request is retried with a fresh connection."""
+        adapter = _KeepAliveHTTPAdapter()
+        ssl_error = requests.exceptions.SSLError(
+            "EOF occurred in violation of protocol"
+        )
+        ok_response = MagicMock()
+
+        with (
+            patch.object(
+                HTTPAdapter, "send", side_effect=[ssl_error, ok_response]
+            ) as mock_send,
+            patch.object(adapter, "close") as mock_close,
+        ):
+            result = adapter.send(MagicMock())
+
+        assert mock_close.call_count == 1
+        assert mock_send.call_count == 2
+        assert result is ok_response
 
     def test_tcp_keepalive_socket_options_logs_on_platform_error(self):
         """_socket_options logs and returns None when the platform raises on socket option access."""
