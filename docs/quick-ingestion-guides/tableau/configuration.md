@@ -2,6 +2,7 @@
 title: Tableau Configuration
 description: "Configure DataHub UI ingestion to connect to Tableau using the dedicated DataHub user and Site Administrator Explorer access."
 ---
+
 # Configuring Your Tableau Connector to DataHub
 
 Now that you have created a DataHub-specific user with the relevant access in Tableau in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.

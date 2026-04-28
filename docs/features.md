@@ -3,6 +3,7 @@ description: "Overview of DataHub features for data discovery, lineage, profilin
 hide_title: true
 slug: /features
 ---
+
 import FeatureCardSection from '@site/src/pages/docs/\_components/FeatureCardSection';
 import QuickstartCTA from '@site/src/pages/docs/\_components/QuickstartCTA';
 

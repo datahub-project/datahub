@@ -1,7 +1,8 @@
 ---
 title: 'datahub-web-react'
-description: "Overview of the DataHub React web application that powers the DataHub UI, including its architecture and contribution guide."
+description: 'Overview of the DataHub React web application that powers the DataHub UI, including its architecture and contribution guide.'
 ---
+
 # DataHub React App
 
 ## About

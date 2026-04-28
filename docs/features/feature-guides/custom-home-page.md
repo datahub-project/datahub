@@ -2,6 +2,7 @@
 title: Home Page
 description: "Build personalized DataHub home pages with modular widgets to surface the most relevant data assets and information for each user."
 ---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Home Page

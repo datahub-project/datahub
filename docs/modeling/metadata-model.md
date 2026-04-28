@@ -4,6 +4,7 @@ description: "DataHub's schema-first metadata model uses Pegasus PDL with custom
 sidebar_label: The Metadata Model
 slug: /metadata-modeling/metadata-model
 ---
+
 # How does DataHub model metadata?
 
 DataHub takes a schema-first approach to modeling metadata. We use the open-source Pegasus schema language ([PDL](https://linkedin.github.io/rest.li/pdl_schema)) extended with a custom set of annotations to model metadata. The DataHub storage, serving, indexing and ingestion layer operates directly on top of the metadata model and supports strong types all the way from the client to the storage layer.

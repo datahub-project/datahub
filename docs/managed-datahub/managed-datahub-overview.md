@@ -2,6 +2,7 @@
 title: "OSS vs Cloud: Comparison Guide"
 description: "Compare DataHub Open Source and DataHub Cloud, covering enterprise governance, AI automation, SLAs, and managed service capabilities."
 ---
+
 # OSS vs Cloud: Comparison Guide
 
 This guide compares DataHub Open Source (OSS) and DataHub Cloud features and platform differences. DataHub Cloud builds on the OSS foundation with enterprise-grade capabilities including AI automation, advanced governance, operational reliability, and production support for mid-to-large organizations. Cloud also offers a fully managed service with 99.5%+ SLA-backed availability, dedicated support, enhanced security, training services, and flexible deployment options.

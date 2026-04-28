@@ -1,6 +1,7 @@
 ---
 description: "Get started with the DataHub Cloud GraphQL API to query, mutate, and integrate metadata into your applications and workflows."
 ---
+
 # Getting Started
 
 The DataHub Cloud GraphQL API is an extension of the open source [DataHub GraphQL API.](docs/api/graphql/overview.md)
