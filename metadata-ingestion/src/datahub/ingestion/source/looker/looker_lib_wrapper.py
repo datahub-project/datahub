@@ -87,14 +87,16 @@ class _DataHubLookerApiSettings(looker_api_settings.ApiSettings):
 
     The default ApiSettings reads credentials from a ``looker.ini`` file or
     ``LOOKERSDK_*`` env vars. We override ``read_config`` so secrets never touch
-    the process environment (CWE-526).
+    the process environment.
     """
 
     def __init__(self, client_id: str, client_secret: str, base_url: str) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
         self._base_url = base_url
-        # filename="" skips the looker.ini lookup; env_prefix=None disables env overrides.
+        # Our read_config() override is the actual guard against env/file lookup.
+        # filename="" and env_prefix=None just keep the parent __init__'s helpers
+        # (which it would otherwise call) from touching the filesystem or environment.
         super().__init__(
             filename="",
             section=None,

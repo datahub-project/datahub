@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -30,9 +31,7 @@ def _make_config() -> LookerAPIConfig:
 
 
 def test_credentials_not_written_to_environ(clean_lookersdk_env):
-    """LookerAPI must not leak credentials into os.environ (CWE-526)."""
-    import os
-
+    """LookerAPI must not leak credentials into os.environ."""
     with mock.patch("looker_sdk.init40") as mock_init40:
         mock_init40.return_value = mock.MagicMock()
         LookerAPI(config=_make_config())
@@ -43,7 +42,7 @@ def test_credentials_not_written_to_environ(clean_lookersdk_env):
         )
 
 
-def test_init40_called_with_in_memory_config_settings(clean_lookersdk_env):
+def test_init40_called_with_in_memory_config_settings():
     """init40 must receive a config_settings instance carrying the credentials."""
     config = _make_config()
     with mock.patch("looker_sdk.init40") as mock_init40:
