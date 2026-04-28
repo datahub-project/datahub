@@ -26,7 +26,10 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
@@ -513,5 +516,76 @@ public class EntityHealthResolverTest {
     assertEquals(result.get(0).getStatus(), HealthStatus.FAIL);
     assertEquals(result.get(0).getType(), HealthStatusType.TESTS);
     assertEquals(result.get(0).getMessage(), "2 of 3 tests failing");
+  }
+
+  @Test
+  public void testAllHealthTypesEnabledViaDefaultConstructor() throws Exception {
+    EntityClient mockEntityClient = Mockito.mock(EntityClient.class);
+    GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
+    TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
+
+    EntityHealthResolver resolver =
+        new EntityHealthResolver(mockEntityClient, mockGraphClient, mockAspectService);
+
+    Mockito.when(
+            mockEntityClient.filter(any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt()))
+        .thenReturn(new SearchResult().setNumEntities(0).setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockGraphClient.getRelatedEntities(
+                any(), any(), any(), Mockito.anyInt(), Mockito.anyInt(), any()))
+        .thenReturn(
+            new EntityRelationships()
+                .setStart(0)
+                .setCount(0)
+                .setTotal(0)
+                .setRelationships(new EntityRelationshipArray()));
+    Mockito.when(mockEntityClient.getV2(any(), any(), any(), any())).thenReturn(null);
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Dataset parentDataset = new Dataset();
+    parentDataset.setUrn(TEST_DATASET_URN);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDataset);
+
+    List<Health> result = resolver.get(mockEnv).get();
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getType(), HealthStatusType.INCIDENTS);
+    assertEquals(result.get(0).getStatus(), HealthStatus.PASS);
+  }
+
+  @Test
+  public void testComputeTestsHealthRemoteInvocationException() throws Exception {
+    EntityClient mockEntityClient = Mockito.mock(EntityClient.class);
+    GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
+    TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
+
+    Mockito.when(mockEntityClient.getV2(any(), any(), any(), any()))
+        .thenThrow(new RemoteInvocationException("test error"));
+
+    EntityHealthResolver resolver =
+        new EntityHealthResolver(
+            mockEntityClient,
+            mockGraphClient,
+            mockAspectService,
+            new EntityHealthResolver.Config(false, false, true));
+
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Dataset parentDataset = new Dataset();
+    parentDataset.setUrn(TEST_DATASET_URN);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDataset);
+
+    List<Health> result = resolver.get(mockEnv).get();
+    assertEquals(result.size(), 0);
   }
 }
