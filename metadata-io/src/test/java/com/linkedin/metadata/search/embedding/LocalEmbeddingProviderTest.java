@@ -207,5 +207,4 @@ public class LocalEmbeddingProviderTest {
 
     provider.embed("test", null);
   }
-
 }
