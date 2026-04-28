@@ -79,10 +79,12 @@ For service account authentication, follow these instructions:
 
 Grant the following roles to the service account on all target projects.
 
-| Feature                                        | Required Role                                                                                             |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Universal Catalog Entries API (core ingestion) | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer) |
-| Lineage extraction (`include_lineage: true`)   | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)         |
+| Feature                                                              | Required Role                                                                                                                                            |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Universal Catalog Entries API (core ingestion)                       | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                |
+| Lineage extraction (`include_lineage: true`)                         | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)                                                        |
+| Business Glossary ingestion (`include_glossaries: true`)             | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                |
+| Term-asset associations (`include_glossary_term_associations: true`) | [`roles/resourcemanager.projectViewer`](https://cloud.google.com/resource-manager/docs/access-control-proj) — required for resolving GCP project numbers |
 
 :::tip "Lineage requires the role on multiple projects"
 

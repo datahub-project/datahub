@@ -10,9 +10,21 @@ import styled from 'styled-components/macro';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
-import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
+import {
+    Avatar,
+    Button,
+    Icon,
+    Modal,
+    Pagination,
+    SearchBar,
+    SimpleSelect,
+    Table,
+    Text,
+    Tooltip,
+} from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
+import { SelectOption } from '@src/alchemy-components/components/Select/types';
 
 import { AccessTokenType, DataHubRole, ServiceAccount } from '@types';
 
@@ -28,6 +40,11 @@ const TableContainer = styled.div`
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+
+    table {
+        table-layout: fixed;
+        width: 100%;
+    }
 `;
 
 const FiltersHeader = styled.div`
@@ -60,12 +77,15 @@ const ServiceAccountInfo = styled.div`
     display: flex;
     align-items: center;
     gap: 16px;
+    overflow: hidden;
 `;
 
 const ServiceAccountDetails = styled.div`
     display: flex;
     flex-direction: column;
     color: ${(props) => props.theme.colors.textSecondary};
+    overflow: hidden;
+    min-width: 0;
 `;
 
 const ActionsButtonStyle = {
@@ -74,7 +94,15 @@ const ActionsButtonStyle = {
     boxShadow: 'none',
 };
 
-const EmptyStateContainer = styled.div`
+const EllipsisText = styled(Text)`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    display: block;
+`;
+
+export const EmptyStateContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -95,9 +123,11 @@ const ServiceAccountNameCell = ({ serviceAccount }: ServiceAccountNameCellProps)
         <ServiceAccountInfo>
             <Avatar size="xl" name={displayName} />
             <ServiceAccountDetails>
-                <Text size="md" weight="semiBold" lineHeight="xs">
-                    {displayName}
-                </Text>
+                <Tooltip title={displayName} showArrow={false}>
+                    <EllipsisText size="md" weight="semiBold" lineHeight="xs">
+                        {displayName}
+                    </EllipsisText>
+                </Tooltip>
             </ServiceAccountDetails>
         </ServiceAccountInfo>
     );
@@ -107,11 +137,21 @@ type ServiceAccountDescriptionCellProps = {
     serviceAccount: ServiceAccount;
 };
 
-const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+    if (!serviceAccount.description) {
+        return (
+            <Text color="gray" size="md">
+                -
+            </Text>
+        );
+    }
+
     return (
-        <Text color="gray" size="md">
-            {serviceAccount.description || '-'}
-        </Text>
+        <Tooltip title={serviceAccount.description} showArrow={false}>
+            <EllipsisText color="gray" size="md">
+                {serviceAccount.description}
+            </EllipsisText>
+        </Tooltip>
     );
 };
 
@@ -128,7 +168,7 @@ const ServiceAccountRoleCell = ({
     optimisticRoleUrn,
     onRoleChange,
 }: ServiceAccountRoleCellProps) => {
-    // Extract current role from relationships (server data)
+    // TODO: Remove cast once GraphQL codegen includes roles on ServiceAccount
     const castedServiceAccount = serviceAccount as any;
     const roleRelationships = castedServiceAccount?.roles?.relationships;
     const serverRole =
@@ -151,6 +191,49 @@ const ServiceAccountRoleCell = ({
             size="md"
             width="fit-content"
         />
+    );
+};
+
+const DEFAULT_VIEW_TOOLTIP =
+    'Set a default view for the service account. If a view is selected, the account will focus on ' +
+    'browsing assets within the view when accessing DataHub using an AI agent (MCP server). ' +
+    'Only public (global) views are supported.';
+
+type ServiceAccountDefaultViewCellProps = {
+    serviceAccount: ServiceAccount;
+    viewOptions: SelectOption[];
+    onDefaultViewChange: (serviceAccountUrn: string, viewUrn: string | null) => void;
+};
+
+export const ServiceAccountDefaultViewCell = ({
+    serviceAccount,
+    viewOptions,
+    onDefaultViewChange,
+}: ServiceAccountDefaultViewCellProps) => {
+    const currentViewUrn = serviceAccount.defaultView?.urn;
+    const resolvedValue = viewOptions.some((o) => o.value === currentViewUrn) ? currentViewUrn : undefined;
+
+    return (
+        <Tooltip title={DEFAULT_VIEW_TOOLTIP} showArrow={false}>
+            <div>
+                <SimpleSelect
+                    options={viewOptions}
+                    values={resolvedValue ? [resolvedValue] : []}
+                    placeholder="No view"
+                    onUpdate={(values) => {
+                        const nextView = values[0] ?? null;
+                        if (nextView !== currentViewUrn) {
+                            onDefaultViewChange(serviceAccount.urn, nextView);
+                        }
+                    }}
+                    onClear={() => onDefaultViewChange(serviceAccount.urn, null)}
+                    size="md"
+                    width="fit-content"
+                    showClear={!!resolvedValue}
+                    showSearch
+                />
+            </div>
+        </Tooltip>
     );
 };
 
@@ -270,6 +353,7 @@ type ServiceAccountTableProps = {
     serviceAccounts: ServiceAccount[];
     selectRoleOptions: DataHubRole[];
     optimisticRoles: Record<string, string>;
+    viewOptions: SelectOption[];
     loading: boolean;
     page: number;
     pageSize: number;
@@ -277,6 +361,8 @@ type ServiceAccountTableProps = {
     onChangePage: (page: number) => void;
     onDelete: (urn: string) => void;
     onRoleChange?: (serviceAccountUrn: string, newRoleUrn: string, originalRoleUrn: string) => void;
+    onDefaultViewChange: (serviceAccountUrn: string, viewUrn: string | null) => void;
+    refetch?: () => void;
 };
 
 export const ServiceAccountTable = ({
@@ -286,6 +372,7 @@ export const ServiceAccountTable = ({
     serviceAccounts,
     selectRoleOptions,
     optimisticRoles,
+    viewOptions,
     loading,
     page,
     pageSize,
@@ -293,20 +380,22 @@ export const ServiceAccountTable = ({
     onChangePage,
     onDelete,
     onRoleChange,
+    onDefaultViewChange,
+    refetch: _refetch,
 }: ServiceAccountTableProps) => {
     const columns = [
         {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            minWidth: '30%',
+            width: '25%',
             render: (serviceAccount: ServiceAccount) => <ServiceAccountNameCell serviceAccount={serviceAccount} />,
         },
         {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
-            minWidth: '35%',
+            width: '30%',
             render: (serviceAccount: ServiceAccount) => (
                 <ServiceAccountDescriptionCell serviceAccount={serviceAccount} />
             ),
@@ -314,7 +403,7 @@ export const ServiceAccountTable = ({
         {
             title: 'Role',
             key: 'role',
-            minWidth: '15%',
+            width: '15%',
             render: (serviceAccount: ServiceAccount) => (
                 <ServiceAccountRoleCell
                     serviceAccount={serviceAccount}
@@ -325,9 +414,25 @@ export const ServiceAccountTable = ({
             ),
         },
         {
+            title: (
+                <Tooltip title={DEFAULT_VIEW_TOOLTIP} showArrow={false}>
+                    <span>Default View</span>
+                </Tooltip>
+            ),
+            key: 'defaultView',
+            width: '20%',
+            render: (serviceAccount: ServiceAccount) => (
+                <ServiceAccountDefaultViewCell
+                    serviceAccount={serviceAccount}
+                    viewOptions={viewOptions}
+                    onDefaultViewChange={onDefaultViewChange}
+                />
+            ),
+        },
+        {
             title: '',
             key: 'actions',
-            minWidth: '5%',
+            width: '10%',
             render: (serviceAccount: ServiceAccount) => (
                 <ActionsContainer>
                     <ServiceAccountActionsMenu serviceAccount={serviceAccount} onDelete={onDelete} />

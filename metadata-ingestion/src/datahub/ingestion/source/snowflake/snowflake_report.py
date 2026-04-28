@@ -106,6 +106,9 @@ class SnowflakeV2Report(
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0
     semantic_views_scanned: int = 0
+    stages_scanned: int = 0
+    tasks_scanned: int = 0
+    pipes_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False

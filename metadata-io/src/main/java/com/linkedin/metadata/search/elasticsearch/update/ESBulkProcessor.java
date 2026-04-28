@@ -94,17 +94,6 @@ public class ESBulkProcessor implements Closeable {
     this.metricUtils = metricUtils;
   }
 
-  public ESBulkProcessor add(DocWriteRequest<?> request) {
-    if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
-    searchClient.addBulk(request);
-    log.debug(
-        "Added request id: {}, operation type: {}, index: {}",
-        request.id(),
-        request.opType(),
-        request.index());
-    return this;
-  }
-
   /**
    * Add a request with URN-based routing for entity document consistency. This method routes all
    * operations for the same URN to the same BulkProcessor to ensure consistent ordering and avoid
