@@ -6,16 +6,26 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import (
     DatasetUpstream,
+    Element,
     File,
     SheetUpstream,
     SigmaDataModel,
+    SigmaDataModelElement,
+    SigmaDataset,
+    Workbook,
+    Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+)
 
 
 def _create_sigma_api() -> SigmaAPI:
@@ -1120,8 +1130,6 @@ class TestPaginatedEntriesDedup:
         path did).
         """
 
-        from datahub.ingestion.source.sigma.data_classes import Workspace
-
         api = _create_sigma_api()
         dm_payload = {
             "dataModelId": "dm-uuid-1",
@@ -1190,7 +1198,6 @@ def _create_sigma_source(
     constructor normally issues a token-exchange request; we patch that
     out so tests don't need network access.
     """
-    from datahub.ingestion.api.common import PipelineContext
 
     config_kwargs: Dict[str, Any] = {
         "client_id": "test_client_id",
@@ -1240,7 +1247,6 @@ class TestSchemaMetadataEmission:
         the real ``/columns`` JSON payload), not pre-parsed column
         instances.
         """
-        from datahub.ingestion.source.sigma.data_classes import SigmaDataModelElement
 
         return SigmaDataModelElement.model_validate(
             {"elementId": "elem1", "name": "Elem 1", "columns": columns}
@@ -1360,7 +1366,6 @@ class TestDataModelPatternWarning:
         check we use now is cache-state-independent; this test pins
         that invariant.
         """
-        from datahub.ingestion.api.common import PipelineContext
 
         config = SigmaSourceConfig.model_validate(
             {
@@ -1489,8 +1494,6 @@ class TestEagerDatasetUrnMapPopulation:
     """
 
     def test_map_populated_before_any_workunit_is_yielded(self) -> None:
-        from datahub.ingestion.source.sigma.data_classes import SigmaDataset
-
         source = _create_sigma_source()
 
         ds_a = SigmaDataset(
@@ -1572,9 +1575,6 @@ class TestChartInputsInsertionOrder:
     """
 
     def test_chart_inputs_preserve_insertion_order(self) -> None:
-        from datahub.ingestion.source.sigma.data_classes import Element, Workbook
-        from datahub.metadata.schema_classes import ChartInfoClass
-
         source = _create_sigma_source()
 
         # Insertion order is Z -> A, the inverse of lex order. A
@@ -1655,10 +1655,6 @@ class TestDataModelElementOwner:
     """
 
     def _make_dm_with_one_element(self) -> SigmaDataModel:
-        from datahub.ingestion.source.sigma.data_classes import (
-            SigmaDataModelElement,
-        )
-
         dm = SigmaDataModel(
             dataModelId="dm-owner-test",
             name="DM with owner",
@@ -1684,8 +1680,6 @@ class TestDataModelElementOwner:
     def test_owner_emitted_when_createdBy_resolves_and_ingest_owner_true(
         self,
     ) -> None:
-        from datahub.metadata.schema_classes import OwnershipClass
-
         source = _create_sigma_source(ingest_data_models=True)
         dm = self._make_dm_with_one_element()
         elementId_to_dataset_urn = {
@@ -1718,8 +1712,6 @@ class TestDataModelElementOwner:
         )
 
     def test_no_owner_when_ingest_owner_false(self) -> None:
-        from datahub.metadata.schema_classes import OwnershipClass
-
         source = _create_sigma_source(ingest_data_models=True, ingest_owner=False)
         dm = self._make_dm_with_one_element()
         elementId_to_dataset_urn = {
@@ -1747,8 +1739,6 @@ class TestDataModelElementOwner:
         )
 
     def test_no_owner_when_createdBy_unresolved(self) -> None:
-        from datahub.metadata.schema_classes import OwnershipClass
-
         source = _create_sigma_source(ingest_data_models=True)
         dm = self._make_dm_with_one_element()
         elementId_to_dataset_urn = {
@@ -2019,8 +2009,6 @@ class TestDataModelContainerUrnPlatformInstanceDisjoint:
     """
 
     def _source(self, platform_instance: Optional[str]) -> SigmaSource:
-        from datahub.ingestion.api.common import PipelineContext
-
         cfg = SigmaSourceConfig(
             client_id="c",
             client_secret="s",
