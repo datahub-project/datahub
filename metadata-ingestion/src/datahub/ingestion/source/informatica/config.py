@@ -172,16 +172,20 @@ class InformaticaSourceConfig(
     mapping_task_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
-            "Regex patterns to filter Mapping Tasks by name. "
-            "Applied globally across all matched projects/folders."
+            "Regex patterns to filter Mapping Tasks. "
+            "Matched against '<folder_path>/<name>' so same-named tasks in "
+            "different folders can be targeted independently "
+            "(e.g. allow: ['.*/ProjectA/MyTask'])."
         ),
     )
 
     taskflow_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
-            "Regex patterns to filter taskflows by name. "
-            "Applied globally across all matched projects/folders."
+            "Regex patterns to filter Taskflows. "
+            "Matched against '<folder_path>/<name>' so same-named taskflows in "
+            "different folders can be targeted independently "
+            "(e.g. allow: ['.*/ProjectA/MyFlow'])."
         ),
     )
 

@@ -569,7 +569,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                     f"name={tf.name!r} path={tf.path}",
                 )
                 continue
-            if not self.config.taskflow_pattern.allowed(tf.name):
+            if not self.config.taskflow_pattern.allowed(
+                f"{tf.path}/{tf.name}" if tf.path else tf.name
+            ):
                 self.report.taskflows_filtered += 1
                 self.report.report_filtered(
                     "pattern",
@@ -845,7 +847,9 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
                         f"name={mt.name!r} path={mt.path}",
                     )
                     continue
-                if not self.config.mapping_task_pattern.allowed(mt.name):
+                if not self.config.mapping_task_pattern.allowed(
+                    f"{mt.path}/{mt.name}" if mt.path else mt.name
+                ):
                     self.report.mapping_tasks_filtered += 1
                     self.report.report_filtered(
                         "pattern",
@@ -896,7 +900,10 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             )
         flow = DataFlow(
             platform=PLATFORM,
-            name=_safe_flow_id(mt.v2_id, fallback=mt.name),
+            name=_safe_flow_id(
+                mt.v2_id,
+                fallback=f"{mt.path}/{mt.name}" if mt.path else mt.name,
+            ),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=mt.name,
