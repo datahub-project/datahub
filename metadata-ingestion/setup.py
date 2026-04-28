@@ -580,7 +580,8 @@ plugins: Dict[str, Set[str]] = {
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "requests>=2.28.0,<3.0",
-    },
+    }
+    | sqlglot_lib,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
