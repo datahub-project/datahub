@@ -5,7 +5,6 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.errors import ItemNotFoundError
-
 from datahub_agent_context.context import get_datahub_client
 from datahub_agent_context.utils import create_context_wrapper
 

@@ -5,7 +5,6 @@ import functools
 from typing import TYPE_CHECKING, Callable
 
 from datahub.errors import ItemNotFoundError
-
 from datahub_agent_context.context import reset_client, set_client
 
 if TYPE_CHECKING:

@@ -5,7 +5,6 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.errors import ItemNotFoundError
-
 from datahub_agent_context.context import DataHubContext
 from datahub_agent_context.mcp_tools.lineage import (
     AssetLineageAPI,
