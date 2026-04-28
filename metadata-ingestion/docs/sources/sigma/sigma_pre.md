@@ -97,7 +97,7 @@ This source extracts the following:
     is a naming collision on the Sigma side: renaming one of the
     duplicates in Sigma will let the resolver match precisely and
     clear the counter. This is distinct from the rename case above:
-    here the name *is* found but is not unique, whereas the rename case
+    here the name _is_ found but is not unique, whereas the rename case
     produces a name-miss (`data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known`).
 
 ### Prerequisites
