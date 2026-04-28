@@ -13,6 +13,9 @@ NUM_TABLES = 10
 NUM_VIEWS = 2
 NUM_STREAMS = 1
 NUM_STREAMLIT_APPS = 2
+NUM_STAGES = 2
+NUM_TASKS = 3
+NUM_PIPES = 1
 NUM_COLS = 10
 NUM_OPS = 10
 NUM_USAGE = 0
@@ -808,6 +811,109 @@ def default_query_results(  # noqa: C901
         ]
     elif query == SnowflakeQuery.get_dynamic_table_graph_history("TEST_DB"):
         # Return empty result for dynamic table graph history in test environment
+        return []
+    elif query == SnowflakeQuery.show_stages_for_schema("TEST_SCHEMA", "TEST_DB"):
+        return [
+            {
+                "name": "INT_STAGE",
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "owner": "ACCOUNTADMIN",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "comment": "Internal stage for ETL loading",
+                "type": "INTERNAL",
+                "url": "",
+                "cloud": "",
+                "region": "",
+                "storage_integration": "",
+                "owner_role_type": "ROLE",
+            },
+            {
+                "name": "EXT_S3_STAGE",
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "owner": "ACCOUNTADMIN",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "comment": "External S3 stage",
+                "type": "EXTERNAL",
+                "url": "s3://my-bucket/data/",
+                "cloud": "aws",
+                "region": "us-east-1",
+                "storage_integration": "S3_INT",
+                "owner_role_type": "ROLE",
+            },
+        ]
+    elif query == SnowflakeQuery.show_stages_for_schema("TEST2_SCHEMA", "TEST_DB"):
+        return []
+    elif query == SnowflakeQuery.show_tasks_for_schema("TEST_SCHEMA", "TEST_DB"):
+        return [
+            {
+                "name": "ROOT_TASK",
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "owner": "ACCOUNTADMIN",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "comment": "Root task that loads raw data",
+                "warehouse": "COMPUTE_WH",
+                "schedule": "USING CRON 0 * * * * UTC",
+                "predecessors": "[]",
+                "state": "STARTED",
+                "definition": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_1 SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2",
+                "condition": "",
+                "allow_overlapping_execution": "false",
+                "owner_role_type": "ROLE",
+            },
+            {
+                "name": "CHILD_TASK_1",
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "owner": "ACCOUNTADMIN",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "comment": "Child task dependent on ROOT_TASK",
+                "warehouse": "COMPUTE_WH",
+                "schedule": "",
+                "predecessors": '["ROOT_TASK"]',
+                "state": "STARTED",
+                "definition": "CALL TEST_DB.TEST_SCHEMA.MY_PROCEDURE('arg1')",
+                "condition": "",
+                "allow_overlapping_execution": "false",
+                "owner_role_type": "ROLE",
+            },
+            {
+                "name": "CHILD_TASK_2",
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "owner": "ACCOUNTADMIN",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "comment": "Child task dependent on ROOT_TASK",
+                "warehouse": "COMPUTE_WH",
+                "schedule": "",
+                "predecessors": '["ROOT_TASK"]',
+                "state": "SUSPENDED",
+                "definition": "INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_3 SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_1",
+                "condition": "SYSTEM$STREAM_HAS_DATA('STREAM_1')",
+                "allow_overlapping_execution": "false",
+                "owner_role_type": "ROLE",
+            },
+        ]
+    elif query == SnowflakeQuery.show_tasks_for_schema("TEST2_SCHEMA", "TEST_DB"):
+        return []
+    elif query == SnowflakeQuery.show_pipes_for_schema("TEST_SCHEMA", "TEST_DB"):
+        return [
+            {
+                "name": "LOAD_PIPE",
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "owner": "ACCOUNTADMIN",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "comment": "Auto-ingest pipe from S3",
+                "definition": "COPY INTO TEST_DB.TEST_SCHEMA.TABLE_1 FROM @TEST_DB.TEST_SCHEMA.EXT_S3_STAGE/data/",
+                "auto_ingest": "true",
+                "notification_channel": "arn:aws:sqs:us-east-1:123456789:sf-snowpipe",
+                "owner_role_type": "ROLE",
+            },
+        ]
+    elif query == SnowflakeQuery.show_pipes_for_schema("TEST2_SCHEMA", "TEST_DB"):
         return []
     elif query == SnowflakeQuery.show_dynamic_tables_for_database("TEST_DB"):
         # Return dynamic table definitions for TABLE_2 which should be a dynamic table

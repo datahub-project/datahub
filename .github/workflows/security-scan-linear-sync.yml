@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       docker_tag:
-        description: "Image tag in the container registry to pull/scan. Default is `head` (DataHub’s published branch image tag; see `MAIN_BRANCH_TAG` in docker helpers)."
+        description: "Container image tag to pull and scan. Default is `head`."
         required: false
         type: string
         default: head
@@ -20,7 +20,7 @@ on:
           - javaImages
           - actionsImages
       variant_scope:
-        description: "Variant scope for registry image refs. `primary` = base tag only, `all` = all suffixes per `registry.repos` entry, else suffixes come from `registry.variant_scope_suffixes` in the profile (or default `-<variant_scope>`). Only registry pulls; no local Gradle build."
+        description: "Tag variants to scan: base only (`primary`), all profile suffixes (`all`), or `slim` / `locked`."
         required: true
         type: choice
         default: all
@@ -38,12 +38,12 @@ on:
           - CRITICAL,HIGH
           - CRITICAL,HIGH,MEDIUM
       scan_with_trivy:
-        description: "Run Trivy in parallel across image repositories from the profile (one workflow job per repo; tag variants of the same repo share that runner). Feed JSON into Linear sync (merged with Grype by CVE per image)."
+        description: "Run Trivy"
         required: true
         type: boolean
         default: true
       scan_with_grype:
-        description: "Run Grype in parallel across image repositories from the profile (one workflow job per repo; tag variants share that runner). Feed JSON into Linear sync (merged with Trivy by CVE per image)."
+        description: "Run Grype"
         required: true
         type: boolean
         default: true
@@ -454,7 +454,7 @@ jobs:
           REPO_GROUP: ${{ matrix.group }}
         run: |
           set -euo pipefail
-          mkdir -p scan-reports/trivy scan-reports-raw/trivy
+          mkdir -p scan-reports/trivy
           PTR_PREFIX="${TRIVY_ECR_PTR_PREFIX:-public-ecr-aws}"
           GHCR_PT="${TRIVY_GHCR_ECR_PTR_PREFIX:-ghcr}"
           PUB_DB="public.ecr.aws/aquasecurity/trivy-db:2"
@@ -497,18 +497,16 @@ jobs:
               --skip-db-update \
               --skip-java-db-update \
               --format json \
-              --output "scan-reports-raw/trivy/trivy-tmp.json" \
+              --output "scan-reports/trivy/trivy-tmp.json" \
               "${img}"; then
               fail_count=$((fail_count + 1))
               continue
             fi
             img_key="$(echo "${img}" | sed -E 's#[^A-Za-z0-9._-]+#_#g')"
-            out_raw="scan-reports-raw/trivy/trivy-${img_key}.json"
             out="scan-reports/trivy/trivy-${img_key}.json"
-            cp "scan-reports-raw/trivy/trivy-tmp.json" "${out_raw}"
-            cp "${out_raw}" "${out}"
+            cp "scan-reports/trivy/trivy-tmp.json" "${out}"
           done
-          rm -f scan-reports-raw/trivy/trivy-tmp.json
+          rm -f scan-reports/trivy/trivy-tmp.json
           ls -la scan-reports/trivy/
           if [[ "${fail_count}" -gt 0 ]]; then
             echo "::error::Trivy failed for ${fail_count} image(s) in group ${REPO_GROUP}"
@@ -521,15 +519,6 @@ jobs:
         with:
           name: security-scan-trivy--${{ steps.trivy-art.outputs.slug }}
           path: scan-reports/trivy
-          if-no-files-found: warn
-          retention-days: ${{ inputs.scan_artifact_retention_days }}
-
-      - name: Upload Trivy raw reports by image
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: security-scan-trivy-raw--${{ steps.trivy-art.outputs.slug }}
-          path: scan-reports-raw/trivy
           if-no-files-found: warn
           retention-days: ${{ inputs.scan_artifact_retention_days }}
 
@@ -551,9 +540,9 @@ jobs:
 
       - name: Install Grype
         id: grype-install
-        uses: anchore/scan-action/download-grype@v7.4.0
+        uses: anchore/scan-action/download-grype@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2
         with:
-          grype-version: ${{ vars.GRYPE_CLI_VERSION || 'v0.86.1' }}
+          grype-version: ${{ vars.GRYPE_CLI_VERSION || 'v0.111.1' }}
 
       - name: Artifact name slug
         id: grype-art
@@ -609,21 +598,20 @@ jobs:
             exit 1
           fi
 
+      - name: Package Grype merged + raw (single artifact)
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p grype-artifact/scan-reports grype-artifact/scan-reports-raw
+          if [[ -d scan-reports/grype ]]; then cp -a scan-reports/grype grype-artifact/scan-reports/; fi
+          if [[ -d scan-reports-raw/grype ]]; then cp -a scan-reports-raw/grype grype-artifact/scan-reports-raw/; fi
+
       - name: Upload Grype reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: security-scan-grype--${{ steps.grype-art.outputs.slug }}
-          path: scan-reports/grype
-          if-no-files-found: warn
-          retention-days: ${{ inputs.scan_artifact_retention_days }}
-
-      - name: Upload Grype raw reports by image
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: security-scan-grype-raw--${{ steps.grype-art.outputs.slug }}
-          path: scan-reports-raw/grype
+          path: grype-artifact
           if-no-files-found: warn
           retention-days: ${{ inputs.scan_artifact_retention_days }}
 
@@ -659,7 +647,7 @@ jobs:
       - name: Ensure report directories
         run: |
           set -euo pipefail
-          mkdir -p scan-reports/trivy scan-reports/grype scan-reports-raw/trivy scan-reports-raw/grype
+          mkdir -p scan-reports/trivy scan-reports/grype scan-reports-raw/grype
 
       - name: Download Trivy report artifacts (per-image matrix)
         if: inputs.scan_with_trivy
@@ -669,29 +657,13 @@ jobs:
           merge-multiple: true
           path: scan-reports/trivy
 
-      - name: Download Grype report artifacts (per-image matrix)
+      - name: Download Grype report artifacts (merged + raw, per matrix)
         if: inputs.scan_with_grype
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: security-scan-grype--*
           merge-multiple: true
-          path: scan-reports/grype
-
-      - name: Download Trivy raw report artifacts (per-image matrix)
-        if: inputs.scan_with_trivy
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: security-scan-trivy-raw--*
-          merge-multiple: true
-          path: scan-reports-raw/trivy
-
-      - name: Download Grype raw report artifacts (per-image matrix)
-        if: inputs.scan_with_grype
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          pattern: security-scan-grype-raw--*
-          merge-multiple: true
-          path: scan-reports-raw/grype
+          path: .
 
       - name: Sync to Linear
         env:
@@ -733,7 +705,7 @@ jobs:
           fi
           raw_files=()
           if [[ "${SCAN_WITH_TRIVY}" == "true" ]]; then
-            for f in scan-reports-raw/trivy/*.json; do
+            for f in scan-reports/trivy/*.json; do
               [[ -f "${f}" ]] && raw_files+=("${f}")
             done
           fi
@@ -742,12 +714,17 @@ jobs:
               [[ -f "${f}" ]] && raw_files+=("${f}")
             done
           fi
-          [[ ${#files[@]} -gt 0 ]] || { echo "::error::No scan JSON reports (check enabled scanners and image list)"; exit 1; }
-          cmd=(python3 .github/scripts/security_scan_linear_sync.py --scanner trivy_grype)
-          if [[ ${#raw_files[@]} -gt 0 ]]; then
-            cmd+=(--raw-report-paths "${raw_files[@]}")
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "::notice::No merged scan report JSONs (e.g. all matrix scanner jobs failed or produced no files). Skipping Linear sync."
+            exit 0
           fi
+          cmd=(python3 .github/scripts/security_scan_linear_sync.py --scanner trivy_grype)
           cmd+=("${files[@]}")
+          if [[ ${#raw_files[@]} -gt 0 ]]; then
+            for f in "${raw_files[@]}"; do
+              cmd+=(--raw-report-paths "$f")
+            done
+          fi
           "${cmd[@]}"
 
       - name: Fail on scanner errors

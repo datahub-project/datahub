@@ -58,6 +58,31 @@ extend type Mutation {
   Deletes a service account by URN.
   """
   deleteServiceAccount(urn: String!): Boolean!
+
+  """
+  Sets or clears the default view for a service account.
+  Requires the MANAGE_SERVICE_ACCOUNTS platform privilege.
+  Pass null for defaultView to clear the current default.
+  """
+  updateServiceAccountDefaultView(
+    input: UpdateServiceAccountDefaultViewInput!
+  ): Boolean!
+}
+
+"""
+Input required to update a service account's default view.
+"""
+input UpdateServiceAccountDefaultViewInput {
+  """
+  The URN of the service account to update.
+  """
+  urn: String!
+
+  """
+  The URN of the DataHub View to set as the default.
+  If null, the current default view will be removed.
+  """
+  defaultView: String
 }
 
 """
@@ -489,6 +514,12 @@ type ServiceAccount implements Entity {
   The time when the service account was last updated.
   """
   updatedAt: Long
+
+  """
+  The default DataHub View applied when this service account performs searches
+  via the MCP server. Null when no default is configured.
+  """
+  defaultView: DataHubView
 
   """
   Granular API for querying edges extending from this entity

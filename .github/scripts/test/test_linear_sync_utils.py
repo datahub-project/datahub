@@ -23,10 +23,12 @@ def test_dedupe_preserve_order():
 def test_linear_priority_and_due_date_mappings():
     assert utils.linear_priority_for_scan_severity("CRITICAL") == 1
     assert utils.linear_priority_for_scan_severity("HIGH") == 2
-    assert utils.linear_priority_for_scan_severity("MEDIUM") is None
+    assert utils.linear_priority_for_scan_severity("MEDIUM") == 3
+    assert utils.linear_priority_for_scan_severity("LOW") == 4
     assert utils.linear_due_date_for_scan_severity("CRITICAL") is not None
     assert utils.linear_due_date_for_scan_severity("HIGH") is not None
-    assert utils.linear_due_date_for_scan_severity("MEDIUM") is None
+    assert utils.linear_due_date_for_scan_severity("MEDIUM") is not None
+    assert utils.linear_due_date_for_scan_severity("LOW") is not None
 
 
 def test_unique_repo_basenames_from_occurrences():
@@ -136,8 +138,14 @@ def test_attach_file_to_issue_uploads_then_attaches(monkeypatch, tmp_path: Path)
     )
     calls: dict[str, object] = {}
 
-    def fake_upload(upload_url: str, upload_headers: dict[str, str], payload: bytes):
-        calls["upload"] = (upload_url, upload_headers, payload)
+    def fake_upload(
+        upload_url: str,
+        upload_headers: dict[str, str] | None,
+        payload: bytes,
+        *,
+        content_type: str,
+    ) -> None:
+        calls["upload"] = (upload_url, upload_headers, payload, content_type)
 
     monkeypatch.setattr(utils, "upload_file_to_signed_url", fake_upload)
     monkeypatch.setattr(
@@ -151,3 +159,39 @@ def test_attach_file_to_issue_uploads_then_attaches(monkeypatch, tmp_path: Path)
     assert calls["upload"][0] == "https://upload.example"
     assert calls["upload"][1] == {"x-a": "1"}
     assert calls["upload"][2] == b'{"ok":true}'
+    assert calls["upload"][3] == "application/json"
+
+
+def test_merge_gcs_put_headers_adds_content_type_when_absent():
+    m = utils._merge_gcs_put_headers({}, "application/json")
+    assert m == {"Content-Type": "application/json"}
+
+
+def test_merge_gcs_put_headers_preserves_linear_headers():
+    m = utils._merge_gcs_put_headers(
+        {"Content-Type": "application/json", "X-Test": "1"},
+        "text/plain",
+    )
+    assert m["Content-Type"] == "application/json"
+    assert m["X-Test"] == "1"
+
+
+def test_upload_file_merges_content_type_for_gcs_put(monkeypatch):
+    got: dict[str, object] = {}
+
+    def fake_put(
+        url: str,
+        headers: dict[str, str] | None = None,
+        data: object = None,
+        timeout: int = 0,
+    ) -> object:
+        got["headers"] = dict(headers or {})
+        got["data"] = data
+        return type("R", (), {"ok": True, "status_code": 200, "text": ""})()
+
+    monkeypatch.setattr(utils.requests, "put", fake_put)
+    utils.upload_file_to_signed_url(
+        "https://example.com/put", {}, b"ab", content_type="application/json"
+    )
+    assert got["headers"]["Content-Type"] == "application/json"
+    assert got["data"] == b"ab"

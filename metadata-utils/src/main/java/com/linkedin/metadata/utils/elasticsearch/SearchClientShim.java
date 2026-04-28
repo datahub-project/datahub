@@ -335,8 +335,6 @@ public interface SearchClientShim<T> extends Closeable {
       int numRetries,
       int threadCount);
 
-  void addBulk(DocWriteRequest<?> writeRequest);
-
   void addBulk(String urn, DocWriteRequest<?> writeRequest);
 
   void flushBulkProcessor();

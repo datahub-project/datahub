@@ -387,7 +387,10 @@ INTERNAL_VULN_KEYS: frozenset[str] = frozenset(
     {"_datahub_scanners", "_datahub_scanner_source"}
 )
 
-REFS_HTML_MARKER = "<!-- datahub-security-scan-refs -->"
+# Legacy comments may use HTML markers; Linear shows `<!--` as raw text, so new bodies use Markdown only.
+REFS_HTML_COMMENT_PREFIX = "<!-- datahub-security-scan-refs"
+# Standard Markdown line that most renderers omit (no raw `<!--` in Linear).
+REFS_MD_ANCHOR = "[//]: # (datahub-security-scan-refs)"
 REFS_SECTION_HEADER = "### Git branch/tag scan history"
 REFS_SECTION_INTRO = (
     "CI records each **branch** or **tag** where this finding was reported (UTC timestamps). "
@@ -690,10 +693,12 @@ def format_ref_line(
 
 
 def format_refs_comment_body(keys: dict[str, str]) -> str:
-    lines = [REFS_HTML_MARKER, REFS_SECTION_HEADER, "", REFS_SECTION_INTRO, ""]
+    """Plain Markdown ref history (no HTML block comments; Linear displays those as visible text)."""
     def _sort_key(item: str) -> tuple[str, str]:
         kind, name = item.split(":", 1)
         return (kind, name.lower())
+
+    lines = [REFS_MD_ANCHOR, "", REFS_SECTION_HEADER, "", REFS_SECTION_INTRO, ""]
     for key in sorted(keys.keys(), key=_sort_key):
         lines.append(keys[key])
     return "\n".join(lines).rstrip() + "\n"
@@ -719,11 +724,15 @@ def merge_refs_comment(
 
 
 def comment_has_refs_anchor(body: str) -> bool:
-    if REFS_HTML_MARKER in body:
+    if LEGACY_REFS_MARKER in body:
         return True
-    if LEGACY_REFS_MARKER in body or REFS_SECTION_HEADER in body:
+    if any(h in body for h in LEGACY_REFS_HEADERS):
         return True
-    return any(h in body for h in LEGACY_REFS_HEADERS)
+    if REFS_HTML_COMMENT_PREFIX in body:
+        return True
+    if REFS_MD_ANCHOR in body:
+        return True
+    return REFS_SECTION_HEADER in body
 
 
 def undirected_pair_key(a: str, b: str) -> tuple[str, str]:
