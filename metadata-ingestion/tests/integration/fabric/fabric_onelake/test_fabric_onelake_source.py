@@ -190,7 +190,6 @@ def test_fabric_onelake_lakehouse_with_views(pytestconfig: pytest.Config) -> Non
         view_definition=(
             "SELECT customer_id, name FROM dbo.customers WHERE active = 1"
         ),
-        description="Active customers view",
     )
     schema_map = {
         ("dbo", "v_active_customers"): [

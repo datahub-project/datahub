@@ -508,7 +508,7 @@ class SqlAnalyticsEndpointClient:
             )
             if self.report:
                 self.report.failures += 1
-            return []
+            raise
         except Exception as e:
             logger.error(
                 f"Unexpected error discovering views: {e}",
@@ -516,7 +516,7 @@ class SqlAnalyticsEndpointClient:
             )
             if self.report:
                 self.report.failures += 1
-            return []
+            raise
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:
         """Get or create SQLAlchemy engine for a workspace/item combination.

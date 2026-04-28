@@ -581,7 +581,8 @@ plugins: Dict[str, Set[str]] = {
         # upper bound added to pass check-python-deps.yml github workflow
         "requests>=2.28.0,<3.0",
     }
-    | sqlglot_lib,
+    | sqlglot_lib
+    | usage_common,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib

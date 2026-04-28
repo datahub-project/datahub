@@ -350,13 +350,12 @@
         "json": {
             "customProperties": {},
             "name": "v_active_customers",
-            "description": "Active customers view",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705300200000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-sro6ea",
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-4bxxrh",
         "lastRunId": "no-run-id-provided"
     }
 },

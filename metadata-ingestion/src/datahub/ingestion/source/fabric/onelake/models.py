@@ -99,7 +99,6 @@ class FabricView:
     item_id: str
     workspace_id: str
     view_definition: Optional[str] = None
-    description: Optional[str] = None
 
 
 @dataclass

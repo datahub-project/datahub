@@ -318,6 +318,33 @@ class TestSqlAnalyticsEndpointClient:
         assert columns_by_table[("dbo", "table1")][0].data_type == "INT"
         assert columns_by_table[("dbo", "table2")][0].data_type == "VARCHAR"
 
+    @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
+    def test_get_all_views_error_handling(
+        self, mock_create_engine, mock_auth_helper, sql_endpoint_config, mock_report
+    ):
+        """SQL failures must propagate so the caller can emit a structured warning."""
+        mock_engine = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.execute.side_effect = SQLAlchemyError("Connection failed")
+        mock_connection.__enter__ = Mock(return_value=mock_connection)
+        mock_connection.__exit__ = Mock(return_value=False)
+        mock_engine.connect.return_value = mock_connection
+        mock_create_engine.return_value = mock_engine
+
+        mock_report.failures = 0
+
+        client = SqlAnalyticsEndpointClient(
+            auth_helper=mock_auth_helper,
+            config=sql_endpoint_config,
+            report=mock_report,
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
+        )
+
+        with pytest.raises(SQLAlchemyError):
+            client.get_all_views(workspace_id="ws-123", item_id="item-456")
+        assert mock_report.failures > 0
+
     def test_close(self, mock_auth_helper, sql_endpoint_config):
         """Test closing all engine connections."""
         client = SqlAnalyticsEndpointClient(

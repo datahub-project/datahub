@@ -204,6 +204,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         """Return the ingestion report."""
         return self.report
 
+    def close(self) -> None:
+        self.aggregator.close()
+        super().close()
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """Generate workunits for all Fabric OneLake resources."""
         logger.info("Starting Fabric OneLake ingestion")
@@ -489,7 +493,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     schema_key = self._make_schema_key(
                         workspace.id, item_id, item_type, schema_urn_name
                     )
-                    if schema_name not in emitted_schemas:
+                    if schema_urn_name not in emitted_schemas:
                         yield Container(
                             container_key=schema_key,
                             display_name=schema_name,
@@ -499,7 +503,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                                 workspace.id, item_id, schema_urn_name
                             ),
                         )
-                        emitted_schemas.add(schema_name)
+                        emitted_schemas.add(schema_urn_name)
                         self.report.report_schema_scanned()
                     parent_container_key = schema_key
                 else:
@@ -652,11 +656,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             error_msg = str(e)
             logger.warning(
                 f"Failed to extract schema for item {item_id}: {error_msg}. "
-                "Tables will be ingested without column metadata."
+                "Tables will lack column metadata and view extraction will be skipped."
             )
             self.report.report_warning(
                 title="Schema Extraction Failed",
-                message="Failed to extract schema metadata from SQL Analytics Endpoint.",
+                message=(
+                    "Failed to extract schema metadata from SQL Analytics Endpoint. "
+                    "Tables will lack column metadata and view extraction will be skipped."
+                ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
             )
             return None, {}
@@ -741,7 +748,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     schema_key = self._make_schema_key(
                         workspace.id, item_id, item_type, schema_urn_name
                     )
-                    if schema_name not in emitted_schemas:
+                    if schema_urn_name not in emitted_schemas:
                         yield Container(
                             container_key=schema_key,
                             display_name=schema_name,
@@ -751,7 +758,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                                 workspace.id, item_id, schema_urn_name
                             ),
                         )
-                        emitted_schemas.add(schema_name)
+                        emitted_schemas.add(schema_urn_name)
                         self.report.report_schema_scanned()
                     parent_container_key = schema_key
                 else:
@@ -808,7 +815,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             name=view_name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            description=view.description,
             display_name=view.name,
             parent_container=parent_container_key,
             schema=schema_fields,
