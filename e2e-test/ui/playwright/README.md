@@ -126,17 +126,17 @@ import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search-page';
 
 test.describe('Search', () => {
-    let searchPage: SearchPage;
+  let searchPage: SearchPage;
 
-    test.beforeEach(async ({ page, logger, logDir }) => {
-        searchPage = new SearchPage(page, logger, logDir);
-        await searchPage.navigateToHome();
-    });
+  test.beforeEach(async ({ page, logger, logDir }) => {
+    searchPage = new SearchPage(page, logger, logDir);
+    await searchPage.navigateToHome();
+  });
 
-    test('should return results for wildcard query', async () => {
-        await searchPage.searchAndWait('*', 3000);
-        await searchPage.expectHasResults();
-    });
+  test('should return results for wildcard query', async () => {
+    await searchPage.searchAndWait('*', 3000);
+    await searchPage.expectHasResults();
+  });
 });
 ```
 
@@ -146,11 +146,11 @@ test.describe('Search', () => {
 import { test, expect } from '../../fixtures/login-test';
 
 test.describe('Login', () => {
-    test('should reject invalid credentials', async ({ loginPage }) => {
-        await loginPage.navigateToLogin();
-        await loginPage.login('bad', 'creds');
-        await loginPage.expectLoginError();
-    });
+  test('should reject invalid credentials', async ({ loginPage }) => {
+    await loginPage.navigateToLogin();
+    await loginPage.login('bad', 'creds');
+    await loginPage.expectLoginError();
+  });
 });
 ```
 
@@ -162,9 +162,9 @@ Destructure `apiMock` to activate route interception for a test:
 import { test, expect } from '../../fixtures/base-test';
 
 test('renders with feature flag enabled', async ({ page, apiMock }) => {
-    await apiMock.setFeatureFlags({ themeV2Enabled: true });
-    await page.goto('/');
-    // ...
+  await apiMock.setFeatureFlags({ themeV2Enabled: true });
+  await page.goto('/');
+  // ...
 });
 ```
 
@@ -179,7 +179,7 @@ import { users } from '../../fixtures/users';
 test.use({ user: users.reader });
 
 test('reader cannot edit', async ({ page }) => {
-    /* ... */
+  /* ... */
 });
 ```
 
@@ -194,16 +194,16 @@ import { BasePage } from './base-page';
 import { DataHubLogger } from '../utils/logger';
 
 export class FeaturePage extends BasePage {
-    readonly submitButton: Locator;
+  readonly submitButton: Locator;
 
-    constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
-        super(page, logger, logDir);
-        this.submitButton = page.locator('[data-testid="feature-submit"]');
-    }
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
+    super(page, logger, logDir);
+    this.submitButton = page.locator('[data-testid="feature-submit"]');
+  }
 
-    async submit(): Promise<void> {
-        await this.submitButton.click();
-    }
+  async submit(): Promise<void> {
+    await this.submitButton.click();
+  }
 }
 ```
 
@@ -233,9 +233,9 @@ import { test, expect } from '../../fixtures/base-test';
 test.use({ featureName: 'search' });
 
 test.describe('Search', () => {
-    test('results exist', async ({ page }) => {
-        // Data is guaranteed to be present
-    });
+  test('results exist', async ({ page }) => {
+    // Data is guaranteed to be present
+  });
 });
 ```
 
@@ -320,8 +320,8 @@ test entities, use `GlobalCleanupHelper` (setup scripts only):
 import { CleanupHelper } from '../../helpers/cleanup-helper';
 
 test.afterAll(async ({ page }) => {
-    const cleanup = new CleanupHelper(page);
-    await cleanup.deleteEntities(createdUrns);
+  const cleanup = new CleanupHelper(page);
+  await cleanup.deleteEntities(createdUrns);
 });
 ```
 
