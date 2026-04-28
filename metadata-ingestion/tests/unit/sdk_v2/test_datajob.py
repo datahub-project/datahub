@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timezone
 from unittest import mock
 
+import datahub.metadata.schema_classes as models
 import pytest
 
 from datahub.emitter.mcp_builder import ContainerKey
@@ -454,8 +455,6 @@ def test_datajob_lowercase_cluster_normalized_in_aspect() -> None:
 def test_datajob_new_from_graph_preserves_cluster() -> None:
     """_new_from_graph must reconstruct the DataJob (and its embedded DataFlow URN) with
     the exact cluster from the URN — not silently replace it with DEFAULT_ENV."""
-    import datahub.metadata.schema_classes as models
-
     # Simulate an Airflow-created entity: flow URN cluster is lowercase "prod".
     job_urn = DataJobUrn.from_string(
         "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_name,prod),task_name)"

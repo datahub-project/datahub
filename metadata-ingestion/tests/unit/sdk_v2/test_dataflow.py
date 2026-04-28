@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timezone
 from unittest import mock
 
+import datahub.metadata.schema_classes as models
 import pytest
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
@@ -221,8 +222,6 @@ def test_dataflow_new_from_graph_preserves_cluster() -> None:
     """_new_from_graph must reconstruct the entity with the exact URN cluster,
     not silently replace it with DEFAULT_ENV.  This is the core of ING-2363:
     client.entities.get(urn) was returning a DataFlow with a different URN."""
-    import datahub.metadata.schema_classes as models
-
     # Simulate an Airflow-created entity: URN cluster is lowercase "prod".
     urn = DataFlowUrn(orchestrator="airflow", flow_id="dag_name", cluster="prod")
     aspects: models.AspectBag = {
