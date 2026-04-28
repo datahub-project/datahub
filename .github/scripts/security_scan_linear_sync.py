@@ -23,8 +23,9 @@ Feature summary:
 - Labeling behavior:
   - Apply optional static labels from ``LINEAR_LABEL_IDS`` / ``TRIVY_LINEAR_LABEL_IDS``.
   - Apply component labels mapped from image repositories.
-  - Apply a dynamic ref label using ``SCAN_REF_NAME`` (exact branch/tag text), team-scoped in
-    Linear, reusing an existing label when present or creating one with a random color when absent.
+  - Apply a dynamic ref label using ``SCAN_REF_NAME`` (repository default branch name from CI ---
+    not the container image tag), team-scoped in Linear, reusing an existing label when present or
+    creating one with a random color when absent.
 - Refs comment tracking:
   - Maintain a single marker comment per issue with deduped branch/tag history for where the
     finding was observed.
@@ -1149,7 +1150,7 @@ def main() -> int:
     if kind not in ("branch", "tag") or not name:
         print(
             "ERROR: Set SCAN_REF_KIND to branch|tag and SCAN_REF_NAME "
-            "(normalized ref from workflow)",
+            "(e.g. repository default branch from GitHub API in CI)",
             file=sys.stderr,
         )
         return 1

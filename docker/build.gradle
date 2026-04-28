@@ -45,6 +45,21 @@ ext {
             }
         }
 
+        // Play 3 (datahub-frontend): play.http.secret.key must meet HS256 entropy; legacy short
+        // values (e.g. "YouKnowNothing") break startup. Compose ${DATAHUB_SECRET:-...} uses this map
+        // for interpolation, so a short host/env-file secret would override the YAML default.
+        def playSecretMinLength = 32
+        def devPlaySecret =
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        def secret = envVars["DATAHUB_SECRET"]
+        if (secret != null && secret.length() < playSecretMinLength) {
+            logger.lifecycle(
+                "DATAHUB_SECRET is too short for Play 3 (length ${secret.length()} < ${playSecretMinLength}); " +
+                "using a development default for Docker Compose. Unset DATAHUB_SECRET or use e.g. openssl rand -base64 32."
+            )
+            envVars["DATAHUB_SECRET"] = devPlaySecret
+        }
+
         return envVars
     }
 

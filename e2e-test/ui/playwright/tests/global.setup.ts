@@ -9,12 +9,13 @@
  * old test runs don't leave behind orphaned data.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { test as setup, request } from '@playwright/test';
 import { readGmsToken } from '../fixtures/login';
 import { deleteEntities } from '../utils/cleanup';
 import { gmsUrl } from '../utils/constants';
+import { createScriptLogger } from '../utils/logger';
+
+const logger = createScriptLogger('global.setup');
 
 const ADMIN_USERNAME = 'datahub';
 
@@ -26,7 +27,7 @@ const ENTITY_TYPES = ['DATASET', 'TAG', 'GLOSSARY_TERM', 'DOMAIN', 'DATA_PRODUCT
 
 setup('global cleanup', async () => {
   setup.setTimeout(180_000);
-  console.log('\n🧹 Starting global pre-run cleanup...');
+  logger.info('Starting global pre-run cleanup...');
 
   const url = gmsUrl();
   let gmsToken: string;
@@ -34,7 +35,7 @@ setup('global cleanup', async () => {
   try {
     gmsToken = readGmsToken(ADMIN_USERNAME);
   } catch {
-    console.warn('⚠️  GMS token not found — skipping global cleanup');
+    logger.warn('GMS token not found — skipping global cleanup');
     return;
   }
 
@@ -65,20 +66,20 @@ setup('global cleanup', async () => {
         };
         const entities = json.data?.search?.entities ?? [];
         if (entities.length > 0) {
-          console.log(`   Found ${entities.length} ${entityType} entities matching '${prefix}*'`);
+          logger.info(`Found ${entities.length} ${entityType} entities matching '${prefix}*'`);
           urnsToDelete.push(...entities.map((e) => e.urn));
         }
       }
     }
 
     if (urnsToDelete.length === 0) {
-      console.log('✅ No leftover test entities found');
+      logger.info('No leftover test entities found');
       return;
     }
 
-    console.log(`🗑️  Deleting ${urnsToDelete.length} leftover entities...`);
-    await deleteEntities(apiContext, url, urnsToDelete);
-    console.log('✅ Global cleanup complete');
+    logger.info(`Deleting ${urnsToDelete.length} leftover entities...`);
+    await deleteEntities(apiContext, url, urnsToDelete, logger);
+    logger.info('Global cleanup complete');
   } finally {
     await apiContext.dispose();
   }

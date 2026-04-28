@@ -10,10 +10,11 @@ repositories {
     mavenCentral()
 }
 
+def datahubRoot = file('../../../')
+
 dependencies {
     // DataHub dependencies (using file dependencies that work from contrib/)
     // Check if we're building from within DataHub repo
-    def datahubRoot = file('../../../')
     def entityRegistryJar = file("${datahubRoot}/entity-registry/build/libs/entity-registry.jar")
     def liUtilsJar = file("${datahubRoot}/li-utils/build/libs/li-utils.jar")
     def metadataModelsJar = file("${datahubRoot}/metadata-models/build/libs/metadata-models.jar")
@@ -34,7 +35,8 @@ dependencies {
     
     // Core dependencies needed for compilation
     implementation 'org.slf4j:slf4j-api:1.7.36'
-    implementation 'com.google.guava:guava:31.1-jre'
+    // Keep in sync with project.ext.externalDependency['guava'] in root build.gradle
+    implementation 'com.google.guava:guava:33.6.0-jre'
     implementation 'javax.annotation:javax.annotation-api:1.3.2'
     
     // Testing

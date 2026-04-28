@@ -156,7 +156,9 @@ export class BusinessAttributePage extends BasePage {
     `;
 
     const response = await graphqlHelper.executeQuery(query);
-    const data = response?.data as { appConfig?: { featureFlags?: { businessAttributeEntityEnabled?: boolean } } } | undefined;
+    const data = response?.data as
+      | { appConfig?: { featureFlags?: { businessAttributeEntityEnabled?: boolean } } }
+      | undefined;
     const enabled = data?.appConfig?.featureFlags?.businessAttributeEntityEnabled ?? false;
 
     this.logger?.info('businessAttributeEntityEnabled', { enabled });
@@ -176,7 +178,7 @@ export class BusinessAttributePage extends BasePage {
   }
 
   async expectTextNotVisible(text: string): Promise<void> {
-    await expect(this.page.getByText(text).first()).not.toBeVisible();
+    await expect(this.page.getByText(text).first()).toBeHidden();
   }
 
   async expectRelatedEntitiesCount(pattern: RegExp): Promise<void> {
@@ -184,7 +186,18 @@ export class BusinessAttributePage extends BasePage {
   }
 
   async expectNoRelatedEntities(): Promise<void> {
-    await expect(this.page.getByText('of 0')).not.toBeVisible();
+    await expect(this.page.getByText('of 0')).toBeHidden();
+  }
+
+  async expectRelatedEntitiesExist(): Promise<void> {
+    // Elasticsearch indexing can lag behind a GraphQL mutation by several seconds.
+    // Reload the page periodically until the count is non-zero, ensuring the ES
+    // index has caught up before asserting that related entities are present.
+    await expect(async () => {
+      await this.page.reload();
+      await this.page.waitForLoadState('networkidle');
+      await expect(this.page.getByText('of 0')).not.toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 45000, intervals: [3000] });
   }
 
   getBusinessAttributeSection(_fieldName: string): Locator {
@@ -221,7 +234,7 @@ export class BusinessAttributePage extends BasePage {
     await doneBtn.waitFor({ state: 'visible' });
     await expect(doneBtn).toBeEnabled();
     await doneBtn.evaluate((el: HTMLElement) => el.click());
-    await expect(doneBtn).not.toBeVisible();
+    await expect(doneBtn).toBeHidden();
   }
 
   async removeAttributeFromSection(section: Locator, attributeName: string): Promise<void> {
@@ -236,6 +249,10 @@ export class BusinessAttributePage extends BasePage {
     });
     await this.deleteConfirmButton.waitFor({ state: 'visible' });
     await this.deleteConfirmButton.click({ force: true });
-    await expect(section.getByText(attributeName)).not.toBeVisible();
+    // Wait for the GraphQL mutation to complete and the refetch to re-render the section.
+    // The attribute disappears after the network response — networkidle ensures the mutation
+    // has returned before asserting the element is gone.
+    await this.page.waitForLoadState('networkidle');
+    await expect(section.getByText(attributeName)).not.toBeVisible({ timeout: 15000 });
   }
 }
