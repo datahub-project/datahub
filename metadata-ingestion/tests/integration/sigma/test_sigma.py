@@ -3,8 +3,10 @@ from typing import Any, Dict, List, Optional, cast
 
 import pytest
 
+from datahub.emitter.mce_builder import make_container_urn
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sigma.config import SigmaSourceReport
+from datahub.ingestion.source.sigma.data_classes import WorkspaceKey
 from datahub.testing import mce_helpers
 
 
@@ -5614,9 +5616,6 @@ def test_sigma_ingest_data_models_workspaceId_mismatch_uses_files(
     # container URN as its root, not the payload workspace's.
     # Construct both expected container URNs so the assertion fails
     # loudly if rendering regresses onto the payload workspace.
-    from datahub.emitter.mce_builder import make_container_urn
-    from datahub.ingestion.source.sigma.data_classes import WorkspaceKey
-
     files_ws_container_urn = make_container_urn(
         WorkspaceKey(workspaceId=FILES_WS, platform="sigma")
     )
