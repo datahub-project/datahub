@@ -25,18 +25,12 @@ export interface ApiMocker {
    * transform to its JSON body, and return the modified response.
    * Useful for toggling feature flags without a full mock.
    */
-  interceptGraphQLResponse(
-    operationName: string,
-    transform: (json: unknown) => unknown,
-  ): Promise<void>;
+  interceptGraphQLResponse(operationName: string, transform: (json: unknown) => unknown): Promise<void>;
 
   /**
    * Install an arbitrary route handler. Thin wrapper over page.route.
    */
-  mockRoute(
-    urlPattern: string | RegExp,
-    handler: (route: Route) => Promise<void> | void,
-  ): Promise<void>;
+  mockRoute(urlPattern: string | RegExp, handler: (route: Route) => Promise<void> | void): Promise<void>;
 
   /**
    * Override one or more appConfig.featureFlags values for the duration
@@ -66,10 +60,7 @@ export class PageApiMocker implements ApiMocker {
     });
   }
 
-  async interceptGraphQLResponse(
-    operationName: string,
-    transform: (json: unknown) => unknown,
-  ): Promise<void> {
+  async interceptGraphQLResponse(operationName: string, transform: (json: unknown) => unknown): Promise<void> {
     await this.page.route('**/api/v2/graphql', async (route) => {
       const postData = route.request().postDataJSON() as { operationName?: string } | null;
       if (postData?.operationName !== operationName) {
@@ -82,10 +73,7 @@ export class PageApiMocker implements ApiMocker {
     });
   }
 
-  async mockRoute(
-    urlPattern: string | RegExp,
-    handler: (route: Route) => Promise<void> | void,
-  ): Promise<void> {
+  async mockRoute(urlPattern: string | RegExp, handler: (route: Route) => Promise<void> | void): Promise<void> {
     await this.page.route(urlPattern, handler);
   }
 
@@ -98,9 +86,8 @@ export class PageApiMocker implements ApiMocker {
       const json = await response.json();
 
       if (op === 'appConfig') {
-        const featureFlags = (
-          json as { data?: { appConfig?: { featureFlags?: Record<string, boolean> } } }
-        ).data?.appConfig?.featureFlags;
+        const featureFlags = (json as { data?: { appConfig?: { featureFlags?: Record<string, boolean> } } }).data
+          ?.appConfig?.featureFlags;
         if (featureFlags) {
           Object.assign(featureFlags, flags);
         }
