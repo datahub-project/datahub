@@ -564,7 +564,6 @@ def _find_lineage_path(
         )
 
 
-
 def get_lineage_paths_between(
     source_urn: str,
     target_urn: str,
