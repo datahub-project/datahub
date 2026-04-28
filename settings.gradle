@@ -1,3 +1,10 @@
+pluginManagement {
+  repositories {
+    gradlePluginPortal()
+    mavenCentral()
+  }
+}
+
 include 'datahub-web-react'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
@@ -48,7 +55,6 @@ include 'metadata-perf'
 include 'docs-website'
 include 'metadata-models-custom'
 include 'entity-registry:custom-test-model'
-include 'metadata-integration:java:spark-lineage-legacy'
 include 'metadata-integration:java:datahub-client'
 include 'metadata-integration:java:custom-plugin-lib'
 include 'metadata-integration:java:datahub-event'
@@ -79,6 +85,8 @@ include ':metadata-service:iceberg-catalog'
 include ':metadata-service:events-service'
 include ':datahub-actions'
 include ':datahub-agent-context'
+// CVE-patched fork of com.linkedin.avroutil1:helper-all (in-repo JAR; see build.gradle dependencySubstitution)
+include 'vendor:avroutil1-helper-all-fork'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');

@@ -48,6 +48,9 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
+from datahub.ingestion.source.snowflake.snowflake_pipes import (
+    SnowflakePipesExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
@@ -55,7 +58,10 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeDatabase,
+    SnowflakeDataDictionary,
+)
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
@@ -63,6 +69,12 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
     SemanticViewUsageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
+from datahub.ingestion.source.snowflake.snowflake_stages import (
+    SnowflakeStagesExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_tasks import (
+    SnowflakeTasksExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
 )
@@ -560,6 +572,9 @@ class SnowflakeV2Source(
                 self.config, self.report
             ).get_shares_workunits(databases)
 
+        # Stages, Tasks, and Pipes extraction
+        yield from self._get_stages_tasks_pipes_workunits(databases)
+
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
@@ -705,6 +720,62 @@ class SnowflakeV2Source(
             ).get_assertion_workunits(self.discovered_datasets)
 
         self.connection.close()
+
+    def _get_stages_tasks_pipes_workunits(
+        self,
+        databases: List[SnowflakeDatabase],
+    ) -> Iterable[MetadataWorkUnit]:
+        stages_extractor: Optional[SnowflakeStagesExtractor] = None
+        if self.config.include_stages or self.config.include_pipes:
+            stages_extractor = SnowflakeStagesExtractor(
+                config=self.config,
+                report=self.report,
+                data_dictionary=self.data_dictionary,
+                identifiers=self.identifiers,
+            )
+
+        if stages_extractor:
+            for db in databases:
+                for schema in db.schemas:
+                    schema_container_key = self.identifiers.gen_schema_key(
+                        db.name, schema.name
+                    )
+                    for wu in stages_extractor.get_workunits(
+                        db_name=db.name,
+                        schema_name=schema.name,
+                        schema_container_key=schema_container_key,
+                    ):
+                        if self.config.include_stages:
+                            yield wu
+
+        if self.config.include_tasks:
+            tasks_extractor = SnowflakeTasksExtractor(
+                config=self.config,
+                report=self.report,
+                data_dictionary=self.data_dictionary,
+                identifiers=self.identifiers,
+            )
+            for db in databases:
+                for schema in db.schemas:
+                    yield from tasks_extractor.get_workunits(
+                        db_name=db.name,
+                        schema_name=schema.name,
+                    )
+
+        if self.config.include_pipes and stages_extractor:
+            pipes_extractor = SnowflakePipesExtractor(
+                config=self.config,
+                report=self.report,
+                data_dictionary=self.data_dictionary,
+                identifiers=self.identifiers,
+                stages_extractor=stages_extractor,
+            )
+            for db in databases:
+                for schema in db.schemas:
+                    yield from pipes_extractor.get_workunits(
+                        db_name=db.name,
+                        schema_name=schema.name,
+                    )
 
     def report_warehouse_failure(self) -> None:
         if self.config.warehouse is not None:
