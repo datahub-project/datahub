@@ -5,10 +5,7 @@ export type GraphQLResponse = Record<string, unknown>;
 export class GraphQLHelper {
   constructor(private page: Page) {}
 
-  async executeQuery(
-    query: string,
-    variables?: Record<string, unknown>,
-  ): Promise<GraphQLResponse> {
+  async executeQuery(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse> {
     const response = await this.page.request.post('/api/v2/graphql', {
       data: {
         query,
@@ -35,8 +32,7 @@ export class GraphQLHelper {
     const response = await this.page.waitForResponse(
       (r) =>
         r.url().includes('/graphql') &&
-        (r.request().postDataJSON() as Record<string, unknown> | null)?.operationName ===
-          operationName,
+        (r.request().postDataJSON() as Record<string, unknown> | null)?.operationName === operationName,
     );
     return response.json() as Promise<GraphQLResponse>;
   }

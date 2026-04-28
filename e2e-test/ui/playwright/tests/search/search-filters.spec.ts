@@ -5,7 +5,7 @@
  * needed. SearchPage constructed in beforeEach with logger.
  */
 
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 
 test.use({ featureName: 'search' });
