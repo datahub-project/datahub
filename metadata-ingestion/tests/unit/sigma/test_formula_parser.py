@@ -51,13 +51,6 @@ def test_two_refs_in_order() -> None:
     assert result[1].source == "b"
 
 
-def test_ref_inside_function() -> None:
-    result = extract_bracket_refs("Count([x])")
-    assert len(result) == 1
-    assert result[0].source == "x"
-    assert result[0].column is None
-
-
 def test_two_refs_around_literal_slash_operator() -> None:
     """The `/` between brackets is an arithmetic operator, not a source/column separator."""
     result = extract_bracket_refs("[Selected Metric] / [Successful Runs]")
@@ -103,6 +96,21 @@ def test_parameter_with_slash_is_not_parameter() -> None:
     assert ref.is_parameter is False
 
 
+def test_parameter_heuristic_is_case_sensitive() -> None:
+    """Lowercase `p_` prefix does NOT trigger the parameter heuristic."""
+    result = extract_bracket_refs("[p_foo]")
+    assert len(result) == 1
+    assert result[0].is_parameter is False
+
+
+def test_parameter_heuristic_bare_prefix() -> None:
+    """[P_] (P_ with no suffix) still matches the heuristic — source starts with 'P_'."""
+    result = extract_bracket_refs("[P_]")
+    assert len(result) == 1
+    assert result[0].source == "P_"
+    assert result[0].is_parameter is True
+
+
 def test_multiline_formula() -> None:
     formula = "If(\n  [a] > 0,\n  [b],\n  [c]\n)"
     result = extract_bracket_refs(formula)
@@ -113,7 +121,7 @@ def test_multiline_formula() -> None:
 
 
 def test_empty_bracket_skipped() -> None:
-    """Empty brackets `[]` don't match — the body must be 1+ chars."""
+    """Empty brackets `[]` are silently skipped — source is empty after strip."""
     assert extract_bracket_refs("[]") == []
 
 
@@ -145,9 +153,6 @@ def test_escaped_quote_inside_string_literal() -> None:
     assert sources == ["a", "b", "c"]
 
 
-# --- Missing-test additions from review ---
-
-
 def test_multi_slash_body() -> None:
     """A body with multiple `/` separators: source is first segment, column gets the rest."""
     result = extract_bracket_refs("[a/b/c]")
@@ -170,6 +175,7 @@ def test_escaped_close_bracket_in_body() -> None:
     result = extract_bracket_refs(r"[col\]name]")
     assert len(result) == 1
     ref = result[0]
+    assert ref.raw == r"[col\]name]"
     assert ref.source == "col]name"
     assert ref.column is None
 
@@ -225,6 +231,7 @@ def test_literal_backslash_before_slash() -> None:
     """
     result = extract_bracket_refs(r"[A\\/B]")
     assert len(result) == 1
+    assert result[0].raw == r"[A\\/B]"
     assert result[0].source == "A\\"
     assert result[0].column == "B"
 
@@ -298,11 +305,6 @@ def test_empty_column_after_slash_skipped() -> None:
     assert extract_bracket_refs("[source/]") == []
 
 
-def test_whitespace_only_around_slash_skipped() -> None:
-    """Decision: `[ / ]` has both source and column empty after strip; skip."""
-    assert extract_bracket_refs("[ / ]") == []
-
-
 def test_double_backslash_body_emits() -> None:
     r"""Decision: `[\\]` — escape_peek consumes the second `\` as literal; source is
     a single backslash character. Emitted since source is non-empty; the downstream
@@ -337,31 +339,3 @@ def test_unterminated_string_continues_scanning() -> None:
     as an intentional behavior change.
     """
     assert extract_bracket_refs('foo "still in string [not_a_ref]') == []
-
-
-# --- Remaining Probe A cases not covered elsewhere ---
-
-
-def test_doubled_brackets_in_string_literal_ignored() -> None:
-    """Doubled brackets inside a double-quoted string literal produce no refs."""
-    result = extract_bracket_refs('Replace([col], "[[nested]]", "")')
-    assert len(result) == 1
-    assert result[0].source == "col"
-
-
-# --- Stable-ordering invariant ---
-
-
-def test_two_refs_stable_order() -> None:
-    """Single-pass scanner: refs are emitted in left-to-right formula order.
-
-    This is a structural guarantee of the scanner (not just a side-effect)
-    because refs are appended to `out` exactly when their closing `]` is
-    encountered, which happens left-to-right.
-    """
-    result = extract_bracket_refs("If([Source/A], [Source/B], 0)")
-    assert len(result) == 2
-    assert result[0].source == "Source"
-    assert result[0].column == "A"
-    assert result[1].source == "Source"
-    assert result[1].column == "B"

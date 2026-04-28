@@ -108,8 +108,17 @@ class BracketRef:
     the whole bracket body and `column` is None (sibling-column reference
     within the same element).
 
-    `is_parameter` is True for `[P_*]` parameter refs (no column part),
-    which lineage resolvers should skip.
+    `column` is everything after the first unescaped `/`, with leading/
+    trailing whitespace stripped. If the body contains multiple unescaped
+    ``/`` characters, only the first separates source from column; the
+    rest become literal ``/`` within ``column`` (e.g. ``[a/b/c]`` →
+    source=``a``, column=``b/c``). ``column`` is None when no ``/`` is
+    present.
+
+    `is_parameter` is True when ``source`` starts with ``"P_"`` (case-sensitive)
+    AND ``column`` is None. This is a heuristic for Sigma parameter refs, which
+    lineage resolvers should skip. `[p_foo]` (lowercase) is NOT flagged;
+    `[P_X/col]` (has column part) is NOT flagged.
     """
 
     raw: str
