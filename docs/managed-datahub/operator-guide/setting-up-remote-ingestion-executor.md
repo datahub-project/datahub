@@ -394,6 +394,125 @@ New Ingestion Sources will automatically use your designated Default Pool if you
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
 </p>
 
+## Using Cloud Secret Managers
+
+You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.
+
+Secrets are referenced using the standard `${SECRET_NAME}` syntax — no changes needed to existing configurations. The executor automatically prepends a configurable prefix (default: `datahub-`) when looking up secrets. For example, `${SNOWFLAKE_PASSWORD}` resolves to a secret named `datahub-SNOWFLAKE_PASSWORD` in your cloud provider. You can override this prefix using `DATAHUB_EXECUTOR_AWS_SM_PREFIX` (for AWS) or `DATAHUB_EXECUTOR_GCP_SM_PREFIX` (for GCP) — for example, setting it to `myapp-` would resolve `${SNOWFLAKE_PASSWORD}` to `myapp-SNOWFLAKE_PASSWORD` instead.
+
+### AWS Secrets Manager
+
+#### 1. Create your secrets
+
+Store each credential as a plain string value:
+
+```bash
+aws secretsmanager create-secret --region us-west-2 \
+  --name "datahub-SNOWFLAKE_PASSWORD" \
+  --secret-string "my-secret-value"
+```
+
+#### 2. Grant the executor IAM permissions
+
+The pod running the executor needs the following IAM permissions. Attach this policy to the pod's IAM role ([IRSA](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) on EKS, or [Task Role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html) on ECS):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:BatchGetSecretValue",
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:datahub-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "secretsmanager:ListSecrets",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+If you use a custom prefix, update the `Resource` pattern to match (e.g., `myapp-*` instead of `datahub-*`).
+
+#### 3. Enable on the executor
+
+Set these environment variables on the executor:
+
+| Variable                            | Required | Default    | Description                                  |
+| ----------------------------------- | -------- | ---------- | -------------------------------------------- |
+| `DATAHUB_EXECUTOR_AWS_SM_ENABLED`   | Yes      | `false`    | Set to `true` to enable                      |
+| `DATAHUB_EXECUTOR_AWS_SM_REGION`    | Yes      | —          | AWS region (e.g., `us-west-2`)               |
+| `DATAHUB_EXECUTOR_AWS_SM_PREFIX`    | No       | `datahub-` | Prefix prepended to secret names             |
+| `DATAHUB_EXECUTOR_SECRET_CACHE_TTL` | No       | `21600`    | Cache duration in seconds (default: 6 hours) |
+
+**Helm example:**
+
+```yaml
+extraEnvs:
+  - name: DATAHUB_EXECUTOR_AWS_SM_ENABLED
+    value: "true"
+  - name: DATAHUB_EXECUTOR_AWS_SM_REGION
+    value: "us-west-2"
+```
+
+For IRSA, annotate the service account:
+
+```yaml
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::<account-id>:role/<executor-role>"
+```
+
+### GCP Secret Manager
+
+#### 1. Create your secrets
+
+```bash
+echo -n "my-secret-value" | gcloud secrets create "datahub-SNOWFLAKE_PASSWORD" \
+  --project="<project-id>" --data-file=-
+```
+
+#### 2. Grant the executor access to secrets
+
+Grant the **Secret Manager Secret Accessor** role (`roles/secretmanager.secretAccessor`) to the executor's GCP service account. On GKE, use [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) to bind a Kubernetes service account to a GCP service account.
+
+The following command grants access to all secrets with the `datahub-` prefix. Update the prefix if you configured a custom one:
+
+```bash
+gcloud projects add-iam-policy-binding "<project-id>" \
+  --member="serviceAccount:<sa>@<project-id>.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor" \
+  --condition='expression=resource.name.startsWith("projects/<project-id>/secrets/datahub-"),title=DataHub executor secrets'
+```
+
+#### 3. Enable on the executor
+
+| Variable                             | Required | Default    | Description                                  |
+| ------------------------------------ | -------- | ---------- | -------------------------------------------- |
+| `DATAHUB_EXECUTOR_GCP_SM_ENABLED`    | Yes      | `false`    | Set to `true` to enable                      |
+| `DATAHUB_EXECUTOR_GCP_SM_PROJECT_ID` | Yes      | —          | GCP project ID                               |
+| `DATAHUB_EXECUTOR_GCP_SM_PREFIX`     | No       | `datahub-` | Prefix prepended to secret names             |
+| `DATAHUB_EXECUTOR_SECRET_CACHE_TTL`  | No       | `21600`    | Cache duration in seconds (default: 6 hours) |
+
+**Helm example:**
+
+```yaml
+extraEnvs:
+  - name: DATAHUB_EXECUTOR_GCP_SM_ENABLED
+    value: "true"
+  - name: DATAHUB_EXECUTOR_GCP_SM_PROJECT_ID
+    value: "my-gcp-project"
+
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: "<sa>@<project-id>.iam.gserviceaccount.com"
+```
+
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 
 Executors use a weight-based queuing system to manage resource allocation efficiently:
@@ -440,9 +559,9 @@ The following environment variables can be configured to manage memory-intensive
 
 ### Frequently Asked Questions
 
-**Do AWS Secrets Manager secrets automatically update in the executor?**
+**Do cloud secret manager values automatically update in the executor?**
 
-No. Secrets are wired into the executor container at deployment time. The ECS Task needs to be restarted when secrets change.
+Yes, with a delay. Resolved secrets are cached in memory for 6 hours by default (configurable via `DATAHUB_EXECUTOR_SECRET_CACHE_TTL`). After you update a secret in AWS or GCP, the executor picks up the new value once the cache expires. To force an immediate refresh, restart the executor.
 
 **How can I verify successful deployment?**
 
