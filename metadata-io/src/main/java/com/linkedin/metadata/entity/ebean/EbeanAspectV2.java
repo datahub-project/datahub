@@ -195,18 +195,4 @@ public class EbeanAspectV2 extends Model {
         aspect.getCreatedFor(),
         aspect.getSystemMetadata());
   }
-
-  // Defensive getters: check top-level field first, fall back to embedded key
-  // Handles both standard Ebean queries (top-level populated) and RawSql queries (key populated)
-  public String getUrn() {
-    return urn != null ? urn : (key != null ? key.getUrn() : null);
-  }
-
-  public String getAspect() {
-    return aspect != null ? aspect : (key != null ? key.getAspect() : null);
-  }
-
-  public long getVersion() {
-    return version != 0 ? version : (key != null ? key.getVersion() : 0);
-  }
 }

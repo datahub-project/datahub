@@ -213,6 +213,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
     // (range_optimizer_max_mem_size)
+    log.info("=======THE VALUE OF , " + queryKeysCount + "=== count");
     final List<EbeanAspectV2> results =
         batchGet(new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
     for (EbeanAspectV2 result : results) {
@@ -348,6 +349,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   private List<EbeanAspectV2> batchGet(
       @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount, boolean forUpdate) {
+    if (keys.isEmpty()) {
+      return Collections.emptyList();
+    }
     validateConnection();
 
     int position = 0;
