@@ -1,7 +1,6 @@
 # Looker SDK is imported here and higher level wrapper functions/classes are provided to interact with Looker Server
 import json
 import logging
-import os
 from enum import Enum
 from functools import lru_cache
 from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, cast
@@ -9,7 +8,9 @@ from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, c
 import looker_sdk
 import looker_sdk.rtl.requests_transport as looker_requests_transport
 from looker_sdk.error import SDKError
+from looker_sdk.rtl import api_settings as looker_api_settings
 from looker_sdk.rtl.transport import TransportOptions
+from looker_sdk.sdk import constants as looker_constants
 from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardBase,
@@ -81,17 +82,47 @@ class LookerAPIStats(BaseModel):
     generate_sql_query_calls: int = 0
 
 
+class _DataHubLookerApiSettings(looker_api_settings.ApiSettings):
+    """Inject Looker credentials from memory instead of env vars or looker.ini.
+
+    The default ApiSettings reads credentials from a ``looker.ini`` file or
+    ``LOOKERSDK_*`` env vars. We override ``read_config`` so secrets never touch
+    the process environment.
+    """
+
+    def __init__(self, client_id: str, client_secret: str, base_url: str) -> None:
+        self._client_id = client_id
+        self._client_secret = client_secret
+        self._base_url = base_url
+        # Our read_config() override is the actual guard against env/file lookup.
+        # filename="" and env_prefix=None just keep the parent __init__'s helpers
+        # (which it would otherwise call) from touching the filesystem or environment.
+        super().__init__(
+            filename="",
+            section=None,
+            sdk_version=looker_constants.sdk_version,
+            env_prefix=None,
+        )
+
+    def read_config(self) -> looker_api_settings.SettingsConfig:
+        return looker_api_settings.SettingsConfig(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            base_url=self._base_url,
+        )
+
+
 class LookerAPI:
     """A holder class for a Looker client"""
 
     def __init__(self, config: LookerAPIConfig) -> None:
         self.config = config
-        # The Looker SDK wants these as environment variables
-        os.environ["LOOKERSDK_CLIENT_ID"] = config.client_id
-        os.environ["LOOKERSDK_CLIENT_SECRET"] = config.client_secret.get_secret_value()
-        os.environ["LOOKERSDK_BASE_URL"] = config.base_url
-
-        self.client = looker_sdk.init40()
+        settings = _DataHubLookerApiSettings(
+            client_id=config.client_id,
+            client_secret=config.client_secret.get_secret_value(),
+            base_url=config.base_url,
+        )
+        self.client = looker_sdk.init40(config_settings=settings)
 
         # Somewhat hacky mechanism for enabling retries on the Looker SDK.
         # Unfortunately, it doesn't expose a cleaner way to do this.
