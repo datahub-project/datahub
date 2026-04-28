@@ -713,11 +713,6 @@ jobs:
             done
           fi
           raw_files=()
-          if [[ "${SCAN_WITH_TRIVY}" == "true" ]]; then
-            for f in scan-reports/trivy/*.json; do
-              [[ -f "${f}" ]] && raw_files+=("${f}")
-            done
-          fi
           if [[ "${SCAN_WITH_GRYPE}" == "true" ]]; then
             for f in scan-reports-raw/grype/*.json; do
               [[ -f "${f}" ]] && raw_files+=("${f}")
@@ -730,9 +725,7 @@ jobs:
           cmd=(python3 .github/scripts/security_scan_linear_sync.py --scanner trivy_grype)
           cmd+=("${files[@]}")
           if [[ ${#raw_files[@]} -gt 0 ]]; then
-            for f in "${raw_files[@]}"; do
-              cmd+=(--raw-report-paths "$f")
-            done
+            cmd+=(--raw-report-paths "${raw_files[@]}")
           fi
           "${cmd[@]}"
 
