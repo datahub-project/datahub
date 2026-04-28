@@ -67,9 +67,7 @@ test.describe('SearchV2 Features', () => {
     await searchPage.selectFilterOption('Type', 'Datasets');
     const activeFilter = page.locator('[data-testid="active-filter-_entityType␞typeNames"]');
     await expect(activeFilter).toBeVisible();
-    const activeFilterValue = page.locator(
-      '[data-testid="active-filter-value-_entityType␞typeNames-DATASET"]',
-    );
+    const activeFilterValue = page.locator('[data-testid="active-filter-value-_entityType␞typeNames-DATASET"]');
     await expect(activeFilterValue).toBeVisible();
   });
 
@@ -80,9 +78,7 @@ test.describe('SearchV2 Features', () => {
     await searchPage.expectActiveFilter('Datasets');
     await searchPage.expectActiveFilter('Hive');
 
-    const removeTypeFilterButton = page.locator(
-      '[data-testid="remove-filter-_entityType␞typeNames"]',
-    );
+    const removeTypeFilterButton = page.locator('[data-testid="remove-filter-_entityType␞typeNames"]');
     await removeTypeFilterButton.click();
     await searchPage.expectActiveFilterNotVisible('Datasets');
     await searchPage.expectActiveFilter('Hive');
@@ -135,9 +131,7 @@ test.describe('SearchV2 Features', () => {
     await searchPage.expectActiveFilter('Hive');
   });
 
-  test('should maintain search state when clicking entity result and navigating back', async ({
-    page,
-  }) => {
+  test('should maintain search state when clicking entity result and navigating back', async ({ page }) => {
     await searchPage.searchAndWait('playwright', 2000);
     await searchPage.selectFilterOption('Type', 'Datasets');
     const searchUrl = page.url();
