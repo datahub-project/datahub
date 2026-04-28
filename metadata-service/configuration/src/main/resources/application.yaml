@@ -871,8 +871,6 @@ server:
     context-path: ${DATAHUB_GMS_BASE_PATH:/}
 
 springdoc:
-  cache:
-    disabled: false
   swagger-ui:
     path: ${path-mappings.${datahub.basePath:}:${datahub.basePath:}}/openapi/swagger-ui
     disable-swagger-default-url: true
