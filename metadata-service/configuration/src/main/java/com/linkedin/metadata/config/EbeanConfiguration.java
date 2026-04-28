@@ -32,7 +32,7 @@ public class EbeanConfiguration {
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
 
   public Integer getQueryKeysCountForBatch() {
-    if (this.queryKeysCountForBatch <= 0) {
+    if (this.queryKeysCountForBatch != null && this.queryKeysCountForBatch <= 0) {
       this.queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT;
     }
     return this.queryKeysCountForBatch;
