@@ -29,7 +29,7 @@ test.describe('Login with Welcome Modal', () => {
 
   test('logs in and displays welcome modal for first-time users', async ({ page }) => {
     await welcomeModalPage.expectModalVisible();
-    await welcomeModalPage.expectModalTitleVisible();
+    await expect(welcomeModalPage.modalTitle).toBeVisible();
     await welcomeModalPage.closeViaButton();
 
     await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible();
