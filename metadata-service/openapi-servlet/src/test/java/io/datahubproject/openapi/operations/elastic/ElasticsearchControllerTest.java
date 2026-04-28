@@ -911,7 +911,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     @Bean
     @Primary
     public GraphService graphService() {
-      return graphService;
+      return mock(GraphService.class);
     }
   }
 }
