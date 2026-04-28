@@ -215,7 +215,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // (range_optimizer_max_mem_size)
     final List<EbeanAspectV2> results =
         batchGet(new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
-
+    for (EbeanAspectV2 result : results) {
+      result.setUrn(result.getKey().getUrn());
+      result.setAspect(result.getKey().getAspect());
+      result.setVersion(result.getKey().getVersion());
+    }
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
