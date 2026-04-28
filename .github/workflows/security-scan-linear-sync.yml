@@ -724,8 +724,11 @@ jobs:
           fi
           cmd=(python3 .github/scripts/security_scan_linear_sync.py --scanner trivy_grype)
           cmd+=("${files[@]}")
+          # --raw-report-paths uses action=append in the script: repeat the flag once per file.
           if [[ ${#raw_files[@]} -gt 0 ]]; then
-            cmd+=(--raw-report-paths "${raw_files[@]}")
+            for f in "${raw_files[@]}"; do
+              cmd+=(--raw-report-paths "$f")
+            done
           fi
           "${cmd[@]}"
 
