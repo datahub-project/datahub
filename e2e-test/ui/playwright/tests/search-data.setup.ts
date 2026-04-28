@@ -3,12 +3,14 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createScriptLogger } from '../utils/logger';
 
 const execAsync = promisify(exec);
+const logger = createScriptLogger('search-data.setup');
 
 setup('seed search data', async () => {
   setup.setTimeout(180000); // 3 minute timeout
-  console.log('🌱 Seeding search test data via datahub CLI...');
+  logger.info('Seeding search test data via datahub CLI...');
 
   try {
     // Read GMS token
@@ -37,7 +39,7 @@ setup('seed search data', async () => {
     fs.writeFileSync(playwrightDataConfigPath, JSON.stringify(playwrightDataConfig, null, 2));
 
     // Ingest Playwright test data (Dashboards, ML Models, Pipelines, HDFS, etc.)
-    console.log('📤 Ingesting Playwright data.json (107 entities with all types)...');
+    logger.info('Ingesting Playwright data.json (107 entities with all types)...');
     const { stdout: stdout1 } = await execAsync(`datahub ingest -c ${playwrightDataConfigPath}`, {
       cwd: path.resolve(__dirname),
       timeout: 120000,
@@ -46,7 +48,7 @@ setup('seed search data', async () => {
     if (stdout1.includes('failed')) {
       throw new Error(`Ingestion failed: ${stdout1}`);
     }
-    console.log('✅ Seeded Playwright data');
+    logger.info('Seeded Playwright data');
 
     // Create config with token for Playwright search data.json
     const searchDataConfig = {
@@ -69,7 +71,7 @@ setup('seed search data', async () => {
     fs.writeFileSync(searchDataConfigPath, JSON.stringify(searchDataConfig, null, 2));
 
     // Ingest Playwright search test data
-    console.log('📤 Ingesting Playwright search/fixtures/data.json...');
+    logger.info('Ingesting Playwright search/fixtures/data.json...');
     const { stdout: stdout2 } = await execAsync(`datahub ingest -c ${searchDataConfigPath}`, {
       cwd: path.resolve(__dirname),
       timeout: 60000,
@@ -78,7 +80,7 @@ setup('seed search data', async () => {
     if (stdout2.includes('failed')) {
       throw new Error(`Ingestion failed: ${stdout2}`);
     }
-    console.log('✅ Seeded Playwright search fixtures data');
+    logger.info('Seeded Playwright search fixtures data');
 
     // Create config with token for business-attributes data.json
     const businessAttributesConfig = {
@@ -101,7 +103,7 @@ setup('seed search data', async () => {
     fs.writeFileSync(businessAttributesConfigPath, JSON.stringify(businessAttributesConfig, null, 2));
 
     // Ingest business-attributes data
-    console.log('📤 Ingesting business-attributes/fixtures/data.json...');
+    logger.info('Ingesting business-attributes/fixtures/data.json...');
     const { stdout: stdout3 } = await execAsync(`datahub ingest -c ${businessAttributesConfigPath}`, {
       cwd: path.resolve(__dirname),
       timeout: 60000,
@@ -110,7 +112,7 @@ setup('seed search data', async () => {
     if (stdout3.includes('failed')) {
       throw new Error(`Ingestion failed: ${stdout3}`);
     }
-    console.log('✅ Seeded business-attributes fixtures data');
+    logger.info('Seeded business-attributes fixtures data');
 
     // Cleanup temp config files
     fs.unlinkSync(playwrightDataConfigPath);
@@ -118,12 +120,13 @@ setup('seed search data', async () => {
     fs.unlinkSync(businessAttributesConfigPath);
 
     // Wait for Elasticsearch indexing
-    console.log('⏳ Waiting for search indexing (15 seconds)...');
+    logger.info('Waiting for search indexing (15 seconds)...');
     await new Promise((resolve) => setTimeout(resolve, 15000));
 
-    console.log('✅ Search test data seeded successfully');
-  } catch (error: any) {
-    console.error('❌ Failed to seed data:', error.message);
+    logger.info('Search test data seeded successfully');
+  } catch (error) {
+    const err = error as { message: string };
+    logger.error('Failed to seed data', { message: err.message });
     throw error;
   }
 });
