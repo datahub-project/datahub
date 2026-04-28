@@ -32,13 +32,18 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
+import io.ebean.annotation.Platform;
 import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -196,11 +201,12 @@ public class EbeanAspectDaoTest {
         sql.size(), 1, String.format("Found: %s", new ObjectMapper().writeValueAsString(sql)));
     if (canWrite) {
       assertTrue(
-          sql.get(0).contains("FOR UPDATE;"),
+          sql.get(0).toUpperCase().contains("FOR UPDATE;"),
           String.format("Did not find `for update` in %s ", sql));
     } else {
       assertFalse(
-          sql.get(0).contains("FOR UPDATE;"), String.format("Found `for update` in %s ", sql));
+          sql.get(0).toUpperCase().contains("FOR UPDATE;"),
+          String.format("Found `for update` in %s ", sql));
     }
   }
 
@@ -532,4 +538,93 @@ public class EbeanAspectDaoTest {
         testDao.getAspect("urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Writes work after migration");
   }
+
+  // region padToNextBatchSize tests
+
+  @DataProvider(name = "h2PaddingDataProvider")
+  public Object[][] h2PaddingDataProvider() {
+    return new Object[][] {
+      {0, 0, "Empty list"},
+      {1, 1, "Single item"},
+      {3, 3, "Non-power-of-two size"},
+      {4, 4, "Power-of-two size"}
+    };
+  }
+
+  @Test(dataProvider = "h2PaddingDataProvider")
+  public void testPadToNextBatchSizeForH2(int inputSize, int expectedSize, String description) {
+    // Given: The default H2 test database
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(inputSize);
+
+    // When: padToNextBatchSize is called
+    List<EbeanAspectV2.PrimaryKey> result = testDao.padToNextBatchSize(originalList);
+
+    // Then: The list should be returned unchanged for H2
+    assertEquals(result.size(), expectedSize, "Test case: " + description);
+    if (!originalList.isEmpty()) {
+      assertEquals(result, originalList, "List should not be padded for H2 platform");
+    }
+  }
+
+  @DataProvider(name = "mysqlPaddingDataProvider")
+  public Object[][] mysqlPaddingDataProvider() {
+    return new Object[][] {
+      {0, 0, "Empty list"},
+      {1, 1, "Size 1 -> 1"},
+      {2, 2, "Size 2 -> 2"},
+      {3, 4, "Size 3 -> 4"},
+      {4, 4, "Size 4 -> 4"},
+      {5, 8, "Size 5 -> 8"},
+      {15, 16, "Size 15 -> 16"},
+      {16, 16, "Size 16 -> 16"}
+    };
+  }
+
+  @Test(dataProvider = "mysqlPaddingDataProvider")
+  public void testPadToNextBatchSizeForMySQL(int inputSize, int expectedSize, String description) {
+    // Given: A DAO configured to simulate a MySQL platform
+    EbeanAspectDao mysqlDao = setupMockDaoWithPlatform(Platform.MYSQL);
+    List<EbeanAspectV2.PrimaryKey> originalList = createPrimaryKeyList(inputSize);
+
+    // When: padToNextBatchSize is called
+    List<EbeanAspectV2.PrimaryKey> result = mysqlDao.padToNextBatchSize(originalList);
+
+    // Then: The list should be padded to the expected size
+    assertEquals(result.size(), expectedSize, "Test case: " + description);
+
+    if (inputSize > 0 && inputSize != expectedSize) {
+      EbeanAspectV2.PrimaryKey lastElement = originalList.get(inputSize - 1);
+      assertTrue(
+          result.stream().skip(inputSize).allMatch(filler -> filler.equals(lastElement)),
+          "All padding elements should be the last element of the original list");
+    }
+  }
+
+  /** Helper method to create a list of PrimaryKey objects for testing. */
+  private List<EbeanAspectV2.PrimaryKey> createPrimaryKeyList(int size) {
+    if (size == 0) {
+      return new ArrayList<>();
+    }
+    return IntStream.range(0, size)
+        .mapToObj(
+            i -> new EbeanAspectV2.PrimaryKey("urn:li:test:" + i, "aspect", ASPECT_LATEST_VERSION))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Creates a new EbeanAspectDao instance with a mocked Database that reports the specified
+   * platform. This uses Mockito's deep stubs for a cleaner setup.
+   */
+  private EbeanAspectDao setupMockDaoWithPlatform(Platform platform) {
+    // Use deep stubs to avoid mocking the entire chain of objects manually
+    Database mockServer = mock(Database.class, Mockito.RETURNS_DEEP_STUBS);
+
+    // Define the behavior for the chained call
+    when(mockServer.platform().base()).thenReturn(platform);
+
+    return new EbeanAspectDao(
+        mockServer, EbeanConfiguration.testDefault, mock(MetricUtils.class), List.of(), null);
+  }
+
+  // endregion
 }
