@@ -396,9 +396,44 @@ New Ingestion Sources will automatically use your designated Default Pool if you
 
 ## Using Cloud Secret Managers
 
-You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.
+You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager at runtime. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.
+
+:::note
+This is different from the AWS Secrets Manager integration used by the [ECS CloudFormation deployment](#deploy-on-amazon-ecs), where secrets are wired into the executor container at deploy time via the `SECRET_NAME=SECRET_ARN` template parameter. That mechanism still works as before and requires the ECS task to be restarted whenever a secret value changes. The integration described in this section runs inside the executor itself, looks up secrets on demand, and applies to both ECS and Kubernetes deployments.
+:::
 
 Secrets are referenced using the standard `${SECRET_NAME}` syntax — no changes needed to existing configurations. The executor automatically prepends a configurable prefix (default: `datahub-`) when looking up secrets. For example, `${SNOWFLAKE_PASSWORD}` resolves to a secret named `datahub-SNOWFLAKE_PASSWORD` in your cloud provider. You can override this prefix using `DATAHUB_EXECUTOR_AWS_SM_PREFIX` (for AWS) or `DATAHUB_EXECUTOR_GCP_SM_PREFIX` (for GCP) — for example, setting it to `myapp-` would resolve `${SNOWFLAKE_PASSWORD}` to `myapp-SNOWFLAKE_PASSWORD` instead.
+
+### Naming Rules for Secrets and Prefixes
+
+The full secret name looked up in your cloud provider is `<prefix><variable-name>`. Each part has its own rules:
+
+**Variable name** (the `<variable-name>` part inside `${...}` in your recipe)
+
+The recipe parser extracts variables using the regex `\${(\w+)}`, where `\w` matches only `[A-Za-z0-9_]`. This means:
+
+- ✅ Allowed: ASCII letters, digits, and underscores (e.g., `${SNOWFLAKE_PASSWORD}`, `${db_user_1}`)
+- ❌ Not allowed: hyphens, dots, slashes, `@`, `+`, `=`, or any other special character
+
+**Use `UPPER_SNAKE_CASE` or `lower_snake_case`** for variable names.
+
+For full details on recipe variable syntax (including bash-style defaults), see [Secret Resolution in Recipes](../../secret-resolution.md).
+
+**Prefix** (`DATAHUB_EXECUTOR_AWS_SM_PREFIX` / `DATAHUB_EXECUTOR_GCP_SM_PREFIX`)
+
+The prefix must match `^[A-Za-z0-9_-]*$` — letters, digits, underscores, and hyphens. This is the intersection of AWS Secrets Manager and GCP Secret Manager naming rules and is enforced at startup; an invalid prefix causes the executor to fail with a configuration error. A non-empty prefix is recommended so the executor's IAM permissions can be scoped to a name pattern (see the IAM examples below).
+
+**Combined cloud secret name** (`<prefix><variable-name>`)
+
+**Examples**
+
+| Recipe reference        | Prefix     | Cloud secret name            | Result                    |
+| ----------------------- | ---------- | ---------------------------- | ------------------------- |
+| `${SNOWFLAKE_PASSWORD}` | `datahub-` | `datahub-SNOWFLAKE_PASSWORD` | ✅ Resolved               |
+| `${db_user_1}`          | `prod_`    | `prod_db_user_1`             | ✅ Resolved               |
+| `${SNOWFLAKE_PASSWORD}` | _(empty)_  | `SNOWFLAKE_PASSWORD`         | ✅ Resolved               |
+| `${snowflake-password}` | `datahub-` | _(never extracted)_          | ❌ Literal passed through |
+| `${snowflake.password}` | `datahub-` | _(never extracted)_          | ❌ Literal passed through |
 
 ### AWS Secrets Manager
 
@@ -559,9 +594,17 @@ The following environment variables can be configured to manage memory-intensive
 
 ### Frequently Asked Questions
 
-**Do cloud secret manager values automatically update in the executor?**
+**Do AWS Secrets Manager secrets wired in via CloudFormation automatically update in the executor?**
 
-Yes, with a delay. Resolved secrets are cached in memory for 6 hours by default (configurable via `DATAHUB_EXECUTOR_SECRET_CACHE_TTL`). After you update a secret in AWS or GCP, the executor picks up the new value once the cache expires. To force an immediate refresh, restart the executor.
+No. When using the [ECS CloudFormation deployment](#deploy-on-amazon-ecs), secrets passed via the `SECRET_NAME=SECRET_ARN` template parameter are wired into the executor container at deployment time. The ECS Task needs to be restarted when those secrets change.
+
+**Do values resolved by the runtime Cloud Secret Manager integration automatically update in the executor?**
+
+Yes, with a delay. When the executor uses the [runtime Cloud Secret Manager integration](#using-cloud-secret-managers) (AWS Secrets Manager or GCP Secret Manager), resolved values are cached in memory with a 6-hour TTL by default (configurable via `DATAHUB_EXECUTOR_SECRET_CACHE_TTL`). After you update a secret in AWS or GCP, the executor picks up the new value once the cache entry expires.
+
+Each executor workflow (ingestion, assertions, monitor training) uses its own secret manager instance, so caches are not shared between them. They all follow the same TTL behavior, but each instance expires independently from when it first cached a given value.
+
+To force an immediate refresh across all workflows, restart the executor.
 
 **How can I verify successful deployment?**
 
