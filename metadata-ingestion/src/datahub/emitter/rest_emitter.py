@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import re
+import socket
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -84,6 +85,28 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+# TCP_KEEPIDLE / TCP_KEEPINTVL / TCP_KEEPCNT are Linux/macOS only.
+_PLATFORM_KEEPALIVE_OPTS = [
+    ("TCP_KEEPIDLE", 60),
+    ("TCP_KEEPINTVL", 10),
+    ("TCP_KEEPCNT", 5),
+]
+
+
+def _build_tcp_keepalive_options() -> List[tuple]:
+    return [
+        (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+        *[
+            (socket.IPPROTO_TCP, getattr(socket, attr), val)
+            for attr, val in _PLATFORM_KEEPALIVE_OPTS
+            if hasattr(socket, attr)
+        ],
+    ]
+
+
+_TCP_KEEPALIVE_SOCKET_OPTIONS: List[tuple] = _build_tcp_keepalive_options()
+
 _DEFAULT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
 _TIMEOUT_LOWER_BOUND_SEC = 1  # if below this, we log a warning
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
@@ -120,6 +143,24 @@ INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
 # too much to the backend and hitting a timeout, we try to limit
 # the number of MCPs we send in a batch.
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
+
+
+class _KeepAliveHTTPAdapter(HTTPAdapter):
+    """HTTPAdapter that sets TCP keepalive on every connection to prevent SSLEOFError on idle connections."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._socket_options = kwargs.pop(
+            "socket_options", _TCP_KEEPALIVE_SOCKET_OPTIONS
+        )
+        super().__init__(*args, **kwargs)
+
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
+        kwargs["socket_options"] = self._socket_options
+        super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy: Any, **proxy_kwargs: Any) -> Any:
+        proxy_kwargs["socket_options"] = self._socket_options
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 class _WeightedRetry(Retry):
@@ -239,6 +280,8 @@ class RequestsSessionConfig(ConfigModel):
     client_mode: Optional[ClientMode] = _DEFAULT_CLIENT_MODE
     datahub_component: Optional[str] = None
 
+    enable_tcp_keepalive: bool = True
+
     def build_session(self) -> requests.Session:
         session = requests.Session()
 
@@ -285,7 +328,10 @@ class RequestsSessionConfig(ConfigModel):
                 raise_on_status=False,
             )
 
-        adapter = HTTPAdapter(
+        adapter_cls = (
+            _KeepAliveHTTPAdapter if self.enable_tcp_keepalive else HTTPAdapter
+        )
+        adapter = adapter_cls(
             pool_connections=self.pool_connections,
             pool_maxsize=self.pool_maxsize,
             max_retries=retry_strategy,
@@ -408,6 +454,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
+        enable_tcp_keepalive: bool = True,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -478,6 +525,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             disable_ssl_verification=disable_ssl_verification,
             client_mode=client_mode,
             datahub_component=datahub_component,
+            enable_tcp_keepalive=enable_tcp_keepalive,
         )
 
         self._session = self._session_config.build_session()

@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import time
 import warnings
 from datetime import timedelta
@@ -8,6 +9,7 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
 from requests import Response, Session
+from requests.adapters import HTTPAdapter
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -19,6 +21,7 @@ from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.response_helper import TraceData
 from datahub.emitter.rest_emitter import (
+    _TCP_KEEPALIVE_SOCKET_OPTIONS,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     INGEST_MAX_PAYLOAD_BYTES,
     DataHubRestEmitter,
@@ -26,7 +29,9 @@ from datahub.emitter.rest_emitter import (
     EmitMode,
     RequestsSessionConfig,
     RestSinkEndpoint,
+    _KeepAliveHTTPAdapter,
     logger,
+    preserve_unicode_escapes,
 )
 from datahub.errors import APITracingWarning
 from datahub.ingestion.graph.config import ClientMode
@@ -1342,8 +1347,6 @@ class TestDataHubRestEmitter:
 
     def test_preserve_unicode_escapes_function_directly(self):
         """Test the preserve_unicode_escapes function with various unicode scenarios"""
-        from datahub.emitter.rest_emitter import preserve_unicode_escapes
-
         # Test simple unicode characters
         test_dict = {
             "name": "Café",
@@ -2396,6 +2399,33 @@ class TestRequestsSessionConfig:
             session.headers.update({"X-DataHub-Client-Mode": client_mode.name})
             mode = RequestsSessionConfig.get_client_mode_from_session(session)
             assert mode == client_mode
+
+    def test_tcp_keepalive_enabled_by_default(self):
+        """TCP keepalive adapter is used by default to prevent NAT idle-connection drops."""
+        config = RequestsSessionConfig()
+        assert config.enable_tcp_keepalive is True
+        session = config.build_session()
+        adapter = session.get_adapter("https://example.com")
+        assert isinstance(adapter, _KeepAliveHTTPAdapter)
+
+    def test_tcp_keepalive_disabled(self):
+        """Plain HTTPAdapter is used when TCP keepalive is disabled."""
+        config = RequestsSessionConfig(enable_tcp_keepalive=False)
+        session = config.build_session()
+        adapter = session.get_adapter("https://example.com")
+        assert type(adapter) is HTTPAdapter
+
+    def test_tcp_keepalive_socket_options_include_so_keepalive(self):
+        """SO_KEEPALIVE is always present in the TCP keepalive socket options."""
+        so_keepalive = (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        assert so_keepalive in _TCP_KEEPALIVE_SOCKET_OPTIONS
+
+    def test_emitter_passes_enable_tcp_keepalive(self):
+        """DataHubRestEmitter forwards enable_tcp_keepalive to RequestsSessionConfig."""
+        emitter = DataHubRestEmitter(
+            "http://localhost:8080", enable_tcp_keepalive=False
+        )
+        assert emitter._session_config.enable_tcp_keepalive is False
 
 
 class TestWeightedRetry:
