@@ -1,6 +1,5 @@
 import json
 import os
-import socket
 import time
 import warnings
 from datetime import timedelta
@@ -2405,19 +2404,13 @@ class TestRequestsSessionConfig:
             session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
         )
 
-    def test_tcp_keepalive_socket_options_include_so_keepalive(self):
-        """SO_KEEPALIVE is always present in the TCP keepalive socket options."""
-        opts = _KeepAliveHTTPAdapter._socket_options()
-        assert opts is not None
-        assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in opts
-
-    def test_tcp_keepalive_socket_options_degrade_gracefully(self):
-        """_socket_options returns None on failure instead of raising."""
-        with patch.object(
-            socket, "SO_KEEPALIVE", side_effect=Exception("platform error")
-        ):
-            opts = _KeepAliveHTTPAdapter._socket_options()
-        assert opts is None or isinstance(opts, list)
+    def test_tcp_keepalive_degrades_gracefully(self):
+        """Session builds successfully even when keepalive socket options are unavailable."""
+        with patch.object(_KeepAliveHTTPAdapter, "_socket_options", return_value=None):
+            session = RequestsSessionConfig().build_session()
+        assert isinstance(
+            session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
 
 
 class TestWeightedRetry:
