@@ -12,13 +12,15 @@ adlfs==2026.2.0
     # via pyiceberg
 aenum==3.1.16
     # via okta
+aerospike==19.2.0
+    # via acryl-datahub
 aiobotocore==3.2.1
     # via s3fs
 aiofiles==25.1.0
     # via unstructured-client
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.3
+aiohttp==3.13.5
     # via
     #   acryl-datahub
     #   aiobotocore
@@ -90,7 +92,7 @@ attrs==25.4.0
     #   pytest-docker
     #   referencing
     #   zeep
-authlib==1.6.9
+authlib==1.7.0
     # via
     #   acryl-datahub
     #   confluent-kafka
@@ -216,6 +218,7 @@ certifi==2026.2.25
     #   elasticsearch
     #   httpcore
     #   httpx
+    #   pinecone-client
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
@@ -297,7 +300,7 @@ cramjam==2.11.0
     # via python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
-cryptography==46.0.5
+cryptography==46.0.7
     # via
     #   acryl-datahub
     #   acryl-great-expectations
@@ -305,6 +308,7 @@ cryptography==46.0.5
     #   azure-identity
     #   azure-storage-blob
     #   google-auth
+    #   joserfc
     #   moto
     #   msal
     #   oracledb
@@ -436,8 +440,6 @@ flatdict==4.1.0
     #   okta
 fqdn==1.5.1
     # via jsonschema
-freezegun==1.5.5
-    # via acryl-datahub
 frozenlist==1.8.0
     # via
     #   aiohttp
@@ -473,6 +475,7 @@ google-api-core==2.25.2
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   sqlalchemy-bigquery
 google-auth==2.49.0
@@ -488,6 +491,7 @@ google-auth==2.49.0
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   google-genai
     #   sqlalchemy-bigquery
@@ -519,6 +523,8 @@ google-cloud-resource-manager==1.16.0
     # via
     #   acryl-datahub
     #   google-cloud-aiplatform
+google-cloud-secret-manager==2.27.0
+    # via acryl-datahub
 google-cloud-storage==3.4.1
     # via
     #   google-cloud-aiplatform
@@ -556,6 +562,7 @@ grpc-google-iam-v1==0.14.3
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 grpcio==1.78.0
     # via
     #   acryl-datahub
@@ -566,6 +573,7 @@ grpcio==1.78.0
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -709,6 +717,8 @@ jmespath==1.1.0
     #   botocore
 joblib==1.5.3
     # via nltk
+joserfc==1.6.4
+    # via authlib
 jpype1==1.6.0
     # via acryl-datahub
 json5==0.13.0
@@ -1055,6 +1065,14 @@ pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
 phonenumbers==8.13.0
     # via acryl-datahub-classify
+pinecone-client==5.0.1
+    # via acryl-datahub
+pinecone-plugin-inference==1.1.0
+    # via pinecone-client
+pinecone-plugin-interface==0.0.7
+    # via
+    #   pinecone-client
+    #   pinecone-plugin-inference
 pip==26.0.1
     # via acryl-datahub
 platformdirs==4.9.4
@@ -1095,6 +1113,7 @@ proto-plus==1.27.1
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 protobuf==5.29.6
     # via
     #   acryl-datahub
@@ -1109,6 +1128,7 @@ protobuf==5.29.6
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -1237,7 +1257,7 @@ pyparsing==3.3.2
     #   acryl-great-expectations
     #   pyiceberg
     #   rdflib
-pypdf==6.8.0
+pypdf==6.10.2
     # via unstructured-client
 pypdfium2==5.6.0
     # via unstructured-client
@@ -1251,7 +1271,7 @@ pyspark==3.5.8
     # via acryl-datahub
 pyspnego==0.12.1
     # via requests-ntlm
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   acryl-datahub
     #   pytest-asyncio
@@ -1281,7 +1301,6 @@ python-dateutil==2.9.0.post0
     #   arrow
     #   botocore
     #   croniter
-    #   freezegun
     #   google-cloud-bigquery
     #   jupyter-client
     #   moto
@@ -1612,8 +1631,6 @@ sqlalchemy2-stubs==0.0.2a38
     #   sqlalchemy
 sqlglot==30.0.3
     # via acryl-datahub
-sqlglotc==30.0.3
-    # via sqlglot
 sqlparse==0.5.5
     # via
     #   acryl-datahub
@@ -1715,6 +1732,7 @@ tqdm==4.67.3
     #   huggingface-hub
     #   nltk
     #   openai
+    #   pinecone-client
     #   spacy
     #   unstructured
     #   unstructured-ingest
@@ -1834,6 +1852,7 @@ typing-extensions==4.15.0
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
     #   oracledb
+    #   pinecone-client
     #   pydantic
     #   pydantic-core
     #   pydash
@@ -1899,6 +1918,7 @@ urllib3==1.26.20
     #   databricks-sql-connector
     #   docker
     #   elasticsearch
+    #   pinecone-client
     #   requests
     #   responses
     #   sentry-sdk

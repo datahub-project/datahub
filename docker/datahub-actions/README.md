@@ -16,7 +16,7 @@ Configuration files for each are found by scanning the container filesystem the 
 
 # Building the Docker Image
 
-From the root directory,
+From the root directory (base image is Wolfi, `cgr.dev/chainguard/wolfi-base` by default; set `WOLFI_BASE_IMAGE` to override):
 
 ```
 docker build -f docker/datahub-actions/Dockerfile . --no-cache

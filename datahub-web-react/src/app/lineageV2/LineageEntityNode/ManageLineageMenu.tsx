@@ -25,7 +25,7 @@ const Wrapper = styled.div`
     top: 8px;
 
     :hover {
-        color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.textHover};
     }
 `;
 

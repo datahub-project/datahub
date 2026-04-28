@@ -3,6 +3,7 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.cloud.aiplatform import PipelineJob
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import Execution, PipelineJob as PipelineJobType
@@ -15,8 +16,10 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ExperimentMetadata,
     ExperimentRunMetadata,
     ModelMetadata,
+    TrainingJobMetadata,
 )
 from datahub.metadata.schema_classes import (
+    DataProcessInstanceRelationshipsClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
     TrainingDataClass,
@@ -496,3 +499,119 @@ def test_model_group_includes_lineage_in_properties(source: VertexAISource) -> N
     assert model_group_props_mcp.metadata.aspect.downstreamJobs is not None
     assert len(model_group_props_mcp.metadata.aspect.downstreamJobs) == 1
     assert downstream_job_urn in model_group_props_mcp.metadata.aspect.downstreamJobs
+
+
+def _run_experiment_run_mcps(source: VertexAISource, run: Any) -> list:
+    exp = gen_mock_experiment()
+    return list(
+        source.experiment_extractor._gen_experiment_run_mcps(
+            ExperimentMetadata(experiment=exp, name=exp.name),
+            ExperimentRunMetadata(run=run, name=run.name, experiment_name=exp.name),
+        )
+    )
+
+
+def _upstream_instance_aspects(mcps: list) -> list:
+    return [
+        mcp.metadata.aspect
+        for mcp in mcps
+        if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, DataProcessInstanceRelationshipsClass)
+        and mcp.metadata.aspect.upstreamInstances
+    ]
+
+
+def test_logged_training_jobs_emitted_as_upstream_instances(
+    source: VertexAISource,
+) -> None:
+    mcps = _run_experiment_run_mcps(source, gen_mock_experiment_run())
+    aspects = _upstream_instance_aspects(mcps)
+
+    assert len(aspects) == 1
+    assert len(aspects[0].upstreamInstances) == 1
+    assert "mock_training_job" in aspects[0].upstreamInstances[0]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [NotFound("no jobs"), GoogleAPICallError("permission denied")],
+)
+def test_logged_training_jobs_api_error_skips_upstream_instances(
+    source: VertexAISource, error: Exception
+) -> None:
+    run = gen_mock_experiment_run()
+    cast(MagicMock, run.get_logged_custom_jobs).side_effect = error
+
+    mcps = _run_experiment_run_mcps(source, run)
+
+    assert _upstream_instance_aspects(mcps) == []
+
+
+def test_training_job_tracker_feeds_into_model_mcps(source: VertexAISource) -> None:
+    """Training data tracked via _gen_training_job_mcps is picked up by
+    _gen_ml_model_mcps even when ModelMetadata.training_data_urns is not set."""
+    mock_model = gen_mock_model()
+    mock_version = gen_mock_model_version(mock_model)
+
+    job_meta = TrainingJobMetadata(
+        job=MagicMock(
+            name="jobs/train-123",
+            display_name="train-job",
+            create_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2024, 1, 1, 1, tzinfo=timezone.utc),
+        ),
+        input_dataset=gen_mock_dataset(),
+        output_model=mock_model,
+        output_model_version=mock_version,
+    )
+
+    list(source.training_extractor._gen_training_job_mcps(job_meta))
+
+    model_urn = source.urn_builder.make_ml_model_urn(
+        mock_version, source.name_formatter.format_model_name(mock_model.name)
+    )
+    tracked = source.model_usage_tracker.get_model_training_data(model_urn)
+    assert len(tracked) == 1
+
+    model_mcps = list(
+        source._gen_ml_model_mcps(
+            ModelMetadata(model=mock_model, model_version=mock_version)
+        )
+    )
+    td_aspects = [
+        mcp.metadata.aspect
+        for mcp in model_mcps
+        if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, TrainingDataClass)
+    ]
+
+    assert len(td_aspects) == 1
+    assert td_aspects[0].trainingData[0].dataset == tracked[0]
+
+
+def test_emit_pending_lineage_includes_training_data(source: VertexAISource) -> None:
+    """Training data is re-emitted for models skipped in incremental mode."""
+    mock_model = gen_mock_model()
+    mock_version = gen_mock_model_version(mock_model)
+    model_urn = source.urn_builder.make_ml_model_urn(
+        mock_version, source.name_formatter.format_model_name(mock_model.name)
+    )
+    dataset_urn = builder.make_dataset_urn_with_platform_instance(
+        platform=source.platform,
+        name=source.name_formatter.format_dataset_name("some_dataset"),
+        platform_instance=source.config.platform_instance,
+        env=source.config.env,
+    )
+
+    source.model_usage_tracker.track_model_training_data(model_urn, dataset_urn)
+
+    pending_mcps = list(source.model_extractor.emit_pending_lineage_updates())
+    td_aspects = [
+        mcp.metadata.aspect
+        for mcp in pending_mcps
+        if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(mcp.metadata.aspect, TrainingDataClass)
+    ]
+
+    assert len(td_aspects) == 1
+    assert td_aspects[0].trainingData[0].dataset == dataset_urn

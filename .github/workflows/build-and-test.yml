@@ -64,7 +64,7 @@ jobs:
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
 
-  build-and-test:
+  build-except-metadata-ingestion:
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
     needs: setup
@@ -84,11 +84,11 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
+          java-version: 21
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Disk Space Analysis
         run: |
@@ -104,7 +104,7 @@ jobs:
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
             -x :docs-website:build \
-            -x :metadata-integration:java:spark-lineage:test \
+            -x :metadata-integration:java:acryl-spark-lineage:test \
             -x :metadata-io:test \
             -x :metadata-ingestion-modules:airflow-plugin:build \
             -x :metadata-ingestion-modules:airflow-plugin:check \
@@ -116,7 +116,8 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
-            -x :metadata-integration:java:datahub-schematron:cli:test
+            -x :metadata-integration:java:datahub-schematron:cli:test \
+            -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Disk Space Analysis
@@ -126,9 +127,6 @@ jobs:
 
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
-      - name: Gradle compile (jdk8) for legacy Spark
-        run: |
-          ./gradlew -PjavaClassVersionDefault=17 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
           {
@@ -237,11 +235,11 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
+          java-version: 21
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Gradle build and test for frontend (no JS tests)
         run: |
@@ -287,11 +285,11 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
+          java-version: 21
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Download frontend build artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

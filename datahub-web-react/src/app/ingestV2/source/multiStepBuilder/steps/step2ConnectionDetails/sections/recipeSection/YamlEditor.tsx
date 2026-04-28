@@ -1,4 +1,4 @@
-import { Button, Icon, Text, borders, colors, radius, spacing, typography } from '@components';
+import { Button, Icon, Text, borders, radius, spacing, typography } from '@components';
 import Editor from '@monaco-editor/react';
 import { ArrowsInLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsInLineVertical';
 import { ArrowsOutLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsOutLineVertical';
@@ -13,7 +13,7 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: ${radius.lg};
-    border: ${borders['1px']} ${colors.gray[100]};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     height: 100%;
 `;
 
@@ -21,10 +21,10 @@ const Header = styled.div`
     display: flex;
     flex-direction: row;
     gap: ${spacing.md};
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     padding: ${spacing.xsm} ${spacing.md};
     border-radius: ${radius.lg} ${radius.lg} 0 0;
-    border-bottom: ${borders['1px']} ${colors.gray[100]};
+    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.border};
 `;
 
 const Spacer = styled.div`

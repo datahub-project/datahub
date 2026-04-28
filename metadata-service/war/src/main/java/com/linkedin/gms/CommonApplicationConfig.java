@@ -2,6 +2,8 @@ package com.linkedin.gms;
 
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Set;
 import javax.management.MBeanServer;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +64,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.kafka.trace",
       "com.linkedin.gms.factory.system_info",
       "com.linkedin.gms.factory.consistency",
+      "com.linkedin.gms.factory.lifecycle",
       "com.linkedin.metadata.aspect.consistency.check",
       "com.linkedin.metadata.aspect.consistency.fix",
       "com.linkedin.metadata.aspect.hooks.migrations",
@@ -105,6 +108,9 @@ public class CommonApplicationConfig {
             int httpPort = environment.getProperty("server.port", Integer.class, 8080);
             int httpsPort = environment.getProperty("server.ssl.port", Integer.class, 8443);
 
+            // --- Listen Interface/IP ---
+            String serverAddress = environment.getProperty("server.address");
+
             // --- SSL Config ---
             String keyStorePath = environment.getProperty("server.ssl.key-store");
             String keyStorePassword = environment.getProperty("server.ssl.key-store-password");
@@ -143,6 +149,19 @@ public class CommonApplicationConfig {
               connector = new ServerConnector(server, new HttpConnectionFactory(httpConfig));
               connector.setPort(httpPort);
               log.info("HTTP only enabled on port {}", httpPort);
+            }
+
+            if (serverAddress != null && !serverAddress.isBlank()) {
+              try {
+                // Resolve address to validate it
+                InetAddress unusedResolvedAddress = InetAddress.getByName(serverAddress);
+              } catch (UnknownHostException e) {
+                log.error("Configured server address {} is invalid", serverAddress);
+                throw new IllegalArgumentException(
+                    "Configured server address " + serverAddress + " is invalid");
+              }
+              log.info("Server will listen on address: {}", serverAddress);
+              connector.setHost(serverAddress);
             }
 
             // --- Set connectors (HTTP or HTTPS only) ---

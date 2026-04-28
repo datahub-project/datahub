@@ -1439,11 +1439,25 @@
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
-      "doc" : "Whether the entity has been removed (soft-deleted).",
+      "doc" : "Whether the entity has been removed (soft-deleted).\nKept for backward compatibility. When lifecycleStage is set to a stage\nwith hideInSearch=true, this field is NOT automatically synced — the\nsearch layer uses lifecycleStage settings directly.",
       "default" : false,
       "Searchable" : {
         "fieldType" : "BOOLEAN"
       }
+    }, {
+      "name" : "lifecycleStage",
+      "type" : "Urn",
+      "doc" : "The lifecycle stage of the entity, referencing a lifecycleStageType entity.\nWhen null, the entity is in its default active state (visible in search).\nWhen set, the referenced lifecycle stage's settings determine behavior\n(e.g., hideInSearch=true excludes the entity from default search results).\n\nUsers can override default filtering by explicitly filtering on this field.",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD",
+        "queryByDefault" : false
+      }
+    }, {
+      "name" : "lifecycleLastUpdated",
+      "type" : "AuditStamp",
+      "doc" : "Attribution for the lifecycle stage transition — who moved the entity\ninto its current stage and when. Populated automatically by the\nsetLifecycleStage mutation; should be set by any code path that\nwrites the lifecycleStage field.",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "status"
@@ -6302,6 +6316,12 @@
       "name" : "includeSoftDeleted",
       "type" : "boolean",
       "doc" : "include soft deleted entities in results",
+      "default" : false,
+      "optional" : true
+    }, {
+      "name" : "includeHiddenLifecycleStages",
+      "type" : "boolean",
+      "doc" : "Include entities in lifecycle stages that have hideInSearch=true.\nBy default, entities in hidden lifecycle stages are excluded from search results.\nSet to true for eval queries or admin tooling that needs to discover all entities\nregardless of lifecycle stage settings.",
       "default" : false,
       "optional" : true
     }, {

@@ -2,7 +2,7 @@
 
 Omni is a cloud-native business intelligence platform. Learn more in the [official Omni documentation](https://docs.omni.co/).
 
-The DataHub integration for Omni covers BI entities such as dashboards, charts, semantic datasets, and related ownership context. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Omni covers BI entities such as dashboards, charts, semantic datasets, and related ownership context. It also captures table- and column-level lineage, ownership, and stateful deletion detection.
 
 ## Concept Mapping
 

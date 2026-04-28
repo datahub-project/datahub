@@ -10,6 +10,7 @@ import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributesChangeEve
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
@@ -50,6 +51,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(OWNERSHIP_ASPECT_NAME, new OwnershipChangeEventGenerator());
     registry.register(
         INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryChangeEventGenerator());
+    registry.register(DOCUMENTATION_ASPECT_NAME, new DocumentationChangeEventGenerator());
     registry.register(GLOSSARY_TERM_INFO_ASPECT_NAME, new GlossaryTermInfoChangeEventGenerator());
     registry.register(DOMAINS_ASPECT_NAME, new SingleDomainChangeEventGenerator());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());

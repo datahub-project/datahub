@@ -14,6 +14,6 @@ source:
 
     # Options
     target_platform: "my_target_platform_id" # e.g. bigquery/postgres/etc.
-    # convert_urns_to_lowercase: true  # optional: lowercase dbt URNs to avoid duplicates from casing differences (default: true for Snowflake)
+    # convert_urns_to_lowercase: false  # optional: set to false for case-sensitive platforms like BigQuery to preserve original casing (default: true)
 
 # sink configs

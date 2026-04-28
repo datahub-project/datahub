@@ -1,6 +1,6 @@
 import pathlib
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig
@@ -21,7 +21,7 @@ def test_csv_enricher_config():
     assert config
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_csv_enricher_source(pytestconfig, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/csv-enricher"
