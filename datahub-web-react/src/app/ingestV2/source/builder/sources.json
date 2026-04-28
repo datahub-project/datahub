@@ -30,6 +30,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:informatica",
+        "name": "informatica",
+        "displayName": "Informatica",
+        "description": "Import Mappings, Taskflows, lineage, ownership, and tags from Informatica Intelligent Data Management Cloud (IDMC).",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/informatica",
+        "recipe": "source:\n  type: informatica\n  config:\n    login_url: https://dm-us.informaticacloud.com\n    username: \"${IDMC_USERNAME}\"\n    password: \"${IDMC_PASSWORD}\"\n    extract_lineage: true\n    extract_ownership: true\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:snaplogic",
         "name": "snaplogic",
         "displayName": "SnapLogic",
