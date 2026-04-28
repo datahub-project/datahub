@@ -61,6 +61,7 @@ dependencies {
   implementation externalDependency.json
   implementation project(':metadata-integration:java:openlineage-converter')
   implementation project(path: ':metadata-integration:java:datahub-client')
+
   implementation project(path: ':metadata-integration:java:openlineage-converter')
   compileOnly("io.delta:delta-core_2.12:1.0.0")
 
@@ -150,7 +151,6 @@ scalaVersions.each { sv ->
 
     // Create a completely separate configuration for each Scala version
     def scalaConfig = project.configurations.detachedConfiguration()
-
     // Manually add all base dependencies except OpenLineage
     scalaConfig.dependencies.add(project.dependencies.create('org.slf4j:slf4j-log4j12:2.0.7'))
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.httpClient))
@@ -165,8 +165,19 @@ scalaVersions.each { sv ->
     // Add the Scala-specific OpenLineage dependency - THIS IS THE KEY PART
     scalaConfig.dependencies.add(project.dependencies.create("io.openlineage:openlineage-spark_${sv}:${openLineageVersion}"))
 
+    // Add Jackson 2.18.6 explicitly — must win over OpenLineage's transitive 2.15.3
+    scalaConfig.dependencies.add(project.dependencies.create('com.fasterxml.jackson.core:jackson-core:2.18.6'))
+    scalaConfig.dependencies.add(project.dependencies.create('com.fasterxml.jackson.core:jackson-databind:2.18.6'))
+    scalaConfig.dependencies.add(project.dependencies.create('com.fasterxml.jackson.core:jackson-annotations:2.18.6'))
+    scalaConfig.dependencies.add(project.dependencies.create('com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.6'))
     scalaConfig.canBeResolved = true
-    configurations = [scalaConfig]
+    inputs.files(scalaConfig)
+    // Manually add resolved dependencies from scalaConfig during task execution
+    doFirst {
+      scalaConfig.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+        from zipTree(artifact.file)
+      }
+    }
 
     def exclude_modules = project
         .configurations
@@ -190,6 +201,7 @@ scalaVersions.each { sv ->
     exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
     exclude '**/libzstd-jni.*'
     exclude '**/com_github_luben_zstd_*'
+
 
     // Apply all the relocations
     relocate 'avro.com', 'io.acryl.shaded.avro.com'
@@ -279,7 +291,7 @@ assemble {
   dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart']) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSpark']) {
   environment "RUN_QUICKSTART", "false"
   commandLine "spark-smoke-test/smoke.sh"
 }

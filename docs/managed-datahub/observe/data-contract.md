@@ -1,3 +1,7 @@
+---
+title: Data Contracts Monitoring
+---
+
 # Data Contracts
 
 ## What Is a Data Contract
