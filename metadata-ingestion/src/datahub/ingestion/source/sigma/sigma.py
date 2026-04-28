@@ -848,7 +848,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model.workspaceId
                 )
 
-    def _prepopulate_dm_bridge_maps(self, data_model: SigmaDataModel) -> Dict[str, str]:
+    def _prepopulate_dm_bridge_maps(
+        self,
+        data_model: SigmaDataModel,
+        requested_alias: Optional[str] = None,
+    ) -> Dict[str, str]:
         """Populate the global DM bridge maps for one DM and return the
         local ``elementId -> Dataset URN`` map for intra-DM lineage.
 
@@ -856,6 +860,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         cross-DM and workbook-to-DM lineage resolve regardless of DM
         iteration order. Bridge keys use ``get_url_id()`` (the urlId slug
         when present, else the dataModelId UUID).
+
+        ``requested_alias``: if the discovery loop fetched this DM by a
+        stale/rotated prefix that differs from the canonical ``get_url_id()``,
+        pass it here. The same container URN and name maps will be registered
+        under both the canonical key and the alias so that source_ids carrying
+        the old slug resolve correctly.
         """
         data_model_key = self._gen_data_model_key(data_model.dataModelId)
         data_model_container_urn = builder.make_container_urn(data_model_key)
@@ -908,6 +918,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # cross-DM single-element fallback to verify "DM has exactly one
         # element" before attributing an unmatched-name reference.
         self.dm_total_element_count_by_url_id[bridge_key] = len(data_model.elements)
+
+        # Register the requested discovery prefix as an alias when Sigma
+        # returns a different canonical urlId for the same DM (slug rotation).
+        # Source_ids referencing the old prefix still need to resolve to the
+        # same container URN / name maps; without the alias they would fall
+        # through to ``dm_unknown``.
+        if requested_alias and requested_alias != bridge_key:
+            # Only register if the alias is not already claimed by a different DM.
+            if requested_alias not in self.dm_container_urn_by_url_id:
+                self.dm_container_urn_by_url_id[requested_alias] = (
+                    data_model_container_urn
+                )
+                self.dm_element_urn_by_name[requested_alias] = name_map
+                self.dm_total_element_count_by_url_id[requested_alias] = len(
+                    data_model.elements
+                )
 
         return elementId_to_dataset_urn
 
@@ -1591,17 +1617,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         title="personal-space Data Model discovery cap reached",
                         message=(
                             "Personal-space DM discovery reached the "
-                            "``max_personal_dm_discovery_rounds`` cap "
-                            f"({max_rounds}); {len(unresolved)} ``<urlId>`` "
-                            "prefix(es) will not be fetched on this run. "
-                            "Cross-DM edges into those DMs will be reported "
-                            "under ``element_dm_edge_unresolved`` / "
+                            "``max_personal_dm_discovery_rounds`` cap; "
+                            "remaining unresolved ``<urlId>`` prefixes will "
+                            "not be fetched on this run. Cross-DM edges into "
+                            "those DMs will be reported under "
+                            "``element_dm_edge_unresolved`` / "
                             "``data_model_element_cross_dm_upstreams_dm_unknown``. "
                             "Raise ``max_personal_dm_discovery_rounds`` if this "
                             "is legitimate, or investigate the DM graph for a "
                             "reference cycle."
                         ),
-                        context=f"abandoned_prefixes={unresolved[:10]}",
+                        context=(
+                            f"cap={max_rounds}, "
+                            f"abandoned_count={len(unresolved)}, "
+                            f"abandoned_prefixes={unresolved[:10]}"
+                        ),
                     )
                     break
 
@@ -1636,6 +1666,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             # at a workspace that was never produced in this
                             # run (403 / deleted workspace). Consistent with
                             # the workspace_pattern-denied path above.
+                            # Emit a structured warning so the operator can
+                            # see which DM was dropped and why without
+                            # tailing stdout — get_workspace() only debugs.
+                            self.reporter.warning(
+                                title="Sigma discovered Data Model dropped: workspace unreachable",
+                                message=(
+                                    "A cross-DM reference resolved to a Data Model "
+                                    "whose workspace could not be fetched (403, deleted, "
+                                    "or exception). The DM is dropped to avoid emitting "
+                                    "a phantom parent Container URN. Cross-DM edges into "
+                                    "this DM will be counted as "
+                                    "``data_model_element_cross_dm_upstreams_dm_unknown``."
+                                ),
+                                context=(
+                                    f"dm={discovered_dm.name} ({discovered_dm.dataModelId}), "
+                                    f"workspace_id={discovered_dm.workspaceId}"
+                                ),
+                            )
                             self.reporter.data_models.dropped(
                                 f"{discovered_dm.name} ({discovered_dm.dataModelId}) "
                                 f"(discovered, workspace {discovered_dm.workspaceId} "
@@ -1652,6 +1700,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     self.reporter.data_model_external_references_discovered += 1
                     all_data_models.append(discovered_dm)
                     pending.append(discovered_dm)
+                    # Eagerly prepopulate bridge maps so that the alias
+                    # (requested prefix != canonical urlId) is registered
+                    # immediately. This prevents source_ids carrying the
+                    # old slug from resolving as ``dm_unknown`` even when
+                    # Sigma returns the DM under a rotated canonical urlId.
+                    # The next-round prepopulate loop skips already-registered
+                    # DMs via the ``dataModelId in elementId_maps_by_dm`` guard.
+                    if discovered_dm.dataModelId not in elementId_maps_by_dm:
+                        elementId_maps_by_dm[discovered_dm.dataModelId] = (
+                            self._prepopulate_dm_bridge_maps(
+                                discovered_dm, requested_alias=prefix
+                            )
+                        )
 
             # Cheap insurance against a theoretical duplicate where the
             # same DM lands in ``all_data_models`` via both the listed and

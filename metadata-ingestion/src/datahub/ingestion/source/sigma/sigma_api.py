@@ -339,6 +339,7 @@ class SigmaAPI:
                 )
             except ValidationError as e:
                 self.report.warning(
+                    title="Sigma lineage node parse failed",
                     message="Failed to parse Sigma lineage node",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
@@ -347,6 +348,7 @@ class SigmaAPI:
             element_id = source_node.get(Constant.ELEMENTID)
             if element_id is None:
                 self.report.warning(
+                    title="Sigma sheet lineage node missing elementId",
                     message="Sheet upstream node missing elementId",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                 )
@@ -358,6 +360,7 @@ class SigmaAPI:
                 )
             except ValidationError as e:
                 self.report.warning(
+                    title="Sigma lineage node parse failed",
                     message="Failed to parse Sigma lineage node",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
@@ -373,6 +376,7 @@ class SigmaAPI:
             )
             if not dm_url_id:
                 self.report.warning(
+                    title="Sigma data-model lineage node missing url-id prefix",
                     message="Sigma data-model lineage node missing url-id prefix",
                     context=(
                         f"node={source_node_id}, element={element.name}, "
@@ -391,6 +395,7 @@ class SigmaAPI:
                 )
             except ValidationError as e:
                 self.report.warning(
+                    title="Sigma lineage node parse failed",
                     message="Failed to parse Sigma lineage node",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
@@ -405,6 +410,7 @@ class SigmaAPI:
             if warn_key not in self._unknown_lineage_node_types_warned:
                 self._unknown_lineage_node_types_warned.add(warn_key)
                 self.report.warning(
+                    title="Unknown Sigma lineage node type",
                     message="Unknown Sigma lineage node type",
                     context=(
                         f"type={source_type!r}, element={element.name}, "
@@ -529,6 +535,7 @@ class SigmaAPI:
                                 self.report.element_dm_edge_synthesized_from_edge_only += 1
                             except ValidationError as e:
                                 self.report.warning(
+                                    title="Sigma DM upstream synthesis from edge-only node failed",
                                     message="Failed to synthesize Sigma DM upstream from edges-only node",
                                     context=(
                                         f"node={source_node_id}, element={element.name}, "
@@ -545,6 +552,7 @@ class SigmaAPI:
                         source_node = dependencies[source_node_id]
                     except (KeyError, AttributeError, TypeError) as e:
                         self.report.warning(
+                            title="Sigma lineage node parse failed",
                             message="Failed to parse Sigma lineage node",
                             context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                             exc=e,
@@ -564,6 +572,7 @@ class SigmaAPI:
                         # Defence-in-depth; the helper already handles
                         # ValidationError internally.
                         self.report.warning(
+                            title="Sigma lineage node parse failed",
                             message="Failed to parse Sigma lineage node",
                             context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                             exc=e,
@@ -572,6 +581,7 @@ class SigmaAPI:
             # Structural errors in the setup phase (missing keys, malformed
             # edges, non-dict seed entries).
             self.report.warning(
+                title="Sigma element lineage response parse failed",
                 message="Failed to parse Sigma element lineage response",
                 context=f"element={element.name}, workbook={workbook.name}",
                 exc=e,
@@ -738,9 +748,10 @@ class SigmaAPI:
             )
             self.report.warning(
                 title="Sigma paginated endpoint aborted",
-                message=f"{error_ctx} Pagination aborted.",
+                message="Pagination aborted; partial results preserved.",
                 context=(
-                    f"url={url}, partial_results={len(raw_entries)}"
+                    f"endpoint={error_ctx}, url={url}, "
+                    f"partial_results={len(raw_entries)}"
                     + (f", http_status={http_status}" if http_status else "")
                 ),
                 exc=e,
