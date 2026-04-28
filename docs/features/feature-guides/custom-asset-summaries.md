@@ -1,7 +1,7 @@
 ---
 title: Asset Summaries
+description: "Customize the Summary tab for Domains, Data Products, and Glossary Terms in DataHub to create curated discovery experiences."
 ---
-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Asset Summaries

@@ -1,7 +1,6 @@
 ---
-description: This page provides an overview of the Data Health Dashboard
+description: "Use the Data Health Dashboard in DataHub Cloud Observe to monitor assertion status, freshness, and data quality across assets."
 ---
-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Data Health Dashboard

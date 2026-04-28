@@ -1,8 +1,8 @@
 ---
 title: "Configuring Kafka"
+description: "Configure Kafka brokers, topics, and security settings used by DataHub for the metadata change event pub-sub backbone."
 hide_title: true
 ---
-
 # Configuring Kafka in DataHub
 
 DataHub uses Kafka as the pub-sub message queue in the backend.

@@ -1,3 +1,7 @@
+---
+description: "Use DataHub data lineage to map how data flows across your organization, from source systems through transformations to consumption."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # About DataHub Lineage

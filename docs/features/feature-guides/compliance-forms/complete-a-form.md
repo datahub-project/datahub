@@ -1,7 +1,7 @@
 ---
 title: Complete a Form
+description: "Step-by-step guide for assignees to complete a published DataHub Compliance Form via Task Center notifications and asset workflows."
 ---
-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Complete a DataHub Compliance Form

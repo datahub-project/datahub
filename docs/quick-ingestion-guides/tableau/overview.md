@@ -1,7 +1,7 @@
 ---
 title: Tableau Overview
+description: "Quick start guide for ingesting Tableau workbooks, dashboards, sheets, and lineage into DataHub via the UI ingestion workflow."
 ---
-
 # Tableau Ingestion Guide: Overview
 
 ## What You Will Get Out of This Guide

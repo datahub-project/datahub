@@ -1,7 +1,7 @@
 ---
 title: File Upload and Download in Documentation
+description: "Attach images, diagrams, and supporting files to asset and column documentation in DataHub to enrich your data catalog."
 ---
-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # File Upload and Download in Documentation

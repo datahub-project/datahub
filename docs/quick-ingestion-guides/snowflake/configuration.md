@@ -1,7 +1,7 @@
 ---
 title: Snowflake Configuration
+description: "Configure DataHub UI ingestion to connect to Snowflake using the dedicated DataHub user and roles created in the previous step."
 ---
-
 # Configuring Your Snowflake Connector to DataHub
 
 Now that you have created a DataHub-specific user with the relevant roles in Snowflake in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.

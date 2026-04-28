@@ -1,7 +1,7 @@
 ---
 title: Custom Properties Overview
+description: "Add custom, validated metadata fields to any DataHub entity using Structured Properties to support governance and discovery use cases."
 ---
-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # About DataHub Structured Properties

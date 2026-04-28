@@ -1,7 +1,7 @@
 ---
 title: Tableau Setup
+description: "Prepare Tableau for DataHub ingestion by enabling the Metadata API and creating a user with Site Administrator Explorer permissions."
 ---
-
 # Tableau Ingestion Guide: Setup & Prerequisites
 
 In order to configure ingestion from Tableau, you'll first have to enable Tableau Metadata API and you should have a user with Site Administrator Explorer permissions.

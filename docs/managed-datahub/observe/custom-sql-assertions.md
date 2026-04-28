@@ -1,7 +1,6 @@
 ---
-description: This page provides an overview of working with DataHub SQL Assertions
+description: "Define and run Custom SQL Assertions in DataHub Cloud Observe to validate data quality with arbitrary SQL queries."
 ---
-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Custom SQL Assertions

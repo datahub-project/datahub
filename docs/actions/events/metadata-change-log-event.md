@@ -1,3 +1,7 @@
+---
+description: "Reference for the DataHub Metadata Change Log (MCL) event, including event types, payload structure, and schema details."
+---
+
 # Metadata Change Log Event V1
 
 ## Event Type

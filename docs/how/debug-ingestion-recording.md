@@ -1,8 +1,7 @@
 ---
 title: Debug Ingestion with Recording & Replay
-description: Capture and replay ingestion runs for offline debugging
+description: "Capture and replay DataHub ingestion runs locally to debug connector issues offline using the DataHub CLI."
 ---
-
 # Debug Ingestion with Recording & Replay
 
 :::note Beta Feature

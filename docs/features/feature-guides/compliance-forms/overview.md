@@ -1,7 +1,7 @@
 ---
 title: Compliance Forms Overview
+description: "DataHub Compliance Forms enable structured, crowdsourced documentation and classification of critical data assets across your organization."
 ---
-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # About DataHub Compliance Forms

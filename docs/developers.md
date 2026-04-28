@@ -1,7 +1,7 @@
 ---
 title: "Local Development"
+description: "Local development guide for DataHub contributors, including system requirements, building from source, and running tests."
 ---
-
 # DataHub Developer's Guide
 
 ## Requirements
