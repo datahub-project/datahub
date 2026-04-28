@@ -1991,5 +1991,21 @@ ORDER by DataBaseName, TableName;
                 self._pooled_engine.dispose()
                 self._pooled_engine = None
 
+        try:
+            # Clear class-level caches so memory is released between recipe runs in the
+            # same process. Without this, sequential recipes accumulate all TeradataTable
+            # objects (including view request_text) and creator metadata indefinitely.
+            with self._tables_cache_lock:
+                self._tables_cache.clear()
+                self._table_creator_cache.clear()
+
+            # Clear module-level LRU caches for the same reason — schema column/PK/FK
+            # data is per-connection and must not carry over to the next recipe run.
+            get_schema_columns.cache_clear()
+            get_schema_pk_constraints.cache_clear()
+            get_schema_foreign_keys.cache_clear()
+        except Exception as e:
+            logger.warning(f"Failed to clear caches during close: {e}")
+
         # Report failed views summary
         super().close()
