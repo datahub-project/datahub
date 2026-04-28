@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       docker_tag:
-        description: "Container image tag to pull and scan. Default is `head`."
-        required: false
+        description: "Container image tag to pull and scan (e.g. head, latest, or a release tag). Defaults to head."
+        required: true
         type: string
         default: head
       scan_profile:
@@ -53,6 +53,12 @@ on:
         type: number
         default: 5
 
+  workflow_run:
+    workflows:
+      - Nightly Docker Test
+    types:
+      - completed
+
 permissions:
   actions: write
   contents: read
@@ -60,6 +66,16 @@ permissions:
 concurrency:
   group: security-scan-linear-${{ github.run_id }}
   cancel-in-progress: false
+
+# workflow_dispatch fills github.event.inputs; workflow_run does not — resolve defaults for automated runs.
+env:
+  RESOLVED_DOCKER_TAG: ${{ github.event_name == 'workflow_run' && 'head' || github.event.inputs.docker_tag }}
+  RESOLVED_SCAN_PROFILE: ${{ github.event_name == 'workflow_run' && 'allImages' || github.event.inputs.scan_profile }}
+  RESOLVED_VARIANT_SCOPE: ${{ github.event_name == 'workflow_run' && 'all' || github.event.inputs.variant_scope }}
+  RESOLVED_SCAN_SEVERITY_LEVELS: ${{ github.event_name == 'workflow_run' && 'CRITICAL,HIGH' || github.event.inputs.scan_severity_levels }}
+  RESOLVED_SCAN_WITH_TRIVY: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_trivy && 'true' || 'false') }}
+  RESOLVED_SCAN_WITH_GRYPE: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_grype && 'true' || 'false') }}
+  RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS: ${{ github.event_name == 'workflow_run' && '5' || github.event.inputs.scan_artifact_retention_days }}
 
 jobs:
   select-runner:
@@ -81,15 +97,24 @@ jobs:
       - name: Validate inputs
         env:
           EVENT_INPUTS_JSON: ${{ toJSON(github.event.inputs) }}
+          EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-          INPUT_SCAN_WITH_TRIVY: ${{ inputs.scan_with_trivy }}
-          INPUT_SCAN_WITH_GRYPE: ${{ inputs.scan_with_grype }}
+          INPUT_DOCKER_TAG: ${{ env.RESOLVED_DOCKER_TAG }}
+          INPUT_SCAN_WITH_TRIVY: ${{ env.RESOLVED_SCAN_WITH_TRIVY }}
+          INPUT_SCAN_WITH_GRYPE: ${{ env.RESOLVED_SCAN_WITH_GRYPE }}
         run: |
           set -euo pipefail
-          echo "::group::workflow_dispatch"
+          echo "::group::event inputs (${EVENT_NAME})"
           echo "${EVENT_INPUTS_JSON}"
           echo "::endgroup::"
           echo "github.ref_name=${GITHUB_REF_NAME} DOCKER_REGISTRY=${DOCKER_REGISTRY:-<unset>}"
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            dt="${INPUT_DOCKER_TAG//[[:space:]]/}"
+            if [[ -z "${dt}" ]]; then
+              echo "::error::docker_tag is required: set a non-empty container image tag."
+              exit 1
+            fi
+          fi
           if [[ -z "${DOCKER_REGISTRY:-}" ]]; then
             echo "::error::Organization / repository var DOCKER_REGISTRY is required; this workflow only pulls images from the registry (no local Gradle build path)."
             exit 1
@@ -143,7 +168,7 @@ jobs:
       - name: Apply scan profile
         id: scan-profile
         env:
-          SCAN_PROFILE: ${{ inputs.scan_profile }}
+          SCAN_PROFILE: ${{ env.RESOLVED_SCAN_PROFILE }}
         run: |
           set -euo pipefail
           CFG=".github/security-scan-profiles.resolved.json"
@@ -182,43 +207,28 @@ jobs:
             ' "${CFG}")"
           } >> "${GITHUB_OUTPUT}"
 
+      # Linear label + refs comment use the repository default branch name (GitHub API), not the
+      # branch you dispatched from. Container pulls use RESOLVED_DOCKER_TAG elsewhere.
       - name: Resolve git ref (Linear)
         id: git-ref
         env:
-          GITHUB_REF_FULL: ${{ github.ref }}
-          DOCKER_TAG: ${{ inputs.docker_tag }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if [[ -n "${DOCKER_TAG}" ]]; then
-            tag="${DOCKER_TAG}"
-            if c=$(git rev-parse -q --verify "${tag}^{commit}" 2>/dev/null); then
-              commit="$c"
-              ref_out="refs/tags/${tag}"
-            elif c=$(git rev-parse -q --verify "refs/tags/${tag}^{commit}" 2>/dev/null); then
-              commit="$c"
-              ref_out="refs/tags/${tag}"
-            else
-              commit="$(git rev-parse HEAD)"
-              ref_out="${GITHUB_REF_FULL}"
-              echo "::notice::docker_tag ${tag} not a resolvable git ref; Linear uses SHA ${commit:0:7} and ref ${ref_out}"
-            fi
-            {
-              echo "kind=tag"
-              echo "name=${tag}"
-              echo "github_ref=${ref_out}"
-              echo "sha=${commit}"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if tag=$(git describe --tags --exact-match HEAD 2>/dev/null); then
-            { echo "kind=tag"; echo "name=${tag}"; echo "github_ref=refs/tags/${tag}"; } >> "$GITHUB_OUTPUT"
-          elif sym=$(git symbolic-ref -q HEAD); then
-            { echo "kind=branch"; echo "name=${sym#refs/heads/}"; echo "github_ref=${sym}"; } >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::Checkout must be a branch or exact tag."
+          commit="$(git rev-parse HEAD)"
+          default_branch="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.default_branch')"
+          if [[ -z "${default_branch}" || "${default_branch}" == "null" ]]; then
+            echo "::error::Could not resolve repository default branch via GitHub API"
             exit 1
           fi
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "kind=branch"
+            echo "name=${default_branch}"
+            echo "github_ref=refs/heads/${default_branch}"
+            echo "sha=${commit}"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::Linear ref label uses repository default branch ${default_branch}"
 
       - &ecr_login
         name: Login to Amazon ECR
@@ -237,12 +247,10 @@ jobs:
       - name: Resolve images from registry
         id: resolve-images
         env:
-          GITHUB_REF: ${{ steps.git-ref.outputs.github_ref }}
-          GITHUB_SHA: ${{ steps.git-ref.outputs.sha }}
-          DOCKER_TAG_INPUT: ${{ inputs.docker_tag }}
-          SCAN_PROFILE: ${{ inputs.scan_profile }}
+          DOCKER_TAG_INPUT: ${{ env.RESOLVED_DOCKER_TAG }}
+          SCAN_PROFILE: ${{ env.RESOLVED_SCAN_PROFILE }}
           IMAGE_REPOS: ${{ steps.scan-profile.outputs.registry_repos }}
-          VARIANT_SCOPE: ${{ inputs.variant_scope }}
+          VARIANT_SCOPE: ${{ env.RESOLVED_VARIANT_SCOPE }}
         run: |
           set -euo pipefail
           CFG=".github/security-scan-profiles.resolved.json"
@@ -262,12 +270,12 @@ jobs:
             exit 1
           fi
 
-          scan_tag="" reg="" prefix=""
-          if [[ -n "${DOCKER_TAG_INPUT// }" ]]; then
-            scan_tag="${DOCKER_TAG_INPUT// }"
-          else
-            scan_tag="head"
+          scan_tag="${DOCKER_TAG_INPUT//[[:space:]]/}"
+          if [[ -z "${scan_tag}" ]]; then
+            echo "::error::docker_tag is empty after trimming whitespace."
+            exit 1
           fi
+          reg="" prefix=""
 
           set_reg_prefix
           if ! probe "${REGISTRY_PREFIX}/${CANARY_REPO}:${scan_tag}"; then
@@ -365,7 +373,7 @@ jobs:
           name: security-scan-image-list
           path: image-list.txt
           if-no-files-found: error
-          retention-days: ${{ inputs.scan_artifact_retention_days }}
+          retention-days: ${{ env.RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS }}
 
       - name: Select runner for main job
         id: pick-runner
@@ -392,7 +400,8 @@ jobs:
   scan-trivy:
     name: Trivy (${{ matrix.label }})
     needs: [select-runner]
-    if: inputs.scan_with_trivy
+    # Boolean inputs are booleans in expressions, not the string 'true' — compare truthy.
+    if: github.event_name == 'workflow_run' || inputs.scan_with_trivy
     strategy:
       fail-fast: false
       max-parallel: 32
@@ -449,7 +458,7 @@ jobs:
           TRIVY_JAVA_DB_REPOSITORY_OVERRIDE: ${{ vars.TRIVY_JAVA_DB_REPOSITORY }}
           TRIVY_ECR_PTR_PREFIX: ${{ vars.TRIVY_ECR_PTR_PREFIX }}
           TRIVY_GHCR_ECR_PTR_PREFIX: ${{ vars.TRIVY_GHCR_ECR_PTR_PREFIX }}
-          SCAN_SEVERITY_LEVELS: ${{ inputs.scan_severity_levels }}
+          SCAN_SEVERITY_LEVELS: ${{ env.RESOLVED_SCAN_SEVERITY_LEVELS }}
           IMAGES_JSON: ${{ toJson(matrix.images) }}
           REPO_GROUP: ${{ matrix.group }}
         run: |
@@ -520,12 +529,12 @@ jobs:
           name: security-scan-trivy--${{ steps.trivy-art.outputs.slug }}
           path: scan-reports/trivy
           if-no-files-found: warn
-          retention-days: ${{ inputs.scan_artifact_retention_days }}
+          retention-days: ${{ env.RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS }}
 
   scan-grype:
     name: Grype (${{ matrix.label }})
     needs: [select-runner]
-    if: inputs.scan_with_grype
+    if: github.event_name == 'workflow_run' || inputs.scan_with_grype
     strategy:
       fail-fast: false
       max-parallel: 32
@@ -555,7 +564,7 @@ jobs:
       - name: Run Grype
         id: grype
         env:
-          SCAN_SEVERITY_LEVELS: ${{ inputs.scan_severity_levels }}
+          SCAN_SEVERITY_LEVELS: ${{ env.RESOLVED_SCAN_SEVERITY_LEVELS }}
           GRYPE_CMD: ${{ steps.grype-install.outputs.cmd }}
           IMAGES_JSON: ${{ toJson(matrix.images) }}
           REPO_GROUP: ${{ matrix.group }}
@@ -613,7 +622,7 @@ jobs:
           name: security-scan-grype--${{ steps.grype-art.outputs.slug }}
           path: grype-artifact
           if-no-files-found: warn
-          retention-days: ${{ inputs.scan_artifact_retention_days }}
+          retention-days: ${{ env.RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS }}
 
   sync-to-linear:
     name: Linear sync
@@ -650,7 +659,7 @@ jobs:
           mkdir -p scan-reports/trivy scan-reports/grype scan-reports-raw/grype
 
       - name: Download Trivy report artifacts (per-image matrix)
-        if: inputs.scan_with_trivy
+        if: env.RESOLVED_SCAN_WITH_TRIVY == 'true'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: security-scan-trivy--*
@@ -658,7 +667,7 @@ jobs:
           path: scan-reports/trivy
 
       - name: Download Grype report artifacts (merged + raw, per matrix)
-        if: inputs.scan_with_grype
+        if: env.RESOLVED_SCAN_WITH_GRYPE == 'true'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: security-scan-grype--*
@@ -680,9 +689,9 @@ jobs:
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
-          SCAN_WITH_TRIVY: ${{ inputs.scan_with_trivy }}
-          SCAN_WITH_GRYPE: ${{ inputs.scan_with_grype }}
-          DATAHUB_SCAN_SEVERITIES: ${{ inputs.scan_severity_levels }}
+          SCAN_WITH_TRIVY: ${{ env.RESOLVED_SCAN_WITH_TRIVY }}
+          SCAN_WITH_GRYPE: ${{ env.RESOLVED_SCAN_WITH_GRYPE }}
+          DATAHUB_SCAN_SEVERITIES: ${{ env.RESOLVED_SCAN_SEVERITY_LEVELS }}
           DATAHUB_VARIANT_TAG_SUFFIXES: ${{ needs.select-runner.outputs.variant_suffix_labels }}
         run: |
           set -euo pipefail
@@ -729,8 +738,8 @@ jobs:
 
       - name: Fail on scanner errors
         if: |
-          (inputs.scan_with_trivy == 'true' && needs['scan-trivy'].result == 'failure') ||
-          (inputs.scan_with_grype == 'true' && needs['scan-grype'].result == 'failure')
+          (env.RESOLVED_SCAN_WITH_TRIVY == 'true' && needs['scan-trivy'].result == 'failure') ||
+          (env.RESOLVED_SCAN_WITH_GRYPE == 'true' && needs['scan-grype'].result == 'failure')
         run: |
           echo "::error::Matrix scan job(s) failed (Trivy: ${{ needs['scan-trivy'].result }}; Grype: ${{ needs['scan-grype'].result }})"
           exit 1
