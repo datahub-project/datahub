@@ -51,7 +51,11 @@ public class ESGraphWriteDAO {
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
             .retryOnConflict(numRetries);
-    bulkProcessor.add(updateRequest);
+    // Route by docId (hash of source + relationshipType + destination + lifecycleOwner)
+    // so remove+add pairs on the same edge land on the same bulk processor thread.
+    // Otherwise same-docId writes race on OpenSearch's seqNo and retryOnConflict
+    // cannot converge — the losing write is silently dropped.
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**
@@ -66,7 +70,8 @@ public class ESGraphWriteDAO {
     }
     final DeleteRequest deleteRequest =
         new DeleteRequest(indexConvention.getIndexName(INDEX_NAME)).id(docId);
-    bulkProcessor.add(deleteRequest);
+    // Route by docId — see upsertDocument above.
+    bulkProcessor.add(docId, deleteRequest);
   }
 
   @Nullable

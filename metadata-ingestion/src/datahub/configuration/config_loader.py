@@ -202,13 +202,32 @@ def load_config_file(
     allow_remote: bool = True,  # TODO: Change the default to False.
     resolve_env_vars: bool = True,  # TODO: Change the default to False.
     process_directives: bool = False,
+    extra_env_vars: Optional[Dict[str, str]] = None,
 ) -> dict:
     config_mech: ConfigurationMechanism
     if allow_stdin and config_file == "-":
-        # If we're reading from stdin, we assume that the input is a YAML file.
-        # Note that YAML is a superset of JSON, so this will also read JSON files.
+        # Reading from stdin. Supports two formats:
+        # 1. Plain YAML/JSON recipe (backward compatible)
+        # 2. JSON envelope: {"__recipe_yaml__": "...", "__secrets__": {...}}
+        #    Secrets are merged into the env resolver without touching os.environ.
         config_mech = YamlConfigurationMechanism()
-        raw_config_file = sys.stdin.read()
+        raw_stdin = sys.stdin.read()
+
+        try:
+            import json as _json
+
+            envelope = _json.loads(raw_stdin)
+            if isinstance(envelope, dict) and "__recipe_yaml__" in envelope:
+                raw_config_file = envelope["__recipe_yaml__"]
+                stdin_secrets = envelope.get("__secrets__", {})
+                if stdin_secrets:
+                    extra_env_vars = {**(extra_env_vars or {}), **stdin_secrets}
+            else:
+                # Plain JSON (which is valid YAML) — treat as recipe
+                raw_config_file = raw_stdin
+        except (ValueError, _json.JSONDecodeError):
+            # Not JSON — treat as plain YAML
+            raw_config_file = raw_stdin
     else:
         config_file_path = pathlib.Path(config_file)
         if config_file_path.suffix in {".yaml", ".yml"}:
@@ -256,7 +275,10 @@ def load_config_file(
 
     config = raw_config.copy()
     if resolve_env_vars:
-        config = EnvResolver(environ=os.environ).resolve(config)
+        environ: Environ = os.environ
+        if extra_env_vars:
+            environ = {**os.environ, **extra_env_vars}
+        config = EnvResolver(environ=environ).resolve(config)
     if process_directives:
         config = _process_directives(config)
 
