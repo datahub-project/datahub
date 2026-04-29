@@ -1,0 +1,106 @@
+/**
+ * Ingestion source creation flow tests — migrated from Cypress e2e/mutationsV2/v2_ingestion_source.js
+ *
+ * Tests the full Snowflake ingestion source wizard: create, verify saved values,
+ * edit the name, and delete.
+ *
+ * The showIngestionPageRedesign feature flag is forced to false so the classic
+ * ingestion wizard is used throughout.
+ */
+
+import { test, expect } from '../../fixtures/base-test';
+import { IngestionPage } from '../../pages/ingestion.page';
+
+test.describe('ingestion source creation flow', () => {
+  test.beforeEach(async ({ apiMock }) => {
+    await apiMock.setFeatureFlags({ showIngestionPageRedesign: false });
+  });
+
+  test('create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source', async ({
+    page,
+    logger,
+    logDir,
+  }) => {
+    const number = Math.floor(Math.random() * 100000);
+    const accountId = `account${number}`;
+    const warehouseId = `warehouse${number}`;
+    const username = `user${number}`;
+    const password = `password${number}`;
+    const role = `role${number}`;
+    const ingestionSourceName = `ingestion source ${number}`;
+
+    const ingestionPage = new IngestionPage(page, logger, logDir);
+
+    logger.step('navigate to ingestion page');
+    await ingestionPage.navigate();
+
+    await ingestionPage.clickSourcesTab();
+    await ingestionPage.waitForSourcesLoaded();
+
+    logger.step('create new Snowflake ingestion source');
+    await ingestionPage.clickCreateSourceButton();
+    await ingestionPage.searchDataSource('snowflake');
+    await ingestionPage.selectDataSource('Snowflake');
+
+    await ingestionPage.fillSnowflakeForm({ accountId, warehouseId, username, password, role });
+
+    // Verify YAML recipe is generated correctly
+    logger.step('verify yaml recipe');
+    await ingestionPage.clickRecipeYamlButton();
+    await expect(page.getByText('account_id')).toBeVisible();
+    await expect(page.getByText(accountId)).toBeVisible();
+    await expect(page.getByText(warehouseId)).toBeVisible();
+    await expect(page.getByText(username)).toBeVisible();
+    await expect(page.getByText(password)).toBeVisible();
+    await expect(page.getByText(role)).toBeVisible();
+
+    // Complete the wizard
+    logger.step('finish creating source');
+    await ingestionPage.clickRecipeNextButton();
+    await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible({ timeout: 15000 });
+    await ingestionPage.clickScheduleNextButton();
+    await ingestionPage.fillSourceName(ingestionSourceName);
+    await ingestionPage.clickSaveButton();
+    await expect(page.getByText('Successfully created ingestion source!')).toBeVisible({ timeout: 30000 });
+    // Poll until ES indexes the new source (Kafka→MAE→OpenSearch pipeline can lag under load)
+    await expect(async () => {
+      await ingestionPage.searchSources(ingestionSourceName);
+      await page.waitForTimeout(1000);
+      await expect(page.locator('tr').filter({ hasText: ingestionSourceName })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000, intervals: [2000] });
+    await ingestionPage.expectSourceStatusPending(ingestionSourceName);
+
+    // Verify values are saved correctly by reopening the wizard
+    logger.step('verify saved ingestion source details');
+    await ingestionPage.openEditForSource(ingestionSourceName);
+    await expect(page.locator('#account_id')).toHaveValue(accountId, { timeout: 15000 });
+    await expect(page.locator('#warehouse')).toHaveValue(warehouseId);
+    await expect(page.locator('#username')).toHaveValue(username);
+    await expect(
+      page.locator('#authentication_type').locator('xpath=ancestor::*[contains(@class,"ant-form-item")][1]'),
+    ).toContainText('Username & Password');
+    await expect(page.locator('#password')).toHaveValue(password);
+    await expect(page.locator('#role')).toHaveValue(role);
+
+    // Advance through wizard to name step and rename the source
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
+    await ingestionPage.clickScheduleNextButton();
+    await page.locator('[data-testid="source-name-input"]').clear();
+    await page.locator('[data-testid="source-name-input"]').fill(`${ingestionSourceName} EDITED`);
+    await ingestionPage.clickSaveButton();
+    await expect(page.getByText('Successfully updated ingestion source!')).toBeVisible({ timeout: 15000 });
+    // Poll until ES indexes the rename
+    await expect(async () => {
+      await ingestionPage.searchSources(`${ingestionSourceName} EDITED`);
+      await page.waitForTimeout(1000);
+      await expect(page.locator('tr').filter({ hasText: `${ingestionSourceName} EDITED` })).toBeVisible({
+        timeout: 2000,
+      });
+    }).toPass({ timeout: 30000, intervals: [2000] });
+
+    // Delete the ingestion source
+    logger.step('remove ingestion source');
+    await ingestionPage.deleteSource(`${ingestionSourceName} EDITED`);
+  });
+});
