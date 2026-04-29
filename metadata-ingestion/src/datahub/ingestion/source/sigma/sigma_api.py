@@ -15,6 +15,7 @@ from typing import (
     Type,
     TypeVar,
 )
+from urllib.parse import urlencode
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -626,31 +627,16 @@ class SigmaAPI:
         in production; the page-elements endpoint returns columns as plain strings.
         """
         result: Dict[str, Dict[str, Optional[str]]] = {}
-        url = f"{self.config.api_url}/workbooks/{workbook_id}/columns"
-        try:
-            while True:
-                response = self._get_api_call(url)
-                if response.status_code == 404:
-                    logger.debug(
-                        f"Column formulas not available for workbook {workbook_id}"
-                    )
-                    return result
-                response.raise_for_status()
-                response_dict = response.json()
-                for col in response_dict.get(Constant.ENTRIES, []):
-                    elem_id = col.get(Constant.ELEMENTID)
-                    name = col.get(Constant.NAME)
-                    formula: Optional[str] = col.get("formula") or None
-                    if elem_id and name:
-                        result.setdefault(elem_id, {})[name] = formula
-                next_page = response_dict.get(Constant.NEXTPAGE)
-                if not next_page:
-                    break
-                url = f"{self.config.api_url}/workbooks/{workbook_id}/columns?page={next_page}"
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch column formulas for workbook {workbook_id}. Exception: {e}"
-            )
+        for col in self._paginated_raw_entries(
+            f"{self.config.api_url}/workbooks/{workbook_id}/columns",
+            f"Unable to fetch column formulas for workbook {workbook_id}.",
+            silent_statuses=(404,),
+        ):
+            elem_id = col.get(Constant.ELEMENTID)
+            name = col.get(Constant.NAME)
+            formula: Optional[str] = col.get("formula") or None
+            if elem_id and name:
+                result.setdefault(elem_id, {})[name] = formula
         return result
 
     def get_page_elements(
@@ -707,7 +693,10 @@ class SigmaAPI:
         try:
             pages: List[Page] = []
             column_formulas_by_element: Dict[str, Dict[str, Optional[str]]] = {}
-            if self.config.extract_lineage:
+            if (
+                self.config.extract_lineage
+                and self.config.workbook_lineage_pattern.allowed(workbook.name)
+            ):
                 column_formulas_by_element = self.get_workbook_column_formulas(
                     workbook.workbookId
                 )
@@ -777,10 +766,10 @@ class SigmaAPI:
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
                     cursor_key: Tuple[str, str] = ("page", str(next_page))
-                    cursor = f"page={next_page}"
+                    cursor = urlencode({"page": next_page})
                 elif next_token:
                     cursor_key = ("nextPageToken", str(next_token))
-                    cursor = f"nextPageToken={next_token}"
+                    cursor = urlencode({"nextPageToken": next_token})
                 else:
                     break
                 if cursor_key in seen_cursors:

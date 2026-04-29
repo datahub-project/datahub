@@ -9,8 +9,12 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.sigma.config import SigmaSourceConfig
 from datahub.ingestion.source.sigma.data_classes import Element, Page, Workbook
-from datahub.ingestion.source.sigma.formula_parser import BracketRef
+from datahub.ingestion.source.sigma.formula_parser import (
+    BracketRef,
+    extract_bracket_refs,
+)
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 
 # ---------------------------------------------------------------------------
@@ -52,8 +56,6 @@ def _make_element_with_formula(
 
 def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     """Create a minimal SigmaSource with a mocked API for unit testing."""
-    from datahub.ingestion.source.sigma.config import SigmaSourceConfig
-
     config_dict = {
         "client_id": "test",
         "client_secret": "test",
@@ -190,7 +192,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={},
+            element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
@@ -204,7 +206,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="1ESOHOLBNY",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={},
+            element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
@@ -221,7 +223,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"AAOgK0f3ag"},
             wb_element_index={"random data model": [upstream_elem]},
-            wb_warehouse_table_index={},
+            element_warehouse_table_index={},
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
         assert result == (chart_urn, "Calc")
@@ -239,7 +241,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"AAOgK0f3ag"},
             wb_element_index={"random data model": [e1, e2, e3]},
-            wb_warehouse_table_index={},
+            element_warehouse_table_index={},
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
         assert result == (chart_urn, "toss_decision")
@@ -256,7 +258,7 @@ class TestResolveChartFormulaUpstream:
             # Neither collision element is in the upstream set.
             chart_upstream_element_ids=set(),
             wb_element_index={"random data model": [e1, e2]},
-            wb_warehouse_table_index={},
+            element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
@@ -275,7 +277,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"k7i_W7UYCg", "lBjhSbH_Jp"},
             wb_element_index={"random data model": [e1, e2]},
-            wb_warehouse_table_index={},
+            element_warehouse_table_index={},
             elementId_to_chart_urn={"k7i_W7UYCg": "urn:a", "lBjhSbH_Jp": "urn:b"},
         )
         assert result is None
@@ -292,7 +294,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="4Buu0C7LnB",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={"FIVETRAN_LOG__CONNECTOR_STATUS": [wh_urn]},
+            element_warehouse_table_index={"FIVETRAN_LOG__CONNECTOR_STATUS": [wh_urn]},
             elementId_to_chart_urn={},
         )
         assert result == (wh_urn, "Connector Health")
@@ -309,7 +311,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={"MY_TABLE": [wh_urn]},
+            element_warehouse_table_index={"MY_TABLE": [wh_urn]},
             elementId_to_chart_urn={},
         )
         assert result == (wh_urn, "col")
@@ -324,7 +326,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={"ORDERS": [urn1, urn2]},
+            element_warehouse_table_index={"ORDERS": [urn1, urn2]},
             elementId_to_chart_urn={},
         )
         assert result is None
@@ -340,7 +342,7 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
             wb_element_index={},
-            wb_warehouse_table_index={},
+            element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
@@ -350,8 +352,6 @@ class TestResolveChartFormulaUpstream:
 
     def test_sibling_refs_from_failures_formula(self) -> None:
         """CountDistinctIf([Log Id], [status] = ...) has two sibling refs."""
-        from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
-
         formula = 'CountDistinctIf([Log Id], [status] = "FAILURE" or [status] = "FAILURE_WITH_TASK")'
         refs = extract_bracket_refs(formula)
         assert all(r.column is None for r in refs)
@@ -361,15 +361,13 @@ class TestResolveChartFormulaUpstream:
                 chart_element_id="1ESOHOLBNY",
                 chart_upstream_element_ids=set(),
                 wb_element_index={},
-                wb_warehouse_table_index={},
+                element_warehouse_table_index={},
                 elementId_to_chart_urn={},
             )
             assert result is None
 
     def test_selected_metric_param_and_siblings(self) -> None:
         """Switch([P_Failure_or_Resync], ...) has param + sibling refs -> all None."""
-        from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
-
         formula = 'Switch([P_Failure_or_Resync], "Failure", [Failures], "Resync", [Forced Resyncs])'
         refs = extract_bracket_refs(formula)
         for ref in refs:
@@ -378,7 +376,7 @@ class TestResolveChartFormulaUpstream:
                 chart_element_id="1ESOHOLBNY",
                 chart_upstream_element_ids=set(),
                 wb_element_index={},
-                wb_warehouse_table_index={},
+                element_warehouse_table_index={},
                 elementId_to_chart_urn={},
             )
             assert result is None

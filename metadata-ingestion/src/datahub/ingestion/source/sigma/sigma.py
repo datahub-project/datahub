@@ -1219,7 +1219,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         chart_element_id: str,
         chart_upstream_element_ids: Set[str],
         wb_element_index: Dict[str, List[Element]],
-        wb_warehouse_table_index: Dict[str, List[str]],
+        element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
@@ -1229,7 +1229,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           2. column is None (bare [col]) -> None (sibling ref within same element).
           3. wb_element_index match filtered by chart_upstream_element_ids
              -> upstream chart URN + ref.column.  Ambiguous (>1 match) -> None.
-          4. wb_warehouse_table_index match with exactly one candidate
+          4. element_warehouse_table_index match with exactly one candidate
              -> warehouse Dataset URN + ref.column.
              Two or more candidates (same short name, different schemas) -> None.
           5. else -> None (unresolved; caller increments counter via return value).
@@ -1241,6 +1241,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         candidates = wb_element_index.get(ref.source, [])
+        if not candidates:
+            logger.debug(
+                "No exact-case workbook element match for formula ref source %r; "
+                "falling back to warehouse-table resolution.",
+                ref.source,
+            )
         upstream_matches = [
             elem
             for elem in candidates
@@ -1257,7 +1263,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_input_fields_unresolved += 1
             return None
 
-        wh_candidates = wb_warehouse_table_index.get(ref.source.upper(), [])
+        wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
         if len(wh_candidates) == 1:
             self.reporter.chart_input_fields_resolved += 1
             return (wh_candidates[0], ref.column)
@@ -1470,7 +1476,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for upstream in element.upstream_sources.values()
                 if isinstance(upstream, SheetUpstream)
             }
-            wb_warehouse_table_index = self._build_workbook_warehouse_table_index(
+            element_warehouse_table_index = self._build_workbook_warehouse_table_index(
                 dataset_inputs
             )
 
@@ -1485,7 +1491,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         chart_element_id=element.elementId,
                         chart_upstream_element_ids=chart_upstream_eids,
                         wb_element_index=wb_element_index,
-                        wb_warehouse_table_index=wb_warehouse_table_index,
+                        element_warehouse_table_index=element_warehouse_table_index,
                         elementId_to_chart_urn=elementId_to_chart_urn,
                     )
                     if resolved is None:

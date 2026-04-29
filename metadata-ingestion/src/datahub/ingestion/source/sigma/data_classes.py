@@ -136,11 +136,18 @@ class Element(BaseModel):
           - Populates `column_formulas` with the name->formula mapping.
         """
         raw_columns = values.get("columns", [])
-        if raw_columns and isinstance(raw_columns[0], dict):
-            values["columns"] = [col.get("name", "") for col in raw_columns]
-            values["column_formulas"] = {
-                col.get("name", ""): col.get("formula") or None for col in raw_columns
-            }
+        if raw_columns and any(isinstance(col, dict) for col in raw_columns):
+            column_names: List[str] = []
+            column_formulas: Dict[str, Optional[str]] = {}
+            for col in raw_columns:
+                if isinstance(col, dict):
+                    name = col.get("name", "")
+                    column_names.append(name)
+                    column_formulas[name] = col.get("formula") or None
+                else:
+                    column_names.append(str(col))
+            values["columns"] = column_names
+            values["column_formulas"] = column_formulas
         return values
 
     def get_urn_part(self):
