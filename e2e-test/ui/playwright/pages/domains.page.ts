@@ -60,12 +60,16 @@ export class DomainsPage extends BasePage {
     // by their table name (last dotted segment), not the fully-qualified path, so strip to
     // the last segment for a reliable match.
     const searchTerm = searchQuery.split('.').pop() || searchQuery;
-    // Retry the search+select loop: ES may need time to index the entity after seeding
+    // Retry the search+select loop: ES may need time to index the entity after seeding.
+    // Must use pressSequentially (not fill) because the SearchBar triggers its GraphQL query
+    // via the AntD AutoComplete onSearch callback, which only fires on real keystroke events.
+    // fill() only updates the DOM value and fires the inner input onChange, which does NOT
+    // propagate to the AutoComplete's onSearch, so the search query never executes.
     await expect(async () => {
-      await searchInput.click();
-      await searchInput.fill(searchTerm);
-      // Wait for the 300ms search debounce + result render before checking the checkbox
-      await this.page.waitForTimeout(500);
+      await searchInput.click({ clickCount: 3 }); // select-all any existing text
+      await searchInput.pressSequentially(searchTerm);
+      // Wait for the debounce (300ms) + search result render before checking the checkbox
+      await this.page.waitForTimeout(800);
       await expect(checkbox).toBeVisible({ timeout: 10000 });
     }).toPass({ timeout: 90000, intervals: [3000] });
     await checkbox.click({ force: true });
