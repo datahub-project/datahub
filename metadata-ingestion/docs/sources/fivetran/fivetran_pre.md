@@ -71,7 +71,8 @@ config:
     polaris_warehouse_a:
       platform: iceberg # default; emit `iceberg.<schema>.<table>` URNs
     glue_warehouse_b:
-      platform: glue # emit `glue.fivetran_<schema>.<table>` URNs
+      platform: glue # emit `glue.<database>.<schema>.<table>` URNs
+      database: <actual Glue database name from your AWS Glue console>
       platform_instance: "glue_us_west" # match the Glue source recipe
       env: PROD
     s3_lake_c:
@@ -118,7 +119,7 @@ For example, an AWS-backed MDL destination with `bucket: example-fivetran-lake` 
 
 ##### Overriding the URN platform per destination
 
-For non-MDL destinations, or to override the platform with something other than glue / iceberg (e.g. align with a Unity Catalog source connector), declare the platform explicitly in `destination_to_platform_instance`:
+For non-MDL destinations, or to align with a source connector whose platform name doesn't match Fivetran's discovered `service` (e.g. Unity Catalog), declare the platform explicitly:
 
 ```yaml
 destination_to_platform_instance:
@@ -128,15 +129,7 @@ destination_to_platform_instance:
     env: PROD
 ```
 
-A pinned `platform` skips REST destination discovery for that destination — useful when discovery is wrong or returns a service we don't recognize.
-
-##### Migrating from `managed_data_lake_destination_config`
-
-`destination_platform: managed_data_lake` and `managed_data_lake_destination_config` were removed in favour of REST mode. To migrate:
-
-1. Replace the entire `fivetran_log_config` block with `log_source: rest_api` and an `api_config`.
-2. Drop the old `catalog_type`, `glue_database_prefix`, and `preserve_case` fields from inside `managed_data_lake_destination_config` — REST mode handles all catalog backings via `service` discovery and does not need SQL identifier transformations.
-3. If you want to pin the URN platform for a destination (e.g. `glue` instead of `iceberg`), use `destination_to_platform_instance.<destination_id>.platform`. For Glue routing, also set `destination_to_platform_instance.<destination_id>.database` to the actual Glue database name from your AWS Glue console.
+The user override always wins; REST destination discovery still runs in the background to fill in any fields the user didn't pin (e.g. `database` from the discovered config when not overridden). For Glue routing, also set `destination_to_platform_instance.<destination_id>.database` to the actual Glue database name from your AWS Glue console.
 
 #### Hybrid deployments and destination discovery
 
@@ -159,7 +152,7 @@ source:
 
 Discovery results are cached per-ingest, so each unique `destination_id` triggers at most one REST call.
 
-**Precedence:** declarative entries in `destination_to_platform_instance` always win over discovery — use them to override an inaccurate REST result or fix one destination without touching the rest. Pinning `platform` on an entry also skips the REST round-trip for that destination.
+**Precedence:** declarative entries in `destination_to_platform_instance` always win over discovery — use them to override an inaccurate REST result or fix one destination without touching the rest. Discovery still runs (one cached call per destination per ingest) so unpinned fields like `database` are auto-populated from the destination response when relevant.
 
 **Failures:** if the REST call fails for a destination, the connector logs a structured warning and falls back to the recipe's default `destination_platform`. The ingest does not abort. Set the override explicitly via `destination_to_platform_instance` to bypass discovery for that destination.
 
@@ -171,29 +164,29 @@ The connector reads metadata from two possible providers — the Fivetran Platfo
 
 ##### Capability matrix
 
-| Feature                                                          | DB log                        | REST API                                                                                                                                                                                                                                               |
-| ---------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Connector list / metadata                                        | ✅ (1 SQL query)              | ✅ (paginated per group)                                                                                                                                                                                                                               |
-| Source platform (from connector type)                            | ✅                            | ✅                                                                                                                                                                                                                                                     |
-| Destination platform routing (Snowflake / BigQuery / Databricks) | ✅ via `destination_platform` | ✅ via `/v1/destinations/{id}` discovery                                                                                                                                                                                                               |
-| Managed Data Lake → Iceberg URN (Polaris / Iceberg REST)         | ❌                            | ✅ default for `service: managed_data_lake`                                                                                                                                                                                                            |
-| Managed Data Lake → Glue / S3 / GCS / ABS URN routing            | ❌                            | ✅ via `destination_to_platform_instance.<id>.platform` (covers AWS, GCS, ADLS Gen2 backings)                                                                                                                                                          |
-| Read Fivetran log when log destination is Managed Data Lake      | ❌                            | n/a — REST does not read a log database                                                                                                                                                                                                                |
-| Table lineage (with historical, including disabled tables)       | ✅ historical                 | ⚠️ current enabled config only                                                                                                                                                                                                                         |
-| Column lineage with source/destination column names              | ✅                            | ⚠️ table-only by default. Schemas-config endpoint only returns user-modified columns; full per-column metadata lives at a separate per-table endpoint (per-table API fanout, future enhancement). Use DB-primary hybrid for full column lineage today. |
-| User / owner emails                                              | ✅ (1 SQL query)              | ✅ (paginated per group)                                                                                                                                                                                                                               |
-| Sync history → DataProcessInstance events                        | ✅                            | ❌ (Fivetran REST has no sync-history endpoint; restored in REST-primary hybrid via DB log)                                                                                                                                                            |
-| Rich sync-failure detail (`end_message_data` JSON)               | ✅                            | ❌                                                                                                                                                                                                                                                     |
-| Hashed / PII column flags                                        | ✅                            | ⚠️ partial                                                                                                                                                                                                                                             |
-| Google Sheets connection config (`sheet_id`, `named_range`)      | ❌                            | ✅ (REST is the only source)                                                                                                                                                                                                                           |
+| Feature                                                          | DB log                        | REST API                                                                                                                                                                                                              |
+| ---------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Connector list / metadata                                        | ✅ (1 SQL query)              | ✅ (paginated per group)                                                                                                                                                                                              |
+| Source platform (from connector type)                            | ✅                            | ✅                                                                                                                                                                                                                    |
+| Destination platform routing (Snowflake / BigQuery / Databricks) | ✅ via `destination_platform` | ✅ via `/v1/destinations/{id}` discovery                                                                                                                                                                              |
+| Managed Data Lake → Iceberg URN (Polaris / Iceberg REST)         | ❌                            | ✅ default for `service: managed_data_lake`                                                                                                                                                                           |
+| Managed Data Lake → Glue / S3 / GCS / ABS URN routing            | ❌                            | ✅ via `destination_to_platform_instance.<id>.platform` (covers AWS, GCS, ADLS Gen2 backings)                                                                                                                         |
+| Read Fivetran log when log destination is Managed Data Lake      | ❌                            | n/a — REST does not read a log database                                                                                                                                                                               |
+| Table lineage (with historical, including disabled tables)       | ✅ historical                 | ⚠️ current enabled config only                                                                                                                                                                                        |
+| Column lineage with source/destination column names              | ✅                            | ✅ full coverage via per-table fetch from `/v1/connections/{id}/schemas/{schema}/tables/{table}/columns` (the bulk schemas-config endpoint only returns user-modified columns; the per-table endpoint fills the rest) |
+| User / owner emails                                              | ✅ (1 SQL query)              | ✅ (paginated per group)                                                                                                                                                                                              |
+| Sync history → DataProcessInstance events                        | ✅                            | ❌ (Fivetran REST has no sync-history endpoint; restored in REST-primary hybrid via DB log)                                                                                                                           |
+| Rich sync-failure detail (`end_message_data` JSON)               | ✅                            | ❌                                                                                                                                                                                                                    |
+| Hashed / PII column flags                                        | ✅                            | ⚠️ partial                                                                                                                                                                                                            |
+| Google Sheets connection config (`sheet_id`, `named_range`)      | ❌                            | ✅ (REST is the only source)                                                                                                                                                                                          |
 
 ##### Credential coverage — what's available per config combination
 
-| Configuration                               | What you get                                                                                                                                                                                                                                                                                                         | What's not available                                                                                                                                                                                                                                                             |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fivetran_log_config` only                  | Full happy path for Snowflake / BigQuery / Databricks log setups: connectors, lineage with historical view, owner emails, DPI events, rich failure detail.                                                                                                                                                           | Managed Data Lake destinations (Iceberg / Polaris); per-destination URN routing for hybrid accounts with mixed destination types; Google Sheets connection config.                                                                                                               |
-| `api_config` only                           | All structural metadata for any destination type, including Managed Data Lake (Iceberg / Glue URN routing). Table-level lineage from `/v1/connections/{id}/schemas`. Works without warehouse credentials.                                                                                                            | Full column lineage (the schemas-config endpoint only returns user-modified columns; full columns require a per-table API fanout, a future enhancement). DataProcessInstance events (no REST sync-history endpoint); rich failure detail; historical lineage of disabled tables. |
-| Both `fivetran_log_config` and `api_config` | Recommended for full coverage. DB-primary by default (DB owns connectors / lineage / users / jobs; REST owns destination routing and Google Sheets details). Set `log_source: rest_api` for REST-primary hybrid — REST owns connectors / lineage / routing, DB log fills in DPI events plus higher-fidelity lineage. | Connectors visible only in destinations other than the configured `fivetran_log_config` warehouse won't get DPI events (run history requires log access).                                                                                                                        |
+| Configuration                               | What you get                                                                                                                                                                                                                                                                                                         | What's not available                                                                                                                                               |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fivetran_log_config` only                  | Full happy path for Snowflake / BigQuery / Databricks log setups: connectors, lineage with historical view, owner emails, DPI events, rich failure detail.                                                                                                                                                           | Managed Data Lake destinations (Iceberg / Polaris); per-destination URN routing for hybrid accounts with mixed destination types; Google Sheets connection config. |
+| `api_config` only                           | All structural metadata for any destination type, including Managed Data Lake (Iceberg / Glue / S3 / GCS / ABS URN routing). Full table+column lineage via `/v1/connections/{id}/schemas` plus per-table column fetches. Works without warehouse credentials.                                                        | DataProcessInstance events (no REST sync-history endpoint); rich failure detail (DB log's `end_message_data` JSON); historical lineage of disabled tables.         |
+| Both `fivetran_log_config` and `api_config` | Recommended for full coverage. DB-primary by default (DB owns connectors / lineage / users / jobs; REST owns destination routing and Google Sheets details). Set `log_source: rest_api` for REST-primary hybrid — REST owns connectors / lineage / routing, DB log fills in DPI events plus higher-fidelity lineage. | Connectors visible only in destinations other than the configured `fivetran_log_config` warehouse won't get DPI events (run history requires log access).          |
 
 ##### Which `log_source` value to pick
 
@@ -203,7 +196,7 @@ value from the credential blocks you supply:
 | Credentials provided                 | Inferred `log_source`       | What you get                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fivetran_log_config` only           | `log_database`              | DB owns everything: connectors, table+column lineage, users, jobs, run history. No destination discovery.                                                                                                                                                                                                        |
-| `api_config` only                    | `rest_api`                  | REST owns connectors, table-level lineage, users, destination routing, Google Sheets. Full column lineage requires DB credentials (use DB-primary or hybrid). No DataProcessInstance run-history.                                                                                                                |
+| `api_config` only                    | `rest_api`                  | REST owns connectors, full table+column lineage, users, destination routing, Google Sheets. No DataProcessInstance run-history (no sync-history endpoint).                                                                                                                                                       |
 | Both blocks                          | `log_database` (DB-primary) | DB owns connectors / lineage / users / jobs. REST fills in destination routing + Google Sheets details. Recommended for full coverage.                                                                                                                                                                           |
 | Both blocks + `log_source: rest_api` | `rest_api` (REST-primary)   | REST owns connectors / schemas / users / destination routing. DB log fills in per-run DataProcessInstance events (REST has no sync-history endpoint) AND lineage (DB log carries explicit `source_column_name` / `destination_column_name` from sync events, slightly higher fidelity than REST schemas-config). |
 
@@ -246,24 +239,7 @@ source:
         log_schema: "fivetran_log"
 ```
 
-REST mode reads `connections`, `schemas` (for table+column lineage), `sync_history`, `users`, and `destinations` directly via the Fivetran API. No database connection. URN platform routing happens automatically per destination via the same REST endpoint.
-
-```yaml
-source:
-  type: fivetran
-  config:
-    log_source: rest_api
-    api_config:
-      api_key: "${FIVETRAN_API_KEY}"
-      api_secret: "${FIVETRAN_API_SECRET}"
-    # destination_to_platform_instance still works as a per-destination override.
-    destination_to_platform_instance:
-      g1:
-        platform_instance: "polaris_us_west"
-        env: PROD
-```
-
-**Tradeoffs:** REST mode makes one or more API calls per connector instead of bulk SQL queries. For accounts with hundreds of connectors, expect noticeably more API requests during ingest (typically still well under Fivetran's per-minute rate limits). Sync-history detail is constrained to what the REST endpoint exposes — generally sufficient for run-status MCEs.
+**Tradeoffs:** REST mode makes one or more API calls per connector instead of bulk SQL queries. For accounts with hundreds of connectors, expect noticeably more API requests during ingest (typically still well under Fivetran's per-minute rate limits). REST-only mode (no `fivetran_log_config` block) emits no `DataProcessInstance` events because Fivetran's REST API has no sync-history endpoint — use REST-primary hybrid as shown above to restore them.
 
 ##### Performance and rate limits (REST mode)
 
