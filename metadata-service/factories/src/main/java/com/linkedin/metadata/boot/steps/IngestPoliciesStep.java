@@ -131,7 +131,7 @@ public class IngestPoliciesStep implements BootstrapStep {
             .getEntitySpec(Constants.POLICY_ENTITY_NAME)
             .getAspectSpec(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME);
     int start = 0;
-    int count = 30;
+    int count = 500;
     int total = 100;
     while (start < total) {
       ListUrnsResult listUrnsResult =
