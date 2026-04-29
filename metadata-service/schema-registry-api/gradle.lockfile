@@ -1,10 +1,10 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
-com.fasterxml.jackson.core:jackson-annotations:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-core:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-databind:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson:jackson-bom:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-annotations:2.21=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-core:2.21.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-databind:2.21.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson:jackson-bom:2.21.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.ibm.icu:icu4j:69.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.micrometer:micrometer-commons:1.15.10=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.micrometer:micrometer-observation:1.15.10=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
