@@ -189,6 +189,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_input_fields_unresolved: int = 0
     chart_input_fields_skipped_parameter: int = 0
     chart_input_fields_skipped_sibling: int = 0
+    chart_input_fields_case_mismatch: int = 0
 
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
