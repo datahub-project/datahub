@@ -783,9 +783,15 @@ class DagTestCase:
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
 
+    golden_variant: Optional[str] = None
+
     @property
     def dag_test_id(self) -> str:
         return f"{self.dag_id}{self.test_variant or ''}"
+
+    @property
+    def golden_test_id(self) -> str:
+        return f"{self.dag_id}{self.golden_variant or self.test_variant or ''}"
 
 
 # Airflow 2.x test cases - these DAGs are in tests/integration/dags/
@@ -810,6 +816,7 @@ test_cases_airflow2 = [
         enable_datajob_lineage=True,
         datajob_lineage_dag_filter_str='{"deny": ["simple_dag"]}',
         test_variant="_per_dag_lineage_denied",
+        golden_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase(
@@ -857,6 +864,7 @@ test_cases_airflow3 = [
         enable_datajob_lineage=True,
         datajob_lineage_dag_filter_str='{"deny": ["simple_dag"]}',
         test_variant="_per_dag_lineage_denied",
+        golden_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
@@ -890,7 +898,7 @@ def _get_test_parameters():
         # Airflow 3.0+: Only run v2 plugin tests with airflow3 suffix
         return [
             pytest.param(
-                f"v2_{test_case.dag_test_id}_airflow3",
+                f"v2_{test_case.golden_test_id}_airflow3",
                 test_case,
                 False,  # is_v1
                 id=f"v2_{test_case.dag_test_id}_airflow3",
@@ -903,7 +911,7 @@ def _get_test_parameters():
             # v1 plugin tests (only on Airflow 2.3)
             *[
                 pytest.param(
-                    f"v1_{test_case.dag_test_id}",
+                    f"v1_{test_case.golden_test_id}",
                     test_case,
                     True,
                     id=f"v1_{test_case.dag_test_id}",
@@ -919,9 +927,9 @@ def _get_test_parameters():
             *[
                 pytest.param(
                     (
-                        f"v2_{test_case.dag_test_id}"
+                        f"v2_{test_case.golden_test_id}"
                         if HAS_AIRFLOW_DAG_LISTENER_API
-                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                        else f"v2_{test_case.golden_test_id}_no_dag_listener"
                     ),
                     test_case,
                     False,
