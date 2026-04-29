@@ -719,21 +719,17 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     String responseBody = org.apache.http.util.EntityUtils.toString(response.getEntity(), "UTF-8");
     JsonNode responseJson = objectMapper.readTree(responseBody);
 
-    return parseSearchKnnResponse(responseJson);
+    return parseSearchKnnResponse(responseJson, objectMapper);
   }
-
-  /**
-   * Shared mapper for response parsing; avoids per-call allocation since ObjectMapper is
-   * thread-safe after construction.
-   */
-  private static final ObjectMapper PARSE_MAPPER = new ObjectMapper();
 
   /**
    * Parses a kNN search response JSON node into a {@link KnnSearchResponse}.
    *
-   * <p>Package-private for unit testing without a live cluster.
+   * <p>Package-private for unit testing without a live cluster. The {@code mapper} is supplied by
+   * the caller so production code reuses the shim's configured {@link ObjectMapper} and tests can
+   * pass their own.
    */
-  static KnnSearchResponse parseSearchKnnResponse(JsonNode responseJson) {
+  static KnnSearchResponse parseSearchKnnResponse(JsonNode responseJson, ObjectMapper mapper) {
     List<KnnSearchResponse.Hit> hits = new ArrayList<>();
     for (JsonNode hit : responseJson.path("hits").path("hits")) {
       String id = hit.path("_id").asText("");
@@ -750,7 +746,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       }
       Map<String, Object> source =
           hit.has("_source")
-              ? PARSE_MAPPER.convertValue(
+              ? mapper.convertValue(
                   hit.path("_source"), new TypeReference<Map<String, Object>>() {})
               : Map.of();
       hits.add(new KnnSearchResponse.Hit(id, score, source));

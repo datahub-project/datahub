@@ -11,6 +11,9 @@ import javax.annotation.Nonnull;
  * <p>OpenSearch requires the top-level {@code "knn": true} index setting to enable the k-NN plugin
  * for an index. This is distinct from Elasticsearch 8, which uses the {@code dense_vector} field
  * mapping and does not require this separate index-level setting.
+ *
+ * <p>Shard and replica counts are left to engine defaults so that operators can override them via
+ * cluster-level index templates.
  */
 public final class OpenSearch2SemanticIndexSettingsBuilder {
 
@@ -20,8 +23,6 @@ public final class OpenSearch2SemanticIndexSettingsBuilder {
   public static Map<String, Object> build(@Nonnull SemanticIndexSpec spec) {
     Map<String, Object> settings = new LinkedHashMap<>();
     settings.put("knn", true);
-    settings.put("number_of_shards", 1);
-    settings.put("number_of_replicas", 1);
     return settings;
   }
 }

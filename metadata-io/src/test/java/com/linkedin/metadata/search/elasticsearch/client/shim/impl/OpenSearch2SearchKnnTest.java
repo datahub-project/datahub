@@ -9,9 +9,9 @@ import java.util.Map;
 import org.testng.annotations.Test;
 
 /**
- * Unit tests for {@link OpenSearch2SearchClientShim#parseSearchKnnResponse(JsonNode)} and related
- * kNN search behaviour. We test the static response-parsing method directly to avoid needing a live
- * OpenSearch cluster.
+ * Unit tests for {@link OpenSearch2SearchClientShim#parseSearchKnnResponse(JsonNode, ObjectMapper)}
+ * and related kNN search behaviour. We test the static response-parsing method directly to avoid
+ * needing a live OpenSearch cluster.
  */
 public class OpenSearch2SearchKnnTest {
 
@@ -34,7 +34,7 @@ public class OpenSearch2SearchKnnTest {
             + "}";
 
     KnnSearchResponse response =
-        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson));
+        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson), MAPPER);
 
     assertFalse(response.isEmpty());
     assertEquals(response.hits().size(), 2);
@@ -48,7 +48,7 @@ public class OpenSearch2SearchKnnTest {
   public void returnsEmptyResponseForNoHits() throws Exception {
     String responseJson = "{\"hits\":{\"hits\":[]}}";
     KnnSearchResponse response =
-        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson));
+        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson), MAPPER);
     assertTrue(response.isEmpty());
     assertEquals(response.hits().size(), 0);
   }
@@ -66,7 +66,7 @@ public class OpenSearch2SearchKnnTest {
             + "}";
 
     KnnSearchResponse response =
-        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson));
+        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson), MAPPER);
 
     assertEquals(response.hits().size(), 1, "Hit with empty _id must be skipped");
     assertEquals(response.hits().get(0).id(), "urn:li:dataset:ok");
@@ -84,7 +84,7 @@ public class OpenSearch2SearchKnnTest {
             + "}";
 
     KnnSearchResponse response =
-        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson));
+        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson), MAPPER);
 
     assertEquals(response.hits().size(), 1);
     Map<String, Object> source = response.hits().get(0).source();
@@ -104,7 +104,7 @@ public class OpenSearch2SearchKnnTest {
             + "}";
 
     KnnSearchResponse response =
-        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson));
+        OpenSearch2SearchClientShim.parseSearchKnnResponse(parse(responseJson), MAPPER);
 
     assertEquals(response.hits().size(), 1);
     assertEquals(response.hits().get(0).score(), 0.0, 0.001, "Missing _score should default to 0");

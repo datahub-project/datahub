@@ -25,9 +25,13 @@ public class Es8SemanticIndexSettingsBuilderTest {
   }
 
   @Test
-  public void testContainsShardsAndReplicas() {
+  public void testNoHardcodedShardsOrReplicas() {
     Map<String, Object> settings = Es8SemanticIndexSettingsBuilder.build(spec());
-    assertTrue(settings.containsKey("number_of_shards"), "Should include number_of_shards");
-    assertTrue(settings.containsKey("number_of_replicas"), "Should include number_of_replicas");
+    assertFalse(
+        settings.containsKey("number_of_shards"),
+        "Shard count should be left to engine defaults / index templates, not hardcoded");
+    assertFalse(
+        settings.containsKey("number_of_replicas"),
+        "Replica count should be left to engine defaults / index templates, not hardcoded");
   }
 }
