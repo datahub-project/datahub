@@ -93,12 +93,12 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     phone: '',
                     urn: '',
                 });
+                onClose();
             })
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
             });
-        onClose();
     };
 
     return (
