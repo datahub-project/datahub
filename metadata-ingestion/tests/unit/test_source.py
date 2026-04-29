@@ -437,3 +437,88 @@ def test_stale_entity_removal_excludes_all_aspects():
     assert source.source_report.aspects_by_subtypes == {
         "dataset": {"Table": {"status": 1, "subTypes": 1, "datasetProfile": 1}}
     }
+
+
+def test_dataplex_report_accepts_multi_platform_entities() -> None:
+    report = SourceReport()
+    report.set_platform("dataplex")
+
+    dataplex_dataset_urn = str(
+        DatasetUrn.create_from_ids(
+            platform_id="bigquery",
+            table_name="dataplex.table",
+            env="PROD",
+        )
+    )
+    report.report_workunit(
+        MetadataChangeProposalWrapper(
+            entityUrn=dataplex_dataset_urn,
+            aspect=DatasetProfileClass(
+                timestampMillis=0,
+                rowCount=100,
+                columnCount=10,
+                sizeInBytes=1000,
+            ),
+        ).as_workunit()
+    )
+
+    report.compute_stats()
+    assert report.get_aspects_dict() == {"dataset": {"datasetProfile": 1}}
+    assert report.aspects_by_subtypes_full_count == {
+        "dataset": {"unknown": {"datasetProfile": 1}}
+    }
+    assert report.samples == {"profiling": {"unknown": [dataplex_dataset_urn]}}
+
+
+def test_dataplex_report_accepts_platformless_containers_only() -> None:
+    report = SourceReport()
+    report.set_platform("dataplex")
+
+    container_urn = "urn:li:container:dataplex-container"
+    report.report_workunit(
+        MetadataChangeProposalWrapper(
+            entityUrn=container_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+    )
+    report.report_workunit(
+        MetadataChangeProposalWrapper(
+            entityUrn="urn:li:corpuser:jdoe",
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+    )
+
+    report.compute_stats()
+    assert report.get_aspects_dict() == {"container": {"status": 1}}
+    assert report.aspects_by_subtypes_full_count == {
+        "container": {"unknown": {"status": 1}}
+    }
+
+
+def test_non_dataplex_report_still_filters_mismatched_platforms() -> None:
+    report = SourceReport()
+    report.set_platform("fake")
+
+    non_matching_dataset_urn = str(
+        DatasetUrn.create_from_ids(
+            platform_id="bigquery",
+            table_name="external.table",
+            env="PROD",
+        )
+    )
+    report.report_workunit(
+        MetadataChangeProposalWrapper(
+            entityUrn=non_matching_dataset_urn,
+            aspect=DatasetProfileClass(
+                timestampMillis=0,
+                rowCount=100,
+                columnCount=10,
+                sizeInBytes=1000,
+            ),
+        ).as_workunit()
+    )
+
+    report.compute_stats()
+    assert report.get_aspects_dict() == {}
+    assert report.aspects_by_subtypes_full_count == {}
+    assert report.samples == {}

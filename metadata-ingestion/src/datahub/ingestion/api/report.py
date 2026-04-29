@@ -377,11 +377,20 @@ class ExamplesReport(Report, Closeable):
         #
         # See: https://github.com/datahub-project/datahub/issues/XXXXX
         platform_agnostic_entity_types = {"document"}
+        source_platform = self.get_platform()
 
         if entityType not in platform_agnostic_entity_types:
             platform_name = guess_platform_name(urn)
-            if platform_name != self.get_platform():
-                return
+            if platform_name != source_platform:
+                # Dataplex source reports itself as "dataplex" but intentionally emits
+                # entities on source-native platforms (bigquery/spanner/pubsub/etc.).
+                # Keep those entities in report metrics and also retain Dataplex
+                # project/container entities that do not encode a platform in URN.
+                if source_platform == "dataplex":
+                    if platform_name is None and entityType != "container":
+                        return
+                else:
+                    return
         if is_lineage_aspect(entityType, aspectName):
             self._lineage_aspects_seen.add(aspectName)
         has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
