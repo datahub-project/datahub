@@ -40,6 +40,8 @@ test.describe('add remove domain', () => {
   });
 
   test('add entities to domain', async ({ page, logger, logDir, apiMock }) => {
+    // Extra budget for the 90-second entity-search retry loop (ES indexing lag after seeding)
+    test.setTimeout(120000);
     await apiMock.setFeatureFlags({ nestedDomainsEnabled: false, showNavBarRedesign: true });
 
     const domainsPage = new DomainsPage(page, logger, logDir);

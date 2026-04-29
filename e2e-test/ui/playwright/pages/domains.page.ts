@@ -56,12 +56,18 @@ export class DomainsPage extends BasePage {
     await this.page.locator('[data-testid="domain-batch-add"]').click();
     const searchInput = this.page.locator('.ant-modal-content').locator('[data-testid="search-input"]');
     const checkbox = this.page.locator(`[data-testid="checkbox-${entityUrn}"]`);
+    // The modal's SearchBar searches by entity display name. DataHub indexes BigQuery tables
+    // by their table name (last dotted segment), not the fully-qualified path, so strip to
+    // the last segment for a reliable match.
+    const searchTerm = searchQuery.split('.').pop() || searchQuery;
     // Retry the search+select loop: ES may need time to index the entity after seeding
     await expect(async () => {
       await searchInput.click();
-      await searchInput.fill(searchQuery);
-      await expect(checkbox).toBeVisible({ timeout: 5000 });
-    }).toPass({ timeout: 60000, intervals: [3000] });
+      await searchInput.fill(searchTerm);
+      // Wait for the 300ms search debounce + result render before checking the checkbox
+      await this.page.waitForTimeout(500);
+      await expect(checkbox).toBeVisible({ timeout: 10000 });
+    }).toPass({ timeout: 90000, intervals: [3000] });
     await checkbox.click({ force: true });
     await this.page.locator('#continueButton').click();
     await expect(this.page.getByText('Added assets to Domain!')).toBeVisible({ timeout: 15000 });
