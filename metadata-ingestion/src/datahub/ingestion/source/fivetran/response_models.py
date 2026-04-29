@@ -112,15 +112,13 @@ class FivetranDestinationConfig(BaseModel):
     storage_account_name: Optional[str] = None
     container_name: Optional[str] = None
     # When `true`, Fivetran registers the Iceberg tables in AWS Glue (in
-    # addition to writing them to S3). Used by FivetranSource to
-    # auto-default the URN platform to `glue` so lineage aligns with
-    # DataHub's Glue source out of the box. The other catalog toggles
-    # (`should_maintain_tables_in_bqms` for BQMS,
-    # `should_maintain_tables_in_one_lake` for OneLake) intentionally
+    # addition to writing them to S3). Used by FivetranSource to auto-route
+    # the URN platform to `glue` when the user hasn't pinned one — they
+    # still must supply `database` per-destination because the actual Glue
+    # database name isn't exposed via REST. The other catalog toggles
+    # (`should_maintain_tables_in_bqms`, `should_maintain_tables_in_one_lake`)
     # aren't modeled because DataHub has no native source for those
-    # catalogs — their natural URN target would be a path-style storage
-    # URN, which requires source-side path-spec coordination and is
-    # better left as an explicit user opt-in.
+    # catalogs.
     should_maintain_tables_in_glue: Optional[bool] = None
 
 

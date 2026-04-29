@@ -242,9 +242,9 @@ class TestApplyDiscoveredDestination:
 
     def test_managed_data_lake_glue_when_caller_pins_glue(self):
         # User opts the destination into Glue routing via
-        # `destination_to_platform_instance.<id>.platform: glue`. The Glue
-        # URN prefix is applied at URN construction time
-        # (exercised in TestBuildDestinationUrnGlueMdl).
+        # `destination_to_platform_instance.<id>.platform: glue`. They're
+        # also expected to pin `database` (the actual Glue database name)
+        # — exercised in TestBuildDestinationUrnGlueMdl.
         base = PlatformDetail(platform="glue")
         result = FivetranSource.apply_discovered_destination(
             base, _details("managed_data_lake", bucket="b")
@@ -255,8 +255,10 @@ class TestApplyDiscoveredDestination:
         # No user override → auto-detect kicks in. Fivetran's
         # `should_maintain_tables_in_glue: true` means the customer is
         # registering Iceberg tables in Glue, so default URN routing to
-        # `glue` aligns with DataHub's Glue source out of the box (no
-        # explicit `platform: glue` needed in the recipe).
+        # `glue` saves them from also pinning `platform: glue`. They
+        # still need to set `database` separately (the actual Glue
+        # database name from their AWS Glue console — REST doesn't
+        # expose it).
         base = PlatformDetail()
         result = FivetranSource.apply_discovered_destination(
             base,
@@ -281,8 +283,7 @@ class TestApplyDiscoveredDestination:
 
     def test_managed_data_lake_glue_toggle_false_falls_back_to_iceberg(self):
         # Toggle explicitly false (or any falsy value) → no auto-detect
-        # → fall through to iceberg default. Pins the auto-detect to only
-        # fire when the toggle is truthy.
+        # → fall through to iceberg default.
         base = PlatformDetail()
         result = FivetranSource.apply_discovered_destination(
             base,
@@ -423,6 +424,7 @@ def _make_source_with_discovery(
     src.api_client = api_client
     src._connection_details_cache = {}
     src._failed_destination_ids = set()
+    src._destinations_with_urn_warning = set()
     return src
 
 
@@ -588,81 +590,57 @@ class TestResolveDestinationDetails:
 
 
 class TestBuildDestinationUrnGlueMdl:
-    """Phase 6: Glue-routed Managed Data Lake destinations construct URNs as
-    `glue.<prefix><schema>.<table>` so they align with DataHub's Glue source
-    ingesting the same catalog.
+    """Glue-routed Managed Data Lake destinations are treated as relational:
+    URN shape `glue.<database>.<schema>.<table>` where `<database>` is the
+    user-supplied actual Glue database name (Fivetran shares one Glue
+    database per region; the REST API does not expose its name). The
+    customer is responsible for verifying that Fivetran's Glue tables are
+    literally named `<schema>.<table>` so this URN aligns with DataHub's
+    Glue source.
     """
 
-    def test_glue_with_fivetran_prefix(self):
-        # Customer pins `glue_database_prefix: "fivetran_"` on their Glue
-        # destination so Fivetran's `fivetran_<schema>` Glue databases
-        # map to the URN. The Glue source emits `glue.<glue_database>.<table>`.
+    def test_glue_requires_user_supplied_database(self):
+        # No `database` set → ValueError. Caller catches and skips the
+        # lineage edge with a structured warning. Pin this so the
+        # failure mode stays well-defined.
+        with pytest.raises(ValueError, match="database must be set"):
+            FivetranSource.build_destination_urn(
+                destination_table="public.employee",
+                destination_details=PlatformDetail(platform="glue"),
+            )
+
+    def test_glue_with_user_supplied_database(self):
+        # Customer inspects their Glue console, finds the actual database
+        # (e.g., `fivetran_managed_data_lake_us_west_2`), and pins it on
+        # `destination_to_platform_instance.<id>.database`. URN follows
+        # the relational shape with `<schema>.<table>` as the literal
+        # Glue table name.
         urn = FivetranSource.build_destination_urn(
             destination_table="public.employee",
             destination_details=PlatformDetail(
-                platform="glue", glue_database_prefix="fivetran_"
+                platform="glue",
+                database="fivetran_managed_data_lake_us_west_2",
             ),
         )
         assert (
             str(urn)
-            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_public.employee,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_managed_data_lake_us_west_2.public.employee,PROD)"
         )
 
-    def test_glue_with_custom_prefix(self):
-        # Customer's Glue catalog uses a different prefix (e.g. they
-        # customised Fivetran's destination settings).
+    def test_glue_database_is_lowercased(self):
+        # Same as the relational platforms: `database` is lowercased to
+        # match DataHub's Glue source URN convention. AWS Glue itself
+        # normalises database names to lowercase, so this is safe.
         urn = FivetranSource.build_destination_urn(
             destination_table="public.employee",
             destination_details=PlatformDetail(
-                platform="glue", glue_database_prefix="ft_lake_"
+                platform="glue",
+                database="Fivetran_DataLake",
             ),
         )
         assert (
             str(urn)
-            == "urn:li:dataset:(urn:li:dataPlatform:glue,ft_lake_public.employee,PROD)"
-        )
-
-    def test_glue_without_prefix_uses_schema_verbatim(self):
-        # No prefix on PlatformDetail → emit the Glue-source-shaped
-        # `glue.<schema>.<table>` directly. Correct when the customer's
-        # Glue catalog has databases named verbatim after the schemas
-        # (e.g. `public`, `internal`) without any Fivetran prefix.
-        urn = FivetranSource.build_destination_urn(
-            destination_table="public.employee",
-            destination_details=PlatformDetail(platform="glue"),
-        )
-        assert (
-            str(urn) == "urn:li:dataset:(urn:li:dataPlatform:glue,public.employee,PROD)"
-        )
-
-    def test_iceberg_ignores_glue_prefix(self):
-        # `glue_database_prefix` is a Glue-only convention. If a user
-        # accidentally sets it on an iceberg destination, we still emit
-        # the iceberg two-part URN.
-        urn = FivetranSource.build_destination_urn(
-            destination_table="sales.orders",
-            destination_details=PlatformDetail(
-                platform="iceberg", glue_database_prefix="fivetran_"
-            ),
-        )
-        assert (
-            str(urn) == "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
-        )
-
-    def test_snowflake_ignores_glue_prefix(self):
-        # Snowflake follows three-part `<database>.<schema>.<table>`
-        # routing; the Glue prefix is irrelevant.
-        urn = FivetranSource.build_destination_urn(
-            destination_table="public.employee",
-            destination_details=PlatformDetail(
-                platform="snowflake",
-                database="ANALYTICS_DB",
-                glue_database_prefix="fivetran_",
-            ),
-        )
-        assert (
-            str(urn)
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.public.employee,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_datalake.public.employee,PROD)"
         )
 
 
