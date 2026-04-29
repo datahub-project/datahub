@@ -142,7 +142,7 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
-    SourceCapability.LINEAGE_COARSE,
+    SourceCapability.LINEAGE_FINE,
     "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
 )
 class FabricOneLakeSource(StatefulIngestionSourceBase):
