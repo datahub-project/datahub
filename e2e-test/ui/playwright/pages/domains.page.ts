@@ -54,13 +54,15 @@ export class DomainsPage extends BasePage {
 
   async addEntitiesToDomain(searchQuery: string, entityUrn: string): Promise<void> {
     await this.page.locator('[data-testid="domain-batch-add"]').click();
-    await this.page.locator('.ant-modal-content').locator('[data-testid="search-input"]').click();
-    await this.page.locator('.ant-modal-content').locator('[data-testid="search-input"]').fill(searchQuery);
-    // Wait for search results to render (entity-title is the visible result card heading)
-    await expect(this.page.locator('.ant-modal-content [data-testid="entity-title"]').first()).toBeVisible({
-      timeout: 30000,
-    });
-    await this.page.locator(`[data-testid="checkbox-${entityUrn}"]`).click({ force: true, timeout: 30000 });
+    const searchInput = this.page.locator('.ant-modal-content').locator('[data-testid="search-input"]');
+    const checkbox = this.page.locator(`[data-testid="checkbox-${entityUrn}"]`);
+    // Retry the search+select loop: ES may need time to index the entity after seeding
+    await expect(async () => {
+      await searchInput.click();
+      await searchInput.fill(searchQuery);
+      await expect(checkbox).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 60000, intervals: [3000] });
+    await checkbox.click({ force: true });
     await this.page.locator('#continueButton').click();
     await expect(this.page.getByText('Added assets to Domain!')).toBeVisible({ timeout: 15000 });
   }

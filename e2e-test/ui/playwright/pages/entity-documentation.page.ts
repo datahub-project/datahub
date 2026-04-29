@@ -157,16 +157,17 @@ export class EntityDocumentationPage extends BasePage {
 
   async expectLinkInEntityHeader(url: string): Promise<void> {
     // Link may be in an overflow dropdown (hidden) when many show-in-preview links exist.
-    // toBeAttached confirms the link is rendered inside the header container.
+    // Use .first() because the link can appear twice in the DOM (visible + aria-hidden copy)
+    // and strict-mode toBeAttached would fail on 2+ matches without it.
     await expect(
-      this.page.locator('[data-testid="platform-links-container"]').locator(`a[href='${url}']`),
+      this.page.locator('[data-testid="platform-links-container"]').locator(`a[href='${url}']`).first(),
     ).toBeAttached({ timeout: 15000 });
   }
 
   async expectLinkNotInEntityHeader(url: string): Promise<void> {
     await expect(
       this.page.locator('[data-testid="platform-links-container"]').locator(`a[href='${url}']`),
-    ).not.toBeAttached({ timeout: 10000 });
+    ).toHaveCount(0, { timeout: 10000 });
   }
 
   async expectLinkInSidebar(url: string): Promise<void> {
