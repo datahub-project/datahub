@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -13,6 +14,11 @@ logger = logging.getLogger(__name__)
 
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
+
+# Snowflake unquoted-identifier triplets: ``ORG.PROVIDER.LISTING``.
+_SNOWFLAKE_LISTING_NAME_RE = re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$"
+)
 
 
 def create_deny_regex_sql_filter(
@@ -1465,15 +1471,27 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         ``COUNT(DISTINCT CONSUMER_ACCOUNT_NAME)`` can't be reconstructed by
         summing in Python.
 
-        Inputs are type-constrained (``int``, ``BucketDuration``) and listing
-        names are single-quote escaped, so this isn't user-controlled SQL.
+        Interpolated values are type-constrained (``int``, ``BucketDuration``)
+        or shape-validated against ``_SNOWFLAKE_LISTING_NAME_RE`` before
+        reaching SQL.
         """
         listing_filter = ""
         if listing_global_names:
-            quoted = ", ".join(
-                "'" + name.replace("'", "''") + "'" for name in listing_global_names
-            )
-            listing_filter = f"\n              AND h.LISTING_GLOBAL_NAME IN ({quoted})"
+            safe = [
+                n for n in listing_global_names if _SNOWFLAKE_LISTING_NAME_RE.match(n)
+            ]
+            rejected = sorted(set(listing_global_names) - set(safe))
+            if rejected:
+                logger.warning(
+                    "Dropping marketplace listing name(s) outside the expected "
+                    "Snowflake identifier shape: %s",
+                    rejected,
+                )
+            if safe:
+                quoted = ", ".join(f"'{n}'" for n in safe)
+                listing_filter = (
+                    f"\n              AND h.LISTING_GLOBAL_NAME IN ({quoted})"
+                )
         return f"""
             SELECT
                 DATE_TRUNC('{time_bucket_size.value}', h.QUERY_DATE) AS "BUCKET_START_TIME",
