@@ -30,12 +30,7 @@ test.describe('run managed ingestion', () => {
 
     logger.step('create "Other" type ingestion source with demo-data recipe');
     await ingestionPage.clickCreateSourceButton();
-    await ingestionPage.searchDataSource('other');
-    // "Other" option may need scrolling into view
-    const otherOption = page.getByText('Other').first();
-    await otherOption.scrollIntoViewIfNeeded();
-    await otherOption.click();
-    await expect(page.getByText('source-type').first()).toBeVisible({ timeout: 15000 });
+    await ingestionPage.selectOtherDataSource();
 
     // Set the recipe — atomic select-all+type is more reliable under concurrent load
     await ingestionPage.setMonacoEditorContent('source:\n    type: demo-data\nconfig: {}');
@@ -46,14 +41,9 @@ test.describe('run managed ingestion', () => {
     await ingestionPage.fillSourceName(testName);
 
     logger.step('save and run ingestion source');
-    // Use exact role match to avoid matching 'Save' which is also a substring of 'Save & Run'
-    const saveAndRun = page.getByRole('button', { name: 'Save & Run', exact: true });
-    await saveAndRun.scrollIntoViewIfNeeded();
-    await saveAndRun.click();
-    // Wait for the wizard modal to close — confirms the save (and run trigger) completed
-    await expect(page.locator('.ant-modal')).not.toBeVisible({ timeout: 30000 });
-    // The source row should now be in the list
-    await expect(page.locator('tr').filter({ hasText: testName })).toBeVisible({ timeout: 30000 });
+    await ingestionPage.clickSaveAndRunButton();
+    await ingestionPage.expectWizardModalClosed(30000);
+    await ingestionPage.expectSourceVisible(testName);
 
     // Wait for the ingestion run to succeed (up to 3 minutes)
     logger.step('wait for ingestion to succeed');
@@ -63,12 +53,6 @@ test.describe('run managed ingestion', () => {
 
     // Delete the source
     logger.step('delete ingestion source');
-    await page
-      .locator('tr')
-      .filter({ hasText: testName })
-      .locator(`[data-testid="delete-ingestion-source-${testName}"]`)
-      .click();
-    await page.locator(`[data-testid="confirm-delete-ingestion-source"]`).click();
-    await expect(page.getByText(testName)).not.toBeVisible({ timeout: 15000 });
+    await ingestionPage.deleteSource(testName);
   });
 });

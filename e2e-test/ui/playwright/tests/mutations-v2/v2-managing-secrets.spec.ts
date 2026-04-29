@@ -58,17 +58,13 @@ test.describe('managing secrets for ingestion creation', () => {
     await ingestionPage.selectAuthType('Username & Password');
     await ingestionPage.selectSecretForPasswordField(secretName);
 
-    await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
-    await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.locator('.ant-collapse-item')).toBeVisible({ timeout: 15000 });
+    await ingestionPage.clickNextButton();
+    await ingestionPage.expectScheduleStepVisible();
+    await ingestionPage.clickScheduleNextButton();
     await ingestionPage.fillSourceName(ingestionSourceName);
     await ingestionPage.clickSaveButton();
     await expect(page.getByText('Successfully created ingestion source!')).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(5000);
-
-    await ingestionPage.searchSources(ingestionSourceName);
-    await ingestionPage.expectSourceVisible(ingestionSourceName);
+    await ingestionPage.expectSourceEventuallyVisible(ingestionSourceName);
     await ingestionPage.expectSourceStatusPending(ingestionSourceName);
 
     // ── Step 3: Remove the secret ─────────────────────────────────────────
@@ -101,18 +97,14 @@ test.describe('managing secrets for ingestion creation', () => {
     await ingestionPage.fillAndSubmitSecretModal(secretName, secretValue, secretDescription);
     await expect(page.getByText('Created secret!')).toBeVisible({ timeout: 15000 });
 
-    await page.locator('#role').fill(role);
-    await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
-    await page.getByRole('button', { name: 'Next' }).click();
-    await expect(page.locator('.ant-collapse-item')).toBeVisible({ timeout: 15000 });
+    await ingestionPage.fillRoleField(role);
+    await ingestionPage.clickNextButton();
+    await ingestionPage.expectScheduleStepVisible();
+    await ingestionPage.clickScheduleNextButton();
     await ingestionPage.fillSourceName(ingestionSourceName);
     await ingestionPage.clickSaveButton();
     await expect(page.getByText('Successfully created ingestion source!')).toBeVisible({ timeout: 30000 });
-    await page.waitForTimeout(5000);
-
-    await ingestionPage.searchSources(ingestionSourceName);
-    await ingestionPage.expectSourceVisible(ingestionSourceName);
+    await ingestionPage.expectSourceEventuallyVisible(ingestionSourceName);
     await ingestionPage.expectSourceStatusPending(ingestionSourceName);
 
     // ── Step 7: Final cleanup — ingestion source + secret ────────────────

@@ -57,17 +57,12 @@ test.describe('ingestion source creation flow', () => {
     // Complete the wizard
     logger.step('finish creating source');
     await ingestionPage.clickRecipeNextButton();
-    await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible({ timeout: 15000 });
+    await ingestionPage.expectScheduleStepVisible();
     await ingestionPage.clickScheduleNextButton();
     await ingestionPage.fillSourceName(ingestionSourceName);
     await ingestionPage.clickSaveButton();
     await expect(page.getByText('Successfully created ingestion source!')).toBeVisible({ timeout: 30000 });
-    // Poll until ES indexes the new source (Kafka→MAE→OpenSearch pipeline can lag under load)
-    await expect(async () => {
-      await ingestionPage.searchSources(ingestionSourceName);
-      await page.waitForTimeout(1000);
-      await expect(page.locator('tr').filter({ hasText: ingestionSourceName })).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 30000, intervals: [2000] });
+    await ingestionPage.expectSourceEventuallyVisible(ingestionSourceName);
     await ingestionPage.expectSourceStatusPending(ingestionSourceName);
 
     // Verify values are saved correctly by reopening the wizard
@@ -77,19 +72,12 @@ test.describe('ingestion source creation flow', () => {
 
     // Advance through wizard to name step and rename the source
     await ingestionPage.clickNextButton();
-    await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
+    await ingestionPage.expectScheduleStepVisible();
     await ingestionPage.clickScheduleNextButton();
     await ingestionPage.fillSourceName(`${ingestionSourceName} EDITED`);
     await ingestionPage.clickSaveButton();
     await expect(page.getByText('Successfully updated ingestion source!')).toBeVisible({ timeout: 15000 });
-    // Poll until ES indexes the rename
-    await expect(async () => {
-      await ingestionPage.searchSources(`${ingestionSourceName} EDITED`);
-      await page.waitForTimeout(1000);
-      await expect(page.locator('tr').filter({ hasText: `${ingestionSourceName} EDITED` })).toBeVisible({
-        timeout: 2000,
-      });
-    }).toPass({ timeout: 30000, intervals: [2000] });
+    await ingestionPage.expectSourceEventuallyVisible(`${ingestionSourceName} EDITED`);
 
     // Delete the ingestion source
     logger.step('remove ingestion source');

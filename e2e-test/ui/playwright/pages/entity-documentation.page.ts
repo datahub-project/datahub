@@ -45,15 +45,16 @@ export class EntityDocumentationPage extends BasePage {
 
   async editDocumentation(text: string): Promise<void> {
     await this.editDocumentationButton.click();
-    // Wait for URL to confirm we're in edit mode (?editing=true), then scope to
-    // [data-testid="description-editor"] which only exists inside DescriptionEditor
-    // (the static read-only view uses data-testid="documentation-editor-content").
+    // Wait for URL to confirm we're in edit mode (?editing=true).
     await this.page.waitForURL(/editing=true/, { timeout: 15000 });
-    // Wait for the editor wrapper to appear; the DescriptionEditor returns null while loading
-    // so we scope to the description-editor container and wait for the ProseMirror div.
-    // Allow up to 30s because entity data may still be fetching after the URL change.
-    const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
-    await editor.waitFor({ state: 'attached', timeout: 30000 });
+    // The DescriptionEditor mounts the save/cancel toolbar immediately; wait for it
+    // as a readiness signal before targeting the actual editor input.
+    await this.saveDescriptionButton.waitFor({ state: 'attached', timeout: 30000 });
+    // Use the sole contenteditable ProseMirror — there is exactly one editable editor
+    // on the page when the Documentation tab is in edit mode.  The read-only editors
+    // (source description preview, sidebar) all have contenteditable="false".
+    const editor = this.page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
+    await editor.waitFor({ state: 'attached', timeout: 15000 });
     // force: true bypasses the viewport/visibility check; Remirror auto-focuses on mount
     // but the element may have zero height until the flex layout resolves.
     await editor.click({ force: true });
@@ -66,8 +67,9 @@ export class EntityDocumentationPage extends BasePage {
   async clearDocumentation(): Promise<void> {
     await this.editDocumentationButton.click();
     await this.page.waitForURL(/editing=true/, { timeout: 15000 });
-    const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
-    await editor.waitFor({ state: 'attached', timeout: 30000 });
+    await this.saveDescriptionButton.waitFor({ state: 'attached', timeout: 30000 });
+    const editor = this.page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
+    await editor.waitFor({ state: 'attached', timeout: 15000 });
     await editor.click({ force: true });
     await this.page.keyboard.press('Control+a');
     await this.page.keyboard.press('Delete');
@@ -87,12 +89,28 @@ export class EntityDocumentationPage extends BasePage {
   }
 
   async editFieldDescription(fieldName: string, description: string): Promise<void> {
-    // Use the row's id attribute (set by SchemaTable's onRow handler) so the click
-    // reliably hits the row element rather than matching arbitrary text on the page.
-    await this.page.locator(`#column-${fieldName}`).click();
+    const row = this.page.locator(`#column-${fieldName}`);
+    const editBtn = this.page.locator('[data-testid="edit-field-description"]');
+
+    // SchemaTable toggles the drawer open/closed on row click. If the drawer is
+    // already open for this field, clicking the row again would CLOSE it. To guard
+    // against this, click the row only if the edit button is not already visible.
+    const isDrawerOpen = await editBtn.isVisible();
+    if (!isDrawerOpen) {
+      await row.click();
+      // If the row click toggled the drawer closed (i.e. it was open for a different
+      // field or the toggle fired an extra time), click once more to reopen it.
+      const becameVisible = await editBtn
+        .waitFor({ state: 'visible', timeout: 2000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!becameVisible) {
+        await row.click();
+      }
+    }
+
     // The edit button is inside the Schema Field Drawer — wait for it to be visible
     // before clicking to avoid race conditions when the drawer is still animating open.
-    const editBtn = this.page.locator('[data-testid="edit-field-description"]');
     await editBtn.waitFor({ state: 'visible', timeout: 15000 });
     await editBtn.click();
     // The UpdateDescriptionModal title appears after the button click.

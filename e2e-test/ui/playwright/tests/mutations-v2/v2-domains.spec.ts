@@ -85,7 +85,7 @@ test.describe('add remove domain', () => {
     await domainsPage.expectDomainNotVisible(testDomain);
 
     // Navigate to the container and confirm the domain reference is gone
-    await page.goto(`/container/${encodeURIComponent(CONTAINER_URN)}`);
+    await domainsPage.navigateToContainer(CONTAINER_URN);
     await expect(page.getByText('customers')).toBeVisible({ timeout: 30000 });
     await expect(page.getByText(testDomain)).not.toBeVisible({ timeout: 10000 });
   });

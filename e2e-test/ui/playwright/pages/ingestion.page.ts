@@ -143,6 +143,45 @@ export class IngestionPage extends BasePage {
     await expect(this.page.locator('tr').filter({ hasText: name })).toBeVisible({ timeout: 30000 });
   }
 
+  async expectScheduleStepVisible(): Promise<void> {
+    await expect(this.page.getByText('Configure an Ingestion Schedule')).toBeVisible({ timeout: 15000 });
+  }
+
+  // Polls until ES indexes the new/renamed source (Kafka→MAE→OpenSearch can lag).
+  async expectSourceEventuallyVisible(name: string): Promise<void> {
+    await expect(async () => {
+      await this.searchSources(name);
+      await this.page.waitForTimeout(1000);
+      await expect(this.page.locator('tr').filter({ hasText: name })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000, intervals: [2000] });
+  }
+
+  async expectWizardModalClosed(timeout = 30000): Promise<void> {
+    await expect(this.page.locator('.ant-modal')).not.toBeVisible({ timeout });
+  }
+
+  async fillRoleField(role: string): Promise<void> {
+    await this.page.locator('#role').fill(role);
+  }
+
+  // ── "Other" data-source type selection ─────────────────────────────────────
+
+  async selectOtherDataSource(): Promise<void> {
+    await this.searchDataSource('other');
+    const otherOption = this.page.getByText('Other').first();
+    await otherOption.scrollIntoViewIfNeeded();
+    await otherOption.click();
+    // Wait for the YAML editor to appear — confirms the "Other" wizard step loaded
+    await expect(this.page.getByText('source-type').first()).toBeVisible({ timeout: 15000 });
+  }
+
+  async clickSaveAndRunButton(): Promise<void> {
+    // exact: true avoids matching the substring 'Save' inside 'Save & Run'
+    const btn = this.page.getByRole('button', { name: 'Save & Run', exact: true });
+    await btn.scrollIntoViewIfNeeded();
+    await btn.click();
+  }
+
   async expectSourceStatusPending(sourceName?: string): Promise<void> {
     const statusLocator = sourceName
       ? this.page.locator('tr').filter({ hasText: sourceName }).locator('[data-testid="ingestion-source-table-status"]')
@@ -203,9 +242,18 @@ export class IngestionPage extends BasePage {
   }
 
   async selectSecretForPasswordField(secretName: string): Promise<void> {
-    await this.openPasswordDropdown();
-    await this.page.locator('.rc-virtual-list-holder-inner').getByText(secretName).click({ force: true });
-    await this.page.locator('#password').blur();
+    // Type the secret name to filter the dropdown before selecting. This avoids
+    // virtual-list scroll issues when many secrets exist from prior test runs.
+    const passwordInput = this.page.locator('#password');
+    await passwordInput.clear();
+    await passwordInput.fill(secretName);
+    // Wait for the filtered list to render before clicking.
+    await this.page.locator('.rc-virtual-list-holder-inner').getByText(secretName, { exact: true }).waitFor({
+      state: 'visible',
+      timeout: 10000,
+    });
+    await this.page.locator('.rc-virtual-list-holder-inner').getByText(secretName, { exact: true }).click({ force: true });
+    await passwordInput.blur();
   }
 
   // ── Monaco editor helpers (used by managed ingestion) ─────────────────────

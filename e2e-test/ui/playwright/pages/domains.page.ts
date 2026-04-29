@@ -40,6 +40,11 @@ export class DomainsPage extends BasePage {
     await this.page.waitForLoadState('networkidle', { timeout: 30000 });
   }
 
+  async navigateToContainer(urn: string): Promise<void> {
+    await this.page.goto(`/container/${encodeURIComponent(urn)}`);
+    await this.page.waitForLoadState('networkidle', { timeout: 30000 });
+  }
+
   async clickDomain(name: string): Promise<void> {
     // On the flat-list layout, search to ensure the domain is visible before clicking
     const searchBox = this.page.locator('[placeholder="Search domains..."]');
