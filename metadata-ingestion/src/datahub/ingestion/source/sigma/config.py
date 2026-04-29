@@ -248,6 +248,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     # DM element column-level lineage (FGL) counters.
     # Totals.
+    # NOTE: columns_with_formula is counted only for elements that have at
+    # least one entity-level upstream from /lineage; elements with zero
+    # resolved /lineage upstreams are excluded because no FGL can be emitted
+    # for them regardless of their formula content.
     data_model_element_columns_with_formula: int = 0
     # Roll-up of all success paths; equals fgl_intra_resolved today and will
     # diverge when cross-DM resolution (RESOLVE-B) adds a second success path.

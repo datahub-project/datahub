@@ -782,11 +782,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Bare [col] refs are intra-element transforms (lineage within one Dataset,
         not across Datasets) and are skipped for FGL.
 
-        element.name → URN lookup is case-sensitive (byte-for-byte match against
-        the element's display name).  extract_bracket_refs preserves the bracket
-        body verbatim, so the source string mirrors whatever the formula author
-        typed.  Sigma's formula bar autocompletes canonical names, making
-        case-divergence rare in practice, but it is a known limitation.
+        element_name_to_dataset_urns is keyed with lowercased names (matching the
+        cross-DM name_map convention), and ref.source is lowercased before lookup,
+        so a formula like [Random Data Model/col] resolves to an element named
+        "random data model" without a spurious cross_dm_deferred miss.
 
         Intra-DM FGL is conditioned on entity_level_upstream_urns, which is
         populated from Sigma's /lineage API.  The /lineage API reports intra-DM
@@ -814,7 +813,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # Bare [col] — intra-element transform, not cross-Dataset lineage.
                     self.reporter.data_model_element_fgl_sibling_skipped += 1
                     continue
-                candidate_urns = element_name_to_dataset_urns.get(ref.source, [])
+                candidate_urns = element_name_to_dataset_urns.get(
+                    ref.source.lower(), []
+                )
                 surviving_urns = sorted(
                     u for u in candidate_urns if u in entity_level_upstream_urns
                 )
@@ -841,6 +842,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 downstream_field = builder.make_schema_field_urn(
                     element_dataset_urn, column.name
                 )
+                # When surviving_urns > 1 (duplicate element names in the DM
+                # both appearing in /lineage), one FGL entry is emitted per
+                # upstream.  fgl_emitted therefore counts FGL entries, not
+                # unique downstream fields; treat it as an entry count.
                 for upstream_urn in surviving_urns:
                     self.reporter.data_model_element_fgl_intra_resolved += 1
                     fgls.append(
@@ -856,6 +861,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             confidenceScore=1.0,
                         )
                     )
+        # fgl_emitted equals fgl_intra_resolved today; the split is intentional
+        # so RESOLVE-B can add a second success path without changing the roll-up.
         self.reporter.data_model_element_fgl_emitted += len(fgls)
         fgls.sort(
             key=lambda fgl: (
@@ -1190,12 +1197,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if data_model.workspaceId:
             self.reporter.workspaces.increment_data_models_count(data_model.workspaceId)
 
+        # Keys are lowercased so formula refs — which users type and Sigma
+        # autocompletes from canonical names — match even when case differs.
+        # This mirrors the lowercasing in the cross-DM name_map (dm_element_urn_by_name).
         element_name_to_dataset_urns: Dict[str, List[str]] = {}
         for element in data_model.elements:
             if element.name:
-                element_name_to_dataset_urns.setdefault(element.name, []).append(
-                    elementId_to_dataset_urn[element.elementId]
-                )
+                element_name_to_dataset_urns.setdefault(
+                    element.name.lower(), []
+                ).append(elementId_to_dataset_urn[element.elementId])
 
         yield from self._gen_data_model_element_workunits(
             data_model,
