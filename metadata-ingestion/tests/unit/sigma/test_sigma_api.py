@@ -1621,6 +1621,7 @@ class TestChartInputsInsertionOrder:
                     all_input_fields=[],
                     paths=[],
                     elementId_to_chart_urn={},
+                    wb_element_index={},
                 )
             )
 

@@ -1334,102 +1334,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829334,
+        "lastObserved": 1777436744731,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1518,102 +1427,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Count of Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Count of Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829339,
+        "lastObserved": 1777436744738,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1649,192 +1467,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Count of Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Count of Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829339,
+        "lastObserved": 1777436744738,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1977,177 +1614,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Pk (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Status (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Created At (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Updated At (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829346,
+        "lastObserved": 1777436744745,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2183,177 +1654,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Pk (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Status (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Created At (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Updated At (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829347,
+        "lastObserved": 1777436744745,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2495,27 +1800,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,dmRefElem01),Col)",
-                    "schemaField": {
-                        "fieldPath": "Col",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829348,
+        "lastObserved": 1777436744746,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2604,27 +1893,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,dmRefElem02),Col)",
-                    "schemaField": {
-                        "fieldPath": "Col",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829349,
+        "lastObserved": 1777436744747,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2709,27 +1982,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,dmRefElem03),Col)",
-                    "schemaField": {
-                        "fieldPath": "Col",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829350,
+        "lastObserved": 1777436744747,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2765,57 +2022,11 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,dmRefElem01),Col)",
-                    "schemaField": {
-                        "fieldPath": "Col",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,dmRefElem02),Col)",
-                    "schemaField": {
-                        "fieldPath": "Col",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,dmRefElem03),Col)",
-                    "schemaField": {
-                        "fieldPath": "Col",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776823829351,
+        "lastObserved": 1777436744748,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
