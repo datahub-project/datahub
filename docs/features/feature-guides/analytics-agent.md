@@ -29,7 +29,9 @@ The fastest way to try Analytics Agent. The script spins up a local DataHub inst
 **You'll need:**
 
 - **Docker** (running)
+- **Python 3.11+**
 - **DataHub CLI** — `pip install acryl-datahub`
+- **`uv`** — `brew install uv` or [install from docs.astral.sh/uv](https://docs.astral.sh/uv/)
 - **An LLM API key** from Anthropic, OpenAI, or Google
 
 :::warning Operating system support
@@ -307,20 +309,22 @@ Approve which proposals to publish:
 - Specific numbers (e.g. `1, 3`) — accept only those
 - `none` — skip publishing
 
-After approval, the agent writes the changes to DataHub: dataset descriptions, column descriptions, glossary updates, or new documentation entries. Your DataHub user/token must have permissions to edit entity descriptions and manage documentation.
+After approval, the agent writes the changes to DataHub: entity and column descriptions, glossary updates, or new Reference documents. Your DataHub user/token must have permissions to edit entity descriptions and manage documentation.
+
+Writes are powered by the **Save correction** skill, which is enabled by default. If you've toggled it off, the agent falls back to presenting the proposed updates as copyable markdown so you can apply them manually.
 
 This is the loop: ask → answer → identify gap → improve catalog → next answer is better.
 
-### Write-back skills (optional)
+### Write-back skills
 
-In addition to `/improve-context`, two write-back skills are available but **disabled by default**:
+Two write-back skills are available, both **enabled by default**:
 
-| Skill                | What it does                                                        | How to invoke                               |
-| -------------------- | ------------------------------------------------------------------- | ------------------------------------------- |
-| **Publish analysis** | Saves a chart or finding as a DataHub Dashboard asset               | Natural language: _"publish this analysis"_ |
-| **Save correction**  | Records a corrected answer back to the catalog for future reference | Natural language: _"save this correction"_  |
+| Skill                | What it does                                                                                                                                                                                                   | How to invoke                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **Publish analysis** | Saves the analysis as a DataHub Document (subtype Analysis) in the Knowledge Base, under Shared → Analyses with private, team, or org-wide visibility.                                                         | Natural language: _"publish this analysis"_ |
+| **Save correction**  | Writes corrections back to DataHub — either updating entity or column descriptions directly, or creating Reference documents. Used by `/improve-context` to apply approved proposals; also invokable directly. | Natural language: _"save this correction"_  |
 
-Enable them under **Settings → Connections** → click your DataHub connection card → toggle the skill on.
+Toggle them under **Settings → Connections** → click your DataHub connection card.
 
 ### Customizing the agent
 
@@ -568,11 +572,15 @@ claude-sonnet-4-6                               ✗
 
 Find the correct IDs in the [AWS Bedrock documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html).
 
-### `/improve-context` proposals don't publish
+### `/improve-context` proposals show as markdown instead of writing to DataHub
 
-**Symptom:** Agent shows proposals but writing back to DataHub fails or returns no confirmation.
+**Symptom:** After you approve proposals, the agent shows copyable markdown blocks instead of writing changes to DataHub.
 
-**Check:**
+**Cause:** The Save correction skill has been toggled off.
+
+**Fix:** Open **Settings → Connections** → click your DataHub connection card → toggle Save correction back on.
+
+If Save correction is enabled but writes still fail, check:
 
 - The DataHub user/token in your config has permissions to edit entity descriptions and manage documentation
 - For DataHub Cloud, verify the token hasn't expired (`datahub init` to refresh)
