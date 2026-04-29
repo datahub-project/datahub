@@ -1,3 +1,7 @@
+---
+description: "Authenticate DataHub API requests with JWT tokens from external identity providers like Okta, Azure AD, and Google Identity."
+---
+
 # External OAuth Authentication
 
 :::note DataHub Cloud Customers

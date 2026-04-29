@@ -1,3 +1,7 @@
+---
+description: "Use DataHub's API tracing and request ID system to track asynchronous write operations end-to-end across the multi-stage write pipeline."
+---
+
 # API Tracing
 
 ## Introduction

@@ -1,3 +1,7 @@
+---
+description: "Configure database retention policies in DataHub to control how long historical metadata aspects and timeseries data are retained."
+---
+
 # Configuring Database Retention
 
 ## Goal

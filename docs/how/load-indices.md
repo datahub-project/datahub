@@ -1,3 +1,7 @@
+---
+description: "Use DataHub's LoadIndices upgrade task to bulk-load metadata aspects from the database into Elasticsearch or OpenSearch at high speed."
+---
+
 # Load Indices: High-Performance Bulk Index Loading
 
 LoadIndices is a high-performance upgrade task designed for bulk loading metadata aspects directly from the database into Elasticsearch/OpenSearch indices. Unlike RestoreIndices which focuses on correctness and consistency, LoadIndices is optimized for speed and throughput during initial deployments or large-scale data migrations.
