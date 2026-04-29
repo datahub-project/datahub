@@ -45,19 +45,29 @@ export class EntityDocumentationPage extends BasePage {
 
   async editDocumentation(text: string): Promise<void> {
     await this.editDocumentationButton.click();
-    const editor = this.page.locator('.ProseMirror').or(this.page.locator('[contenteditable="true"]')).first();
-    await editor.waitFor({ state: 'visible', timeout: 10000 });
-    await editor.fill('');
-    await editor.fill(text);
+    // Wait for URL to confirm we're in edit mode (?editing=true), then scope to
+    // [data-testid="description-editor"] which only exists inside DescriptionEditor
+    // (the static read-only view uses data-testid="documentation-editor-content").
+    await this.page.waitForURL(/editing=true/, { timeout: 15000 });
+    const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
+    await editor.waitFor({ state: 'attached', timeout: 15000 });
+    // force: true bypasses the viewport/visibility check; Remirror auto-focuses on mount
+    // but the element may have zero height until the flex layout resolves.
+    await editor.click({ force: true });
+    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.type(text);
     await this.saveDescriptionButton.click();
     await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
   }
 
   async clearDocumentation(): Promise<void> {
     await this.editDocumentationButton.click();
-    const editor = this.page.locator('.ProseMirror').or(this.page.locator('[contenteditable="true"]')).first();
-    await editor.waitFor({ state: 'visible', timeout: 10000 });
-    await editor.fill('');
+    await this.page.waitForURL(/editing=true/, { timeout: 15000 });
+    const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
+    await editor.waitFor({ state: 'attached', timeout: 15000 });
+    await editor.click({ force: true });
+    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('Delete');
     await this.saveDescriptionButton.click();
     await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
   }
@@ -79,12 +89,14 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.locator(`#column-${fieldName}`).click();
     await this.page.locator('[data-testid="edit-field-description"]').click();
     await expect(this.page.getByText('Update description')).toBeVisible();
-    // The description-editor data-testid is on the outer container div; target the
-    // inner contenteditable element so that fill() works correctly with Remirror.
-    const editor = this.page.locator('[data-testid="description-editor"]').locator('[contenteditable="true"]');
-    await editor.waitFor({ state: 'visible', timeout: 10000 });
-    await editor.fill('');
-    await this.page.waitForTimeout(1000);
+    // Wait for the editor to be in the DOM — it may have zero height initially so use
+    // 'attached' rather than 'visible', and force-click to focus even if not laid out yet.
+    const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
+    await editor.waitFor({ state: 'attached', timeout: 15000 });
+    await editor.click({ force: true });
+    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('Delete');
+    await this.page.waitForTimeout(500);
     await this.page.keyboard.type(description);
     await this.page.locator('[data-testid="description-modal-update-button"]').click();
     await expect(this.page.getByText('Updated!')).toBeVisible({ timeout: 15000 });
