@@ -15,7 +15,7 @@
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 # Confluent important
 import confluent_kafka
@@ -101,6 +101,29 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
     return EntityChangeEvent.from_json(payload.get("value"))
 
 
+class EarlyFilterConfig(ConfigModel):
+    """
+    Configuration for pre-deserialization filtering of MCL events.
+
+    Enables early rejection before expensive .from_obj() deserialization.
+    All fields are optional - only configured fields will be checked.
+    Values can be strings or lists (any match passes for lists).
+    """
+
+    entityType: Optional[Union[str, List[str]]] = Field(
+        default=None,
+        description="Filter on MCL entityType field (e.g., 'dataset', 'dataHubExecutionRequest')",
+    )
+    aspectName: Optional[Union[str, List[str]]] = Field(
+        default=None,
+        description="Filter on MCL aspectName field (e.g., 'schemaMetadata', 'dataHubExecutionRequestInput')",
+    )
+    changeType: Optional[Union[str, List[str]]] = Field(
+        default=None,
+        description="Filter on MCL changeType field (e.g., 'UPSERT', 'DELETE')",
+    )
+
+
 class KafkaEventSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_routes: Optional[Dict[str, str]] = Field(default=None)
@@ -108,12 +131,10 @@ class KafkaEventSourceConfig(ConfigModel):
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
-    early_filter: Optional[Dict[str, Any]] = Field(
+    early_filter: Optional[EarlyFilterConfig] = Field(
         default=None,
         description="Optional pre-deserialization filter for MCL events. "
-        "Only simple top-level fields (entityType, aspectName, changeType) are supported. "
-        "Enables early rejection before expensive .from_obj() deserialization. "
-        "Values can be strings or lists (any match passes).",
+        "Checks simple top-level fields before expensive .from_obj() deserialization.",
     )
 
 
@@ -202,12 +223,7 @@ class KafkaEventSource(EventSource):
 
     def _extract_early_filter_criteria(self) -> Dict[str, Any]:
         """
-        Extract simple top-level fields from early_filter config for pre-deserialization filtering.
-
-        Only returns fields suitable for checking against raw Avro dict before .from_obj():
-        - entityType, aspectName, changeType
-
-        Nested fields or unsupported fields are logged and ignored.
+        Extract configured fields from early_filter config for pre-deserialization filtering.
 
         Returns:
             Dictionary of field_name -> expected_value(s) for early filtering
@@ -215,25 +231,15 @@ class KafkaEventSource(EventSource):
         if self.source_config.early_filter is None:
             return {}
 
-        # Only these fields - simple strings in raw Avro dict
-        SIMPLE_FIELDS = {"entityType", "aspectName", "changeType"}
-
         criteria = {}
 
-        for key, val in self.source_config.early_filter.items():
-            if key not in SIMPLE_FIELDS:
-                logger.debug(
-                    f"Ignoring early_filter field '{key}' - only simple fields "
-                    f"({SIMPLE_FIELDS}) are supported for pre-deserialization filtering"
-                )
-                continue
-            if isinstance(val, dict):
-                logger.debug(
-                    f"Ignoring nested early_filter for '{key}' - only simple values "
-                    f"(strings or lists) supported for pre-deserialization filtering"
-                )
-                continue
-            criteria[key] = val
+        # Extract only non-None configured fields
+        if self.source_config.early_filter.entityType is not None:
+            criteria["entityType"] = self.source_config.early_filter.entityType
+        if self.source_config.early_filter.aspectName is not None:
+            criteria["aspectName"] = self.source_config.early_filter.aspectName
+        if self.source_config.early_filter.changeType is not None:
+            criteria["changeType"] = self.source_config.early_filter.changeType
 
         if criteria:
             logger.info(

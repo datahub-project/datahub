@@ -286,60 +286,24 @@ def test_early_filter_not_configured():
     assert result[0].event_type == "MetadataChangeLogEvent_v1"
 
 
-def test_early_filter_ignores_nested_fields():
-    """Test that early filter ignores nested dict fields and logs debug warning."""
-    source = create_event_source(
-        early_filter={
-            "entityType": "dataset",
-            "aspect": {"value": {"executorId": "default"}},  # Nested dict - ignored
-        }
+def test_early_filter_rejects_unsupported_fields():
+    """Test that Pydantic rejects unsupported fields in early_filter config."""
+    from pydantic import ValidationError
+
+    # Try to create config with unsupported field
+    with pytest.raises(ValidationError) as exc_info:
+        create_event_source(
+            early_filter={
+                "entityType": "dataset",
+                "unsupportedField": "value",  # Not in EarlyFilterConfig
+            }
+        )
+
+    # Verify error message mentions the unsupported field
+    assert (
+        "unsupportedField" in str(exc_info.value).lower()
+        or "extra" in str(exc_info.value).lower()
     )
-
-    # Should have only entityType in criteria (aspect ignored)
-    assert "entityType" in source._early_filter_criteria
-    assert "aspect" not in source._early_filter_criteria
-
-    # Event should pass (only entityType checked)
-    msg = TestMessage(
-        {
-            "auditHeader": None,
-            "entityType": "dataset",
-            "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
-            "entityKeyAspect": None,
-            "changeType": "UPSERT",
-            "aspectName": "dataPlatformInstance",
-            "aspect": (
-                "com.linkedin.pegasus2avro.mxe.GenericAspect",
-                {
-                    "value": b'{"platform":"urn:li:dataPlatform:hdfs"}',
-                    "contentType": "application/json",
-                },
-            ),
-            "systemMetadata": (
-                "com.linkedin.pegasus2avro.mxe.SystemMetadata",
-                {
-                    "lastObserved": 1651593943881,
-                    "runId": "file-2022_05_03-21_35_43",
-                    "registryName": None,
-                    "registryVersion": None,
-                    "properties": None,
-                },
-            ),
-            "previousAspectValue": None,
-            "previousSystemMetadata": None,
-            "created": (
-                "com.linkedin.pegasus2avro.common.AuditStamp",
-                {
-                    "time": 1651593944068,
-                    "actor": "urn:li:corpuser:UNKNOWN",
-                    "impersonator": None,
-                },
-            ),
-        }
-    )
-
-    result = list(source.handle_mcl(msg))
-    assert len(result) == 1  # Passed - nested field ignored
 
 
 def test_early_filter_error_handling():
@@ -385,17 +349,36 @@ def test_early_filter_missing_field():
     assert len(result) == 0  # Rejected - missing field doesn't match
 
 
-def test_early_filter_ignores_unsupported_fields():
-    """Test that early filter ignores fields not in SIMPLE_FIELDS."""
-    source = create_event_source(
+def test_early_filter_all_fields_optional():
+    """Test that all early_filter fields are optional - can omit any field."""
+    # Only entityType configured
+    source1 = create_event_source(
         early_filter={
             "entityType": "dataset",
-            "entityUrn": "urn:li:dataset:abc",  # Not in SIMPLE_FIELDS
-            "customField": "value",  # Not in SIMPLE_FIELDS
         }
     )
+    assert "entityType" in source1._early_filter_criteria
+    assert "aspectName" not in source1._early_filter_criteria
+    assert "changeType" not in source1._early_filter_criteria
 
-    # Should only have entityType in criteria
-    assert "entityType" in source._early_filter_criteria
-    assert "entityUrn" not in source._early_filter_criteria
-    assert "customField" not in source._early_filter_criteria
+    # Only aspectName configured
+    source2 = create_event_source(
+        early_filter={
+            "aspectName": "schemaMetadata",
+        }
+    )
+    assert "entityType" not in source2._early_filter_criteria
+    assert "aspectName" in source2._early_filter_criteria
+    assert "changeType" not in source2._early_filter_criteria
+
+    # All fields configured
+    source3 = create_event_source(
+        early_filter={
+            "entityType": "dataset",
+            "aspectName": "schemaMetadata",
+            "changeType": "UPSERT",
+        }
+    )
+    assert "entityType" in source3._early_filter_criteria
+    assert "aspectName" in source3._early_filter_criteria
+    assert "changeType" in source3._early_filter_criteria
