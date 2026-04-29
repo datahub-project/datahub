@@ -115,6 +115,26 @@ logger = logging.getLogger(__name__)
 # column field (or we add SQL-based inference), swap this out here.
 SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
 
+
+def _dm_column_ranks_above(
+    candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
+) -> bool:
+    """Tie-breaking order for duplicate-fieldPath columns within a DM element.
+
+    Prefers the row with a non-empty formula (the user-authored calculated
+    field Sigma surfaces in the UI). Tie-break: lexicographically smaller
+    columnId so the choice is stable across runs even if /columns ordering
+    shifts.
+
+    Used by both _gen_data_model_element_schema_metadata (to build SchemaMetadata)
+    and _build_dm_element_fine_grained_lineages (to mirror the same dedup so FGL
+    only references fieldPaths that actually appear in the schema).
+    """
+    if bool(candidate.formula) != bool(incumbent.formula):
+        return bool(candidate.formula)
+    return candidate.columnId < incumbent.columnId
+
+
 CrossDmOutcome = Literal[
     "strict",
     "ambiguous",
@@ -637,6 +657,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Sort for deterministic emission order: Sigma's /lineage API does
         # not document ordering, and Upstream entries have no semantic order.
         upstream_urns.sort()
+        if not upstream_urns:
+            return None
         fine_grained = self._build_dm_element_fine_grained_lineages(
             element=element,
             element_dataset_urn=elementId_to_dataset_urn[element.elementId],
@@ -644,8 +666,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
         )
-        if not upstream_urns and not fine_grained:
-            return None
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
@@ -671,16 +691,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         #    ``/columns`` ordering guarantees.
         # Dropped ``columnId``s are emitted to debug logs so operators
         # can reconcile against Sigma.
-        def _ranks_above(
-            candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
-        ) -> bool:
-            # Prefer row with formula set (user-authored calc field).
-            # Tie-break: smaller columnId wins so the choice is stable
-            # across runs even if ``/columns`` ordering shifts.
-            if bool(candidate.formula) != bool(incumbent.formula):
-                return bool(candidate.formula)
-            return candidate.columnId < incumbent.columnId
-
         by_name: Dict[str, SigmaDataModelColumn] = {}
         dropped_column_ids_by_name: Dict[str, List[str]] = {}
         for column in element.columns:
@@ -691,7 +701,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 by_name[column.name] = column
                 continue
             self.reporter.data_model_element_columns_duplicate_fieldpath_dropped += 1
-            if _ranks_above(column, existing):
+            if _dm_column_ranks_above(column, existing):
                 winner, loser = column, existing
             else:
                 winner, loser = existing, column
@@ -753,19 +763,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
 
-        Mirrors the dedup pass from _gen_data_model_element_schema_metadata so
-        FGL is only emitted for winner columns (fieldPaths present in SchemaMetadata).
+        Mirrors the dedup pass from _gen_data_model_element_schema_metadata (via
+        _dm_column_ranks_above) so FGL is only emitted for winner columns —
+        fieldPaths present in SchemaMetadata. Bare [col] refs are intra-element
+        transforms (lineage within one Dataset, not across Datasets) and are
+        skipped for FGL.
+
+        element.name values are used as-is (byte-for-byte) as dictionary keys;
+        extract_bracket_refs produces source strings verbatim from the bracket
+        body, so no case-folding or whitespace normalization is applied on either
+        side.
         """
-
-        def _ranks_above(
-            candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
-        ) -> bool:
-            if bool(candidate.formula) != bool(incumbent.formula):
-                return bool(candidate.formula)
-            return candidate.columnId < incumbent.columnId
-
         by_name: Dict[str, SigmaDataModelColumn] = {}
-        drop_count = 0
         for column in element.columns:
             if not column.name:
                 continue
@@ -775,13 +784,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             winner, loser = (
                 (column, existing)
-                if _ranks_above(column, existing)
+                if _dm_column_ranks_above(column, existing)
                 else (existing, column)
             )
             by_name[column.name] = winner
             if loser.formula:
-                drop_count += 1
-        self.reporter.data_model_element_fgl_dropped_dedup_loser += drop_count
+                self.reporter.data_model_element_fgl_dropped_dedup_loser += 1
 
         fgls: List[FineGrainedLineageClass] = []
         for column in sorted(by_name.values(), key=lambda c: c.name):
@@ -793,7 +801,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     self.reporter.data_model_element_fgl_param_skipped += 1
                     continue
                 if ref.column is None:
-                    # Bare [col] sibling ref — intra-element transform, not cross-Dataset.
+                    # Bare [col] — intra-element transform, not cross-Dataset lineage.
                     self.reporter.data_model_element_fgl_sibling_skipped += 1
                     continue
                 candidate_urns = element_name_to_dataset_urns.get(ref.source, [])
@@ -802,13 +810,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if not surviving_urns:
                     if candidate_urns:
-                        # Element is in this DM but /lineage doesn't claim it as upstream.
-                        # Drop to avoid orphan FGL the UI silently rejects.
+                        # Element is in this DM but /lineage doesn't claim it as
+                        # upstream. Drop to avoid orphan FGL the UI silently rejects.
                         self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
                     else:
-                        # Source not in this DM — cross-DM ref; RESOLVE-B will handle it.
+                        # Source not in this DM — cross-DM ref handled separately.
                         self.reporter.data_model_element_fgl_cross_dm_unresolved += 1
                     continue
+                if len(surviving_urns) > 1:
+                    logger.debug(
+                        "DM %s element %s: ref %r resolves to %d URNs after "
+                        "/lineage filter (duplicate element names in DM); "
+                        "emitting FGL to all surviving candidates: %s",
+                        data_model.dataModelId,
+                        element.elementId,
+                        ref.raw,
+                        len(surviving_urns),
+                        surviving_urns,
+                    )
                 downstream_field = builder.make_schema_field_urn(
                     element_dataset_urn, column.name
                 )
@@ -822,6 +841,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             upstreams=[
                                 builder.make_schema_field_urn(upstream_urn, ref.column)
                             ],
+                            # confidenceScore=1.0 is the default; set explicitly to
+                            # signal this is structural (formula-derived), not statistical.
+                            confidenceScore=1.0,
                         )
                     )
         self.reporter.data_model_element_fgl_emitted += len(fgls)

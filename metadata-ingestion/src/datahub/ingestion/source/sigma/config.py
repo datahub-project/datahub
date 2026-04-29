@@ -246,7 +246,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
-    # T1.RESOLVE-A — DM element formula-driven FGL.
+    # DM element column-level lineage (FGL) counters.
     # Totals.
     data_model_element_columns_with_formula: int = 0
     data_model_element_fgl_emitted: int = 0
@@ -257,7 +257,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_sibling_skipped: int = 0  # bare [col] intra-element ref
     data_model_element_fgl_param_skipped: int = 0  # [P_*] parameter ref
     # Drop paths: ref would be FGL but is suppressed for correctness.
-    # cross-DM ref ([OtherDM/col]) -- RESOLVE-B will handle these.
+    # cross-DM ref ([OtherDM/col]) -- handled by a separate ingestion pass.
     data_model_element_fgl_cross_dm_unresolved: int = 0
     # resolved URN not in /lineage upstreams; drop to avoid orphan FGL.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
