@@ -1,3 +1,7 @@
+---
+description: "Run scheduled batch metadata ingestion from the CLI using DataHub recipes to extract metadata from source systems in bulk."
+---
+
 # CLI Ingestion
 
 Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion](../docs/components.md#ingestion-framework) framework.

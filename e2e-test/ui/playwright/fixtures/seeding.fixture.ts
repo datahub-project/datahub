@@ -176,10 +176,7 @@ async function ingestMcps(
 ): Promise<void> {
   const dataFile = explicitDataFile ?? dataFilePath(featureName);
   if (!fs.existsSync(dataFile)) {
-    throw new Error(
-      `Seed data file not found: ${dataFile}\n` +
-        `Expected: tests/${featureName}/fixtures/data.json`,
-    );
+    throw new Error(`Seed data file not found: ${dataFile}\n` + `Expected: tests/${featureName}/fixtures/data.json`);
   }
 
   // Strip the legacy "pegasus2avro." namespace prefix from Avro-translated class names so
@@ -256,7 +253,7 @@ async function ingestMcps(
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/ban-types
 export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
   // ── Option: injectable feature name (worker-scoped) ───────────────────────
   featureName: [null, { option: true, scope: 'worker' }],
@@ -280,9 +277,7 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
       }
 
       const tokenFile = gmsTokenPath(user.username);
-      const gmsToken = fs.existsSync(tokenFile)
-        ? readGmsToken(user.username)
-        : await bootstrapGmsToken(browser, user);
+      const gmsToken = fs.existsSync(tokenFile) ? readGmsToken(user.username) : await bootstrapGmsToken(browser, user);
 
       // Track whether any fresh ingestion happened this run so we can wait
       // for the search index to catch up before tests start.
@@ -313,7 +308,11 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
       const stateFile = stateFilePath(featureName);
       if (fs.existsSync(stateFile)) {
         const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
-        logger.info('reusing seeded data', { featureName, seededAt: state.seededAt, entityCount: state.entityCount });
+        logger.info('reusing seeded data', {
+          featureName,
+          seededAt: state.seededAt,
+          entityCount: state.entityCount,
+        });
         if (freshlySeeded) {
           logger.info('waiting 15s for search index to catch up');
           await new Promise<void>((resolve) => setTimeout(resolve, 15_000));

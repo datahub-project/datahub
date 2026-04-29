@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
@@ -20,6 +21,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.index.query.QueryBuilders;
@@ -81,10 +83,10 @@ public class ESGraphWriteDAOTest {
 
     if (canWrite) {
       // When writable, bulkProcessor.add should be called
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
     } else {
       // When not writable, bulkProcessor.add should not be called
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -100,11 +102,35 @@ public class ESGraphWriteDAOTest {
 
     if (canWrite) {
       // When writable, bulkProcessor.add should be called with DeleteRequest
-      verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
     } else {
       // When not writable, bulkProcessor.add should not be called
-      verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
     }
+  }
+
+  @Test
+  public void testUpsertDocumentRoutesByDocId() {
+    String docId = "edge-doc-abc";
+    String document =
+        "{\"source\":{\"urn\":\"urn:li:dataset:a\"},\"destination\":{\"urn\":\"urn:li:dataset:b\"}}";
+
+    testDao.upsertDocument(docId, document);
+
+    ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(docId), captor.capture());
+    assertEquals(captor.getValue().id(), docId);
+  }
+
+  @Test
+  public void testDeleteDocumentRoutesByDocId() {
+    String docId = "edge-doc-xyz";
+
+    testDao.deleteDocument(docId);
+
+    ArgumentCaptor<DeleteRequest> captor = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(docId), captor.capture());
+    assertEquals(captor.getValue().id(), docId);
   }
 
   @Test(dataProvider = "writabilityConfig")
@@ -184,7 +210,7 @@ public class ESGraphWriteDAOTest {
 
     // Upsert should work when writable
     testDao.upsertDocument(docId1, document1);
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
 
     testDao.setWritable(false);
 
@@ -194,7 +220,7 @@ public class ESGraphWriteDAOTest {
     testDao.upsertDocument(docId2, document2);
 
     // Should still only have 1 call from before
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
 
     testDao.setWritable(true);
 
@@ -203,7 +229,7 @@ public class ESGraphWriteDAOTest {
 
     // Upsert should work again
     testDao.upsertDocument(docId3, document3);
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -211,10 +237,10 @@ public class ESGraphWriteDAOTest {
     testDao.setWritable(false);
 
     testDao.upsertDocument("doc1", "{\"test\": \"data\"}");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
 
     testDao.deleteDocument("doc2");
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
 
     GraphFilters mockFilters = mock(GraphFilters.class);
     BulkByScrollResponse deleteResult = testDao.deleteByQuery(opContext, mockFilters);
@@ -276,8 +302,8 @@ public class ESGraphWriteDAOTest {
     testDao.upsertDocument("doc2", "{\"seq\": 2}");
     testDao.deleteDocument("doc3");
 
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
-    verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
 
     testDao.setWritable(false);
 
@@ -285,14 +311,14 @@ public class ESGraphWriteDAOTest {
     testDao.deleteDocument("doc5");
 
     // Counts should not increase
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
-    verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
 
     testDao.setWritable(true);
 
     // Operations should work again
     testDao.upsertDocument("doc6", "{\"seq\": 6}");
-    verify(mockBulkProcessor, times(3)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(3)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -305,7 +331,7 @@ public class ESGraphWriteDAOTest {
     testDao.upsertDocument(docId, document);
 
     // Verify the UpdateRequest was created with correct parameters
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -317,7 +343,7 @@ public class ESGraphWriteDAOTest {
     testDao.deleteDocument(docId);
 
     // Verify the DeleteRequest was created with correct parameters
-    verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
   }
 
   @Test

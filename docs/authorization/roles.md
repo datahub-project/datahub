@@ -1,3 +1,7 @@
+---
+description: "Use Roles in DataHub to grant common bundles of permissions like Admin, Editor, and Reader to users and groups."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Roles

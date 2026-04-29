@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for managing CorpUser, CorpGroup, and ownership assignments in DataHub via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
