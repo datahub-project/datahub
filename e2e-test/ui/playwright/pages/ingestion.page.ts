@@ -155,6 +155,9 @@ export class IngestionPage extends BasePage {
   }
 
   async deleteSource(sourceName: string): Promise<void> {
+    // Search for the source first so it is always visible regardless of pagination.
+    await this.searchSources(sourceName);
+    await expect(this.page.locator('tr').filter({ hasText: sourceName })).toBeVisible({ timeout: 15000 });
     await this.page.locator('tr').filter({ hasText: sourceName }).locator('[data-icon="delete"]').first().click();
     await expect(this.page.getByText('Confirm Ingestion Source Removal')).toBeVisible();
     await this.page.getByRole('button', { name: 'Yes' }).click();

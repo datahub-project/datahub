@@ -118,6 +118,7 @@ test.describe('managing secrets for ingestion creation', () => {
     // ── Step 7: Final cleanup — ingestion source + secret ────────────────
     logger.step('final cleanup: remove ingestion source and secret');
     await ingestionPage.navigate();
+    await ingestionPage.clickSourcesTab();
     await ingestionPage.deleteSource(ingestionSourceName);
 
     await ingestionPage.clickSecretsTab();

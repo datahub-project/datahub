@@ -49,8 +49,11 @@ export class EntityDocumentationPage extends BasePage {
     // [data-testid="description-editor"] which only exists inside DescriptionEditor
     // (the static read-only view uses data-testid="documentation-editor-content").
     await this.page.waitForURL(/editing=true/, { timeout: 15000 });
+    // Wait for the editor wrapper to appear; the DescriptionEditor returns null while loading
+    // so we scope to the description-editor container and wait for the ProseMirror div.
+    // Allow up to 30s because entity data may still be fetching after the URL change.
     const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
-    await editor.waitFor({ state: 'attached', timeout: 15000 });
+    await editor.waitFor({ state: 'attached', timeout: 30000 });
     // force: true bypasses the viewport/visibility check; Remirror auto-focuses on mount
     // but the element may have zero height until the flex layout resolves.
     await editor.click({ force: true });
@@ -64,7 +67,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.editDocumentationButton.click();
     await this.page.waitForURL(/editing=true/, { timeout: 15000 });
     const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
-    await editor.waitFor({ state: 'attached', timeout: 15000 });
+    await editor.waitFor({ state: 'attached', timeout: 30000 });
     await editor.click({ force: true });
     await this.page.keyboard.press('Control+a');
     await this.page.keyboard.press('Delete');
@@ -87,8 +90,14 @@ export class EntityDocumentationPage extends BasePage {
     // Use the row's id attribute (set by SchemaTable's onRow handler) so the click
     // reliably hits the row element rather than matching arbitrary text on the page.
     await this.page.locator(`#column-${fieldName}`).click();
-    await this.page.locator('[data-testid="edit-field-description"]').click();
-    await expect(this.page.getByText('Update description')).toBeVisible();
+    // The edit button is inside the Schema Field Drawer — wait for it to be visible
+    // before clicking to avoid race conditions when the drawer is still animating open.
+    const editBtn = this.page.locator('[data-testid="edit-field-description"]');
+    await editBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await editBtn.click();
+    // The UpdateDescriptionModal title appears after the button click.
+    // Use an explicit timeout since the modal may take a moment to mount.
+    await expect(this.page.getByText('Update description')).toBeVisible({ timeout: 15000 });
     // Wait for the editor to be in the DOM — it may have zero height initially so use
     // 'attached' rather than 'visible', and force-click to focus even if not laid out yet.
     const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');

@@ -38,7 +38,7 @@ test.describe('edit documentation and link to dataset', () => {
   });
 
   test('should allow to edit the documentation', async ({ page }) => {
-    await docPage.openEntityTab('Documentation');
+    // Documentation tab is already open from beforeEach — navigate directly to editing.
     await docPage.editDocumentation(SAMPLE_DOCUMENTATION);
     await expect(page.getByText(SAMPLE_DOCUMENTATION).first()).toBeVisible();
     await docPage.clearDocumentation();
