@@ -901,6 +901,39 @@ class TestPaginatedRawEntries:
 
 
 class TestGetWorkbookColumnFormulas:
+    def test_collects_formulas_across_next_page(self) -> None:
+        api = _create_sigma_api()
+        responses = [
+            _paginated_response(
+                [
+                    {
+                        "elementId": "elem-1",
+                        "name": "col-a",
+                        "formula": "[Source/col-a]",
+                    }
+                ],
+                next_page=2,
+            ),
+            _paginated_response(
+                [
+                    {
+                        "elementId": "elem-2",
+                        "name": "col-b",
+                        "formula": "[Source/col-b]",
+                    }
+                ]
+            ),
+        ]
+
+        with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
+            formulas = api.get_workbook_column_formulas("wb-1")
+
+        assert formulas == {
+            "elem-1": {"col-a": "[Source/col-a]"},
+            "elem-2": {"col-b": "[Source/col-b]"},
+        }
+        assert "page=2" in mock_get.call_args_list[1].args[0]
+
     def test_collects_formulas_across_next_page_token(self) -> None:
         api = _create_sigma_api()
         responses = [
