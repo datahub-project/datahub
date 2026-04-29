@@ -6,6 +6,7 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 - Warehouses as Containers
 - Schemas as Containers
 - Tables as Datasets with schema metadata
+- Views as Datasets with view definition and lineage parsed from the view SQL
 """
 
 import logging
@@ -140,6 +141,10 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+)
 class FabricOneLakeSource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric OneLake."""
 

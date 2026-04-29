@@ -14,8 +14,10 @@ The `fabric-onelake` module ingests metadata from Fabric Onelake into DataHub. I
 
 - Workspace, Lakehouse, Warehouse, and Schema containers
 - Table datasets with proper subtypes
+- View datasets with view definitions captured from the SQL Analytics endpoint
+- View-to-table lineage parsed from view definitions
 - Automatic detection and handling of schemas-enabled and schemas-disabled lakehouses
-- Pattern-based filtering for workspaces, lakehouses, warehouses, and tables
+- Pattern-based filtering for workspaces, lakehouses, warehouses, tables, and views
 - Stateful ingestion for stale entity removal
 - Multiple authentication methods (Service Principal, Managed Identity, Azure CLI, DefaultAzureCredential)
 

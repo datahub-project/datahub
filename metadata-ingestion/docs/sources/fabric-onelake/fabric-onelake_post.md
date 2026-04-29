@@ -97,10 +97,17 @@ source:
         - ".*_temp"
         - ".*_backup"
 
+    view_pattern:
+      allow:
+        - ".*"
+      deny:
+        - ".*_internal"
+
     # Feature flags
     extract_lakehouses: true
     extract_warehouses: true
     extract_schemas: true # Set to false to skip schema containers
+    extract_views: true # Requires extract_schema.enabled and sql_endpoint.enabled
 
     # API timeout (seconds)
     api_timeout: 30
@@ -312,6 +319,48 @@ source:
       enabled: false
 ```
 
+#### View Extraction
+
+Views in Lakehouses and Warehouses are ingested as DataHub `Dataset` entities with the `View` subtype. Each view dataset includes:
+
+- Column-level schema metadata (sourced from `INFORMATION_SCHEMA.COLUMNS` alongside table columns).
+- The original view definition (`CREATE VIEW` SQL), captured from `INFORMATION_SCHEMA.VIEWS`.
+- Upstream table lineage parsed from the view definition via the SQL parsing aggregator.
+
+##### Prerequisites
+
+View extraction reuses the SQL Analytics Endpoint connection used by [Schema Extraction](#schema-extraction). The same ODBC driver and permissions apply, and view extraction is automatically disabled unless both `extract_schema.enabled` and `sql_endpoint.enabled` are `true`.
+
+##### Configuration
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    # View extraction is enabled by default. Set to false to skip views.
+    extract_views: true
+
+    # Filter views by name pattern. Format: 'schema.view' or just 'view' for default schema.
+    view_pattern:
+      allow:
+        - ".*"
+      deny:
+        - ".*_internal"
+
+    # View extraction depends on these — both default to enabled.
+    extract_schema:
+      enabled: true
+    sql_endpoint:
+      enabled: true
+```
+
+##### How It Works
+
+1. **Discovery**: The connector queries `INFORMATION_SCHEMA.VIEWS` on the SQL Analytics Endpoint to list views and capture their definitions.
+2. **Filtering**: Each view is matched against `view_pattern` using the `schema.view_name` form.
+3. **Schema**: Column metadata is reused from the same `INFORMATION_SCHEMA.COLUMNS` query that powers table schema extraction — no extra queries per view.
+4. **Lineage**: View definitions are passed to the SQL parsing aggregator to derive view → upstream table lineage. View URNs and upstream table URNs are resolved within the same workspace and item.
+
 #### Schemas-Enabled vs Schemas-Disabled Lakehouses
 
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
@@ -349,6 +398,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
   - Permission issues
   - Table count limits in very large databases
 - **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
+- **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `extract_schema.enabled` or `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
 
 ### Troubleshooting
 
