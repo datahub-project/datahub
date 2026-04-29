@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for emitting operational events on DataHub Datasets to track inserts, updates, and refresh activity."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

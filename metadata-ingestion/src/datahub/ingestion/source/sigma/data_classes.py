@@ -77,8 +77,9 @@ class SigmaDataset(BaseModel):
 
 class DatasetUpstream(BaseModel):
     type: Literal["dataset"] = "dataset"
-    # Required: used by sigma.py to correlate with SQL-parsed warehouse table names.
-    name: str
+    # Optional: Sigma's lineage payloads can carry ``name: null`` for
+    # dataset upstreams. Callers guard on a missing name.
+    name: Optional[str] = None
 
 
 class SheetUpstream(BaseModel):
@@ -87,10 +88,22 @@ class SheetUpstream(BaseModel):
     element_id: str
 
 
-# "table" (warehouse) nodes are terminal in BFS — handled by the SQL-parse path.
-# "join" pass-through nodes are traversed by BFS but never stored as upstreams.
+class DataModelElementUpstream(BaseModel):
+    """DM element referenced from a workbook. Node id shape is
+    ``<dataModelUrlId>/<opaque_suffix>``; bridging to a specific DM
+    element URN happens at emit time via ``name``.
+    """
+
+    type: Literal["data-model"] = "data-model"
+    name: Optional[str] = None
+    data_model_url_id: str
+
+
+# "table" nodes are terminal (handled by SQL parsing); "join" nodes are
+# BFS pass-throughs and are not stored as upstreams.
 ElementUpstream = Annotated[
-    Union[DatasetUpstream, SheetUpstream], Field(discriminator="type")
+    Union[DatasetUpstream, SheetUpstream, DataModelElementUpstream],
+    Field(discriminator="type"),
 ]
 
 

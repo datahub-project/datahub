@@ -6,6 +6,9 @@ plugins {
   id 'java'
 }
 
+// Same jacksonVersion as root build.gradle ext.jacksonVersion (sync when bumping Jackson).
+ext.jacksonVersion = '2.21.1'
+
 dependencies {
   /**
    * Forked version of abandoned repository: https://github.com/fge/json-schema-avro
@@ -21,8 +24,8 @@ dependencies {
   implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
   // Keep in sync with project.ext.externalDependency['guava'] in root build.gradle
   implementation 'com.google.guava:guava:33.6.0-jre'
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.6'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.6'
+  implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"
   implementation 'commons-io:commons-io:2.17.0'
 
   compileOnly 'org.projectlombok:lombok:1.18.30'

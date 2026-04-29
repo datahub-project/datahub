@@ -1,3 +1,7 @@
+---
+description: "Sync DataHub tags, terms, owners, and descriptions to Databricks Unity Catalog using DataHub Cloud's Databricks metadata sync automation."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Databricks Metadata Sync Automation
