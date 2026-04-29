@@ -27,39 +27,12 @@ test.describe('edit documentation and link to dataset', () => {
     const documentationEdited = `This is test${testId} documentation EDITED`;
 
     await docPage.navigateToDatasetSchemaTab(DATASET_URN);
-
-    // Click field_foo row to open the field drawer / edit form.
-    // Using the #column-<fieldPath> id set by SchemaTable's onRow handler is
-    // more reliable than matching bare text, which can hit multiple elements.
-    await page.locator('#column-field_foo').click();
-
-    // Open field description edit modal
-    await page.locator('[data-testid="edit-field-description"]').click();
-    await expect(page.getByText('Update description')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('Foo field description has changed').first()).toBeVisible();
-
-    // Clear the editor and type new description.
-    // The description-editor data-testid is on the outer container div; target the
-    // inner contenteditable so that fill() works correctly.
-    const editor = page.locator('[data-testid="description-editor"]').locator('[contenteditable="true"]');
-    await editor.waitFor({ state: 'visible', timeout: 10000 });
-    await editor.fill('');
-    await page.waitForTimeout(1000);
-    await page.keyboard.type(documentationEdited);
-    await page.locator('[data-testid="description-modal-update-button"]').click();
-    await expect(page.getByText('Updated!')).toBeVisible({ timeout: 15000 });
+    await docPage.editFieldDescription('field_foo', documentationEdited);
     await expect(page.getByText(documentationEdited).first()).toBeVisible();
     await expect(page.getByText('(edited)')).toBeVisible();
 
     // Restore original description
-    await page.locator('[data-testid="edit-field-description"]').click();
-    const editor2 = page.locator('[data-testid="description-editor"]').locator('[contenteditable="true"]');
-    await editor2.waitFor({ state: 'visible', timeout: 10000 });
-    await editor2.fill('');
-    await page.waitForTimeout(1000);
-    await page.keyboard.type('Foo field description has changed');
-    await page.locator('[data-testid="description-modal-update-button"]').click();
-    await expect(page.getByText('Updated!')).toBeVisible({ timeout: 15000 });
+    await docPage.editFieldDescription('field_foo', 'Foo field description has changed');
     await expect(page.getByText('Foo field description has changed').first()).toBeVisible();
     await expect(page.getByText('(edited)')).toBeVisible();
   });

@@ -73,21 +73,13 @@ test.describe('ingestion source creation flow', () => {
     // Verify values are saved correctly by reopening the wizard
     logger.step('verify saved ingestion source details');
     await ingestionPage.openEditForSource(ingestionSourceName);
-    await expect(page.locator('#account_id')).toHaveValue(accountId, { timeout: 15000 });
-    await expect(page.locator('#warehouse')).toHaveValue(warehouseId);
-    await expect(page.locator('#username')).toHaveValue(username);
-    await expect(
-      page.locator('#authentication_type').locator('xpath=ancestor::*[contains(@class,"ant-form-item")][1]'),
-    ).toContainText('Username & Password');
-    await expect(page.locator('#password')).toHaveValue(password);
-    await expect(page.locator('#role')).toHaveValue(role);
+    await ingestionPage.expectSnowflakeFormValues({ accountId, warehouseId, username, password, role });
 
     // Advance through wizard to name step and rename the source
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
     await ingestionPage.clickScheduleNextButton();
-    await page.locator('[data-testid="source-name-input"]').clear();
-    await page.locator('[data-testid="source-name-input"]').fill(`${ingestionSourceName} EDITED`);
+    await ingestionPage.fillSourceName(`${ingestionSourceName} EDITED`);
     await ingestionPage.clickSaveButton();
     await expect(page.getByText('Successfully updated ingestion source!')).toBeVisible({ timeout: 15000 });
     // Poll until ES indexes the rename

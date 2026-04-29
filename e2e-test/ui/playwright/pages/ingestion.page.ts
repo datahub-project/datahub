@@ -120,6 +120,23 @@ export class IngestionPage extends BasePage {
     await this.page.getByRole('button', { name: 'Next' }).click();
   }
 
+  async expectSnowflakeFormValues(params: {
+    accountId: string;
+    warehouseId: string;
+    username: string;
+    password: string;
+    role: string;
+  }): Promise<void> {
+    await expect(this.page.locator('#account_id')).toHaveValue(params.accountId, { timeout: 15000 });
+    await expect(this.page.locator('#warehouse')).toHaveValue(params.warehouseId);
+    await expect(this.page.locator('#username')).toHaveValue(params.username);
+    await expect(
+      this.page.locator('#authentication_type').locator('xpath=ancestor::*[contains(@class,"ant-form-item")][1]'),
+    ).toContainText('Username & Password');
+    await expect(this.page.locator('#password')).toHaveValue(params.password);
+    await expect(this.page.locator('#role')).toHaveValue(params.role);
+  }
+
   // ── Verification helpers ──────────────────────────────────────────────────
 
   async expectSourceVisible(name: string): Promise<void> {
@@ -147,12 +164,16 @@ export class IngestionPage extends BasePage {
 
   // ── Secrets helpers ─────────────────────────────────────────────────────────
 
-  async createSecret(name: string, value: string, description: string): Promise<void> {
-    await this.clickCreateSecretButton();
+  async fillAndSubmitSecretModal(name: string, value: string, description: string): Promise<void> {
     await this.page.locator('[data-testid="secret-modal-name-input"] input').fill(name);
     await this.page.locator('[data-testid="secret-modal-value-input"] textarea').fill(value);
     await this.page.locator('[data-testid="secret-modal-description-input"] textarea').fill(description);
     await this.page.locator('[data-testid="secret-modal-create-button"]').click();
+  }
+
+  async createSecret(name: string, value: string, description: string): Promise<void> {
+    await this.clickCreateSecretButton();
+    await this.fillAndSubmitSecretModal(name, value, description);
   }
 
   async deleteSecret(name: string): Promise<void> {

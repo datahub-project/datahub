@@ -53,25 +53,18 @@ test.describe('managing secrets for ingestion creation', () => {
     await ingestionPage.searchDataSource('snowflake');
     await ingestionPage.selectDataSource('Snowflake');
 
-    await expect(page.locator('#account_id')).toBeVisible({ timeout: 15000 });
-    await page.locator('#account_id').fill(accountId);
-    await page.locator('#warehouse').fill(warehouseId);
-    await page.locator('#username').fill(username);
-
-    // Select Username & Password auth to reveal the password field
+    await ingestionPage.fillSnowflakeForm({ accountId, warehouseId, username, role });
+    // Auth type must be selected separately since we're using a secret, not a plain password
     await page.locator('#authentication_type').click({ force: true });
     // dispatchEvent bypasses Playwright's viewport check; AntD dropdown may render below the fold
     await page.locator('.ant-select-dropdown [title="Username & Password"]').dispatchEvent('click');
-
-    // Choose the secret from the password dropdown
     await ingestionPage.selectSecretForPasswordField(secretName);
-    await page.locator('#role').fill(role);
 
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.locator('.ant-collapse-item')).toBeVisible({ timeout: 15000 });
-    await page.locator('[data-testid="source-name-input"]').fill(ingestionSourceName);
+    await ingestionPage.fillSourceName(ingestionSourceName);
     await ingestionPage.clickSaveButton();
     await expect(page.getByText('Successfully created ingestion source!')).toBeVisible({ timeout: 30000 });
     await page.waitForTimeout(5000);
@@ -82,14 +75,9 @@ test.describe('managing secrets for ingestion creation', () => {
 
     // ── Step 3: Remove the secret ─────────────────────────────────────────
     logger.step('remove the secret');
-    await page.locator(`div[id$="Secrets"]:nth-child(1)`).click();
-    await page.waitForLoadState('networkidle');
+    await ingestionPage.clickSecretsTab();
     await expect(page.getByText(secretName)).toBeVisible({ timeout: 15000 });
-    await page.locator('[data-icon="delete"]').first().click();
-    await expect(page.getByText('Confirm Secret Removal')).toBeVisible();
-    await page.getByRole('button', { name: 'Yes' }).click();
-    await expect(page.getByText('Removed secret.')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(secretName)).not.toBeVisible({ timeout: 10000 });
+    await ingestionPage.deleteSecret(secretName);
     await expect(page.getByText(secretDescription)).not.toBeVisible({ timeout: 10000 });
 
     // ── Step 4: Remove ingestion source ───────────────────────────────────
@@ -104,11 +92,7 @@ test.describe('managing secrets for ingestion creation', () => {
     await ingestionPage.searchDataSource('snowflake');
     await ingestionPage.selectDataSource('Snowflake');
 
-    await expect(page.locator('#account_id')).toBeVisible({ timeout: 15000 });
-    await page.locator('#account_id').fill(accountId);
-    await page.locator('#warehouse').fill(warehouseId);
-    await page.locator('#username').fill(username);
-
+    await ingestionPage.fillSnowflakeForm({ accountId, warehouseId, username, role });
     await page.locator('#authentication_type').click({ force: true });
     await page.locator('.ant-select-dropdown [title="Username & Password"]').dispatchEvent('click');
     await page.locator('#password').clear();
@@ -118,10 +102,7 @@ test.describe('managing secrets for ingestion creation', () => {
     // ── Step 6: Create secret inline and verify it can be used ───────────
     logger.step('create secret inline during source creation');
     await page.getByText('Create Secret').click();
-    await page.locator('[data-testid="secret-modal-name-input"] input').fill(secretName);
-    await page.locator('[data-testid="secret-modal-value-input"] textarea').fill(secretValue);
-    await page.locator('[data-testid="secret-modal-description-input"] textarea').fill(secretDescription);
-    await page.locator('[data-testid="secret-modal-create-button"]').click();
+    await ingestionPage.fillAndSubmitSecretModal(secretName, secretValue, secretDescription);
     await expect(page.getByText('Created secret!')).toBeVisible({ timeout: 15000 });
 
     await page.locator('#role').fill(role);
@@ -129,8 +110,8 @@ test.describe('managing secrets for ingestion creation', () => {
     await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.locator('.ant-collapse-item')).toBeVisible({ timeout: 15000 });
-    await page.locator('[data-testid="source-name-input"]').fill(ingestionSourceName);
-    await page.locator('[data-testid="ingestion-source-save-button"]').click();
+    await ingestionPage.fillSourceName(ingestionSourceName);
+    await ingestionPage.clickSaveButton();
     await expect(page.getByText('Successfully created ingestion source!')).toBeVisible({ timeout: 30000 });
     await page.waitForTimeout(5000);
 
@@ -143,14 +124,9 @@ test.describe('managing secrets for ingestion creation', () => {
     await ingestionPage.navigate();
     await ingestionPage.deleteSource(ingestionSourceName);
 
-    await page.locator(`div[id$="Secrets"]:nth-child(1)`).click();
-    await page.waitForLoadState('networkidle');
+    await ingestionPage.clickSecretsTab();
     await expect(page.getByText(secretName)).toBeVisible({ timeout: 15000 });
-    await page.locator('[data-test-id="delete-secret-action"]').first().click();
-    await expect(page.getByText('Confirm Secret Removal')).toBeVisible();
-    await page.getByRole('button', { name: 'Yes' }).click();
-    await expect(page.getByText('Removed secret.')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(secretName)).not.toBeVisible({ timeout: 10000 });
+    await ingestionPage.deleteSecret(secretName);
     await expect(page.getByText(secretDescription)).not.toBeVisible({ timeout: 10000 });
   });
 });

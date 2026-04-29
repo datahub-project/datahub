@@ -14,6 +14,9 @@ export class EntityDocumentationPage extends BasePage {
   readonly saveDescriptionButton: Locator;
   readonly addRelatedButton: Locator;
   readonly relatedList: Locator;
+  readonly platformLinksContainer: Locator;
+  readonly urlInput: Locator;
+  readonly labelInput: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -21,6 +24,9 @@ export class EntityDocumentationPage extends BasePage {
     this.saveDescriptionButton = page.locator('[data-testid="description-editor-save-button"]');
     this.addRelatedButton = page.locator('[data-testid="add-related-button"]');
     this.relatedList = page.locator('[data-testid="related-list"]');
+    this.platformLinksContainer = page.locator('[data-testid="platform-links-container"]');
+    this.urlInput = page.locator('[data-testid="url-input"]');
+    this.labelInput = page.locator('[data-testid="label-input"]');
   }
 
   async navigateToDatasetDocumentationTab(datasetUrn: string, datasetName: string): Promise<void> {
@@ -94,10 +100,10 @@ export class EntityDocumentationPage extends BasePage {
   }
 
   async fillLinkForm(url: string, label: string, showInPreview: boolean): Promise<void> {
-    await this.page.locator('[data-testid="url-input"]').clear();
-    await this.page.locator('[data-testid="url-input"]').fill(url);
-    await this.page.locator('[data-testid="label-input"]').clear();
-    await this.page.locator('[data-testid="label-input"]').fill(label);
+    await this.urlInput.clear();
+    await this.urlInput.fill(url);
+    await this.labelInput.clear();
+    await this.labelInput.fill(label);
 
     const checkboxInput = this.page.locator('[data-testid="show-in-asset-preview-checkbox"]').locator('input');
     const isChecked = await checkboxInput.isChecked();
@@ -159,16 +165,11 @@ export class EntityDocumentationPage extends BasePage {
     // Link may be in an overflow dropdown (hidden) when many show-in-preview links exist.
     // Use .first() because the link can appear twice in the DOM (visible + aria-hidden copy)
     // and strict-mode toBeAttached would fail on 2+ matches without it.
-    await expect(
-      this.page.locator('[data-testid="platform-links-container"]').locator(`a[href='${url}']`).first(),
-    ).toBeAttached({ timeout: 15000 });
+    await expect(this.platformLinksContainer.locator(`a[href='${url}']`).first()).toBeAttached({ timeout: 15000 });
   }
 
   async expectLinkNotInEntityHeader(url: string): Promise<void> {
-    await expect(this.page.locator('[data-testid="platform-links-container"]').locator(`a[href='${url}']`)).toHaveCount(
-      0,
-      { timeout: 10000 },
-    );
+    await expect(this.platformLinksContainer.locator(`a[href='${url}']`)).toHaveCount(0, { timeout: 10000 });
   }
 
   async expectLinkInSidebar(url: string): Promise<void> {

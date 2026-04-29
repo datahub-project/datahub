@@ -39,40 +39,25 @@ test.describe('edit documentation and link to dataset', () => {
 
   test('should allow to edit the documentation', async ({ page }) => {
     await docPage.openEntityTab('Documentation');
-
-    await docPage.editDocumentationButton.click();
-    const editor = page.locator('[contenteditable="true"]').first();
-    await editor.waitFor({ state: 'visible', timeout: 10000 });
-    await editor.fill('');
-    await editor.fill(SAMPLE_DOCUMENTATION);
-    await docPage.saveDescriptionButton.click();
-    await expect(page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await docPage.editDocumentation(SAMPLE_DOCUMENTATION);
     await expect(page.getByText(SAMPLE_DOCUMENTATION).first()).toBeVisible();
-
-    // Clear documentation
-    await docPage.editDocumentationButton.click();
-    const editor2 = page.locator('[contenteditable="true"]').first();
-    await editor2.waitFor({ state: 'visible', timeout: 10000 });
-    await editor2.fill('');
-    await page.waitForTimeout(1000);
-    await docPage.saveDescriptionButton.click();
-    await expect(page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await docPage.clearDocumentation();
   });
 
   test('should validate add link form', async ({ page }) => {
     await docPage.openAddLinkForm();
 
     // URL validation
-    await page.locator('[data-testid="url-input"]').fill('incorrect_url');
+    await docPage.urlInput.fill('incorrect_url');
     await expect(page.getByText('This field must be a valid url.')).toBeVisible();
 
     // URL is required
-    await page.locator('[data-testid="url-input"]').clear();
+    await docPage.urlInput.clear();
     await expect(page.getByText('A URL is required.')).toBeVisible();
 
     // Label is required — type a valid URL, then clear the label
-    await page.locator('[data-testid="label-input"]').fill('label');
-    await page.locator('[data-testid="label-input"]').clear();
+    await docPage.labelInput.fill('label');
+    await docPage.labelInput.clear();
     await expect(page.getByText('A label is required.')).toBeVisible();
   });
 
@@ -125,7 +110,7 @@ test.describe('edit documentation and link to dataset', () => {
     await docPage.expectLinkNotInSidebar(sample3);
     await docPage.expectLinkInEntityHeader(sample1);
     // sample2 and sample3 overflow into the dropdown — just verify container is visible
-    await expect(docPage['page'].locator('[data-testid="platform-links-container"]')).toBeVisible();
+    await expect(docPage.platformLinksContainer).toBeVisible();
 
     await docPage.removeLinkByUrl(sample1);
     await docPage.removeLinkByUrl(sample2);

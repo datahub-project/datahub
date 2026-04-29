@@ -43,7 +43,7 @@ test.describe('run managed ingestion', () => {
     await page.getByText('Next').click();
     await page.getByText('Next').click();
 
-    await page.locator('[data-testid="source-name-input"]').fill(testName);
+    await ingestionPage.fillSourceName(testName);
 
     logger.step('save and run ingestion source');
     // Use exact role match to avoid matching 'Save' which is also a substring of 'Save & Run'
