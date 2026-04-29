@@ -84,7 +84,23 @@ config:
 
 **Iceberg (default, or `platform: iceberg`).** Emits `urn:li:dataset:(iceberg, <schema>.<table>, env)`. No extra config needed for Polaris / Iceberg-REST destinations — this is the fallback default for any MDL destination whose config doesn't trigger another auto-detect rule.
 
-**Glue (`platform: glue`, or auto-detected).** Emits `urn:li:dataset:(glue, fivetran_<schema>.<table>, env)` so the URN aligns with DataHub's [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue) ingesting the same catalog. **Auto-detected**: when Fivetran's `should_maintain_tables_in_glue: true` toggle is set on the destination (visible via `/v1/destinations/{id}`) and the user hasn't pinned `platform`, the connector defaults to `glue` automatically — no explicit `platform: glue` needed in the recipe. The `fivetran_` database prefix is Fivetran's documented default and is applied automatically — set `mdl_glue_database_prefix` only if you've customized the prefix in Fivetran's destination settings (rare).
+**Glue (`platform: glue`, or auto-detected).** Emits `urn:li:dataset:(glue, <prefix><schema>.<table>, env)` so the URN aligns with DataHub's [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue) ingesting the same catalog. **Auto-detected**: when Fivetran's `should_maintain_tables_in_glue: true` toggle is set on the destination (visible via `/v1/destinations/{id}`) and the user hasn't pinned `platform`, the connector defaults to `glue` automatically — no explicit `platform: glue` needed in the recipe.
+
+The Glue **database name** in the URN is composed by prepending an optional per-destination `glue_database_prefix` to the Fivetran schema name. Fivetran's REST API does not expose the actual Glue database name it created, so you must tell the connector what convention your account uses:
+
+```yaml
+destination_to_platform_instance:
+  glue_warehouse_a:
+    platform: glue
+    glue_database_prefix: fivetran_ # if Fivetran created `fivetran_<schema>` databases
+    platform_instance: "glue_us_west" # match the Glue source recipe
+  glue_warehouse_b:
+    platform: glue
+    # no prefix → emit `glue.<schema>.<table>` directly (correct when
+    # the Glue catalog uses schema names verbatim)
+```
+
+Set `glue_database_prefix` to whatever string Fivetran prepends in **your** Glue catalog (commonly `fivetran_`, but verify by inspecting your actual Glue databases — the convention isn't standardised across Fivetran deployments). Leave it unset to emit the Glue source's two-part `glue.<schema>.<table>` shape directly.
 
 **Object-storage routing (`platform: s3`, `gcs`, or `abs`).** Emits a path-style URN aligned with DataHub's [S3](https://docs.datahub.com/docs/generated/ingestion/sources/s3), [GCS](https://docs.datahub.com/docs/generated/ingestion/sources/gcs), or [Azure Blob / ADLS](https://docs.datahub.com/docs/generated/ingestion/sources/abs) sources. The path prefix is composed from fields in the Fivetran destination response (`/v1/destinations/{id}`) — no extra recipe configuration required:
 
@@ -117,8 +133,8 @@ A pinned `platform` skips REST destination discovery for that destination — us
 `destination_platform: managed_data_lake` and `managed_data_lake_destination_config` were removed in favour of REST mode. To migrate:
 
 1. Replace the entire `fivetran_log_config` block with `log_source: rest_api` and an `api_config`.
-2. Drop the `catalog_type` / `glue_database_prefix` / `preserve_case` fields — REST mode handles all catalog backings via `service` discovery and does not need SQL identifier transformations.
-3. If you want to pin the URN platform for a destination (e.g. `glue` instead of `iceberg`), use `destination_to_platform_instance.<destination_id>.platform`.
+2. Drop the old `catalog_type`, `glue_database_prefix`, and `preserve_case` fields from inside `managed_data_lake_destination_config` — REST mode handles all catalog backings via `service` discovery and does not need SQL identifier transformations.
+3. If you want to pin the URN platform for a destination (e.g. `glue` instead of `iceberg`), use `destination_to_platform_instance.<destination_id>.platform`. For Glue prefixing, set the new per-destination `destination_to_platform_instance.<destination_id>.glue_database_prefix` (replacing the old top-level `glue_database_prefix` if you used it before).
 
 #### Hybrid deployments and destination discovery
 

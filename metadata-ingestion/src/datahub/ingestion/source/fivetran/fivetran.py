@@ -294,7 +294,6 @@ class FivetranSource(StatefulIngestionSourceBase):
                 output_dataset_urn = self.build_destination_urn(
                     lineage.destination_table,
                     destination_details,
-                    glue_database_prefix=self.config.mdl_glue_database_prefix,
                 )
             except ValueError as e:
                 # Most common cause: no platform discovered for this
@@ -364,7 +363,6 @@ class FivetranSource(StatefulIngestionSourceBase):
     def build_destination_urn(
         destination_table: str,
         destination_details: PlatformDetail,
-        glue_database_prefix: Optional[str] = None,
     ) -> DatasetUrn:
         """Construct the destination dataset URN for one lineage edge.
 
@@ -375,10 +373,14 @@ class FivetranSource(StatefulIngestionSourceBase):
         DataHub's iceberg source convention so URNs align if the same
         catalog is also ingested directly.
 
-        For Glue-routed Managed Data Lake destinations the schema part is
-        prefixed (`fivetran_<schema>` by default) so the URN aligns with
-        DataHub's Glue source ingesting the same catalog. Pass `None` for
-        non-Glue destinations to skip the prefixing.
+        For Glue-routed Managed Data Lake destinations the URN follows the
+        Glue source's two-part `<glue_database>.<table>` shape. The Glue
+        database name is composed by prepending
+        `destination_details.glue_database_prefix` (if set) to the Fivetran
+        schema. Leave the prefix unset to emit `glue.<schema>.<table>` —
+        correct when Fivetran's Glue databases are named verbatim after
+        the schema. Set the prefix per-destination to whatever Fivetran
+        prepends in your Glue catalog (commonly `fivetran_`).
 
         For path-style routed Managed Data Lake destinations
         (`platform: s3 | gcs | abs`), the URN follows DataHub's
@@ -436,20 +438,23 @@ class FivetranSource(StatefulIngestionSourceBase):
                 env=destination_details.env,
                 platform_instance=destination_details.platform_instance,
             )
-        # Glue-backed MDL: Fivetran writes to `<glue_database_prefix><schema>`
-        # and the actual schema becomes part of the Glue database name. The
-        # URN must follow the Glue source's two-part convention so end-to-end
-        # lineage renders against DataHub's Glue-ingested catalog.
+        # Glue-backed MDL: Fivetran maps each Fivetran schema to its own
+        # Glue database, so the URN must follow Glue's two-part
+        # `<glue_database>.<table>` shape. The Glue database name is
+        # composed by prepending `glue_database_prefix` (if set) to the
+        # schema name. With no prefix, the schema is used verbatim as the
+        # Glue database — correct when the customer's Glue catalog uses
+        # the schema names directly.
         if (
             destination_details.platform == "glue"
-            and glue_database_prefix
             and destination_details.include_schema_in_urn
             and "." in table_name
         ):
             schema_part, _, leaf_table = table_name.partition(".")
+            prefix = destination_details.glue_database_prefix or ""
             return DatasetUrn.create_from_ids(
                 platform_id="glue",
-                table_name=f"{glue_database_prefix}{schema_part}.{leaf_table}",
+                table_name=f"{prefix}{schema_part}.{leaf_table}",
                 env=destination_details.env,
                 platform_instance=destination_details.platform_instance,
             )

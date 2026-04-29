@@ -242,6 +242,23 @@ class PlatformDetail(ConfigModel):
         default=True,
         description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
     )
+    glue_database_prefix: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "For Glue-routed Managed Data Lake destinations only "
+            "(`platform: glue`): prefix prepended to the Fivetran schema "
+            "name when composing the Glue database name in the URN. The "
+            "URN shape becomes "
+            "`urn:li:dataset:(glue, <prefix><schema>.<table>, env)` so it "
+            "aligns with DataHub's Glue source ingesting the same catalog. "
+            "Set this to whatever string Fivetran prepends in your Glue "
+            "catalog (commonly `fivetran_`, but verify by inspecting your "
+            "actual Glue databases — Fivetran's REST API doesn't expose "
+            "the database name). Leave unset to emit "
+            "`glue.<schema>.<table>` (no prefix) — correct when Fivetran "
+            "creates Glue databases named verbatim after the schema."
+        ),
+    )
 
 
 class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -299,19 +316,6 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     destination_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
-    )
-
-    mdl_glue_database_prefix: str = pydantic.Field(
-        default="fivetran_",
-        description=(
-            "Prefix Fivetran applies to the Glue database name for "
-            "Managed Data Lake destinations routed to Glue. Used to "
-            "construct URNs of shape "
-            "`urn:li:dataset:(glue, <prefix><schema>.<table>, env)` so "
-            "they align with DataHub's Glue source ingesting the same "
-            "catalog. Most users don't need to change this — Fivetran's "
-            "default is `fivetran_` and the prefix is rarely customized."
-        ),
     )
 
     """

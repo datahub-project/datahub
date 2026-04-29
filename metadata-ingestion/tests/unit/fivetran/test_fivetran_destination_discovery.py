@@ -593,66 +593,72 @@ class TestBuildDestinationUrnGlueMdl:
     ingesting the same catalog.
     """
 
-    def test_glue_with_default_prefix(self):
+    def test_glue_with_fivetran_prefix(self):
+        # Customer pins `glue_database_prefix: "fivetran_"` on their Glue
+        # destination so Fivetran's `fivetran_<schema>` Glue databases
+        # map to the URN. The Glue source emits `glue.<glue_database>.<table>`.
         urn = FivetranSource.build_destination_urn(
             destination_table="public.employee",
-            destination_details=PlatformDetail(platform="glue"),
-            glue_database_prefix="fivetran_",
+            destination_details=PlatformDetail(
+                platform="glue", glue_database_prefix="fivetran_"
+            ),
         )
-        # Glue source emits `glue.<glue_database>.<table>`; the database
-        # name is `fivetran_public` after Fivetran's prefix is applied.
         assert (
             str(urn)
             == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_public.employee,PROD)"
         )
 
     def test_glue_with_custom_prefix(self):
+        # Customer's Glue catalog uses a different prefix (e.g. they
+        # customised Fivetran's destination settings).
         urn = FivetranSource.build_destination_urn(
             destination_table="public.employee",
-            destination_details=PlatformDetail(platform="glue"),
-            glue_database_prefix="ft_lake_",
+            destination_details=PlatformDetail(
+                platform="glue", glue_database_prefix="ft_lake_"
+            ),
         )
         assert (
             str(urn)
             == "urn:li:dataset:(urn:li:dataPlatform:glue,ft_lake_public.employee,PROD)"
         )
 
-    def test_glue_without_prefix_falls_back_to_database_routing(self):
-        # No prefix supplied → treat glue like any other relational platform
-        # (database from PlatformDetail). Lets users opt out by configuring
-        # `mdl_glue_database_prefix=""`.
+    def test_glue_without_prefix_uses_schema_verbatim(self):
+        # No prefix on PlatformDetail → emit the Glue-source-shaped
+        # `glue.<schema>.<table>` directly. Correct when the customer's
+        # Glue catalog has databases named verbatim after the schemas
+        # (e.g. `public`, `internal`) without any Fivetran prefix.
         urn = FivetranSource.build_destination_urn(
             destination_table="public.employee",
-            destination_details=PlatformDetail(platform="glue", database="my_glue_db"),
-            glue_database_prefix=None,
+            destination_details=PlatformDetail(platform="glue"),
         )
         assert (
-            str(urn)
-            == "urn:li:dataset:(urn:li:dataPlatform:glue,my_glue_db.public.employee,PROD)"
+            str(urn) == "urn:li:dataset:(urn:li:dataPlatform:glue,public.employee,PROD)"
         )
 
-    def test_iceberg_unaffected_by_prefix(self):
-        # Iceberg URN routing skips the prefix entirely — it's a Glue-only
-        # convention. Polaris / Iceberg-REST destinations stay at the
-        # iceberg two-part namespace.
+    def test_iceberg_ignores_glue_prefix(self):
+        # `glue_database_prefix` is a Glue-only convention. If a user
+        # accidentally sets it on an iceberg destination, we still emit
+        # the iceberg two-part URN.
         urn = FivetranSource.build_destination_urn(
             destination_table="sales.orders",
-            destination_details=PlatformDetail(platform="iceberg"),
-            glue_database_prefix="fivetran_",
+            destination_details=PlatformDetail(
+                platform="iceberg", glue_database_prefix="fivetran_"
+            ),
         )
         assert (
             str(urn) == "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
         )
 
-    def test_snowflake_unaffected_by_prefix(self):
-        # Snowflake follows three-part `<database>.<schema>.<table>` routing;
-        # the prefix is irrelevant to relational destinations.
+    def test_snowflake_ignores_glue_prefix(self):
+        # Snowflake follows three-part `<database>.<schema>.<table>`
+        # routing; the Glue prefix is irrelevant.
         urn = FivetranSource.build_destination_urn(
             destination_table="public.employee",
             destination_details=PlatformDetail(
-                platform="snowflake", database="ANALYTICS_DB"
+                platform="snowflake",
+                database="ANALYTICS_DB",
+                glue_database_prefix="fivetran_",
             ),
-            glue_database_prefix="fivetran_",
         )
         assert (
             str(urn)
@@ -674,7 +680,6 @@ class TestBuildDestinationUrnS3Mdl:
             destination_details=PlatformDetail(
                 platform="s3", database="example-fivetran-lake/fivetran"
             ),
-            glue_database_prefix="fivetran_",
         )
         assert (
             str(urn)
