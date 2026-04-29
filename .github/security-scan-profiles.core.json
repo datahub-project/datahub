@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "shape": "Registry-only for `security-scan-linear-sync`: `registry.repos` lists image names; optional per-repo `variant_suffixes` is the tag suffixes that exist for that image (e.g. \"\", \"-slim\"). For `variant_scope` slim/locked/etc., the workflow matches each repo’s `variant_suffixes` against the suffix `-<variant_scope>` by default. Use `registry.variant_scope_suffixes` only when a scope must map to something other than that single suffix (e.g. multiple suffixes) or use `\"*\"` to mean all of a repo’s suffixes."
+  },
+  "allImages": {
+    "registry": {
+      "repos": {
+        "datahub-gms": {},
+        "datahub-frontend-react": {},
+        "datahub-mce-consumer": {},
+        "datahub-mae-consumer": {},
+        "datahub-upgrade": {},
+        "datahub-actions": {
+          "variant_suffixes": ["", "-slim", "-locked"]
+        }
+      }
+    }
+  },
+  "javaImages": {
+    "registry": {
+      "repos": {
+        "datahub-gms": {},
+        "datahub-frontend-react": {},
+        "datahub-mce-consumer": {},
+        "datahub-mae-consumer": {},
+        "datahub-upgrade": {}
+      }
+    }
+  },
+  "actionsImages": {
+    "registry": {
+      "repos": {
+        "datahub-actions": {
+          "variant_suffixes": ["", "-slim", "-locked"]
+        }
+      }
+    }
+  }
+}

@@ -34,6 +34,18 @@ from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
+from datahub.utilities.str_enum import StrEnum
+
+
+class SnowflakeStageType(StrEnum):
+    INTERNAL = "INTERNAL"
+    EXTERNAL = "EXTERNAL"
+
+
+class SnowflakeTaskState(StrEnum):
+    STARTED = "STARTED"
+    SUSPENDED = "SUSPENDED"
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -382,6 +394,54 @@ class SnowflakeStreamlitApp:
     comment: Optional[str]
     url_id: str
     owner_role_type: str
+
+
+@dataclass
+class SnowflakeStage:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    comment: Optional[str]
+    stage_type: SnowflakeStageType
+    url: Optional[str] = None  # For external stages only
+    cloud: Optional[str] = None
+    region: Optional[str] = None
+    storage_integration: Optional[str] = None
+    owner_role_type: str = "ROLE"
+
+
+@dataclass
+class SnowflakeTask:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    definition: str  # SQL body
+    state: SnowflakeTaskState
+    owner_role_type: str
+    comment: Optional[str] = None
+    warehouse: Optional[str] = None
+    schedule: Optional[str] = None
+    predecessors: List[str] = field(default_factory=list)
+    condition: Optional[str] = None  # WHEN clause
+    allow_overlapping_execution: bool = False
+
+
+@dataclass
+class SnowflakePipe:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    definition: str  # COPY INTO statement
+    comment: Optional[str] = None
+    auto_ingest: bool = False
+    notification_channel: Optional[str] = None
+    owner_role_type: str = "ROLE"
 
 
 class _SnowflakeTagCache:
@@ -1932,3 +1992,125 @@ class SnowflakeDataDictionary(SupportsAsObj):
             logger.debug(
                 f"Failed to populate dynamic table definitions for {db_name}: {e}"
             )
+
+    def get_stages_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakeStage]:
+        stages: List[SnowflakeStage] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_stages_for_schema(schema_name, db_name)
+            )
+            for stage in cur:
+                stages.append(
+                    SnowflakeStage(
+                        name=stage["name"],
+                        created=stage["created_on"],
+                        owner=stage.get("owner", ""),
+                        database_name=stage.get("database_name", db_name),
+                        schema_name=stage.get("schema_name", schema_name),
+                        comment=stage.get("comment"),
+                        stage_type=SnowflakeStageType(
+                            (stage.get("type") or "INTERNAL").upper()
+                        ),
+                        url=stage.get("url") or None,
+                        cloud=stage.get("cloud") or None,
+                        region=stage.get("region") or None,
+                        storage_integration=stage.get("storage_integration") or None,
+                        owner_role_type=stage.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get stages for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return stages
+
+    def get_tasks_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakeTask]:
+        tasks: List[SnowflakeTask] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_tasks_for_schema(schema_name, db_name)
+            )
+            for task in cur:
+                predecessors_raw = task.get("predecessors", "[]")
+                if isinstance(predecessors_raw, str):
+                    try:
+                        predecessors = json.loads(predecessors_raw)
+                    except (ValueError, TypeError) as pred_err:
+                        self.report.warning(
+                            "Failed to parse task predecessors",
+                            f"{db_name}.{schema_name}.{task.get('name')}: raw={predecessors_raw!r}",
+                            exc=pred_err,
+                        )
+                        predecessors = []
+                else:
+                    predecessors = predecessors_raw if predecessors_raw else []
+
+                tasks.append(
+                    SnowflakeTask(
+                        name=task["name"],
+                        created=task["created_on"],
+                        owner=task.get("owner", ""),
+                        database_name=task.get("database_name", db_name),
+                        schema_name=task.get("schema_name", schema_name),
+                        comment=task.get("comment"),
+                        warehouse=task.get("warehouse") or None,
+                        schedule=task.get("schedule") or None,
+                        predecessors=predecessors,
+                        state=SnowflakeTaskState(
+                            (task.get("state") or "SUSPENDED").upper()
+                        ),
+                        definition=task.get("definition", ""),
+                        condition=task.get("condition") or None,
+                        allow_overlapping_execution=task.get(
+                            "allow_overlapping_execution", False
+                        )
+                        == "true"
+                        or task.get("allow_overlapping_execution", False) is True,
+                        owner_role_type=task.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get tasks for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return tasks
+
+    def get_pipes_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakePipe]:
+        pipes: List[SnowflakePipe] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_pipes_for_schema(schema_name, db_name)
+            )
+            for pipe in cur:
+                pipes.append(
+                    SnowflakePipe(
+                        name=pipe["name"],
+                        created=pipe["created_on"],
+                        owner=pipe.get("owner", ""),
+                        database_name=pipe.get("database_name", db_name),
+                        schema_name=pipe.get("schema_name", schema_name),
+                        comment=pipe.get("comment"),
+                        definition=pipe.get("definition", ""),
+                        auto_ingest=pipe.get("auto_ingest", "false") == "true"
+                        or pipe.get("auto_ingest", False) is True,
+                        notification_channel=pipe.get("notification_channel") or None,
+                        owner_role_type=pipe.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get pipes for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return pipes

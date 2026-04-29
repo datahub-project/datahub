@@ -8,7 +8,7 @@ ext {
   python_executable = 'python3'
   venv_name = 'venv'
   // Constrain setuptools<82 in build isolation environments (e.g. when building flatdict from source)
-  uv_build_constraints = '--build-constraint build-constraints.txt'
+  uv_constraints = '--build-constraint build-constraints.txt --constraint constraints.txt'
 }
 
 ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -x && "
@@ -41,7 +41,7 @@ task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_build_constraints} -e . &&" +
+    "uv pip install ${uv_constraints} -e . &&" +
     "touch ${sentinel_file}"
 }
 
@@ -51,7 +51,16 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_build_constraints} -e . ${extra_pip_requirements} && " +
+    // Do NOT include extra_pip_requirements here. This task installs metadata-ingestion
+    // into *this module's own venv* solely so that codegen can run. It must not install
+    // plugin-specific packages (e.g. Airflow) into this venv — those belong in the
+    // plugin's own isolated venv (e.g. airflow-plugin/venv/).
+    //
+    // extra_pip_requirements is a global Gradle property propagated from plugin CI builds,
+    // so without this guard 'apache-airflow~=2.7.x' would be injected here. That also
+    // conflicts with --constraint constraints.txt: constraints.txt pins flask 3.x (via
+    // feast→flask-openid in the full dev environment), but Airflow 2.x requires flask<2.3.
+    "uv pip install ${uv_constraints} -e . && " +
     "touch ${sentinel_file}"
 }
 
@@ -69,7 +78,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
   def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_build_constraints} build && " +
+    "uv pip install ${uv_constraints} build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 
@@ -81,7 +90,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_build_constraints} -e .[dev] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_constraints} -e .[dev] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -91,7 +100,7 @@ task installAll(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_build_constraints} -e .[all] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_constraints} -e .[all] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -204,6 +213,21 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
     "${pytest_default_env} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
 
+task testPerformance(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
+  // Run performance tests to catch memory leaks and performance regressions
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
+  outputs.dir("${venv_name}")
+  outputs.dir("test-results")
+  def cvg_arg = get_coverage_args("quick")
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "${pytest_default_env} pytest ${cvg_arg} tests/performance -m 'perf' --junit-xml=test-results/junit.performance.xml"
+}
+
 task installDocs(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_docs_sentinel"
   inputs.file file('setup.py')
@@ -211,7 +235,7 @@ task installDocs(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_build_constraints} -e .[docs] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_constraints} -e .[docs] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -222,7 +246,7 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_build_constraints} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_constraints} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -327,7 +351,7 @@ task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, chec
   commandLine 'bash', '-c',
     venv_activate_command +
     "cp constraints.txt src/datahub/constraints.txt && " +
-    "uv pip install ${uv_build_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+    "uv pip install ${uv_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install

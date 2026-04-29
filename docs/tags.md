@@ -1,3 +1,8 @@
+---
+title: Tags Overview
+description: "Use Tags in DataHub as informal, loosely-controlled labels to classify and search for datasets, schemas, and containers."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Tags

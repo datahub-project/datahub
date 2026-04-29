@@ -1,3 +1,7 @@
+---
+description: "Compare DataHub's APIs (GraphQL, OpenAPI, Python SDK, Java SDK, CLI) to choose the right interface for managing metadata in your use case."
+---
+
 # DataHub APIs and SDKs Overview
 
 DataHub has several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.

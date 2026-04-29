@@ -100,7 +100,11 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    bulkProcessor.add(updateRequest);
+    // Route by docId (URL-encoded URN) so repeated aspect writes for the same entity
+    // land on the same bulk processor thread. Without this, concurrent same-URN updates
+    // race on OpenSearch's seqNo and retryOnConflict cannot converge — partial updates
+    // are silently dropped and the indexed doc ends up with only bootstrap fields.
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**
@@ -124,7 +128,7 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    bulkProcessor.add(updateRequest);
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**
@@ -139,7 +143,7 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
+    bulkProcessor.add(docId, new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
   }
 
   /**
@@ -154,7 +158,7 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(new DeleteRequest(indexName).id(docId));
+    bulkProcessor.add(docId, new DeleteRequest(indexName).id(docId));
   }
 
   /**
@@ -197,8 +201,10 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    // Use URN-aware routing for entity document consistency
-    bulkProcessor.add(updateRequest);
+    // URN-aware routing — docId is the URL-encoded entity URN, stable per entity, so
+    // using it as the routing key serializes concurrent aspect writes for the same URN
+    // on one bulk processor thread (preventing version_conflict_engine_exception).
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**
@@ -215,8 +221,8 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    // Use URN-aware routing for entity document consistency
-    bulkProcessor.add(new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
+    // URN-aware routing — see upsertDocumentBySearchGroup above.
+    bulkProcessor.add(docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
 
   /** Applies a script to a particular document */
@@ -266,7 +272,8 @@ public class ESWriteDAO {
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
             .script(script)
             .upsert(upsert);
-    bulkProcessor.add(updateRequest);
+    // URN-aware routing via docId — see upsertDocumentBySearchGroup above.
+    bulkProcessor.add(docId, updateRequest);
   }
 
   /**

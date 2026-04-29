@@ -1,17 +1,24 @@
 import { useApolloClient } from '@apollo/client';
 import { message } from 'antd';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
 import { removeServiceAccountFromListCache } from '@app/identity/serviceAccount/cacheUtils';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { SelectOption } from '@src/alchemy-components/components/Select/types';
 
-import { useDeleteServiceAccountMutation, useListServiceAccountsQuery } from '@graphql/auth.generated';
+import {
+    useDeleteServiceAccountMutation,
+    useListServiceAccountsQuery,
+    useUpdateServiceAccountDefaultViewMutation,
+} from '@graphql/auth.generated';
 import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
 import { useListRolesQuery } from '@graphql/role.generated';
-import { DataHubRole, ServiceAccount } from '@types';
+import { useListGlobalViewsQuery } from '@graphql/view.generated';
+import { DataHubRole, DataHubView } from '@types';
 
 const DEFAULT_PAGE_SIZE = 10;
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
@@ -102,7 +109,7 @@ export function useServiceAccountListData(page: number, pageSize: number, deboun
 
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
     const totalServiceAccounts = data?.listServiceAccounts?.total || 0;
-    const serviceAccounts = (data?.listServiceAccounts?.serviceAccounts || []) as ServiceAccount[];
+    const serviceAccounts = data?.listServiceAccounts?.serviceAccounts || [];
 
     const handleDelete = useCallback(
         async (urn: string) => {
@@ -244,4 +251,48 @@ export function useServiceAccountRoleAssignment(
         onCancelRoleAssignment,
         onConfirmRoleAssignment,
     };
+}
+
+export function useServiceAccountViewOptions(): { viewOptions: SelectOption[]; loading: boolean } {
+    const { data, loading } = useListGlobalViewsQuery({
+        variables: { start: 0, count: DEFAULT_LIST_VIEWS_PAGE_SIZE },
+        fetchPolicy: 'cache-first',
+    });
+
+    const viewOptions = useMemo(() => {
+        const views = (data?.listGlobalViews?.views ?? []) as DataHubView[];
+        return views.map((view) => ({
+            value: view.urn,
+            label: view.name,
+            description: view.description || undefined,
+        }));
+    }, [data]);
+
+    return { viewOptions, loading };
+}
+
+export function useServiceAccountDefaultView(refetch: () => void) {
+    const [updateDefaultView] = useUpdateServiceAccountDefaultViewMutation();
+
+    const handleDefaultViewChange = useCallback(
+        async (serviceAccountUrn: string, viewUrn: string | null) => {
+            try {
+                await updateDefaultView({
+                    variables: {
+                        input: {
+                            urn: serviceAccountUrn,
+                            defaultView: viewUrn,
+                        },
+                    },
+                });
+                message.success(viewUrn ? 'Default view updated' : 'Default view removed');
+                refetch();
+            } catch (e: any) {
+                message.error(`Failed to update default view: ${e.message || ''}`);
+            }
+        },
+        [updateDefaultView, refetch],
+    );
+
+    return { handleDefaultViewChange };
 }

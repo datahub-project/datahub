@@ -48,6 +48,7 @@ import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import snowplowLogo from '@images/snowplowlogo.png';
 import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
@@ -177,6 +178,8 @@ export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 export const GOOGLE_SHEETS = 'google_sheets';
 export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const SNOWPLOW = 'snowplow';
+export const SNOWPLOW_URN = `urn:li:dataPlatform:${SNOWPLOW}`;
 export const FABRIC = 'fabric';
 export const FABRIC_URN = `urn:li:dataPlatform:${FABRIC}`;
 export const FABRIC_DATA_FACTORY = 'fabric-data-factory';
@@ -224,6 +227,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
+    [SNOWPLOW_URN]: snowplowLogo,
     [STARROCKS_URN]: starrocksLogo,
     [TABLEAU_URN]: tableauLogo,
     [TRINO_URN]: trinoLogo,

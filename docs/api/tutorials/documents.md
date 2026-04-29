@@ -1,3 +1,8 @@
+---
+title: Documents API Tutorial
+description: "Step-by-step tutorial for managing DataHub Documents to capture organizational context, runbooks, and shared knowledge via API."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

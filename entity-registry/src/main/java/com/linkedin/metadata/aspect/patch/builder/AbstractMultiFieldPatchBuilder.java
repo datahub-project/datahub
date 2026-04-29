@@ -4,21 +4,23 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import jakarta.json.Json;
-import jakarta.json.JsonArrayBuilder;
-import jakarta.json.JsonObjectBuilder;
-import jakarta.json.JsonPatch;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> {
@@ -29,6 +31,13 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   protected List<ImmutableTriple<String, String, JsonNode>> pathValues = new ArrayList<>();
   protected Urn targetEntityUrn = null;
+
+  /**
+   * Per-instance override for arrayPrimaryKeys. When set, takes precedence over {@link
+   * #getArrayPrimaryKeys()}. Subclasses may set this for operations that require a non-default key
+   * ordering (e.g. {@code removeOwner} with non-contiguous null fields).
+   */
+  @Nullable protected Map<String, List<String>> arrayPrimaryKeysOverride = null;
 
   /**
    * Builder method
@@ -71,6 +80,15 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
    */
   protected abstract String getEntityType();
 
+  /**
+   * Returns the arrayPrimaryKeys map for this aspect's GenericJsonPatch envelope. When non-null,
+   * the patch payload is wrapped in {@code {"arrayPrimaryKeys": ..., "patch": [...]}}.
+   */
+  @Nullable
+  protected Map<String, List<String>> getArrayPrimaryKeys() {
+    return null;
+  }
+
   protected static String encodeValue(@Nonnull String value) {
     return value.replace("~ ", "~0").replace("/", "~1");
   }
@@ -100,31 +118,52 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
                     .put(PATH_KEY, triple.middle)
                     .set(VALUE_KEY, triple.right)));
 
+    Map<String, List<String>> apk =
+        arrayPrimaryKeysOverride != null ? arrayPrimaryKeysOverride : getArrayPrimaryKeys();
+    JsonNode payload;
+    if (apk != null) {
+      ObjectNode apkNode = instance.objectNode();
+      for (Map.Entry<String, List<String>> entry : apk.entrySet()) {
+        ArrayNode keys = instance.arrayNode();
+        entry.getValue().forEach(keys::add);
+        apkNode.set(entry.getKey(), keys);
+      }
+      ObjectNode envelope = instance.objectNode();
+      envelope.set("arrayPrimaryKeys", apkNode);
+      envelope.set("patch", patches);
+      payload = envelope;
+    } else {
+      payload = patches;
+    }
+
     GenericAspect genericAspect = new GenericAspect();
     genericAspect.setContentType("application/json-patch+json");
-    genericAspect.setValue(ByteString.copyString(patches.toString(), StandardCharsets.UTF_8));
+    genericAspect.setValue(ByteString.copyString(payload.toString(), StandardCharsets.UTF_8));
 
     return genericAspect;
   }
 
   @VisibleForTesting
-  public JsonPatch getJsonPatch() {
-    JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
-    List<ImmutableTriple<String, String, JsonNode>> triples = getPathValues();
-    triples.forEach(
-        triple -> {
-          JsonObjectBuilder opBuilder =
-              Json.createObjectBuilder().add(OP_KEY, triple.left).add(PATH_KEY, triple.middle);
-          if (triple.right != null) {
-            opBuilder.add(
-                VALUE_KEY,
-                Json.createReader(new StringReader(triple.right.toString())).readValue());
-          } else {
-            opBuilder.addNull(VALUE_KEY);
-          }
-          arrayBuilder.add(opBuilder);
-        });
-    return Json.createPatch(arrayBuilder.build());
+  public GenericJsonPatch getJsonPatch() {
+    Map<String, List<String>> apk =
+        arrayPrimaryKeysOverride != null ? arrayPrimaryKeysOverride : getArrayPrimaryKeys();
+
+    List<GenericJsonPatch.PatchOp> patchOps =
+        getPathValues().stream()
+            .map(
+                triple -> {
+                  GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
+                  op.setOp(triple.left);
+                  op.setPath(triple.middle);
+                  if (triple.right != null) {
+                    op.setValue(
+                        Json.createReader(new StringReader(triple.right.toString())).readValue());
+                  }
+                  return op;
+                })
+            .collect(Collectors.toList());
+
+    return GenericJsonPatch.builder().arrayPrimaryKeys(apk).patch(patchOps).build();
   }
 
   /**
