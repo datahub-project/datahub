@@ -102,6 +102,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -1208,8 +1209,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 try:
                     short = DatasetUrn.from_string(urn).name.split(".")[-1].upper()
                     index.setdefault(short, []).append(urn)
-                except Exception:
-                    pass
+                except InvalidUrnError as e:
+                    logger.debug("Skipping invalid dataset URN %r: %s", urn, e)
         return index
 
     def _resolve_chart_formula_upstream(
@@ -1235,9 +1236,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           5. else -> None (unresolved; caller increments counter via return value).
         """
         if ref.is_parameter:
+            self.reporter.chart_input_fields_skipped_parameter += 1
             return None
 
         if ref.column is None:
+            self.reporter.chart_input_fields_skipped_sibling += 1
             return None
 
         candidates = wb_element_index.get(ref.source, [])
@@ -1258,6 +1261,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if elem_urn:
                 self.reporter.chart_input_fields_resolved += 1
                 return (elem_urn, ref.column)
+            self.reporter.chart_input_fields_unresolved += 1
+            return None
         elif len(upstream_matches) > 1:
             # Ambiguous name collision not resolved by lineage filter.
             self.reporter.chart_input_fields_unresolved += 1

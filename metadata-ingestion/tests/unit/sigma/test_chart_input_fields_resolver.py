@@ -6,8 +6,11 @@ Cases are drawn directly from M0 stage-3 probe data
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock
+
+import pytest
 
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
 from datahub.ingestion.source.sigma.data_classes import Element, Page, Workbook
@@ -68,6 +71,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter = MagicMock()
     source.reporter.chart_input_fields_resolved = 0
     source.reporter.chart_input_fields_unresolved = 0
+    source.reporter.chart_input_fields_skipped_parameter = 0
+    source.reporter.chart_input_fields_skipped_sibling = 0
     return source
 
 
@@ -155,6 +160,17 @@ class TestBuildWorkbookWarehouseTableIndex:
     def test_empty_inputs(self) -> None:
         assert SigmaSource._build_workbook_warehouse_table_index({}) == {}
 
+    def test_invalid_urn_is_skipped_with_debug_log(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.DEBUG):
+            idx = SigmaSource._build_workbook_warehouse_table_index(
+                {"not-a-dataset-urn": []}
+            )
+
+        assert idx == {}
+        assert "Skipping invalid dataset URN" in caplog.text
+
     def test_collision_two_urns_same_short_name(self) -> None:
         """Two tables in different schemas with the same leaf name produce a list of 2."""
         urn1 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA1.ORDERS,PROD)"
@@ -197,6 +213,7 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={},
         )
         assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_parameter == 1
 
     # --- sibling / bare [col] ref ---
 
@@ -211,6 +228,7 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={},
         )
         assert result is None
+        assert self.src.reporter.chart_input_fields_skipped_sibling == 1
 
     # --- intra-workbook element ref ---
 
@@ -283,6 +301,27 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
         assert self.src.reporter.chart_input_fields_unresolved == 1
+
+    def test_filtered_upstream_element_does_not_fall_through_to_warehouse(
+        self,
+    ) -> None:
+        """A workbook match without a chart URN is intentionally unresolved."""
+        upstream_elem = _make_element("filtered-pivot", "Orders")
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        ref = _make_ref("Orders", "order_id")
+
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"filtered-pivot"},
+            wb_element_index={"Orders": [upstream_elem]},
+            element_warehouse_table_index={"ORDERS": [wh_urn]},
+            elementId_to_chart_urn={},
+        )
+
+        assert result is None
+        assert self.src.reporter.chart_input_fields_unresolved == 1
+        assert self.src.reporter.chart_input_fields_resolved == 0
 
     # --- warehouse table ref ---
 

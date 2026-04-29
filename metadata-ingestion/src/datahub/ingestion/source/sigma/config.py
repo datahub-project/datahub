@@ -183,9 +183,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter restores the observability signal.
     chart_dataset_upstream_name_missing: int = 0
 
-    # Chart InputFields formula refs that were resolved or could not be matched.
+    # Chart InputFields formula refs that were resolved, could not be matched,
+    # or were intentionally skipped because they carry no upstream lineage.
     chart_input_fields_resolved: int = 0
     chart_input_fields_unresolved: int = 0
+    chart_input_fields_skipped_parameter: int = 0
+    chart_input_fields_skipped_sibling: int = 0
 
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0

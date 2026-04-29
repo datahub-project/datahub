@@ -679,7 +679,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "STRING",
+                        "nativeDataType": "String",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -788,7 +788,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "STRING",
+                        "nativeDataType": "String",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -1048,7 +1048,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "STRING",
+                        "nativeDataType": "String",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -1063,7 +1063,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "STRING",
+                        "nativeDataType": "String",
                         "recursive": false,
                         "isPartOfKey": false
                     }

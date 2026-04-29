@@ -114,11 +114,11 @@ class Element(BaseModel):
     type: Optional[str] = None
     vizualizationType: Optional[str] = None
     query: Optional[str] = None
-    columns: List[str] = []
+    columns: List[str] = Field(default_factory=list)
     # name -> formula mapping populated when column entries carry formula data.
     # Populated by the model_validator below; defaults to {} for plain string columns.
-    column_formulas: Dict[str, Optional[str]] = {}
-    upstream_sources: Dict[str, "ElementUpstream"] = {}
+    column_formulas: Dict[str, Optional[str]] = Field(default_factory=dict)
+    upstream_sources: Dict[str, "ElementUpstream"] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
