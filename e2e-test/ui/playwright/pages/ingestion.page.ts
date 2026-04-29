@@ -252,7 +252,10 @@ export class IngestionPage extends BasePage {
       state: 'visible',
       timeout: 10000,
     });
-    await this.page.locator('.rc-virtual-list-holder-inner').getByText(secretName, { exact: true }).click({ force: true });
+    await this.page
+      .locator('.rc-virtual-list-holder-inner')
+      .getByText(secretName, { exact: true })
+      .click({ force: true });
     await passwordInput.blur();
   }
 
