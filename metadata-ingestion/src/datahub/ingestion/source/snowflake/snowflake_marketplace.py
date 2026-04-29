@@ -51,18 +51,6 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
-class DataProductAssets(BaseModel):
-    """Container for assets and databases associated with a data product"""
-
-    table_urns: List[str] = Field(
-        default_factory=list,
-        description="List of table URNs associated with the data product",
-    )
-    database_names: List[str] = Field(
-        default_factory=list, description="List of database names (for reference only)"
-    )
-
-
 class DataProductMetadata(BaseModel):
     """Complete metadata needed to create a data product"""
 

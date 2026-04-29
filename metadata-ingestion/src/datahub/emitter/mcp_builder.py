@@ -410,7 +410,6 @@ def gen_data_product(
     external_url: Optional[str] = None,
     custom_properties: Optional[Dict[str, str]] = None,
     domain_urn: Optional[str] = None,
-    owner_urn: Optional[str] = None,
     owner_urns: Optional[List[str]] = None,
     ownership_type: str = OwnershipTypeClass.DATAOWNER,
     tags: Optional[List[str]] = None,
@@ -427,11 +426,9 @@ def gen_data_product(
         external_url: URL to external documentation or resources
         custom_properties: Custom key-value metadata properties
         domain_urn: URN of the domain this Data Product belongs to
-        owner_urn: URN of a single owner (user or group). Deprecated - use owner_urns instead
-        owner_urns: List of owner URNs (users or groups). Preferred over owner_urn for multiple owners
+        owner_urns: List of owner URNs (users or groups)
         ownership_type: Ownership type for all owners. Can be a string constant (e.g., "TECHNICAL_OWNER")
                     or a custom ownership type URN (e.g., "urn:li:ownershipType:producer").
-                    Defaults to DATAOWNER for backward compatibility.
         tags: List of tag names to associate with the Data Product
         structured_properties: Structured property URN to value mappings
         assets: List of asset URNs (datasets, dashboards, charts, etc.) that are part of this Data Product.
@@ -474,14 +471,7 @@ def gen_data_product(
             domain_urn=domain_urn,
         )
 
-    # Handle owners - support both single owner_urn (backward compat) and owner_urns (preferred)
-    owners_to_emit: List[str] = []
-    if owner_urns:
-        owners_to_emit.extend(owner_urns)
-    elif owner_urn:
-        owners_to_emit.append(owner_urn)
-
-    for owner in owners_to_emit:
+    for owner in owner_urns or []:
         yield from add_owner_to_entity_wu(
             entity_type="dataProduct",
             entity_urn=data_product_urn,
