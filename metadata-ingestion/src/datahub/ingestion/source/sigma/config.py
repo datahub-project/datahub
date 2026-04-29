@@ -246,6 +246,24 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
+    # T1.RESOLVE-A — DM element formula-driven FGL.
+    # Totals.
+    data_model_element_columns_with_formula: int = 0
+    data_model_element_fgl_emitted: int = 0
+    # Success path: intra-DM [ElementName/col] ref resolved to an upstream URN
+    # that /lineage also claims (safe to emit as FGL).
+    data_model_element_fgl_intra_resolved: int = 0
+    # Skip paths: ref present but not cross-Dataset lineage.
+    data_model_element_fgl_sibling_skipped: int = 0  # bare [col] intra-element ref
+    data_model_element_fgl_param_skipped: int = 0  # [P_*] parameter ref
+    # Drop paths: ref would be FGL but is suppressed for correctness.
+    # cross-DM ref ([OtherDM/col]) -- RESOLVE-B will handle these.
+    data_model_element_fgl_cross_dm_unresolved: int = 0
+    # resolved URN not in /lineage upstreams; drop to avoid orphan FGL.
+    data_model_element_fgl_dropped_orphan_upstream: int = 0
+    # column is the dedup loser (duplicate fieldPath); no FGL emitted.
+    data_model_element_fgl_dropped_dedup_loser: int = 0
+
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
     # non-zero indicates an echoed pagination cursor or server-side

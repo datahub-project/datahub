@@ -54,6 +54,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -69,6 +70,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     DatasetProperties,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     Upstream,
     UpstreamLineage,
 )
@@ -538,6 +542,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element: SigmaDataModelElement,
         data_model: SigmaDataModel,
         elementId_to_dataset_urn: Dict[str, str],
+        element_name_to_dataset_urns: Dict[str, List[str]],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -629,16 +634,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             upstream_urn,
                         )
 
-        if not upstream_urns:
-            return None
         # Sort for deterministic emission order: Sigma's /lineage API does
         # not document ordering, and Upstream entries have no semantic order.
         upstream_urns.sort()
+        fine_grained = self._build_dm_element_fine_grained_lineages(
+            element=element,
+            element_dataset_urn=elementId_to_dataset_urn[element.elementId],
+            element_name_to_dataset_urns=element_name_to_dataset_urns,
+            entity_level_upstream_urns=set(upstream_urns),
+            data_model=data_model,
+        )
+        if not upstream_urns and not fine_grained:
+            return None
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
                 for urn in upstream_urns
-            ]
+            ],
+            fineGrainedLineages=fine_grained or None,
         )
 
     def _gen_data_model_element_schema_metadata(
@@ -729,12 +742,104 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
+    def _build_dm_element_fine_grained_lineages(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        element_name_to_dataset_urns: Dict[str, List[str]],
+        entity_level_upstream_urns: Set[str],
+        data_model: SigmaDataModel,
+    ) -> List[FineGrainedLineageClass]:
+        """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
+
+        Mirrors the dedup pass from _gen_data_model_element_schema_metadata so
+        FGL is only emitted for winner columns (fieldPaths present in SchemaMetadata).
+        """
+
+        def _ranks_above(
+            candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
+        ) -> bool:
+            if bool(candidate.formula) != bool(incumbent.formula):
+                return bool(candidate.formula)
+            return candidate.columnId < incumbent.columnId
+
+        by_name: Dict[str, SigmaDataModelColumn] = {}
+        drop_count = 0
+        for column in element.columns:
+            if not column.name:
+                continue
+            existing = by_name.get(column.name)
+            if existing is None:
+                by_name[column.name] = column
+                continue
+            winner, loser = (
+                (column, existing)
+                if _ranks_above(column, existing)
+                else (existing, column)
+            )
+            by_name[column.name] = winner
+            if loser.formula:
+                drop_count += 1
+        self.reporter.data_model_element_fgl_dropped_dedup_loser += drop_count
+
+        fgls: List[FineGrainedLineageClass] = []
+        for column in sorted(by_name.values(), key=lambda c: c.name):
+            if not column.formula:
+                continue
+            self.reporter.data_model_element_columns_with_formula += 1
+            for ref in extract_bracket_refs(column.formula):
+                if ref.is_parameter:
+                    self.reporter.data_model_element_fgl_param_skipped += 1
+                    continue
+                if ref.column is None:
+                    # Bare [col] sibling ref — intra-element transform, not cross-Dataset.
+                    self.reporter.data_model_element_fgl_sibling_skipped += 1
+                    continue
+                candidate_urns = element_name_to_dataset_urns.get(ref.source, [])
+                surviving_urns = sorted(
+                    u for u in candidate_urns if u in entity_level_upstream_urns
+                )
+                if not surviving_urns:
+                    if candidate_urns:
+                        # Element is in this DM but /lineage doesn't claim it as upstream.
+                        # Drop to avoid orphan FGL the UI silently rejects.
+                        self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+                    else:
+                        # Source not in this DM — cross-DM ref; RESOLVE-B will handle it.
+                        self.reporter.data_model_element_fgl_cross_dm_unresolved += 1
+                    continue
+                downstream_field = builder.make_schema_field_urn(
+                    element_dataset_urn, column.name
+                )
+                for upstream_urn in surviving_urns:
+                    self.reporter.data_model_element_fgl_intra_resolved += 1
+                    fgls.append(
+                        FineGrainedLineageClass(
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[downstream_field],
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                builder.make_schema_field_urn(upstream_urn, ref.column)
+                            ],
+                        )
+                    )
+        self.reporter.data_model_element_fgl_emitted += len(fgls)
+        fgls.sort(
+            key=lambda fgl: (
+                (fgl.downstreams or [""])[0],
+                (fgl.upstreams or [""])[0],
+            )
+        )
+        return fgls
+
     def _gen_data_model_element_workunits(
         self,
         data_model: SigmaDataModel,
         data_model_key: DataModelKey,
         data_model_container_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
+        element_name_to_dataset_urns: Dict[str, List[str]],
         owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
@@ -846,7 +951,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
             upstream_lineage = self._gen_data_model_element_upstream_lineage(
-                element, data_model, elementId_to_dataset_urn
+                element,
+                data_model,
+                elementId_to_dataset_urn,
+                element_name_to_dataset_urns,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(
@@ -1049,11 +1157,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if data_model.workspaceId:
             self.reporter.workspaces.increment_data_models_count(data_model.workspaceId)
 
+        element_name_to_dataset_urns: Dict[str, List[str]] = {}
+        for element in data_model.elements:
+            if element.name:
+                element_name_to_dataset_urns.setdefault(element.name, []).append(
+                    elementId_to_dataset_urn[element.elementId]
+                )
+
         yield from self._gen_data_model_element_workunits(
             data_model,
             data_model_key,
             data_model_container_urn,
             elementId_to_dataset_urn,
+            element_name_to_dataset_urns,
             owner_username=owner_username,
         )
 
