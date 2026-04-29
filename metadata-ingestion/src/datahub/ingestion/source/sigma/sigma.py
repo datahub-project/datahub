@@ -1505,7 +1505,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             schemaField=SchemaFieldClass(
                                 fieldPath=field_path,
                                 type=SchemaFieldDataTypeClass(StringTypeClass()),
-                                nativeDataType="STRING",
+                                nativeDataType="String",
                             ),
                         )
                     )

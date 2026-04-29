@@ -16,6 +16,7 @@ from datahub.ingestion.source.sigma.formula_parser import (
     extract_bracket_refs,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.metadata.schema_classes import InputFieldsClass
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -380,3 +381,42 @@ class TestResolveChartFormulaUpstream:
                 elementId_to_chart_urn={},
             )
             assert result is None
+
+
+class TestGenElementsWorkunitInputFields:
+    def test_resolved_input_field_preserves_string_native_data_type(self) -> None:
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        workbook = _make_workbook_with_elements([])
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Orders Chart",
+            {"Order Id": "[ORDERS/ORDER_ID]"},
+        )
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({warehouse_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=workbook,
+                all_input_fields=[],
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        schema_field = input_fields_aspects[0].fields[0].schemaField
+        assert schema_field is not None
+        assert schema_field.nativeDataType == "String"
