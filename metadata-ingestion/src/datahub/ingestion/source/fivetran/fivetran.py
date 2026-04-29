@@ -254,6 +254,11 @@ class FivetranSource(StatefulIngestionSourceBase):
             source_details = source_details.model_copy(
                 update={"platform": resolved_platform}
             )
+        # The if-block above unconditionally fills in `platform`, but
+        # `model_copy` returns `PlatformDetail` whose `platform` field
+        # is still typed `Optional[str]` — mypy can't narrow it. Pin the
+        # invariant so downstream URN construction sees a `str`.
+        assert source_details.platform is not None
 
         # Get platform details for destination — declarative override + (optional)
         # REST discovery, plus a default fallback.
