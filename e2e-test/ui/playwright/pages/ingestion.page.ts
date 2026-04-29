@@ -55,8 +55,18 @@ export class IngestionPage extends BasePage {
   }
 
   async searchSources(name: string): Promise<void> {
-    await this.searchInput.fill(name);
+    // Use pressSequentially so the AntD Input onChange fires on each keystroke,
+    // matching how the SearchBar's controlled state updates the GraphQL query variable.
+    // fill() sets the DOM value but does not reliably trigger the synthetic change event
+    // on controlled AntD inputs, causing the filter to stay stale.
+    await this.searchInput.click({ clickCount: 3 }); // select-all any existing text
+    await this.searchInput.pressSequentially(name);
     await this.page.waitForTimeout(500);
+  }
+
+  async refreshSources(): Promise<void> {
+    await this.page.getByRole('button', { name: 'Refresh' }).click();
+    await this.page.waitForLoadState('networkidle');
   }
 
   // ── Snowflake source creation wizard helpers ────────────────────────────────
@@ -148,12 +158,16 @@ export class IngestionPage extends BasePage {
   }
 
   // Polls until ES indexes the new/renamed source (Kafka→MAE→OpenSearch can lag).
+  // Clicks Refresh on each iteration to force a fresh GMS query rather than relying
+  // on the Apollo cache, and uses a 90-second outer timeout to accommodate indexing
+  // delays in slow CI environments.
   async expectSourceEventuallyVisible(name: string): Promise<void> {
     await expect(async () => {
+      await this.refreshSources();
       await this.searchSources(name);
       await this.page.waitForTimeout(1000);
-      await expect(this.page.locator('tr').filter({ hasText: name })).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 30000, intervals: [2000] });
+      await expect(this.page.locator('tr').filter({ hasText: name })).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 90000, intervals: [3000] });
   }
 
   async expectWizardModalClosed(timeout = 30000): Promise<void> {

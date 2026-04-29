@@ -54,7 +54,9 @@ export class EntityDocumentationPage extends BasePage {
     // on the page when the Documentation tab is in edit mode.  The read-only editors
     // (source description preview, sidebar) all have contenteditable="false".
     const editor = this.page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
-    await editor.waitFor({ state: 'attached', timeout: 15000 });
+    // 30 s: DescriptionEditor renders null while entity data is loading, so the
+    // editable ProseMirror can take longer than 15 s to mount in slow CI.
+    await editor.waitFor({ state: 'attached', timeout: 30000 });
     // force: true bypasses the viewport/visibility check; Remirror auto-focuses on mount
     // but the element may have zero height until the flex layout resolves.
     await editor.click({ force: true });
@@ -69,7 +71,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.waitForURL(/editing=true/, { timeout: 15000 });
     await this.saveDescriptionButton.waitFor({ state: 'attached', timeout: 30000 });
     const editor = this.page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
-    await editor.waitFor({ state: 'attached', timeout: 15000 });
+    await editor.waitFor({ state: 'attached', timeout: 30000 });
     await editor.click({ force: true });
     await this.page.keyboard.press('Control+a');
     await this.page.keyboard.press('Delete');
