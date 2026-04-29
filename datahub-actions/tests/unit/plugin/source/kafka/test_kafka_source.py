@@ -12,11 +12,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datahub_actions.plugin.source.kafka.kafka_event_source import KafkaEventSource
+from unittest.mock import patch
+
+from datahub_actions.pipeline.pipeline_context import PipelineContext
+from datahub_actions.plugin.source.kafka.kafka_event_source import (
+    KafkaEventSource,
+    KafkaEventSourceConfig,
+)
 from tests.unit.test_helpers import TestMessage
 
 
+def create_event_source() -> KafkaEventSource:
+    """Helper to create KafkaEventSource for testing."""
+    pipeline_context = PipelineContext(pipeline_name="test_pipeline", graph=None)
+    config = KafkaEventSourceConfig.model_validate(
+        {
+            "connection": {
+                "bootstrap": "localhost:9092",
+                "schema_registry_url": "http://localhost:8081",
+            }
+        }
+    )
+
+    with (
+        patch(
+            "datahub_actions.plugin.source.kafka.kafka_event_source.SchemaRegistryClient"
+        ),
+        patch(
+            "datahub_actions.plugin.source.kafka.kafka_event_source.confluent_kafka.DeserializingConsumer"
+        ),
+    ):
+        return KafkaEventSource(config, pipeline_context)
+
+
 def test_handle_mcl():
+    source = create_event_source()
     inp = {
         "auditHeader": None,
         "entityType": "dataset",
@@ -53,7 +83,7 @@ def test_handle_mcl():
         ),
     }
     msg = TestMessage(inp)
-    result = list(KafkaEventSource.handle_mcl(msg))[0]
+    result = list(source.handle_mcl(msg))[0]
     assert result is not None
     assert result.event_type == "MetadataChangeLogEvent_v1"
 

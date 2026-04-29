@@ -70,6 +70,12 @@ MESSAGE_COUNTER_METRIC = Counter(
     labelnames=["pipeline_name", "error"],
 )
 
+EARLY_FILTER_METRIC = Counter(
+    name="kafka_early_filter",
+    documentation="Early filter results for MCL events",
+    labelnames=["pipeline_name", "result"],  # result: "rejected", "passed", "error"
+)
+
 
 # Converts a Kafka Message to a Kafka Metadata Dictionary.
 def build_kafka_meta(msg: Any) -> dict:
@@ -102,6 +108,13 @@ class KafkaEventSourceConfig(ConfigModel):
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
+    early_filter: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional pre-deserialization filter for MCL events. "
+        "Only simple top-level fields (entityType, aspectName, changeType) are supported. "
+        "Enables early rejection before expensive .from_obj() deserialization. "
+        "Values can be strings or lists (any match passes).",
+    )
 
 
 def kafka_messages_observer(pipeline_name: str) -> Callable:
@@ -130,6 +143,8 @@ class KafkaEventSource(EventSource):
 
     def __init__(self, config: KafkaEventSourceConfig, ctx: PipelineContext):
         self.source_config = config
+        self.pipeline_name = ctx.pipeline_name
+        self._early_filter_criteria = self._extract_early_filter_criteria()
         schema_client_config = config.connection.schema_registry_config.copy()
         schema_client_config["url"] = self.source_config.connection.schema_registry_url
         self.schema_registry_client = SchemaRegistryClient(schema_client_config)
@@ -184,6 +199,105 @@ class KafkaEventSource(EventSource):
             logger.debug(
                 f"Kafka lag monitoring disabled for pipeline '{ctx.pipeline_name}'"
             )
+
+    def _extract_early_filter_criteria(self) -> Dict[str, Any]:
+        """
+        Extract simple top-level fields from early_filter config for pre-deserialization filtering.
+
+        Only returns fields suitable for checking against raw Avro dict before .from_obj():
+        - entityType, aspectName, changeType
+
+        Nested fields or unsupported fields are logged and ignored.
+
+        Returns:
+            Dictionary of field_name -> expected_value(s) for early filtering
+        """
+        if self.source_config.early_filter is None:
+            return {}
+
+        # Only these fields - simple strings in raw Avro dict
+        SIMPLE_FIELDS = {"entityType", "aspectName", "changeType"}
+
+        criteria = {}
+
+        for key, val in self.source_config.early_filter.items():
+            if key not in SIMPLE_FIELDS:
+                logger.debug(
+                    f"Ignoring early_filter field '{key}' - only simple fields "
+                    f"({SIMPLE_FIELDS}) are supported for pre-deserialization filtering"
+                )
+                continue
+            if isinstance(val, dict):
+                logger.debug(
+                    f"Ignoring nested early_filter for '{key}' - only simple values "
+                    f"(strings or lists) supported for pre-deserialization filtering"
+                )
+                continue
+            criteria[key] = val
+
+        if criteria:
+            logger.info(
+                f"Early filter enabled for pipeline '{self.pipeline_name}' "
+                f"with criteria: {criteria}"
+            )
+
+        return criteria
+
+    @staticmethod
+    def _should_deserialize(
+        value: dict, early_filter_criteria: Dict[str, Any], pipeline_name: str
+    ) -> bool:
+        """
+        Check if MCL event should be deserialized based on early filter criteria.
+
+        Args:
+            value: Raw dict from Avro deserialization (msg.value())
+            early_filter_criteria: Simple field checks from source config
+            pipeline_name: Pipeline name for metrics
+
+        Returns:
+            True if event should be deserialized, False if it can be skipped
+
+        Note:
+            Any errors are caught and logged (debug level), returning True
+            to gracefully fall back to full deserialization.
+        """
+        if not early_filter_criteria:
+            return True  # No early filter configured
+
+        try:
+            for key, expected_val in early_filter_criteria.items():
+                actual_val = value.get(key)
+
+                # Handle list matching (any match passes)
+                if isinstance(expected_val, list):
+                    if actual_val not in expected_val:
+                        EARLY_FILTER_METRIC.labels(
+                            pipeline_name=pipeline_name, result="rejected"
+                        ).inc()
+                        return False  # Reject - value not in allowed list
+                else:
+                    if actual_val != expected_val:
+                        EARLY_FILTER_METRIC.labels(
+                            pipeline_name=pipeline_name, result="rejected"
+                        ).inc()
+                        return False  # Reject - value doesn't match
+
+            # All criteria passed
+            EARLY_FILTER_METRIC.labels(
+                pipeline_name=pipeline_name, result="passed"
+            ).inc()
+            return True
+
+        except Exception as e:
+            logger.debug(
+                f"Early filter check failed: {e}. Falling back to full deserialization.",
+                exc_info=True,
+            )
+            EARLY_FILTER_METRIC.labels(
+                pipeline_name=pipeline_name, result="error"
+            ).inc()
+            return True  # Graceful fallback - deserialize anyway
 
     @staticmethod
     def _is_lag_monitoring_enabled() -> bool:
@@ -248,8 +362,28 @@ class KafkaEventSource(EventSource):
 
         logger.info("Kafka consumer exiting main loop")
 
-    @staticmethod
-    def handle_mcl(msg: Any) -> Iterable[EventEnvelope]:
+    def handle_mcl(self, msg: Any) -> Iterable[EventEnvelope]:
+        """
+        Handle MCL message with optional early filtering.
+
+        Args:
+            msg: Kafka message
+
+        Yields:
+            EventEnvelope with MCL event if early filter passes (or not configured)
+        """
+        # Early filtering - check raw dict before expensive .from_obj()
+        if self._early_filter_criteria:
+            value: dict = msg.value()
+            if not self._should_deserialize(
+                value, self._early_filter_criteria, self.pipeline_name
+            ):
+                logger.debug(
+                    "Event rejected by early filter - skipping deserialization"
+                )
+                return  # Skip event - no deserialization, no EventEnvelope
+
+        # Full deserialization (existing behavior)
         metadata_change_log_event = build_metadata_change_log_event(msg)
         kafka_meta = build_kafka_meta(msg)
         yield EventEnvelope(
