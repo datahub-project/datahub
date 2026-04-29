@@ -1985,6 +1985,7 @@ ORDER by DataBaseName, TableName;
         """Clean up resources when source is closed."""
         logger.info("Closing SqlParsingAggregator")
         self.aggregator.close()
+        self.schema_resolver.close()
 
         # Clean up pooled engine
         with self._pooled_engine_lock:
