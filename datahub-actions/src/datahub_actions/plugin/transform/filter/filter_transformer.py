@@ -34,11 +34,35 @@ class FilterTransformerConfig(ConfigModel):
 class FilterTransformer(Transformer):
     def __init__(self, config: FilterTransformerConfig):
         self.config: FilterTransformerConfig = config
+        # Extract simple top-level fields for fast path optimization
+        self._simple_field_checks = self._extract_simple_fields()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Transformer":
         config = FilterTransformerConfig.model_validate(config_dict)
         return cls(config)
+
+    def _extract_simple_fields(self) -> Dict[str, Any]:
+        """
+        Extract simple top-level string fields for fast rejection path.
+
+        These fields (entityType, entityUrn, aspectName, changeType) are:
+        - Always simple strings in MCL events
+        - Most commonly used in filters
+        - Can be checked via direct attribute access without dict conversion
+
+        This optimization avoids expensive as_json() + json.loads() conversion
+        for events that fail these basic checks.
+        """
+        if self.config.event is None:
+            return {}
+
+        # Only these 4 fields - guaranteed to be simple strings in MCL
+        SIMPLE_FIELDS = {"entityType", "entityUrn", "aspectName", "changeType"}
+
+        return {
+            key: val for key, val in self.config.event.items() if key in SIMPLE_FIELDS
+        }
 
     def transform(self, env_event: EventEnvelope) -> Optional[EventEnvelope]:
         logger.debug(f"Preparing to filter event {env_event}")
@@ -47,13 +71,32 @@ class FilterTransformer(Transformer):
         if not self._matches(self.config.event_type, env_event.event_type):
             return None
 
-        # Match Event Body.
+        # Fast rejection path - check simple fields directly on typed object
+        # This avoids as_json() + json.loads() conversion for events that fail basic checks
+        if self._simple_field_checks:
+            if not self._check_simple_fields_fast(env_event.event):
+                logger.debug("Event rejected by fast path filter")
+                return None  # Early rejection - no dict conversion needed
+
+        # Match Event Body - full filter on all configured fields
         if self.config.event is not None:
-            body_as_json_dict = json.loads(env_event.event.as_json())
+            # Use to_obj() instead of json.loads(as_json()) to avoid JSON serialization round-trip
+            body_as_dict = env_event.event.to_obj()
             for key, val in self.config.event.items():
-                if not self._matches(val, body_as_json_dict.get(key)):
+                if not self._matches(val, body_as_dict.get(key)):
                     return None
         return env_event
+
+    def _check_simple_fields_fast(self, event: Any) -> bool:
+        """
+        Fast rejection check on simple string fields.
+        Direct attribute access, no dict conversion needed.
+        """
+        for key, expected_val in self._simple_field_checks.items():
+            actual_val = getattr(event, key, None)
+            if not self._matches(expected_val, actual_val):
+                return False
+        return True
 
     def _matches(self, match_val: Any, match_val_to: Any) -> bool:
         if isinstance(match_val, dict):

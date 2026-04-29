@@ -184,3 +184,189 @@ def test_no_match_when_list_filter_on_dict_obj():
         EventEnvelope(event_type=ENTITY_CHANGE_EVENT_V1_TYPE, event=test_event, meta={})
     )
     assert result is None
+
+
+class TestEventWithSimpleFields(Event, DictWrapper):
+    """Test event that simulates MCL structure with simple top-level fields."""
+
+    def __init__(
+        self,
+        entity_type: str,
+        entity_urn: str,
+        aspect_name: str,
+        change_type: str,
+        nested_field: Any = None,
+    ):
+        super().__init__()
+        self._inner_dict["entityType"] = entity_type
+        self._inner_dict["entityUrn"] = entity_urn
+        self._inner_dict["aspectName"] = aspect_name
+        self._inner_dict["changeType"] = change_type
+        if nested_field is not None:
+            self._inner_dict["aspect"] = nested_field
+
+    @property
+    def entityType(self) -> str:
+        return self._inner_dict["entityType"]
+
+    @property
+    def entityUrn(self) -> str:
+        return self._inner_dict["entityUrn"]
+
+    @property
+    def aspectName(self) -> str:
+        return self._inner_dict["aspectName"]
+
+    @property
+    def changeType(self) -> str:
+        return self._inner_dict["changeType"]
+
+    @classmethod
+    def from_obj(cls, obj: dict, tuples: bool = False) -> "TestEventWithSimpleFields":
+        return cls(
+            obj["entityType"],
+            obj["entityUrn"],
+            obj["aspectName"],
+            obj["changeType"],
+            obj.get("aspect"),
+        )
+
+    def to_obj(self, tuples: bool = False) -> dict:
+        return self._inner_dict
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "TestEventWithSimpleFields":
+        json_obj = json.loads(json_str)
+        return TestEventWithSimpleFields.from_obj(json_obj)
+
+    def as_json(self) -> str:
+        return json.dumps(self.to_obj())
+
+
+def test_fast_path_rejects_on_entity_type_mismatch():
+    """Test that fast path correctly rejects based on entityType without dict conversion."""
+    filter_transformer_config = FilterTransformerConfig.model_validate(
+        {
+            "event_type": "MetadataChangeLogEvent_v1",
+            "event": {
+                "entityType": "dataHubExecutionRequest",
+                "aspectName": "dataHubExecutionRequestInput",
+            },
+        }
+    )
+    filter_transformer = FilterTransformer(filter_transformer_config)
+
+    # Event with different entityType should be rejected by fast path
+    test_event = TestEventWithSimpleFields(
+        entity_type="dataset",  # Doesn't match filter
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)",
+        aspect_name="dataHubExecutionRequestInput",
+        change_type="UPSERT",
+    )
+
+    result = filter_transformer.transform(
+        EventEnvelope(
+            event_type=METADATA_CHANGE_LOG_EVENT_V1_TYPE, event=test_event, meta={}
+        )
+    )
+
+    assert result is None
+
+
+def test_fast_path_rejects_on_aspect_name_mismatch():
+    """Test that fast path correctly rejects based on aspectName."""
+    filter_transformer_config = FilterTransformerConfig.model_validate(
+        {
+            "event_type": "MetadataChangeLogEvent_v1",
+            "event": {
+                "entityType": "dataHubExecutionRequest",
+                "aspectName": [
+                    "dataHubExecutionRequestInput",
+                    "dataHubExecutionRequestSignal",
+                ],
+            },
+        }
+    )
+    filter_transformer = FilterTransformer(filter_transformer_config)
+
+    # Event with different aspectName should be rejected by fast path
+    test_event = TestEventWithSimpleFields(
+        entity_type="dataHubExecutionRequest",
+        entity_urn="urn:li:dataHubExecutionRequest:test",
+        aspect_name="someOtherAspect",  # Doesn't match filter
+        change_type="UPSERT",
+    )
+
+    result = filter_transformer.transform(
+        EventEnvelope(
+            event_type=METADATA_CHANGE_LOG_EVENT_V1_TYPE, event=test_event, meta={}
+        )
+    )
+
+    assert result is None
+
+
+def test_fast_path_passes_then_full_filter_applies():
+    """Test that fast path passes simple checks, then full filter checks nested fields."""
+    filter_transformer_config = FilterTransformerConfig.model_validate(
+        {
+            "event_type": "MetadataChangeLogEvent_v1",
+            "event": {
+                "entityType": "dataHubExecutionRequest",
+                "aspectName": "dataHubExecutionRequestInput",
+                "changeType": "UPSERT",
+                "aspect": {"value": {"executorId": "default"}},  # Nested field
+            },
+        }
+    )
+    filter_transformer = FilterTransformer(filter_transformer_config)
+
+    # Event passes fast path but fails on nested field
+    test_event = TestEventWithSimpleFields(
+        entity_type="dataHubExecutionRequest",
+        entity_urn="urn:li:dataHubExecutionRequest:test",
+        aspect_name="dataHubExecutionRequestInput",
+        change_type="UPSERT",
+        nested_field={"value": {"executorId": "other"}},  # Doesn't match nested filter
+    )
+
+    result = filter_transformer.transform(
+        EventEnvelope(
+            event_type=METADATA_CHANGE_LOG_EVENT_V1_TYPE, event=test_event, meta={}
+        )
+    )
+
+    assert result is None
+
+
+def test_fast_path_and_full_filter_both_pass():
+    """Test that event passes both fast path and full filter."""
+    filter_transformer_config = FilterTransformerConfig.model_validate(
+        {
+            "event_type": "MetadataChangeLogEvent_v1",
+            "event": {
+                "entityType": "dataHubExecutionRequest",
+                "aspectName": "dataHubExecutionRequestInput",
+                "changeType": "UPSERT",
+                "aspect": {"value": {"executorId": "default"}},
+            },
+        }
+    )
+    filter_transformer = FilterTransformer(filter_transformer_config)
+
+    # Event passes both fast path and full filter
+    test_event = TestEventWithSimpleFields(
+        entity_type="dataHubExecutionRequest",
+        entity_urn="urn:li:dataHubExecutionRequest:test",
+        aspect_name="dataHubExecutionRequestInput",
+        change_type="UPSERT",
+        nested_field={"value": {"executorId": "default"}},  # Matches nested filter
+    )
+
+    result = filter_transformer.transform(
+        EventEnvelope(
+            event_type=METADATA_CHANGE_LOG_EVENT_V1_TYPE, event=test_event, meta={}
+        )
+    )
+
+    assert result is not None
