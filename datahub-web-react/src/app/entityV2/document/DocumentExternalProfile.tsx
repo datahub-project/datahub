@@ -6,6 +6,7 @@ import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityPro
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarRelatedAssetsSection } from '@app/entityV2/shared/containers/profile/sidebar/RelatedAssets/SidebarRelatedAssetsSection';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -73,6 +74,12 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
                 },
                 {
                     component: DataProductSection,
+                    display: {
+                        visible: () => true,
+                    },
+                },
+                {
+                    component: SidebarRelatedAssetsSection,
                     display: {
                         visible: () => true,
                     },

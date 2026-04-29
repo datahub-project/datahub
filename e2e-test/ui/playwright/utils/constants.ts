@@ -10,7 +10,7 @@ export const DEFAULT_TIMEOUT = 30000;
 export const NETWORK_IDLE_TIMEOUT = 10000;
 export const ANIMATION_TIMEOUT = 500;
 
-// TEST_CREDENTIALS removed — use fixtures/users.ts (resolvedUsers) as the
+// TEST_CREDENTIALS removed — use data/users.ts (users) as the
 // single source of truth for user credentials.
 
 export const ROUTES = {

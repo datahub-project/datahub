@@ -615,6 +615,28 @@
     "description": "Unified programming model for defining and executing both batch and streaming data processing pipelines.",
     "img_path": "img/logos/platforms/beam.svg"
   },
+  "aerospike": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "description": "Aerospike is a high-performance NoSQL database designed for real-time applications requiring low latency and high throughput at scale."
+  },
+  "fabric-data-factory": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Pull",
+    "title": "Fabric Data Factory",
+    "description": "Microsoft Fabric Data Factory is a cloud-based data integration service for building and orchestrating data pipelines within the Microsoft Fabric platform."
+  },
+  "omni": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Omni is a business intelligence and analytics platform that combines SQL, spreadsheets, and no-code exploration for collaborative data analysis."
+  },
+  "pinecone": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "description": "Pinecone is a vector database designed for building fast, scalable similarity search and AI-powered applications.",
+    "img_path": "img/logos/platforms/pinecone.png"
+  },
   "pinot": {
     "api_connector": true,
     "platform_type": "Database",
