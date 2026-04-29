@@ -257,9 +257,9 @@ export class IngestionPage extends BasePage {
   }
 
   async expectSourceSucceeded(sourceName: string): Promise<void> {
-    await expect(
-      this.page.locator('tr').filter({ hasText: sourceName }).getByText('Succeeded'),
-    ).toBeVisible({ timeout: 180000 });
+    await expect(this.page.locator('tr').filter({ hasText: sourceName }).getByText('Succeeded')).toBeVisible({
+      timeout: 180000,
+    });
   }
 
   async expectSourceStatusPending(sourceName?: string): Promise<void> {
