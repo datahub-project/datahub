@@ -184,9 +184,23 @@ export class IngestionPage extends BasePage {
     await expect(this.page.getByText(name)).not.toBeVisible({ timeout: 15000 });
   }
 
-  async selectSecretForPasswordField(secretName: string): Promise<void> {
+  async selectAuthType(typeName: string): Promise<void> {
+    await this.page.locator('#authentication_type').click({ force: true });
+    // dispatchEvent bypasses Playwright's viewport check; AntD dropdown may render below the fold
+    await this.page.locator(`.ant-select-dropdown [title="${typeName}"]`).dispatchEvent('click');
+  }
+
+  async openPasswordDropdown(): Promise<void> {
     await this.page.locator('#password').clear();
     await this.page.locator('#password').press('ArrowDown');
+  }
+
+  async clickCreateSecretInline(): Promise<void> {
+    await this.page.getByText('Create Secret').click();
+  }
+
+  async selectSecretForPasswordField(secretName: string): Promise<void> {
+    await this.openPasswordDropdown();
     await this.page.locator('.rc-virtual-list-holder-inner').getByText(secretName).click({ force: true });
     await this.page.locator('#password').blur();
   }

@@ -49,15 +49,13 @@ test.describe('managing secrets for ingestion creation', () => {
     logger.step('create ingestion source using the secret');
     await ingestionPage.navigate();
     await ingestionPage.clickSourcesTab();
-    await page.locator('#ingestion-create-source').click();
+    await ingestionPage.clickCreateSourceButton();
     await ingestionPage.searchDataSource('snowflake');
     await ingestionPage.selectDataSource('Snowflake');
 
     await ingestionPage.fillSnowflakeForm({ accountId, warehouseId, username, role });
     // Auth type must be selected separately since we're using a secret, not a plain password
-    await page.locator('#authentication_type').click({ force: true });
-    // dispatchEvent bypasses Playwright's viewport check; AntD dropdown may render below the fold
-    await page.locator('.ant-select-dropdown [title="Username & Password"]').dispatchEvent('click');
+    await ingestionPage.selectAuthType('Username & Password');
     await ingestionPage.selectSecretForPasswordField(secretName);
 
     await page.getByRole('button', { name: 'Next' }).click();
@@ -93,15 +91,13 @@ test.describe('managing secrets for ingestion creation', () => {
     await ingestionPage.selectDataSource('Snowflake');
 
     await ingestionPage.fillSnowflakeForm({ accountId, warehouseId, username, role });
-    await page.locator('#authentication_type').click({ force: true });
-    await page.locator('.ant-select-dropdown [title="Username & Password"]').dispatchEvent('click');
-    await page.locator('#password').clear();
-    await page.locator('#password').press('ArrowDown');
+    await ingestionPage.selectAuthType('Username & Password');
+    await ingestionPage.openPasswordDropdown();
     await expect(page.getByText(secretName)).not.toBeVisible({ timeout: 5000 });
 
     // ── Step 6: Create secret inline and verify it can be used ───────────
     logger.step('create secret inline during source creation');
-    await page.getByText('Create Secret').click();
+    await ingestionPage.clickCreateSecretInline();
     await ingestionPage.fillAndSubmitSecretModal(secretName, secretValue, secretDescription);
     await expect(page.getByText('Created secret!')).toBeVisible({ timeout: 15000 });
 

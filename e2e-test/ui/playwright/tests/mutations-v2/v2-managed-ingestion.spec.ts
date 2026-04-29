@@ -40,8 +40,8 @@ test.describe('run managed ingestion', () => {
     // Set the recipe — atomic select-all+type is more reliable under concurrent load
     await ingestionPage.setMonacoEditorContent('source:\n    type: demo-data\nconfig: {}');
 
-    await page.getByText('Next').click();
-    await page.getByText('Next').click();
+    await ingestionPage.clickNextButton();
+    await ingestionPage.clickNextButton();
 
     await ingestionPage.fillSourceName(testName);
 

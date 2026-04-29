@@ -76,7 +76,7 @@ test.describe('ingestion source creation flow', () => {
     await ingestionPage.expectSnowflakeFormValues({ accountId, warehouseId, username, password, role });
 
     // Advance through wizard to name step and rename the source
-    await page.getByRole('button', { name: 'Next' }).click();
+    await ingestionPage.clickNextButton();
     await expect(page.getByText('Configure an Ingestion Schedule')).toBeVisible();
     await ingestionPage.clickScheduleNextButton();
     await ingestionPage.fillSourceName(`${ingestionSourceName} EDITED`);
