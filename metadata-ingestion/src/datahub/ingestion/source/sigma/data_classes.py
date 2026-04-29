@@ -133,6 +133,9 @@ class Element(BaseModel):
         {"name": "Col", "formula": "[Source/Col]"} to bypass the API layer.
         Production formula hydration should happen after validation via the
         separate workbook columns response, not through this test helper path.
+        If Sigma ever changes the page-elements endpoint to return rich column
+        objects, this branch will intentionally preserve those formulas instead
+        of discarding the richer payload.
         When dict entries are detected this validator:
           - Replaces `columns` with a plain list of names (backward-compatible).
           - Populates `column_formulas` with the name->formula mapping.
