@@ -1,5 +1,6 @@
 ---
 title: Looker Setup
+description: "Prepare Looker for DataHub ingestion by configuring API3 credentials and granting the required Looker permissions."
 ---
 
 # Looker & LookML Ingestion Guide: Setup
