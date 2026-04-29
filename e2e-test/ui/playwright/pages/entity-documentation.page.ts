@@ -165,9 +165,10 @@ export class EntityDocumentationPage extends BasePage {
   }
 
   async expectLinkNotInEntityHeader(url: string): Promise<void> {
-    await expect(
-      this.page.locator('[data-testid="platform-links-container"]').locator(`a[href='${url}']`),
-    ).toHaveCount(0, { timeout: 10000 });
+    await expect(this.page.locator('[data-testid="platform-links-container"]').locator(`a[href='${url}']`)).toHaveCount(
+      0,
+      { timeout: 10000 },
+    );
   }
 
   async expectLinkInSidebar(url: string): Promise<void> {
