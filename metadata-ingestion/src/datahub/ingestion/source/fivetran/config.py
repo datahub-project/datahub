@@ -97,12 +97,17 @@ class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
     preserve_case: bool = Field(
         default=False,
         description=(
-            "Preserve the case of database and schema identifiers when querying "
-            "the Fivetran log. Set this to True when the log lives in a Snowflake "
-            "catalog-linked database (CLD) — e.g., when the Fivetran Managed Data "
-            "Lake Service surfaces logs through Snowflake — where Snowflake's "
-            "default identifier uppercasing breaks lookup against case-preserving "
-            "Glue/Iceberg-backed schemas."
+            "Pass `database` and `log_schema` identifiers verbatim when "
+            "issuing `USE DATABASE` / `USE SCHEMA`, instead of Snowflake's "
+            "default uppercasing of unquoted identifiers. Useful when the "
+            "log lives in a Snowflake schema created with quoted "
+            "lowercase names, or any other case-preserving setup where "
+            "the uppercasing path would query identifiers that don't "
+            "exist. **For Managed Data Lake destinations specifically: "
+            "prefer `log_source: rest_api` over a Snowflake "
+            "catalog-linked database (CLD) — REST mode reads the log "
+            "directly via API and avoids the identifier-casing issue "
+            "altogether.**"
         ),
     )
 

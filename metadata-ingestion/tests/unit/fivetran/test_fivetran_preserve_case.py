@@ -2,11 +2,12 @@
 
 The Snowflake destination uppercases unquoted database/schema identifiers
 for backward compatibility with recipes from before the quoted-identifier
-migration. Catalog-linked databases (CLDs), used by the Fivetran Managed
-Data Lake Service when surfacing logs through Snowflake, retain
-case-preserving lowercase identifiers — so the uppercasing path emits
-queries against schemas that don't exist. `preserve_case=True` skips the
-uppercasing.
+migration. Case-preserving Snowflake schemas (created with quoted
+lowercase names, or surfaced via catalog-linked databases) retain
+lowercase identifiers — so the uppercasing path emits queries against
+schemas that don't exist. `preserve_case=True` skips the uppercasing.
+For Managed Data Lake setups specifically, `log_source: rest_api`
+sidesteps this issue entirely.
 """
 
 from typing import Tuple
