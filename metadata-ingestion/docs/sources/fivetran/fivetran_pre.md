@@ -133,7 +133,7 @@ A pinned `platform` skips REST destination discovery for that destination — us
 
 1. Replace the entire `fivetran_log_config` block with `log_source: rest_api` and an `api_config`.
 2. Drop the old `catalog_type`, `glue_database_prefix`, and `preserve_case` fields from inside `managed_data_lake_destination_config` — REST mode handles all catalog backings via `service` discovery and does not need SQL identifier transformations.
-3. If you want to pin the URN platform for a destination (e.g. `glue` instead of `iceberg`), use `destination_to_platform_instance.<destination_id>.platform`. For Glue routing, also set `destination_to_platform_instance.<destination_id>.database` to the actual Glue database name from your AWS Glue console — the connector no longer derives the Glue database name automatically (the Fivetran-prefix-the-schema convention turned out to be unverifiable).
+3. If you want to pin the URN platform for a destination (e.g. `glue` instead of `iceberg`), use `destination_to_platform_instance.<destination_id>.platform`. For Glue routing, also set `destination_to_platform_instance.<destination_id>.database` to the actual Glue database name from your AWS Glue console.
 
 #### Hybrid deployments and destination discovery
 
