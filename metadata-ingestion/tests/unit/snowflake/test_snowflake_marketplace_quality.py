@@ -207,19 +207,6 @@ class TestMarketplaceBusinessLogic:
         assert config.end_time == custom_end
         assert config.bucket_duration == "HOUR"
 
-    def test_marketplace_scoped_time_window_fields_are_removed(
-        self, base_config: Dict[str, Any]
-    ) -> None:
-        """Setting the removed marketplace-scoped time window fields should
-        emit a deprecation warning rather than being silently ignored."""
-        config_dict = base_config.copy()
-        config_dict["marketplace"] = {
-            "enabled": True,
-            "start_time": "2024-06-01T00:00:00+00:00",
-        }
-        with pytest.warns(Warning, match="start_time was removed"):
-            SnowflakeV2Config.parse_obj(config_dict)
-
     def test_structured_properties_have_correct_entity_types(
         self, base_config: Dict[str, Any]
     ) -> None:

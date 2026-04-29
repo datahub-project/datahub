@@ -397,16 +397,6 @@ class SnowflakeMarketplaceConfig(ConfigModel):
             )
         return v
 
-    # Marketplace usage now reuses the parent connector's window; warn loudly
-    # if a recipe still sets the old marketplace-scoped fields.
-    _marketplace_start_time_removed = pydantic_removed_field(
-        "start_time", "April", 2026
-    )
-    _marketplace_end_time_removed = pydantic_removed_field("end_time", "April", 2026)
-    _marketplace_bucket_duration_removed = pydantic_removed_field(
-        "bucket_duration", "April", 2026
-    )
-
 
 class SnowflakeV2Config(
     SnowflakeConfig,
