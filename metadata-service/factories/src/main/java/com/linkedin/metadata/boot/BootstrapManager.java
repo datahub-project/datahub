@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class BootstrapManager {
 
-  private final ExecutorService _asyncExecutor = Executors.newFixedThreadPool(10);
+  private final ExecutorService _asyncExecutor = Executors.newFixedThreadPool(5);
   private final List<BootstrapStep> _bootSteps;
   private final AtomicBoolean _blockingStepsComplete = new AtomicBoolean(false);
 
