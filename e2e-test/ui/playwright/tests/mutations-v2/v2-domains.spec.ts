@@ -11,6 +11,8 @@
 import { test, expect } from '../../fixtures/base-test';
 import { DomainsPage } from '../../pages/domains.page';
 
+test.use({ featureName: 'mutations-v2' });
+
 // Shared domain identifiers across tests in this suite
 const testDomainId = Math.floor(Math.random() * 100000);
 const testDomain = `PlaywrightDomainTest ${testDomainId}`;
