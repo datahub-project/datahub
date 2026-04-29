@@ -84,7 +84,10 @@ config:
 
 **Iceberg (default, or `platform: iceberg`).** Emits `urn:li:dataset:(iceberg, <schema>.<table>, env)`. No extra config needed for Polaris / Iceberg-REST destinations — this is the fallback default for any MDL destination whose config doesn't trigger another auto-detect rule.
 
-**Glue (`platform: glue`, or auto-detected).** Emits `urn:li:dataset:(glue, <database>.<schema>.<table>, env)` aligned with DataHub's [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue). **Auto-detected**: when Fivetran's `should_maintain_tables_in_glue: true` toggle is set on the destination (visible via `/v1/destinations/{id}`) and the user hasn't pinned `platform`, the connector defaults to `glue` automatically — no explicit `platform: glue` needed.
+**Glue (`platform: glue`, or auto-detected).** Emits `urn:li:dataset:(glue, <database>.<schema>.<table>, env)` aligned with DataHub's [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue). **Auto-detected** in two cases — no explicit `platform: glue` needed in either:
+
+- The destination has Fivetran's `should_maintain_tables_in_glue: true` toggle set (visible via `/v1/destinations/{id}`), OR
+- The user supplied `database` on the destination entry (a database name only makes sense for Glue among MDL platforms, so the connector treats it as a glue-intent signal and avoids silently dropping it on an iceberg/s3/gcs/abs route).
 
 **You must supply `database` yourself for Glue routing.** Fivetran's REST API does not expose the actual Glue database name it creates, and the Fivetran docs do not document the Glue-table-naming convention (Fivetran shares one Glue database per region across all destinations in that region). Inspect your AWS Glue console to find the actual database name and configure it on the destination entry:
 

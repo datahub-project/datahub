@@ -293,6 +293,34 @@ class TestApplyDiscoveredDestination:
         )
         assert result.platform == "iceberg"
 
+    def test_managed_data_lake_user_database_implies_glue(self):
+        # User pinned `database` but not `platform`. Treat the database
+        # as a glue-intent signal — only Glue routing among MDL platforms
+        # uses `database`, so iceberg/s3/gcs/abs would silently drop it.
+        # This protects against the silent foot-gun where the customer's
+        # destination doesn't have `should_maintain_tables_in_glue: true`
+        # set but they intend Glue routing anyway.
+        base = PlatformDetail(database="my_glue_db")
+        result = FivetranSource.apply_discovered_destination(
+            base,
+            _details("managed_data_lake", bucket="b"),
+        )
+        assert result.platform == "glue"
+        assert result.database == "my_glue_db"
+
+    def test_managed_data_lake_user_database_overrides_iceberg_default(self):
+        # Same as above but the destination has the toggle off. Still
+        # routes to glue because `database` is explicit user intent.
+        base = PlatformDetail(database="my_glue_db")
+        result = FivetranSource.apply_discovered_destination(
+            base,
+            _details(
+                "managed_data_lake", bucket="b", should_maintain_tables_in_glue=False
+            ),
+        )
+        assert result.platform == "glue"
+        assert result.database == "my_glue_db"
+
     def test_managed_data_lake_s3_pins_platform_and_fills_database(self):
         # User opts into S3 path URNs by pinning `platform: s3`. Discovery
         # populates `database` with `<bucket>/<prefix_path>` so

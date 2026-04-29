@@ -579,29 +579,36 @@ class FivetranSource(StatefulIngestionSourceBase):
           from the discovered config.
         - For Managed Data Lake destinations, the platform is resolved as:
           (1) user override on `base.platform` (always wins) →
-          (2) auto-detect from MDL config toggles (`glue` when
+          (2) `glue` if the user supplied `base.database` (a database
+          name only makes sense for Glue routing among MDL platforms;
+          iceberg/s3/gcs/abs would silently drop it) →
+          (3) auto-detect from MDL config toggles (`glue` when
           `should_maintain_tables_in_glue` is set) →
-          (3) `iceberg` fallback (the modern Polaris / Iceberg REST
-          default). For `glue`, the user must still supply `database` on
-          their `destination_to_platform_instance.<id>` entry — the
-          Fivetran REST API doesn't expose the actual Glue database name,
-          so the auto-detect picks the platform but the customer pins
-          the database. When the resolved platform is path-style
-          (`s3` / `gcs` / `abs`), `database` is auto-populated from the
-          appropriate fields in the discovered MDL config; the same
-          `service: managed_data_lake` covers AWS, GCS, and ADLS Gen2,
-          distinguished by which fields are populated. The user's
+          (4) `iceberg` fallback (the modern Polaris / Iceberg REST
+          default). For `glue`, the user must still supply `database`
+          themselves — the Fivetran REST API doesn't expose the actual
+          Glue database name, so auto-detect picks the platform but the
+          customer pins the database. When the resolved platform is
+          path-style (`s3` / `gcs` / `abs`), `database` is auto-populated
+          from the appropriate fields in the discovered MDL config; the
+          same `service: managed_data_lake` covers AWS, GCS, and ADLS
+          Gen2, distinguished by which fields are populated. The user's
           `database` override always wins.
         - For services we don't know about, return `base` unchanged. The caller
           should log a structured warning so the user knows discovery didn't
           help for that destination.
         """
         if discovered.service == "managed_data_lake":
-            # Precedence: user override → auto-detect from MDL toggles →
-            # iceberg fallback. Auto-detect only fires for catalog choices
-            # DataHub has a native source for — see _detect_default_mdl_platform.
+            # Precedence: user override → user-database-implies-glue →
+            # MDL-toggle auto-detect → iceberg fallback. Treating
+            # `base.database` as a glue-intent signal protects users from
+            # the silent foot-gun where they set `database` (intending
+            # Glue routing) on a destination whose `should_maintain_tables_in_glue`
+            # toggle isn't set — without this, we'd fall through to
+            # iceberg and quietly drop their `database`.
             resolved_platform = (
                 base.platform
+                or ("glue" if base.database is not None else None)
                 or FivetranSource._detect_default_mdl_platform(discovered.config)
                 or "iceberg"
             )
