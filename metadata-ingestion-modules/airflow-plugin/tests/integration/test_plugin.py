@@ -806,14 +806,11 @@ test_cases_airflow2 = [
         enable_datajob_lineage=False,
         test_variant="_no_datajob_lineage",
     ),
-    # Per-DAG lineage filter denies "simple_dag" specifically while keeping the
-    # global toggle on. The expected output is identical to the
-    # `_no_datajob_lineage` variant (no DataJobInputOutput aspects emitted).
+    # Per-DAG filter denies simple_dag; output matches _no_datajob_lineage variant.
     DagTestCase(
         "simple_dag",
         multiple_connections=True,
         platform_instance=PLATFORM_INSTANCE,
-        enable_datajob_lineage=True,
         datajob_lineage_dag_filter_str='{"deny": ["simple_dag"]}',
         test_variant="_per_dag_lineage_denied",
         golden_variant="_no_datajob_lineage",
@@ -854,14 +851,11 @@ test_cases_airflow3 = [
         enable_datajob_lineage=False,
         test_variant="_no_datajob_lineage",
     ),
-    # Per-DAG lineage filter denies "simple_dag" specifically while keeping the
-    # global toggle on. The expected output is identical to the
-    # `_no_datajob_lineage` variant (no DataJobInputOutput aspects emitted).
+    # Per-DAG filter denies simple_dag; output matches _no_datajob_lineage variant.
     DagTestCase(
         "simple_dag",
         multiple_connections=True,
         platform_instance=PLATFORM_INSTANCE,
-        enable_datajob_lineage=True,
         datajob_lineage_dag_filter_str='{"deny": ["simple_dag"]}',
         test_variant="_per_dag_lineage_denied",
         golden_variant="_no_datajob_lineage",

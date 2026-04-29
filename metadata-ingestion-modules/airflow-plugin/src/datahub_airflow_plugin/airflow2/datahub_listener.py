@@ -471,12 +471,7 @@ class DataHubListener:
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
         """
-        if not self.config.enable_datajob_lineage:
-            return
-        if not self.config.datajob_lineage_dag_filter_pattern.allowed(task.dag_id):
-            logger.debug(
-                f"DAG {task.dag_id} is denied by datajob_lineage_dag_filter_pattern; skipping lineage extraction"
-            )
+        if not self.config.should_emit_datajob_lineage(task.dag_id):
             return
 
         input_urns: List[str] = []
@@ -688,13 +683,7 @@ class DataHubListener:
         # Add lineage info
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=complete)  # type: ignore[arg-type]
 
-        # DataJob lineage is gated by both the global toggle and the per-DAG filter.
-        # The per-DAG filter lets users disable lineage for specific DAGs (e.g. Cosmos/dbt DAGs)
-        # while keeping it for other DAGs. See `datajob_lineage_dag_filter_pattern` in _config.py.
-        should_generate_lineage = (
-            self.config.enable_datajob_lineage
-            and self.config.datajob_lineage_dag_filter_pattern.allowed(dag.dag_id)
-        )
+        should_generate_lineage = self.config.should_emit_datajob_lineage(dag.dag_id)
 
         # Emit DataJob MCPs
         # Skip dataJobInputOutput aspects on task start to avoid file emitter merging duplicates
