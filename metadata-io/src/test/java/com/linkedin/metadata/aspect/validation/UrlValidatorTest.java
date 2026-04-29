@@ -109,6 +109,32 @@ public class UrlValidatorTest {
   }
 
   @Test
+  public void testEmptyPictureLinkAllowed() {
+    CorpUserEditableInfo info = new CorpUserEditableInfo();
+    info.setPictureLink(new Url(""));
+
+    assertEquals(
+        validator
+            .validateProposed(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_USER_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_USER_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_USER_URN.getEntityType())
+                                .getAspectSpec(CORP_USER_EDITABLE_INFO_ASPECT_NAME))
+                        .recordTemplate(info)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "Empty pictureLink should pass validation (user clearing profile image)");
+  }
+
+  @Test
   public void testHttpUrlRejected() {
     CorpUserEditableInfo info = new CorpUserEditableInfo();
     info.setPictureLink(new Url("http://example.com/photo.png"));

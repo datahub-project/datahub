@@ -67,6 +67,11 @@ public class UrlValidator extends AspectPayloadValidator {
 
     String rawUrl = url.toString();
 
+    // Allow empty/blank values (user clearing their profile image)
+    if (rawUrl == null || rawUrl.isBlank()) {
+      return;
+    }
+
     // Allow the default avatar relative path
     if (rawUrl.startsWith("assets/")) {
       return;
