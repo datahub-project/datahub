@@ -13,6 +13,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { DatasetPage } from '../../pages/dataset.page';
 
 const testId = Math.floor(Math.random() * 100000);
 const username = `Example Name ${testId}`;
@@ -22,36 +23,6 @@ const groupName = `Test group ${testId}`;
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)';
 const DATASET_NAME = 'SampleCypressHiveDataset';
-
-async function addOwner(page: import('@playwright/test').Page, owner: string, ownerType: string): Promise<void> {
-  await page.locator('[data-testid="add-owners-button"]').first().click({ force: true });
-  await expect(page.locator('[data-testid="add-owners-select"]')).toBeVisible({ timeout: 10000 });
-  await page.locator('[data-testid="add-owners-select-base"]').click({ force: true });
-  await page.locator('[data-testid="dropdown-search-input"]').fill(owner);
-  await page.locator('[data-testid="add-owners-select-dropdown"]').getByText(owner).click({ force: true });
-  await expect(page.getByText(owner)).toBeVisible();
-  await page.getByRole('dialog').getByText('Technical Owner').click();
-  await page.getByRole('listbox').locator('..').getByText(ownerType).click();
-  await expect(page.getByRole('dialog').getByText(ownerType)).toBeVisible();
-  await page.getByText('Done').click();
-  await expect(page.getByText('Owners Added')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(ownerType)).toBeVisible();
-  await expect(page.getByText(owner)).toBeVisible();
-}
-
-async function goToDataset(page: import('@playwright/test').Page): Promise<void> {
-  await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/`);
-  await page.waitForTimeout(3000);
-  await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
-}
-
-async function removeOwner(page: import('@playwright/test').Page, owner: string, elementId: string): Promise<void> {
-  await goToDataset(page);
-  await page.locator(elementId).locator('xpath=following-sibling::*[1]').click();
-  await page.getByText('Yes').click();
-  await expect(page.getByText('Owner Removed')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(owner)).not.toBeVisible({ timeout: 10000 });
-}
 
 test.describe.skip('add, remove ownership for dataset', () => {
   test.describe.configure({ mode: 'serial' });
@@ -120,27 +91,35 @@ test.describe.skip('add, remove ownership for dataset', () => {
   });
 
   for (const ownerType of ['Business Owner', 'Data Steward', 'None', 'Technical Owner']) {
-    test(`open test dataset page, add and remove user ownership (${ownerType})`, async ({ page }) => {
+    test(`open test dataset page, add and remove user ownership (${ownerType})`, async ({ page, logger, logDir }) => {
+      // userHref is dynamic — contains the test-run-specific testId in the URN
       const userHref = `[href="/user/urn:li:corpuser:example${testId}@example.com/owner of"]`;
-      await goToDataset(page);
-      await addOwner(page, username, ownerType);
+      const datasetPage = new DatasetPage(page, logger, logDir);
+      await datasetPage.navigateToDataset(DATASET_URN);
+      await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
+      await datasetPage.addOwner(username, ownerType);
       // Verify in owned assets
       await page.waitForTimeout(3000);
       await page.getByText(username).click();
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
-      await removeOwner(page, username, userHref);
+      await datasetPage.navigateToDataset(DATASET_URN);
+      await datasetPage.removeOwner(username, userHref);
     });
   }
 
   for (const ownerType of ['Business Owner', 'Data Steward', 'None', 'Technical Owner']) {
-    test(`open test dataset page, add and remove group ownership (${ownerType})`, async ({ page }) => {
+    test(`open test dataset page, add and remove group ownership (${ownerType})`, async ({ page, logger, logDir }) => {
+      // groupHref is dynamic — contains the test-run-specific testId in the URN
       const groupHref = `[href="/group/urn:li:corpGroup:${testId}/owner of"]`;
-      await goToDataset(page);
-      await addOwner(page, groupName, ownerType);
+      const datasetPage = new DatasetPage(page, logger, logDir);
+      await datasetPage.navigateToDataset(DATASET_URN);
+      await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
+      await datasetPage.addOwner(groupName, ownerType);
       await page.waitForTimeout(3000);
       await page.getByText(groupName).click();
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
-      await removeOwner(page, groupName, groupHref);
+      await datasetPage.navigateToDataset(DATASET_URN);
+      await datasetPage.removeOwner(groupName, groupHref);
     });
   }
 });

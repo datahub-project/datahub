@@ -17,6 +17,19 @@ export class EntityDocumentationPage extends BasePage {
   readonly platformLinksContainer: Locator;
   readonly urlInput: Locator;
   readonly labelInput: Locator;
+  // The sole editable ProseMirror when the Documentation tab is in edit mode.
+  // Read-only editors (source preview, sidebar) have contenteditable="false".
+  readonly proseMirrorEditor: Locator;
+  // Schema field description drawer
+  readonly editFieldDescriptionButton: Locator;
+  // '[data-testid="description-editor"] .ProseMirror' — modal editor inside UpdateDescriptionModal
+  readonly fieldDescriptionEditor: Locator;
+  readonly fieldDescriptionUpdateButton: Locator;
+  // Link form
+  readonly showInPreviewCheckbox: Locator;
+  readonly linkFormSubmitButton: Locator;
+  // Sidebar documentation section
+  readonly sidebarDocumentationSection: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -27,6 +40,13 @@ export class EntityDocumentationPage extends BasePage {
     this.platformLinksContainer = page.locator('[data-testid="platform-links-container"]');
     this.urlInput = page.locator('[data-testid="url-input"]');
     this.labelInput = page.locator('[data-testid="label-input"]');
+    this.proseMirrorEditor = page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
+    this.editFieldDescriptionButton = page.locator('[data-testid="edit-field-description"]');
+    this.fieldDescriptionEditor = page.locator('[data-testid="description-editor"] .ProseMirror');
+    this.fieldDescriptionUpdateButton = page.locator('[data-testid="description-modal-update-button"]');
+    this.showInPreviewCheckbox = page.locator('[data-testid="show-in-asset-preview-checkbox"]');
+    this.linkFormSubmitButton = page.locator('[data-testid="link-form-modal-submit-button"]');
+    this.sidebarDocumentationSection = page.locator('[data-testid="sidebar-section-content-Documentation"]');
   }
 
   async navigateToDatasetDocumentationTab(datasetUrn: string, datasetName: string): Promise<void> {
@@ -50,16 +70,12 @@ export class EntityDocumentationPage extends BasePage {
     // The DescriptionEditor mounts the save/cancel toolbar immediately; wait for it
     // as a readiness signal before targeting the actual editor input.
     await this.saveDescriptionButton.waitFor({ state: 'attached', timeout: 30000 });
-    // Use the sole contenteditable ProseMirror — there is exactly one editable editor
-    // on the page when the Documentation tab is in edit mode.  The read-only editors
-    // (source description preview, sidebar) all have contenteditable="false".
-    const editor = this.page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
     // 30 s: DescriptionEditor renders null while entity data is loading, so the
     // editable ProseMirror can take longer than 15 s to mount in slow CI.
-    await editor.waitFor({ state: 'attached', timeout: 30000 });
+    await this.proseMirrorEditor.waitFor({ state: 'attached', timeout: 30000 });
     // force: true bypasses the viewport/visibility check; Remirror auto-focuses on mount
     // but the element may have zero height until the flex layout resolves.
-    await editor.click({ force: true });
+    await this.proseMirrorEditor.click({ force: true });
     await this.page.keyboard.press('Control+a');
     await this.page.keyboard.type(text);
     await this.saveDescriptionButton.click();
@@ -70,9 +86,8 @@ export class EntityDocumentationPage extends BasePage {
     await this.editDocumentationButton.click();
     await this.page.waitForURL(/editing=true/, { timeout: 15000 });
     await this.saveDescriptionButton.waitFor({ state: 'attached', timeout: 30000 });
-    const editor = this.page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
-    await editor.waitFor({ state: 'attached', timeout: 30000 });
-    await editor.click({ force: true });
+    await this.proseMirrorEditor.waitFor({ state: 'attached', timeout: 30000 });
+    await this.proseMirrorEditor.click({ force: true });
     await this.page.keyboard.press('Control+a');
     await this.page.keyboard.press('Delete');
     await this.saveDescriptionButton.click();
@@ -92,17 +107,16 @@ export class EntityDocumentationPage extends BasePage {
 
   async editFieldDescription(fieldName: string, description: string): Promise<void> {
     const row = this.page.locator(`#column-${fieldName}`);
-    const editBtn = this.page.locator('[data-testid="edit-field-description"]');
 
     // SchemaTable toggles the drawer open/closed on row click. If the drawer is
     // already open for this field, clicking the row again would CLOSE it. To guard
     // against this, click the row only if the edit button is not already visible.
-    const isDrawerOpen = await editBtn.isVisible();
+    const isDrawerOpen = await this.editFieldDescriptionButton.isVisible();
     if (!isDrawerOpen) {
       await row.click();
       // If the row click toggled the drawer closed (i.e. it was open for a different
       // field or the toggle fired an extra time), click once more to reopen it.
-      const becameVisible = await editBtn
+      const becameVisible = await this.editFieldDescriptionButton
         .waitFor({ state: 'visible', timeout: 2000 })
         .then(() => true)
         .catch(() => false);
@@ -113,21 +127,20 @@ export class EntityDocumentationPage extends BasePage {
 
     // The edit button is inside the Schema Field Drawer — wait for it to be visible
     // before clicking to avoid race conditions when the drawer is still animating open.
-    await editBtn.waitFor({ state: 'visible', timeout: 15000 });
-    await editBtn.click();
+    await this.editFieldDescriptionButton.waitFor({ state: 'visible', timeout: 15000 });
+    await this.editFieldDescriptionButton.click();
     // The UpdateDescriptionModal title appears after the button click.
     // Use an explicit timeout since the modal may take a moment to mount.
     await expect(this.page.getByText('Update description')).toBeVisible({ timeout: 15000 });
     // Wait for the editor to be in the DOM — it may have zero height initially so use
     // 'attached' rather than 'visible', and force-click to focus even if not laid out yet.
-    const editor = this.page.locator('[data-testid="description-editor"] .ProseMirror');
-    await editor.waitFor({ state: 'attached', timeout: 15000 });
-    await editor.click({ force: true });
+    await this.fieldDescriptionEditor.waitFor({ state: 'attached', timeout: 15000 });
+    await this.fieldDescriptionEditor.click({ force: true });
     await this.page.keyboard.press('Control+a');
     await this.page.keyboard.press('Delete');
     await this.page.waitForTimeout(500);
     await this.page.keyboard.type(description);
-    await this.page.locator('[data-testid="description-modal-update-button"]').click();
+    await this.fieldDescriptionUpdateButton.click();
     await expect(this.page.getByText('Updated!')).toBeVisible({ timeout: 15000 });
   }
 
@@ -146,15 +159,15 @@ export class EntityDocumentationPage extends BasePage {
     await this.labelInput.clear();
     await this.labelInput.fill(label);
 
-    const checkboxInput = this.page.locator('[data-testid="show-in-asset-preview-checkbox"]').locator('input');
+    const checkboxInput = this.showInPreviewCheckbox.locator('input');
     const isChecked = await checkboxInput.isChecked();
     if (isChecked !== showInPreview) {
-      await this.page.locator('[data-testid="show-in-asset-preview-checkbox"]').click();
+      await this.showInPreviewCheckbox.click();
     }
   }
 
   async submitLinkForm(): Promise<void> {
-    await this.page.locator('[data-testid="link-form-modal-submit-button"]').click();
+    await this.linkFormSubmitButton.click();
   }
 
   async addLink(url: string, label: string, showInPreview: boolean): Promise<void> {
@@ -214,14 +227,10 @@ export class EntityDocumentationPage extends BasePage {
   }
 
   async expectLinkInSidebar(url: string): Promise<void> {
-    await expect(
-      this.page.locator('[data-testid="sidebar-section-content-Documentation"]').locator(`[href='${url}']`),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(this.sidebarDocumentationSection.locator(`[href='${url}']`)).toBeVisible({ timeout: 15000 });
   }
 
   async expectLinkNotInSidebar(url: string): Promise<void> {
-    await expect(
-      this.page.locator('[data-testid="sidebar-section-content-Documentation"]').getByText(url),
-    ).not.toBeVisible({ timeout: 10000 });
+    await expect(this.sidebarDocumentationSection.getByText(url)).not.toBeVisible({ timeout: 10000 });
   }
 }

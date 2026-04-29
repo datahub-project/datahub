@@ -10,20 +10,81 @@ import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
 export class IngestionPage extends BasePage {
+  // ── Tab / top-level navigation ────────────────────────────────────────────
   readonly sourcesTab: Locator;
   readonly secretsTab: Locator;
   readonly createSourceButton: Locator;
   readonly createSecretButton: Locator;
   readonly searchInput: Locator;
 
+  // ── Snowflake / generic recipe form inputs ────────────────────────────────
+  readonly accountIdInput: Locator;
+  readonly warehouseInput: Locator;
+  readonly usernameInput: Locator;
+  readonly passwordInput: Locator;
+  readonly authTypeSelect: Locator;
+  readonly roleInput: Locator;
+
+  // ── Wizard navigation ─────────────────────────────────────────────────────
+  readonly dataSourceSearchInput: Locator;
+  readonly recipeYamlButton: Locator;
+  readonly recipeNextButton: Locator;
+  readonly scheduleNextButton: Locator;
+  /** AntD collapse panel that appears after the schedule step. */
+  readonly scheduleCollapseItem: Locator;
+  readonly sourceNameInput: Locator;
+  readonly saveButton: Locator;
+  /** AntD modal container; use .not.toBeVisible() to confirm wizard close. */
+  readonly wizardModal: Locator;
+
+  // ── Secret modal inputs ───────────────────────────────────────────────────
+  readonly secretNameInput: Locator;
+  readonly secretValueInput: Locator;
+  readonly secretDescriptionInput: Locator;
+  readonly secretCreateButton: Locator;
+  /** AntD virtual-list for secret/password dropdown options. */
+  readonly secretDropdownList: Locator;
+  /** First delete icon on the page; used by deleteSecret() after tab switch scopes the view. */
+  readonly firstDeleteIcon: Locator;
+
+  // ── Monaco editor ─────────────────────────────────────────────────────────
+  /** First (primary) Monaco scrollable element; all editor operations target this. */
+  readonly monacoEditor: Locator;
+
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
+
     // Tab keys use data-node-key attribute on ant-tabs
     this.sourcesTab = page.locator('[data-node-key="Sources"]');
     this.secretsTab = page.locator('[data-node-key="Secrets"]');
     this.createSourceButton = page.locator('[data-testid="create-ingestion-source-button"]');
     this.createSecretButton = page.locator('[data-testid="create-secret-button"]');
     this.searchInput = page.locator('[data-testid="search-bar-input"]');
+
+    this.accountIdInput = page.locator('#account_id');
+    this.warehouseInput = page.locator('#warehouse');
+    this.usernameInput = page.locator('#username');
+    this.passwordInput = page.locator('#password');
+    this.authTypeSelect = page.locator('#authentication_type');
+    this.roleInput = page.locator('#role');
+
+    this.dataSourceSearchInput = page.locator('[placeholder="Search data sources..."]');
+    this.recipeYamlButton = page.locator('[data-testid="recipe-builder-yaml-button"]');
+    this.recipeNextButton = page.locator('[data-testid="recipe-builder-next-button"]');
+    this.scheduleNextButton = page.locator('[data-testid="ingestion-schedule-next-button"]');
+    this.scheduleCollapseItem = page.locator('.ant-collapse-item'); // no data-testid on this AntD panel
+    this.sourceNameInput = page.locator('[data-testid="source-name-input"]');
+    this.saveButton = page.locator('[data-testid="ingestion-source-save-button"]');
+    this.wizardModal = page.locator('.ant-modal'); // no data-testid on the AntD modal root
+
+    this.secretNameInput = page.locator('[data-testid="secret-modal-name-input"] input');
+    this.secretValueInput = page.locator('[data-testid="secret-modal-value-input"] textarea');
+    this.secretDescriptionInput = page.locator('[data-testid="secret-modal-description-input"] textarea');
+    this.secretCreateButton = page.locator('[data-testid="secret-modal-create-button"]');
+    this.secretDropdownList = page.locator('.rc-virtual-list-holder-inner'); // AntD virtual-list, no testid
+    this.firstDeleteIcon = page.locator('[data-icon="delete"]').first();
+
+    this.monacoEditor = page.locator('.monaco-scrollable-element').first();
   }
 
   async navigate(): Promise<void> {
@@ -72,7 +133,7 @@ export class IngestionPage extends BasePage {
   // ── Snowflake source creation wizard helpers ────────────────────────────────
 
   async searchDataSource(query: string): Promise<void> {
-    await this.page.locator('[placeholder="Search data sources..."]').fill(query);
+    await this.dataSourceSearchInput.fill(query);
     await this.page.waitForTimeout(500);
   }
 
@@ -88,42 +149,40 @@ export class IngestionPage extends BasePage {
     password?: string;
     role: string;
   }): Promise<void> {
-    await expect(this.page.locator('#account_id')).toBeVisible({ timeout: 15000 });
-    await this.page.locator('#account_id').fill(params.accountId);
-    await this.page.locator('#warehouse').fill(params.warehouseId);
-    await this.page.locator('#username').fill(params.username);
+    await expect(this.accountIdInput).toBeVisible({ timeout: 15000 });
+    await this.accountIdInput.fill(params.accountId);
+    await this.warehouseInput.fill(params.warehouseId);
+    await this.usernameInput.fill(params.username);
 
     if (params.password !== undefined) {
-      // Select Username & Password auth type to expose password field
-      await this.page.locator('#authentication_type').click({ force: true });
-      await this.page.locator('.ant-select-dropdown [title="Username & Password"]').click();
-      await expect(this.page.locator('#password')).toBeVisible({ timeout: 5000 });
-      await this.page.locator('#password').fill(params.password);
-      await this.page.locator('#password').blur();
+      await this.selectAuthType('Username & Password');
+      await expect(this.passwordInput).toBeVisible({ timeout: 5000 });
+      await this.passwordInput.fill(params.password);
+      await this.passwordInput.blur();
     }
 
-    await this.page.locator('#role').fill(params.role);
+    await this.roleInput.fill(params.role);
   }
 
   async clickRecipeYamlButton(): Promise<void> {
-    await this.page.locator('[data-testid="recipe-builder-yaml-button"]').click();
+    await this.recipeYamlButton.click();
   }
 
   async clickRecipeNextButton(): Promise<void> {
-    await this.page.locator('[data-testid="recipe-builder-next-button"]').click();
+    await this.recipeNextButton.click();
   }
 
   async clickScheduleNextButton(): Promise<void> {
-    await this.page.locator('[data-testid="ingestion-schedule-next-button"]').click();
-    await expect(this.page.locator('.ant-collapse-item')).toBeVisible({ timeout: 15000 });
+    await this.scheduleNextButton.click();
+    await expect(this.scheduleCollapseItem).toBeVisible({ timeout: 15000 });
   }
 
   async fillSourceName(name: string): Promise<void> {
-    await this.page.locator('[data-testid="source-name-input"]').fill(name);
+    await this.sourceNameInput.fill(name);
   }
 
   async clickSaveButton(): Promise<void> {
-    await this.page.locator('[data-testid="ingestion-source-save-button"]').click();
+    await this.saveButton.click();
   }
 
   async clickNextButton(): Promise<void> {
@@ -137,14 +196,15 @@ export class IngestionPage extends BasePage {
     password: string;
     role: string;
   }): Promise<void> {
-    await expect(this.page.locator('#account_id')).toHaveValue(params.accountId, { timeout: 15000 });
-    await expect(this.page.locator('#warehouse')).toHaveValue(params.warehouseId);
-    await expect(this.page.locator('#username')).toHaveValue(params.username);
+    await expect(this.accountIdInput).toHaveValue(params.accountId, { timeout: 15000 });
+    await expect(this.warehouseInput).toHaveValue(params.warehouseId);
+    await expect(this.usernameInput).toHaveValue(params.username);
     await expect(
-      this.page.locator('#authentication_type').locator('xpath=ancestor::*[contains(@class,"ant-form-item")][1]'),
+      // XPath needed to reach the AntD form-item wrapper — no data-testid on the container.
+      this.authTypeSelect.locator('xpath=ancestor::*[contains(@class,"ant-form-item")][1]'),
     ).toContainText('Username & Password');
-    await expect(this.page.locator('#password')).toHaveValue(params.password);
-    await expect(this.page.locator('#role')).toHaveValue(params.role);
+    await expect(this.passwordInput).toHaveValue(params.password);
+    await expect(this.roleInput).toHaveValue(params.role);
   }
 
   // ── Verification helpers ──────────────────────────────────────────────────
@@ -171,11 +231,11 @@ export class IngestionPage extends BasePage {
   }
 
   async expectWizardModalClosed(timeout = 30000): Promise<void> {
-    await expect(this.page.locator('.ant-modal')).not.toBeVisible({ timeout });
+    await expect(this.wizardModal).not.toBeVisible({ timeout });
   }
 
   async fillRoleField(role: string): Promise<void> {
-    await this.page.locator('#role').fill(role);
+    await this.roleInput.fill(role);
   }
 
   // ── "Other" data-source type selection ─────────────────────────────────────
@@ -194,6 +254,12 @@ export class IngestionPage extends BasePage {
     const btn = this.page.getByRole('button', { name: 'Save & Run', exact: true });
     await btn.scrollIntoViewIfNeeded();
     await btn.click();
+  }
+
+  async expectSourceSucceeded(sourceName: string): Promise<void> {
+    await expect(
+      this.page.locator('tr').filter({ hasText: sourceName }).getByText('Succeeded'),
+    ).toBeVisible({ timeout: 180000 });
   }
 
   async expectSourceStatusPending(sourceName?: string): Promise<void> {
@@ -221,10 +287,10 @@ export class IngestionPage extends BasePage {
   // ── Secrets helpers ─────────────────────────────────────────────────────────
 
   async fillAndSubmitSecretModal(name: string, value: string, description: string): Promise<void> {
-    await this.page.locator('[data-testid="secret-modal-name-input"] input').fill(name);
-    await this.page.locator('[data-testid="secret-modal-value-input"] textarea').fill(value);
-    await this.page.locator('[data-testid="secret-modal-description-input"] textarea').fill(description);
-    await this.page.locator('[data-testid="secret-modal-create-button"]').click();
+    await this.secretNameInput.fill(name);
+    await this.secretValueInput.fill(value);
+    await this.secretDescriptionInput.fill(description);
+    await this.secretCreateButton.click();
   }
 
   async createSecret(name: string, value: string, description: string): Promise<void> {
@@ -233,7 +299,7 @@ export class IngestionPage extends BasePage {
   }
 
   async deleteSecret(name: string): Promise<void> {
-    await this.page.locator('[data-icon="delete"]').first().click();
+    await this.firstDeleteIcon.click();
     await expect(this.page.getByText('Confirm Secret Removal')).toBeVisible();
     await this.page.getByRole('button', { name: 'Yes' }).click();
     await expect(this.page.getByText('Removed secret.')).toBeVisible({ timeout: 15000 });
@@ -241,14 +307,15 @@ export class IngestionPage extends BasePage {
   }
 
   async selectAuthType(typeName: string): Promise<void> {
-    await this.page.locator('#authentication_type').click({ force: true });
-    // dispatchEvent bypasses Playwright's viewport check; AntD dropdown may render below the fold
+    await this.authTypeSelect.click({ force: true });
+    // dispatchEvent bypasses Playwright's viewport check; AntD dropdown may render below the fold.
+    // The [title] attribute on AntD Select options is the only stable identifier — no data-testid available.
     await this.page.locator(`.ant-select-dropdown [title="${typeName}"]`).dispatchEvent('click');
   }
 
   async openPasswordDropdown(): Promise<void> {
-    await this.page.locator('#password').clear();
-    await this.page.locator('#password').press('ArrowDown');
+    await this.passwordInput.clear();
+    await this.passwordInput.press('ArrowDown');
   }
 
   async clickCreateSecretInline(): Promise<void> {
@@ -258,32 +325,28 @@ export class IngestionPage extends BasePage {
   async selectSecretForPasswordField(secretName: string): Promise<void> {
     // Type the secret name to filter the dropdown before selecting. This avoids
     // virtual-list scroll issues when many secrets exist from prior test runs.
-    const passwordInput = this.page.locator('#password');
-    await passwordInput.clear();
-    await passwordInput.fill(secretName);
+    await this.passwordInput.clear();
+    await this.passwordInput.fill(secretName);
     // Wait for the filtered list to render before clicking.
-    await this.page.locator('.rc-virtual-list-holder-inner').getByText(secretName, { exact: true }).waitFor({
+    await this.secretDropdownList.getByText(secretName, { exact: true }).waitFor({
       state: 'visible',
       timeout: 10000,
     });
-    await this.page
-      .locator('.rc-virtual-list-holder-inner')
-      .getByText(secretName, { exact: true })
-      .click({ force: true });
-    await passwordInput.blur();
+    await this.secretDropdownList.getByText(secretName, { exact: true }).click({ force: true });
+    await this.passwordInput.blur();
   }
 
   // ── Monaco editor helpers (used by managed ingestion) ─────────────────────
 
   async clearMonacoEditor(): Promise<void> {
     const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-    await this.page.locator('.monaco-scrollable-element').first().click();
+    await this.monacoEditor.click();
     await this.page.keyboard.press(`${modKey}+a`);
     await this.page.keyboard.press('Backspace');
   }
 
   async typeInMonacoEditor(text: string): Promise<void> {
-    await this.page.locator('.monaco-scrollable-element').first().click();
+    await this.monacoEditor.click();
     await this.page.keyboard.type(text);
   }
 
@@ -292,9 +355,8 @@ export class IngestionPage extends BasePage {
   // because there are no intermediate clicks that can steal focus between clear and type.
   async setMonacoEditorContent(content: string): Promise<void> {
     const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-    const monacoEl = this.page.locator('.monaco-scrollable-element').first();
-    await monacoEl.scrollIntoViewIfNeeded();
-    await monacoEl.click();
+    await this.monacoEditor.scrollIntoViewIfNeeded();
+    await this.monacoEditor.click();
     await this.page.waitForTimeout(300);
     await this.page.keyboard.press(`${modKey}+a`);
     // Typing with the selection active replaces all content atomically

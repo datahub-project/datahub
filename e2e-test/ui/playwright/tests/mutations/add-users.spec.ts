@@ -15,10 +15,6 @@
 
 import { test, expect } from '../../fixtures/base-test';
 
-function getRandomTestId(): number {
-  return Math.floor(Math.random() * 100000);
-}
-
 // Shared state across serial tests
 let registeredEmail = '';
 
@@ -27,7 +23,7 @@ test.describe.skip('add_user', () => {
   test.describe.configure({ mode: 'serial' });
 
   test('go to user link and invite a user', async ({ page }) => {
-    const number = getRandomTestId();
+    const number = Math.floor(Math.random() * 100000);
     const name = `Example Name ${number}`;
     const email = `example${number}@example.com`;
 

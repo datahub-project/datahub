@@ -14,6 +14,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { PoliciesPage } from '../../pages/policies.page';
 
 const testId = Math.floor(Math.random() * 100000);
 const platformPolicyName = `Platform test policy ${testId}`;
@@ -23,43 +24,6 @@ const email = `example${number}@example.com`;
 const userPassword = 'Example password';
 
 let _registeredEmail = '';
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-async function searchForPolicy(page: import('@playwright/test').Page, policyName: string): Promise<void> {
-  await expect(page.locator('[data-testid="search-bar-input"]')).toBeVisible();
-  await page.locator('[data-testid="search-bar-input"]').clear();
-  await page.locator('[data-testid="search-bar-input"]').fill(policyName);
-  await page.waitForTimeout(500);
-}
-
-async function _openRowMenu(page: import('@playwright/test').Page, policyName: string): Promise<void> {
-  await page.locator('tr').filter({ hasText: policyName }).getByRole('button').last().click({ force: true });
-  await page.waitForTimeout(300);
-}
-
-async function _clickMenuAction(page: import('@playwright/test').Page, actionText: string): Promise<void> {
-  await page.locator('[data-testid^="menu-item-"]').getByText(actionText).click();
-}
-
-async function deactivateExistingAllUserPolicies(page: import('@playwright/test').Page): Promise<void> {
-  await expect(page.locator('tbody tr td')).toBeVisible();
-  const rows = page.locator('tbody tr');
-  const count = await rows.count();
-  for (let i = 0; i < count; i++) {
-    const row = rows.nth(i);
-    const roleText = await row.locator('td').nth(3).textContent();
-    if (roleText?.includes('All Users')) {
-      await row.getByRole('button').last().click({ force: true });
-      await page.waitForTimeout(300);
-      const deactivateItem = page.locator('[data-testid^="menu-item-"]').getByText('Deactivate');
-      if ((await deactivateItem.count()) > 0) {
-        await deactivateItem.click();
-        await expect(page.getByText('Successfully deactivated policy.')).toBeVisible({ timeout: 15000 });
-      }
-    }
-  }
-}
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -71,10 +35,14 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     await apiMock.setFeatureFlags({ showIngestionPageRedesign: false });
   });
 
-  test('create Metadata Ingestion platform policy and assign privileges to all users', async ({ page, logger }) => {
+  test('create Metadata Ingestion platform policy and assign privileges to all users', async ({
+    page,
+    logger,
+    logDir,
+  }) => {
+    const policiesPage = new PoliciesPage(page, logger, logDir);
     logger.step('navigate to policies');
-    await page.goto('/settings/permissions/policies');
-    await expect(page.getByText('Manage Permissions')).toBeVisible({ timeout: 15000 });
+    await policiesPage.navigate();
 
     // Filter to show all policies
     await page.locator('[data-testid="policy-filter"]').click();
@@ -82,7 +50,7 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     await page.waitForTimeout(500);
 
     // Deactivate any existing "All Users" policies that might conflict
-    await deactivateExistingAllUserPolicies(page);
+    await policiesPage.deactivateExistingAllUserPolicies();
     await page.reload();
 
     // Create a new platform policy
@@ -110,7 +78,7 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     await expect(page.getByText('Successfully saved policy.')).not.toBeVisible({ timeout: 15000 });
 
     await page.reload();
-    await searchForPolicy(page, platformPolicyName);
+    await policiesPage.searchForPolicy(platformPolicyName);
     await expect(page.locator('tbody').getByText(platformPolicyName)).toBeVisible({ timeout: 15000 });
 
     // Log out admin

@@ -7,7 +7,7 @@
  * The showIngestionPageRedesign feature flag is forced to false.
  */
 
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { IngestionPage } from '../../pages/ingestion.page';
 
 test.describe('run managed ingestion', () => {
@@ -43,13 +43,13 @@ test.describe('run managed ingestion', () => {
     logger.step('save and run ingestion source');
     await ingestionPage.clickSaveAndRunButton();
     await ingestionPage.expectWizardModalClosed(30000);
-    await ingestionPage.expectSourceVisible(testName);
+    // Use the retry+refresh loop rather than a bare toBeVisible: the ES index
+    // may not reflect the newly created source within the 30 s window.
+    await ingestionPage.expectSourceEventuallyVisible(testName);
 
     // Wait for the ingestion run to succeed (up to 3 minutes)
     logger.step('wait for ingestion to succeed');
-    await expect(page.locator('tr').filter({ hasText: testName }).getByText('Succeeded')).toBeVisible({
-      timeout: 180000,
-    });
+    await ingestionPage.expectSourceSucceeded(testName);
 
     // Delete the source
     logger.step('delete ingestion source');
