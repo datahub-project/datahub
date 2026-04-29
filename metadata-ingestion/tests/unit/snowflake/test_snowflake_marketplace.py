@@ -1,6 +1,5 @@
 """Unit tests for Snowflake Marketplace handler."""
 
-import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, cast
 
@@ -40,7 +39,8 @@ from tests.unit.snowflake.conftest_marketplace import (  # type: ignore[import-u
 
 @pytest.fixture
 def base_config() -> Dict[str, Any]:
-    """Base configuration for marketplace tests."""
+    """Base config; uses ``marketplace_mode='both'`` so the provider-side
+    usage SQL is exercised (it's skipped in pure consumer mode)."""
     return {
         "account_id": "test_account",
         "warehouse": "COMPUTE_WH",
@@ -48,6 +48,7 @@ def base_config() -> Dict[str, Any]:
         "username": "test_user",
         "marketplace": {
             "enabled": True,
+            "marketplace_mode": "both",
         },
     }
 
@@ -400,121 +401,6 @@ class TestListingPurchaseMatching:
         assert len(memory_wus) == 0
 
 
-# Share Objects Parsing Tests
-
-
-class TestShareObjectsParsing:
-    """Test parsing of SHARE_OBJECTS_ACCESSED JSON arrays."""
-
-    @pytest.mark.parametrize(
-        "share_objects,expected_databases",
-        [
-            pytest.param(
-                [
-                    {"objectName": "DB1.SCHEMA1.TABLE1", "objectDomain": "Table"},
-                    {"objectName": "DB1.SCHEMA2.TABLE2", "objectDomain": "Table"},
-                ],
-                ["DB1"],
-                id="single_database",
-            ),
-            pytest.param(
-                [
-                    {"objectName": "DB1.SCHEMA1.TABLE1", "objectDomain": "Table"},
-                    {"objectName": "DB2.SCHEMA2.TABLE2", "objectDomain": "Table"},
-                    {"objectName": "DB1.SCHEMA3.TABLE3", "objectDomain": "Table"},
-                ],
-                ["DB1", "DB2"],
-                id="multiple_databases",
-            ),
-            pytest.param(
-                [
-                    {
-                        "objectName": '"MY_DB"."MY_SCHEMA"."MY_TABLE"',
-                        "objectDomain": "Table",
-                    },
-                ],
-                ["MY_DB"],
-                id="quoted_identifiers",
-            ),
-            pytest.param(
-                [
-                    {
-                        "objectName": "'QUOTED_DB'.'SCHEMA'.'TABLE'",
-                        "objectDomain": "Table",
-                    },
-                ],
-                ["QUOTED_DB"],
-                id="single_quoted_identifiers",
-            ),
-            pytest.param(
-                [],
-                [],
-                id="empty_array",
-            ),
-            pytest.param(
-                [
-                    {"objectName": "DB.SCHEMA.VIEW", "objectDomain": "View"},
-                    {"objectName": "DB.SCHEMA.TABLE", "objectDomain": "Table"},
-                ],
-                ["DB"],
-                id="mixed_object_types",
-            ),
-        ],
-    )
-    def test_parse_share_objects(
-        self,
-        base_config: Dict[str, Any],
-        share_objects: List[Dict[str, Any]],
-        expected_databases: List[str],
-    ) -> None:
-        """Test parsing share objects with various inputs."""
-        handler = create_handler(base_config)
-        share_objects_json = json.dumps(share_objects)
-        databases = handler._parse_share_objects(share_objects_json)
-
-        assert sorted(databases) == sorted(expected_databases)
-
-    @pytest.mark.parametrize(
-        "invalid_input",
-        [
-            pytest.param("not valid json", id="invalid_json"),
-            pytest.param("{}", id="dict_not_array"),
-            pytest.param("[]", id="empty_string_array"),
-        ],
-    )
-    def test_parse_share_objects_invalid_input(
-        self, base_config: Dict[str, Any], invalid_input: str
-    ) -> None:
-        """Test parsing share objects with invalid inputs."""
-        handler = create_handler(base_config)
-        databases = handler._parse_share_objects(invalid_input)
-        assert databases == []
-
-    def test_parse_share_objects_malformed_object_name(
-        self, base_config: Dict[str, Any]
-    ) -> None:
-        """Test parsing share objects with malformed object names."""
-        handler = create_handler(base_config)
-
-        # Object name without dots (invalid format)
-        share_objects_json = json.dumps(
-            [
-                {"objectName": "JUST_A_NAME", "objectDomain": "Table"},
-            ]
-        )
-        databases = handler._parse_share_objects(share_objects_json)
-        assert "JUST_A_NAME" in databases  # Still extracts the name
-
-        # Object with missing objectName
-        share_objects_json = json.dumps(
-            [
-                {"objectDomain": "Table"},
-            ]
-        )
-        databases = handler._parse_share_objects(share_objects_json)
-        assert databases == []
-
-
 # Usage Statistics Tests
 
 
@@ -714,18 +600,16 @@ class TestMarketplaceConfiguration:
         mock_listings: List[Dict[str, Any]],
         mock_purchases: List[Dict[str, Any]],
     ) -> None:
-        """Test that marketplace config uses its own time windows (BaseTimeWindowConfig)."""
+        """Marketplace usage uses the parent connector's time window."""
         from datetime import datetime, timezone
 
         custom_start = datetime(2024, 6, 1, tzinfo=timezone.utc)
         custom_end = datetime(2024, 7, 1, tzinfo=timezone.utc)
 
-        # Bucket timestamp is now sourced from the SQL row, not from start_time.
         bucket_time = datetime(2024, 6, 5, 12, 0, 0, tzinfo=timezone.utc)
         usage_rows = [
             {
                 "BUCKET_START_TIME": bucket_time,
-                "LISTING_GLOBAL_NAME": "ACME.DATA.LISTING",
                 "OBJECT_NAME": "DEMO_DATABASE.PUBLIC.CUSTOMERS",
                 "OBJECT_DOMAIN": "Table",
                 "TOTAL_QUERIES": 1,
@@ -734,12 +618,9 @@ class TestMarketplaceConfiguration:
         ]
 
         config_dict = base_config.copy()
-        config_dict["marketplace"] = {
-            "enabled": True,
-            "start_time": custom_start.isoformat(),
-            "end_time": custom_end.isoformat(),
-            "bucket_duration": "HOUR",
-        }
+        config_dict["start_time"] = custom_start.isoformat()
+        config_dict["end_time"] = custom_end.isoformat()
+        config_dict["bucket_duration"] = "HOUR"
 
         handler = create_handler(config_dict, mock_listings, mock_purchases, usage_rows)
         wus = list(handler.get_marketplace_workunits())

@@ -106,6 +106,9 @@ class SnowflakeV2Report(
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0
     semantic_views_scanned: int = 0
+    stages_scanned: int = 0
+    tasks_scanned: int = 0
+    pipes_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -124,6 +127,7 @@ class SnowflakeV2Report(
     marketplace_purchases_scanned: int = 0
     marketplace_usage_events_processed: int = 0
     marketplace_data_products_created: int = 0
+    marketplace_domains_created: int = 0
     marketplace_enhanced_datasets: int = 0
 
     # Lineage consistency tracking

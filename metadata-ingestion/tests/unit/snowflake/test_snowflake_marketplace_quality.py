@@ -188,26 +188,37 @@ class TestMarketplaceBusinessLogic:
             "Should NOT match Weather because title is 'Acme Data', which doesn't contain 'Weather'"
         )
 
-    def test_marketplace_time_window_config_inheritance(
+    def test_marketplace_uses_parent_connector_time_window(
         self, base_config: Dict[str, Any]
     ) -> None:
-        """Test that marketplace config properly inherits from BaseTimeWindowConfig."""
+        """Marketplace usage reads its window from the top-level connector
+        config rather than a separate ``marketplace.start_time``."""
         custom_start = datetime(2024, 6, 1, tzinfo=timezone.utc)
         custom_end = datetime(2024, 7, 1, tzinfo=timezone.utc)
 
         config_dict = base_config.copy()
-        config_dict["marketplace"] = {
-            "enabled": True,
-            "start_time": custom_start.isoformat(),
-            "end_time": custom_end.isoformat(),
-            "bucket_duration": "HOUR",
-        }
+        config_dict["start_time"] = custom_start.isoformat()
+        config_dict["end_time"] = custom_end.isoformat()
+        config_dict["bucket_duration"] = "HOUR"
 
         config = SnowflakeV2Config.parse_obj(config_dict)
 
-        assert config.marketplace.start_time == custom_start
-        assert config.marketplace.end_time == custom_end
-        assert config.marketplace.bucket_duration == "HOUR"
+        assert config.start_time == custom_start
+        assert config.end_time == custom_end
+        assert config.bucket_duration == "HOUR"
+
+    def test_marketplace_scoped_time_window_fields_are_removed(
+        self, base_config: Dict[str, Any]
+    ) -> None:
+        """Setting the removed marketplace-scoped time window fields should
+        emit a deprecation warning rather than being silently ignored."""
+        config_dict = base_config.copy()
+        config_dict["marketplace"] = {
+            "enabled": True,
+            "start_time": "2024-06-01T00:00:00+00:00",
+        }
+        with pytest.warns(Warning, match="start_time was removed"):
+            SnowflakeV2Config.parse_obj(config_dict)
 
     def test_structured_properties_have_correct_entity_types(
         self, base_config: Dict[str, Any]
@@ -241,16 +252,14 @@ class TestMarketplaceBusinessLogic:
     def test_marketplace_usage_queries_time_filtered(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
     ) -> None:
-        """Test that usage queries properly filter by marketplace time windows."""
+        """Verify the parent connector's window is what gets passed to
+        marketplace usage queries."""
         start_time = datetime(2024, 6, 1, tzinfo=timezone.utc)
         end_time = datetime(2024, 7, 1, tzinfo=timezone.utc)
 
         config_dict = base_config.copy()
-        config_dict["marketplace"] = {
-            "enabled": True,
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-        }
+        config_dict["start_time"] = start_time.isoformat()
+        config_dict["end_time"] = end_time.isoformat()
 
         fake_native = _FakeNativeConn()
         fake_native.set_mock_response("SHOW AVAILABLE LISTINGS", mock_listings)
@@ -261,13 +270,8 @@ class TestMarketplaceBusinessLogic:
 
         config = SnowflakeV2Config.parse_obj(config_dict)
 
-        assert (
-            int(config.marketplace.start_time.timestamp() * 1000)
-            == expected_start_millis
-        )
-        assert (
-            int(config.marketplace.end_time.timestamp() * 1000) == expected_end_millis
-        )
+        assert int(config.start_time.timestamp() * 1000) == expected_start_millis
+        assert int(config.end_time.timestamp() * 1000) == expected_end_millis
 
     def test_permission_error_on_show_listings_doesnt_crash(
         self, base_config: Dict[str, Any]

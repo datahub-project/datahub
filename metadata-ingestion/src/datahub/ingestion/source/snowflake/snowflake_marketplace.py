@@ -27,6 +27,9 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowsightUrlBuilder,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
@@ -92,6 +95,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         identifiers: SnowflakeIdentifierBuilder,
         domain_registry: Optional[DomainRegistry] = None,
         snowsight_url_builder: Optional[SnowsightUrlBuilder] = None,
+        redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ) -> None:
         self.config = config
         self.report = report
@@ -99,6 +103,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         self.identifiers = identifiers
         self.domain_registry = domain_registry
         self.snowsight_url_builder = snowsight_url_builder
+        self.redundant_run_skip_handler = redundant_run_skip_handler
 
         self._marketplace_listings: Dict[str, SnowflakeMarketplaceListing] = {}
         self._marketplace_purchases: Dict[str, SnowflakeMarketplacePurchase] = {}
@@ -119,7 +124,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         yield from self._create_marketplace_data_products()
         yield from self._associate_assets_to_data_products()
         yield from self._enhance_purchased_datasets()
-        yield from self._create_marketplace_usage_statistics()
+
+        # LISTING_ACCESS_HISTORY is provider-side, so skip the query in pure
+        # consumer mode — it would always return zero rows.
+        if self.config.marketplace.marketplace_mode in ("provider", "both"):
+            yield from self._create_marketplace_usage_statistics()
 
     def _create_marketplace_structured_property_definitions(
         self,
@@ -319,12 +328,8 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             )
 
     def _build_marketplace_listing_url(self, listing_global_name: str) -> str:
-        """Build a Snowsight URL for a marketplace listing.
-
-        Uses ``SnowsightUrlBuilder`` when available so the URL respects region,
-        account locator, PrivateLink, and the ``snowflakecomputing.cn`` domain.
-        Falls back to a path-only ``app.snowflake.com`` URL.
-        """
+        """Snowsight URL for a marketplace listing, falling back to the
+        path-only ``app.snowflake.com`` URL when no builder is available."""
         if self.snowsight_url_builder is not None:
             url = self.snowsight_url_builder.get_external_url_for_internal_marketplace_listing(
                 listing_global_name
@@ -336,14 +341,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
     _EMAIL_SHAPE_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
     def _normalize_owner_urn(self, owner: str) -> Optional[str]:
-        """Map a Snowflake owner string to a DataHub URN, or None if free-form.
-
-        Snowflake's ``request_approver`` / ``support_contact`` fields accept
-        arbitrary text ("Data Governance Team", "TBD", "#data-help on Slack").
-        Minting a corpuser URN from each of those would pollute the user
-        directory, so we only accept existing URNs, ``user:``/``group:``
-        prefixes, and email-shaped values.
-        """
+        """Map a Snowflake owner string to a DataHub URN, or ``None`` for
+        free-form text. Accepts existing URNs, ``user:``/``group:`` prefixes,
+        and email-shaped values; returns ``None`` for everything else so
+        marketplace strings like ``"Data Governance Team"`` don't get minted
+        into the corpuser directory."""
         if not owner:
             return None
         val = owner.strip()
@@ -843,7 +845,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 description=f"Internal marketplace data products from {org_name}",
             )
 
-            self.report.report_entity_scanned("domain")
+            self.report.marketplace_domains_created += 1
 
     def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:
         for listing in self._marketplace_listings.values():
@@ -1083,35 +1085,6 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
             self.report.report_marketplace_dataset_enhanced()
 
-    def _parse_share_objects(self, share_objects_str: str) -> List[str]:
-        """
-        Parse SHARE_OBJECTS_ACCESSED JSON to extract database names.
-        Format: [{"objectName": "DB.SCHEMA.TABLE", "objectDomain": "Table", ...}, ...]
-        """
-        try:
-            objects = (
-                json.loads(share_objects_str)
-                if isinstance(share_objects_str, str)
-                else share_objects_str
-            )
-            databases: Set[str] = set()
-
-            if not isinstance(objects, list):
-                return []
-
-            for obj in objects:
-                if isinstance(obj, dict):
-                    object_name = obj.get("objectName", "")
-                    if object_name:
-                        parts = object_name.split(".")
-                        if parts:
-                            databases.add(parts[0].strip('"').strip("'"))
-
-            return list(databases)
-        except (json.JSONDecodeError, AttributeError, KeyError, TypeError) as e:
-            logger.warning(f"Failed to parse share objects: {e}")
-            return []
-
     _USAGE_OBJECT_DOMAINS = frozenset(
         {"table", "view", "materialized view", "materialized_view", "external table"}
     )
@@ -1119,19 +1092,31 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
     def _create_marketplace_usage_statistics(self) -> Iterable[MetadataWorkUnit]:
         """Emit ``DatasetUsageStatistics`` for marketplace listing access.
 
-        ``LISTING_ACCESS_HISTORY`` is provider-side, so this only produces rows
-        on provider / "both"-mode accounts; consumer-side usage of an imported
-        database flows through the regular usage pipeline on ``QUERY_HISTORY``.
-
-        Bucketing is done in SQL via ``DATE_TRUNC`` (one workunit per row at
-        its ``BUCKET_START_TIME``). ``userCounts`` is intentionally omitted:
-        ``CONSUMER_ACCOUNT_NAME`` is a Snowflake account, not a person, and
-        minting ``urn:li:corpuser:`` URNs from account names would pollute the
-        user directory.
+        Bucketing is done in SQL (one workunit per row at its
+        ``BUCKET_START_TIME``). ``userCounts`` is intentionally omitted —
+        ``CONSUMER_ACCOUNT_NAME`` is a Snowflake account, not a person, so
+        minting ``urn:li:corpuser:`` URNs from it would pollute the user
+        directory.
         """
-        start_time_millis = int(self.config.marketplace.start_time.timestamp() * 1000)
-        end_time_millis = int(self.config.marketplace.end_time.timestamp() * 1000)
-        bucket_duration = self.config.marketplace.bucket_duration
+        # Read the window from the redundant-run handler when available so we
+        # match snowflake_usage_v2; never call update_state — the main usage
+        # extractor owns the checkpoint.
+        if self.redundant_run_skip_handler is not None:
+            start_time, end_time = (
+                self.redundant_run_skip_handler.suggest_run_time_window(
+                    self.config.start_time, self.config.end_time
+                )
+            )
+        else:
+            start_time, end_time = self.config.start_time, self.config.end_time
+
+        start_time_millis = int(start_time.timestamp() * 1000)
+        end_time_millis = int(end_time.timestamp() * 1000)
+        bucket_duration = self.config.bucket_duration
+
+        listing_names = sorted(self._marketplace_listings.keys())
+        if not listing_names:
+            return
 
         try:
             cur = self.connection.query(
@@ -1139,14 +1124,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     start_time_millis,
                     end_time_millis,
                     time_bucket_size=bucket_duration,
+                    listing_global_names=listing_names,
                 )
             )
 
             for row in cur:
-                listing_name = row.get("LISTING_GLOBAL_NAME")
-                if not listing_name or listing_name not in self._marketplace_listings:
-                    continue
-
                 object_domain = str(row.get("OBJECT_DOMAIN", "") or "").lower()
                 if object_domain not in self._USAGE_OBJECT_DOMAINS:
                     continue

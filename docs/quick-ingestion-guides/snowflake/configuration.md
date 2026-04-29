@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: Snowflake Configuration
 ---
 
 # Configuring Your Snowflake Connector to DataHub

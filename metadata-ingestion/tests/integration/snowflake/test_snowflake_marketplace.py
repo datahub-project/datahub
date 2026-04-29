@@ -14,11 +14,8 @@ from tests.integration.snowflake.common import (
 
 pytestmark = pytest.mark.integration_batch_2
 
-# Use a tz-aware datetime (rather than the naive ``FROZEN_TIME`` string from
-# ``common.py``) so audit-stamp timestamps are stable regardless of the host's
-# TZ env var. The naive form would resolve to a different UTC instant on a
-# JST-configured developer machine vs. a UTC CI runner, which makes the golden
-# file order-dependent when other suites mutate ``TZ`` mid-run.
+# Tz-aware so audit-stamp timestamps are stable regardless of the host's TZ
+# env var (the naive ``FROZEN_TIME`` from ``common.py`` doesn't pin to UTC).
 FROZEN_TIME_UTC = datetime(2022, 6, 7, 17, 0, 0, tzinfo=timezone.utc)
 
 
@@ -52,7 +49,7 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
                     # Enable INTERNAL marketplace features
                     "marketplace": {
                         "enabled": True,
-                        "marketplace_mode": "both",  # Test both consumer and provider modes
+                        "marketplace_mode": "both",
                     },
                     # Add shares configuration to link databases to listings
                     "shares": {
@@ -94,7 +91,7 @@ def test_snowflake_marketplace(pytestconfig, tmp_path, mock_time, mock_datahub_g
         assert report.marketplace_purchases_scanned == 1
         assert report.marketplace_data_products_created == 2
         assert report.marketplace_enhanced_datasets == 1
-        # Sum of TOTAL_QUERIES across the bucketed rows: 2 (CUSTOMERS) + 1 (ORDERS).
+        # Sum of TOTAL_QUERIES across the bucketed rows.
         assert report.marketplace_usage_events_processed == 3
 
         # Verify the output matches expectations
@@ -136,6 +133,8 @@ def test_snowflake_marketplace_with_filtering(
                     # Enable INTERNAL marketplace with filtering
                     "marketplace": {
                         "enabled": True,
+                        # 'both' so LISTING_ACCESS_HISTORY usage stats are emitted.
+                        "marketplace_mode": "both",
                         "internal_marketplace_listing_pattern": {
                             "allow": ["ACME_CORP.*"],
                             "deny": [".*WEATHER.*"],

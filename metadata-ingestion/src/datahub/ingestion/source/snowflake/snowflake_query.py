@@ -748,6 +748,18 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         show imported keys in schema "{db_name}"."{schema_name}" """
 
     @staticmethod
+    def show_stages_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW STAGES IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_tasks_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW TASKS IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_pipes_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW PIPES IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
     def operational_data_for_time_window(
         start_time_millis: int, end_time_millis: int
     ) -> str:
@@ -1442,23 +1454,29 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         time_bucket_size: BucketDuration = BucketDuration.DAY,
+        listing_global_names: Optional[List[str]] = None,
     ) -> str:
         """Internal marketplace listing access history, bucketed and flattened.
 
-        ``DATE_TRUNC`` produces one row per bucket (matching the pattern in
-        ``snowflake_usage_v2``), and ``LATERAL FLATTEN`` over
-        ``SHARE_OBJECTS_ACCESSED`` produces one row per accessed object, so the
-        Python side can emit usage directly on real ``urn:li:dataset:`` URNs
-        without further aggregation.
+        Buckets via ``DATE_TRUNC`` and flattens ``SHARE_OBJECTS_ACCESSED`` so
+        each row is one (bucket, table) tuple ready to attach to a real
+        ``urn:li:dataset:`` URN. Listing filtering is in WHERE (not GROUP BY)
+        so a table exposed via N listings still produces a single row —
+        ``COUNT(DISTINCT CONSUMER_ACCOUNT_NAME)`` can't be reconstructed by
+        summing in Python.
 
-        All interpolated values are type-constrained: timestamps are ``int``
-        and ``time_bucket_size`` is a ``BucketDuration`` ``StrEnum`` (only
-        ``DAY`` / ``HOUR``), so this is not user-controlled SQL.
+        Inputs are type-constrained (``int``, ``BucketDuration``) and listing
+        names are single-quote escaped, so this isn't user-controlled SQL.
         """
+        listing_filter = ""
+        if listing_global_names:
+            quoted = ", ".join(
+                "'" + name.replace("'", "''") + "'" for name in listing_global_names
+            )
+            listing_filter = f"\n              AND h.LISTING_GLOBAL_NAME IN ({quoted})"
         return f"""
             SELECT
                 DATE_TRUNC('{time_bucket_size.value}', h.QUERY_DATE) AS "BUCKET_START_TIME",
-                h.LISTING_GLOBAL_NAME AS "LISTING_GLOBAL_NAME",
                 f.value:"objectName"::STRING AS "OBJECT_NAME",
                 f.value:"objectDomain"::STRING AS "OBJECT_DOMAIN",
                 COUNT(DISTINCT h.QUERY_TOKEN) AS "TOTAL_QUERIES",
@@ -1468,9 +1486,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             WHERE h.QUERY_DATE >= to_timestamp_ltz({start_time_millis}, 3)
               AND h.QUERY_DATE < to_timestamp_ltz({end_time_millis}, 3)
               AND h.IS_SHARE = TRUE
-              AND f.value:"objectName" IS NOT NULL
-            GROUP BY 1, 2, 3, 4
-            ORDER BY 1, 2, 3
+              AND f.value:"objectName" IS NOT NULL{listing_filter}
+            GROUP BY 1, 2, 3
+            ORDER BY 1, 2
             """
 
     @staticmethod

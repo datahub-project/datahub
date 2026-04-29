@@ -47,6 +47,9 @@ google-cloud-aiplatform>=1.133.0
 langgraph>=1.0.10
 langgraph-checkpoint>=4.0.0
 langsmith>=0.6.3
+# CVE-2026-41066: lxml 6.0.x default entity resolution; fixed in 6.1.0. Major cap until reviewed.
+# (unstructured / HTML parsing; bundled venvs such as datahub-documents-bundled.)
+lxml>=6.1.0,<7.0.0
 # mlflow-skinny: CVE-2025-14287, CVE-2025-15031, CVE-2026-2033 (fixed >=3.9.0)
 mlflow-skinny>=3.9.0,<4.0.0
 # ujson: parsing huge out-of-range integers leaked memory in 5.4.0–5.11.0; indent handling

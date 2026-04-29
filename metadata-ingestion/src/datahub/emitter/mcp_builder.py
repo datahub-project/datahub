@@ -194,7 +194,7 @@ class DataProductKey(DatahubKey):
     instance: Optional[str] = None
 
     def property_dict(self) -> Dict[str, str]:
-        return self.dict(by_alias=True, exclude_none=True)
+        return self.model_dump(by_alias=True, exclude_none=True)
 
     def as_urn(self) -> str:
         return f"urn:li:dataProduct:{self.guid()}"
@@ -206,7 +206,7 @@ class DomainKey(DatahubKey):
     instance: Optional[str] = None
 
     def property_dict(self) -> Dict[str, str]:
-        return self.dict(by_alias=True, exclude_none=True)
+        return self.model_dump(by_alias=True, exclude_none=True)
 
     def as_urn(self) -> str:
         return f"urn:li:domain:{self.guid()}"
@@ -519,13 +519,11 @@ def gen_domain(
     name: str,
     description: Optional[str] = None,
     parent_domain_urn: Optional[str] = None,
-    owner_urn: Optional[str] = None,
     owner_urns: Optional[List[str]] = None,
     ownership_type: str = OwnershipTypeClass.DATAOWNER,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn = domain_key.as_urn()
 
-    # Emit Domain Properties
     yield MetadataChangeProposalWrapper(
         entityUrn=domain_urn,
         aspect=DomainPropertiesClass(
@@ -535,14 +533,7 @@ def gen_domain(
         ),
     ).as_workunit()
 
-    # Handle owners - support both single owner_urn (backward compat) and owner_urns (preferred)
-    owners_to_emit: List[str] = []
-    if owner_urns:
-        owners_to_emit.extend(owner_urns)
-    elif owner_urn:
-        owners_to_emit.append(owner_urn)
-
-    for owner in owners_to_emit:
+    for owner in owner_urns or []:
         yield from add_owner_to_entity_wu(
             entity_type="domain",
             entity_urn=domain_urn,

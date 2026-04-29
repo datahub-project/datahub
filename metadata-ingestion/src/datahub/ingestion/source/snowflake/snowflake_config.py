@@ -195,6 +195,24 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Analytics.public.sales.*'",
     )
 
+    stage_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stages to filter in ingestion. "
+        "Specify regex to match the entire stage name in database.schema.stage format.",
+    )
+
+    task_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for tasks to filter in ingestion. "
+        "Specify regex to match the entire task name in database.schema.task format.",
+    )
+
+    pipe_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for pipes to filter in ingestion. "
+        "Specify regex to match the entire pipe name in database.schema.pipe format.",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
@@ -293,7 +311,7 @@ class SnowflakeConfig(
     upstream_lineage_in_report: bool = False
 
 
-class SnowflakeMarketplaceConfig(BaseTimeWindowConfig):
+class SnowflakeMarketplaceConfig(ConfigModel):
     """
     Configuration for Snowflake Internal Marketplace (Private Data Sharing).
 
@@ -306,6 +324,12 @@ class SnowflakeMarketplaceConfig(BaseTimeWindowConfig):
     - Databases purchased/imported from internal listings (IMPORTED DATABASE type - consumer mode)
     - Databases you're sharing via OUTBOUND shares (provider mode)
     - Usage of internal marketplace data products
+
+    The usage time window and bucket duration come from the parent connector's
+    ``start_time`` / ``end_time`` / ``bucket_duration`` (and from the same
+    ``RedundantUsageRunSkipHandler`` as the main usage extractor when stateful
+    usage ingestion is enabled), so marketplace usage follows the connector's
+    overall schedule.
     """
 
     enabled: bool = Field(
@@ -372,6 +396,16 @@ class SnowflakeMarketplaceConfig(BaseTimeWindowConfig):
                 f"marketplace_mode must be one of {allowed_modes}, got '{v}'"
             )
         return v
+
+    # Marketplace usage now reuses the parent connector's window; warn loudly
+    # if a recipe still sets the old marketplace-scoped fields.
+    _marketplace_start_time_removed = pydantic_removed_field(
+        "start_time", "April", 2026
+    )
+    _marketplace_end_time_removed = pydantic_removed_field("end_time", "April", 2026)
+    _marketplace_bucket_duration_removed = pydantic_removed_field(
+        "bucket_duration", "April", 2026
+    )
 
 
 class SnowflakeV2Config(
@@ -523,6 +557,21 @@ class SnowflakeV2Config(
     semantic_views: SemanticViewsConfig = Field(
         default_factory=SemanticViewsConfig,
         description="Configuration for semantic views ingestion.",
+    )
+
+    include_stages: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Stages will be ingested as containers with associated metadata.",
+    )
+
+    include_tasks: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Tasks will be ingested as DataJobs with DAG dependencies and SQL lineage.",
+    )
+
+    include_pipes: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
     )
 
     marketplace: SnowflakeMarketplaceConfig = Field(

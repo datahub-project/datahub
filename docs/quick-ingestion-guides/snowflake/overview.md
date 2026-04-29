@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: Snowflake Overview
 ---
 
 # Snowflake Ingestion Guide: Overview

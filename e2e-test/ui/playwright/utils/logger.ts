@@ -48,16 +48,34 @@ const consoleFormat = winston.format.combine(
 
 const fileFormat = winston.format.combine(winston.format.timestamp(), winston.format.json());
 
+/**
+ * Lightweight logger for scripts that run outside the Playwright fixture scope
+ * (setup files, standalone utilities). Always writes to console; never to file.
+ */
+export function createScriptLogger(script: string): DataHubLogger {
+  const winstonLogger = winston.createLogger({
+    defaultMeta: { script },
+    transports: [new winston.transports.Console({ format: consoleFormat })],
+  });
+  return {
+    info: (message, data) => winstonLogger.info(message, data),
+    warn: (message, data) => winstonLogger.warn(message, data),
+    error: (message, data) => winstonLogger.error(message, data),
+    step: (name, data) => winstonLogger.info(name, { ...data, isStep: true }),
+  };
+}
+
 export function createLogger(logDir: string, testMeta: TestMeta): DataHubLogger {
   const transports: winston.transport[] = [];
 
-  if (!process.env.CI) {
+  if (!process.env.CI || !logDir) {
     transports.push(new winston.transports.Console({ format: consoleFormat }));
   }
 
   // In CI write structured JSON logs to files so they can be archived.
   // Append the retry index to the filename so retried attempts don't overwrite the first run.
-  if (process.env.CI) {
+  // logDir may be empty for infrastructure fixtures (e.g. seeding); skip file transport in that case.
+  if (process.env.CI && logDir) {
     fs.mkdirSync(logDir, { recursive: true });
     const retrySuffix = testMeta.retry > 0 ? `-retry${testMeta.retry}` : '';
     transports.push(

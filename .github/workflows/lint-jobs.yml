@@ -26,6 +26,7 @@ jobs:
       datahub-web-react: ${{ steps.filter.outputs.datahub-web-react == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
       small-runner: ${{ steps.runners.outputs.small-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
@@ -236,3 +237,25 @@ jobs:
           path: |
             ${{ env.YARN_CACHE_FOLDER }}
           key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+
+  playwright-e2e-lint:
+    name: playwright-e2e-lint
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.playwright-e2e == 'true'
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+      - name: Prettier format check
+        working-directory: e2e-test/ui/playwright
+        run: yarn format:check
+      - name: ESLint
+        working-directory: e2e-test/ui/playwright
+        run: yarn lint
