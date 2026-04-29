@@ -1,5 +1,6 @@
 ---
 title: Looker Overview
+description: "Quick start guide for ingesting Looker dashboards, looks, explores, and lineage into DataHub via the UI ingestion workflow."
 ---
 
 # Looker & LookML Ingestion Guide: Overview

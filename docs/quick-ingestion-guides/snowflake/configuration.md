@@ -1,5 +1,6 @@
 ---
 title: Snowflake Configuration
+description: "Configure DataHub UI ingestion to connect to Snowflake using the dedicated DataHub user and roles created in the previous step."
 ---
 
 # Configuring Your Snowflake Connector to DataHub

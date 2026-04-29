@@ -1,5 +1,6 @@
 ---
 title: "Transformers Introduction"
+description: "Transformers in DataHub ingestion let you modify metadata events in-flight to enrich, filter, or rewrite records before emit."
 ---
 
 # Transformers

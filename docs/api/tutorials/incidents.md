@@ -1,5 +1,6 @@
 ---
 title: Incidents API Tutorial
+description: "Step-by-step tutorial for raising, resolving, and querying DataHub Incidents on datasets and dashboards via the API."
 ---
 
 import Tabs from '@theme/Tabs';
