@@ -207,13 +207,15 @@ jobs:
             ' "${CFG}")"
           } >> "${GITHUB_OUTPUT}"
 
-      # Linear label + refs comment use the repository default branch name (GitHub API), not the
-      # branch you dispatched from. Container pulls use RESOLVED_DOCKER_TAG elsewhere.
+      # Linear ref label: use the repo default branch when scanning image tags `head` or `latest`
+      # (nightly / default tip); otherwise use the provided docker tag as a tag ref (e.g. release).
+      # Container pulls always use RESOLVED_DOCKER_TAG.
       - name: Resolve git ref (Linear)
         id: git-ref
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          RESOLVED_DOCKER_TAG: ${{ env.RESOLVED_DOCKER_TAG }}
         run: |
           set -euo pipefail
           commit="$(git rev-parse HEAD)"
@@ -222,13 +224,29 @@ jobs:
             echo "::error::Could not resolve repository default branch via GitHub API"
             exit 1
           fi
-          {
-            echo "kind=branch"
-            echo "name=${default_branch}"
-            echo "github_ref=refs/heads/${default_branch}"
-            echo "sha=${commit}"
-          } >> "$GITHUB_OUTPUT"
-          echo "::notice::Linear ref label uses repository default branch ${default_branch}"
+          scan_tag="${RESOLVED_DOCKER_TAG//[[:space:]]/}"
+          if [[ -z "${scan_tag}" ]]; then
+            echo "::error::RESOLVED_DOCKER_TAG is empty (cannot set Linear ref label)"
+            exit 1
+          fi
+          lt="$(printf '%s' "${scan_tag}" | tr '[:upper:]' '[:lower:]')"
+          if [[ "${lt}" == "head" || "${lt}" == "latest" ]]; then
+            {
+              echo "kind=branch"
+              echo "name=${default_branch}"
+              echo "github_ref=refs/heads/${default_branch}"
+              echo "sha=${commit}"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::Linear ref label: default branch ${default_branch} (image tag ${scan_tag})"
+          else
+            {
+              echo "kind=tag"
+              echo "name=${scan_tag}"
+              echo "github_ref=refs/tags/${scan_tag}"
+              echo "sha=${commit}"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::Linear ref label: image tag ${scan_tag} (not head/latest)"
+          fi
 
       - &ecr_login
         name: Login to Amazon ECR

@@ -27,6 +27,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    DataModelElementUpstream,
     DatasetUpstream,
     Element,
     ElementUpstream,
@@ -53,9 +54,16 @@ class SigmaAPI:
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
+        # Track source_type values we've already warned about to keep the
+        # report summary readable on large tenants with repeated unknown
+        # node types.
+        self._unknown_lineage_node_types_warned: Set[str] = set()
         self.session = requests.Session()
 
-        # Configure retry strategy for 429/503 with exponential backoff
+        # Configure retry strategy for 429/503 with exponential backoff.
+        # raise_on_status=False must stay False: get_data_model_by_url_id
+        # inspects response.status_code to surface 429 explicitly; if True,
+        # exhausted retries raise MaxRetryError and bypass that branch.
         retry_strategy = Retry(
             total=3,
             status_forcelist=[429, 503],
@@ -334,6 +342,7 @@ class SigmaAPI:
                 )
             except ValidationError as e:
                 self.report.warning(
+                    title="Sigma lineage node parse failed",
                     message="Failed to parse Sigma lineage node",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
@@ -342,6 +351,7 @@ class SigmaAPI:
             element_id = source_node.get(Constant.ELEMENTID)
             if element_id is None:
                 self.report.warning(
+                    title="Sigma sheet lineage node missing elementId",
                     message="Sheet upstream node missing elementId",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                 )
@@ -353,21 +363,64 @@ class SigmaAPI:
                 )
             except ValidationError as e:
                 self.report.warning(
+                    title="Sigma lineage node parse failed",
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
+                )
+        elif source_type == "data-model":
+            # Node id shape is "<dataModelUrlId>/<opaque_suffix>"; we carry
+            # the prefix and the DM-side ``name`` for name-based matching
+            # at emit time.
+            dm_url_id = (
+                source_node_id.split("/")[0]
+                if "/" in source_node_id
+                else source_node_id
+            )
+            if not dm_url_id:
+                self.report.warning(
+                    title="Sigma data-model lineage node missing url-id prefix",
+                    message="Sigma data-model lineage node missing url-id prefix",
+                    context=(
+                        f"node={source_node_id}, element={element.name}, "
+                        f"workbook={workbook.name}"
+                    ),
+                )
+                return
+            try:
+                # Uses the API-reported DM-side name. The edge-only
+                # synthesis path below uses the workbook element's own
+                # name instead; the two diverge only if the workbook
+                # element was renamed after the DM link.
+                upstream_sources[source_node_id] = DataModelElementUpstream(
+                    name=source_node.get(Constant.NAME),
+                    data_model_url_id=dm_url_id,
+                )
+            except ValidationError as e:
+                self.report.warning(
+                    title="Sigma lineage node parse failed",
                     message="Failed to parse Sigma lineage node",
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
         elif source_type == "join":
-            # Pass-through node: enqueue for continued BFS traversal.
-            queue.append(source_node_id)
+            queue.append(source_node_id)  # pass-through
         elif source_type == "table":
-            # Warehouse table: handled by SQL-parse path; terminal for BFS.
-            pass
+            pass  # terminal; warehouse lineage comes from SQL parsing
         else:
-            self.report.warning(
-                message="Unknown Sigma lineage node type",
-                context=f"type={source_type!r}, element={element.name}, workbook={workbook.name}",
-            )
+            # Warn once per unknown source_type to avoid log spam.
+            warn_key = source_type if isinstance(source_type, str) else "<non-str>"
+            if warn_key not in self._unknown_lineage_node_types_warned:
+                self._unknown_lineage_node_types_warned.add(warn_key)
+                self.report.warning(
+                    title="Unknown Sigma lineage node type",
+                    message="Unknown Sigma lineage node type",
+                    context=(
+                        f"type={source_type!r}, element={element.name}, "
+                        f"workbook={workbook.name} (further occurrences of "
+                        f"this type will be suppressed)"
+                    ),
+                )
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
@@ -464,11 +517,45 @@ class SigmaAPI:
                         continue
                     visited.add(source_node_id)
 
+                    # Workbook-to-DM-element reference: the node
+                    # ``<dmUrlId>/<suffix>`` appears only as an edge source
+                    # (not as a ``dependencies`` key). Synthesize the
+                    # upstream from the edge. The edge carries no DM-side
+                    # name, so we fall back to the workbook element's own
+                    # name (Sigma's default mirrors the DM element name).
+                    # A user rename degrades to
+                    # ``element_dm_edge.name_unmatched_but_dm_known``.
+                    if source_node_id not in dependencies and "/" in source_node_id:
+                        dm_url_id, _, suffix = source_node_id.partition("/")
+                        if dm_url_id and suffix:
+                            try:
+                                upstream_sources[source_node_id] = (
+                                    DataModelElementUpstream(
+                                        name=element.name,
+                                        data_model_url_id=dm_url_id,
+                                    )
+                                )
+                                self.report.element_dm_edge.synthesized_from_edge_only += 1
+                            except ValidationError as e:
+                                self.report.warning(
+                                    title="Sigma DM upstream synthesis from edge-only node failed",
+                                    message="Failed to synthesize Sigma DM upstream from edges-only node",
+                                    context=(
+                                        f"node={source_node_id}, element={element.name}, "
+                                        f"workbook={workbook.name}"
+                                    ),
+                                    exc=e,
+                                )
+                            continue
+                        # Malformed (empty prefix or suffix): fall through
+                        # so the legacy dispatch surfaces a warning.
+
                     # Per-node isolation: a malformed node skips itself.
                     try:
                         source_node = dependencies[source_node_id]
                     except (KeyError, AttributeError, TypeError) as e:
                         self.report.warning(
+                            title="Sigma lineage node parse failed",
                             message="Failed to parse Sigma lineage node",
                             context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                             exc=e,
@@ -488,6 +575,7 @@ class SigmaAPI:
                         # Defence-in-depth; the helper already handles
                         # ValidationError internally.
                         self.report.warning(
+                            title="Sigma lineage node parse failed",
                             message="Failed to parse Sigma lineage node",
                             context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                             exc=e,
@@ -496,6 +584,7 @@ class SigmaAPI:
             # Structural errors in the setup phase (missing keys, malformed
             # edges, non-dict seed entries).
             self.report.warning(
+                title="Sigma element lineage response parse failed",
                 message="Failed to parse Sigma element lineage response",
                 context=f"element={element.name}, workbook={workbook.name}",
                 exc=e,
@@ -609,9 +698,9 @@ class SigmaAPI:
         raw_entries: List[Dict[str, Any]] = []
         # Cycle protection: a broken proxy (or caching layer) can echo the
         # same ``nextPage`` / ``nextPageToken`` back on every call. Track
-        # the normalized cursor values we've already followed and break
-        # the loop rather than hanging ingestion.
-        seen_cursors: Set[str] = set()
+        # (kind, value) tuples so a cycle that crosses cursor types is also
+        # detected (e.g. page=1 → nextPageToken=1 → page=1 repeating).
+        seen_cursors: Set[Tuple[str, str]] = set()
         first_page = True
         try:
             while True:
@@ -631,19 +720,21 @@ class SigmaAPI:
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
+                    cursor_key: Tuple[str, str] = ("page", str(next_page))
                     cursor = f"page={next_page}"
                 elif next_token:
+                    cursor_key = ("nextPageToken", str(next_token))
                     cursor = f"nextPageToken={next_token}"
                 else:
                     break
-                if cursor in seen_cursors:
+                if cursor_key in seen_cursors:
                     self.report.warning(
                         message=f"{error_ctx} Pagination cursor repeated; aborting.",
                         context=f"url={base_url}, cursor={cursor}, "
                         f"entries_so_far={len(raw_entries)}",
                     )
                     break
-                seen_cursors.add(cursor)
+                seen_cursors.add(cursor_key)
                 url = f"{base_url}{separator}{cursor}"
             return raw_entries
         except Exception as e:
@@ -651,10 +742,23 @@ class SigmaAPI:
             # them in the ingestion report; ``_log_http_error`` alone is
             # debug-level and would leave the DM looking healthy while its
             # elements/columns are silently missing. Partial results
-            # collected before the break are preserved.
+            # collected before the failure are preserved.
+            # HTTP status goes into ``context`` (not ``title``) so LossyList
+            # groups all pagination aborts under one stable key regardless
+            # of status code.
+            http_status: Optional[int] = (
+                e.response.status_code
+                if isinstance(e, requests.HTTPError) and e.response is not None
+                else None
+            )
             self.report.warning(
-                message=f"{error_ctx} Pagination aborted.",
-                context=f"url={url}, partial_results={len(raw_entries)}",
+                title="Sigma paginated endpoint aborted",
+                message="Pagination aborted; partial results preserved.",
+                context=(
+                    f"endpoint={error_ctx}, url={url}, "
+                    f"partial_results={len(raw_entries)}"
+                    + (f", http_status={http_status}" if http_status else "")
+                ),
                 exc=e,
             )
             self._log_http_error(message=f"{error_ctx} Exception: {e}")
@@ -904,6 +1008,78 @@ class SigmaAPI:
             element.source_ids = source_ids_by_element.get(element.elementId, [])
 
         data_model.elements = elements
+
+    def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
+        """Fetch a DM by its urlId (not UUID). Used to resolve personal-space
+        or otherwise unlisted DMs referenced from another DM's /lineage.
+
+        Returns None on non-200 so the caller can count and continue.
+        The HTTP status code is surfaced in the report warning so operators
+        can distinguish 429 (rate-limited, re-run the pipeline) from 403 /
+        404 (genuinely forbidden / deleted). 429s (after the urllib3 retry
+        budget has been exhausted) additionally bump a dedicated
+        ``data_model_external_reference_rate_limited`` counter.
+        """
+        logger.debug(f"Fetching data model by url_id '{url_id}'.")
+        url = f"{self.config.api_url}/dataModels/{url_id}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code != 200:
+                status = response.status_code
+                if status == 429:
+                    self.report.data_model_external_reference_rate_limited += 1
+                    self.report.warning(
+                        title="Sigma API rate-limited while fetching orphan Data Model",
+                        message=(
+                            "Retry budget exhausted on 429; this DM will be "
+                            "reported as unresolved for the rest of the run. "
+                            "Re-run the ingestion to pick up the cross-DM "
+                            "edge, or investigate the Sigma API rate limit."
+                        ),
+                        context=f"url_id={url_id}, http_status={status}",
+                    )
+                else:
+                    # 401 / 403 / 404 / 5xx (after retries) land here. Emit
+                    # a low-severity structured entry so operators can
+                    # triage without stdout tailing; the warning is
+                    # rate-limited by LossyList on the report side.
+                    self.report.warning(
+                        title="Sigma orphan Data Model fetch returned non-200",
+                        message=(
+                            "Cross-DM reference could not be resolved; "
+                            "treating as ``dm_unknown`` for the rest of "
+                            "the run. Common causes: DM deleted, admin "
+                            "scope revoked, personal space not shared with "
+                            "the ingest principal."
+                        ),
+                        context=f"url_id={url_id}, http_status={status}",
+                    )
+                return None
+            data = response.json()
+            # By-urlId responses return ``dataModelUrlId`` and a null
+            # ``urlId``; by-UUID responses use ``urlId``. Normalize.
+            if "dataModelUrlId" in data and not data.get("urlId"):
+                data["urlId"] = data["dataModelUrlId"]
+            dm = SigmaDataModel.model_validate(data)
+            # No file_meta: these DMs are not in /files.
+            self._assemble_data_model(dm, file_meta=None)
+            return dm
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch data model by url_id '{url_id}'. Exception: {e}"
+            )
+            self.report.warning(
+                title="Sigma orphan Data Model fetch raised exception",
+                message=(
+                    "An unexpected exception occurred while fetching or "
+                    "assembling the cross-DM reference; treating as "
+                    "``dm_unknown`` for the rest of the run. Common causes: "
+                    "Pydantic validation failure on a malformed 200 payload, "
+                    "network error inside element/column/lineage assembly."
+                ),
+                context=f"url_id={url_id}, exception={type(e).__name__}: {e}",
+            )
+            return None
 
     def get_data_models(self) -> List[SigmaDataModel]:
         logger.debug("Fetching all accessible data models metadata.")
