@@ -140,7 +140,7 @@ class TestBuildWorkbookElementIndex:
 # ---------------------------------------------------------------------------
 
 
-class TestBuildWorkbookWarehouseTableIndex:
+class TestBuildElementWarehouseTableIndex:
     def test_direct_warehouse_entry(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,FIVETRAN.LOG.FIVETRAN_LOG__CONNECTOR_STATUS,PROD)"
         idx = SigmaSource._build_element_warehouse_table_index({urn: []})
@@ -288,6 +288,9 @@ class TestResolveChartFormulaUpstream:
     def test_case_mismatched_workbook_element_ref_is_diagnosed(self) -> None:
         """Workbook element names are exact-case; near misses are counted."""
         upstream_elem = _make_element("sourceElem", "T Source")
+        wh_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.T SOURCE,PROD)"
+        )
         ref = _make_ref("t source", "col")
 
         result = self.src._resolve_chart_formula_upstream(
@@ -295,13 +298,35 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"sourceElem"},
             wb_element_index={"T Source": [upstream_elem]},
-            element_warehouse_table_index={},
+            element_warehouse_table_index={"T SOURCE": [wh_urn]},
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
 
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
         assert self.src.reporter.chart_input_fields_unresolved == 1
+        assert self.src.reporter.chart_input_fields_resolved == 0
+
+    def test_exact_workbook_name_without_lineage_match_does_not_fallback_to_warehouse(
+        self,
+    ) -> None:
+        """An exact workbook name match must satisfy the lineage filter."""
+        upstream_elem = _make_element("sourceElem", "Orders")
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        ref = _make_ref("Orders", "id")
+
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids=set(),
+            wb_element_index={"Orders": [upstream_elem]},
+            element_warehouse_table_index={"ORDERS": [wh_urn]},
+            elementId_to_chart_urn={"sourceElem": "urn:source"},
+        )
+
+        assert result is None
+        assert self.src.reporter.chart_input_fields_unresolved == 1
+        assert self.src.reporter.chart_input_fields_resolved == 0
 
     def test_intra_workbook_collision_ambiguous_multiple_upstream_matches_returns_none(
         self,
@@ -500,3 +525,40 @@ class TestGenElementsWorkunitInputFields:
         schema_field = input_fields_aspects[0].fields[0].schemaField
         assert schema_field is not None
         assert schema_field.nativeDataType == "String"
+
+    def test_duplicate_formula_refs_emit_one_input_field(self) -> None:
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        workbook = _make_workbook_with_elements([])
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Orders Chart",
+            {"Order Id": "[ORDERS/ORDER_ID] + [ORDERS/ORDER_ID]"},
+        )
+        all_input_fields: List = []
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({warehouse_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=workbook,
+                all_input_fields=all_input_fields,
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        assert len(input_fields_aspects[0].fields) == 1
+        assert len(all_input_fields) == 1

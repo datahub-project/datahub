@@ -1254,21 +1254,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.chart_input_fields_case_mismatch += 1
                 logger.debug(
                     "No exact-case workbook element match for formula ref source %r; "
-                    "case-insensitive workbook element candidates were %s.",
+                    "case-insensitive workbook element candidates were %s. "
+                    "Treating as unresolved rather than falling back to warehouse "
+                    "resolution.",
                     ref.source,
                     case_mismatched_names,
                 )
-            logger.debug(
-                "No exact-case workbook element match for formula ref source %r; "
-                "falling back to warehouse-table resolution.",
-                ref.source,
-            )
+                self.reporter.chart_input_fields_unresolved += 1
+                return None
+            else:
+                logger.debug(
+                    "No exact-case workbook element match for formula ref source %r; "
+                    "falling back to warehouse-table resolution.",
+                    ref.source,
+                )
         upstream_matches = [
             elem
             for elem in candidates
             if elem.elementId in chart_upstream_element_ids
             and elem.elementId != chart_element_id
         ]
+        if candidates and not upstream_matches:
+            logger.debug(
+                "Formula ref source %r matched workbook element names but none were "
+                "lineage upstreams for chart element %s; treating as unresolved.",
+                ref.source,
+                chart_element_id,
+            )
+            self.reporter.chart_input_fields_unresolved += 1
+            return None
         if len(upstream_matches) == 1:
             elem_urn = elementId_to_chart_urn.get(upstream_matches[0].elementId)
             if elem_urn:
@@ -1514,6 +1528,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             element_input_fields: List[InputFieldClass] = []
+            emitted_input_field_keys: Set[Tuple[str, str]] = set()
             for column in element.columns:
                 formula = element.column_formulas.get(column)
                 if formula is None:
@@ -1530,6 +1545,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if resolved is None:
                         continue
                     upstream_urn, field_path = resolved
+                    if (upstream_urn, field_path) in emitted_input_field_keys:
+                        continue
+                    emitted_input_field_keys.add((upstream_urn, field_path))
                     element_input_fields.append(
                         InputFieldClass(
                             schemaFieldUrn=builder.make_schema_field_urn(
