@@ -249,6 +249,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # DM element column-level lineage (FGL) counters.
     # Totals.
     data_model_element_columns_with_formula: int = 0
+    # Roll-up of all success paths; equals fgl_intra_resolved today and will
+    # diverge when cross-DM resolution (RESOLVE-B) adds a second success path.
     data_model_element_fgl_emitted: int = 0
     # Success path: intra-DM [ElementName/col] ref resolved to an upstream URN
     # that /lineage also claims (safe to emit as FGL).
@@ -257,11 +259,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_sibling_skipped: int = 0  # bare [col] intra-element ref
     data_model_element_fgl_param_skipped: int = 0  # [P_*] parameter ref
     # Drop paths: ref would be FGL but is suppressed for correctness.
-    # cross-DM ref ([OtherDM/col]) -- handled by a separate ingestion pass.
-    data_model_element_fgl_cross_dm_unresolved: int = 0
+    # cross-DM ref ([OtherDM/col]) -- deferred to a follow-up ingestion pass.
+    data_model_element_fgl_cross_dm_deferred: int = 0
     # resolved URN not in /lineage upstreams; drop to avoid orphan FGL.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
-    # column is the dedup loser (duplicate fieldPath); no FGL emitted.
+    # Formula-bearing columns dropped by fieldPath dedup (duplicate column.name
+    # within one element); their FGL was not emitted.
     data_model_element_fgl_dropped_dedup_loser: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
