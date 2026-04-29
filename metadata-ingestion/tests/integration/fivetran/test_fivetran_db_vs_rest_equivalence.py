@@ -17,7 +17,7 @@ Known acceptable differences (not asserted equal):
 
 import datetime
 import json
-from typing import Dict, List, Set, Tuple
+from typing import Dict, Iterator, List, Set, Tuple
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -29,6 +29,7 @@ from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClien
 from datahub.ingestion.source.fivetran.response_models import (
     FivetranColumn,
     FivetranConnectionSchemas,
+    FivetranGroup,
     FivetranListedConnection,
     FivetranListedUser,
     FivetranSchema,
@@ -151,14 +152,16 @@ def _db_query_handler(query: str) -> List[Dict]:
 # ---------------------------------------------------------------------------
 
 
-def _fake_list_connections(self, group_id: str, page_size: int = 500):
+def _fake_list_connections(
+    self: object, group_id: str, page_size: int = 500
+) -> Iterator[FivetranListedConnection]:
     if group_id != DESTINATION_ID:
         return iter([])
     return iter(
         [
             FivetranListedConnection(
                 id=CONNECTOR_ID,
-                schema=DEST_SCHEMA,  # `listed.schema` populates connector_name
+                schema_=DEST_SCHEMA,  # `listed.schema` populates connector_name
                 service="postgres",
                 paused=False,
                 sync_frequency=1440,
@@ -169,7 +172,9 @@ def _fake_list_connections(self, group_id: str, page_size: int = 500):
     )
 
 
-def _fake_get_connection_schemas(self, connection_id: str):
+def _fake_get_connection_schemas(
+    self: object, connection_id: str
+) -> FivetranConnectionSchemas:
     if connection_id != CONNECTOR_ID:
         return FivetranConnectionSchemas()
     return FivetranConnectionSchemas(
@@ -198,7 +203,9 @@ def _fake_get_connection_schemas(self, connection_id: str):
     )
 
 
-def _fake_list_users(self, group_id: str, page_size: int = 500):
+def _fake_list_users(
+    self: object, group_id: str, page_size: int = 500
+) -> Iterator[FivetranListedUser]:
     if group_id != DESTINATION_ID:
         return iter([])
     return iter(
@@ -210,9 +217,7 @@ def _fake_list_users(self, group_id: str, page_size: int = 500):
     )
 
 
-def _fake_list_groups(self, page_size: int = 500):
-    from datahub.ingestion.source.fivetran.response_models import FivetranGroup
-
+def _fake_list_groups(self: object, page_size: int = 500) -> Iterator[FivetranGroup]:
     return iter([FivetranGroup(id=DESTINATION_ID, name="Test Group")])
 
 

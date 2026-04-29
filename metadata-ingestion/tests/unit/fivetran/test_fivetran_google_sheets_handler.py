@@ -7,6 +7,7 @@ require touching the source's tests.
 """
 
 import datetime
+from typing import Optional
 from unittest.mock import MagicMock
 
 from datahub.ingestion.source.fivetran.config import (
@@ -44,7 +45,9 @@ def _make_conn_details(
     )
 
 
-def _make_handler(api_client=None) -> GoogleSheetsConnectorHandler:
+def _make_handler(
+    api_client: Optional[MagicMock] = None,
+) -> GoogleSheetsConnectorHandler:
     cfg = FivetranSourceConfig.model_validate(
         {"api_config": {"api_key": "k", "api_secret": "s"}}
     )
@@ -119,7 +122,7 @@ class TestBuildInputDatasetUrn:
             paused=False,
             sync_frequency=360,
             destination_id="d1",
-            user_id=None,
+            user_id="",
             lineage=[],
             jobs=[],
         )
@@ -139,7 +142,7 @@ class TestBuildInputDatasetUrn:
             paused=False,
             sync_frequency=360,
             destination_id="d1",
-            user_id=None,
+            user_id="",
             lineage=[],
             jobs=[],
         )
@@ -150,10 +153,11 @@ class TestApiClientLazyResolution:
     def test_provider_called_each_time(self):
         # The provider callable is what enables tests to swap api_client
         # post-construction; pin that the handler reads it lazily.
-        clients = [None, MagicMock()]
-        clients[1].get_connection_details_by_id.return_value = _make_conn_details(
+        mock_client = MagicMock()
+        mock_client.get_connection_details_by_id.return_value = _make_conn_details(
             sheet_id="abc", named_range="r"
         )
+        clients: list[Optional[MagicMock]] = [None, mock_client]
         index = [0]
 
         def provider():

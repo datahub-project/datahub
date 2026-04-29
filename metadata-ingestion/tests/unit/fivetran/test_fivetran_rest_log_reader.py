@@ -292,7 +292,6 @@ def _make_reader(
     reader = FivetranLogRestReader.__new__(FivetranLogRestReader)
     reader.api_client = api_client  # type: ignore[assignment]  # tests pass MagicMock
     reader._report = report or FivetranSourceReport()
-    reader._max_jobs_per_connector = 500
     reader._max_table_lineage_per_connector = 120
     reader._max_column_lineage_per_connector = 1000
     reader._max_workers = max_workers
@@ -314,7 +313,7 @@ class TestGetAllowedConnectorsListRest:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="postgres_public",
+                    schema_="postgres_public",
                     service="postgres",
                     paused=False,
                     sync_frequency=1440,
@@ -382,7 +381,7 @@ class TestGetAllowedConnectorsListRest:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="x",
+                    schema_="x",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -427,7 +426,7 @@ class TestGetAllowedConnectorsListRest:
             [
                 FivetranListedConnection(
                     id="keep",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -435,7 +434,7 @@ class TestGetAllowedConnectorsListRest:
                 ),
                 FivetranListedConnection(
                     id="drop",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -521,7 +520,7 @@ class TestRestFailurePaths:
             [
                 FivetranListedConnection(
                     id="broken_connector",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -605,7 +604,7 @@ class TestRestFailurePaths:
                 [
                     FivetranListedConnection(
                         id="c_in_g2",
-                        schema="s",
+                        schema_="s",
                         service="postgres",
                         paused=False,
                         sync_frequency=1,
@@ -691,7 +690,7 @@ class TestRestParityWithDbReader:
             [
                 FivetranListedConnection(
                     id="postgres_test_internal_id",
-                    schema="postgres_public",
+                    schema_="postgres_public",
                     service="postgres",
                     paused=False,
                     sync_frequency=1440,
@@ -756,7 +755,7 @@ class TestScalingGuards:
             [
                 FivetranListedConnection(
                     id="wide_connector",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -792,7 +791,7 @@ class TestScalingGuards:
             [
                 FivetranListedConnection(
                     id="wide_cols",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -834,7 +833,7 @@ class TestScalingGuards:
             [
                 FivetranListedConnection(
                     id="c_in_g2",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -877,7 +876,7 @@ class TestScalingGuards:
 def _listed(connector_id: str, group_id: str = "g1") -> FivetranListedConnection:
     return FivetranListedConnection(
         id=connector_id,
-        schema=connector_id,
+        schema_=connector_id,
         service="postgres",
         paused=False,
         sync_frequency=1,
@@ -1081,7 +1080,7 @@ class TestHybridDbJobs:
             [
                 FivetranListedConnection(
                     id="c_with_jobs",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -1129,7 +1128,7 @@ class TestHybridDbJobs:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -1178,7 +1177,7 @@ class TestHybridDbJobs:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -1220,7 +1219,7 @@ class TestHybridDbJobs:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -1289,7 +1288,7 @@ class TestRestLineageFallback:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="postgres_public",
+                    schema_="postgres_public",
                     service="postgres",
                     paused=False,
                     sync_frequency=1440,
@@ -1354,7 +1353,7 @@ class TestRestLineageFallback:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="s",
+                    schema_="s",
                     service="postgres",
                     paused=False,
                     sync_frequency=1,
@@ -1417,7 +1416,7 @@ class TestRestLineageFallback:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="postgres_public",
+                    schema_="postgres_public",
                     service="postgres",
                     paused=False,
                     sync_frequency=1440,
@@ -1469,7 +1468,7 @@ class TestRestLineageFallback:
             [
                 FivetranListedConnection(
                     id="connector_in_other_warehouse",
-                    schema="postgres_public",
+                    schema_="postgres_public",
                     service="postgres",
                     paused=False,
                     sync_frequency=1440,
@@ -1530,7 +1529,7 @@ class TestRestLineageFallback:
             [
                 FivetranListedConnection(
                     id="c1",
-                    schema="postgres_public",
+                    schema_="postgres_public",
                     service="postgres",
                     paused=False,
                     sync_frequency=1440,

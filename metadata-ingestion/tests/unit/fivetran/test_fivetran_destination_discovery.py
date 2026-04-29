@@ -1,6 +1,6 @@
 """Unit tests for REST-API destination discovery."""
 
-from typing import Optional, cast
+from typing import Any, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pydantic
@@ -171,7 +171,7 @@ class TestGetDestinationDetailsByID:
             client.get_destination_details_by_id("dest_x")
 
 
-def _details(service: str, **config_kwargs) -> FivetranDestinationDetails:
+def _details(service: str, **config_kwargs: Any) -> FivetranDestinationDetails:
     return FivetranDestinationDetails(
         id="d",
         service=service,
@@ -450,7 +450,6 @@ def _make_source_with_discovery(
     src.log_reader = MagicMock()
     src.log_reader.fivetran_log_database = "fivetran_log_db"
     src.api_client = api_client
-    src._connection_details_cache = {}
     src._failed_destination_ids = set()
     src._destinations_with_urn_warning = set()
     return src

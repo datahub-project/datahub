@@ -196,13 +196,13 @@ class FivetranLogRestReader:
                 continue
             for listed in listed_connections:
                 # Match either `connector_id` (`listed.id`) or `connector_name`
-                # (`listed.schema` — the destination schema, which is what
+                # (`listed.schema_` — the destination schema, which is what
                 # the DB-mode reader stores in its `connector_name` field).
                 # Mirrors DB-mode filtering so the same recipe patterns
                 # work in both modes.
                 if not (
                     connector_patterns.allowed(listed.id)
-                    or connector_patterns.allowed(listed.schema)
+                    or connector_patterns.allowed(listed.schema_)
                 ):
                     # Filter pattern check is read-only on patterns + simple
                     # report mutation — do it under lock for symmetry.
@@ -330,10 +330,10 @@ class FivetranLogRestReader:
 
         return Connector(
             connector_id=listed.id,
-            # `listed.schema` is the destination schema (e.g. `postgres_public`)
+            # `listed.schema_` is the destination schema (e.g. `postgres_public`)
             # — the same identifier the Fivetran UI displays as the connector
             # name and that the DB reader pulls from `connection.connection_name`.
-            connector_name=listed.schema,
+            connector_name=listed.schema_,
             connector_type=listed.service,
             paused=listed.paused,
             sync_frequency=listed.sync_frequency,

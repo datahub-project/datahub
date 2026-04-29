@@ -816,7 +816,7 @@ def test_fivetran_with_hybrid_destination_discovery(pytestconfig, tmp_path):
         },
     ]
 
-    def fake_destination_details(destination_id: str):
+    def fake_destination_details(destination_id: str) -> FivetranDestinationDetails:
         if destination_id == "snowflake_dest":
             return FivetranDestinationDetails(
                 id="snowflake_dest",
@@ -1049,7 +1049,7 @@ def test_fivetran_with_rest_api_log_source(pytestconfig, tmp_path):
             [
                 FivetranListedConnection(
                     id="postgres_test",
-                    schema="postgres_public",
+                    schema_="postgres_public",
                     service="postgres",
                     paused=False,
                     sync_frequency=1440,

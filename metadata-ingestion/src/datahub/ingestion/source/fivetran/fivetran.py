@@ -703,6 +703,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         will raise a structured ValueError that the lineage emit-path
         catches and skips with a warning.
         """
+        parts: Tuple[Optional[str], ...]
         if platform in ("s3", "gcs"):
             parts = (config.bucket, config.prefix_path)
         elif platform == "abs":

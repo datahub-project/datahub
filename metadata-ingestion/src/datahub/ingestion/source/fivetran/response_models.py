@@ -1,7 +1,7 @@
 import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FivetranConnectionConfig(BaseModel):
@@ -165,10 +165,13 @@ class FivetranListGroupsResponse(BaseModel):
 class FivetranListedConnection(BaseModel):
     """One row in `GET /v1/groups/{gid}/connections`."""
 
-    model_config = ConfigDict(extra="ignore")
+    # `schema` shadows BaseModel.schema(), which mypy flags. We expose it
+    # under `schema_` and use a Pydantic alias so the JSON field name
+    # remains `schema` per Fivetran's response contract.
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     id: str
-    schema: str
+    schema_: str = Field(alias="schema")
     service: str
     paused: bool
     sync_frequency: int

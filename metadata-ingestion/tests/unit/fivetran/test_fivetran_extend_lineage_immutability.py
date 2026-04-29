@@ -77,7 +77,7 @@ def _make_connector(connector_id: str, connector_type: str = "postgres") -> Conn
         paused=False,
         sync_frequency=1440,
         destination_id="test_destination",
-        user_id=None,
+        user_id="",
         lineage=[],
         jobs=[],
     )

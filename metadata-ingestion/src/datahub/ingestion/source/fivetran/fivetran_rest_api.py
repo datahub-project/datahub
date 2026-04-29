@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -160,7 +160,7 @@ class FivetranAPIClient:
         """
         cursor: Optional[str] = None
         while True:
-            params: Dict[str, object] = {"limit": page_size}
+            params: Dict[str, Union[str, int]] = {"limit": page_size}
             if cursor is not None:
                 params["cursor"] = cursor
             resp = self._session.get(
@@ -191,7 +191,7 @@ class FivetranAPIClient:
         """
         cursor: Optional[str] = None
         while True:
-            params: Dict[str, object] = {"limit": page_size}
+            params: Dict[str, Union[str, int]] = {"limit": page_size}
             if cursor is not None:
                 params["cursor"] = cursor
             resp = self._session.get(
@@ -269,7 +269,7 @@ class FivetranAPIClient:
     ) -> Iterator[FivetranListedUser]:
         cursor: Optional[str] = None
         while True:
-            params: Dict[str, object] = {"limit": page_size}
+            params: Dict[str, Union[str, int]] = {"limit": page_size}
             if cursor is not None:
                 params["cursor"] = cursor
             resp = self._session.get(
