@@ -102,6 +102,13 @@ class DatahubLineageConfig(ConfigModel):
         description="regex patterns for DAGs to ingest",
     )
 
+    # AllowDenyPattern to control which DAGs emit DataJob lineage.
+    # Useful when enable_datajob_lineage=true globally but specific DAGs (e.g., Cosmos/dbt DAGs)
+    # should not emit Airflow-derived lineage because they have a better lineage source (dbt ingestion).
+    datajob_lineage_dag_filter_pattern: AllowDenyPattern = Field(
+        description="regex patterns for DAGs that should emit DataJob lineage",
+    )
+
     log_level: Optional[str]
     debug_emitter: bool
 
@@ -212,6 +219,13 @@ def get_lineage_config() -> DatahubLineageConfig:
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
+    datajob_lineage_dag_filter_pattern = AllowDenyPattern.model_validate_json(
+        conf.get(
+            "datahub",
+            "datajob_lineage_dag_filter_str",
+            fallback='{"allow": [".*"]}',
+        )
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,
@@ -237,6 +251,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
         enable_datajob_lineage=enable_lineage,
+        datajob_lineage_dag_filter_pattern=datajob_lineage_dag_filter_pattern,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
     )
 

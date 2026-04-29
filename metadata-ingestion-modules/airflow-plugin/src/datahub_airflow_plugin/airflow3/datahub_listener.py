@@ -780,6 +780,11 @@ class DataHubListener:
                 f"Skipping lineage extraction for task {task.task_id} - enable_datajob_lineage is False"
             )
             return
+        if not self.config.datajob_lineage_dag_filter_pattern.allowed(task.dag_id):
+            logger.debug(
+                f"Skipping lineage extraction for task {task.task_id} - DAG {task.dag_id} is denied by datajob_lineage_dag_filter_pattern"
+            )
+            return
 
         input_urns: List[str] = []
         output_urns: List[str] = []
@@ -1001,13 +1006,21 @@ class DataHubListener:
         # Add lineage info
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=complete)  # type: ignore[arg-type]
 
+        # DataJob lineage is gated by both the global toggle and the per-DAG filter.
+        # The per-DAG filter lets users disable lineage for specific DAGs (e.g. Cosmos/dbt DAGs)
+        # while keeping it for other DAGs. See `datajob_lineage_dag_filter_pattern` in _config.py.
+        should_generate_lineage = (
+            self.config.enable_datajob_lineage
+            and self.config.datajob_lineage_dag_filter_pattern.allowed(dag.dag_id)
+        )
+
         # Emit DataJob MCPs
         # Skip dataJobInputOutput aspects on task start to avoid file emitter merging duplicates
         # The file emitter merges aspects with the same entity URN and aspect name,
         # which causes FGLs from start and completion to be combined into duplicates.
         # We only emit the aspect on completion when lineage is complete and accurate.
         for mcp in datajob.generate_mcp(
-            generate_lineage=self.config.enable_datajob_lineage,
+            generate_lineage=should_generate_lineage,
             materialize_iolets=self.config.materialize_iolets,
         ):
             # Skip dataJobInputOutput aspects on task start
