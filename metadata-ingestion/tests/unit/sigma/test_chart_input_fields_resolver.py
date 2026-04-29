@@ -63,11 +63,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source = SigmaSource.__new__(SigmaSource)
     source.config = config
     source.reporter = MagicMock()
-    source.reporter.chart_input_fields_resolved_intra_workbook = 0
-    source.reporter.chart_input_fields_resolved_warehouse_table = 0
-    source.reporter.chart_input_fields_skipped_sibling = 0
-    source.reporter.chart_input_fields_skipped_parameter = 0
-    source.reporter.chart_input_fields_skipped_unresolved = 0
+    source.reporter.chart_input_fields_resolved = 0
+    source.reporter.chart_input_fields_unresolved = 0
     return source
 
 
@@ -197,7 +194,6 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_parameter == 1
 
     # --- sibling / bare [col] ref ---
 
@@ -212,7 +208,6 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_sibling == 1
 
     # --- intra-workbook element ref ---
 
@@ -230,7 +225,7 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
         assert result == (chart_urn, "Calc")
-        assert self.src.reporter.chart_input_fields_resolved_intra_workbook == 1
+        assert self.src.reporter.chart_input_fields_resolved == 1
 
     def test_intra_workbook_collision_only_one_in_upstream(self) -> None:
         """Three elements named 'random data model'; only AAOgK0f3ag is upstream."""
@@ -248,10 +243,10 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
         assert result == (chart_urn, "toss_decision")
-        assert self.src.reporter.chart_input_fields_resolved_intra_workbook == 1
+        assert self.src.reporter.chart_input_fields_resolved == 1
 
     def test_intra_workbook_collision_no_upstream_match_returns_none(self) -> None:
-        """Name collision without lineage-upstream filter → None (no match)."""
+        """Name collision without lineage-upstream filter -> None (no match)."""
         e1 = _make_element("k7i_W7UYCg", "random data model")
         e2 = _make_element("lBjhSbH_Jp", "random data model")
         ref = _make_ref("random data model", "Calc")
@@ -266,12 +261,12 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
         # Falls through to unresolved (no warehouse match either).
-        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
+        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     def test_intra_workbook_collision_ambiguous_multiple_upstream_matches_returns_none(
         self,
     ) -> None:
-        """If >1 collision elements are all in the upstream set → ambiguous → None."""
+        """If >1 collision elements are all in the upstream set -> ambiguous -> None."""
         e1 = _make_element("k7i_W7UYCg", "random data model")
         e2 = _make_element("lBjhSbH_Jp", "random data model")
         ref = _make_ref("random data model", "Calc")
@@ -284,12 +279,12 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={"k7i_W7UYCg": "urn:a", "lBjhSbH_Jp": "urn:b"},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
+        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     # --- warehouse table ref ---
 
     def test_warehouse_table_ref_resolves(self) -> None:
-        """[FIVETRAN_LOG__CONNECTOR_STATUS/Connector Health] → warehouse URN."""
+        """[FIVETRAN_LOG__CONNECTOR_STATUS/Connector Health] -> warehouse URN."""
         wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,FIVETRAN.LOG.FIVETRAN_LOG__CONNECTOR_STATUS,PROD)"
         ref = _make_ref("FIVETRAN_LOG__CONNECTOR_STATUS", "Connector Health")
         result = self.src._resolve_chart_formula_upstream(
@@ -301,7 +296,7 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={},
         )
         assert result == (wh_urn, "Connector Health")
-        assert self.src.reporter.chart_input_fields_resolved_warehouse_table == 1
+        assert self.src.reporter.chart_input_fields_resolved == 1
 
     def test_warehouse_table_ref_case_insensitive(self) -> None:
         """Warehouse table index lookup is case-insensitive."""
@@ -320,7 +315,7 @@ class TestResolveChartFormulaUpstream:
         assert result == (wh_urn, "col")
 
     def test_warehouse_table_ambiguous_collision_returns_none(self) -> None:
-        """Two warehouse URNs with the same leaf name → ambiguous → None."""
+        """Two warehouse URNs with the same leaf name -> ambiguous -> None."""
         urn1 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA1.ORDERS,PROD)"
         urn2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA2.ORDERS,PROD)"
         ref = _make_ref("ORDERS", "id")
@@ -333,12 +328,12 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
+        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     # --- unresolvable ref ---
 
     def test_unresolvable_ref_returns_none(self) -> None:
-        """[NonexistentSource/col] matches neither index → None."""
+        """[NonexistentSource/col] matches neither index -> None."""
         ref = _make_ref("NonexistentSource", "col")
         result = self.src._resolve_chart_formula_upstream(
             ref,
@@ -349,7 +344,7 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_unresolved == 1
+        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     # --- sibling refs from M0 sample formulas ---
 
@@ -370,10 +365,9 @@ class TestResolveChartFormulaUpstream:
                 elementId_to_chart_urn={},
             )
             assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_sibling >= len(refs)
 
     def test_selected_metric_param_and_siblings(self) -> None:
-        """Switch([P_Failure_or_Resync], ...) has param + sibling refs → all None."""
+        """Switch([P_Failure_or_Resync], ...) has param + sibling refs -> all None."""
         from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 
         formula = 'Switch([P_Failure_or_Resync], "Failure", [Failures], "Resync", [Forced Resyncs])'

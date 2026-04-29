@@ -1174,7 +1174,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _build_workbook_element_index(
         workbook: Workbook,
     ) -> Dict[str, List[Element]]:
-        """Map element name → list of elements with that name across all workbook pages.
+        """Map element name -> list of elements with that name across all workbook pages.
 
         Multiple entries for the same name indicate a name collision; callers must
         disambiguate via lineage sourceIds.  Verified live: at least one workbook in
@@ -1190,7 +1190,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _build_workbook_warehouse_table_index(
         dataset_inputs: Dict[str, List[str]],
     ) -> Dict[str, List[str]]:
-        """Map uppercase short table name → list of warehouse Dataset URNs.
+        """Map uppercase short table name -> list of warehouse Dataset URNs.
 
         Sigma chart formulas reference warehouse tables by their short identifier
         (e.g. 'FIVETRAN_LOG__CONNECTOR_STATUS'), not by the full 3-part name.
@@ -1225,21 +1225,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
         Resolution order:
-          1. is_parameter → None (skip; no lineage value).
-          2. column is None (bare [col]) → None (sibling ref within same element).
+          1. is_parameter -> None (skip; no lineage value).
+          2. column is None (bare [col]) -> None (sibling ref within same element).
           3. wb_element_index match filtered by chart_upstream_element_ids
-             → upstream chart URN + ref.column.  Ambiguous (>1 match) → None.
+             -> upstream chart URN + ref.column.  Ambiguous (>1 match) -> None.
           4. wb_warehouse_table_index match with exactly one candidate
-             → warehouse Dataset URN + ref.column.
-             Two or more candidates (same short name, different schemas) → None.
-          5. else → None (unresolved; caller increments counter via return value).
+             -> warehouse Dataset URN + ref.column.
+             Two or more candidates (same short name, different schemas) -> None.
+          5. else -> None (unresolved; caller increments counter via return value).
         """
         if ref.is_parameter:
-            self.reporter.chart_input_fields_skipped_parameter += 1
             return None
 
         if ref.column is None:
-            self.reporter.chart_input_fields_skipped_sibling += 1
             return None
 
         candidates = wb_element_index.get(ref.source, [])
@@ -1252,23 +1250,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if len(upstream_matches) == 1:
             elem_urn = elementId_to_chart_urn.get(upstream_matches[0].elementId)
             if elem_urn:
-                self.reporter.chart_input_fields_resolved_intra_workbook += 1
+                self.reporter.chart_input_fields_resolved += 1
                 return (elem_urn, ref.column)
         elif len(upstream_matches) > 1:
             # Ambiguous name collision not resolved by lineage filter.
-            self.reporter.chart_input_fields_skipped_unresolved += 1
+            self.reporter.chart_input_fields_unresolved += 1
             return None
 
         wh_candidates = wb_warehouse_table_index.get(ref.source.upper(), [])
         if len(wh_candidates) == 1:
-            self.reporter.chart_input_fields_resolved_warehouse_table += 1
+            self.reporter.chart_input_fields_resolved += 1
             return (wh_candidates[0], ref.column)
         elif len(wh_candidates) > 1:
             # Two warehouse tables share the same short name (different schemas).
-            self.reporter.chart_input_fields_skipped_unresolved += 1
+            self.reporter.chart_input_fields_unresolved += 1
             return None
 
-        self.reporter.chart_input_fields_skipped_unresolved += 1
+        self.reporter.chart_input_fields_unresolved += 1
         return None
 
     def _get_element_input_details(
@@ -1480,7 +1478,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for column in element.columns:
                 formula = element.column_formulas.get(column)
                 if formula is None:
-                    self.reporter.chart_input_fields_columns_no_formula += 1
                     continue
                 for ref in extract_bracket_refs(formula):
                     resolved = self._resolve_chart_formula_upstream(

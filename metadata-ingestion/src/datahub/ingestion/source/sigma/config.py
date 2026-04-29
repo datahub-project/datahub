@@ -183,6 +183,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter restores the observability signal.
     chart_dataset_upstream_name_missing: int = 0
 
+    # Chart InputFields formula refs that were resolved or could not be matched.
+    chart_input_fields_resolved: int = 0
+    chart_input_fields_unresolved: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
@@ -259,14 +263,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     pagination_malformed_entries_dropped: int = 0
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
-
-    # Chart InputFields resolution counters (T1.8).
-    chart_input_fields_resolved_intra_workbook: int = 0
-    chart_input_fields_resolved_warehouse_table: int = 0
-    chart_input_fields_skipped_sibling: int = 0
-    chart_input_fields_skipped_parameter: int = 0
-    chart_input_fields_skipped_unresolved: int = 0
-    chart_input_fields_columns_no_formula: int = 0
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):

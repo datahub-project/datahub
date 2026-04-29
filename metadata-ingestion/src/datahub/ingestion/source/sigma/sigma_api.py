@@ -620,7 +620,7 @@ class SigmaAPI:
     ) -> Dict[str, Dict[str, Optional[str]]]:
         """Fetch per-element column formulas from GET /workbooks/{id}/columns.
 
-        Returns: elementId → {column_name: formula_or_None}
+        Returns: elementId -> {column_name: formula_or_None}
 
         The /columns endpoint is the authoritative source for column formulas
         in production; the page-elements endpoint returns columns as plain strings.

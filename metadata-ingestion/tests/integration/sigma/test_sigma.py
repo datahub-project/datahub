@@ -1424,10 +1424,10 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
 
     Fixture topology (all on page "InputFieldsPage"):
       - sourceElem   : table, upstream of downstream elements (warehouse table lineage)
-      - warehouseElem: table, column "[FIVETRAN_LOG__SAMPLE/some_col]" → warehouse URN
-      - downstreamElem: table, column "[T Source/col]" → sourceElem chart URN
-      - noFormulaElem : table, columns have no formula → zero InputFields entries
-      - paramSiblingElem: columns "[P_param]" + "[bare_col]" → zero entries (param + sibling)
+      - warehouseElem: table, column "[FIVETRAN_LOG__SAMPLE/some_col]" -> warehouse URN
+      - downstreamElem: table, column "[T Source/col]" -> sourceElem chart URN
+      - noFormulaElem : table, columns have no formula -> zero InputFields entries
+      - paramSiblingElem: columns "[P_param]" + "[bare_col]" -> zero entries (param + sibling)
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
@@ -1457,7 +1457,7 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "vizualizationType": "levelTable",
                     },
                     {
-                        # Intra-workbook downstream: [T Source/col] → sourceElem01 URN.
+                        # Intra-workbook downstream: [T Source/col] -> sourceElem01 URN.
                         "elementId": "downstreamElem01",
                         "type": "table",
                         "name": "T Downstream",
@@ -1473,7 +1473,7 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "vizualizationType": "levelTable",
                     },
                     {
-                        # Columns without formulas → zero InputFields entries.
+                        # Columns without formulas -> zero InputFields entries.
                         "elementId": "noFormulaElem01",
                         "type": "table",
                         "name": "T No Formula",
@@ -1481,7 +1481,7 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "vizualizationType": "levelTable",
                     },
                     {
-                        # Parameter + sibling refs → zero InputFields entries.
+                        # Parameter + sibling refs -> zero InputFields entries.
                         "elementId": "paramSiblingElem01",
                         "type": "table",
                         "name": "T Param Sibling",
@@ -1556,7 +1556,7 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                 ],
             },
         },
-        # downstreamElem01: intra-workbook sheet upstream → sourceElem01.
+        # downstreamElem01: intra-workbook sheet upstream -> sourceElem01.
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/downstreamElem01": {
             "method": "GET",
             "status_code": 200,

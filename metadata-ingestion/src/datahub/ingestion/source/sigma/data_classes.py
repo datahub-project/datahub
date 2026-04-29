@@ -115,7 +115,7 @@ class Element(BaseModel):
     vizualizationType: Optional[str] = None
     query: Optional[str] = None
     columns: List[str] = []
-    # name → formula mapping populated when column entries carry formula data.
+    # name -> formula mapping populated when column entries carry formula data.
     # Populated by the model_validator below; defaults to {} for plain string columns.
     column_formulas: Dict[str, Optional[str]] = {}
     upstream_sources: Dict[str, "ElementUpstream"] = {}
@@ -133,7 +133,7 @@ class Element(BaseModel):
         {"name": "Col", "formula": "[Source/Col]"} to bypass the API layer.
         When dict entries are detected this validator:
           - Replaces `columns` with a plain list of names (backward-compatible).
-          - Populates `column_formulas` with the name→formula mapping.
+          - Populates `column_formulas` with the name->formula mapping.
         """
         raw_columns = values.get("columns", [])
         if raw_columns and isinstance(raw_columns[0], dict):
