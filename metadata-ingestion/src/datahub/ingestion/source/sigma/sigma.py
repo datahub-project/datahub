@@ -1188,7 +1188,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return index
 
     @staticmethod
-    def _build_workbook_warehouse_table_index(
+    def _build_element_warehouse_table_index(
         dataset_inputs: Dict[str, List[str]],
     ) -> Dict[str, List[str]]:
         """Map uppercase short table name -> list of warehouse Dataset URNs.
@@ -1240,11 +1240,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         if ref.column is None:
+            # Bare refs are same-element sibling references. We do not yet chase
+            # sibling formulas transitively (e.g. total -> base -> upstream).
             self.reporter.chart_input_fields_skipped_sibling += 1
             return None
 
         candidates = wb_element_index.get(ref.source, [])
         if not candidates:
+            case_mismatched_names = [
+                name for name in wb_element_index if name.lower() == ref.source.lower()
+            ]
+            if case_mismatched_names:
+                self.reporter.chart_input_fields_case_mismatch += 1
+                logger.debug(
+                    "No exact-case workbook element match for formula ref source %r; "
+                    "case-insensitive workbook element candidates were %s.",
+                    ref.source,
+                    case_mismatched_names,
+                )
             logger.debug(
                 "No exact-case workbook element match for formula ref source %r; "
                 "falling back to warehouse-table resolution.",
@@ -1261,6 +1274,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if elem_urn:
                 self.reporter.chart_input_fields_resolved += 1
                 return (elem_urn, ref.column)
+            # The lineage graph can point at an element filtered out of the chart
+            # map (for example, a pivot-table/control not emitted as a Chart).
+            # Treat that as unresolved rather than guessing a warehouse fallback.
             self.reporter.chart_input_fields_unresolved += 1
             return None
         elif len(upstream_matches) > 1:
@@ -1274,6 +1290,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return (wh_candidates[0], ref.column)
         elif len(wh_candidates) > 1:
             # Two warehouse tables share the same short name (different schemas).
+            logger.debug(
+                "Ambiguous warehouse table formula ref source %r for field %r; "
+                "candidate URNs were %s.",
+                ref.source,
+                ref.column,
+                wh_candidates,
+            )
             self.reporter.chart_input_fields_unresolved += 1
             return None
 
@@ -1350,6 +1373,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 upstream_name_lower = upstream.name.lower()
                 for in_table_urn in list(sql_parser_in_tables):
+                    # Chart-level SQL lineage uses substring matching because
+                    # Sigma dataset upstream names often include the warehouse
+                    # table leaf plus extra display context. Formula refs below
+                    # use exact short-name matching because formulas reference a
+                    # concrete table identifier such as [ORDERS/id].
                     if (
                         DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
                         in upstream_name_lower
@@ -1481,7 +1509,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for upstream in element.upstream_sources.values()
                 if isinstance(upstream, SheetUpstream)
             }
-            element_warehouse_table_index = self._build_workbook_warehouse_table_index(
+            element_warehouse_table_index = self._build_element_warehouse_table_index(
                 dataset_inputs
             )
 

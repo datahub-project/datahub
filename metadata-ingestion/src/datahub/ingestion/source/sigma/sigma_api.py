@@ -692,7 +692,9 @@ class SigmaAPI:
     def get_workbook_pages(self, workbook: Workbook) -> List[Page]:
         try:
             pages: List[Page] = []
-            column_formulas_by_element: Dict[str, Dict[str, Optional[str]]] = {}
+            column_formulas_by_element: Optional[
+                Dict[str, Dict[str, Optional[str]]]
+            ] = None
             if (
                 self.config.extract_lineage
                 and self.config.workbook_lineage_pattern.allowed(workbook.name)

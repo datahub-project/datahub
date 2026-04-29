@@ -1002,6 +1002,34 @@ class TestGetWorkbookPages:
         assert len(pages) == 1
         mock_formulas.assert_not_called()
 
+    def test_workbook_lineage_pattern_denied_passes_no_column_formulas(self) -> None:
+        api = _create_sigma_api()
+        api.config.workbook_lineage_pattern = AllowDenyPattern(deny=[".*"])
+        workbook = Workbook(
+            workbookId="wb-1",
+            name="Denied Workbook",
+            ownerId="u",
+            createdBy="u",
+            updatedBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            url="https://sigma.example/wb",
+            path="Acryl Data/Denied Workbook",
+            latestVersion=1,
+        )
+        pages_response = MagicMock(status_code=200)
+        pages_response.json.return_value = {
+            "entries": [{"pageId": "page-1", "name": "Page 1"}]
+        }
+
+        with (
+            patch.object(api, "_get_api_call", return_value=pages_response),
+            patch.object(api, "get_page_elements", return_value=[]) as mock_elements,
+        ):
+            api.get_workbook_pages(workbook)
+
+        assert mock_elements.call_args.args[2] is None
+
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every
         page of lineage, not just the first.

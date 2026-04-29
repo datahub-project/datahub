@@ -73,6 +73,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_unresolved = 0
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
+    source.reporter.chart_input_fields_case_mismatch = 0
     return source
 
 
@@ -135,36 +136,36 @@ class TestBuildWorkbookElementIndex:
 
 
 # ---------------------------------------------------------------------------
-# _build_workbook_warehouse_table_index
+# _build_element_warehouse_table_index
 # ---------------------------------------------------------------------------
 
 
 class TestBuildWorkbookWarehouseTableIndex:
     def test_direct_warehouse_entry(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,FIVETRAN.LOG.FIVETRAN_LOG__CONNECTOR_STATUS,PROD)"
-        idx = SigmaSource._build_workbook_warehouse_table_index({urn: []})
+        idx = SigmaSource._build_element_warehouse_table_index({urn: []})
         assert idx["FIVETRAN_LOG__CONNECTOR_STATUS"] == [urn]
 
     def test_sigma_dataset_with_warehouse_entry(self) -> None:
         sigma_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,abc123,PROD)"
         wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.PETS,PROD)"
-        idx = SigmaSource._build_workbook_warehouse_table_index({sigma_urn: [wh_urn]})
+        idx = SigmaSource._build_element_warehouse_table_index({sigma_urn: [wh_urn]})
         assert idx["PETS"] == [wh_urn]
 
     def test_case_insensitive_key(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.my_table,PROD)"
-        idx = SigmaSource._build_workbook_warehouse_table_index({urn: []})
+        idx = SigmaSource._build_element_warehouse_table_index({urn: []})
         # Key is always uppercased.
         assert "MY_TABLE" in idx
 
     def test_empty_inputs(self) -> None:
-        assert SigmaSource._build_workbook_warehouse_table_index({}) == {}
+        assert SigmaSource._build_element_warehouse_table_index({}) == {}
 
     def test_invalid_urn_is_skipped_with_debug_log(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.DEBUG):
-            idx = SigmaSource._build_workbook_warehouse_table_index(
+            idx = SigmaSource._build_element_warehouse_table_index(
                 {"not-a-dataset-urn": []}
             )
 
@@ -175,7 +176,7 @@ class TestBuildWorkbookWarehouseTableIndex:
         """Two tables in different schemas with the same leaf name produce a list of 2."""
         urn1 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA1.ORDERS,PROD)"
         urn2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA2.ORDERS,PROD)"
-        idx = SigmaSource._build_workbook_warehouse_table_index({urn1: [], urn2: []})
+        idx = SigmaSource._build_element_warehouse_table_index({urn1: [], urn2: []})
         assert len(idx["ORDERS"]) == 2
         assert set(idx["ORDERS"]) == {urn1, urn2}
 
@@ -284,6 +285,24 @@ class TestResolveChartFormulaUpstream:
         # Falls through to unresolved (no warehouse match either).
         assert self.src.reporter.chart_input_fields_unresolved == 1
 
+    def test_case_mismatched_workbook_element_ref_is_diagnosed(self) -> None:
+        """Workbook element names are exact-case; near misses are counted."""
+        upstream_elem = _make_element("sourceElem", "T Source")
+        ref = _make_ref("t source", "col")
+
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"sourceElem"},
+            wb_element_index={"T Source": [upstream_elem]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"sourceElem": "urn:source"},
+        )
+
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+        assert self.src.reporter.chart_input_fields_unresolved == 1
+
     def test_intra_workbook_collision_ambiguous_multiple_upstream_matches_returns_none(
         self,
     ) -> None:
@@ -371,6 +390,28 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
         assert self.src.reporter.chart_input_fields_unresolved == 1
+
+    def test_warehouse_table_ambiguous_collision_logs_candidates(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        urn1 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA1.ORDERS,PROD)"
+        urn2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA2.ORDERS,PROD)"
+        ref = _make_ref("ORDERS", "id")
+
+        with caplog.at_level(logging.DEBUG):
+            result = self.src._resolve_chart_formula_upstream(
+                ref,
+                chart_element_id="e1",
+                chart_upstream_element_ids=set(),
+                wb_element_index={},
+                element_warehouse_table_index={"ORDERS": [urn1, urn2]},
+                elementId_to_chart_urn={},
+            )
+
+        assert result is None
+        assert "Ambiguous warehouse table formula ref" in caplog.text
+        assert urn1 in caplog.text
+        assert urn2 in caplog.text
 
     # --- unresolvable ref ---
 

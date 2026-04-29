@@ -131,6 +131,8 @@ class Element(BaseModel):
 
         In unit tests, column entries may be passed as dicts like
         {"name": "Col", "formula": "[Source/Col]"} to bypass the API layer.
+        Production formula hydration should happen after validation via the
+        separate workbook columns response, not through this test helper path.
         When dict entries are detected this validator:
           - Replaces `columns` with a plain list of names (backward-compatible).
           - Populates `column_formulas` with the name->formula mapping.
