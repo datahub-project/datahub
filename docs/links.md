@@ -1,3 +1,7 @@
+---
+description: "Curated list of articles, talks, and videos about DataHub covering architecture, metadata service authentication, and lineage."
+---
+
 # Articles & Talks
 
 ## Overviews
