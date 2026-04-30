@@ -346,31 +346,6 @@ class TestDataplexProjectSelectors:
             DataplexConfig()
         assert "At least one project selector must be specified" in str(exc_info.value)
 
-    def test_project_id_pattern_invalid_regex_rejected(self):
-        with pytest.raises(ValidationError) as exc_info:
-            DataplexConfig(
-                project_ids=["test-project"],
-                project_id_pattern={"allow": ["[invalid"]},
-            )
-        assert "Invalid regex in project_id_pattern" in str(exc_info.value)
-
-    def test_project_id_pattern_filters_all_explicit_ids_raises(self):
-        with pytest.raises(ValidationError) as exc_info:
-            DataplexConfig(
-                project_ids=["dev-project-1", "dev-project-2"],
-                project_id_pattern={"allow": ["^prod-.*"]},
-            )
-        assert "filtered out by project_id_pattern" in str(exc_info.value)
-
-    def test_project_id_pattern_partial_filter_is_valid(self):
-        # Pattern excludes some but not all configured project_ids — allowed at config time.
-        config = DataplexConfig(
-            project_ids=["prod-project-1", "dev-project-1"],
-            project_id_pattern={"deny": ["^dev-.*"]},
-        )
-        assert "prod-project-1" in config.project_ids
-        assert "dev-project-1" in config.project_ids
-
     def test_project_labels_invalid_format_rejected(self):
         # "prod" is missing the required `key:value` format.
         with pytest.raises(ValidationError) as exc_info:

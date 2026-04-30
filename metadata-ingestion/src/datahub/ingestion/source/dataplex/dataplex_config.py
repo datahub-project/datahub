@@ -1,7 +1,6 @@
 """Configuration for Google Dataplex source."""
 
 import logging
-import re
 from typing import Dict, List, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -13,6 +12,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_filter import (
+    GcpProjectFilterConfig,
     GCPValidationError,
     validate_project_label_list,
 )
@@ -109,41 +109,23 @@ class DataplexFilterConfig(ConfigModel):
 
 
 class DataplexConfig(
+    GcpProjectFilterConfig,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
     StatefulIngestionConfigBase,
     StatefulLineageConfigMixin,
 ):
-    """Configuration for Google Dataplex source."""
+    """Configuration for Google Dataplex source.
+
+    Project selection (`project_ids`, `project_labels`, `project_id_pattern`) is
+    inherited from `GcpProjectFilterConfig` and consumed by the shared
+    `resolve_gcp_projects` helper. Auto-discovery (when `project_ids` is empty)
+    requires `roles/resourcemanager.folderViewer` on the parent folder/organization.
+    """
 
     credential: Optional[GCPCredential] = Field(
         default=None,
         description="GCP credential information. If not specified, uses Application Default Credentials.",
-    )
-
-    project_ids: List[str] = Field(
-        default_factory=list,
-        description="Explicit list of Google Cloud Project IDs to ingest Dataplex resources from. "
-        "When set, overrides project_id_pattern and project_labels. "
-        "If empty, projects are auto-discovered via the Cloud Resource Manager API and "
-        "filtered through project_labels (if set) and project_id_pattern.",
-    )
-
-    project_id_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex allow/deny patterns for GCP project ids. Used when project_ids is "
-        "not set — projects are discovered via the Cloud Resource Manager API and "
-        "filtered through this pattern. Ignored when project_ids is set explicitly. "
-        "Auto-discovery requires roles/resourcemanager.projectViewer (or equivalent) "
-        "on the parent organization or folder.",
-    )
-
-    project_labels: List[str] = Field(
-        default_factory=list,
-        description="Filter discovered GCP projects by labels in `key:value` format "
-        "(e.g. `env:prod`). Applied before project_id_pattern. Ignored when project_ids "
-        "is set explicitly. Requires roles/resourcemanager.projectViewer (or equivalent) "
-        "on the parent organization or folder.",
     )
 
     entries_locations: List[str] = Field(
@@ -298,24 +280,6 @@ class DataplexConfig(
 
         return values
 
-    @field_validator("project_id_pattern")
-    @classmethod
-    def _validate_project_id_pattern_syntax(
-        cls, v: AllowDenyPattern
-    ) -> AllowDenyPattern:
-        invalid: List[str] = []
-        for pattern in v.allow + v.deny:
-            try:
-                re.compile(pattern)
-            except re.error as e:
-                invalid.append(f"'{pattern}': {e}")
-        if invalid:
-            raise ValueError(
-                f"Invalid regex in project_id_pattern: {', '.join(invalid)}. "
-                "Check your allow/deny patterns for syntax errors."
-            )
-        return v
-
     @field_validator("project_labels")
     @classmethod
     def _validate_project_labels_format(cls, v: List[str]) -> List[str]:
@@ -340,18 +304,6 @@ class DataplexConfig(
                 "At least one project selector must be specified. Set project_ids "
                 "explicitly, or use project_id_pattern / project_labels to "
                 "auto-discover projects."
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _validate_pattern_does_not_filter_all(self) -> "DataplexConfig":
-        """Reject configs where project_id_pattern excludes every explicit project_id."""
-        if not self.project_ids:
-            return self
-        if all(not self.project_id_pattern.allowed(pid) for pid in self.project_ids):
-            raise ValueError(
-                f"All {len(self.project_ids)} configured project_ids were filtered "
-                "out by project_id_pattern. Check your allow/deny patterns."
             )
         return self
 

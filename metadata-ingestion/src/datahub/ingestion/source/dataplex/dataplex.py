@@ -11,6 +11,7 @@ Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
+from functools import cached_property
 from itertools import product
 from typing import Dict, Iterable, List, Optional
 
@@ -38,10 +39,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.gcp_project_filter import (
-    GcpProjectFilterConfig,
-    resolve_gcp_projects,
-)
+from datahub.ingestion.source.common.gcp_project_filter import resolve_gcp_projects
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_entries import (
@@ -186,26 +184,22 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     platform: str = "dataplex"
 
-    def _resolve_target_projects(
-        self, credentials: Optional[service_account.Credentials]
-    ) -> List[str]:
-        """Resolve the effective list of GCP project ids.
+    @cached_property
+    def _project_ids(self) -> List[str]:
+        """Effective list of GCP project ids, resolved lazily on first access.
 
         Honors `project_ids` (explicit override), then `project_labels`, then
-        `project_id_pattern` via the shared GCP project filter helper.
+        `project_id_pattern` via the shared GCP project filter helper. When
+        `project_ids` is empty, projects are discovered via the Cloud Resource
+        Manager API on first use.
         """
-        filter_cfg = GcpProjectFilterConfig(
-            project_ids=self.config.project_ids,
-            project_labels=self.config.project_labels,
-            project_id_pattern=self.config.project_id_pattern,
-        )
         projects_client = (
-            resourcemanager_v3.ProjectsClient(credentials=credentials)
+            resourcemanager_v3.ProjectsClient(credentials=self._credentials)
             if not self.config.project_ids
             else None
         )
         resolved = resolve_gcp_projects(
-            filter_cfg, self.report, projects_client=projects_client
+            self.config, self.report, projects_client=projects_client
         )
         return [p.id for p in resolved]
 
@@ -241,11 +235,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             if creds
             else None
         )
-
-        # Resolve effective projects up-front. When project_ids is set we use it
-        # verbatim; otherwise project_labels/project_id_pattern drive auto-discovery
-        # via the Cloud Resource Manager API.
-        self._project_ids: List[str] = self._resolve_target_projects(credentials)
+        # Stored for the lazy `_project_ids` cached_property to use on first access.
+        self._credentials: Optional[service_account.Credentials] = credentials
 
         # Shared context — all processors read/write to this single object.
         self.ctx_data = DataplexContext(config=self.config, credentials=credentials)
@@ -338,7 +329,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        """Test connection to Dataplex API."""
+        """Test connection to Dataplex API.
+
+        When `project_ids` is set explicitly we list entry groups on the first
+        configured project. When the user relies on `project_id_pattern` or
+        `project_labels`, we first resolve at least one project via the Cloud
+        Resource Manager API (which validates those credentials/permissions)
+        and then list entry groups on the first resolved project.
+        """
         test_report = TestConnectionReport()
         try:
             config = DataplexConfig.model_validate(config_dict)
@@ -349,21 +347,36 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
 
-            # Test connection by attempting to list entry groups. When project_ids
-            # is set explicitly we exercise the Dataplex API directly; when only
-            # project_id_pattern / project_labels are configured, project discovery
-            # happens at runtime via the Resource Manager API and we skip the
-            # Dataplex listing here (credentials validation is sufficient).
-            catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
             if config.project_ids:
-                project_id = config.project_ids[0]
-                parent = (
-                    f"projects/{project_id}/locations/{config.entries_locations[0]}"
+                project_id: Optional[str] = config.project_ids[0]
+            else:
+                # Auto-discovery mode — exercise the Resource Manager API to
+                # verify credentials and roles.
+                projects_client = resourcemanager_v3.ProjectsClient(
+                    credentials=credentials
                 )
-                entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
-                # Just iterate once to verify access
-                for _ in catalog_client.list_entry_groups(request=entry_groups_request):
-                    break
+                probe_report = DataplexReport()
+                resolved = resolve_gcp_projects(
+                    config, probe_report, projects_client=projects_client
+                )
+                if not resolved:
+                    failure_reason = (
+                        "No GCP projects matched the configured "
+                        "project_id_pattern / project_labels, or the service "
+                        "account lacks Cloud Resource Manager access."
+                    )
+                    test_report.basic_connectivity = CapabilityReport(
+                        capable=False, failure_reason=failure_reason
+                    )
+                    return test_report
+                project_id = resolved[0].id
+
+            catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
+            parent = f"projects/{project_id}/locations/{config.entries_locations[0]}"
+            entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
+            # Iterate once to verify Dataplex API access.
+            for _ in catalog_client.list_entry_groups(request=entry_groups_request):
+                break
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except exceptions.GoogleAPICallError as e:
