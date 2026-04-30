@@ -1061,7 +1061,7 @@ class TestGetWorkbookPages:
         ):
             api.get_workbook_pages(workbook)
 
-        assert mock_elements.call_args.args[2] is None
+        assert mock_elements.call_args.kwargs["column_formulas_by_element"] is None
 
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every

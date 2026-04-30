@@ -152,6 +152,13 @@ class TestBuildElementWarehouseTableIndex:
         idx = SigmaSource._build_element_warehouse_table_index({sigma_urn: [wh_urn]})
         assert idx["PETS"] == [wh_urn]
 
+    def test_sigma_dataset_without_warehouse_entry_is_not_indexed(self) -> None:
+        dm_element_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,dmId.elementId,PROD)"
+        )
+        idx = SigmaSource._build_element_warehouse_table_index({dm_element_urn: []})
+        assert idx == {}
+
     def test_case_insensitive_key(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.my_table,PROD)"
         idx = SigmaSource._build_element_warehouse_table_index({urn: []})
@@ -562,3 +569,41 @@ class TestGenElementsWorkunitInputFields:
         assert len(input_fields_aspects) == 1
         assert len(input_fields_aspects[0].fields) == 1
         assert len(all_input_fields) == 1
+
+    def test_dashboard_input_fields_dedup_across_charts(self) -> None:
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        page = Page(
+            pageId="page-1",
+            name="Dashboard",
+            elements=[
+                _make_element_with_formula(
+                    "chart-1",
+                    "Orders Chart 1",
+                    {"Order Id": "[ORDERS/ORDER_ID]"},
+                ),
+                _make_element_with_formula(
+                    "chart-2",
+                    "Orders Chart 2",
+                    {"Order Id": "[ORDERS/ORDER_ID]"},
+                ),
+            ],
+        )
+        workbook = _make_workbook_with_elements([page.elements])
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({warehouse_urn: []}, [])
+        )
+
+        workunits = list(src._gen_pages_workunit(workbook, paths=[]))
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 3
+        dashboard_input_fields = input_fields_aspects[-1]
+        assert len(dashboard_input_fields.fields) == 1

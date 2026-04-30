@@ -1204,7 +1204,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         index: Dict[str, List[str]] = {}
         for dataset_urn, warehouse_urns in dataset_inputs.items():
-            candidates: List[str] = warehouse_urns if warehouse_urns else [dataset_urn]
+            candidates: List[str] = warehouse_urns
+            if not candidates:
+                try:
+                    parsed_dataset_urn = DatasetUrn.from_string(dataset_urn)
+                    if (
+                        parsed_dataset_urn.get_data_platform_urn().platform_name
+                        == "sigma"
+                    ):
+                        # Sigma-platform entries with no bridged warehouse URNs
+                        # are Data Model element datasets, not warehouse tables.
+                        continue
+                    candidates = [dataset_urn]
+                except InvalidUrnError as e:
+                    logger.debug("Skipping invalid dataset URN %r: %s", dataset_urn, e)
+                    continue
             for urn in candidates:
                 try:
                     short = DatasetUrn.from_string(urn).name.split(".")[-1].upper()
@@ -1623,7 +1637,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=dashboard_urn,
-                aspect=InputFieldsClass(fields=all_input_fields),
+                aspect=InputFieldsClass(
+                    fields=list(
+                        {
+                            (field.schemaFieldUrn, field.schemaField.fieldPath): field
+                            for field in all_input_fields
+                            if field.schemaField is not None
+                        }.values()
+                    )
+                ),
             ).as_workunit()
 
     def _gen_workbook_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:

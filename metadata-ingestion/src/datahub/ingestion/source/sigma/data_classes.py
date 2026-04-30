@@ -147,6 +147,11 @@ class Element(BaseModel):
             for col in raw_columns:
                 if isinstance(col, dict):
                     name = col.get("name", "")
+                    if not name:
+                        logger.debug(
+                            "Skipping Sigma column formula without a name: %s", col
+                        )
+                        continue
                     column_names.append(name)
                     column_formulas[name] = col.get("formula") or None
                 else:

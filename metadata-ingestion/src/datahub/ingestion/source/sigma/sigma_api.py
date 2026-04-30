@@ -709,7 +709,9 @@ class SigmaAPI:
             for page_dict in response.json()[Constant.ENTRIES]:
                 page = Page.model_validate(page_dict)
                 page.elements = self.get_page_elements(
-                    workbook, page, column_formulas_by_element
+                    workbook,
+                    page,
+                    column_formulas_by_element=column_formulas_by_element,
                 )
                 pages.append(page)
             return pages
