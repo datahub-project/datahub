@@ -6,6 +6,8 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import javax.annotation.Nonnull;
@@ -65,16 +67,49 @@ public class SearchClientShimFactory {
             .withSocketTimeout(esConfig.getSocketTimeout());
 
     // Determine how to create the shim
+    SearchClientShim<?> shim;
     if (shimAutoDetectEngine) {
       log.info("Auto-detecting search engine type for shim");
-      return SearchClientShimUtil.createShimWithAutoDetection(configBuilder.build(), objectMapper);
+      shim = SearchClientShimUtil.createShimWithAutoDetection(configBuilder.build(), objectMapper);
     } else {
       // Parse the configured engine type
       SearchClientShim.SearchEngineType engineType = parseEngineType(shimEngineType);
       configBuilder.withEngineType(engineType);
 
       log.info("Creating shim with configured engine type: {}", engineType);
-      return SearchClientShimUtil.createShim(configBuilder.build(), objectMapper);
+      shim = SearchClientShimUtil.createShim(configBuilder.build(), objectMapper);
+    }
+
+    // If semantic search is enabled on an ES 8 shim, verify the cluster meets the 8.18+ minimum.
+    // This fails fast at startup rather than at query time.
+    boolean semanticEnabled =
+        esConfig.getEntityIndex() != null
+            && esConfig.getEntityIndex().getSemanticSearch() != null
+            && esConfig.getEntityIndex().getSemanticSearch().isEnabled();
+
+    if (semanticEnabled && shim instanceof Es8SearchClientShim) {
+      log.info(
+          "Semantic search enabled with ES 8 shim — verifying cluster version meets 8.18+ requirement");
+      ((Es8SearchClientShim) shim).verifySemanticSearchSupport();
+    }
+
+    assertCompatModeNotSemanticEnabled(shim, semanticEnabled);
+
+    return shim;
+  }
+
+  /**
+   * Fails fast if semantic search is enabled while the shim is in ES 7 compatibility mode. Called
+   * at startup so misconfigurations surface immediately rather than at query time.
+   *
+   * <p>Package-private for direct invocation by unit tests.
+   */
+  static void assertCompatModeNotSemanticEnabled(
+      @Nonnull SearchClientShim<?> shim, boolean semanticEnabled) {
+    if (semanticEnabled && shim instanceof Es7CompatibilitySearchClientShim) {
+      throw new IllegalStateException(
+          "Elasticsearch 8.18+ required for semantic search; cluster is in ES 7 compatibility mode. "
+              + "Upgrade the cluster or set semanticSearch.enabled=false.");
     }
   }
 
