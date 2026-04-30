@@ -293,6 +293,32 @@ class DataBricksPlatformDetail(PlatformDetail):
     )
 
 
+class OraclePlatformDetail(PlatformDetail):
+    """Oracle-specific platform detail. Adds ``default_schema`` for inline native SQL."""
+
+    # Required so Pydantic Union resolution can distinguish this from plain
+    # PlatformDetail; with all-optional fields the two would be indistinguishable
+    # and any platform_instance-only entry would silently absorb into Oracle.
+    default_schema: str = pydantic.Field(
+        description=(
+            "Default Oracle schema applied to unqualified table references found "
+            'inside ``Oracle.Database(…, Query="…")`` inline native SQL. Set to '
+            "whatever schema your Oracle ingestion uses as the URN prefix. Only "
+            "configure this on Oracle servers that need it; other platforms "
+            "should use plain PlatformDetail. Empty/whitespace values are rejected."
+        ),
+        min_length=1,
+    )
+
+    @field_validator("default_schema")
+    @classmethod
+    def _strip_and_validate_default_schema(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("default_schema must not be empty or whitespace")
+        return stripped
+
+
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
         default=True,
@@ -425,7 +451,7 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[PlatformDetail, DataBricksPlatformDetail]
+        str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
     ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."

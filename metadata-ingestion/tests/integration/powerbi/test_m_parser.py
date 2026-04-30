@@ -11,11 +11,14 @@ import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.powerbi.config import (
+    DataPlatformPair,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    PowerBIPlatformDetail,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
+    ResolvePlatformInstanceFromServerToPlatformInstance,
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import parser
@@ -23,7 +26,18 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
 )
-from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
+from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    NativeQueryLineage,
+    OracleLineage,
+    _remap_column_lineage_to_pbi_fields,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Column
+from datahub.metadata.schema_classes import StringTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -247,6 +261,454 @@ def test_oracle_regular_case():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:oracle,salesdb.hr.employees,PROD)"
     )
+
+
+# Bare TNS alias + Query= referencing four unqualified tables (joined).
+_ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY: str = (
+    "let\n"
+    '    Source = Oracle.Database("EDWPSFN", '
+    "[HierarchicalNavigation=true, "
+    'Query="SELECT A.SETID, A.CNTRCT_ID, B.VENDOR_ID, D.AMT_CNTRCT_MAX, E.NAME1#(lf)'
+    "FROM PS_COR_CNTRCT_PROJ A, PS_COR_CNTRCT_PRIM B, PS_cntrct_hdr D, PS_VENDOR E#(lf)"
+    'WHERE A.SETID = B.SETID AND A.CNTRCT_ID = D.CNTRCT_ID AND B.VENDOR_ID = E.VENDOR_ID"]),\n'
+    '    #"Removed Other Columns" = Table.SelectColumns(Source, {"SETID", "CNTRCT_ID"})\n'
+    "in\n"
+    '    #"Removed Other Columns"'
+)
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_with_inline_query():
+    """Bare TNS alias + Query= with unqualified tables should produce four 2-part
+    Oracle URNs when ``default_schema`` is configured."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "EDWPSFN": {"default_schema": "edwpsfn"},
+            },
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+    assert len(lineages) == 1, f"Expected exactly one lineage result, got {lineages}"
+    data_platform_tables: List[DataPlatformTable] = lineages[0].upstreams
+
+    actual_urns = sorted(t.urn for t in data_platform_tables)
+    assert actual_urns == sorted(
+        [
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_proj,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_prim,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cntrct_hdr,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_vendor,PROD)",
+        ]
+    ), f"Got URNs: {actual_urns}"
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_inline_query_without_default_schema_warns():
+    """``Query="…"`` with unqualified tables and no ``default_schema`` must
+    emit a structured warning rather than producing zero lineage silently."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert any("default_schema" in (t or "") for t in warning_titles), (
+        f"Warning about missing default_schema should be present; got: {warning_titles}"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_inline_query_respects_advance_lineage_sql_construct_flag():
+    """When ``enable_advance_lineage_sql_construct=False`` the Oracle Query=
+    branch opts out of sqlglot parsing — matching MSSql and NativeQueryLineage."""
+    q: str = _ORACLE_TNS_ALIAS_INLINE_QUERY_M_QUERY
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="Primary_Contractor",
+        full_name="MWBE.Primary_Contractor",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "EDWPSFN": {"default_schema": "edwpsfn"},
+            },
+            "enable_advance_lineage_sql_construct": False,
+        }
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstreams = combine_upstreams_from_lineage(lineages)
+    assert upstreams == [], (
+        "Expected no upstreams when enable_advance_lineage_sql_construct is False; "
+        f"got {upstreams}"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_full_tns_descriptor_with_inline_query():
+    """Full TNS descriptor form. ``SERVICE_NAME`` is extracted as the server,
+    and ``server_to_platform_instance`` keyed by that name applies the
+    default_schema."""
+    q: str = (
+        "let\n"
+        "    Source = Oracle.Database("
+        '"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=h)(PORT=1521))'
+        '(CONNECT_DATA=(SERVICE_NAME=mydb.example.com)))", '
+        '[Query="SELECT * FROM EMPLOYEES"])\n'
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="HR.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "mydb.example.com": {"default_schema": "hr"},
+            },
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+    assert len(lineages) == 1, f"Expected exactly one lineage result, got {lineages}"
+    data_platform_tables: List[DataPlatformTable] = lineages[0].upstreams
+
+    actual_urns = [t.urn for t in data_platform_tables]
+    assert actual_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ], f"Got URNs: {actual_urns}"
+
+
+@pytest.mark.integration
+def test_oracle_tns_alias_inline_query_qualified_tables_no_schema_needed():
+    """Fully-qualified SQL (schema.table) with a bare TNS alias and no
+    ``default_schema`` configured should produce lineage without any warning."""
+    q: str = (
+        "let\n"
+        '    Source = Oracle.Database("EDWPSFN", '
+        '[Query="SELECT EMPLOYEE_ID, NAME FROM HR.EMPLOYEES"])\n'
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="HR.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstreams = combine_upstreams_from_lineage(lineages)
+    assert len(upstreams) == 1
+    assert (
+        upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ), f"Got URN: {upstreams[0].urn}"
+
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert not any("default_schema" in (t or "") for t in warning_titles), (
+        f"No default_schema warning expected for fully-qualified SQL; got: {warning_titles}"
+    )
+
+
+def test_oracle_get_server_and_db_name_recognizes_all_forms():
+    # EZ-Connect: server case is preserved so existing recipe keys keep matching.
+    assert OracleLineage._get_server_and_db_name(
+        "localhost:1521/salesdb.domain.com"
+    ) == ("localhost:1521", "salesdb")
+    assert OracleLineage._get_server_and_db_name(
+        "LOCALHOST:1521/SALESDB.DOMAIN.COM"
+    ) == ("LOCALHOST:1521", "SALESDB")
+
+    # TNS alias / descriptor: lowercased so recipe keys match regardless of
+    # M-query casing (Oracle TNS lookup is case-insensitive in the source).
+    assert OracleLineage._get_server_and_db_name("EDWPSFN") == ("edwpsfn", None)
+    assert OracleLineage._get_server_and_db_name('"EDWPSFN"') == ("edwpsfn", None)
+    assert OracleLineage._get_server_and_db_name("MYDB.WORLD") == ("mydb.world", None)
+    assert OracleLineage._get_server_and_db_name(
+        "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=h)(PORT=1521))"
+        "(CONNECT_DATA=(SERVICE_NAME=mydb.example.com)))"
+    ) == ("mydb.example.com", None)
+
+    # Unrecognized forms return (None, None).
+    assert OracleLineage._get_server_and_db_name("host:port:SID") == (None, None)
+    assert OracleLineage._get_server_and_db_name("") == (None, None)
+    assert OracleLineage._get_server_and_db_name("/foo/bar") == (None, None)
+    # SID= without SERVICE_NAME= must not be silently treated as a service name.
+    assert OracleLineage._get_server_and_db_name(
+        "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=h)(PORT=1521))"
+        "(CONNECT_DATA=(SID=mydb)))"
+    ) == (None, None)
+
+
+def test_oracle_sql_has_unqualified_tables_treats_unparseable_as_unqualified():
+    """If the inline SQL is unparseable, ``_sql_has_unqualified_tables`` returns
+    True so the user gets a missing-default_schema warning instead of a silent
+    failure — locks in the conservative fallback. We patch sqlglot.parse to raise
+    so the test does not depend on which inputs sqlglot's permissive Oracle
+    dialect happens to reject."""
+    instance = MagicMock(spec=OracleLineage)
+    instance.table = MagicMock(full_name="MWBE.foo")
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.pattern_handler.sqlglot.parse",
+        side_effect=Exception("boom"),
+    ):
+        assert OracleLineage._sql_has_unqualified_tables(instance, "SELECT 1") is True
+
+
+def test_server_to_platform_instance_lookup_is_case_insensitive():
+    """A lowercased TNS-alias server name must still match a mixed-case
+    ``server_to_platform_instance`` recipe key — Oracle TNS lookup is
+    case-insensitive in the source system."""
+    _, config, _ = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "EDWPSFN": {"platform_instance": "prod_oracle"},
+            },
+        }
+    )
+    resolver = ResolvePlatformInstanceFromServerToPlatformInstance(config)
+    detail = PowerBIPlatformDetail(
+        data_platform_pair=DataPlatformPair(
+            powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+        ),
+        data_platform_server="edwpsfn",
+    )
+    resolved = resolver.get_platform_instance(detail)
+    assert resolved.platform_instance == "prod_oracle"
+
+
+def test_remap_column_lineage_to_pbi_fields_restores_original_case():
+    """sqlglot returns downstream column names in the upstream's case (Oracle
+    is lowercase). PowerBI fields come back from the API in their original
+    case. Without remapping, the downstream schemaField URN is wrong."""
+    cll = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:powerbi,t,PROD)",
+                column="vendor_id",
+                column_type=None,
+                native_column_type="VARCHAR",
+            ),
+            upstreams=[
+                ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_vendor,PROD)",
+                    column="vendor_id",
+                )
+            ],
+        )
+    ]
+    pbi_columns = [
+        Column(
+            name="VENDOR_ID",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        )
+    ]
+
+    remapped = _remap_column_lineage_to_pbi_fields(cll, pbi_columns)
+    assert remapped[0].downstream.column == "VENDOR_ID"
+    # Upstream column case must be preserved (Oracle stores lowercase).
+    assert remapped[0].upstreams[0].column == "vendor_id"
+
+
+def test_remap_column_lineage_empty_inputs():
+    """Edge cases: empty column_lineage and None pbi_columns both return input unchanged."""
+    pbi_columns = [
+        Column(
+            name="VENDOR_ID",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        )
+    ]
+    cll = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:powerbi,t,PROD)",
+                column="vendor_id",
+                column_type=None,
+                native_column_type="VARCHAR",
+            ),
+            upstreams=[
+                ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_vendor,PROD)",
+                    column="vendor_id",
+                )
+            ],
+        )
+    ]
+
+    # Empty column_lineage is returned as-is.
+    assert _remap_column_lineage_to_pbi_fields([], pbi_columns) == []
+
+    # None pbi_columns: no remapping, original content returned unchanged.
+    result = _remap_column_lineage_to_pbi_fields(cll, None)
+    assert result == cll
+
+    # Already-matching case: downstream column name already matches pbi field name.
+    matching_cll = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:powerbi,t,PROD)",
+                column="VENDOR_ID",
+                column_type=None,
+                native_column_type="VARCHAR",
+            ),
+            upstreams=[],
+        )
+    ]
+    remapped = _remap_column_lineage_to_pbi_fields(matching_cll, pbi_columns)
+    assert remapped == matching_cll
+
+
+def test_remap_column_lineage_multi_table_shared_column_name():
+    """Two upstream tables sharing a column name (e.g. SETID from both
+    PS_COR_CNTRCT_PROJ and PS_COR_CNTRCT_PRIM) must each get the PowerBI
+    casing applied to their downstream — guards against mis-collapsing."""
+    cll = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:powerbi,t,PROD)",
+                column="setid",
+                column_type=None,
+                native_column_type="VARCHAR",
+            ),
+            upstreams=[
+                ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_proj,PROD)",
+                    column="setid",
+                ),
+                ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_prim,PROD)",
+                    column="setid",
+                ),
+            ],
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:powerbi,t,PROD)",
+                column="vendor_id",
+                column_type=None,
+                native_column_type="VARCHAR",
+            ),
+            upstreams=[
+                ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_vendor,PROD)",
+                    column="vendor_id",
+                )
+            ],
+        ),
+    ]
+    pbi_columns = [
+        Column(
+            name="SETID",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        ),
+        Column(
+            name="VENDOR_ID",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        ),
+    ]
+
+    remapped = _remap_column_lineage_to_pbi_fields(cll, pbi_columns)
+    assert [c.downstream.column for c in remapped] == ["SETID", "VENDOR_ID"]
+    # Each upstream ColumnRef must keep its original (table, column) — remapping
+    # the downstream casing must not collapse, swap, or drop upstream entries.
+    setid_upstreams = [(u.table, u.column) for u in remapped[0].upstreams]
+    assert setid_upstreams == [
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_proj,PROD)",
+            "setid",
+        ),
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:oracle,edwpsfn.ps_cor_cntrct_prim,PROD)",
+            "setid",
+        ),
+    ]
 
 
 @pytest.mark.integration
