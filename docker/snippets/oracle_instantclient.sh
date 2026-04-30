@@ -9,6 +9,10 @@
 # IC_UNZIP_DIR must match the top-level directory inside the Basic ZIP (see unzip -l); Oracle
 # uses the same folder name for x64 and arm64 at a given 23.x release.
 #
+# A stable path /opt/oracle/instantclient -> ${IC_UNZIP_DIR} is created so Python (oracledb
+# thick_mode_lib_dir), ORACLE_HOME-style tooling, and user configs do not need updating when
+# the Instant Client minor version (and thus the unzip directory name) changes.
+#
 # libaio: Oracle's loader expects libaio.so.1, but distros differ:
 #   - Debian/Ubuntu (multiarch): often only libaio.so.1t64 under /usr/lib/*-linux-gnu/
 #   - Wolfi: libaio.so.1 under /usr/lib, while client libs may still look beside multiarch paths
@@ -53,6 +57,9 @@ rm -f "$zip"
 # Ensure libaio can be found the way Oracle's shared libraries expect (see header).
 link_libaio_for_oracle
 
+# Stable path for ldconfig, ORACLE_HOME, thick_mode_lib_dir, ORACLE_CLIENT_LIBRARY_DIR, etc.
+ln -sfn "/opt/oracle/${IC_UNZIP_DIR}" /opt/oracle/instantclient
+
 # Register the client directory with the dynamic linker (libclntsh.so, etc.).
-sh -c "echo /opt/oracle/${IC_UNZIP_DIR} > /etc/ld.so.conf.d/oracle-instantclient.conf"
+sh -c "echo /opt/oracle/instantclient > /etc/ld.so.conf.d/oracle-instantclient.conf"
 ldconfig
