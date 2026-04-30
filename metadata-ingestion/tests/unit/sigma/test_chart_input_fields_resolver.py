@@ -69,7 +69,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.config = config
     source.reporter = MagicMock()
     source.reporter.chart_input_fields_resolved = 0
-    source.reporter.chart_input_fields_unresolved = 0
+    source.reporter.chart_input_fields_self_ref_fallback = 0
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
@@ -215,12 +215,12 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={},
             element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_parameter == 1
 
     # --- sibling / bare [col] ref ---
 
@@ -230,12 +230,12 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="1ESOHOLBNY",
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={},
             element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_skipped_sibling == 1
 
     # --- intra-workbook element ref ---
 
@@ -248,12 +248,12 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"AAOgK0f3ag"},
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"random data model": [upstream_elem]},
             element_warehouse_table_index={},
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
         assert result == (chart_urn, "Calc")
-        assert self.src.reporter.chart_input_fields_resolved == 1
 
     def test_intra_workbook_collision_only_one_in_upstream(self) -> None:
         """Three elements named 'random data model'; only AAOgK0f3ag is upstream."""
@@ -266,12 +266,12 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"AAOgK0f3ag"},
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"random data model": [e1, e2, e3]},
             element_warehouse_table_index={},
             elementId_to_chart_urn={"AAOgK0f3ag": chart_urn},
         )
         assert result == (chart_urn, "toss_decision")
-        assert self.src.reporter.chart_input_fields_resolved == 1
 
     def test_intra_workbook_collision_no_upstream_match_returns_none(self) -> None:
         """Name collision without lineage-upstream filter -> None (no match)."""
@@ -283,13 +283,12 @@ class TestResolveChartFormulaUpstream:
             chart_element_id="downstreamElem",
             # Neither collision element is in the upstream set.
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"random data model": [e1, e2]},
             element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
-        # Falls through to unresolved (no warehouse match either).
-        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     def test_case_mismatched_workbook_element_ref_is_diagnosed(self) -> None:
         """Workbook element names are exact-case; near misses are counted."""
@@ -303,6 +302,7 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"sourceElem"},
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"T Source": [upstream_elem]},
             element_warehouse_table_index={"T SOURCE": [wh_urn]},
             elementId_to_chart_urn={"sourceElem": "urn:source"},
@@ -310,8 +310,6 @@ class TestResolveChartFormulaUpstream:
 
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
-        assert self.src.reporter.chart_input_fields_unresolved == 1
-        assert self.src.reporter.chart_input_fields_resolved == 0
 
     def test_exact_workbook_name_without_lineage_match_does_not_fallback_to_warehouse(
         self,
@@ -325,14 +323,13 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="downstreamElem",
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"Orders": [upstream_elem]},
             element_warehouse_table_index={"ORDERS": [wh_urn]},
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
 
         assert result is None
-        assert self.src.reporter.chart_input_fields_unresolved == 1
-        assert self.src.reporter.chart_input_fields_resolved == 0
 
     def test_self_reference_is_excluded_from_workbook_element_matches(self) -> None:
         """A self-loop in Sigma lineage must not resolve to the chart itself."""
@@ -343,14 +340,13 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="chartElem",
             chart_upstream_element_ids={"chartElem"},
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"Orders": [self_elem]},
             element_warehouse_table_index={},
             elementId_to_chart_urn={"chartElem": "urn:self"},
         )
 
         assert result is None
-        assert self.src.reporter.chart_input_fields_unresolved == 1
-        assert self.src.reporter.chart_input_fields_resolved == 0
 
     def test_intra_workbook_collision_ambiguous_multiple_upstream_matches_returns_none(
         self,
@@ -363,17 +359,17 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"k7i_W7UYCg", "lBjhSbH_Jp"},
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"random data model": [e1, e2]},
             element_warehouse_table_index={},
             elementId_to_chart_urn={"k7i_W7UYCg": "urn:a", "lBjhSbH_Jp": "urn:b"},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     def test_filtered_upstream_element_does_not_fall_through_to_warehouse(
         self,
     ) -> None:
-        """A workbook match without a chart URN is intentionally unresolved."""
+        """A workbook match without a chart URN falls back to DM lookup, then None."""
         upstream_elem = _make_element("filtered-pivot", "Orders")
         wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
         ref = _make_ref("Orders", "order_id")
@@ -382,14 +378,13 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="downstreamElem",
             chart_upstream_element_ids={"filtered-pivot"},
+            dm_upstream_urn_by_element_name={},
             wb_element_index={"Orders": [upstream_elem]},
             element_warehouse_table_index={"ORDERS": [wh_urn]},
             elementId_to_chart_urn={},
         )
 
         assert result is None
-        assert self.src.reporter.chart_input_fields_unresolved == 1
-        assert self.src.reporter.chart_input_fields_resolved == 0
 
     # --- warehouse table ref ---
 
@@ -401,12 +396,12 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="4Buu0C7LnB",
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={},
             element_warehouse_table_index={"FIVETRAN_LOG__CONNECTOR_STATUS": [wh_urn]},
             elementId_to_chart_urn={},
         )
         assert result == (wh_urn, "Connector Health")
-        assert self.src.reporter.chart_input_fields_resolved == 1
 
     def test_warehouse_table_ref_case_insensitive(self) -> None:
         """Warehouse table index lookup is case-insensitive."""
@@ -418,6 +413,7 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={},
             element_warehouse_table_index={"MY_TABLE": [wh_urn]},
             elementId_to_chart_urn={},
@@ -433,12 +429,12 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={},
             element_warehouse_table_index={"ORDERS": [urn1, urn2]},
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     def test_warehouse_table_ambiguous_collision_logs_candidates(
         self, caplog: pytest.LogCaptureFixture
@@ -452,6 +448,7 @@ class TestResolveChartFormulaUpstream:
                 ref,
                 chart_element_id="e1",
                 chart_upstream_element_ids=set(),
+                dm_upstream_urn_by_element_name={},
                 wb_element_index={},
                 element_warehouse_table_index={"ORDERS": [urn1, urn2]},
                 elementId_to_chart_urn={},
@@ -471,12 +468,12 @@ class TestResolveChartFormulaUpstream:
             ref,
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
             wb_element_index={},
             element_warehouse_table_index={},
             elementId_to_chart_urn={},
         )
         assert result is None
-        assert self.src.reporter.chart_input_fields_unresolved == 1
 
     # --- sibling refs from M0 sample formulas ---
 
@@ -490,6 +487,7 @@ class TestResolveChartFormulaUpstream:
                 ref,
                 chart_element_id="1ESOHOLBNY",
                 chart_upstream_element_ids=set(),
+                dm_upstream_urn_by_element_name={},
                 wb_element_index={},
                 element_warehouse_table_index={},
                 elementId_to_chart_urn={},
@@ -505,6 +503,7 @@ class TestResolveChartFormulaUpstream:
                 ref,
                 chart_element_id="1ESOHOLBNY",
                 chart_upstream_element_ids=set(),
+                dm_upstream_urn_by_element_name={},
                 wb_element_index={},
                 element_warehouse_table_index={},
                 elementId_to_chart_urn={},

@@ -183,14 +183,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter restores the observability signal.
     chart_dataset_upstream_name_missing: int = 0
 
-    # Chart InputFields formula refs that were resolved, could not be matched,
-    # or were intentionally skipped because they carry no upstream lineage.
+    # Chart InputFields — one counter fires per chart column (not per formula ref).
+    # Invariant: resolved + self_ref_fallback + skipped_parameter + skipped_sibling
+    #            == total chart columns processed.
     chart_input_fields_resolved: int = 0
-    chart_input_fields_unresolved: int = 0
+    # Column emitted with self-referential schemaFieldUrn because no formula ref
+    # resolved to a real upstream (includes no-formula columns, unresolvable refs).
+    chart_input_fields_self_ref_fallback: int = 0
+    # Column whose entire formula consists only of parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
+    # Column whose entire formula consists only of sibling/bare refs (e.g. [col]).
     chart_input_fields_skipped_sibling: int = 0
-    # Sub-bucket of ``chart_input_fields_unresolved`` for refs whose source
-    # differs only by case from a workbook element name.
+    # Sub-bucket of self_ref_fallback: refs whose source name differs only by case.
     chart_input_fields_case_mismatch: int = 0
 
     # DM element emission / upstream resolution.

@@ -573,11 +573,27 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": []
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
+                    "schemaField": {
+                        "fieldPath": "col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777173668285,
+        "lastObserved": 1777527961851,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -882,11 +898,42 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": []
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_a)",
+                    "schemaField": {
+                        "fieldPath": "col_a",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_b)",
+                    "schemaField": {
+                        "fieldPath": "col_b",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777173668304,
+        "lastObserved": 1777527961867,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -971,11 +1018,42 @@
     "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "fields": []
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),monthly_target)",
+                    "schemaField": {
+                        "fieldPath": "monthly_target",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),derived)",
+                    "schemaField": {
+                        "fieldPath": "derived",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777173668305,
+        "lastObserved": 1777527961868,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1067,12 +1145,72 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_a)",
+                    "schemaField": {
+                        "fieldPath": "col_a",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_b)",
+                    "schemaField": {
+                        "fieldPath": "col_b",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),monthly_target)",
+                    "schemaField": {
+                        "fieldPath": "monthly_target",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),derived)",
+                    "schemaField": {
+                        "fieldPath": "derived",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777173957822,
+        "lastObserved": 1777527961869,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

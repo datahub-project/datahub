@@ -1714,7 +1714,8 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
 
     report = _sigma_report(pipeline)
     assert report.chart_input_fields_resolved == 2
-    assert report.chart_input_fields_unresolved == 0
+    # 3 self-ref fallbacks: sourceElem01.col (formula=None), noFormulaElem01.col_a, .col_b
+    assert report.chart_input_fields_self_ref_fallback == 3
     assert report.chart_input_fields_skipped_parameter == 1
     assert report.chart_input_fields_skipped_sibling == 1
 

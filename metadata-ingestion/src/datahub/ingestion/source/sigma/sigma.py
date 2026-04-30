@@ -1233,30 +1233,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         *,
         chart_element_id: str,
         chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
+        Returns None for parameter and bare-sibling refs (caller handles those
+        at the column level).  Returns (upstream_urn, ref.column) on success.
+
         Resolution order:
-          1. is_parameter -> None (skip; no lineage value).
-          2. column is None (bare [col]) -> None (sibling ref within same element).
-          3. wb_element_index match filtered by chart_upstream_element_ids
-             -> upstream chart URN + ref.column.  Ambiguous (>1 match) -> None.
+          1. is_parameter -> None.
+          2. column is None (bare [col]) -> None (sibling ref).
+          3. wb_element_index match, filtered first by chart_upstream_element_ids
+             (SheetUpstream siblings) then by dm_upstream_urn_by_element_name
+             (DataModelElementUpstream siblings):
+             - SheetUpstream: -> chart URN + ref.column.
+             - DM element: -> DM element Dataset URN + ref.column.
+             - Ambiguous (>1 sheet match not resolved by filters) -> None.
           4. element_warehouse_table_index match with exactly one candidate
              -> warehouse Dataset URN + ref.column.
-             Two or more candidates (same short name, different schemas) -> None.
-          5. else -> None (unresolved; caller increments counter via return value).
+          5. else -> None.
         """
         if ref.is_parameter:
-            self.reporter.chart_input_fields_skipped_parameter += 1
             return None
 
         if ref.column is None:
-            # Bare refs are same-element sibling references. We do not yet chase
-            # sibling formulas transitively (e.g. total -> base -> upstream).
-            self.reporter.chart_input_fields_skipped_sibling += 1
+            # Bare refs are same-element sibling references.
             return None
 
         candidates = wb_element_index.get(ref.source, [])
@@ -1274,7 +1278,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     ref.source,
                     case_mismatched_names,
                 )
-                self.reporter.chart_input_fields_unresolved += 1
                 return None
             else:
                 logger.debug(
@@ -1282,42 +1285,44 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     "falling back to warehouse-table resolution.",
                     ref.source,
                 )
-        upstream_matches = [
-            elem
-            for elem in candidates
-            if elem.elementId in chart_upstream_element_ids
-            and elem.elementId != chart_element_id
-        ]
-        if candidates and not upstream_matches:
+
+        if candidates:
+            # Step 3a: SheetUpstream match (intra-workbook chart→chart lineage).
+            sheet_matches = [
+                elem
+                for elem in candidates
+                if elem.elementId in chart_upstream_element_ids
+                and elem.elementId != chart_element_id
+            ]
+            if len(sheet_matches) == 1:
+                elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
+                if elem_urn:
+                    return (elem_urn, ref.column)
+                # Element exists in the workbook but was filtered from chart emission
+                # (e.g. pivot-table or control). Fall through to DM check.
+            elif len(sheet_matches) > 1:
+                # Ambiguous name collision not resolved by lineage filter.
+                return None
+
+            # Step 3b: DataModelElementUpstream match — ref.source is the DM
+            # element's workbook-page name; resolve to its Dataset URN.
+            dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
+            if dm_urn:
+                return (dm_urn, ref.column)
+
             logger.debug(
                 "Formula ref source %r matched workbook element names but none were "
                 "lineage upstreams for chart element %s; treating as unresolved.",
                 ref.source,
                 chart_element_id,
             )
-            self.reporter.chart_input_fields_unresolved += 1
-            return None
-        if len(upstream_matches) == 1:
-            elem_urn = elementId_to_chart_urn.get(upstream_matches[0].elementId)
-            if elem_urn:
-                self.reporter.chart_input_fields_resolved += 1
-                return (elem_urn, ref.column)
-            # The lineage graph can point at an element filtered out of the chart
-            # map (for example, a pivot-table/control not emitted as a Chart).
-            # Treat that as unresolved rather than guessing a warehouse fallback.
-            self.reporter.chart_input_fields_unresolved += 1
-            return None
-        elif len(upstream_matches) > 1:
-            # Ambiguous name collision not resolved by lineage filter.
-            self.reporter.chart_input_fields_unresolved += 1
             return None
 
+        # Step 4: warehouse-table short-name fallback.
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
         if len(wh_candidates) == 1:
-            self.reporter.chart_input_fields_resolved += 1
             return (wh_candidates[0], ref.column)
         elif len(wh_candidates) > 1:
-            # Two warehouse tables share the same short name (different schemas).
             logger.debug(
                 "Ambiguous warehouse table formula ref source %r for field %r; "
                 "candidate URNs were %s.",
@@ -1325,10 +1330,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ref.column,
                 wh_candidates,
             )
-            self.reporter.chart_input_fields_unresolved += 1
             return None
 
-        self.reporter.chart_input_fields_unresolved += 1
         return None
 
     def _get_element_input_details(
@@ -1461,6 +1464,92 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return dataset_inputs, sorted(chart_input_urns)
 
+    def _build_element_input_fields(
+        self,
+        *,
+        element: Element,
+        chart_urn: str,
+        chart_upstream_eids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> List[InputFieldClass]:
+        """Emit exactly one InputField per chart column.
+
+        schemaFieldUrn points to the resolved upstream when a formula ref can be
+        matched; otherwise falls back to a self-referential URN so the column
+        always appears in the V2 column list regardless of formula parseability.
+
+        Counter invariant per element:
+          resolved + self_ref_fallback + skipped_parameter + skipped_sibling
+          == len(element.columns)
+        """
+        fields: List[InputFieldClass] = []
+        for column in element.columns:
+            formula = element.column_formulas.get(column)
+            resolved: Optional[Tuple[str, str]] = None
+            all_param = False
+            all_sibling = False
+
+            if formula is not None:
+                refs = list(extract_bracket_refs(formula))
+                if refs:
+                    param_count = 0
+                    sibling_count = 0
+                    for ref in refs:
+                        if ref.is_parameter:
+                            param_count += 1
+                            continue
+                        if ref.column is None:
+                            sibling_count += 1
+                            continue
+                        resolved = self._resolve_chart_formula_upstream(
+                            ref,
+                            chart_element_id=element.elementId,
+                            chart_upstream_element_ids=chart_upstream_eids,
+                            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                            wb_element_index=wb_element_index,
+                            element_warehouse_table_index=element_warehouse_table_index,
+                            elementId_to_chart_urn=elementId_to_chart_urn,
+                        )
+                        if resolved is not None:
+                            break
+                    if resolved is None and refs:
+                        total = len(refs)
+                        if param_count == total:
+                            all_param = True
+                        elif sibling_count == total:
+                            all_sibling = True
+
+            if resolved is not None:
+                upstream_urn, upstream_field = resolved
+                schema_field_urn = builder.make_schema_field_urn(
+                    upstream_urn, upstream_field
+                )
+                self.reporter.chart_input_fields_resolved += 1
+            elif all_param:
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self.reporter.chart_input_fields_skipped_parameter += 1
+            elif all_sibling:
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self.reporter.chart_input_fields_skipped_sibling += 1
+            else:
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self.reporter.chart_input_fields_self_ref_fallback += 1
+
+            fields.append(
+                InputFieldClass(
+                    schemaFieldUrn=schema_field_urn,
+                    schemaField=SchemaFieldClass(
+                        fieldPath=column,
+                        type=SchemaFieldDataTypeClass(StringTypeClass()),
+                        nativeDataType="String",
+                    ),
+                )
+            )
+        return fields
+
     def _gen_elements_workunit(
         self,
         elements: List[Element],
@@ -1537,43 +1626,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for upstream in element.upstream_sources.values()
                 if isinstance(upstream, SheetUpstream)
             }
+            # DataModelElementUpstream: map DM element workbook-page name -> Dataset URN.
+            # Look up directly from the name maps without re-incrementing element_dm_edge
+            # counters (those were already bumped inside _get_element_input_details).
+            dm_upstream_urn_by_element_name: Dict[str, str] = {}
+            for upstream in element.upstream_sources.values():
+                if isinstance(upstream, DataModelElementUpstream) and upstream.name:
+                    name_map = self.dm_element_urn_by_name.get(
+                        upstream.data_model_url_id, {}
+                    )
+                    candidates = name_map.get(upstream.name.lower(), [])
+                    if candidates:
+                        dm_upstream_urn_by_element_name[upstream.name] = sorted(
+                            candidates
+                        )[0]
+
             element_warehouse_table_index = self._build_element_warehouse_table_index(
                 dataset_inputs
             )
 
-            element_input_fields: List[InputFieldClass] = []
-            emitted_input_field_keys: Set[Tuple[str, str]] = set()
-            for column in element.columns:
-                formula = element.column_formulas.get(column)
-                if formula is None:
-                    continue
-                for ref in extract_bracket_refs(formula):
-                    resolved = self._resolve_chart_formula_upstream(
-                        ref,
-                        chart_element_id=element.elementId,
-                        chart_upstream_element_ids=chart_upstream_eids,
-                        wb_element_index=wb_element_index,
-                        element_warehouse_table_index=element_warehouse_table_index,
-                        elementId_to_chart_urn=elementId_to_chart_urn,
-                    )
-                    if resolved is None:
-                        continue
-                    upstream_urn, field_path = resolved
-                    if (upstream_urn, field_path) in emitted_input_field_keys:
-                        continue
-                    emitted_input_field_keys.add((upstream_urn, field_path))
-                    element_input_fields.append(
-                        InputFieldClass(
-                            schemaFieldUrn=builder.make_schema_field_urn(
-                                upstream_urn, field_path
-                            ),
-                            schemaField=SchemaFieldClass(
-                                fieldPath=field_path,
-                                type=SchemaFieldDataTypeClass(StringTypeClass()),
-                                nativeDataType="String",
-                            ),
-                        )
-                    )
+            element_input_fields = self._build_element_input_fields(
+                element=element,
+                chart_urn=chart_urn,
+                chart_upstream_eids=chart_upstream_eids,
+                dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                wb_element_index=wb_element_index,
+                element_warehouse_table_index=element_warehouse_table_index,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+            )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
