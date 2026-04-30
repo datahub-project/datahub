@@ -1,3 +1,7 @@
+---
+description: "Configure DataHub to use Confluent Cloud as its Kafka provider, including broker setup and Schema Registry connection details."
+---
+
 # Integrating with Confluent Cloud
 
 DataHub provides the ability to easily leverage Confluent Cloud as your Kafka provider. To do so, you'll need to configure DataHub to talk to a broker and schema registry hosted by Confluent.

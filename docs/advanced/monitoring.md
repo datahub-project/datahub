@@ -1,3 +1,7 @@
+---
+description: "Monitor DataHub services with Prometheus, OpenTelemetry, and JMX metrics for production observability and alerting."
+---
+
 # Monitoring DataHub
 
 ## Overview
