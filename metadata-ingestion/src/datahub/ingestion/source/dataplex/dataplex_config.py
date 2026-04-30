@@ -1,9 +1,10 @@
 """Configuration for Google Dataplex source."""
 
 import logging
+import re
 from typing import Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -11,6 +12,10 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_project_filter import (
+    GCPValidationError,
+    validate_project_label_list,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -118,8 +123,27 @@ class DataplexConfig(
 
     project_ids: List[str] = Field(
         default_factory=list,
-        description="List of Google Cloud Project IDs to ingest Dataplex resources from. "
-        "If not specified, uses project_id or attempts to detect from credentials.",
+        description="Explicit list of Google Cloud Project IDs to ingest Dataplex resources from. "
+        "When set, overrides project_id_pattern and project_labels. "
+        "If empty, projects are auto-discovered via the Cloud Resource Manager API and "
+        "filtered through project_labels (if set) and project_id_pattern.",
+    )
+
+    project_id_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex allow/deny patterns for GCP project ids. Used when project_ids is "
+        "not set — projects are discovered via the Cloud Resource Manager API and "
+        "filtered through this pattern. Ignored when project_ids is set explicitly. "
+        "Auto-discovery requires roles/resourcemanager.projectViewer (or equivalent) "
+        "on the parent organization or folder.",
+    )
+
+    project_labels: List[str] = Field(
+        default_factory=list,
+        description="Filter discovered GCP projects by labels in `key:value` format "
+        "(e.g. `env:prod`). Applied before project_id_pattern. Ignored when project_ids "
+        "is set explicitly. Requires roles/resourcemanager.projectViewer (or equivalent) "
+        "on the parent organization or folder.",
     )
 
     entries_locations: List[str] = Field(
@@ -274,13 +298,60 @@ class DataplexConfig(
 
         return values
 
+    @field_validator("project_id_pattern")
+    @classmethod
+    def _validate_project_id_pattern_syntax(
+        cls, v: AllowDenyPattern
+    ) -> AllowDenyPattern:
+        invalid: List[str] = []
+        for pattern in v.allow + v.deny:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                invalid.append(f"'{pattern}': {e}")
+        if invalid:
+            raise ValueError(
+                f"Invalid regex in project_id_pattern: {', '.join(invalid)}. "
+                "Check your allow/deny patterns for syntax errors."
+            )
+        return v
+
+    @field_validator("project_labels")
+    @classmethod
+    def _validate_project_labels_format(cls, v: List[str]) -> List[str]:
+        try:
+            validate_project_label_list(v)
+        except GCPValidationError as e:
+            raise ValueError(str(e)) from e
+        return v
+
     @model_validator(mode="after")
     def validate_project_ids(self) -> "DataplexConfig":
-        """Ensure at least one project is configured."""
-        if not self.project_ids:
+        """Ensure at least one means of selecting projects is configured."""
+        has_non_default_pattern = (
+            self.project_id_pattern != AllowDenyPattern.allow_all()
+        )
+        if (
+            not self.project_ids
+            and not self.project_labels
+            and not has_non_default_pattern
+        ):
             raise ValueError(
-                "At least one project must be specified. "
-                "Please set project_ids or project_id in your configuration."
+                "At least one project selector must be specified. Set project_ids "
+                "explicitly, or use project_id_pattern / project_labels to "
+                "auto-discover projects."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_pattern_does_not_filter_all(self) -> "DataplexConfig":
+        """Reject configs where project_id_pattern excludes every explicit project_id."""
+        if not self.project_ids:
+            return self
+        if all(not self.project_id_pattern.allowed(pid) for pid in self.project_ids):
+            raise ValueError(
+                f"All {len(self.project_ids)} configured project_ids were filtered "
+                "out by project_id_pattern. Check your allow/deny patterns."
             )
         return self
 
