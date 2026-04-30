@@ -241,6 +241,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
+        # Flat global index across all DMs: lowercased element name →
+        # [Dataset URNs].  Built incrementally in _prepopulate_dm_bridge_maps
+        # so cross-DM FGL resolution can look up any element name regardless
+        # of which DM owns it.
+        self.dm_global_element_urn_by_name: Dict[str, List[str]] = {}
+        # Global: element Dataset URN → {lowercased column name: canonical column name}.
+        # Same dedup logic as the per-element urn_to_cols in the FGL builder so
+        # cross-DM column validation uses the winner set rather than raw columns.
+        self.dm_element_urn_to_cols: Dict[str, Dict[str, str]] = {}
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -602,6 +611,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
+        cross_dm_element_urn_by_name: Dict[str, List[str]],
+        cross_dm_urn_to_cols: Dict[str, Dict[str, str]],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -705,6 +716,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elementId_to_dataset_urn=elementId_to_dataset_urn,
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
+            cross_dm_element_urn_by_name=cross_dm_element_urn_by_name,
+            cross_dm_urn_to_cols=cross_dm_urn_to_cols,
         )
         return UpstreamLineage(
             upstreams=[
@@ -781,6 +794,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_dataset_urn: Dict[str, str],
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
+        cross_dm_element_urn_by_name: Dict[str, List[str]],
+        cross_dm_urn_to_cols: Dict[str, Dict[str, str]],
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
 
@@ -807,6 +822,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 urn_to_cols[el_urn] = {c.lower(): c for c in el_by_name}
 
         fgls: List[FineGrainedLineageClass] = []
+        cross_dm_fgls: List[FineGrainedLineageClass] = []
         # Track emitted (downstream, upstream) schemaField pairs to deduplicate
         # multiple occurrences of the same bracket ref in one formula
         # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
@@ -838,9 +854,48 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         # All candidates were self-references; actual upstream is a
                         # warehouse table — out of RESOLVE-A scope.
                         self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
-                    else:
-                        # Source not in this DM — cross-DM ref handled separately.
+                        continue
+                    # Source not in this DM — consult the global cross-DM index.
+                    cross_dm_candidate_urns = sorted(
+                        cross_dm_element_urn_by_name.get(ref.source.lower(), [])
+                    )
+                    # Defensive strip: the current element's own URN should never
+                    # appear here (intra-DM lookup ran first), but cheap insurance.
+                    cross_dm_candidate_urns = [
+                        u for u in cross_dm_candidate_urns if u != element_dataset_urn
+                    ]
+                    if not cross_dm_candidate_urns:
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+                        continue
+                    if len(cross_dm_candidate_urns) > 1:
+                        self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
+                    chosen_upstream_urn = cross_dm_candidate_urns[0]
+                    upstream_cols = cross_dm_urn_to_cols.get(chosen_upstream_urn)
+                    if upstream_cols is None:
+                        # Schema not cached for this upstream; defer rather than
+                        # emit an unvalidated dangling schemaField URN.
+                        self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+                        continue
+                    canonical_col = upstream_cols.get(ref.column.lower())
+                    if canonical_col is None:
+                        self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
+                        continue
+                    upstream_field = builder.make_schema_field_urn(
+                        chosen_upstream_urn, canonical_col
+                    )
+                    pair = (downstream_field, upstream_field)
+                    if pair not in emitted_pairs:
+                        emitted_pairs.add(pair)
+                        cross_dm_fgls.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[downstream_field],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[upstream_field],
+                                confidenceScore=1.0,
+                            )
+                        )
+                        self.reporter.data_model_element_fgl_cross_dm_resolved += 1
                     continue
 
                 # Map surviving elementIds to Dataset URNs and filter against
@@ -912,14 +967,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         confidenceScore=1.0,
                     )
                 )
+        # fgl_emitted tracks intra-DM FGL only; cross-DM is tracked separately
+        # via fgl_cross_dm_resolved so operators can see both buckets independently.
         self.reporter.data_model_element_fgl_emitted += len(fgls)
-        fgls.sort(
+        all_fgls = fgls + cross_dm_fgls
+        all_fgls.sort(
             key=lambda fgl: (
                 (fgl.downstreams or [""])[0],
                 (fgl.upstreams or [""])[0],
             )
         )
-        return fgls
+        return all_fgls
 
     def _gen_data_model_element_workunits(
         self,
@@ -1044,6 +1102,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element_dataset_urn,
                 elementId_to_dataset_urn,
                 element_name_to_eids,
+                self.dm_global_element_urn_by_name,
+                self.dm_element_urn_to_cols,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(
@@ -1136,12 +1196,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for element in data_model.elements:
             element_dataset_urn = self._gen_data_model_element_urn(data_model, element)
             elementId_to_dataset_urn[element.elementId] = element_dataset_urn
+            # Build global column index for cross-DM FGL column validation.
+            el_by_name, _ = _dedup_dm_element_columns(element.columns)
+            self.dm_element_urn_to_cols[element_dataset_urn] = {
+                c.lower(): c for c in el_by_name
+            }
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:
                 name_map.setdefault(element.name.lower(), []).append(
                     element_dataset_urn
                 )
+                self.dm_global_element_urn_by_name.setdefault(
+                    element.name.lower(), []
+                ).append(element_dataset_urn)
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map

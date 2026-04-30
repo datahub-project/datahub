@@ -287,6 +287,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Cross-DM FGL counters (RESOLVE-B).
+    # Refs resolved via T2 PR2's global bridge index and emitted as cross-DM FGL.
+    data_model_element_fgl_cross_dm_resolved: int = 0
+    # Refs where multiple cross-DM candidates share a name; sorted-first URN chosen.
+    data_model_element_fgl_cross_dm_collision_pick_first: int = 0
+    # Cross-DM refs whose column is absent from the resolved upstream element's schema.
+    data_model_element_fgl_cross_dm_dropped_unknown_upstream_column: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
