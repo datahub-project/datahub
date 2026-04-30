@@ -37,6 +37,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- **(Docker / Gradle)** Java service images (`datahub-gms`, `datahub-mce-consumer`, `datahub-mae-consumer`, `datahub-upgrade`, `datahub-frontend-react`) use a **default base image** and apk-style packages at build time. Override the base with Docker **`BASE_IMAGE`** / Gradle **`-PdockerBaseImage=...`**, and the apk repository line with **`APK_REPOSITORY_URL`** / **`-PapkRepositoryUrl=...`**. If you previously passed a legacy Gradle property for a custom package mirror, migrate to **`apkRepositoryUrl`** (and ensure the mirror layout matches your chosen base image). **`datahub-actions`** uses the same **`BASE_IMAGE`** build arg.
 - #17407: BigQuery **`extract_policy_tags_from_catalog`:** The policy tag extraction feature has been rewritten to use `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` combined with batch Data Catalog API calls instead of per-column `get_table()` and `get_policy_tag()` calls. This eliminates millions of redundant API calls (e.g. 434k → ~10 for a 29k-table warehouse), reducing extraction time from hours to seconds. The old code path has been removed with no fallback. Action required if you use `extract_policy_tags_from_catalog: true`: (1) Verify BigQuery API v2 is available in your environment (available since ~2020). (2) If the Data Catalog API is blocked by VPC Service Controls, policy tag resource names will be stored instead of display names — this is graceful degradation, not a failure. (3) Review ingestion logs for any new warnings about missing `policy_tags` column in INFORMATION_SCHEMA results.
 - **Bootstrap Steps Moved to System-Update Job.** The following metadata ingestion steps now run during system-update instead of GMS startup:
 
@@ -86,6 +87,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #16619 **(Operations / Helm)** Added a `Cleanup` upgrade that tears down all DataHub-owned infrastructure resources (Elasticsearch indices, Kafka topics, SQL database and users). It is designed to run as a Helm **pre-delete hook** so that `helm uninstall` leaves no DataHub-specific state on shared infrastructure. Each component (ES, Kafka, SQL) can be disabled independently via environment variables (`CLEANUP_ELASTICSEARCH_ENABLED`, `CLEANUP_KAFKA_ENABLED`, `CLEANUP_SQL_ENABLED`; all default to `true`). Elasticsearch cleanup uses scoped `IndexConvention` patterns to enumerate only DataHub-owned indices — it does **not** issue a wildcard `DELETE /*` that would be dangerous on shared clusters without an index prefix configured.
 - #16879 (Ingestion) PowerBI: When `convert_lineage_urns_to_lowercase` is enabled, column-level lineage and upstream dataset URNs are now consistently lowercased. Previously, only parts of the URN were lowercased, which could cause lineage mismatches. After upgrading, re-running ingestion will emit corrected URNs.
 - #17033 (Ingestion / MongoDB) `system.*` collections (e.g. `system.profile`, `system.views`) are now excluded from ingestion by default via the new `excludeSystemCollections` option (default: `true`). If you were relying on ingesting system collections, set `excludeSystemCollections: false` in your recipe. The `read` role is now sufficient for all standard ingestion use cases; `dbAdmin` is only required if `excludeSystemCollections` is disabled and MongoDB profiling is enabled.
+- #16871 (Ingestion) Postgres stored procedures: The `dataTransformLogic.queryStatement.value` for Postgres stored procedures now contains only the SQL body (from `pg_proc.prosrc`) instead of the full `CREATE OR REPLACE PROCEDURE ... AS $$ ... $$` wrapper previously returned by `pg_get_functiondef()`. This change enables lineage extraction (the parser previously skipped the `CREATE` wrapper), but may affect custom tooling that parsed the full DDL from this field. Additionally, the `language` field is now normalized to uppercase (e.g. `"SQL"` instead of `"sql"`).
 
 ## v1.5.0
 
@@ -233,7 +235,7 @@ Patch release focused on security and dependency updates (Play frontend and Java
 
 ### Notable Changes
 
-- datahub-actions moved to wolfi-base image
+- datahub-actions default **base image** updated (override with **`BASE_IMAGE`**)
 
 ### Bug Fixes
 
