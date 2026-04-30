@@ -2901,6 +2901,292 @@ def test_sigma_ingest_data_models_cross_dm_upstream(
 
 
 @pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_fgl(pytestconfig, tmp_path, requests_mock):
+    """Cross-DM FineGrainedLineage: formula refs resolved to schemaField URNs.
+
+    Consumer DM element has formula columns referencing a source DM element
+    by name.  The emitted UpstreamLineage aspect must contain fineGrainedLineages
+    with correct upstream/downstream schemaField URN pairs.
+    """
+    source_dm_id = "src-dm-0000-0000-0000-000000000001"
+    source_dm_url_id = "srcDmUrlId0001"
+    source_element_id = "srcElem01"
+    consumer_dm_id = "con-dm-0000-0000-0000-000000000002"
+    consumer_dm_url_id = "conDmUrlId0002"
+    consumer_element_id = "conElem01"
+    cross_dm_suffix = "xSuffix01"
+
+    workspace_json = {
+        "workspaceId": "ws-0001",
+        "name": "Test WS",
+        "createdBy": "u1",
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+    }
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/ws-0001": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": source_dm_id,
+                        "urlId": source_dm_url_id,
+                        "name": "Source DM",
+                        "type": "data-model",
+                        "parentId": "ws-0001",
+                        "permission": "edit",
+                        "path": "Test WS",
+                        "badge": None,
+                        "createdBy": "u1",
+                        "updatedBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "isArchived": False,
+                    },
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Consumer DM",
+                        "type": "data-model",
+                        "parentId": "ws-0001",
+                        "permission": "edit",
+                        "path": "Test WS",
+                        "badge": None,
+                        "createdBy": "u1",
+                        "updatedBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": source_dm_id,
+                        "urlId": source_dm_url_id,
+                        "name": "Source DM",
+                        "createdBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/t/data-model/{source_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "ws-0001",
+                        "path": "Test WS",
+                    },
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Consumer DM",
+                        "createdBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/t/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "ws-0001",
+                        "path": "Test WS",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # Source DM: one element "Sales Data" with two columns.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{source_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": source_element_id,
+                        "name": "Sales Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{source_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": source_element_id,
+                        "columnId": f"{source_element_id}-revenue",
+                        "name": "revenue",
+                        "formula": "",
+                        "label": "revenue",
+                    },
+                    {
+                        "elementId": source_element_id,
+                        "columnId": f"{source_element_id}-region",
+                        "name": "region",
+                        "formula": "",
+                        "label": "region",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{source_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Consumer DM: one element "Summary" with formula columns referencing
+        # "Sales Data" from the source DM.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Summary",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "columnId": f"{consumer_element_id}-revenue",
+                        "name": "revenue",
+                        "formula": "[Sales Data/revenue]",
+                        "label": "revenue",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "columnId": f"{consumer_element_id}-region",
+                        "name": "region",
+                        "formula": "[Sales Data/region]",
+                        "label": "region",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "type": "data-model",
+                        "dataModelId": source_dm_id,
+                        "name": "Sales Data",
+                        "connectionId": "conn-0001",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [f"{source_dm_url_id}/{cross_dm_suffix}"],
+                        "dataSourceIds": [f"{source_dm_url_id}/{cross_dm_suffix}"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_cross_dm_fgl_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_cross_dm_upstreams_resolved == 1
+    assert report.data_model_element_fgl_cross_dm_resolved == 2
+    assert report.data_model_element_fgl_cross_dm_deferred == 0
+    assert report.data_model_element_fgl_cross_dm_collision_pick_first == 0
+
+    source_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{source_dm_id}.{source_element_id},PROD)"
+    consumer_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{consumer_dm_id}.{consumer_element_id},PROD)"
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    fgl_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == consumer_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(fgl_mces) == 1, (
+        f"expected one upstreamLineage on consumer, got {len(fgl_mces)}"
+    )
+
+    aspect = fgl_mces[0].get("aspect", {}).get("json", fgl_mces[0].get("aspect", {}))
+    fgls = aspect.get("fineGrainedLineages", [])
+    assert len(fgls) == 2, f"expected 2 FGL entries, got {len(fgls)}"
+
+    emitted_pairs = {(fgl["downstreams"][0], fgl["upstreams"][0]) for fgl in fgls}
+    from datahub.emitter import mce_builder as builder
+
+    assert emitted_pairs == {
+        (
+            builder.make_schema_field_urn(consumer_urn, "revenue"),
+            builder.make_schema_field_urn(source_urn, "revenue"),
+        ),
+        (
+            builder.make_schema_field_urn(consumer_urn, "region"),
+            builder.make_schema_field_urn(source_urn, "region"),
+        ),
+    }
+
+
+@pytest.mark.integration
 def test_sigma_ingest_data_models_orphan_dm_discovery(
     pytestconfig, tmp_path, requests_mock
 ):

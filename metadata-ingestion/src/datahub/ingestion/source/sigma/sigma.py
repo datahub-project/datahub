@@ -245,11 +245,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
         self.dm_url_id_to_dm_id: Dict[str, str] = {}
-        # Flat global index across all DMs: lowercased element name →
-        # [Dataset URNs].  Built incrementally in _prepopulate_dm_bridge_maps
-        # so cross-DM FGL resolution can look up any element name regardless
-        # of which DM owns it.
-        self.dm_global_element_urn_by_name: Dict[str, List[str]] = {}
         # Global: element Dataset URN → {lowercased column name: canonical column name}.
         # Same dedup logic as the per-element urn_to_cols in the FGL builder so
         # cross-DM column validation uses the winner set rather than raw columns.
@@ -569,14 +564,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # work even when the consuming element has a different display name.
         other_dm_id = self.dm_url_id_to_dm_id.get(other_dm_url_id)
         if other_dm_id:
-            for src_name in consuming_data_model.consumed_dm_element_names.get(
+            src_names = consuming_data_model.consumed_dm_element_names.get(
                 other_dm_id, []
-            ):
-                candidates = name_map.get(src_name.lower())
+            )
+            if len(src_names) == 1:
+                # Exactly one element consumed from this source DM — unambiguous.
+                candidates = name_map.get(src_names[0].lower())
                 if candidates:
                     if len(candidates) > 1:
                         return sorted(candidates)[0], "ambiguous"
                     return candidates[0], "strict"
+            # 0 or 2+ consumed names → fall through to consuming element name / fallback.
 
         candidates = name_map.get(consuming_element.name.lower())
         if not candidates:
@@ -629,8 +627,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
-        cross_dm_element_urn_by_name: Dict[str, List[str]],
-        cross_dm_urn_to_cols: Dict[str, Dict[str, str]],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -734,8 +730,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elementId_to_dataset_urn=elementId_to_dataset_urn,
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
-            cross_dm_element_urn_by_name=cross_dm_element_urn_by_name,
-            cross_dm_urn_to_cols=cross_dm_urn_to_cols,
         )
         return UpstreamLineage(
             upstreams=[
@@ -812,8 +806,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_dataset_urn: Dict[str, str],
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
-        cross_dm_element_urn_by_name: Dict[str, List[str]],
-        cross_dm_urn_to_cols: Dict[str, Dict[str, str]],
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
 
@@ -870,25 +862,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
                         # All candidates were self-references; actual upstream is a
-                        # warehouse table — out of RESOLVE-A scope.
+                        # warehouse table.
                         self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                         continue
-                    # Source not in this DM — consult the global cross-DM index.
-                    # The intra-DM orphan filter (entity_level_upstream_urns) is
-                    # intentionally not applied as a hard gate here. Sigma's /lineage
-                    # API only reports cross-DM formula dependencies at the entity
-                    # level when element names match, so a consuming element may have
-                    # no entity-level upstream for the referenced name even when the
-                    # formula ref is valid. entity_level_upstream_urns is used as a
-                    # collision tiebreaker but not as a required presence check.
+                    # Source not in this DM — search only the DMs this element's
+                    # source_ids explicitly reference. This prevents formula refs
+                    # like [Orders/id] from linking to any ingested element named
+                    # "Orders" regardless of whether Sigma reported a lineage
+                    # relationship to that DM.
+                    # entity_level_upstream_urns is used as a collision tiebreaker
+                    # (not a hard gate) because Sigma's /lineage API does not always
+                    # surface cross-DM formula deps at the entity level.
+                    source_dm_url_ids = {
+                        sid.partition("/")[0]
+                        for sid in element.source_ids
+                        if "/" in sid and not sid.startswith("inode-")
+                    }
                     cross_dm_candidate_urns = sorted(
-                        cross_dm_element_urn_by_name.get(ref.source.lower(), [])
+                        {
+                            urn
+                            for dm_url_id in source_dm_url_ids
+                            for urn in self.dm_element_urn_by_name.get(
+                                dm_url_id, {}
+                            ).get(ref.source.lower(), [])
+                            if urn != element_dataset_urn
+                        }
                     )
-                    # Defensive strip: the current element's own URN should never
-                    # appear here (intra-DM lookup ran first), but cheap insurance.
-                    cross_dm_candidate_urns = [
-                        u for u in cross_dm_candidate_urns if u != element_dataset_urn
-                    ]
                     if not cross_dm_candidate_urns:
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
                         continue
@@ -908,7 +907,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             # 0 or 2+ confirmed — still ambiguous; pick sorted-first.
                             self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
                     chosen_upstream_urn = cross_dm_candidate_urns[0]
-                    upstream_cols = cross_dm_urn_to_cols.get(chosen_upstream_urn)
+                    upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
                     if upstream_cols is None:
                         # Schema not cached for this upstream; defer rather than
                         # emit an unvalidated dangling schemaField URN.
@@ -1140,8 +1139,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element_dataset_urn,
                 elementId_to_dataset_urn,
                 element_name_to_eids,
-                self.dm_global_element_urn_by_name,
-                self.dm_element_urn_to_cols,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(
@@ -1247,11 +1244,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 name_map.setdefault(element.name.lower(), []).append(
                     element_dataset_urn
                 )
-                existing = self.dm_global_element_urn_by_name.setdefault(
-                    element.name.lower(), []
-                )
-                if element_dataset_urn not in existing:
-                    existing.append(element_dataset_urn)
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map
