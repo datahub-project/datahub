@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -121,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -137,7 +137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -153,7 +153,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -171,7 +171,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -192,7 +192,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -208,7 +208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -267,7 +267,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1646575200000,
+                                        "time": 1646604000000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -350,7 +350,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1646575200000,
+                                        "time": 1646604000000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -387,7 +387,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -405,7 +405,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -430,7 +430,295 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "raw_orders",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "postgrestest.public.raw_orders",
+                        "platform": "urn:li:dataPlatform:postgres",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "amount",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC(10, 2)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+                    "urn": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "processed_orders",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "postgrestest.public.processed_orders",
+                        "platform": "urn:li:dataPlatform:postgres",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "order_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC(10, 2)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+                    "urn": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -446,7 +734,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -522,7 +810,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -540,7 +828,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -558,7 +846,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -583,7 +871,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -600,7 +888,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -618,7 +906,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -634,7 +922,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -655,7 +943,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -675,7 +963,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -693,7 +981,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -709,7 +997,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -724,7 +1012,7 @@
             "transforms": [
                 {
                     "queryStatement": {
-                        "value": "CREATE OR REPLACE PROCEDURE public.add_row_to_metadata_aspect_v2(IN urn character varying, IN aspect character varying, IN version bigint, IN metadata text, IN createdon timestamp without time zone, IN createdby character varying, IN metadata_json json)\n LANGUAGE sql\nAS $procedure$\n    insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, metadata_json) values(\n        urn,\n        aspect,\n        version,\n        metadata,\n        createdon,\n        createdby,\n        metadata_json\n    )\n$procedure$\n",
+                        "value": "\n    insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby, metadata_json) values(\n        urn,\n        aspect,\n        version,\n        metadata,\n        createdon,\n        createdby,\n        metadata_json\n    )\n",
                         "language": "SQL"
                     }
                 }
@@ -732,7 +1020,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -757,7 +1045,168 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),etl_process_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "etl_process_orders",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),etl_process_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),etl_process_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),etl_process_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "\n    INSERT INTO processed_orders (order_id, customer_id, total)\n    SELECT id AS order_id, customer_id, amount AS total FROM raw_orders;\n",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),etl_process_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD),order_id)"
+                    ],
+                    "transformOperation": "COPY: \"raw_orders\".\"id\" AS \"order_id\"",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD),customer_id)"
+                    ],
+                    "transformOperation": "COPY: \"raw_orders\".\"customer_id\" AS \"customer_id\"",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD),total)"
+                    ],
+                    "transformOperation": "COPY: \"raw_orders\".\"amount\" AS \"total\"",
+                    "confidenceScore": 0.9
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),etl_process_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+                    "urn": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -772,7 +1221,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1646575200000,
+                        "time": 1646604000000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -815,7 +1264,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -838,13 +1287,13 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1646555402715,
+                "time": 1646604000000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -861,13 +1310,13 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)"
                 },
                 {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_view,PROD)"
+                },
+                {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD),aspect)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD),urn)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_view,PROD)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_view,PROD),urn)"
@@ -879,7 +1328,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -895,7 +1344,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -911,7 +1360,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -927,7 +1376,23 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,postgrestest.public.stored_procedures,PROD),etl_process_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -943,7 +1408,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -959,7 +1424,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -971,7 +1436,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1646575200000,
+            "timestampMillis": 1646604000000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -983,7 +1448,55 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1646604000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": -1,
+            "columnCount": 3,
+            "fieldProfiles": [],
+            "sizeInBytes": 0
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1646604000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": -1,
+            "columnCount": 3,
+            "fieldProfiles": [],
+            "sizeInBytes": 0
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -999,7 +1512,39 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646575200000,
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.processed_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646604000000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
