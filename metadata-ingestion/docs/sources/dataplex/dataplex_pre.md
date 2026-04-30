@@ -12,6 +12,16 @@ Spanner entries are collected through an additional `search_entries` workaround 
 
 Refer to [Google Cloud Knowledge Catalog (Dataplex) documentation](https://cloud.google.com/dataplex/docs) for the basics.
 
+#### Project Selection
+
+The connector supports three ways to select GCP projects, evaluated in this order of precedence:
+
+1. **`project_ids`** — explicit list of project IDs. When set, this overrides the other two options and no project discovery is performed.
+2. **`project_labels`** — list of `key:value` labels. Projects carrying any of these labels are discovered via the Cloud Resource Manager API and then filtered through `project_id_pattern`.
+3. **`project_id_pattern`** — `AllowDenyPattern` of regexes. When `project_ids` is empty, all projects visible to the credentials are listed via the Cloud Resource Manager API and filtered through this pattern.
+
+At least one of these must be set. Auto-discovery via `project_labels` or `project_id_pattern` requires the service account to have `roles/resourcemanager.folderViewer` (or equivalent) on the parent folder/organization so the Cloud Resource Manager API can enumerate projects; when `project_ids` is set explicitly, no Resource Manager permissions are needed.
+
 #### API Enablement
 
 Enable the following APIs on all target projects:
@@ -80,12 +90,13 @@ For service account authentication, follow these instructions:
 
 Grant the following roles to the service account on all target projects.
 
-| Feature                                                              | Required Role                                                                                                                                                                                    |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Universal Catalog Entries API (core ingestion)                       | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                                                        |
-| Lineage extraction (`include_lineage: true`)                         | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)                                                                                                |
-| Business Glossary ingestion (`include_glossaries: true`)             | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                                                        |
-| Term-asset associations (`include_glossary_term_associations: true`) | [`roles/resourcemanager.folderViewer`](https://cloud.google.com/resource-manager/docs/access-control-proj) — provides `resourcemanager.projects.get`, required for resolving GCP project numbers |
+| Feature                                                              | Required Role                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Universal Catalog Entries API (core ingestion)                       | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                                                                                        |
+| Lineage extraction (`include_lineage: true`)                         | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)                                                                                                                                |
+| Business Glossary ingestion (`include_glossaries: true`)             | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                                                                                        |
+| Term-asset associations (`include_glossary_term_associations: true`) | [`roles/resourcemanager.folderViewer`](https://cloud.google.com/resource-manager/docs/access-control-proj) — provides `resourcemanager.projects.get`, required for resolving GCP project numbers                                 |
+| Project auto-discovery via `project_id_pattern` or `project_labels`  | [`roles/resourcemanager.folderViewer`](https://cloud.google.com/resource-manager/docs/access-control-proj) on the parent folder/organization — provides `resourcemanager.projects.list` needed to enumerate projects via the API |
 
 :::tip "Lineage requires the role on multiple projects"
 
