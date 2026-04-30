@@ -138,19 +138,10 @@ class _KeepAliveHTTPAdapter(HTTPAdapter):
     def _socket_options(cls) -> Optional[List[tuple]]:
         try:
             opts: List[tuple] = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
-            applied: List[str] = ["SO_KEEPALIVE=1"]
-            skipped: List[str] = []
             for attr, val in cls._TUNING_OPTS:
                 if hasattr(socket, attr):
                     opts.append((socket.IPPROTO_TCP, getattr(socket, attr), val))
-                    applied.append(f"{attr}={val}")
-                else:
-                    skipped.append(attr)
-            logger.debug(
-                "Resolved TCP keepalive socket options: applied=[%s] skipped=[%s]",
-                ", ".join(applied),
-                ", ".join(skipped) if skipped else "none",
-            )
+            logger.debug("Resolved %d TCP keepalive socket option(s)", len(opts))
             return opts
         except Exception as e:
             logger.debug(
