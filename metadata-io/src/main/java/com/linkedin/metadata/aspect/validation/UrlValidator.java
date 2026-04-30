@@ -50,8 +50,7 @@ public class UrlValidator extends AspectPayloadValidator {
    * called after setting {@link #allowHttp}.
    */
   public UrlValidator buildSchemes() {
-    this.allowedSchemes =
-        allowHttp ? Set.of("https", "http") : Set.of("https");
+    this.allowedSchemes = allowHttp ? Set.of("https", "http") : Set.of("https");
     return this;
   }
 
