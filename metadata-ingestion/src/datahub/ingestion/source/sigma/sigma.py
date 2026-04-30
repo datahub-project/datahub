@@ -597,7 +597,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         data_model: SigmaDataModel,
         element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
-        element_name_to_dataset_urns: Dict[str, List[str]],
+        element_name_to_eids: Dict[str, List[str]],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -697,7 +697,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fine_grained = self._build_dm_element_fine_grained_lineages(
             element=element,
             element_dataset_urn=element_dataset_urn,
-            element_name_to_dataset_urns=element_name_to_dataset_urns,
+            element_name_to_eids=element_name_to_eids,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
         )
@@ -772,52 +773,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         *,
         element: SigmaDataModelElement,
         element_dataset_urn: str,
-        element_name_to_dataset_urns: Dict[str, List[str]],
+        element_name_to_eids: Dict[str, List[str]],
+        elementId_to_dataset_urn: Dict[str, str],
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
 
-        Uses _dedup_dm_element_columns for the winner set so the fieldPaths
-        referenced in FGL match those in SchemaMetadata.  Bare [col] refs are
-        intra-element transforms (lineage within one Dataset, not across Datasets)
-        and are skipped.
+        element_name_to_eids maps lowercased element name → list of elementIds.
+        Self-references are stripped before resolution: when a DM element is named
+        after its warehouse source (e.g., element "data.csv" with formula
+        "[data.csv/col]"), the formula ref matches the element's own name and must
+        be filtered out to avoid self-referential FGL.  These are counted under
+        fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
 
-        element_name_to_dataset_urns is keyed with lowercased names, and
-        ref.source is lowercased before lookup so [Random Data Model/col] resolves
-        to an element named "random data model" without a spurious
-        cross_dm_deferred miss.
-
-        ref.column is validated and case-normalised against the upstream element's
-        winner column set (built from data_model.elements).  A ref whose column
-        name has no match in the upstream element's schema is dropped to avoid a
-        schemaField URN that points at a non-existent fieldPath.
-
-        Intra-DM FGL is conditioned on entity_level_upstream_urns, which is
-        populated from Sigma's /lineage API.  The /lineage API reports intra-DM
-        element edges as well as external warehouse edges, so the intersection
-        correctly filters phantom formula refs.
+        When multiple sibling elements share a name and both pass the /lineage filter,
+        the lexicographically-first URN is chosen (matching T2 PR1's collision policy
+        and Sigma's server-side coalescing behaviour).
         """
         by_name, _ = _dedup_dm_element_columns(element.columns)
 
-        # Build a per-upstream-element column map keyed by Dataset URN (not
-        # element name) so duplicate-named DM elements with different schemas
-        # are handled correctly.  The i-th element of each name group in
-        # element_name_to_dataset_urns corresponds to the i-th occurrence of
-        # that name in data_model.elements (both built in the same iteration
-        # order in _gen_data_model_workunit).
+        # Build URN → winner-column map directly from elementId_to_dataset_urn,
+        # which gives an unambiguous elementId→URN mapping for every DM element.
         urn_to_cols: Dict[str, Dict[str, str]] = {}
-        name_index: Dict[str, int] = {}
         for dm_el in data_model.elements:
-            if not dm_el.name:
-                continue
-            name_lower = dm_el.name.lower()
-            idx = name_index.get(name_lower, 0)
-            name_index[name_lower] = idx + 1
-            urns = element_name_to_dataset_urns.get(name_lower, [])
-            if idx < len(urns):
+            el_urn = elementId_to_dataset_urn.get(dm_el.elementId)
+            if el_urn:
                 el_by_name, _ = _dedup_dm_element_columns(dm_el.columns)
-                urn_to_cols[urns[idx]] = {c.lower(): c for c in el_by_name}
+                urn_to_cols[el_urn] = {c.lower(): c for c in el_by_name}
 
         fgls: List[FineGrainedLineageClass] = []
         # Track emitted (downstream, upstream) schemaField pairs to deduplicate
@@ -835,69 +818,94 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # [P_*] parameter refs and bare [col] intra-element refs
                     # are not cross-Dataset lineage; skip.
                     continue
-                candidate_urns = element_name_to_dataset_urns.get(
-                    ref.source.lower(), []
-                )
-                surviving_urns = sorted(
-                    u for u in candidate_urns if u in entity_level_upstream_urns
-                )
-                if not surviving_urns:
-                    if candidate_urns:
-                        # Element is in this DM but /lineage doesn't claim it as
-                        # upstream. Drop to avoid orphan FGL the UI silently rejects.
-                        self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+
+                candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
+
+                # Strip self-references: element-name == warehouse-table name is a
+                # common Sigma authoring pattern.  The formula ref resolves to the
+                # element itself, which is not a valid FGL upstream (the real upstream
+                # is the warehouse inode reported by /lineage).
+                candidate_eids_after_self_strip = [
+                    eid for eid in candidate_eids if eid != element.elementId
+                ]
+
+                if not candidate_eids_after_self_strip:
+                    if candidate_eids:
+                        # All candidates were self-references; actual upstream is a
+                        # warehouse table — out of RESOLVE-A scope.
+                        self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                     else:
                         # Source not in this DM — cross-DM ref handled separately.
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
                     continue
+
+                # Map surviving elementIds to Dataset URNs and filter against
+                # /lineage's reported entity-level upstreams.
+                candidate_urns = sorted(
+                    elementId_to_dataset_urn[eid]
+                    for eid in candidate_eids_after_self_strip
+                    if eid in elementId_to_dataset_urn
+                )
+                surviving_urns = sorted(
+                    u for u in candidate_urns if u in entity_level_upstream_urns
+                )
+
+                if not surviving_urns:
+                    # Intra-DM candidate(s) exist but none appear in /lineage.
+                    # Rare on tenants where /lineage correctly reports intra-DM edges;
+                    # keep counter for observability on future tenants.
+                    self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+                    continue
+
+                # Collision handling: multiple siblings passed /lineage filter.
+                # Pick sorted-first to match T2 PR1's _resolve_external_upstream
+                # policy and Sigma's server-side coalescing.
                 if len(surviving_urns) > 1:
+                    self.reporter.data_model_element_fgl_collision_pick_first += 1
                     logger.debug(
-                        "DM %s element %s: ref %r resolves to %d URNs after "
-                        "/lineage filter (duplicate element names in DM); "
-                        "emitting FGL to all surviving candidates: %s",
+                        "DM %s element %s: ref %r — %d URNs passed /lineage filter "
+                        "(duplicate element names); picking sorted-first: %s",
                         data_model.dataModelId,
                         element.elementId,
                         ref.raw,
                         len(surviving_urns),
-                        surviving_urns,
+                        surviving_urns[0],
                     )
-                # When surviving_urns > 1, one FGL entry is emitted per upstream.
-                # Column validation is per-URN so duplicate-named elements with
-                # different schemas each validate against their own column set.
-                for upstream_urn in surviving_urns:
-                    # Validate and normalise ref.column against this specific upstream
-                    # element's schema winners.  Keying by URN (not element name)
-                    # correctly handles duplicate-named elements with different schemas.
-                    source_cols = urn_to_cols.get(upstream_urn, {})
-                    canonical_col = source_cols.get(ref.column.lower())
-                    if canonical_col is None:
-                        self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
-                        logger.debug(
-                            "DM %s element %s: ref %r column %r not found in upstream "
-                            "element %s schema winners; dropping FGL entry",
-                            data_model.dataModelId,
-                            element.elementId,
-                            ref.raw,
-                            ref.column,
-                            upstream_urn,
-                        )
-                        continue
-                    upstream_field = builder.make_schema_field_urn(
-                        upstream_urn, canonical_col
+                chosen_upstream_urn = surviving_urns[0]
+
+                # Validate and normalise ref.column against the chosen upstream
+                # element's schema winners to avoid a dangling schemaField URN.
+                source_cols = urn_to_cols.get(chosen_upstream_urn, {})
+                canonical_col = source_cols.get(ref.column.lower())
+                if canonical_col is None:
+                    self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
+                    logger.debug(
+                        "DM %s element %s: ref %r column %r not found in upstream "
+                        "element %s schema winners; dropping FGL entry",
+                        data_model.dataModelId,
+                        element.elementId,
+                        ref.raw,
+                        ref.column,
+                        chosen_upstream_urn,
                     )
-                    pair = (downstream_field, upstream_field)
-                    if pair in emitted_pairs:
-                        continue
-                    emitted_pairs.add(pair)
-                    fgls.append(
-                        FineGrainedLineageClass(
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[downstream_field],
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[upstream_field],
-                            confidenceScore=1.0,
-                        )
+                    continue
+
+                upstream_field = builder.make_schema_field_urn(
+                    chosen_upstream_urn, canonical_col
+                )
+                pair = (downstream_field, upstream_field)
+                if pair in emitted_pairs:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[upstream_field],
+                        confidenceScore=1.0,
                     )
+                )
         self.reporter.data_model_element_fgl_emitted += len(fgls)
         fgls.sort(
             key=lambda fgl: (
@@ -913,7 +921,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         data_model_key: DataModelKey,
         data_model_container_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
-        element_name_to_dataset_urns: Dict[str, List[str]],
+        element_name_to_eids: Dict[str, List[str]],
         owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
@@ -1029,7 +1037,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 data_model,
                 element_dataset_urn,
                 elementId_to_dataset_urn,
-                element_name_to_dataset_urns,
+                element_name_to_eids,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(
@@ -1234,20 +1242,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         # Keys are lowercased so formula refs — which users type and Sigma
         # autocompletes from canonical names — match even when case differs.
-        # This mirrors the lowercasing in the cross-DM name_map (dm_element_urn_by_name).
-        element_name_to_dataset_urns: Dict[str, List[str]] = {}
+        # Values are elementIds (not URNs) so the FGL builder can strip self-references
+        # by elementId before mapping to URNs via elementId_to_dataset_urn.
+        element_name_to_eids: Dict[str, List[str]] = {}
         for element in data_model.elements:
             if element.name:
-                element_name_to_dataset_urns.setdefault(
-                    element.name.lower(), []
-                ).append(elementId_to_dataset_urn[element.elementId])
+                element_name_to_eids.setdefault(element.name.lower(), []).append(
+                    element.elementId
+                )
 
         yield from self._gen_data_model_element_workunits(
             data_model,
             data_model_key,
             data_model_container_urn,
             elementId_to_dataset_urn,
-            element_name_to_dataset_urns,
+            element_name_to_eids,
             owner_username=owner_username,
         )
 

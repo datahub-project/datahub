@@ -249,8 +249,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # DM element column-level lineage (FGL) counters.
     # How many FGL entries were emitted across all elements.
     data_model_element_fgl_emitted: int = 0
+    # Refs where multiple sibling candidates passed the /lineage filter;
+    # sorted-first URN was chosen (matches T2 PR1's collision precedent).
+    data_model_element_fgl_collision_pick_first: int = 0
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
+    # Refs where element-name matches the element's own warehouse-table name
+    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
+    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
+    # upstream is the warehouse inode — out of RESOLVE-A scope.
+    data_model_element_fgl_warehouse_passthrough_deferred: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0

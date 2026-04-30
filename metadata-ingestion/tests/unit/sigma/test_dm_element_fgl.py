@@ -71,7 +71,8 @@ def _build(
     element: SigmaDataModelElement,
     *,
     element_dataset_urn: str | None = None,
-    element_name_to_dataset_urns: Dict[str, List[str]] | None = None,
+    element_name_to_eids: Dict[str, List[str]] | None = None,
+    elementId_to_dataset_urn: Dict[str, str] | None = None,
     entity_level_upstream_urns: Set[str] | None = None,
     upstream_elements: List[SigmaDataModelElement] | None = None,
 ) -> list:
@@ -79,7 +80,8 @@ def _build(
     return source._build_dm_element_fine_grained_lineages(
         element=element,
         element_dataset_urn=element_dataset_urn or _urn(element.elementId),
-        element_name_to_dataset_urns=element_name_to_dataset_urns or {},
+        element_name_to_eids=element_name_to_eids or {},
+        elementId_to_dataset_urn=elementId_to_dataset_urn or {},
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
         data_model=_data_model(all_elements),
     )
@@ -95,7 +97,8 @@ def test_trivial_passthrough_resolves() -> None:
         source,
         element,
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"a": [upstream_urn]},
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
         entity_level_upstream_urns={upstream_urn},
         upstream_elements=[_upstream_element("a", "A", ["x"])],
     )
@@ -118,7 +121,8 @@ def test_multi_ref_formula_emits_one_lineage_per_ref() -> None:
         source,
         element,
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"a": [upstream_urn]},
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
         entity_level_upstream_urns={upstream_urn},
         upstream_elements=[_upstream_element("a", "A", ["p", "q"])],
     )
@@ -157,13 +161,22 @@ def test_cross_dm_ref_is_counted_unresolved() -> None:
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 1
 
 
-def test_orphan_upstream_is_dropped() -> None:
+def test_orphan_upstream_genuinely_dropped_when_lineage_api_gap_exists() -> None:
+    # Element IS in this DM (found in element_name_to_eids) but /lineage does
+    # not report it as an upstream (entity_level_upstream_urns is empty).
+    # This is the rare case where /lineage genuinely omits an intra-DM edge.
     source = _source()
     upstream_urn = _urn("a")
     element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
 
     assert (
-        _build(source, element, element_name_to_dataset_urns={"a": [upstream_urn]})
+        _build(
+            source,
+            element,
+            element_name_to_eids={"a": ["a"]},
+            elementId_to_dataset_urn={"a": upstream_urn},
+            # entity_level_upstream_urns empty → /lineage API gap
+        )
         == []
     )
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
@@ -171,8 +184,6 @@ def test_orphan_upstream_is_dropped() -> None:
 
 def test_element_name_collision_is_filtered_by_entity_level_upstreams() -> None:
     source = _source()
-    # winner_urn and loser_urn are listed in element order so urn_to_cols can
-    # correctly pair each URN with its element's schema.
     winner_urn = _urn("rdm-1")
     loser_urn = _urn("rdm-2")
     downstream_urn = _urn("b")
@@ -188,7 +199,8 @@ def test_element_name_collision_is_filtered_by_entity_level_upstreams() -> None:
         element,
         element_dataset_urn=downstream_urn,
         # URN order matches upstream_elements order (rdm-1 first, rdm-2 second).
-        element_name_to_dataset_urns={"random data model": [winner_urn, loser_urn]},
+        element_name_to_eids={"random data model": ["rdm-1", "rdm-2"]},
+        elementId_to_dataset_urn={"rdm-1": winner_urn, "rdm-2": loser_urn},
         entity_level_upstream_urns={winner_urn},
         upstream_elements=[
             _upstream_element("rdm-1", "random data model", ["c"]),
@@ -198,62 +210,6 @@ def test_element_name_collision_is_filtered_by_entity_level_upstreams() -> None:
 
     assert len(lineages) == 1
     assert lineages[0].upstreams == [builder.make_schema_field_urn(winner_urn, "c")]
-
-
-def test_duplicate_element_names_different_schemas_validates_correct_element() -> None:
-    # Two elements share the name "orders" but have different schemas.
-    # The surviving upstream (orders-a) has "amount"; the non-surviving (orders-b)
-    # has "revenue".  urn_to_cols must pair each URN with its own element's schema
-    # so the wrong column set isn't used for validation.
-    source = _source()
-    orders_a_urn = _urn("orders-a")
-    orders_b_urn = _urn("orders-b")
-    downstream_urn = _urn("b")
-    element = _element("b", "B", [_column("b-x", "x", "[orders/amount]")])
-
-    lineages = _build(
-        source,
-        element,
-        element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"orders": [orders_a_urn, orders_b_urn]},
-        entity_level_upstream_urns={orders_a_urn},
-        upstream_elements=[
-            _upstream_element("orders-a", "orders", ["amount"]),
-            _upstream_element("orders-b", "orders", ["revenue"]),
-        ],
-    )
-
-    assert len(lineages) == 1
-    assert lineages[0].upstreams == [
-        builder.make_schema_field_urn(orders_a_urn, "amount")
-    ]
-    assert source.reporter.data_model_element_fgl_emitted == 1
-
-
-def test_duplicate_element_names_surviving_element_lacks_column() -> None:
-    # The surviving upstream element does NOT have the referenced column.
-    # FGL must be dropped to avoid a dangling schemaField URN, even though
-    # the non-surviving element does have that column.
-    source = _source()
-    orders_a_urn = _urn("orders-a")
-    orders_b_urn = _urn("orders-b")
-    downstream_urn = _urn("b")
-    element = _element("b", "B", [_column("b-x", "x", "[orders/revenue]")])
-
-    lineages = _build(
-        source,
-        element,
-        element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"orders": [orders_a_urn, orders_b_urn]},
-        entity_level_upstream_urns={orders_a_urn},
-        upstream_elements=[
-            _upstream_element("orders-a", "orders", ["amount"]),
-            _upstream_element("orders-b", "orders", ["revenue"]),
-        ],
-    )
-
-    assert lineages == []
-    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 1
 
 
 def test_dedup_loser_formula_is_dropped() -> None:
@@ -273,7 +229,8 @@ def test_dedup_loser_formula_is_dropped() -> None:
         source,
         element,
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"a": [upstream_urn]},
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
         entity_level_upstream_urns={upstream_urn},
         upstream_elements=[_upstream_element("a", "A", ["winner"])],
     )
@@ -293,7 +250,8 @@ def test_output_order_is_stable_for_shuffled_columns() -> None:
         _column("b-y", "y", "[C/c]"),
         _column("b-x", "x", "Sum([A/q], [A/p])"),
     ]
-    name_map: Dict[str, List[str]] = {"a": [upstream_a], "c": [upstream_c]}
+    name_eids: Dict[str, List[str]] = {"a": ["a"], "c": ["c"]}
+    eid_to_urn: Dict[str, str] = {"a": upstream_a, "c": upstream_c}
     upstream_urns: Set[str] = {upstream_a, upstream_c}
     upstream_els = [
         _upstream_element("a", "A", ["p", "q"]),
@@ -304,7 +262,8 @@ def test_output_order_is_stable_for_shuffled_columns() -> None:
         _source(),
         _element("b", "B", columns),
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns=name_map,
+        element_name_to_eids=name_eids,
+        elementId_to_dataset_urn=eid_to_urn,
         entity_level_upstream_urns=upstream_urns,
         upstream_elements=upstream_els,
     )
@@ -312,7 +271,8 @@ def test_output_order_is_stable_for_shuffled_columns() -> None:
         _source(),
         _element("b", "B", list(reversed(columns))),
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns=name_map,
+        element_name_to_eids=name_eids,
+        elementId_to_dataset_urn=eid_to_urn,
         entity_level_upstream_urns=upstream_urns,
         upstream_elements=upstream_els,
     )
@@ -343,9 +303,6 @@ def test_quoted_bracket_literal_does_not_emit_fgl() -> None:
 
 
 def test_case_insensitive_element_name_lookup() -> None:
-    # Formula uses "Orders" (mixed case); element is named "orders" (lowercase).
-    # element_name_to_dataset_urns is keyed lowercase, and ref.source is lowercased
-    # before lookup — so the ref must resolve despite the mismatch.
     source = _source()
     upstream_urn = _urn("orders")
     downstream_urn = _urn("b")
@@ -355,7 +312,8 @@ def test_case_insensitive_element_name_lookup() -> None:
         source,
         element,
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"orders": [upstream_urn]},
+        element_name_to_eids={"orders": ["orders-el"]},
+        elementId_to_dataset_urn={"orders-el": upstream_urn},
         entity_level_upstream_urns={upstream_urn},
         upstream_elements=[_upstream_element("orders-el", "orders", ["revenue"])],
     )
@@ -367,8 +325,6 @@ def test_case_insensitive_element_name_lookup() -> None:
 
 
 def test_duplicate_refs_in_formula_are_deduplicated() -> None:
-    # If([A/x] = 0, [A/x], [A/x] / 2) has three textual occurrences of [A/x].
-    # Only one FGL entry should be emitted, not three.
     source = _source()
     upstream_urn = _urn("a")
     downstream_urn = _urn("b")
@@ -380,19 +336,17 @@ def test_duplicate_refs_in_formula_are_deduplicated() -> None:
         source,
         element,
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"a": [upstream_urn]},
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
         entity_level_upstream_urns={upstream_urn},
         upstream_elements=[_upstream_element("a", "A", ["x"])],
     )
 
     assert len(lineages) == 1
     assert source.reporter.data_model_element_fgl_emitted == 1
-    assert source.reporter.data_model_element_fgl_emitted == 1
 
 
 def test_unknown_upstream_column_is_dropped() -> None:
-    # Formula references [A/nonexistent] but upstream element A only has column "x".
-    # FGL must be dropped to avoid a dangling schemaField URN.
     source = _source()
     upstream_urn = _urn("a")
     downstream_urn = _urn("b")
@@ -402,10 +356,134 @@ def test_unknown_upstream_column_is_dropped() -> None:
         source,
         element,
         element_dataset_urn=downstream_urn,
-        element_name_to_dataset_urns={"a": [upstream_urn]},
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
         entity_level_upstream_urns={upstream_urn},
         upstream_elements=[_upstream_element("a", "A", ["x"])],
     )
 
     assert lineages == []
     assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 1
+
+
+def test_duplicate_element_names_different_schemas_validates_correct_element() -> None:
+    source = _source()
+    orders_a_urn = _urn("orders-a")
+    orders_b_urn = _urn("orders-b")
+    downstream_urn = _urn("b")
+    element = _element("b", "B", [_column("b-x", "x", "[orders/amount]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"orders": ["orders-a", "orders-b"]},
+        elementId_to_dataset_urn={"orders-a": orders_a_urn, "orders-b": orders_b_urn},
+        entity_level_upstream_urns={orders_a_urn},
+        upstream_elements=[
+            _upstream_element("orders-a", "orders", ["amount"]),
+            _upstream_element("orders-b", "orders", ["revenue"]),
+        ],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [
+        builder.make_schema_field_urn(orders_a_urn, "amount")
+    ]
+    assert source.reporter.data_model_element_fgl_emitted == 1
+
+
+def test_duplicate_element_names_surviving_element_lacks_column() -> None:
+    source = _source()
+    orders_a_urn = _urn("orders-a")
+    orders_b_urn = _urn("orders-b")
+    downstream_urn = _urn("b")
+    element = _element("b", "B", [_column("b-x", "x", "[orders/revenue]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"orders": ["orders-a", "orders-b"]},
+        elementId_to_dataset_urn={"orders-a": orders_a_urn, "orders-b": orders_b_urn},
+        entity_level_upstream_urns={orders_a_urn},
+        upstream_elements=[
+            _upstream_element("orders-a", "orders", ["amount"]),
+            _upstream_element("orders-b", "orders", ["revenue"]),
+        ],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 1
+
+
+def test_self_reference_is_warehouse_passthrough_deferred() -> None:
+    """Element named X with formula [X/col] is a warehouse-passthrough, not intra-DM.
+
+    The element's name matches the underlying warehouse table name (a common Sigma
+    authoring pattern).  The resolver must detect the self-reference and increment
+    fgl_warehouse_passthrough_deferred rather than emitting self-referential FGL.
+    """
+    source = _source()
+    self_urn = _urn("data.csv")
+    warehouse_urn = _urn("snowflake-inode")
+    element = _element(
+        "elem-data-csv",
+        "data.csv",
+        [_column("c1", "city", "[data.csv/city]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=self_urn,
+        element_name_to_eids={"data.csv": ["elem-data-csv"]},
+        elementId_to_dataset_urn={"elem-data-csv": self_urn},
+        # /lineage reports the warehouse inode as upstream, not the element itself
+        entity_level_upstream_urns={warehouse_urn},
+        upstream_elements=[_upstream_element("elem-data-csv", "data.csv", ["city"])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
+    assert source.reporter.data_model_element_fgl_emitted == 0
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_name_collision_picks_first_sorted_urn() -> None:
+    """Two siblings share a name and both pass the /lineage filter.
+
+    The resolver picks sorted(surviving_urns)[0], matching T2 PR1's collision
+    precedent and Sigma's server-side coalescing.  fgl_collision_pick_first
+    is incremented once per ref that triggers this path.
+    """
+    source = _source()
+    # URN for "elem-aaa" sorts before URN for "elem-zzz" lexicographically
+    urn_aaa = _urn("aaa")
+    urn_zzz = _urn("zzz")
+    downstream_urn = _urn("b")
+    element = _element(
+        "b",
+        "B",
+        [_column("b-x", "x", "[shared name/team1]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"shared name": ["elem-aaa", "elem-zzz"]},
+        elementId_to_dataset_urn={"elem-aaa": urn_aaa, "elem-zzz": urn_zzz},
+        entity_level_upstream_urns={urn_aaa, urn_zzz},
+        upstream_elements=[
+            _upstream_element("elem-aaa", "shared name", ["team1"]),
+            _upstream_element("elem-zzz", "shared name", ["team1"]),
+        ],
+    )
+
+    assert len(lineages) == 1
+    # sorted([urn_aaa, urn_zzz])[0] == urn_aaa since "aaa" < "zzz"
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(urn_aaa, "team1")]
+    assert source.reporter.data_model_element_fgl_collision_pick_first == 1
+    assert source.reporter.data_model_element_fgl_emitted == 1
