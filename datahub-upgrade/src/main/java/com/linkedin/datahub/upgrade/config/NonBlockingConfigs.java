@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProc
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
+import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
@@ -196,6 +197,14 @@ public class NonBlockingConfigs {
       @Value("${datahub.plugin.retention.path}") final String pluginPath) {
     return new IngestRetentionPolicies(
         retentionService, entityService, enabled, applyAfterIngest, pluginPath);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade ingestEntityTypes(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      @Value("${systemUpdate.ingestEntityTypes.enabled}") final boolean enabled) {
+    return new IngestEntityTypes(opContext, entityService, enabled);
   }
 
   @Bean

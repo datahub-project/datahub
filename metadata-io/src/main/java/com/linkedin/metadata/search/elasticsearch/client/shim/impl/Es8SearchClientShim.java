@@ -8,6 +8,7 @@ import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
@@ -42,6 +43,7 @@ import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.core.search.Highlight;
 import co.elastic.clients.elasticsearch.core.search.HighlightField;
 import co.elastic.clients.elasticsearch.core.search.HighlighterEncoder;
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.PointInTimeReference;
 import co.elastic.clients.elasticsearch.core.search.Rescore;
 import co.elastic.clients.elasticsearch.core.search.SourceConfig;
@@ -82,10 +84,17 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.io.StringReader;
@@ -94,6 +103,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -256,6 +266,20 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     this.jacksonJsonpMapper = new JacksonJsonpMapper(objectMapper);
 
     log.info("Created ElasticSearch 8.x shim for engine type: {}", engineType);
+  }
+
+  /** Package-private constructor for testing; injects a pre-built client. */
+  Es8SearchClientShim(ElasticsearchClient client, ObjectMapper objectMapper) {
+    this.shimConfiguration = null;
+    this.engineType = SearchEngineType.ELASTICSEARCH_8;
+    this.client = client;
+    this.objectMapper = objectMapper;
+    this.jacksonJsonpMapper = new JacksonJsonpMapper(objectMapper);
+  }
+
+  /** Package-private factory for tests; avoids spinning up a real ES connection. */
+  static Es8SearchClientShim forTest(ElasticsearchClient client) {
+    return new Es8SearchClientShim(client, new ObjectMapper());
   }
 
   private ElasticsearchClient createEs8Client(ShimConfiguration config) throws IOException {
@@ -1806,5 +1830,149 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             q.withJson(
                 jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
                 jacksonJsonpMapper));
+  }
+
+  public static boolean assertSemanticSearchSupported(String versionNumber) {
+    if (versionNumber == null || versionNumber.isBlank() || "unknown".equals(versionNumber)) {
+      throw new IllegalStateException(
+          "Cannot determine Elasticsearch version; semantic search requires ES 8.18+");
+    }
+    String[] parts = versionNumber.split("\\.");
+    if (parts.length < 2) {
+      throw new IllegalStateException(
+          "Unrecognized Elasticsearch version format: " + versionNumber);
+    }
+    int major;
+    int minor;
+    try {
+      major = Integer.parseInt(parts[0]);
+      minor = Integer.parseInt(parts[1]);
+    } catch (NumberFormatException e) {
+      throw new IllegalStateException(
+          "Unrecognized Elasticsearch version format: " + versionNumber, e);
+    }
+    if (major > 8 || (major == 8 && minor >= 18)) {
+      return true;
+    }
+    throw new IllegalStateException(
+        "Elasticsearch 8.18+ required for semantic search; cluster reports " + versionNumber);
+  }
+
+  public void verifySemanticSearchSupport() throws IOException {
+    String version = client.info().version().number();
+    assertSemanticSearchSupported(version);
+    log.info("Verified Elasticsearch {} supports semantic search", version);
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+    Map<String, Object> body = Es8KnnQueryBuilder.build(request);
+
+    // The ES8 typed client treats a comma-joined index string as a single index name and
+    // URL-encodes the commas as %2C, breaking multi-entity searches. Split explicitly.
+    List<String> indexList = Arrays.asList(request.indexName().split(","));
+
+    boolean ignoreUnavailable = request.ignoreUnavailable();
+    co.elastic.clients.elasticsearch.core.SearchRequest searchReq =
+        co.elastic.clients.elasticsearch.core.SearchRequest.of(
+            b ->
+                b.index(indexList)
+                    .ignoreUnavailable(ignoreUnavailable)
+                    // Always allow zero-index resolution; semantic search on partial rollouts
+                    // may target indices that do not yet exist on every node.
+                    .allowNoIndices(true)
+                    .withJson(toJsonReader(body)));
+
+    co.elastic.clients.elasticsearch.core.SearchResponse<Map> resp =
+        client.search(searchReq, Map.class);
+
+    List<KnnSearchResponse.Hit> hits = new ArrayList<>(resp.hits().hits().size());
+    for (Hit<Map> h : resp.hits().hits()) {
+      String id = h.id();
+      if (id == null || id.isEmpty()) {
+        log.warn("Elasticsearch kNN hit missing _id; skipping");
+        continue;
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> source = h.source() == null ? Map.of() : (Map<String, Object>) h.source();
+      double score;
+      if (h.score() == null) {
+        log.warn("Elasticsearch kNN hit {} missing _score; defaulting to 0.0", id);
+        score = 0.0;
+      } else {
+        score = h.score();
+      }
+      hits.add(new KnnSearchResponse.Hit(id, score, source));
+    }
+    return new KnnSearchResponse(hits);
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    Map<String, Object> mapping = Es8SemanticIndexMapper.build(spec);
+    Map<String, Object> settings = Es8SemanticIndexSettingsBuilder.build(spec);
+
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest req =
+        co.elastic.clients.elasticsearch.indices.CreateIndexRequest.of(
+            b ->
+                b.index(spec.indexName())
+                    .mappings(m -> m.withJson(toJsonReader(mapping)))
+                    .settings(s -> s.withJson(toJsonReader(settings))));
+
+    co.elastic.clients.elasticsearch.indices.CreateIndexResponse resp =
+        client.indices().create(req);
+    if (!Boolean.TRUE.equals(resp.acknowledged())) {
+      throw new IOException("Index create not acknowledged: " + spec.indexName());
+    }
+    log.info("Created semantic index {}", spec.indexName());
+  }
+
+  @Override
+  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+    Map<String, Object> document = buildEmbeddingsDocument(batch);
+
+    co.elastic.clients.elasticsearch.core.IndexRequest<Map<String, Object>> req =
+        co.elastic.clients.elasticsearch.core.IndexRequest.of(
+            b -> b.index(batch.indexName()).id(batch.documentId()).document(document));
+
+    co.elastic.clients.elasticsearch.core.IndexResponse resp = client.index(req);
+    if (resp.result() != Result.Created && resp.result() != Result.Updated) {
+      throw new IOException(
+          "Embedding index for " + batch.documentId() + " returned " + resp.result());
+    }
+    log.debug(
+        "Indexed {} chunks for {} in {}",
+        batch.chunks().size(),
+        batch.documentId(),
+        batch.indexName());
+  }
+
+  private static Map<String, Object> buildEmbeddingsDocument(EmbeddingBatch batch) {
+    List<Map<String, Object>> chunks = new ArrayList<>(batch.chunks().size());
+    for (EmbeddingBatch.Chunk c : batch.chunks()) {
+      Map<String, Object> chunk = new LinkedHashMap<>();
+      chunk.put("vector", c.vector());
+      chunk.put("text", c.text());
+      chunk.put("position", c.position());
+      chunk.put("characterOffset", c.characterOffset());
+      chunk.put("characterLength", c.characterLength());
+      chunk.put("tokenCount", c.tokenCount());
+      chunks.add(chunk);
+    }
+    Map<String, Object> modelEntry = Map.of("chunks", chunks);
+    Map<String, Object> embeddings = Map.of(batch.modelKey(), modelEntry);
+    Map<String, Object> document = new LinkedHashMap<>();
+    document.put("urn", batch.documentId());
+    document.put("embeddings", embeddings);
+    return document;
+  }
+
+  private java.io.Reader toJsonReader(Map<String, Object> body) {
+    try {
+      return new StringReader(objectMapper.writeValueAsString(body));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Failed to serialize JSON body", e);
+    }
   }
 }
