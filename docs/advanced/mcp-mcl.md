@@ -1,3 +1,7 @@
+---
+description: "Overview of DataHub's Metadata Change Proposal (MCP) and Metadata Change Log (MCL) events that drive the metadata write pipeline."
+---
+
 # MetadataChangeProposal & MetadataChangeLog Events
 
 ## Overview & Vision

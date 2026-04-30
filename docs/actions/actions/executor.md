@@ -1,3 +1,7 @@
+---
+description: "Configure the Executor Action in DataHub to run remote ingestion executions triggered from the DataHub UI or scheduled recipes."
+---
+
 # Ingestion Executor
 
 <!-- Set Support Status -->

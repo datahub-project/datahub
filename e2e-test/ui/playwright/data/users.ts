@@ -39,7 +39,7 @@ const defaultUsers = {
 // The try/catch is intentional: absence of the file is the normal case locally.
 let ciOverrides: UserMap = {};
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
   ciOverrides = (require('./users.ci') as { users: UserMap }).users;
 } catch {
   // No CI overrides — using defaults.
@@ -50,4 +50,3 @@ try {
  * Always import credentials from here, never from `defaultUsers` directly.
  */
 export const users: UserMap = { ...defaultUsers, ...ciOverrides };
-

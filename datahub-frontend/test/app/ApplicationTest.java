@@ -66,6 +66,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.extension.TestWatcher;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
@@ -82,7 +84,12 @@ import play.test.TestBrowser;
 import play.test.WithBrowser;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@SetEnvironmentVariable(key = "DATAHUB_SECRET", value = "test")
+@Execution(ExecutionMode.SAME_THREAD)
+@SetEnvironmentVariable(
+    key = "DATAHUB_SECRET",
+    value =
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef") // 256-bit entropy for
+// Play 3 / HS256
 @SetEnvironmentVariable(key = "KAFKA_BOOTSTRAP_SERVER", value = "")
 @SetEnvironmentVariable(key = "DATAHUB_ANALYTICS_ENABLED", value = "false")
 @SetEnvironmentVariable(key = "AUTH_OIDC_ENABLED", value = "true")
@@ -125,6 +132,9 @@ public class ApplicationTest extends WithBrowser {
         .configure("metadataService.port", String.valueOf(actualGmsServerPort))
         .configure("metadataService.host", "localhost")
         .configure("datahub.basePath", "")
+        // nav mock-oauth2-server (and some IdPs) do not complete PKCE; Pac4j 6 enables it by
+        // default
+        .configure("auth.oidc.disablePkce", true)
         .configure("auth.baseUrl", "http://localhost:" + providePort())
         .configure(
             "auth.oidc.discoveryUri",
@@ -137,10 +147,18 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Override
+  protected int providePort() {
+    return playTestPort;
+  }
+
+  @Override
   protected TestBrowser provideBrowser(int port) {
     HtmlUnitDriver webClient = new HtmlUnitDriver();
     webClient.setJavascriptEnabled(false);
-    return Helpers.testBrowser(webClient, providePort());
+    // Use the port WithServer passed (running HTTP port), not
+    // play.api.test.Helpers.testServerPort();
+    // they can differ when the server picks an ephemeral port.
+    return Helpers.testBrowser(webClient, port);
   }
 
   /** Find an available port for testing to avoid port conflicts */
@@ -161,6 +179,13 @@ public class ApplicationTest extends WithBrowser {
   private String wellKnownUrl;
   private int actualOauthServerPort;
   private int actualGmsServerPort;
+
+  /**
+   * Fixed port for Play test server so auth.baseUrl matches before bind (Play 3: testServerPort is
+   * 0 until after start).
+   */
+  private int playTestPort;
+
   private String actualGmsServerHost;
 
   private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
@@ -171,6 +196,7 @@ public class ApplicationTest extends WithBrowser {
     // Store actual ports to avoid dynamic allocation issues
     actualOauthServerPort = findAvailablePort();
     actualGmsServerPort = findAvailablePort();
+    playTestPort = findAvailablePort();
 
     // Start Mock GMS
     gmsServer = new MockWebServer();
@@ -279,6 +305,10 @@ public class ApplicationTest extends WithBrowser {
     if (browser != null) {
       // Clear cookies using the underlying WebDriver
       browser.getDriver().manage().deleteAllCookies();
+      // @BeforeAll leaves the browser on /admin for readiness; reset to app root so each test's
+      // goTo("/authenticate") actually navigates (Fluentlenium 6 + HtmlUnit otherwise kept
+      // "admin").
+      browser.goTo("/");
     }
   }
 
@@ -318,7 +348,7 @@ public class ApplicationTest extends WithBrowser {
         "Mock server ports: oauth={} gms={} play(app)={}",
         actualOauthServerPort,
         actualGmsServerPort,
-        providePort());
+        port);
   }
 
   @AfterAll
