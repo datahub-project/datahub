@@ -14,8 +14,8 @@ from datahub.ingestion.source.sigma.sigma import SigmaSource
 def _source() -> SigmaSource:
     source = SigmaSource.__new__(SigmaSource)
     source.reporter = SigmaSourceReport()
-    source.dm_element_urn_by_name: Dict[str, Dict[str, List[str]]] = {}
-    source.dm_element_urn_to_cols: Dict[str, Dict[str, str]] = {}
+    source.dm_element_urn_by_name = {}
+    source.dm_element_urn_to_cols = {}
     return source
 
 
