@@ -886,7 +886,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
                         continue
                     if len(cross_dm_candidate_urns) > 1:
-                        self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
+                        # Prefer a candidate already confirmed as an entity-level
+                        # upstream: the entity-level resolver used /lineage data-model
+                        # entries to identify the correct source element, so a single
+                        # confirmed candidate is unambiguous and wins without collision.
+                        confirmed = [
+                            u
+                            for u in cross_dm_candidate_urns
+                            if u in entity_level_upstream_urns
+                        ]
+                        if len(confirmed) == 1:
+                            cross_dm_candidate_urns = confirmed
+                        else:
+                            # 0 or 2+ confirmed — still ambiguous; pick sorted-first.
+                            self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
                     chosen_upstream_urn = cross_dm_candidate_urns[0]
                     upstream_cols = cross_dm_urn_to_cols.get(chosen_upstream_urn)
                     if upstream_cols is None:
