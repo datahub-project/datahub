@@ -77,7 +77,7 @@ The following change types are available for subscriptions:
 
 #### Assertion Events
 
-- `ASSERTION_PASSED` - When an assertion run passes
+- `ASSERTION_PASSED` - When an assertion run passes. Note these are suppressed until a failure or error occurs, so its semantically closer to an assertion recovery notification.
 - `ASSERTION_FAILED` - When an assertion run fails
 - `ASSERTION_ERROR` - When an assertion run encounters an error
 

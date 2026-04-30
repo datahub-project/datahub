@@ -37,6 +37,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- **Bootstrap Steps Moved to System-Update Job.** The following metadata ingestion steps now run during system-update instead of GMS startup:
+
+  - Entity Types ingestion
+
+  On the first deploy after this change, these entities will be re-ingested across the cluster. Per-entity existence checks prevent duplicate data writes.
+
 - #16473: Vertex AI Source - **ML Model version set URNs now scoped per project**: Previously, all Vertex AI model versions shared a version set based solely on the numeric model ID, which caused conflicts when multiple GCP projects contained models with the same numeric ID (GCP model IDs are project-local, not globally unique). Version sets are now scoped per project, preventing `422 ValidationException` errors during ingestion. After upgrading, existing model version entities will be orphaned in their old version sets; new ingestion runs will create correctly scoped version sets. Old orphaned entities can be cleaned up by enabling stateful ingestion with stale entity removal.
 - **(Ingestion / Sigma — Opt-in) Sigma Data Model ingestion.** New `ingest_data_models` flag (default `False`); no existing aspects change until you opt in. **⚠ Before opting in:** workbook charts that reference a DM element will gain new `ChartInfo.inputs` entries on the first opt-in run — silence or raise any fan-in cardinality alerts beforehand. To opt in: set `ingest_data_models: true`; use `data_model_pattern` / `ingest_shared_entities` to scope if needed.
 - **(Ingestion / Sigma — Action required) Null `DatasetUpstream.name` now tolerated.** Previously raised a Pydantic `ValidationError` warning; now counted under `chart_dataset_upstream_name_missing` with a `SourceReport.warning` titled `Sigma workbook dataset upstream dropped (name missing)`. Lineage semantics unchanged. **Action:** migrate any alert keyed on the old Pydantic warning text to the new counter or warning title.
