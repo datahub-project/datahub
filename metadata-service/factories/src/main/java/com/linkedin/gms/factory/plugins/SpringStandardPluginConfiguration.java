@@ -385,8 +385,18 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public AspectPayloadValidator urlValidator() {
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.urlValidation.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator urlValidator(ConfigurationProvider configurationProvider) {
+    com.linkedin.metadata.config.UrlValidationConfig urlConfig =
+        configurationProvider.getMetadataChangeProposal().getValidation().getUrlValidation();
+
     return new UrlValidator()
+        .setAllowHttp(urlConfig != null && urlConfig.isAllowHttp())
+        .setExtraDenyHostsList(urlConfig != null ? urlConfig.getExtraDenyHosts() : null)
+        .buildSchemes()
         .setConfig(
             AspectPluginConfig.builder()
                 .className(UrlValidator.class.getName())

@@ -15,6 +15,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -25,7 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Validates URL fields (e.g. pictureLink) to prevent browser-side SSRF, credential harvesting, and
- * content injection attacks. Only HTTPS URLs pointing to public (non-internal) hosts are accepted.
+ * content injection attacks. Only HTTPS URLs (or optionally HTTP) pointing to public (non-internal)
+ * hosts are accepted. Configurable via {@code metadataChangeProposal.validation.urlValidation.*}.
  */
 @Slf4j
 @Setter
@@ -34,7 +37,42 @@ import lombok.extern.slf4j.Slf4j;
 public class UrlValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
-  private static final Set<String> ALLOWED_SCHEMES = Set.of("https");
+  /** Whether to allow http:// in addition to https://. Default: false (HTTPS only). */
+  private boolean allowHttp = false;
+
+  /** Additional hostnames or IPs to deny, beyond the built-in blocklist. */
+  private Set<String> extraDenyHosts = Set.of();
+
+  private Set<String> allowedSchemes = Set.of("https");
+
+  /**
+   * Recalculates the allowed schemes set based on the current {@link #allowHttp} setting. Must be
+   * called after setting {@link #allowHttp}.
+   */
+  public UrlValidator buildSchemes() {
+    this.allowedSchemes =
+        allowHttp ? Set.of("https", "http") : Set.of("https");
+    return this;
+  }
+
+  /**
+   * Sets extra deny hosts from a list (typically from Spring config). Normalises to lower-case for
+   * case-insensitive matching.
+   */
+  public UrlValidator setExtraDenyHostsList(List<String> hosts) {
+    if (hosts == null || hosts.isEmpty()) {
+      this.extraDenyHosts = Set.of();
+    } else {
+      Set<String> normalized = new HashSet<>();
+      for (String h : hosts) {
+        if (h != null && !h.isBlank()) {
+          normalized.add(h.toLowerCase());
+        }
+      }
+      this.extraDenyHosts = Set.copyOf(normalized);
+    }
+    return this;
+  }
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
@@ -88,13 +126,14 @@ public class UrlValidator extends AspectPayloadValidator {
     }
 
     String scheme = uri.getScheme();
-    if (scheme == null || !ALLOWED_SCHEMES.contains(scheme.toLowerCase())) {
+    if (scheme == null || !allowedSchemes.contains(scheme.toLowerCase())) {
+      String accepted = allowHttp ? "HTTP or HTTPS" : "HTTPS";
       exceptions.addException(
           AspectValidationException.forItem(
               item,
               String.format(
-                  "URL scheme '%s' is not allowed for '%s'. Only HTTPS URLs are accepted.",
-                  scheme, fieldName)));
+                  "URL scheme '%s' is not allowed for '%s'. Only %s URLs are accepted.",
+                  scheme, fieldName, accepted)));
       return;
     }
 
@@ -106,7 +145,7 @@ public class UrlValidator extends AspectPayloadValidator {
       return;
     }
 
-    if (isInternalHost(host)) {
+    if (isInternalHost(host) || extraDenyHosts.contains(host.toLowerCase())) {
       exceptions.addException(
           AspectValidationException.forItem(
               item,

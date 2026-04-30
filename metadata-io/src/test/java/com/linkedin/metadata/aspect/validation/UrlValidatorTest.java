@@ -379,4 +379,99 @@ public class UrlValidatorTest {
     assertFalse(UrlValidator.isInternalHost("example.com"));
     assertFalse(UrlValidator.isInternalHost("github.com"));
   }
+
+  // --- Configuration tests ---
+
+  @Test
+  public void testAllowHttpWhenConfigured() {
+    UrlValidator httpValidator = new UrlValidator();
+    httpValidator.setConfig(TEST_PLUGIN_CONFIG);
+    httpValidator.setAllowHttp(true);
+    httpValidator.buildSchemes();
+
+    CorpUserEditableInfo info = new CorpUserEditableInfo();
+    info.setPictureLink(new Url("http://example.com/photo.png"));
+
+    assertEquals(
+        httpValidator
+            .validateProposed(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_USER_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_USER_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_USER_URN.getEntityType())
+                                .getAspectSpec(CORP_USER_EDITABLE_INFO_ASPECT_NAME))
+                        .recordTemplate(info)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "HTTP URL should pass when allowHttp is true");
+  }
+
+  @Test
+  public void testExtraDenyHostsBlocked() {
+    UrlValidator customValidator = new UrlValidator();
+    customValidator.setConfig(TEST_PLUGIN_CONFIG);
+    customValidator.setExtraDenyHostsList(List.of("blocked.example.com", "evil.corp"));
+    customValidator.buildSchemes();
+
+    CorpUserEditableInfo info = new CorpUserEditableInfo();
+    info.setPictureLink(new Url("https://blocked.example.com/photo.png"));
+
+    assertEquals(
+        customValidator
+            .validateProposed(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_USER_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_USER_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_USER_URN.getEntityType())
+                                .getAspectSpec(CORP_USER_EDITABLE_INFO_ASPECT_NAME))
+                        .recordTemplate(info)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "Extra deny host should be blocked");
+  }
+
+  @Test
+  public void testExtraDenyHostsCaseInsensitive() {
+    UrlValidator customValidator = new UrlValidator();
+    customValidator.setConfig(TEST_PLUGIN_CONFIG);
+    customValidator.setExtraDenyHostsList(List.of("BLOCKED.Example.COM"));
+    customValidator.buildSchemes();
+
+    CorpUserEditableInfo info = new CorpUserEditableInfo();
+    info.setPictureLink(new Url("https://blocked.example.com/photo.png"));
+
+    assertEquals(
+        customValidator
+            .validateProposed(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_USER_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_USER_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_USER_URN.getEntityType())
+                                .getAspectSpec(CORP_USER_EDITABLE_INFO_ASPECT_NAME))
+                        .recordTemplate(info)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "Extra deny hosts should be case-insensitive");
+  }
 }
