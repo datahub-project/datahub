@@ -463,3 +463,140 @@ def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_confi
 
     assert source.report.num_documents_processed == 5
     assert source.report.num_documents_limit_reached is False
+
+
+# --- Raw chunks (emit_chunks_without_embeddings) tests ---
+
+
+def test_emit_raw_chunks_called_when_no_embedding_and_flag_true(
+    pipeline_context, chunking_config
+):
+    """process_elements_inline calls _emit_raw_chunks when emit_chunks_without_embeddings=True."""
+    chunking_config.emit_chunks_without_embeddings = True
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    # Simulate no embedding provider
+    source.embedding_model = None
+
+    document_urn = "urn:li:document:(test,doc1,PROD)"
+    elements = [{"type": "NarrativeText", "text": "Hello world"}]
+    dummy_chunk = [{"text": "Hello world"}]
+
+    with (
+        patch.object(source, "_chunk_elements", return_value=dummy_chunk),
+        patch.object(source, "_emit_raw_chunks", return_value=iter([])) as mock_emit,
+    ):
+        list(source.process_elements_inline(document_urn, elements))
+
+    mock_emit.assert_called_once_with(document_urn, dummy_chunk)
+    assert source.report.num_documents_processed == 1
+
+
+def test_no_raw_chunks_when_flag_false(pipeline_context, chunking_config):
+    """process_elements_inline emits nothing when emit_chunks_without_embeddings=False (default)."""
+    assert not chunking_config.emit_chunks_without_embeddings
+
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    # Simulate no embedding provider
+    source.embedding_model = None
+
+    document_urn = "urn:li:document:(test,doc1,PROD)"
+    elements = [{"type": "NarrativeText", "text": "Hello world"}]
+    dummy_chunk = [{"text": "Hello world"}]
+
+    with (
+        patch.object(source, "_chunk_elements", return_value=dummy_chunk),
+        patch.object(source, "_emit_raw_chunks") as mock_emit,
+    ):
+        workunits = list(source.process_elements_inline(document_urn, elements))
+
+    mock_emit.assert_not_called()
+    assert len(workunits) == 0
+    assert source.report.num_documents_processed == 1
+
+
+def test_real_embeddings_take_precedence_over_raw_chunks(
+    pipeline_context, chunking_config
+):
+    """When embedding model is set, real embeddings are emitted (not raw chunks)."""
+    chunking_config.emit_chunks_without_embeddings = (
+        True  # set True but should be ignored
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    assert source.embedding_model is not None
+
+    document_urn = "urn:li:document:(test,doc1,PROD)"
+    elements = [{"type": "NarrativeText", "text": "Hello world"}]
+    mock_embeddings = [[0.1, 0.2, 0.3]]
+
+    with (
+        patch.object(source, "_generate_embeddings", return_value=mock_embeddings),
+        patch.object(source, "_emit_raw_chunks") as mock_raw,
+        patch.object(
+            source, "_emit_semantic_content", return_value=iter([])
+        ) as mock_embed,
+    ):
+        list(source.process_elements_inline(document_urn, elements))
+
+    mock_embed.assert_called_once()
+    mock_raw.assert_not_called()
+
+
+# --- DataHubDocumentsSource helper method tests ---
+
+
+def test_aspect_has_raw_chunks_detects_presence():
+    """_aspect_has_raw_chunks returns True when rawChunks key is present and non-null."""
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+        DataHubDocumentsSource,
+    )
+
+    # Create a minimal instance with mocked dependencies
+    source = MagicMock(spec=DataHubDocumentsSource)
+    # Call the actual method (unbound)
+    result = DataHubDocumentsSource._aspect_has_raw_chunks(
+        source, {"rawChunks": {"totalChunks": 2, "chunks": []}}
+    )
+    assert result is True
+
+
+def test_aspect_has_raw_chunks_returns_false_for_null():
+    """_aspect_has_raw_chunks returns False when rawChunks is null."""
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+        DataHubDocumentsSource,
+    )
+
+    source = MagicMock(spec=DataHubDocumentsSource)
+    result = DataHubDocumentsSource._aspect_has_raw_chunks(source, {"rawChunks": None})
+    assert result is False
+
+
+def test_aspect_has_raw_chunks_returns_false_when_absent():
+    """_aspect_has_raw_chunks returns False when rawChunks key is missing."""
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+        DataHubDocumentsSource,
+    )
+
+    source = MagicMock(spec=DataHubDocumentsSource)
+    result = DataHubDocumentsSource._aspect_has_raw_chunks(source, {"embeddings": {}})
+    assert result is False

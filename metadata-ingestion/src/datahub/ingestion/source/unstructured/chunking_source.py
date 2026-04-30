@@ -197,6 +197,33 @@ class DocumentChunkingSource(Source):
                     f"Unsupported embedding provider: {self.config.embedding.provider}"
                 )
 
+        # Probe the embedding provider with a test call at startup.
+        # Two different failure modes depending on the source type:
+        #
+        # - emit_chunks_without_embeddings=True (Notion, Confluence, etc.):
+        #   Degrade gracefully to raw-chunks mode. Documents are stored as rawChunks
+        #   and can be embedded later by the DataHub documents source.
+        #
+        # - emit_chunks_without_embeddings=False (DataHub documents source):
+        #   Re-raise — embedding is the whole point of this source; silent failure
+        #   would skip every document without any indication.
+        if self.embedding_model:
+            try:
+                self._generate_embeddings([{"text": "test"}])
+            except Exception as e:
+                short_error = str(e).split("\n")[0][:200]
+                if self.config.emit_chunks_without_embeddings:
+                    logger.warning(
+                        f"Embedding provider '{self.config.embedding.provider}' probe failed at startup — "
+                        f"falling back to raw-chunks mode.\n"
+                        f"  Error: {short_error}\n"
+                        f"  Chunks will be stored as rawChunks and can be embedded later "
+                        f"by the DataHub documents source once credentials are available."
+                    )
+                    self.embedding_model = None
+                else:
+                    raise
+
         # Initialize rate limiter for embedding calls
         self.rate_limiter: Optional[RateLimiter] = (
             RateLimiter(
@@ -264,9 +291,12 @@ class DocumentChunkingSource(Source):
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
             )
 
-        # Emit SemanticContent aspect (only if embeddings were generated)
+        # Emit SemanticContent aspect
         if embeddings:
             yield from self._emit_semantic_content(document_urn, chunks, embeddings)
+        elif self.config.emit_chunks_without_embeddings and chunks:
+            # No embedding model — store raw chunks for later embedding computation
+            yield from self._emit_raw_chunks(document_urn, chunks)
 
         self.report.report_document_processed(len(chunks))
         self.report.report_embeddings_generated(len(embeddings))
@@ -780,6 +810,7 @@ class DocumentChunkingSource(Source):
         document_urn: str,
         chunks: list[dict[str, Any]],
         embeddings: list[list[float]],
+        raw_chunks: Optional[Any] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit SemanticContent aspect for the document."""
         from datahub.metadata.schema_classes import (
@@ -832,7 +863,8 @@ class DocumentChunkingSource(Source):
             model_key = self.config.embedding.model.replace("-", "_").replace(".", "_")
 
         semantic_content = SemanticContentClass(
-            embeddings={model_key: embedding_model_data}
+            embeddings={model_key: embedding_model_data},
+            rawChunks=raw_chunks,
         )
 
         # Create MetadataWorkUnit
@@ -845,6 +877,58 @@ class DocumentChunkingSource(Source):
 
         logger.info(
             f"Emitting SemanticContent for {document_urn} with {len(chunks)} chunks"
+        )
+
+        yield workunit
+
+    def _emit_raw_chunks(
+        self,
+        document_urn: str,
+        chunks: list[dict[str, Any]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit SemanticContent aspect with rawChunks when no embedding provider is configured."""
+        from datahub.metadata.schema_classes import (
+            RawChunksClass,
+            SemanticContentClass,
+            TextChunkClass,
+        )
+
+        text_chunks = []
+        current_offset = 0
+
+        for i, chunk in enumerate(chunks):
+            chunk_text = chunk.get("text", "")
+            chunk_length = len(chunk_text)
+
+            text_chunk = TextChunkClass(
+                position=i,
+                text=chunk_text,
+                characterOffset=current_offset,
+                characterLength=chunk_length,
+            )
+            text_chunks.append(text_chunk)
+            current_offset += chunk_length
+
+        raw_chunks = RawChunksClass(
+            chunkingStrategy=self.config.chunking.strategy,
+            totalChunks=len(chunks),
+            chunks=text_chunks,
+        )
+
+        semantic_content = SemanticContentClass(
+            embeddings={},
+            rawChunks=raw_chunks,
+        )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=document_urn,
+            aspect=semantic_content,
+        )
+
+        workunit = MetadataWorkUnit(id=f"{document_urn}-semanticContent", mcp=mcp)
+
+        logger.info(
+            f"Emitting SemanticContent with rawChunks for {document_urn} ({len(chunks)} chunks, no embedding provider)"
         )
 
         yield workunit
