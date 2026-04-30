@@ -54,6 +54,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -69,6 +70,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     DatasetProperties,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     Upstream,
     UpstreamLineage,
 )
@@ -111,6 +115,59 @@ logger = logging.getLogger(__name__)
 # column field (or we add SQL-based inference), swap this out here.
 SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
 
+
+def _dm_column_ranks_above(
+    candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
+) -> bool:
+    """Tie-breaking order for duplicate-fieldPath columns within a DM element.
+
+    Prefers the row with a non-empty formula (the user-authored calculated
+    field Sigma surfaces in the UI). Tie-break: lexicographically smaller
+    columnId so the choice is stable across runs even if /columns ordering
+    shifts.
+    """
+    if bool(candidate.formula) != bool(incumbent.formula):
+        return bool(candidate.formula)
+    return candidate.columnId < incumbent.columnId
+
+
+def _dedup_dm_element_columns(
+    columns: List[SigmaDataModelColumn],
+) -> Tuple[
+    Dict[str, SigmaDataModelColumn],
+    List[Tuple[SigmaDataModelColumn, SigmaDataModelColumn]],
+]:
+    """Return (winners_by_name, displaced_pairs) for an element's column list.
+
+    ``winners_by_name`` maps each unique column name to the winning column
+    when duplicates exist (per _dm_column_ranks_above).  ``displaced_pairs``
+    is a list of (winner, loser) tuples — each caller uses this to update its
+    own counters and logs.
+
+    Called by both _gen_data_model_element_schema_metadata and
+    _build_dm_element_fine_grained_lineages so the two sites share a single
+    source of truth for which fieldPaths are "live".  Any future change to the
+    tie-break logic only needs to be made here.
+    """
+    by_name: Dict[str, SigmaDataModelColumn] = {}
+    displaced: List[Tuple[SigmaDataModelColumn, SigmaDataModelColumn]] = []
+    for column in columns:
+        if not column.name:
+            continue
+        existing = by_name.get(column.name)
+        if existing is None:
+            by_name[column.name] = column
+            continue
+        winner, loser = (
+            (column, existing)
+            if _dm_column_ranks_above(column, existing)
+            else (existing, column)
+        )
+        by_name[column.name] = winner
+        displaced.append((winner, loser))
+    return by_name, displaced
+
+
 CrossDmOutcome = Literal[
     "strict",
     "ambiguous",
@@ -136,6 +193,7 @@ CrossDmOutcome = Literal[
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default.")
+@capability(SourceCapability.LINEAGE_FINE, "Enabled by default.")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TAGS, "Enabled by default")
@@ -537,7 +595,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self,
         element: SigmaDataModelElement,
         data_model: SigmaDataModel,
+        element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
+        element_name_to_eids: Dict[str, List[str]],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -629,16 +689,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             upstream_urn,
                         )
 
-        if not upstream_urns:
-            return None
         # Sort for deterministic emission order: Sigma's /lineage API does
         # not document ordering, and Upstream entries have no semantic order.
         upstream_urns.sort()
+        if not upstream_urns:
+            return None
+        fine_grained = self._build_dm_element_fine_grained_lineages(
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            element_name_to_eids=element_name_to_eids,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            entity_level_upstream_urns=set(upstream_urns),
+            data_model=data_model,
+        )
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
                 for urn in upstream_urns
-            ]
+            ],
+            fineGrainedLineages=fine_grained or None,
         )
 
     def _gen_data_model_element_schema_metadata(
@@ -647,43 +716,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Dedup by ``fieldPath`` within the element: Sigma can return two
         # columns with the same name (e.g. a calculated field shadowing a
         # native column), and GMS rejects / non-deterministically dedupes
-        # duplicate ``fieldPath``s.
-        #
-        # Tie-break is deterministic across runs:
-        # 1. Prefer the row with a non-empty ``formula`` -- that's the
-        #    user-authored calculated field and the one Sigma surfaces
-        #    in the UI when both exist with the same name.
-        # 2. Fall back to the row with the lexicographically smallest
-        #    ``columnId`` so the choice is stable even without
-        #    ``/columns`` ordering guarantees.
-        # Dropped ``columnId``s are emitted to debug logs so operators
-        # can reconcile against Sigma.
-        def _ranks_above(
-            candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
-        ) -> bool:
-            # Prefer row with formula set (user-authored calc field).
-            # Tie-break: smaller columnId wins so the choice is stable
-            # across runs even if ``/columns`` ordering shifts.
-            if bool(candidate.formula) != bool(incumbent.formula):
-                return bool(candidate.formula)
-            return candidate.columnId < incumbent.columnId
-
-        by_name: Dict[str, SigmaDataModelColumn] = {}
+        # duplicate ``fieldPath``s. Tie-break logic lives in _dedup_dm_element_columns
+        # so it stays in sync with the FGL builder's winner set.
+        by_name, displaced = _dedup_dm_element_columns(element.columns)
         dropped_column_ids_by_name: Dict[str, List[str]] = {}
-        for column in element.columns:
-            if not column.name:
-                continue
-            existing = by_name.get(column.name)
-            if existing is None:
-                by_name[column.name] = column
-                continue
+        for winner, loser in displaced:
             self.reporter.data_model_element_columns_duplicate_fieldpath_dropped += 1
-            if _ranks_above(column, existing):
-                winner, loser = column, existing
-            else:
-                winner, loser = existing, column
-            by_name[column.name] = winner
-            dropped_column_ids_by_name.setdefault(column.name, []).append(
+            dropped_column_ids_by_name.setdefault(winner.name, []).append(
                 loser.columnId
             )
         if dropped_column_ids_by_name:
@@ -729,12 +768,162 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
+    def _build_dm_element_fine_grained_lineages(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        element_name_to_eids: Dict[str, List[str]],
+        elementId_to_dataset_urn: Dict[str, str],
+        entity_level_upstream_urns: Set[str],
+        data_model: SigmaDataModel,
+    ) -> List[FineGrainedLineageClass]:
+        """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
+
+        element_name_to_eids maps lowercased element name → list of elementIds.
+        Self-references are stripped before resolution: when a DM element is named
+        after its warehouse source (e.g., element "data.csv" with formula
+        "[data.csv/col]"), the formula ref matches the element's own name and must
+        be filtered out to avoid self-referential FGL.  These are counted under
+        fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
+
+        When multiple sibling elements share a name and both pass the /lineage filter,
+        the lexicographically-first URN is chosen (matching T2 PR1's collision policy
+        and Sigma's server-side coalescing behaviour).
+        """
+        by_name, _ = _dedup_dm_element_columns(element.columns)
+
+        # Build URN → winner-column map directly from elementId_to_dataset_urn,
+        # which gives an unambiguous elementId→URN mapping for every DM element.
+        urn_to_cols: Dict[str, Dict[str, str]] = {}
+        for dm_el in data_model.elements:
+            el_urn = elementId_to_dataset_urn.get(dm_el.elementId)
+            if el_urn:
+                el_by_name, _ = _dedup_dm_element_columns(dm_el.columns)
+                urn_to_cols[el_urn] = {c.lower(): c for c in el_by_name}
+
+        fgls: List[FineGrainedLineageClass] = []
+        # Track emitted (downstream, upstream) schemaField pairs to deduplicate
+        # multiple occurrences of the same bracket ref in one formula
+        # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
+        emitted_pairs: Set[Tuple[str, str]] = set()
+        for column in sorted(by_name.values(), key=lambda c: c.name):
+            if not column.formula:
+                continue
+            downstream_field = builder.make_schema_field_urn(
+                element_dataset_urn, column.name
+            )
+            for ref in extract_bracket_refs(column.formula):
+                if ref.is_parameter or ref.column is None:
+                    # [P_*] parameter refs and bare [col] intra-element refs
+                    # are not cross-Dataset lineage; skip.
+                    continue
+
+                candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
+
+                # Strip self-references: element-name == warehouse-table name is a
+                # common Sigma authoring pattern.  The formula ref resolves to the
+                # element itself, which is not a valid FGL upstream (the real upstream
+                # is the warehouse inode reported by /lineage).
+                candidate_eids_after_self_strip = [
+                    eid for eid in candidate_eids if eid != element.elementId
+                ]
+
+                if not candidate_eids_after_self_strip:
+                    if candidate_eids:
+                        # All candidates were self-references; actual upstream is a
+                        # warehouse table — out of RESOLVE-A scope.
+                        self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                    else:
+                        # Source not in this DM — cross-DM ref handled separately.
+                        self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+                    continue
+
+                # Map surviving elementIds to Dataset URNs and filter against
+                # /lineage's reported entity-level upstreams.
+                candidate_urns = sorted(
+                    elementId_to_dataset_urn[eid]
+                    for eid in candidate_eids_after_self_strip
+                    if eid in elementId_to_dataset_urn
+                )
+                surviving_urns = sorted(
+                    u for u in candidate_urns if u in entity_level_upstream_urns
+                )
+
+                if not surviving_urns:
+                    # Intra-DM candidate(s) exist but none appear in /lineage.
+                    # Rare on tenants where /lineage correctly reports intra-DM edges;
+                    # keep counter for observability on future tenants.
+                    self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+                    continue
+
+                # Collision handling: multiple siblings passed /lineage filter.
+                # Pick sorted-first to match T2 PR1's _resolve_external_upstream
+                # policy and Sigma's server-side coalescing.
+                if len(surviving_urns) > 1:
+                    self.reporter.data_model_element_fgl_collision_pick_first += 1
+                    self.reporter.warning(
+                        title="Ambiguous DM element name in formula ref",
+                        message=(
+                            f"Formula ref {ref.raw!r} in element {element.elementId} "
+                            f"resolves to {len(surviving_urns)} elements with the same "
+                            f"display name — picking the lexicographically-first URN "
+                            f"({surviving_urns[0]!r}). Rename duplicate elements in "
+                            f"Data Model {data_model.dataModelId} to remove ambiguity."
+                        ),
+                        context=f"ref={ref.raw!r}, candidates={surviving_urns}",
+                    )
+                chosen_upstream_urn = surviving_urns[0]
+
+                # Validate and normalise ref.column against the chosen upstream
+                # element's schema winners to avoid a dangling schemaField URN.
+                source_cols = urn_to_cols.get(chosen_upstream_urn, {})
+                canonical_col = source_cols.get(ref.column.lower())
+                if canonical_col is None:
+                    self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
+                    logger.debug(
+                        "DM %s element %s: ref %r column %r not found in upstream "
+                        "element %s schema winners; dropping FGL entry",
+                        data_model.dataModelId,
+                        element.elementId,
+                        ref.raw,
+                        ref.column,
+                        chosen_upstream_urn,
+                    )
+                    continue
+
+                upstream_field = builder.make_schema_field_urn(
+                    chosen_upstream_urn, canonical_col
+                )
+                pair = (downstream_field, upstream_field)
+                if pair in emitted_pairs:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[upstream_field],
+                        confidenceScore=1.0,
+                    )
+                )
+        self.reporter.data_model_element_fgl_emitted += len(fgls)
+        fgls.sort(
+            key=lambda fgl: (
+                (fgl.downstreams or [""])[0],
+                (fgl.upstreams or [""])[0],
+            )
+        )
+        return fgls
+
     def _gen_data_model_element_workunits(
         self,
         data_model: SigmaDataModel,
         data_model_key: DataModelKey,
         data_model_container_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
+        element_name_to_eids: Dict[str, List[str]],
         owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
@@ -846,7 +1035,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
             upstream_lineage = self._gen_data_model_element_upstream_lineage(
-                element, data_model, elementId_to_dataset_urn
+                element,
+                data_model,
+                element_dataset_urn,
+                elementId_to_dataset_urn,
+                element_name_to_eids,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(
@@ -1049,11 +1242,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if data_model.workspaceId:
             self.reporter.workspaces.increment_data_models_count(data_model.workspaceId)
 
+        # Keys are lowercased so formula refs — which users type and Sigma
+        # autocompletes from canonical names — match even when case differs.
+        # Values are elementIds (not URNs) so the FGL builder can strip self-references
+        # by elementId before mapping to URNs via elementId_to_dataset_urn.
+        element_name_to_eids: Dict[str, List[str]] = {}
+        for element in data_model.elements:
+            if element.name:
+                element_name_to_eids.setdefault(element.name.lower(), []).append(
+                    element.elementId
+                )
+
         yield from self._gen_data_model_element_workunits(
             data_model,
             data_model_key,
             data_model_container_urn,
             elementId_to_dataset_urn,
+            element_name_to_eids,
             owner_username=owner_username,
         )
 

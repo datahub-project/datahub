@@ -246,6 +246,26 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
+    # DM element column-level lineage (FGL) counters.
+    # How many FGL entries were emitted across all elements.
+    data_model_element_fgl_emitted: int = 0
+    # Refs where multiple sibling candidates passed the /lineage filter;
+    # sorted-first URN was chosen (matches T2 PR1's collision precedent).
+    data_model_element_fgl_collision_pick_first: int = 0
+    # Refs whose source element is outside this DM; deferred to cross-DM resolution.
+    data_model_element_fgl_cross_dm_deferred: int = 0
+    # Refs where element-name matches the element's own warehouse-table name
+    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
+    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
+    # upstream is the warehouse inode — out of RESOLVE-A scope.
+    data_model_element_fgl_warehouse_passthrough_deferred: int = 0
+    # Refs whose source element is in this DM but not listed as an upstream by
+    # /lineage; dropped to avoid orphan FGL the UI silently rejects.
+    data_model_element_fgl_dropped_orphan_upstream: int = 0
+    # Refs whose column name has no matching fieldPath in the upstream element's
+    # schema; dropped to avoid a dangling schemaField URN.
+    data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
     # non-zero indicates an echoed pagination cursor or server-side

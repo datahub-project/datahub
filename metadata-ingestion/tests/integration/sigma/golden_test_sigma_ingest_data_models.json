@@ -1113,11 +1113,24 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:sigma,147a4d09-a686-4eea-b183-9b82aa0f7beb.0ui59vLc38,PROD)",
                     "type": "TRANSFORMED"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,147a4d09-a686-4eea-b183-9b82aa0f7beb.0ui59vLc38,PROD),team1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,147a4d09-a686-4eea-b183-9b82aa0f7beb.4plNusNz75,PROD),team1)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1776827045128,
+        "lastObserved": 1777502569919,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

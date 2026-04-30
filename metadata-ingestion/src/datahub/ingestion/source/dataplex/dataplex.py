@@ -11,13 +11,14 @@ Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
 import logging
+from functools import cached_property
 from itertools import product
 from typing import Dict, Iterable, List, Optional
 
 import google.auth
 import google.auth.transport.requests
 from google.api_core import exceptions
-from google.cloud import dataplex_v1
+from google.cloud import dataplex_v1, resourcemanager_v3
 from google.cloud.datacatalog_lineage import LineageClient
 from google.oauth2 import service_account
 
@@ -38,6 +39,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.gcp_project_filter import resolve_gcp_projects
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_entries import (
@@ -71,8 +73,6 @@ def _resolve_project_numbers(
     inside glossary term entry paths. Called once at startup when
     include_glossaries=True.
     """
-    from google.cloud import resourcemanager_v3
-
     rm_client = resourcemanager_v3.ProjectsClient(credentials=credentials)
     return {
         pid: rm_client.get_project(name=f"projects/{pid}").name.split("/")[-1]
@@ -184,10 +184,29 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     platform: str = "dataplex"
 
+    @cached_property
+    def _project_ids(self) -> List[str]:
+        """Effective list of GCP project ids, resolved lazily on first access.
+
+        Honors `project_ids` (explicit override), then `project_labels`, then
+        `project_id_pattern` via the shared GCP project filter helper. When
+        `project_ids` is empty, projects are discovered via the Cloud Resource
+        Manager API on first use.
+        """
+        projects_client = (
+            resourcemanager_v3.ProjectsClient(credentials=self._credentials)
+            if not self.config.project_ids
+            else None
+        )
+        resolved = resolve_gcp_projects(
+            self.config, self.report, projects_client=projects_client
+        )
+        return [p.id for p in resolved]
+
     def _resolve_lineage_project_location_pairs(self) -> list[tuple[str, str]]:
         """Resolve and report lineage scan pairs from configured project/location product."""
         lineage_project_location_pairs = list(
-            product(self.config.project_ids, self.config.lineage_locations)
+            product(self._project_ids, self.config.lineage_locations)
         )
         self.report.info(
             title="Lineage extraction project/location pairs",
@@ -216,6 +235,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             if creds
             else None
         )
+        # Stored for the lazy `_project_ids` cached_property to use on first access.
+        self._credentials: Optional[service_account.Credentials] = credentials
 
         # Shared context — all processors read/write to this single object.
         self.ctx_data = DataplexContext(config=self.config, credentials=credentials)
@@ -274,7 +295,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 # Requires roles/resourcemanager.projectViewer on all configured projects.
                 try:
                     self.ctx_data.project_numbers = _resolve_project_numbers(
-                        self.config.project_ids, credentials
+                        self._project_ids, credentials
                     )
                 except exceptions.GoogleAPICallError as exc:
                     self.report.failure(
@@ -284,7 +305,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                             "Ensure the service account has roles/resourcemanager.projectViewer "
                             "on all configured projects."
                         ),
-                        context=str(self.config.project_ids),
+                        context=str(self._project_ids),
                         exc=exc,
                     )
                     raise
@@ -308,7 +329,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        """Test connection to Dataplex API."""
+        """Test connection to Dataplex API.
+
+        When `project_ids` is set explicitly we list entry groups on the first
+        configured project. When the user relies on `project_id_pattern` or
+        `project_labels`, we first resolve at least one project via the Cloud
+        Resource Manager API (which validates those credentials/permissions)
+        and then list entry groups on the first resolved project.
+        """
         test_report = TestConnectionReport()
         try:
             config = DataplexConfig.model_validate(config_dict)
@@ -319,17 +347,36 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
 
-            # Test connection by attempting to list entry groups
-            catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
             if config.project_ids:
-                project_id = config.project_ids[0]
-                parent = (
-                    f"projects/{project_id}/locations/{config.entries_locations[0]}"
+                project_id: Optional[str] = config.project_ids[0]
+            else:
+                # Auto-discovery mode — exercise the Resource Manager API to
+                # verify credentials and roles.
+                projects_client = resourcemanager_v3.ProjectsClient(
+                    credentials=credentials
                 )
-                entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
-                # Just iterate once to verify access
-                for _ in catalog_client.list_entry_groups(request=entry_groups_request):
-                    break
+                probe_report = DataplexReport()
+                resolved = resolve_gcp_projects(
+                    config, probe_report, projects_client=projects_client
+                )
+                if not resolved:
+                    failure_reason = (
+                        "No GCP projects matched the configured "
+                        "project_id_pattern / project_labels, or the service "
+                        "account lacks Cloud Resource Manager access."
+                    )
+                    test_report.basic_connectivity = CapabilityReport(
+                        capable=False, failure_reason=failure_reason
+                    )
+                    return test_report
+                project_id = resolved[0].id
+
+            catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
+            parent = f"projects/{project_id}/locations/{config.entries_locations[0]}"
+            entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
+            # Iterate once to verify Dataplex API access.
+            for _ in catalog_client.list_entry_groups(request=entry_groups_request):
+                break
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except exceptions.GoogleAPICallError as e:
@@ -369,7 +416,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from auto_workunit(
                     self.entries_processor.process_entries(
-                        project_ids=self.config.project_ids,
+                        project_ids=self._project_ids,
                         max_workers=self.config.max_workers_entries,
                     )
                 )
@@ -377,7 +424,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.warning(
                     title="Failed to process Dataplex entries",
                     message="Error while extracting entries from Universal Catalog.",
-                    context=str(self.config.project_ids),
+                    context=str(self._project_ids),
                     exc=exc,
                 )
 
@@ -387,14 +434,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 try:
                     yield from self.glossary_processor.process_glossaries(
-                        project_ids=self.config.project_ids,
+                        project_ids=self._project_ids,
                         max_workers=self.config.max_workers_glossary,
                     )
                 except exceptions.GoogleAPICallError as exc:
                     self.report.warning(
                         title="Failed to process Dataplex glossaries",
                         message="Error while extracting Business Glossary entities.",
-                        context=str(self.config.project_ids),
+                        context=str(self._project_ids),
                         exc=exc,
                     )
 
