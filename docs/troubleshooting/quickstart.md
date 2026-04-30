@@ -1,3 +1,7 @@
+---
+description: "Troubleshooting guide for common DataHub Quickstart issues, including missing CLI commands and Docker startup failures."
+---
+
 # Quickstart Debugging Guide
 
 For when [Quickstart](/docs/quickstart.md) did not work out smoothly.

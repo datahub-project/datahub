@@ -1,5 +1,6 @@
 ---
 title: Container API Tutorial
+description: "Step-by-step tutorial for creating and managing Container entities in DataHub using the GraphQL API and Python SDK."
 ---
 
 import Tabs from '@theme/Tabs';

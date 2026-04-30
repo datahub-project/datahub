@@ -1,3 +1,7 @@
+---
+description: "Group related Tables, Dashboards, Charts, and Pipelines into Data Products in DataHub to support data mesh ownership and discovery."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';

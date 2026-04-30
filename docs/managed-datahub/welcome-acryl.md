@@ -1,3 +1,7 @@
+---
+description: "Welcome guide to DataHub Cloud, the fully managed metadata platform for organizations that need enterprise-grade data discovery."
+---
+
 # Getting Started with DataHub Cloud
 
 Welcome to the DataHub Cloud! We at DataHub are on a mission to make data reliable by bringing clarity to the who, what, when, & how of your data ecosystem. We're thrilled to be on this journey with you; and cannot wait to see what we build together!

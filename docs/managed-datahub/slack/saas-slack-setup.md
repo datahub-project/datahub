@@ -1,3 +1,7 @@
+---
+description: "Install the DataHub Slack App in your workspace to send notifications, respond to mentions, and surface metadata in Slack."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Slack App Setup

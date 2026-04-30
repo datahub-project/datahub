@@ -1032,7 +1032,7 @@ ORDER by DataBaseName, TableName;
                 except Exception as e:
                     self.report.report_warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
-                        "Lineage resolution will proceed with an empty schema resolver.",
+                        "Lineage resolution will fall back to lazy on-demand schema fetching.",
                         context=str(e),
                         exc=e,
                     )
@@ -1040,10 +1040,12 @@ ORDER by DataBaseName, TableName;
                 logger.warning(
                     "Failed to load schema info from DataHub as DataHubGraph is missing.",
                 )
+        # Pass graph for lazy on-demand resolution of cross-recipe upstream tables.
         return SchemaResolver(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            graph=self.ctx.graph,
         )
 
     def get_inspectors(self):
@@ -1983,6 +1985,7 @@ ORDER by DataBaseName, TableName;
         """Clean up resources when source is closed."""
         logger.info("Closing SqlParsingAggregator")
         self.aggregator.close()
+        self.schema_resolver.close()
 
         # Clean up pooled engine
         with self._pooled_engine_lock:

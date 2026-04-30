@@ -1,3 +1,7 @@
+---
+description: "The DataHub MCP Server lets AI agents query DataHub metadata via the Model Context Protocol to find assets and traverse lineage."
+---
+
 # DataHub MCP Server
 
 The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), giving AI agents direct access to your DataHub metadata. Search for data assets, traverse lineage, inspect schemas, and generate SQL — all through natural language in tools like Cursor, Windsurf, Claude Desktop, and OpenAI.

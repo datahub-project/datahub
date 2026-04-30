@@ -1,3 +1,7 @@
+---
+description: "Release notes and breaking change history for upgrading DataHub between versions, including required migration steps."
+---
+
 # Updating DataHub
 
 <!--
