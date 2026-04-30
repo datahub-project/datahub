@@ -32,10 +32,13 @@ public abstract class MCPObserver extends PluginSpec {
                   item -> shouldApply(item.getChangeType(), item.getUrn(), item.getAspectName()))
               .collect(Collectors.toList()),
           retrieverContext);
+    } catch (VirtualMachineError e) {
+      // Never swallow JVM-fatal errors (OOM, StackOverflow, InternalError, UnknownError).
+      throw e;
     } catch (Throwable t) {
       log.warn(
           "MCPObserver {} failed; ingest continuing. batch_size={}",
-          getClass().getSimpleName(),
+          getClass().getName(),
           items == null ? -1 : items.size(),
           t);
     }

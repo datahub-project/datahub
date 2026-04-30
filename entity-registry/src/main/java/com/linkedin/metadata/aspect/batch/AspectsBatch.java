@@ -181,10 +181,11 @@ public interface AspectsBatch {
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPObservers()) {
       try {
         observer.apply(items, retrieverContext);
+      } catch (VirtualMachineError e) {
+        throw e;
       } catch (Throwable t) {
-        // Belt-and-suspenders. observer.apply() is final + try/catch, but this guarantees that an
-        // exception during dispatch (registry lookup, plugin construction, etc.) cannot fail the
-        // ingest batch.
+        // Belt-and-suspenders around the per-observer apply call. observer.apply() is final and
+        // already catches; this loop guarantees one bad observer cannot stop dispatch to the rest.
         log.warn(
             "MCPObserver dispatch failed for {}; ingest continuing.",
             observer == null ? "null" : observer.getClass().getName(),
