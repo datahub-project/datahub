@@ -7,7 +7,7 @@ contract.
 
 import logging
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Dict, List, Optional, Tuple, Type
 
 import pydantic
@@ -244,7 +244,12 @@ class FivetranLogRestReader:
             for listed, f in submitted:
                 try:
                     connector = f.result(timeout=self._per_connector_timeout_sec)
-                except TimeoutError:
+                except (FuturesTimeoutError, TimeoutError):
+                    # Python 3.10 raises `concurrent.futures.TimeoutError`
+                    # from `f.result(timeout=...)`, which is a separate class
+                    # from the built-in `TimeoutError`. Python 3.11+ unifies
+                    # them. Catch both so the timeout path works on all
+                    # supported versions.
                     f.cancel()  # only succeeds if not started yet
                     with self._report_lock:
                         self._report.warning(
