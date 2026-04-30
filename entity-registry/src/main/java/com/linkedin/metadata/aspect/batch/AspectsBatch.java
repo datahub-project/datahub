@@ -6,6 +6,7 @@ import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.SystemMetadata;
@@ -172,11 +173,21 @@ public interface AspectsBatch {
 
   static void applyMCPObservers(
       Collection<? extends BatchItem> items, @Nonnull RetrieverContext retrieverContext) {
-    retrieverContext
-        .getAspectRetriever()
-        .getEntityRegistry()
-        .getAllMCPObservers()
-        .forEach(observer -> observer.apply(items, retrieverContext));
+    for (MCPObserver observer :
+        retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPObservers()) {
+      try {
+        observer.apply(items, retrieverContext);
+      } catch (Throwable t) {
+        // Belt-and-suspenders. observer.apply() is final + try/catch, but this guarantees that an
+        // exception during dispatch (registry lookup, plugin construction, etc.) cannot fail the
+        // ingest batch.
+        org.slf4j.LoggerFactory.getLogger(AspectsBatch.class)
+            .warn(
+                "MCPObserver dispatch failed for {}; ingest continuing.",
+                observer == null ? "null" : observer.getClass().getName(),
+                t);
+      }
+    }
   }
 
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {

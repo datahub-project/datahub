@@ -1681,7 +1681,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Apply MCP observers (pre-transaction metrics collection, external actions).
     // Only on sync path — async MCPs come back via MCE consumer with async=false.
     if (!async) {
-      aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+      try {
+        aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+      } catch (Throwable t) {
+        // MCP observers are pre-transaction, side-effect only (metrics/logs). They must not fail
+        // the ingest path. Any leak here is a bug in an observer or its dispatch and should be
+        // fixed upstream, but we never want it to crash a customer ingest.
+        log.warn("MCP observer dispatch failed; ingest continuing", t);
+      }
     }
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);

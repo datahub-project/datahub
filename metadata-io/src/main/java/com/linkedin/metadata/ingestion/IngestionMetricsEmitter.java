@@ -95,7 +95,12 @@ public class IngestionMetricsEmitter extends MCPObserver {
         }
         recordMetrics(result, item.getUrn());
       } catch (Exception e) {
-        log.error("Failed to process ingestion metrics for item: {}", e.getMessage(), e);
+        log.warn(
+            "Failed to process ingestion metrics. urn={} aspect={} changeType={}",
+            item.getUrn(),
+            item.getAspectName(),
+            item.getChangeType(),
+            e);
       }
     }
   }
@@ -207,7 +212,7 @@ public class IngestionMetricsEmitter extends MCPObserver {
           report);
 
     } catch (Exception e) {
-      log.error("Error recording metrics for {}: {}", executionRequestUrn, e.getMessage(), e);
+      log.warn("Error recording metrics for {}", executionRequestUrn, e);
     }
   }
 
