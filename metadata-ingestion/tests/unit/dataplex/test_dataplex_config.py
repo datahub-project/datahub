@@ -106,11 +106,11 @@ class TestDataplexConfig:
         assert not config.filter_config.entries.pattern.allowed("dev_table")
 
     def test_config_validation_requires_project_ids(self):
-        """Test that configuration validation requires at least one project."""
+        """Test that configuration validation requires at least one project selector."""
         with pytest.raises(ValidationError) as exc_info:
             DataplexConfig(project_ids=[])
 
-        assert "At least one project must be specified" in str(exc_info.value)
+        assert "At least one project selector must be specified" in str(exc_info.value)
 
     def test_config_project_id_backward_compatibility(self):
         """Test backward compatibility for project_id field."""
@@ -319,3 +319,60 @@ class TestDataplexConfig:
             "At least one lineage location must be specified via lineage_locations."
             in str(exc_info.value)
         )
+
+
+class TestDataplexProjectSelectors:
+    """Tests for project_id_pattern and project_labels — selectors that allow
+    auto-discovery of GCP projects via the Cloud Resource Manager API."""
+
+    def test_project_id_pattern_default_allows_all(self):
+        config = DataplexConfig(project_ids=["test-project"])
+        assert config.project_id_pattern.allowed("anything")
+        assert config.project_id_pattern.allowed("another-project")
+
+    def test_project_id_pattern_only_no_project_ids_valid(self):
+        config = DataplexConfig(project_id_pattern={"allow": ["^prod-.*"]})
+        assert config.project_ids == []
+        assert config.project_id_pattern.allowed("prod-app")
+        assert not config.project_id_pattern.allowed("dev-app")
+
+    def test_project_labels_only_no_project_ids_valid(self):
+        config = DataplexConfig(project_labels=["env:prod"])
+        assert config.project_ids == []
+        assert config.project_labels == ["env:prod"]
+
+    def test_no_project_ids_no_pattern_no_labels_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig()
+        assert "At least one project selector must be specified" in str(exc_info.value)
+
+    def test_project_id_pattern_invalid_regex_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig(
+                project_ids=["test-project"],
+                project_id_pattern={"allow": ["[invalid"]},
+            )
+        assert "Invalid regex in project_id_pattern" in str(exc_info.value)
+
+    def test_project_id_pattern_filters_all_explicit_ids_raises(self):
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig(
+                project_ids=["dev-project-1", "dev-project-2"],
+                project_id_pattern={"allow": ["^prod-.*"]},
+            )
+        assert "filtered out by project_id_pattern" in str(exc_info.value)
+
+    def test_project_id_pattern_partial_filter_is_valid(self):
+        # Pattern excludes some but not all configured project_ids — allowed at config time.
+        config = DataplexConfig(
+            project_ids=["prod-project-1", "dev-project-1"],
+            project_id_pattern={"deny": ["^dev-.*"]},
+        )
+        assert "prod-project-1" in config.project_ids
+        assert "dev-project-1" in config.project_ids
+
+    def test_project_labels_invalid_format_rejected(self):
+        # "prod" is missing the required `key:value` format.
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig(project_labels=["prod"])
+        assert "project_labels" in str(exc_info.value)
