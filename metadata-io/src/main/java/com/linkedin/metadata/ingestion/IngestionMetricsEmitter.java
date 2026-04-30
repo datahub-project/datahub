@@ -97,9 +97,9 @@ public class IngestionMetricsEmitter extends MCPObserver {
       } catch (Exception e) {
         log.warn(
             "Failed to process ingestion metrics. urn={} aspect={} changeType={}",
-            item.getUrn(),
-            item.getAspectName(),
-            item.getChangeType(),
+            item != null ? item.getUrn() : null,
+            item != null ? item.getAspectName() : null,
+            item != null ? item.getChangeType() : null,
             e);
       }
     }
