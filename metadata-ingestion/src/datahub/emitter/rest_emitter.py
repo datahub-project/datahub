@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import re
+import socket
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -84,6 +85,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 _DEFAULT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
 _TIMEOUT_LOWER_BOUND_SEC = 1  # if below this, we log a warning
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
@@ -120,6 +122,52 @@ INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
 # too much to the backend and hitting a timeout, we try to limit
 # the number of MCPs we send in a batch.
 BATCH_INGEST_MAX_PAYLOAD_LENGTH = get_rest_emitter_batch_max_payload_length()
+
+
+class _KeepAliveHTTPAdapter(HTTPAdapter):
+    """HTTPAdapter that sets TCP keepalive on pooled connections to prevent SSLEOFError on idle connections.
+
+    Degrades gracefully: if keepalive socket options are unavailable on this platform,
+    the adapter behaves identically to the default HTTPAdapter.
+    """
+
+    # TCP_KEEPIDLE / TCP_KEEPINTVL / TCP_KEEPCNT are Linux/macOS only; skipped on other platforms.
+    _TUNING_OPTS = [("TCP_KEEPIDLE", 60), ("TCP_KEEPINTVL", 10), ("TCP_KEEPCNT", 5)]
+
+    @classmethod
+    def _socket_options(cls) -> Optional[List[tuple]]:
+        try:
+            opts: List[tuple] = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+            for attr, val in cls._TUNING_OPTS:
+                if hasattr(socket, attr):
+                    opts.append((socket.IPPROTO_TCP, getattr(socket, attr), val))
+            return opts
+        except Exception as e:
+            logger.debug(
+                "TCP keepalive unavailable on this platform, idle connections will not be kept alive: %s",
+                e,
+            )
+            return None
+
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
+        if opts := self._socket_options():
+            kwargs["socket_options"] = opts
+        super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy: Any, **proxy_kwargs: Any) -> Any:
+        if opts := self._socket_options():
+            proxy_kwargs["socket_options"] = opts
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
+
+    def send(self, request: Any, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return super().send(request, *args, **kwargs)
+        except requests.exceptions.SSLError:
+            logger.debug(
+                "SSL error on pooled connection, retrying with fresh connection"
+            )
+            self.close()
+            return super().send(request, *args, **kwargs)
 
 
 class _WeightedRetry(Retry):
@@ -239,6 +287,8 @@ class RequestsSessionConfig(ConfigModel):
     client_mode: Optional[ClientMode] = _DEFAULT_CLIENT_MODE
     datahub_component: Optional[str] = None
 
+    tcp_keepalive: bool = False
+
     def build_session(self) -> requests.Session:
         session = requests.Session()
 
@@ -285,7 +335,8 @@ class RequestsSessionConfig(ConfigModel):
                 raise_on_status=False,
             )
 
-        adapter = HTTPAdapter(
+        adapter_cls = _KeepAliveHTTPAdapter if self.tcp_keepalive else HTTPAdapter
+        adapter = adapter_cls(
             pool_connections=self.pool_connections,
             pool_maxsize=self.pool_maxsize,
             max_retries=retry_strategy,
@@ -408,6 +459,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
+        tcp_keepalive: bool = False,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -478,6 +530,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             disable_ssl_verification=disable_ssl_verification,
             client_mode=client_mode,
             datahub_component=datahub_component,
+            tcp_keepalive=tcp_keepalive,
         )
 
         self._session = self._session_config.build_session()

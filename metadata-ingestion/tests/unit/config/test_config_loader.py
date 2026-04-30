@@ -1,3 +1,5 @@
+import io
+import json
 import os
 import pathlib
 import textwrap
@@ -195,6 +197,140 @@ def test_load_error(pytestconfig, filename, env, error_type):
 
     with mock.patch.dict(os.environ, env), pytest.raises(error_type):
         _ = load_config_file(filepath)
+
+
+class TestStdinEnvelopeWithSecrets:
+    """Tests for the stdin envelope format: {"__recipe_yaml__": ..., "__secrets__": ...}."""
+
+    def test_envelope_secrets_resolve_variables(self) -> None:
+        """Secrets from stdin envelope should resolve ${VAR} in the recipe."""
+        recipe_yaml = "source:\n  type: test\n  config:\n    password: ${DB_PASS}\n    host: localhost\n"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": recipe_yaml,
+                "__secrets__": {"DB_PASS": "my_secret_password"},
+            }
+        )
+
+        with mock.patch("sys.stdin", io.StringIO(envelope_json)):
+            config = load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+        assert config["source"]["config"]["password"] == "my_secret_password"
+        assert config["source"]["config"]["host"] == "localhost"
+
+    def test_envelope_secrets_do_not_touch_os_environ(self) -> None:
+        """Secrets from the envelope must NOT be written to os.environ."""
+        recipe_yaml = "source:\n  type: test\n  config:\n    token: ${SECRET_TOKEN}\n"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": recipe_yaml,
+                "__secrets__": {"SECRET_TOKEN": "tok_abc123"},
+            }
+        )
+
+        # Ensure not in env before
+        assert "SECRET_TOKEN" not in os.environ
+
+        with mock.patch("sys.stdin", io.StringIO(envelope_json)):
+            config = load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+        assert config["source"]["config"]["token"] == "tok_abc123"
+        # Must NOT leak to os.environ
+        assert "SECRET_TOKEN" not in os.environ
+
+    def test_envelope_secrets_override_env_vars(self) -> None:
+        """Secrets from the envelope should take priority over os.environ."""
+        recipe_yaml = "source:\n  type: test\n  config:\n    key: ${MY_KEY}\n"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": recipe_yaml,
+                "__secrets__": {"MY_KEY": "from_envelope"},
+            }
+        )
+
+        with (
+            mock.patch.dict(os.environ, {"MY_KEY": "from_env"}),
+            mock.patch("sys.stdin", io.StringIO(envelope_json)),
+        ):
+            config = load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+        # Envelope secrets take priority
+        assert config["source"]["config"]["key"] == "from_envelope"
+
+    def test_envelope_falls_back_to_env_for_unresolved(self) -> None:
+        """Variables not in __secrets__ should still resolve from os.environ."""
+        recipe_yaml = "source:\n  type: test\n  config:\n    a: ${FROM_SECRETS}\n    b: ${FROM_ENV}\n"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": recipe_yaml,
+                "__secrets__": {"FROM_SECRETS": "secret_val"},
+            }
+        )
+
+        with (
+            mock.patch.dict(os.environ, {"FROM_ENV": "env_val"}),
+            mock.patch("sys.stdin", io.StringIO(envelope_json)),
+        ):
+            config = load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+        assert config["source"]["config"]["a"] == "secret_val"
+        assert config["source"]["config"]["b"] == "env_val"
+
+    def test_plain_yaml_stdin_still_works(self) -> None:
+        """Plain YAML on stdin (no envelope) should work as before."""
+        plain_yaml = "source:\n  type: test\n  config:\n    host: localhost\n"
+
+        with mock.patch("sys.stdin", io.StringIO(plain_yaml)):
+            config = load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+        assert config["source"]["config"]["host"] == "localhost"
+
+    def test_plain_json_stdin_still_works(self) -> None:
+        """Plain JSON on stdin (no __recipe_yaml__ key) should work as a recipe."""
+        plain_json = json.dumps(
+            {"source": {"type": "test", "config": {"host": "localhost"}}}
+        )
+
+        with mock.patch("sys.stdin", io.StringIO(plain_json)):
+            config = load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+        assert config["source"]["config"]["host"] == "localhost"
+
+    def test_envelope_with_empty_secrets(self) -> None:
+        """Envelope with empty __secrets__ dict should work (no extra resolution)."""
+        recipe_yaml = "source:\n  type: test\n  config:\n    host: localhost\n"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": recipe_yaml,
+                "__secrets__": {},
+            }
+        )
+
+        with mock.patch("sys.stdin", io.StringIO(envelope_json)):
+            config = load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+        assert config["source"]["config"]["host"] == "localhost"
+
+    def test_extra_env_vars_parameter_merges_with_envelope_secrets(self) -> None:
+        """extra_env_vars parameter should merge with envelope __secrets__."""
+        recipe_yaml = "source:\n  type: test\n  config:\n    a: ${FROM_PARAM}\n    b: ${FROM_ENVELOPE}\n"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": recipe_yaml,
+                "__secrets__": {"FROM_ENVELOPE": "envelope_val"},
+            }
+        )
+
+        with mock.patch("sys.stdin", io.StringIO(envelope_json)):
+            config = load_config_file(
+                "-",
+                allow_stdin=True,
+                resolve_env_vars=True,
+                extra_env_vars={"FROM_PARAM": "param_val"},
+            )
+
+        assert config["source"]["config"]["a"] == "param_val"
+        assert config["source"]["config"]["b"] == "envelope_val"
 
 
 def test_write_file_directive(pytestconfig):

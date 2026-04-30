@@ -1,3 +1,7 @@
+---
+description: "Change the default datahub root user credentials in DataHub to secure your deployment after the initial quickstart."
+---
+
 # Changing the default user credentials
 
 ## Default User Credential
