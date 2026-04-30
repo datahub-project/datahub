@@ -102,13 +102,13 @@ jobs:
 
       - name: Write GMS AI env file
         run: |
-          cat > /tmp/ai-gms.env <<EOF
-          EMBEDDING_PROVIDER_TYPE=local
-          ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
-          SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
-          LOCAL_EMBEDDING_ENDPOINT=http://ollama:11434/v1/embeddings
-          LOCAL_EMBEDDING_MODEL=${{ env.LOCAL_EMBEDDING_MODEL }}
-          EOF
+          printf '%s\n' \
+            "EMBEDDING_PROVIDER_TYPE=local" \
+            "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true" \
+            "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
+            "LOCAL_EMBEDDING_ENDPOINT=http://ollama:11434/v1/embeddings" \
+            "LOCAL_EMBEDDING_MODEL=${LOCAL_EMBEDDING_MODEL}" \
+            > /tmp/ai-gms.env
 
       # -----------------------------------------------------------------------
       # Start DataHub + Ollama
@@ -138,6 +138,7 @@ jobs:
           DATAHUB_LOCAL_COMMON_ENV=/tmp/ai-gms.env \
           LOCAL_EMBEDDING_MODEL=${{ env.LOCAL_EMBEDDING_MODEL }} \
           docker compose \
+            -p datahub \
             --project-directory docker/profiles \
             --profile quickstart-consumers \
             --profile quickstart-ai \
