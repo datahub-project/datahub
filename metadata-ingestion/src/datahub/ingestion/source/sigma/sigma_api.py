@@ -1055,6 +1055,18 @@ class SigmaAPI:
                     source_ids_by_element[element_id] = [
                         s for s in source_ids if isinstance(s, str)
                     ]
+            elif entry_type == "data-model":
+                # Each ``data-model`` entry names the specific element consumed
+                # from a source DM.  Stash by source dataModelId so
+                # ``_resolve_dm_element_cross_dm_upstream`` can look up the
+                # correct source element name without relying on the consuming
+                # element sharing that name.
+                src_dm_id = str(entry.get("dataModelId", ""))
+                src_name = str(entry.get("name", ""))
+                if src_dm_id and src_name:
+                    data_model.consumed_dm_element_names.setdefault(
+                        src_dm_id, []
+                    ).append(src_name)
             # ``type: dataset`` / ``type: table`` entries are resolved
             # on the fly from their ``inode-<id>`` source_ids; no DM-side
             # stash is needed.

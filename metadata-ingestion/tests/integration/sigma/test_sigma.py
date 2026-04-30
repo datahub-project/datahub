@@ -3154,10 +3154,9 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
         f"{report.data_model_external_references_discovered}"
     )
     assert report.data_model_external_reference_unresolved == 0
-    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 1, (
-        f"expected 1 single-element fallback, got "
-        f"{report.data_model_element_cross_dm_upstreams_single_element_fallback}"
-    )
+    # Resolves via /lineage data-model entry name (not single-element fallback):
+    # the entry explicitly names the source element so name-matching is exact.
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
     assert report.data_model_element_cross_dm_upstreams_resolved == 1
     assert report.data_model_element_cross_dm_upstreams_dm_unknown == 0
 
@@ -5045,16 +5044,15 @@ def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_tota
     pipeline.raise_from_status()
 
     report = _sigma_report(pipeline)
-    # Fallback must NOT fire — producer has 2 elements total.
-    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0, (
-        f"single-element fallback must refuse when DM has >1 element total "
-        f"(even if only 1 is named); got "
-        f"{report.data_model_element_cross_dm_upstreams_single_element_fallback}"
-    )
-    # Degrades to name_unmatched_but_dm_known instead.
-    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 1
+    # Single-element fallback must NOT fire — superseded by /lineage data-model
+    # entry which explicitly names the source element regardless of total count.
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
+    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 0
+    # Resolves correctly via data-model entry name: the blank-named sibling is
+    # irrelevant because the lineage entry explicitly identifies "data.csv".
+    assert report.data_model_element_cross_dm_upstreams_resolved == 1
 
-    # And no upstream edge should point at the producer element.
+    # Upstream edge should point at the named producer element (not the blank one).
     consumer_element_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:sigma,"
         "b584ddca-cfd6-4b72-97da-367fc0a5606d.1DYf5I08WO,PROD)"
@@ -5064,18 +5062,19 @@ def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_tota
     )
     with open(output_path) as f:
         mces = json.load(f)
-    for mce in mces:
-        if (
-            mce.get("entityUrn") == consumer_element_urn
-            and mce.get("aspectName") == "upstreamLineage"
-        ):
-            aspect_json = mce.get("aspect", {}).get("json", mce.get("aspect", {}))
-            for up in aspect_json.get("upstreams", []):
-                assert up.get("dataset") != producer_element_urn, (
-                    f"fallback must not attribute cross-DM edge to single named "
-                    f"element when DM has blank-named siblings; got edge "
-                    f"{consumer_element_urn} -> {producer_element_urn}"
-                )
+    upstream_edges = [
+        up.get("dataset")
+        for mce in mces
+        if mce.get("entityUrn") == consumer_element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+        for up in mce.get("aspect", {})
+        .get("json", mce.get("aspect", {}))
+        .get("upstreams", [])
+    ]
+    assert producer_element_urn in upstream_edges, (
+        f"data-model entry should resolve edge to named producer element "
+        f"{producer_element_urn}; got {upstream_edges}"
+    )
 
 
 @pytest.mark.integration

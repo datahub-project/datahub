@@ -276,6 +276,11 @@ class SigmaDataModel(BaseModel):
     path: Optional[str] = None
     badge: Optional[str] = None
     elements: List[SigmaDataModelElement] = []
+    # Populated from /lineage ``data-model`` type entries during assembly.
+    # Maps source DM dataModelId (UUID) → [element names consumed from that DM].
+    # Used by cross-DM entity-level resolution to look up the correct source
+    # element name without requiring the consuming element to share that name.
+    consumed_dm_element_names: Dict[str, List[str]] = {}
 
     def get_url_id(self) -> str:
         """Return the DM's URL identifier: explicit ``urlId`` if set,

@@ -241,6 +241,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
+        # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
+        # correlate ``data-model`` lineage entries (keyed by dataModelId) with
+        # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
+        self.dm_url_id_to_dm_id: Dict[str, str] = {}
         # Flat global index across all DMs: lowercased element name →
         # [Dataset URNs].  Built incrementally in _prepopulate_dm_bridge_maps
         # so cross-DM FGL resolution can look up any element name regardless
@@ -559,6 +563,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if other_dm_url_id not in self.dm_container_urn_by_url_id:
             return None, "dm_unknown"
         name_map = self.dm_element_urn_by_name.get(other_dm_url_id, {})
+
+        # Prefer source element names from /lineage ``data-model`` entries:
+        # these directly name the element consumed from the source DM and
+        # work even when the consuming element has a different display name.
+        other_dm_id = self.dm_url_id_to_dm_id.get(other_dm_url_id)
+        if other_dm_id:
+            for src_name in consuming_data_model.consumed_dm_element_names.get(
+                other_dm_id, []
+            ):
+                candidates = name_map.get(src_name.lower())
+                if candidates:
+                    if len(candidates) > 1:
+                        return sorted(candidates)[0], "ambiguous"
+                    return candidates[0], "strict"
 
         candidates = name_map.get(consuming_element.name.lower())
         if not candidates:
@@ -1138,6 +1156,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.dm_total_element_count_by_url_id[alias] = (
             self.dm_total_element_count_by_url_id.get(canonical_key, 0)
         )
+        if canonical_key in self.dm_url_id_to_dm_id:
+            self.dm_url_id_to_dm_id[alias] = self.dm_url_id_to_dm_id[canonical_key]
 
     def _prepopulate_dm_bridge_maps(
         self,
@@ -1213,6 +1233,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map
+        self.dm_url_id_to_dm_id[bridge_key] = data_model.dataModelId
         # Total count (including blank-named elements) used by the
         # cross-DM single-element fallback to verify "DM has exactly one
         # element" before attributing an unmatched-name reference.
