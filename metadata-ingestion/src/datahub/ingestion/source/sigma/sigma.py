@@ -862,14 +862,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # policy and Sigma's server-side coalescing.
                 if len(surviving_urns) > 1:
                     self.reporter.data_model_element_fgl_collision_pick_first += 1
-                    logger.debug(
-                        "DM %s element %s: ref %r — %d URNs passed /lineage filter "
-                        "(duplicate element names); picking sorted-first: %s",
-                        data_model.dataModelId,
-                        element.elementId,
-                        ref.raw,
-                        len(surviving_urns),
-                        surviving_urns[0],
+                    self.reporter.warning(
+                        title="Ambiguous DM element name in formula ref",
+                        message=(
+                            f"Formula ref {ref.raw!r} in element {element.elementId} "
+                            f"resolves to {len(surviving_urns)} elements with the same "
+                            f"display name — picking the lexicographically-first URN "
+                            f"({surviving_urns[0]!r}). Rename duplicate elements in "
+                            f"Data Model {data_model.dataModelId} to remove ambiguity."
+                        ),
+                        context=f"ref={ref.raw!r}, candidates={surviving_urns}",
                     )
                 chosen_upstream_urn = surviving_urns[0]
 
