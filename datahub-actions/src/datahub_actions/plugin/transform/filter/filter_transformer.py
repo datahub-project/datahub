@@ -16,6 +16,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+from avrogen.dict_wrapper import DictWrapper
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
@@ -80,8 +81,7 @@ class FilterTransformer(Transformer):
 
         # Match Event Body - full filter on all configured fields
         if self.config.event is not None:
-            # Use to_obj() instead of json.loads(as_json()) to avoid JSON serialization round-trip
-            body_as_dict = env_event.event.to_obj()
+            body_as_dict = self._event_to_dict(env_event.event)
             for key, val in self.config.event.items():
                 if not self._matches(val, body_as_dict.get(key)):
                     return None
@@ -97,6 +97,42 @@ class FilterTransformer(Transformer):
             if not self._matches(expected_val, actual_val):
                 return False
         return True
+
+    def _event_to_dict(self, event: Any) -> Dict[str, Any]:
+        """
+        Convert event to dictionary representation.
+
+        Uses to_obj() if available (via DictWrapper inheritance) to avoid the JSON
+        serialization round-trip that happens with json.loads(as_json()). The round-trip
+        means: dict -> json.dumps() -> JSON string -> json.loads() -> dict, which involves
+        expensive serialization/deserialization. Calling to_obj() directly returns the dict
+        without the intermediate JSON string step.
+
+        Falls back to json.loads(as_json()) for Event implementations that don't inherit
+        from DictWrapper (though all current implementations do).
+
+        TODO: This runtime check could be removed by adding to_obj() as an abstract
+        method to the Event base class (which currently only defines as_json/from_json).
+
+        All current Event implementations inherit from avrogen-generated classes that
+        provide to_obj() via DictWrapper:
+        - MetadataChangeLogEvent (from MetadataChangeLogClass -> DictWrapper)
+        - EntityChangeEvent (from EntityChangeEventClass -> DictWrapper)
+        - RelationshipChangeEvent (from RelationshipChangeEventClass -> DictWrapper)
+        Making to_obj() part of the Event interface would eliminate this runtime check.
+
+        Args:
+            event: The event object to convert
+
+        Returns:
+            Dictionary representation of the event
+        """
+        if isinstance(event, DictWrapper):
+            # Optimized path - direct dict conversion without JSON serialization
+            return event.to_obj()
+        else:
+            # Fallback for Event implementations that don't inherit from DictWrapper
+            return json.loads(event.as_json())
 
     def _matches(self, match_val: Any, match_val_to: Any) -> bool:
         if isinstance(match_val, dict):

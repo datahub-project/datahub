@@ -370,3 +370,70 @@ def test_fast_path_and_full_filter_both_pass():
     )
 
     assert result is not None
+    assert result.event == test_event
+
+
+class NonDictWrapperEvent(Event):
+    """Event implementation that does NOT inherit from DictWrapper.
+
+    This simulates a hypothetical Event implementation that only implements
+    the Event interface (as_json/from_json) but not to_obj(). Used to test
+    the fallback path in FilterTransformer._event_to_dict().
+    """
+
+    def __init__(self, field1: Any, field2: Any):
+        self.field1 = field1
+        self.field2 = field2
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "NonDictWrapperEvent":
+        obj = json.loads(json_str)
+        return cls(obj["field1"], obj["field2"])
+
+    def as_json(self) -> str:
+        """Only implements as_json() - no to_obj() method."""
+        return json.dumps({"field1": self.field1, "field2": self.field2})
+
+
+def test_fallback_path_for_non_dictwrapper_event():
+    """Test that FilterTransformer works with Events that don't inherit from DictWrapper.
+
+    This verifies the fallback path in _event_to_dict() which uses json.loads(as_json())
+    when to_obj() is not available via DictWrapper inheritance.
+    """
+    filter_transformer_config = FilterTransformerConfig.model_validate(
+        {
+            "event_type": "EntityChangeEvent_v1",
+            "event": {"field1": "test", "field2": 123},
+        }
+    )
+    filter_transformer = FilterTransformer(filter_transformer_config)
+
+    # This event only has as_json(), not to_obj()
+    test_event = NonDictWrapperEvent("test", 123)
+
+    result = filter_transformer.transform(
+        EventEnvelope(event_type=ENTITY_CHANGE_EVENT_V1_TYPE, event=test_event, meta={})
+    )
+
+    # Should match using the fallback path and return the same event
+    assert result is not None
+    assert result.event == test_event
+
+
+def test_fallback_path_rejects_non_match():
+    """Test that fallback path correctly rejects events that don't match filter."""
+    filter_transformer_config = FilterTransformerConfig.model_validate(
+        {"event_type": "EntityChangeEvent_v1", "event": {"field1": "expected"}}
+    )
+    filter_transformer = FilterTransformer(filter_transformer_config)
+
+    # This event only has as_json(), not to_obj()
+    test_event = NonDictWrapperEvent("different", 123)
+
+    result = filter_transformer.transform(
+        EventEnvelope(event_type=ENTITY_CHANGE_EVENT_V1_TYPE, event=test_event, meta={})
+    )
+
+    # Should reject using the fallback path
+    assert result is None
