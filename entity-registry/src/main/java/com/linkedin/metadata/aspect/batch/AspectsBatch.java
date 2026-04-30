@@ -25,6 +25,8 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A batch of aspects in the context of either an MCP or MCL write path to a data store. The item is
@@ -32,6 +34,8 @@ import org.apache.commons.lang3.StringUtils;
  * SystemMetadata} and record/message created time
  */
 public interface AspectsBatch {
+  Logger log = LoggerFactory.getLogger(AspectsBatch.class);
+
   Collection<? extends BatchItem> getItems();
 
   Collection<? extends BatchItem> getInitialItems();
@@ -181,11 +185,10 @@ public interface AspectsBatch {
         // Belt-and-suspenders. observer.apply() is final + try/catch, but this guarantees that an
         // exception during dispatch (registry lookup, plugin construction, etc.) cannot fail the
         // ingest batch.
-        org.slf4j.LoggerFactory.getLogger(AspectsBatch.class)
-            .warn(
-                "MCPObserver dispatch failed for {}; ingest continuing.",
-                observer == null ? "null" : observer.getClass().getName(),
-                t);
+        log.warn(
+            "MCPObserver dispatch failed for {}; ingest continuing.",
+            observer == null ? "null" : observer.getClass().getName(),
+            t);
       }
     }
   }
