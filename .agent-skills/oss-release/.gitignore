@@ -1,0 +1,3 @@
+# Generated release notes — produced by `prep`/`finish`, not committed.
+# Survive between runs so you can inspect what was published last time.
+notes/
