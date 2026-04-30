@@ -2399,12 +2399,18 @@ class TestRequestsSessionConfig:
             mode = RequestsSessionConfig.get_client_mode_from_session(session)
             assert mode == client_mode
 
-    def test_tcp_keepalive_adapter_is_always_used(self):
-        """_KeepAliveHTTPAdapter is always used; it degrades gracefully on unsupported platforms."""
-        session = RequestsSessionConfig().build_session()
+    def test_tcp_keepalive_adapter_used_when_enabled(self):
+        """_KeepAliveHTTPAdapter is mounted when tcp_keepalive=True."""
+        session = RequestsSessionConfig(tcp_keepalive=True).build_session()
         assert isinstance(
             session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
         )
+
+    def test_tcp_keepalive_adapter_not_used_when_disabled(self):
+        """Plain HTTPAdapter is mounted when tcp_keepalive=False."""
+        session = RequestsSessionConfig(tcp_keepalive=False).build_session()
+        adapter = session.get_adapter("https://example.com")
+        assert type(adapter) is HTTPAdapter
 
     def test_tcp_keepalive_socket_options_reach_pool_manager(self):
         """Socket options are forwarded to init_poolmanager so keepalive is actually active."""
@@ -2464,15 +2470,21 @@ class TestRequestsSessionConfig:
             opts = _KeepAliveHTTPAdapter._socket_options()
         assert opts is None
 
-    def test_datahub_rest_emitter_uses_keepalive_adapter(self):
-        """DataHubRestEmitter wires _KeepAliveHTTPAdapter for both http and https."""
-        emitter = DataHubRestEmitter("http://localhost:8080")
+    def test_datahub_rest_emitter_uses_keepalive_adapter_when_enabled(self):
+        """DataHubRestEmitter uses _KeepAliveHTTPAdapter when tcp_keepalive=True."""
+        emitter = DataHubRestEmitter("http://localhost:8080", tcp_keepalive=True)
         assert isinstance(
             emitter._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
         )
         assert isinstance(
             emitter._session.get_adapter("http://example.com"), _KeepAliveHTTPAdapter
         )
+
+    def test_datahub_rest_emitter_uses_plain_adapter_by_default(self):
+        """DataHubRestEmitter uses plain HTTPAdapter by default (tcp_keepalive=False)."""
+        emitter = DataHubRestEmitter("http://localhost:8080")
+        assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
+        assert type(emitter._session.get_adapter("http://example.com")) is HTTPAdapter
 
 
 class TestWeightedRetry:
