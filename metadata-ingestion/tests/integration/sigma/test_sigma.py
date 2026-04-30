@@ -530,12 +530,6 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
-    report = _sigma_report(pipeline)
-    assert report.chart_input_fields_resolved == 2
-    assert report.chart_input_fields_unresolved == 0
-    assert report.chart_input_fields_skipped_parameter == 1
-    assert report.chart_input_fields_skipped_sibling == 1
-
 
 @pytest.mark.integration
 def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mock):
@@ -1717,6 +1711,12 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+    report = _sigma_report(pipeline)
+    assert report.chart_input_fields_resolved == 2
+    assert report.chart_input_fields_unresolved == 0
+    assert report.chart_input_fields_skipped_parameter == 1
+    assert report.chart_input_fields_skipped_sibling == 1
 
 
 @pytest.mark.integration
