@@ -184,18 +184,26 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_dataset_upstream_name_missing: int = 0
 
     # Chart InputFields — one counter fires per chart column (not per formula ref).
+    # The resolver (_resolve_chart_formula_upstream) is a pure predicate: it
+    # returns a resolved (urn, field) pair or None; all counting happens in
+    # _build_element_input_fields so every column lands in exactly one bucket.
     # Invariant: resolved + self_ref_fallback + skipped_parameter + skipped_sibling
-    #            == total chart columns processed.
+    #            == total chart columns processed across the workbook.
     chart_input_fields_resolved: int = 0
     # Column emitted with self-referential schemaFieldUrn because no formula ref
-    # resolved to a real upstream (includes no-formula columns, unresolvable refs).
+    # resolved (includes: no-formula column, unresolvable ref, mixed param+real
+    # where the real refs fail). Keeps V2 column list visible unconditionally.
     chart_input_fields_self_ref_fallback: int = 0
-    # Column whose entire formula consists only of parameter refs (e.g. [P_*]).
+    # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
-    # Column whose entire formula consists only of sibling/bare refs (e.g. [col]).
+    # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
     chart_input_fields_skipped_sibling: int = 0
-    # Sub-bucket of self_ref_fallback: refs whose source name differs only by case.
+    # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
+    # against a workbook element name (warehouse fallback intentionally skipped).
     chart_input_fields_case_mismatch: int = 0
+    # Workbooks whose /columns pagination aborted partway through. InputFields
+    # for those workbooks may be missing columns that appear after the failure.
+    column_formulas_fetch_partial: int = 0
 
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0

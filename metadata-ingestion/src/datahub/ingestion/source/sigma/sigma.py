@@ -1240,6 +1240,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
+        This method is a pure predicate: it never increments any reporter counter.
+        All column-level counting (resolved / self_ref_fallback / skipped_parameter
+        / skipped_sibling) happens in the caller (_build_element_input_fields) so
+        every chart column lands in exactly one counter bucket regardless of how
+        many refs its formula contains.
+
         Returns None for parameter and bare-sibling refs (caller handles those
         at the column level).  Returns (upstream_urn, ref.column) on success.
 
@@ -1247,13 +1253,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           1. is_parameter -> None.
           2. column is None (bare [col]) -> None (sibling ref).
           3. wb_element_index match, filtered first by chart_upstream_element_ids
-             (SheetUpstream siblings) then by dm_upstream_urn_by_element_name
-             (DataModelElementUpstream siblings):
-             - SheetUpstream: -> chart URN + ref.column.
+             (SheetUpstream element_ids) then by dm_upstream_urn_by_element_name
+             (DataModelElementUpstream, keyed by DM element name):
+             - SheetUpstream: -> sibling chart URN + ref.column.
              - DM element: -> DM element Dataset URN + ref.column.
-             - Ambiguous (>1 sheet match not resolved by filters) -> None.
+             - Ambiguous (>1 sheet match, none passing the filters) -> None.
           4. element_warehouse_table_index match with exactly one candidate
              -> warehouse Dataset URN + ref.column.
+             NOTE: this index is built from the current element's dataset_inputs
+             only. A formula that references a warehouse table whose SQL query
+             is parsed on a different sibling element will not resolve here.
           5. else -> None.
         """
         if ref.is_parameter:
@@ -1621,6 +1630,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     self.dataset_upstream_urn_mapping[dataset_urn] = warehouse_urns
 
             # Build per-element context for formula-based InputFields resolution.
+            # chart_upstream_eids contains element_ids of SheetUpstream neighbors
+            # only. SheetUpstream is the only upstream variant that carries an
+            # element_id matching another workbook page element — it represents
+            # intra-workbook chart→chart lineage (same workbook, different element).
+            # DatasetUpstream (warehouse table) and DataModelElementUpstream (DM
+            # element loaded into the workbook) are handled separately below.
             chart_upstream_eids: Set[str] = {
                 upstream.element_id
                 for upstream in element.upstream_sources.values()

@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 from unittest.mock import patch
 
 import datahub.emitter.mce_builder as builder
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import (
     DataModelElementUpstream,
@@ -20,6 +21,8 @@ from datahub.ingestion.source.sigma.data_classes import (
     Page,
     Workbook,
 )
+from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.metadata.schema_classes import InputFieldsClass
 
 # ---------------------------------------------------------------------------
@@ -30,12 +33,8 @@ from datahub.metadata.schema_classes import InputFieldsClass
 def _make_source(
     dm_element_urn_by_name: Optional[Dict] = None,
     dm_container_urn_by_url_id: Optional[Dict] = None,
-):
+) -> SigmaSource:
     """Build a SigmaSource instance with the API mocked out."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sigma.sigma import SigmaSource
-    from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-
     config = SigmaSourceConfig(
         client_id="test",
         client_secret="test",
@@ -75,11 +74,9 @@ def _make_element(
 
 
 def _collect_input_fields(
-    source, elements: List[Element], workbook: Workbook
+    source: SigmaSource, elements: List[Element], workbook: Workbook
 ) -> Dict[str, InputFieldsClass]:
     """Run _gen_elements_workunit and collect {chart_urn: InputFieldsClass}."""
-    from datahub.ingestion.source.sigma.sigma import SigmaSource
-
     elementId_to_chart_urn: Dict[str, str] = {
         elem.elementId: builder.make_chart_urn(
             platform="sigma",
@@ -101,9 +98,11 @@ def _collect_input_fields(
         elementId_to_chart_urn=elementId_to_chart_urn,
         wb_element_index=wb_element_index,
     ):
-        if wu.metadata.aspectName == "inputFields":  # type: ignore[union-attr]
+        aspect = wu.get_aspect_of_type(InputFieldsClass)
+        if aspect is not None:
             urn = wu.metadata.entityUrn  # type: ignore[union-attr]
-            result[urn] = wu.metadata.aspect  # type: ignore[union-attr]
+            assert isinstance(urn, str)
+            result[urn] = aspect
 
     return result
 
@@ -212,6 +211,7 @@ class TestNoFormulaColumnsSelfRefFallback:
         chart_urn = _chart_urn("noFormula01")
         fields = result[chart_urn].fields
         assert len(fields) == 1
+        assert fields[0].schemaField is not None
         assert fields[0].schemaField.fieldPath == "my_column"
 
 
@@ -267,7 +267,7 @@ DM_ELEMENT_DATASET_URN = (
 
 
 class TestDmElementUpstreamResolvesToDatasetUrn:
-    def _build_source_with_dm(self) -> object:
+    def _build_source_with_dm(self) -> SigmaSource:
         """Source whose DM lookup maps DM_URL_ID -> {"my dm element": [DM_ELEMENT_DATASET_URN]}."""
         return _make_source(
             dm_element_urn_by_name={
@@ -316,6 +316,7 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
             f"schemaFieldUrn should point to DM element Dataset URN, "
             f"got {fields[0].schemaFieldUrn!r}"
         )
+        assert fields[0].schemaField is not None
         assert fields[0].schemaField.fieldPath == "chart_col"
 
     def test_dm_element_ref_increments_resolved_counter(self) -> None:

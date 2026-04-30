@@ -625,11 +625,16 @@ class SigmaAPI:
 
         The /columns endpoint is the authoritative source for column formulas
         in production; the page-elements endpoint returns columns as plain strings.
+        If pagination aborts partway through, a report warning is emitted by
+        _paginated_raw_entries and column_formulas_fetch_partial is incremented so
+        the partial-data workbook is distinguishable from one with few formulas.
         """
+        error_ctx = f"Unable to fetch column formulas for workbook {workbook_id}."
+        warnings_before = self.report.warnings.total_elements
         result: Dict[str, Dict[str, Optional[str]]] = {}
         for col in self._paginated_raw_entries(
             f"{self.config.api_url}/workbooks/{workbook_id}/columns",
-            f"Unable to fetch column formulas for workbook {workbook_id}.",
+            error_ctx,
             silent_statuses=(404,),
         ):
             elem_id = col.get(Constant.ELEMENTID)
@@ -637,6 +642,8 @@ class SigmaAPI:
             formula: Optional[str] = col.get("formula") or None
             if elem_id and name:
                 result.setdefault(elem_id, {})[name] = formula
+        if self.report.warnings.total_elements > warnings_before:
+            self.report.column_formulas_fetch_partial += 1
         return result
 
     def get_page_elements(
