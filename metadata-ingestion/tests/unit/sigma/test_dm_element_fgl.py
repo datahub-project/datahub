@@ -588,3 +588,72 @@ def test_cross_dm_collision_picks_first_sorted_urn() -> None:
     assert lineages[0].upstreams == [builder.make_schema_field_urn(urn_aaa, "col")]
     assert source.reporter.data_model_element_fgl_cross_dm_collision_pick_first == 1
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+
+
+def test_cross_dm_collision_entity_level_breaks_tie() -> None:
+    """When exactly one collision candidate is a confirmed entity-level upstream,
+    it wins without incrementing the collision counter."""
+    source = _source()
+    urn_correct = _urn("correct-dm-element")
+    urn_other = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "col", "[shared_name/col]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        # Only urn_correct is a confirmed entity-level upstream.
+        entity_level_upstream_urns={urn_correct},
+        cross_dm_element_urn_by_name={"shared_name": [urn_other, urn_correct]},
+        cross_dm_urn_to_cols={
+            urn_correct: {"col": "col"},
+            urn_other: {"col": "col"},
+        },
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(urn_correct, "col")]
+    # Tie broken by entity-level upstream — no collision recorded.
+    assert source.reporter.data_model_element_fgl_cross_dm_collision_pick_first == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+
+
+def test_cross_dm_singleton_not_in_entity_level_upstreams_still_emits() -> None:
+    """A singleton cross-DM candidate that is NOT in entity_level_upstream_urns
+    still emits FGL. The orphan filter is intentionally not applied to cross-DM
+    refs because Sigma's /lineage API does not always surface cross-DM formula
+    dependencies at the entity level."""
+    source = _source()
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[other_dm_element/city]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        # upstream_urn is NOT in entity_level_upstream_urns.
+        entity_level_upstream_urns={_urn("some-warehouse-table")},
+        cross_dm_element_urn_by_name={"other_dm_element": [upstream_urn]},
+        cross_dm_urn_to_cols={upstream_urn: {"city": "city"}},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [
+        builder.make_schema_field_urn(upstream_urn, "city")
+    ]
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0

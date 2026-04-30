@@ -874,6 +874,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                         continue
                     # Source not in this DM — consult the global cross-DM index.
+                    # The intra-DM orphan filter (entity_level_upstream_urns) is
+                    # intentionally not applied as a hard gate here. Sigma's /lineage
+                    # API only reports cross-DM formula dependencies at the entity
+                    # level when element names match, so a consuming element may have
+                    # no entity-level upstream for the referenced name even when the
+                    # formula ref is valid. entity_level_upstream_urns is used as a
+                    # collision tiebreaker but not as a required presence check.
                     cross_dm_candidate_urns = sorted(
                         cross_dm_element_urn_by_name.get(ref.source.lower(), [])
                     )
@@ -1240,9 +1247,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 name_map.setdefault(element.name.lower(), []).append(
                     element_dataset_urn
                 )
-                self.dm_global_element_urn_by_name.setdefault(
+                existing = self.dm_global_element_urn_by_name.setdefault(
                     element.name.lower(), []
-                ).append(element_dataset_urn)
+                )
+                if element_dataset_urn not in existing:
+                    existing.append(element_dataset_urn)
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map

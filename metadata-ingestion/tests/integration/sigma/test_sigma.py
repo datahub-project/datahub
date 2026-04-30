@@ -4985,22 +4985,17 @@ def test_sigma_ingest_data_models_cross_dm_diamond_counter_not_inflated(
 
 
 @pytest.mark.integration
-def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_total_count(
+def test_sigma_ingest_data_models_cross_dm_lineage_entry_resolves_despite_blank_sibling(
     pytestconfig, tmp_path, requests_mock
 ):
-    """Regression pin for M3: the single-element fallback must require the
-    producer DM to have exactly one element **total**, not just one *named*
-    element. Blank-named elements are excluded from
-    ``dm_element_urn_by_name`` (see ``_prepopulate_dm_bridge_maps``), so a
-    DM with 1 named + N blank-named elements would previously have
-    spuriously triggered the fallback and attributed a cross-DM edge to
-    the single named element even though Sigma could legitimately be
-    pointing at any of the anonymous ones.
+    """When a /lineage data-model entry explicitly names the source element,
+    resolution succeeds even when the producer DM has a blank-named sibling
+    element (which would block the single-element fallback).
 
     Construction: producer DM with 1 named element ("data.csv") and 1
-    blank-named element. Consumer element name "Test Data" does not match.
-    The fallback must refuse (name_unmatched_but_dm_known, not
-    single_element_fallback) because the producer has 2 elements.
+    blank-named element. Consumer lineage carries a ``data-model`` entry
+    naming "data.csv". Resolution uses the entry name directly — the
+    blank sibling is irrelevant — and emits the correct upstream edge.
     """
 
     override_data = _orphan_dm_mock_fixture()
@@ -5075,6 +5070,109 @@ def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_tota
         f"data-model entry should resolve edge to named producer element "
         f"{producer_element_urn}; got {upstream_edges}"
     )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_total_count(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin: the single-element fallback must require the producer DM
+    to have exactly one element total. When there is no /lineage data-model entry
+    and the consumer name does not match, a producer with 1 named + 1 blank-named
+    element must not trigger the fallback (total_elements == 2).
+    """
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_element_id = "1DYf5I08WO"
+
+    override_data = _orphan_dm_mock_fixture()
+
+    # Remove the data-model entry from consumer lineage so name-matching is
+    # the only resolution path available.
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": consumer_element_id,
+                    "type": "element",
+                    "sourceIds": [f"{producer_dm_url_id}/vACRd1GzJS"],
+                    "dataSourceIds": [f"{producer_dm_url_id}/vACRd1GzJS"],
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+    # Producer has 1 named + 1 blank-named element → total_elements == 2.
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/elements"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": "wcUd3nEUAv",
+                    "name": "data.csv",
+                    "type": "table",
+                    "vizualizationType": "levelTable",
+                    "columns": [],
+                },
+                {
+                    "elementId": "anonBlank001",
+                    "name": "",
+                    "type": "table",
+                    "vizualizationType": None,
+                    "columns": [],
+                },
+            ],
+            "total": 2,
+            "nextPage": None,
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_fallback_total_count_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # No data-model entry and DM has 2 elements → fallback must not fire.
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
+    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 1
+    assert report.data_model_element_cross_dm_upstreams_resolved == 0
+
+    consumer_element_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        f"{consumer_dm_id}.{consumer_element_id},PROD)"
+    )
+    producer_element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{producer_dm_id}.wcUd3nEUAv,PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    for mce in mces:
+        if (
+            mce.get("entityUrn") == consumer_element_urn
+            and mce.get("aspectName") == "upstreamLineage"
+        ):
+            for up in (
+                mce.get("aspect", {})
+                .get("json", mce.get("aspect", {}))
+                .get("upstreams", [])
+            ):
+                assert up.get("dataset") != producer_element_urn, (
+                    "fallback must not fire when producer has blank-named siblings "
+                    "and no data-model lineage entry is present"
+                )
 
 
 @pytest.mark.integration
