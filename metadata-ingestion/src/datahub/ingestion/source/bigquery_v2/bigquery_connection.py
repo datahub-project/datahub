@@ -1,16 +1,24 @@
+import json
 import logging
 import os
+import tempfile
 from typing import Any, Dict, Optional
 
 from google.api_core.client_info import ClientInfo
+from google.auth.credentials import Credentials
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from google.oauth2 import service_account
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
 
 from datahub._version import __version__
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_wif_config import (
+    GCPWIFConfig,
+    load_wif_credentials,
+)
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +32,33 @@ def _get_bigquery_client_info() -> ClientInfo:
     return ClientInfo(user_agent=f"DataHub/{__version__} (GPN:DataHub)")
 
 
-class BigQueryConnectionConfig(ConfigModel):
+class BigQueryAuthType(StrEnum):
+    SERVICE_ACCOUNT = "service_account"
+    WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
+
+
+class BigQueryConnectionConfig(GCPWIFConfig, ConfigModel):
+    auth_type: BigQueryAuthType = Field(
+        default=BigQueryAuthType.SERVICE_ACCOUNT,
+        description=(
+            "Authentication type to use. Defaults to 'service_account'. "
+            "Set to 'workload_identity_federation' to authenticate via "
+            "[Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation), "
+            "which avoids long-lived service account keys."
+        ),
+    )
+
     credential: Optional[GCPCredential] = Field(
-        default=None, description="BigQuery credential informations"
+        default=None,
+        description=(
+            "BigQuery service account credential. Required when auth_type is "
+            "'service_account' unless Application Default Credentials are "
+            "available (e.g. running on GCE/GKE)."
+        ),
     )
 
     _credentials_path: Optional[str] = PrivateAttr(None)
-    _credentials: Optional[service_account.Credentials] = PrivateAttr(None)
+    _credentials: Optional[Credentials] = PrivateAttr(None)
 
     extra_client_options: Dict[str, Any] = Field(
         default={},
@@ -42,24 +70,80 @@ class BigQueryConnectionConfig(ConfigModel):
         description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
     )
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
+    @model_validator(mode="after")
+    def _validate_and_setup_auth(self) -> "BigQueryConnectionConfig":
+        # Pydantic re-runs mode="after" validators on model_copy/model_validate.
+        # Without this guard, each rerun would write a new temp file (leaking
+        # the previous one), re-stomp GOOGLE_APPLICATION_CREDENTIALS, and call
+        # credentials.refresh() again (network round-trip).
+        if self._credentials is not None:
+            return self
 
-        if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            # Keep env var for backward compatibility (e.g. SQLAlchemy BigQuery dialect).
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-            # Build explicit credentials for thread-safe client creation.
-            # In Observe/assertions, multiple BigQuery connections with different
-            # service accounts run concurrently in the same process. Without
-            # explicit credentials, concurrent configs overwrite the shared env
-            # var, causing clients to authenticate with the wrong service account.
-            self._credentials = service_account.Credentials.from_service_account_info(
-                self.credential.to_dict()
-            )
+        if self.auth_type == BigQueryAuthType.WORKLOAD_IDENTITY_FEDERATION:
+            if not any(
+                [
+                    self.gcp_wif_configuration,
+                    self.gcp_wif_configuration_json,
+                    self.gcp_wif_configuration_json_string,
+                ]
+            ):
+                raise ValueError(
+                    "One of gcp_wif_configuration (file path), "
+                    "gcp_wif_configuration_json (JSON content), or "
+                    "gcp_wif_configuration_json_string (JSON string) is required "
+                    "when auth_type is 'workload_identity_federation'"
+                )
+            if self.credential is not None:
+                raise ValueError(
+                    "credential must not be set when auth_type is "
+                    "'workload_identity_federation'. Use the gcp_wif_configuration* "
+                    "options instead."
+                )
+            self._setup_wif_credentials()
+        elif self.credential is not None:
+            self._setup_service_account_credentials()
+        # else: no credential and no WIF — fall back to Application Default
+        # Credentials (ADC), which GCP client libraries pick up automatically
+        # from the environment (e.g. GCE/GKE metadata server).
+
+        return self
+
+    def _setup_service_account_credentials(self) -> None:
+        assert self.credential is not None
+        self._credentials_path = self.credential.create_credential_temp_file()
+        logger.debug(f"Creating temporary credential file at {self._credentials_path}")
+        # Keep env var for backward compatibility (e.g. SQLAlchemy BigQuery dialect).
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
+        # Build explicit credentials for thread-safe client creation.
+        # In Observe/assertions, multiple BigQuery connections with different
+        # service accounts run concurrently in the same process. Without
+        # explicit credentials, concurrent configs overwrite the shared env
+        # var, causing clients to authenticate with the wrong service account.
+        self._credentials = service_account.Credentials.from_service_account_info(
+            self.credential.to_dict()
+        )
+
+    def _setup_wif_credentials(self) -> None:
+        self._credentials, _ = load_wif_credentials(self)
+
+        # Persist the WIF JSON to a temp file so callers that rely on the
+        # GOOGLE_APPLICATION_CREDENTIALS env var (e.g. the SQLAlchemy BigQuery
+        # dialect) can pick it up. google-auth auto-detects external_account
+        # credentials from the JSON file.
+        #
+        # Caveat: like the service-account path, this env var is process-wide.
+        # Concurrent BigQuery configs with different WIF identities will
+        # trample each other for SQLAlchemy callers (the explicit `_credentials`
+        # object handles this for direct GCP client calls). Track at:
+        # https://linear.app/acryl-data/issue/ING-2376
+        wif_dict = self.to_wif_dict()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
+            json.dump(wif_dict, fp)
+            self._credentials_path = fp.name
+        logger.debug(
+            f"Wrote WIF configuration to temporary file at {self._credentials_path}"
+        )
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options

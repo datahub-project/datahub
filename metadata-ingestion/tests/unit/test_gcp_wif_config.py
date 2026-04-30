@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,18 +30,18 @@ class TestGCPWIFConfigValidation:
         assert config.gcp_wif_configuration_json_string == payload
 
     def test_json_string_invalid_raises(self):
-        with pytest.raises(Exception, match="must be valid JSON"):
+        with pytest.raises(ValueError, match="must be valid JSON"):
             GCPWIFConfig(gcp_wif_configuration_json="not-json")
 
     def test_json_string_invalid_type_raises(self):
         # gcp_wif_configuration_json must be str or dict, not int
         with pytest.raises(
-            Exception, match="must be either a JSON string or a dictionary"
+            ValueError, match="must be either a JSON string or a dictionary"
         ):
             GCPWIFConfig(gcp_wif_configuration_json=12345)
 
     def test_json_string_field_invalid_raises(self):
-        with pytest.raises(Exception, match="must be valid JSON"):
+        with pytest.raises(ValueError, match="must be valid JSON"):
             GCPWIFConfig(gcp_wif_configuration_json_string="not-json")
 
     def test_all_none_is_valid(self):
@@ -132,3 +133,54 @@ class TestLoadWIFCredentials:
         # Credentials are still returned despite refresh failure
         assert creds is scoped
         assert project_id == "proj"
+
+
+class TestToWifDict:
+    def test_from_file(self, tmp_path: Path) -> None:
+        payload = {"type": "external_account", "audience": "//iam"}
+        f = tmp_path / "wif.json"
+        f.write_text(json.dumps(payload))
+        config = GCPWIFConfig(gcp_wif_configuration=str(f))
+        assert config.to_wif_dict() == payload
+
+    def test_from_dict(self) -> None:
+        payload = {"type": "external_account"}
+        config = GCPWIFConfig(gcp_wif_configuration_json=payload)
+        assert config.to_wif_dict() == payload
+
+    def test_from_json_string_field(self) -> None:
+        payload = {"type": "external_account"}
+        config = GCPWIFConfig(gcp_wif_configuration_json_string=json.dumps(payload))
+        assert config.to_wif_dict() == payload
+
+    def test_no_config_raises(self) -> None:
+        config = GCPWIFConfig()
+        with pytest.raises(ValueError, match="No valid WIF configuration provided"):
+            config.to_wif_dict()
+
+    def test_non_dict_json_rejected(self) -> None:
+        # JSON arrays / scalars pass the mode="before" validator (which only
+        # checks parseability) but must be rejected at resolution time.
+        config = GCPWIFConfig(gcp_wif_configuration_json_string="[1, 2, 3]")
+        with pytest.raises(AssertionError, match="must be a JSON object"):
+            config.to_wif_dict()
+
+
+class TestWifConfigSource:
+    def test_file_label(self) -> None:
+        config = GCPWIFConfig(gcp_wif_configuration="/path/to/wif.json")
+        assert config.wif_config_source() == "file:/path/to/wif.json"
+
+    def test_inline_json_label(self) -> None:
+        config = GCPWIFConfig(gcp_wif_configuration_json={"type": "external_account"})
+        assert config.wif_config_source() == "inline_json"
+
+    def test_json_string_label(self) -> None:
+        config = GCPWIFConfig(
+            gcp_wif_configuration_json_string=json.dumps({"type": "external_account"})
+        )
+        assert config.wif_config_source() == "json_string"
+
+    def test_no_source(self) -> None:
+        config = GCPWIFConfig()
+        assert config.wif_config_source() is None

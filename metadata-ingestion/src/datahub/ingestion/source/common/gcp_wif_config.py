@@ -106,6 +106,38 @@ class GCPWIFConfig(ConfigModel):
             )
         return self
 
+    def wif_config_source(self) -> Optional[str]:
+        """Return a short label for which WIF option was used, for log provenance."""
+        if self.gcp_wif_configuration:
+            return f"file:{self.gcp_wif_configuration}"
+        if self.gcp_wif_configuration_json is not None:
+            return "inline_json"
+        if self.gcp_wif_configuration_json_string:
+            return "json_string"
+        return None
+
+    def to_wif_dict(self) -> Dict[str, Any]:
+        """Resolve the configured WIF JSON option into a dict.
+
+        Raises ValueError if no option is set.
+        """
+        if self.gcp_wif_configuration:
+            with open(self.gcp_wif_configuration) as f:
+                loaded = json.load(f)
+        elif self.gcp_wif_configuration_json is not None:
+            if isinstance(self.gcp_wif_configuration_json, dict):
+                return self.gcp_wif_configuration_json
+            loaded = json.loads(self.gcp_wif_configuration_json)
+        elif self.gcp_wif_configuration_json_string:
+            loaded = json.loads(self.gcp_wif_configuration_json_string)
+        else:
+            raise ValueError("No valid WIF configuration provided")
+
+        assert isinstance(loaded, dict), (
+            f"WIF configuration must be a JSON object, not a {type(loaded).__name__}"
+        )
+        return loaded
+
 
 def load_wif_credentials(
     wif_config: GCPWIFConfig,
@@ -125,36 +157,12 @@ def load_wif_credentials(
     Raises:
         ValueError: If no WIF configuration is provided or if credential loading fails.
     """
-    if not any(
-        [
-            wif_config.gcp_wif_configuration,
-            wif_config.gcp_wif_configuration_json,
-            wif_config.gcp_wif_configuration_json_string,
-        ]
-    ):
-        raise ValueError("No valid WIF configuration provided")
-
     try:
-        if wif_config.gcp_wif_configuration:
-            with open(wif_config.gcp_wif_configuration) as f:
-                wif_config_dict: Dict[str, Any] = json.load(f)
-            logger.info(
-                "Using Workload Identity Federation configuration from file: %s",
-                wif_config.gcp_wif_configuration,
-            )
-        elif wif_config.gcp_wif_configuration_json:
-            if isinstance(wif_config.gcp_wif_configuration_json, dict):
-                wif_config_dict = wif_config.gcp_wif_configuration_json
-            else:
-                wif_config_dict = json.loads(wif_config.gcp_wif_configuration_json)
-            logger.info(
-                "Using Workload Identity Federation configuration from JSON content"
-            )
-        else:
-            wif_config_dict = json.loads(wif_config.gcp_wif_configuration_json_string)  # type: ignore[arg-type]
-            logger.info(
-                "Using Workload Identity Federation configuration from JSON string"
-            )
+        wif_config_dict = wif_config.to_wif_dict()
+        logger.info(
+            "Loading Workload Identity Federation credentials (source=%s)",
+            wif_config.wif_config_source(),
+        )
 
         credentials, project_id = load_credentials_from_dict(wif_config_dict)
         # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
