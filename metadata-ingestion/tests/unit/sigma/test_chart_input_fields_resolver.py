@@ -335,6 +335,24 @@ class TestResolveChartFormulaUpstream:
         assert self.src.reporter.chart_input_fields_unresolved == 1
         assert self.src.reporter.chart_input_fields_resolved == 0
 
+    def test_self_reference_is_excluded_from_workbook_element_matches(self) -> None:
+        """A self-loop in Sigma lineage must not resolve to the chart itself."""
+        self_elem = _make_element("chartElem", "Orders")
+        ref = _make_ref("Orders", "id")
+
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="chartElem",
+            chart_upstream_element_ids={"chartElem"},
+            wb_element_index={"Orders": [self_elem]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"chartElem": "urn:self"},
+        )
+
+        assert result is None
+        assert self.src.reporter.chart_input_fields_unresolved == 1
+        assert self.src.reporter.chart_input_fields_resolved == 0
+
     def test_intra_workbook_collision_ambiguous_multiple_upstream_matches_returns_none(
         self,
     ) -> None:
