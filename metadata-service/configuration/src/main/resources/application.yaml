@@ -1031,6 +1031,8 @@ systemUpdate:
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+  ingestEntityTypes:
+    enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
   kubernetesScaleDown:
     enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
     useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
