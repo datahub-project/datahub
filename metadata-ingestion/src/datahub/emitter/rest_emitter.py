@@ -141,6 +141,7 @@ class _KeepAliveHTTPAdapter(HTTPAdapter):
             for attr, val in cls._TUNING_OPTS:
                 if hasattr(socket, attr):
                     opts.append((socket.IPPROTO_TCP, getattr(socket, attr), val))
+            logger.debug("Resolved %d TCP keepalive socket option(s)", len(opts))
             return opts
         except Exception as e:
             logger.debug(
@@ -152,11 +153,28 @@ class _KeepAliveHTTPAdapter(HTTPAdapter):
     def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
         if opts := self._socket_options():
             kwargs["socket_options"] = opts
+            logger.debug(
+                "Applying %d TCP keepalive socket option(s) to pool manager", len(opts)
+            )
+        else:
+            logger.debug(
+                "No TCP keepalive socket options applied to pool manager (resolution failed)"
+            )
         super().init_poolmanager(*args, **kwargs)
 
     def proxy_manager_for(self, proxy: Any, **proxy_kwargs: Any) -> Any:
         if opts := self._socket_options():
             proxy_kwargs["socket_options"] = opts
+            logger.debug(
+                "Applying %d TCP keepalive socket option(s) to proxy manager for %s",
+                len(opts),
+                proxy,
+            )
+        else:
+            logger.debug(
+                "No TCP keepalive socket options applied to proxy manager for %s (resolution failed)",
+                proxy,
+            )
         return super().proxy_manager_for(proxy, **proxy_kwargs)
 
     def send(self, request: Any, *args: Any, **kwargs: Any) -> Any:
@@ -335,6 +353,11 @@ class RequestsSessionConfig(ConfigModel):
                 raise_on_status=False,
             )
 
+        logger.debug(
+            "Building session with tcp_keepalive=%s; using %s",
+            self.tcp_keepalive,
+            "_KeepAliveHTTPAdapter" if self.tcp_keepalive else "HTTPAdapter",
+        )
         adapter_cls = _KeepAliveHTTPAdapter if self.tcp_keepalive else HTTPAdapter
         adapter = adapter_cls(
             pool_connections=self.pool_connections,
