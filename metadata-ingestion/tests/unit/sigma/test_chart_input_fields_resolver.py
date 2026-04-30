@@ -1,7 +1,6 @@
-"""Unit tests for the chart InputFields resolver helpers (T1.8).
+"""Unit tests for the chart InputFields resolver helpers.
 
-Cases are drawn directly from M0 stage-3 probe data
-(probe_sigma_t1_m0_charts_classification.json) and the handoff spec.
+Cases cover probe-derived chart formulas and resolver behavior.
 """
 
 from __future__ import annotations
