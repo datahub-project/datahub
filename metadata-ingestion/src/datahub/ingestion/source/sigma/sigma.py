@@ -798,11 +798,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element edges as well as external warehouse edges, so the intersection
         correctly filters phantom formula refs.
         """
-        by_name, displaced = _dedup_dm_element_columns(element.columns)
-        for _winner, loser in displaced:
-            if loser.formula:
-                # Formula-bearing column displaced by fieldPath dedup; FGL not emitted.
-                self.reporter.data_model_element_fgl_dropped_dedup_loser += 1
+        by_name, _ = _dedup_dm_element_columns(element.columns)
 
         # Build a per-upstream-element column map keyed by Dataset URN (not
         # element name) so duplicate-named DM elements with different schemas
@@ -831,17 +827,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for column in sorted(by_name.values(), key=lambda c: c.name):
             if not column.formula:
                 continue
-            self.reporter.data_model_element_columns_with_formula += 1
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
             for ref in extract_bracket_refs(column.formula):
-                if ref.is_parameter:
-                    self.reporter.data_model_element_fgl_param_skipped += 1
-                    continue
-                if ref.column is None:
-                    # Bare [col] — intra-element transform, not cross-Dataset lineage.
-                    self.reporter.data_model_element_fgl_sibling_skipped += 1
+                if ref.is_parameter or ref.column is None:
+                    # [P_*] parameter refs and bare [col] intra-element refs
+                    # are not cross-Dataset lineage; skip.
                     continue
                 candidate_urns = element_name_to_dataset_urns.get(
                     ref.source.lower(), []
@@ -897,7 +889,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if pair in emitted_pairs:
                         continue
                     emitted_pairs.add(pair)
-                    self.reporter.data_model_element_fgl_intra_resolved += 1
                     fgls.append(
                         FineGrainedLineageClass(
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -907,8 +898,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             confidenceScore=1.0,
                         )
                     )
-        # fgl_emitted equals fgl_intra_resolved today; the split is intentional
-        # so RESOLVE-B can add a second success path without changing the roll-up.
         self.reporter.data_model_element_fgl_emitted += len(fgls)
         fgls.sort(
             key=lambda fgl: (

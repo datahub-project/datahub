@@ -247,32 +247,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
     # DM element column-level lineage (FGL) counters.
-    # Totals.
-    # NOTE: columns_with_formula is counted only for elements that have at
-    # least one entity-level upstream from /lineage; elements with zero
-    # resolved /lineage upstreams are excluded because no FGL can be emitted
-    # for them regardless of their formula content.
-    data_model_element_columns_with_formula: int = 0
-    # Roll-up of all success paths; equals fgl_intra_resolved today and will
-    # diverge when cross-DM resolution (RESOLVE-B) adds a second success path.
+    # How many FGL entries were emitted across all elements.
     data_model_element_fgl_emitted: int = 0
-    # Success path: intra-DM [ElementName/col] ref resolved to an upstream URN
-    # that /lineage also claims (safe to emit as FGL).
-    data_model_element_fgl_intra_resolved: int = 0
-    # Skip paths: ref present but not cross-Dataset lineage.
-    data_model_element_fgl_sibling_skipped: int = 0  # bare [col] intra-element ref
-    data_model_element_fgl_param_skipped: int = 0  # [P_*] parameter ref
-    # Drop paths: ref would be FGL but is suppressed for correctness.
-    # cross-DM ref ([OtherDM/col]) -- deferred to a follow-up ingestion pass.
+    # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
-    # resolved URN not in /lineage upstreams; drop to avoid orphan FGL.
+    # Refs whose source element is in this DM but not listed as an upstream by
+    # /lineage; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
-    # ref.column not found in the upstream element's winner column set; drop to
-    # avoid a schemaField URN that has no corresponding fieldPath in SchemaMetadata.
+    # Refs whose column name has no matching fieldPath in the upstream element's
+    # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
-    # Formula-bearing columns dropped by fieldPath dedup (duplicate column.name
-    # within one element); their FGL was not emitted.
-    data_model_element_fgl_dropped_dedup_loser: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;

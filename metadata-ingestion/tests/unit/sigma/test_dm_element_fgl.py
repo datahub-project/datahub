@@ -105,9 +105,7 @@ def test_trivial_passthrough_resolves() -> None:
     assert lineages[0].downstreams == [
         builder.make_schema_field_urn(downstream_urn, "x")
     ]
-    assert source.reporter.data_model_element_fgl_intra_resolved == 1
     assert source.reporter.data_model_element_fgl_emitted == 1
-    assert source.reporter.data_model_element_columns_with_formula == 1
 
 
 def test_multi_ref_formula_emits_one_lineage_per_ref() -> None:
@@ -140,7 +138,7 @@ def test_bare_sibling_ref_is_skipped() -> None:
     element = _element("b", "B", [_column("b-y", "y", "[B_other_col]")])
 
     assert _build(source, element) == []
-    assert source.reporter.data_model_element_fgl_sibling_skipped == 1
+    assert source.reporter.data_model_element_fgl_emitted == 0
 
 
 def test_parameter_ref_is_skipped() -> None:
@@ -148,7 +146,7 @@ def test_parameter_ref_is_skipped() -> None:
     element = _element("b", "B", [_column("b-z", "z", "[P_Date_Range]")])
 
     assert _build(source, element) == []
-    assert source.reporter.data_model_element_fgl_param_skipped == 1
+    assert source.reporter.data_model_element_fgl_emitted == 0
 
 
 def test_cross_dm_ref_is_counted_unresolved() -> None:
@@ -229,7 +227,7 @@ def test_duplicate_element_names_different_schemas_validates_correct_element() -
     assert lineages[0].upstreams == [
         builder.make_schema_field_urn(orders_a_urn, "amount")
     ]
-    assert source.reporter.data_model_element_fgl_intra_resolved == 1
+    assert source.reporter.data_model_element_fgl_emitted == 1
 
 
 def test_duplicate_element_names_surviving_element_lacks_column() -> None:
@@ -284,7 +282,7 @@ def test_dedup_loser_formula_is_dropped() -> None:
     assert lineages[0].upstreams == [
         builder.make_schema_field_urn(upstream_urn, "winner")
     ]
-    assert source.reporter.data_model_element_fgl_dropped_dedup_loser == 1
+    assert source.reporter.data_model_element_fgl_emitted == 1
 
 
 def test_output_order_is_stable_for_shuffled_columns() -> None:
@@ -341,7 +339,7 @@ def test_quoted_bracket_literal_does_not_emit_fgl() -> None:
     element = _element("b", "B", [_column("b-x", "x", 'If([status]="[FAILED]", 1, 0)')])
 
     assert _build(source, element) == []
-    assert source.reporter.data_model_element_fgl_sibling_skipped == 1
+    assert source.reporter.data_model_element_fgl_emitted == 0
 
 
 def test_case_insensitive_element_name_lookup() -> None:
@@ -388,7 +386,7 @@ def test_duplicate_refs_in_formula_are_deduplicated() -> None:
     )
 
     assert len(lineages) == 1
-    assert source.reporter.data_model_element_fgl_intra_resolved == 1
+    assert source.reporter.data_model_element_fgl_emitted == 1
     assert source.reporter.data_model_element_fgl_emitted == 1
 
 
