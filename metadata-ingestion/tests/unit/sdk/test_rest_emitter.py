@@ -4,10 +4,12 @@ import time
 import warnings
 from datetime import timedelta
 from typing import Any, Dict
-from unittest.mock import ANY, MagicMock, Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
+import requests
 from requests import Response, Session
+from requests.adapters import HTTPAdapter
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -26,7 +28,9 @@ from datahub.emitter.rest_emitter import (
     EmitMode,
     RequestsSessionConfig,
     RestSinkEndpoint,
+    _KeepAliveHTTPAdapter,
     logger,
+    preserve_unicode_escapes,
 )
 from datahub.errors import APITracingWarning
 from datahub.ingestion.graph.config import ClientMode
@@ -1342,8 +1346,6 @@ class TestDataHubRestEmitter:
 
     def test_preserve_unicode_escapes_function_directly(self):
         """Test the preserve_unicode_escapes function with various unicode scenarios"""
-        from datahub.emitter.rest_emitter import preserve_unicode_escapes
-
         # Test simple unicode characters
         test_dict = {
             "name": "Café",
@@ -2396,6 +2398,93 @@ class TestRequestsSessionConfig:
             session.headers.update({"X-DataHub-Client-Mode": client_mode.name})
             mode = RequestsSessionConfig.get_client_mode_from_session(session)
             assert mode == client_mode
+
+    def test_tcp_keepalive_adapter_used_when_enabled(self):
+        """_KeepAliveHTTPAdapter is mounted when tcp_keepalive=True."""
+        session = RequestsSessionConfig(tcp_keepalive=True).build_session()
+        assert isinstance(
+            session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+
+    def test_tcp_keepalive_adapter_not_used_when_disabled(self):
+        """Plain HTTPAdapter is mounted when tcp_keepalive=False."""
+        session = RequestsSessionConfig(tcp_keepalive=False).build_session()
+        adapter = session.get_adapter("https://example.com")
+        assert type(adapter) is HTTPAdapter
+
+    def test_tcp_keepalive_socket_options_reach_pool_manager(self):
+        """Socket options are forwarded to init_poolmanager so keepalive is actually active."""
+        adapter = _KeepAliveHTTPAdapter()
+        with patch.object(HTTPAdapter, "init_poolmanager") as mock:
+            adapter.init_poolmanager(10, 10)
+        assert "socket_options" in mock.call_args.kwargs
+        assert len(mock.call_args.kwargs["socket_options"]) > 0
+
+    def test_tcp_keepalive_degrades_gracefully(self):
+        """When keepalive is unavailable, init_poolmanager is called without socket_options."""
+        adapter = _KeepAliveHTTPAdapter()
+        with (
+            patch.object(_KeepAliveHTTPAdapter, "_socket_options", return_value=None),
+            patch.object(HTTPAdapter, "init_poolmanager") as mock,
+        ):
+            adapter.init_poolmanager(10, 10)
+        assert "socket_options" not in mock.call_args.kwargs
+
+    def test_tcp_keepalive_socket_options_reach_proxy_manager(self):
+        """Socket options are forwarded to proxy_manager_for so keepalive is active on proxied connections."""
+        adapter = _KeepAliveHTTPAdapter()
+        with patch.object(HTTPAdapter, "proxy_manager_for") as mock:
+            adapter.proxy_manager_for("http://proxy:8080")
+        assert "socket_options" in mock.call_args.kwargs
+        assert len(mock.call_args.kwargs["socket_options"]) > 0
+
+    def test_tcp_keepalive_retries_with_fresh_connection_on_ssl_error(self):
+        """On SSLError the pool is closed and the request is retried with a fresh connection."""
+        adapter = _KeepAliveHTTPAdapter()
+        ssl_error = requests.exceptions.SSLError(
+            "EOF occurred in violation of protocol"
+        )
+        ok_response = MagicMock()
+
+        with (
+            patch.object(
+                HTTPAdapter, "send", side_effect=[ssl_error, ok_response]
+            ) as mock_send,
+            patch.object(adapter, "close") as mock_close,
+        ):
+            result = adapter.send(MagicMock())
+
+        assert mock_close.call_count == 1
+        assert mock_send.call_count == 2
+        assert result is ok_response
+
+    def test_tcp_keepalive_socket_options_logs_on_platform_error(self):
+        """_socket_options logs and returns None when the platform raises on socket option access."""
+        import datahub.emitter.rest_emitter as module
+
+        mock_socket = MagicMock()
+        type(mock_socket).SOL_SOCKET = PropertyMock(
+            side_effect=OSError("not supported")
+        )
+        with patch.object(module, "socket", mock_socket):
+            opts = _KeepAliveHTTPAdapter._socket_options()
+        assert opts is None
+
+    def test_datahub_rest_emitter_uses_keepalive_adapter_when_enabled(self):
+        """DataHubRestEmitter uses _KeepAliveHTTPAdapter when tcp_keepalive=True."""
+        emitter = DataHubRestEmitter("http://localhost:8080", tcp_keepalive=True)
+        assert isinstance(
+            emitter._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+        assert isinstance(
+            emitter._session.get_adapter("http://example.com"), _KeepAliveHTTPAdapter
+        )
+
+    def test_datahub_rest_emitter_uses_plain_adapter_by_default(self):
+        """DataHubRestEmitter uses plain HTTPAdapter by default (tcp_keepalive=False)."""
+        emitter = DataHubRestEmitter("http://localhost:8080")
+        assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
+        assert type(emitter._session.get_adapter("http://example.com")) is HTTPAdapter
 
 
 class TestWeightedRetry:
