@@ -336,6 +336,39 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
 
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def compat_max_limits_lifted_from_log_config(cls, values: Any) -> Any:
+        # `max_jobs_per_connector`, `max_table_lineage_per_connector`, and
+        # `max_column_lineage_per_connector` previously lived on
+        # `FivetranLogConfig`. They were lifted to the top-level config
+        # because they govern the lineage payload size regardless of which
+        # log source (DB log, REST API, or hybrid) the connector reads
+        # from. Rewrite old recipes silently by hoisting the values from
+        # `fivetran_log_config` to the top level and emitting a
+        # deprecation warning. Top-level values always win if both are set.
+        log_cfg = values.get("fivetran_log_config")
+        if not isinstance(log_cfg, dict):
+            return values
+        for legacy_field in (
+            "max_jobs_per_connector",
+            "max_table_lineage_per_connector",
+            "max_column_lineage_per_connector",
+        ):
+            if legacy_field not in log_cfg:
+                continue
+            old_value = log_cfg.pop(legacy_field)
+            warnings.warn(
+                f"`fivetran_log_config.{legacy_field}` is deprecated; move it "
+                f"to the top-level `{legacy_field}` config field. This shim "
+                f"will be removed in a future release.",
+                ConfigurationWarning,
+                stacklevel=2,
+            )
+            # Top-level value wins on conflict.
+            values.setdefault(legacy_field, old_value)
+        return values
+
     history_sync_lookback_period: int = pydantic.Field(
         7,
         description="The number of days to look back when extracting connectors' sync history.",

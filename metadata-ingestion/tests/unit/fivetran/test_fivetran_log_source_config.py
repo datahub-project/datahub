@@ -202,3 +202,55 @@ class TestPerConnectorLimits:
         )
         assert cfg.max_jobs_per_connector == 1234
         assert cfg.fivetran_log_config is None
+
+
+class TestMaxLimitsLegacyShim:
+    """Backwards-compat shim: max_*_per_connector fields used to live on
+    FivetranLogConfig. Old recipes that nest them under fivetran_log_config
+    must keep working; new recipes use the top-level placement.
+    """
+
+    def test_legacy_nested_max_lifted_to_top_level(self):
+        # Old recipe shape: max field nested under fivetran_log_config.
+        cfg_dict = {
+            "fivetran_log_config": {
+                "destination_platform": "snowflake",
+                "snowflake_destination_config": {
+                    "account_id": "x",
+                    "username": "u",
+                    "password": "p",
+                    "warehouse": "w",
+                    "database": "d",
+                    "log_schema": "s",
+                },
+                "max_column_lineage_per_connector": 5000,
+                "max_table_lineage_per_connector": 200,
+                "max_jobs_per_connector": 999,
+            },
+        }
+        with pytest.warns(DeprecationWarning if False else Warning):
+            cfg = FivetranSourceConfig.model_validate(cfg_dict)
+        assert cfg.max_column_lineage_per_connector == 5000
+        assert cfg.max_table_lineage_per_connector == 200
+        assert cfg.max_jobs_per_connector == 999
+
+    def test_top_level_wins_over_nested(self):
+        # If the user specifies BOTH (mid-migration), top-level wins.
+        cfg_dict = {
+            "fivetran_log_config": {
+                "destination_platform": "snowflake",
+                "snowflake_destination_config": {
+                    "account_id": "x",
+                    "username": "u",
+                    "password": "p",
+                    "warehouse": "w",
+                    "database": "d",
+                    "log_schema": "s",
+                },
+                "max_column_lineage_per_connector": 100,  # legacy
+            },
+            "max_column_lineage_per_connector": 7777,  # new placement
+        }
+        with pytest.warns(Warning):
+            cfg = FivetranSourceConfig.model_validate(cfg_dict)
+        assert cfg.max_column_lineage_per_connector == 7777
