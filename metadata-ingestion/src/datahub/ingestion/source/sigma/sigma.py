@@ -804,18 +804,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Formula-bearing column displaced by fieldPath dedup; FGL not emitted.
                 self.reporter.data_model_element_fgl_dropped_dedup_loser += 1
 
-        # Build a per-upstream-element column map: lowercased element name →
-        # { lowercased col name → canonical col name }.  Used to validate and
-        # normalise ref.column so the emitted schemaField URN matches the
-        # fieldPath actually present in the upstream element's SchemaMetadata.
-        upstream_col_map: Dict[str, Dict[str, str]] = {}
+        # Build a per-upstream-element column map keyed by Dataset URN (not
+        # element name) so duplicate-named DM elements with different schemas
+        # are handled correctly.  The i-th element of each name group in
+        # element_name_to_dataset_urns corresponds to the i-th occurrence of
+        # that name in data_model.elements (both built in the same iteration
+        # order in _gen_data_model_workunit).
+        urn_to_cols: Dict[str, Dict[str, str]] = {}
+        name_index: Dict[str, int] = {}
         for dm_el in data_model.elements:
             if not dm_el.name:
                 continue
-            el_by_name, _ = _dedup_dm_element_columns(dm_el.columns)
-            upstream_col_map[dm_el.name.lower()] = {
-                col_name.lower(): col_name for col_name in el_by_name
-            }
+            name_lower = dm_el.name.lower()
+            idx = name_index.get(name_lower, 0)
+            name_index[name_lower] = idx + 1
+            urns = element_name_to_dataset_urns.get(name_lower, [])
+            if idx < len(urns):
+                el_by_name, _ = _dedup_dm_element_columns(dm_el.columns)
+                urn_to_cols[urns[idx]] = {c.lower(): c for c in el_by_name}
 
         fgls: List[FineGrainedLineageClass] = []
         # Track emitted (downstream, upstream) schemaField pairs to deduplicate
@@ -852,22 +858,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         # Source not in this DM — cross-DM ref handled separately.
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
                     continue
-                # Validate and normalise ref.column against the upstream element's
-                # actual column winners.  Using the canonical name avoids a dangling
-                # schemaField URN when the formula author used different capitalisation.
-                source_cols = upstream_col_map.get(ref.source.lower(), {})
-                canonical_col = source_cols.get(ref.column.lower())
-                if canonical_col is None:
-                    self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
-                    logger.debug(
-                        "DM %s element %s: ref %r column %r not found in upstream "
-                        "element's schema winners; dropping FGL entry",
-                        data_model.dataModelId,
-                        element.elementId,
-                        ref.raw,
-                        ref.column,
-                    )
-                    continue
                 if len(surviving_urns) > 1:
                     logger.debug(
                         "DM %s element %s: ref %r resolves to %d URNs after "
@@ -879,9 +869,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         len(surviving_urns),
                         surviving_urns,
                     )
-                # When surviving_urns > 1, one FGL entry is emitted per upstream;
-                # fgl_emitted therefore counts entries, not unique downstream fields.
+                # When surviving_urns > 1, one FGL entry is emitted per upstream.
+                # Column validation is per-URN so duplicate-named elements with
+                # different schemas each validate against their own column set.
                 for upstream_urn in surviving_urns:
+                    # Validate and normalise ref.column against this specific upstream
+                    # element's schema winners.  Keying by URN (not element name)
+                    # correctly handles duplicate-named elements with different schemas.
+                    source_cols = urn_to_cols.get(upstream_urn, {})
+                    canonical_col = source_cols.get(ref.column.lower())
+                    if canonical_col is None:
+                        self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
+                        logger.debug(
+                            "DM %s element %s: ref %r column %r not found in upstream "
+                            "element %s schema winners; dropping FGL entry",
+                            data_model.dataModelId,
+                            element.elementId,
+                            ref.raw,
+                            ref.column,
+                            upstream_urn,
+                        )
+                        continue
                     upstream_field = builder.make_schema_field_urn(
                         upstream_urn, canonical_col
                     )
