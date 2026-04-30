@@ -574,7 +574,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if len(candidates) > 1:
                         return sorted(candidates)[0], "ambiguous"
                     return candidates[0], "strict"
-            # 0 or 2+ consumed names → fall through to consuming element name / fallback.
+            elif len(src_names) > 1:
+                # Multiple elements consumed from the same source DM; cannot
+                # determine which one maps to this consuming element without
+                # per-element scoping. Fall through to name-based / fallback.
+                logger.debug(
+                    "DM %s element %s: %d consumed names from source DM %s — "
+                    "cannot disambiguate via lineage entries alone; falling "
+                    "back to consuming-element-name lookup.",
+                    consuming_data_model.dataModelId,
+                    consuming_element.elementId,
+                    len(src_names),
+                    other_dm_id,
+                )
 
         candidates = name_map.get(consuming_element.name.lower())
         if not candidates:
@@ -873,6 +885,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # entity_level_upstream_urns is used as a collision tiebreaker
                     # (not a hard gate) because Sigma's /lineage API does not always
                     # surface cross-DM formula deps at the entity level.
+                    # Cross-DM source_ids use the shape <dm-url-id>/<suffix>;
+                    # intra-DM source_ids are bare elementIds (no "/").  So
+                    # source_dm_url_ids will never contain the consuming DM's
+                    # own url_id under normal Sigma API behaviour.
                     source_dm_url_ids = {
                         sid.partition("/")[0]
                         for sid in element.source_ids
@@ -892,25 +908,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
                         continue
                     if len(cross_dm_candidate_urns) > 1:
-                        # Prefer a candidate already confirmed as an entity-level
-                        # upstream: the entity-level resolver used /lineage data-model
-                        # entries to identify the correct source element, so a single
-                        # confirmed candidate is unambiguous and wins without collision.
+                        # Restrict to entity-level confirmed candidates whenever
+                        # any exist — even a subset of 2+ is better than
+                        # including unconfirmed URNs that sort earlier.
                         confirmed = [
                             u
                             for u in cross_dm_candidate_urns
                             if u in entity_level_upstream_urns
                         ]
-                        if len(confirmed) == 1:
+                        if confirmed:
                             cross_dm_candidate_urns = confirmed
-                        else:
-                            # 0 or 2+ confirmed — still ambiguous; pick sorted-first.
+                        if len(cross_dm_candidate_urns) > 1:
+                            # Still ambiguous after filtering; pick sorted-first.
                             self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
                     chosen_upstream_urn = cross_dm_candidate_urns[0]
+                    # dm_element_urn_to_cols is populated for every URN in
+                    # dm_element_urn_by_name (same loop in _prepopulate_dm_bridge_maps),
+                    # so this get() will only be None if a URN reaches this point
+                    # without going through prepopulation — defensively handled.
                     upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
                     if upstream_cols is None:
-                        # Schema not cached for this upstream; defer rather than
-                        # emit an unvalidated dangling schemaField URN.
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
                         continue
                     canonical_col = upstream_cols.get(ref.column.lower())

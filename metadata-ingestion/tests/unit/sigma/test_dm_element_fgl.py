@@ -663,3 +663,38 @@ def test_cross_dm_singleton_not_in_entity_level_upstreams_still_emits() -> None:
     ]
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_cross_dm_unknown_upstream_column_is_dropped() -> None:
+    """Formula ref column absent from the resolved upstream element's schema
+    increments cross_dm_dropped_unknown_upstream_column and emits no FGL."""
+    source = _source()
+    dm_url_id = "other-dm"
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "missing_col", "[other_dm_element/missing_col]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [upstream_urn]}}
+    # Upstream schema has "city" and "date" but NOT "missing_col".
+    source.dm_element_urn_to_cols = {upstream_urn: {"city": "city", "date": "date"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+    )
+
+    assert lineages == []
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column
+        == 1
+    )
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
