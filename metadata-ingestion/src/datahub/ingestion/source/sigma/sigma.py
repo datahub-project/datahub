@@ -193,6 +193,7 @@ CrossDmOutcome = Literal[
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default.")
+@capability(SourceCapability.LINEAGE_FINE, "Enabled by default.")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TAGS, "Enabled by default")
@@ -778,33 +779,56 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
 
         Uses _dedup_dm_element_columns for the winner set so the fieldPaths
-        referenced in FGL are guaranteed to match those in SchemaMetadata.
-        Bare [col] refs are intra-element transforms (lineage within one Dataset,
-        not across Datasets) and are skipped for FGL.
+        referenced in FGL match those in SchemaMetadata.  Bare [col] refs are
+        intra-element transforms (lineage within one Dataset, not across Datasets)
+        and are skipped.
 
-        element_name_to_dataset_urns is keyed with lowercased names (matching the
-        cross-DM name_map convention), and ref.source is lowercased before lookup,
-        so a formula like [Random Data Model/col] resolves to an element named
-        "random data model" without a spurious cross_dm_deferred miss.
+        element_name_to_dataset_urns is keyed with lowercased names, and
+        ref.source is lowercased before lookup so [Random Data Model/col] resolves
+        to an element named "random data model" without a spurious
+        cross_dm_deferred miss.
+
+        ref.column is validated and case-normalised against the upstream element's
+        winner column set (built from data_model.elements).  A ref whose column
+        name has no match in the upstream element's schema is dropped to avoid a
+        schemaField URN that points at a non-existent fieldPath.
 
         Intra-DM FGL is conditioned on entity_level_upstream_urns, which is
         populated from Sigma's /lineage API.  The /lineage API reports intra-DM
-        element edges (element A → element B when A's formula references B) as
-        well as external warehouse edges, so the intersection correctly filters
-        phantom formula refs that Sigma's own resolver would ignore.
+        element edges as well as external warehouse edges, so the intersection
+        correctly filters phantom formula refs.
         """
         by_name, displaced = _dedup_dm_element_columns(element.columns)
         for _winner, loser in displaced:
             if loser.formula:
-                # Formula-bearing columns dropped by fieldPath dedup; their FGL
-                # was not emitted because the fieldPath isn't in SchemaMetadata.
+                # Formula-bearing column displaced by fieldPath dedup; FGL not emitted.
                 self.reporter.data_model_element_fgl_dropped_dedup_loser += 1
 
+        # Build a per-upstream-element column map: lowercased element name →
+        # { lowercased col name → canonical col name }.  Used to validate and
+        # normalise ref.column so the emitted schemaField URN matches the
+        # fieldPath actually present in the upstream element's SchemaMetadata.
+        upstream_col_map: Dict[str, Dict[str, str]] = {}
+        for dm_el in data_model.elements:
+            if not dm_el.name:
+                continue
+            el_by_name, _ = _dedup_dm_element_columns(dm_el.columns)
+            upstream_col_map[dm_el.name.lower()] = {
+                col_name.lower(): col_name for col_name in el_by_name
+            }
+
         fgls: List[FineGrainedLineageClass] = []
+        # Track emitted (downstream, upstream) schemaField pairs to deduplicate
+        # multiple occurrences of the same bracket ref in one formula
+        # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
+        emitted_pairs: Set[Tuple[str, str]] = set()
         for column in sorted(by_name.values(), key=lambda c: c.name):
             if not column.formula:
                 continue
             self.reporter.data_model_element_columns_with_formula += 1
+            downstream_field = builder.make_schema_field_urn(
+                element_dataset_urn, column.name
+            )
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter:
                     self.reporter.data_model_element_fgl_param_skipped += 1
@@ -828,6 +852,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         # Source not in this DM — cross-DM ref handled separately.
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
                     continue
+                # Validate and normalise ref.column against the upstream element's
+                # actual column winners.  Using the canonical name avoids a dangling
+                # schemaField URN when the formula author used different capitalisation.
+                source_cols = upstream_col_map.get(ref.source.lower(), {})
+                canonical_col = source_cols.get(ref.column.lower())
+                if canonical_col is None:
+                    self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
+                    logger.debug(
+                        "DM %s element %s: ref %r column %r not found in upstream "
+                        "element's schema winners; dropping FGL entry",
+                        data_model.dataModelId,
+                        element.elementId,
+                        ref.raw,
+                        ref.column,
+                    )
+                    continue
                 if len(surviving_urns) > 1:
                     logger.debug(
                         "DM %s element %s: ref %r resolves to %d URNs after "
@@ -839,25 +879,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         len(surviving_urns),
                         surviving_urns,
                     )
-                downstream_field = builder.make_schema_field_urn(
-                    element_dataset_urn, column.name
-                )
-                # When surviving_urns > 1 (duplicate element names in the DM
-                # both appearing in /lineage), one FGL entry is emitted per
-                # upstream.  fgl_emitted therefore counts FGL entries, not
-                # unique downstream fields; treat it as an entry count.
+                # When surviving_urns > 1, one FGL entry is emitted per upstream;
+                # fgl_emitted therefore counts entries, not unique downstream fields.
                 for upstream_urn in surviving_urns:
+                    upstream_field = builder.make_schema_field_urn(
+                        upstream_urn, canonical_col
+                    )
+                    pair = (downstream_field, upstream_field)
+                    if pair in emitted_pairs:
+                        continue
+                    emitted_pairs.add(pair)
                     self.reporter.data_model_element_fgl_intra_resolved += 1
                     fgls.append(
                         FineGrainedLineageClass(
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[downstream_field],
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                builder.make_schema_field_urn(upstream_urn, ref.column)
-                            ],
-                            # confidenceScore=1.0 is the default; set explicitly to
-                            # signal this is structural (formula-derived), not statistical.
+                            upstreams=[upstream_field],
                             confidenceScore=1.0,
                         )
                     )

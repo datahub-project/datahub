@@ -267,6 +267,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_cross_dm_deferred: int = 0
     # resolved URN not in /lineage upstreams; drop to avoid orphan FGL.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
+    # ref.column not found in the upstream element's winner column set; drop to
+    # avoid a schemaField URN that has no corresponding fieldPath in SchemaMetadata.
+    data_model_element_fgl_dropped_unknown_upstream_column: int = 0
     # Formula-bearing columns dropped by fieldPath dedup (duplicate column.name
     # within one element); their FGL was not emitted.
     data_model_element_fgl_dropped_dedup_loser: int = 0
