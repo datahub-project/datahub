@@ -1825,11 +1825,9 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
 
 
 def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:
-    # Every caller of this helper is a DM-focused test; set
-    # ``ingest_data_models: True`` here (the source default is False per the
-    # opt-in release behavior) so the tests don't have to repeat the flag.
-    # Callers that want to override it can still pass ingest_data_models=False
-    # via ``**extra``.
+    # Every caller of this helper is a DM-focused test; ``ingest_data_models``
+    # defaults to True so DM ingestion runs automatically.  Callers that want
+    # to disable it can still pass ingest_data_models=False via ``**extra``.
     config: Dict[str, Any] = {
         "client_id": "CLIENTID",
         "client_secret": "CLIENTSECRET",
@@ -4457,68 +4455,6 @@ def _orphan_dm_mock_fixture() -> Dict[str, Dict[str, Any]]:
             "json": {"entries": [], "total": 0, "nextPage": None},
         },
     }
-
-
-@pytest.mark.integration
-def test_sigma_ingest_data_models_default_off(pytestconfig, tmp_path, requests_mock):
-    """Regression pin for the default value of ``ingest_data_models``.
-
-    The default is ``False`` (opt-in) per the release classification. This
-    test instantiates the source with **no** explicit ``ingest_data_models``
-    flag, runs against a full fixture that includes DM mocks, and asserts
-    that neither the DM listing nor any per-DM endpoint is hit. If the
-    default ever flips back to ``True``, this test fails fast so the change
-    is intentional and gets a Breaking-Changes release note.
-    """
-
-    # Use the DM-enabled baseline fixture so an accidental flip to ``True``
-    # would actually make requests.
-    override_data = get_mock_data_model_api()
-    register_mock_api(request_mock=requests_mock, override_data=override_data)
-
-    output_path = f"{tmp_path}/sigma_dm_default_off_mces.json"
-    # Construct the config without the helper (the helper injects
-    # ``ingest_data_models: True`` — this test specifically exercises the
-    # unset / default path).
-    pipeline = Pipeline.create(
-        {
-            "run_id": "sigma-test",
-            "source": {
-                "type": "sigma",
-                "config": {
-                    "client_id": "CLIENTID",
-                    "client_secret": "CLIENTSECRET",
-                    "chart_sources_platform_mapping": {
-                        "Acryl Data/Acryl Workbook": {
-                            "data_source_platform": "snowflake"
-                        },
-                    },
-                },
-            },
-            "sink": {"type": "file", "config": {"filename": output_path}},
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-
-    dm_endpoint_hits = [
-        req
-        for req in requests_mock.request_history
-        if "/v2/dataModels" in req.url or "typeFilters=data-model" in req.url
-    ]
-    assert dm_endpoint_hits == [], (
-        f"expected ingest_data_models default=False to short-circuit DM fetch, "
-        f"but got {len(dm_endpoint_hits)} requests: "
-        f"{[r.url for r in dm_endpoint_hits]}"
-    )
-
-    with open(output_path) as f:
-        mces = json.load(f)
-    # No DM-Container or DM-element URNs should appear in the output.
-    assert not any(
-        "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
-        for mce in mces
-    )
 
 
 @pytest.mark.integration
