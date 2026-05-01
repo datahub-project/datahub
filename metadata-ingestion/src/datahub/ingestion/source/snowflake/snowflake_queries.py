@@ -9,7 +9,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from typing_extensions import Self
@@ -84,6 +84,8 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+
+_SYS_VIEW_PLACEHOLDER_PREFIX = "$SYS_VIEW_"
 
 
 @dataclass(frozen=True)
@@ -197,7 +199,10 @@ class SnowflakeQueriesExtractorReport(Report):
 
     num_ddl_queries_dropped: int = 0
     num_stream_queries_observed: int = 0
+    num_stream_queries_clean_fast_path: int = 0
     num_create_temp_view_queries_observed: int = 0
+    num_audit_rows_missing_object_name: int = 0
+    num_audit_rows_unknown_dollar_prefix: int = 0
     num_users: int = 0
     num_queries_with_empty_column_name: int = 0
     queries_with_empty_column_name: LossyList[str] = dataclasses.field(
@@ -530,6 +535,26 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             or re.search(r"\bTEMPORARY\b", query_text, re.IGNORECASE) is not None
         )
 
+    @staticmethod
+    def _classify_audit_log_objects(
+        audit_log_objects: List[Dict[str, Any]],
+    ) -> Tuple[bool, int, int]:
+        """Return (has_$SYS_VIEW_placeholder, n_missing_name, n_unknown_$_prefix)."""
+        has_placeholder = False
+        n_missing_name = 0
+        n_unknown_dollar = 0
+        for obj in audit_log_objects:
+            name = obj.get("objectName")
+            if not name:
+                n_missing_name += 1
+                continue
+            unqualified = name.rsplit(".", 1)[-1]
+            if unqualified.startswith(_SYS_VIEW_PLACEHOLDER_PREFIX):
+                has_placeholder = True
+            elif unqualified.startswith("$"):
+                n_unknown_dollar += 1
+        return has_placeholder, n_missing_name, n_unknown_dollar
+
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
     ) -> Iterable[
@@ -614,26 +639,48 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             "rows_deleted": res["rows_deleted"],
         }
 
-        # There are a couple cases when we'd want to prefer our own SQL parsing
-        # over Snowflake's metadata.
-        # 1. For queries that use a stream, objects_modified returns $SYS_VIEW_X with no mapping.
-        #    We can check direct_objects_accessed to see if there is a stream used, and if so,
-        #    prefer doing SQL parsing over Snowflake's metadata.
-        # 2. For queries that create a view, objects_modified is empty and object_modified_by_ddl
-        #    contains the view name and columns. Because `object_modified_by_ddl` doesn't contain
-        #    source columns e.g. lineage information, we must do our own SQL parsing. We're mainly
-        #    focused on temporary views. It's fine if we parse a couple extra views, but in general
-        #    we want view definitions to come from Snowflake's schema metadata and not from query logs.
+        direct_corrupt, direct_missing, direct_unknown = (
+            self._classify_audit_log_objects(direct_objects_accessed)
+        )
+        modified_corrupt, modified_missing, modified_unknown = (
+            self._classify_audit_log_objects(objects_modified)
+        )
+        self.report.num_audit_rows_missing_object_name += (
+            direct_missing + modified_missing
+        )
+        self.report.num_audit_rows_unknown_dollar_prefix += (
+            direct_unknown + modified_unknown
+        )
 
-        has_stream_objects = any(
+        has_stream_objects: bool = any(
             obj.get("objectDomain") == "Stream" for obj in direct_objects_accessed
         )
+        has_corrupt_object_names: bool = direct_corrupt or modified_corrupt
+        has_unknown_dollar_prefix: bool = (direct_unknown + modified_unknown) > 0
+        is_multi_target: bool = len(objects_modified) > 1
         is_create_view = query_type == QueryType.CREATE_VIEW
         is_create_temp_view = is_create_view and self._has_temp_keyword(query_text)
 
-        if has_stream_objects or is_create_temp_view:
+        stream_clean_multi_target: bool = (
+            has_stream_objects
+            and is_multi_target
+            and not has_corrupt_object_names
+            and not has_unknown_dollar_prefix
+        )
+
+        if (
+            has_stream_objects and not stream_clean_multi_target
+        ) or is_create_temp_view:
             if has_stream_objects:
                 self.report.num_stream_queries_observed += 1
+                logger.debug(
+                    "Snowflake stream-bypass fired for query_id=%s "
+                    "(corrupt=%s, unknown_dollar=%s, multi_target=%s)",
+                    res["query_id"],
+                    has_corrupt_object_names,
+                    has_unknown_dollar_prefix,
+                    is_multi_target,
+                )
             elif is_create_temp_view:
                 self.report.num_create_temp_view_queries_observed += 1
 
@@ -650,6 +697,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 extra_info=extra_info,
             )
             return
+
+        if stream_clean_multi_target:
+            self.report.num_stream_queries_clean_fast_path += 1
 
         if snowflake_query_type == "CALL" and res["root_query_id"] is None:
             yield StoredProcCall(
