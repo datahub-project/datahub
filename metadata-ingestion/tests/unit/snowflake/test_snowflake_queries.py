@@ -2119,14 +2119,11 @@ class TestStreamUpstreamMultiTableInsert:
         results = list(extractor._parse_audit_log_row(row, {}))
 
         assert len(results) == 2
-        assert all(isinstance(r, PreparsedQuery) for r in results)
-        downstreams = {r.downstream for r in results}
+        prepared = [r for r in results if isinstance(r, PreparsedQuery)]
+        assert len(prepared) == 2
+        downstreams = {r.downstream for r in prepared}
         assert downstreams == {self.DOWNSTREAM_PROFILE_URN, self.DOWNSTREAM_ERROR_URN}
-        # Each PreparsedQuery's upstream should be the Stream URN, with
-        # column lineage tying the downstream column to RECORD_CONTENT on
-        # the Stream.
-        for entry in results:
-            assert isinstance(entry, PreparsedQuery)
+        for entry in prepared:
             assert entry.upstreams == [self.UPSTREAM_STREAM_URN]
             assert entry.column_lineage and len(entry.column_lineage) == 1
             cl = entry.column_lineage[0]
