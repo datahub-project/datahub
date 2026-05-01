@@ -220,8 +220,15 @@ export function excludeEmptyAndFilters(filters: AndFilterInput[] | undefined): A
 }
 
 /**
- * This handles the case where only "env" is present,
- * renaming it to "origin" so it is not hidden by FILTERS_TO_REMOVE.
+ * Ensures a single "Environment" filter is shown in the UI.
+ *
+ * The backend may return two facets for environment: "origin" and "env".
+ * When both are present, the backend merges their counts (see AggregationQueryBuilder.mergeAliasedFacets),
+ * and the "env" facet is hidden by FILTERS_TO_REMOVE — so "origin" is displayed with the correct total.
+ *
+ * When only "env" is returned (no "origin"), we rename it to "origin" so it is not
+ * hidden by FILTERS_TO_REMOVE. Filtering still works because the backend expands
+ * "origin" queries to search both fields (see ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST).
  */
 export function mergeEnvIntoOriginFacets(facets: FacetMetadata[]): FacetMetadata[] {
     const hasOrigin = facets.some((f) => f.field === ORIGIN_FILTER_NAME);
