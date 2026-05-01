@@ -4,6 +4,8 @@
 # symlinked to <plugin-name>-bundled for executor compatibility.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Configuration from environment variables
 BUNDLED_VENV_PLUGINS="${BUNDLED_VENV_PLUGINS:-s3,demo-data,file}"
 BUNDLED_CLI_VERSION="${BUNDLED_CLI_VERSION:-}"
@@ -27,9 +29,10 @@ echo ""
 # Ensure the venv directory exists
 mkdir -p "$DATAHUB_BUNDLED_VENV_PATH"
 
-# Use the self-contained Python script to generate and create venvs
+# Use the self-contained Python script to generate and create venvs (same directory as this script)
 echo "Running bundled venv builder..."
-python /tmp/build_bundled_venvs_unified.py
+cd "$SCRIPT_DIR"
+python ./build_bundled_venvs_unified.py
 
 # Verify the venvs were created
 echo ""

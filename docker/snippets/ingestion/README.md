@@ -11,7 +11,7 @@ These files are used when building the **bundled ingestion venvs** (full and sli
 | `bundled_venv_config.py`         | Extras resolution (including **slim** `-slim` variants), `BUNDLED_VENV_PLUGINS_*` group parsing, `build_group_plans`.                                              |
 | `constraints.txt`                | **Single source of truth for CVE minimums and shared pins.** Used by the bundled venv build and by Dockerfile pip install steps that install from requirements.    |
 
-The Dockerfile copies `constraints.txt` to `$DATAHUB_BUNDLED_VENV_PATH`, and copies the Python modules to `/tmp` for the build step.
+The Dockerfile copies `constraints.txt` to `$DATAHUB_BUNDLED_VENV_PATH`, and copies these modules to `/tmp` for the bundled-venv build stages. Published **`acryldata/datahub-actions`** **full** and **slim** images also ship the same files under **`/opt/datahub/bundled-venv-build/`** and export **`ENV`** for **`DATAHUB_BUNDLED_VENV_PATH`**, **`BUNDLED_VENV_PLUGINS`**, **`BUNDLED_VENV_PLUGINS_COMMON`**, **`BUNDLED_VENV_SLIM_MODE`**, and **`BUNDLED_CLI_VERSION`** (matching the bundled-venv build) so downstream Dockerfiles can append plugins and rerun the builder without cloning this repository (see `docs/docker/bundled-ingestion-venvs.md`).
 
 ## Group env vars: `BUNDLED_VENV_PLUGINS_<group_id>`
 
