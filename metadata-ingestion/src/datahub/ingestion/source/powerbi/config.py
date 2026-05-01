@@ -296,9 +296,13 @@ class DataBricksPlatformDetail(PlatformDetail):
 class OraclePlatformDetail(PlatformDetail):
     """Oracle-specific platform detail. Adds ``default_schema`` for inline native SQL."""
 
-    # Required so Pydantic Union resolution can distinguish this from plain
-    # PlatformDetail; with all-optional fields the two would be indistinguishable
-    # and any platform_instance-only entry would silently absorb into Oracle.
+    # Required (not Optional) so a recipe entry containing ``default_schema=``
+    # unambiguously resolves to OraclePlatformDetail in the
+    # ``server_to_platform_instance`` Union below. ConfigModel sets
+    # ``extra='forbid'`` so a plain ``{platform_instance: ...}`` already cannot
+    # absorb into Oracle; the requirement defends against a recipe author
+    # leaving ``default_schema:`` blank and silently producing
+    # ``default_schema=None``.
     default_schema: str = pydantic.Field(
         description=(
             "Default Oracle schema applied to unqualified table references found "
@@ -307,7 +311,6 @@ class OraclePlatformDetail(PlatformDetail):
             "configure this on Oracle servers that need it; other platforms "
             "should use plain PlatformDetail. Empty/whitespace values are rejected."
         ),
-        min_length=1,
     )
 
     @field_validator("default_schema")
@@ -703,6 +706,27 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
         return self
+
+    @field_validator("server_to_platform_instance", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:
+        # Oracle TNS lookup is case-insensitive in the source system, and the
+        # resolver falls back to a case-insensitive key match. If a recipe
+        # contained both ``EDWPSFN`` and ``edwpsfn``, that fallback would pick
+        # one silently by dict insertion order — a wrong-platform-instance
+        # outcome. Reject the ambiguity at config-load time.
+        seen: Dict[str, str] = {}
+        for key in value:
+            lower = key.lower()
+            if lower in seen:
+                raise ValueError(
+                    "server_to_platform_instance has case-insensitive duplicate keys: "
+                    f"{seen[lower]!r} and {key!r}. Recipe keys must differ in more "
+                    "than just case (the resolver falls back to a case-insensitive "
+                    "match for Oracle TNS aliases)."
+                )
+            seen[lower] = key
+        return value
 
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod

@@ -187,7 +187,10 @@ def _remap_column_lineage_to_pbi_fields(
     column_lineage: List[ColumnLineageInfo],
     pbi_columns: Optional[List[Column]],
 ) -> List[ColumnLineageInfo]:
-    """Remap downstream column names to match PowerBI's original field casing."""
+    """sqlglot returns downstream column names in the upstream's case (Oracle is
+    lowercase), but PowerBI fields keep their original casing in the API
+    response. Without this remap, the downstream schemaField URN does not
+    resolve and the column-level edge points to a non-existent field."""
     if not column_lineage or not pbi_columns:
         return column_lineage
 
@@ -734,6 +737,16 @@ class OracleLineage(AbstractLineage):
         server, db_name = self._get_server_and_db_name(args[0])
 
         if server is None:
+            self.reporter.warning(
+                title="Oracle.Database connection string not recognized",
+                message=(
+                    "Could not parse host/db from the Oracle.Database first "
+                    "argument; lineage skipped. Supported forms: EZ-Connect "
+                    "'host:port/db', bare TNS alias, or a descriptor "
+                    "containing SERVICE_NAME=."
+                ),
+                context=f"table={self.table.full_name}, value={args[0]!r}",
+            )
             return Lineage.empty()
 
         record_fields = _get_record_args(
@@ -787,10 +800,14 @@ class OracleLineage(AbstractLineage):
     def _create_lineage_from_query(self, server: str, query: str) -> Lineage:
         """Resolve lineage for an ``Oracle.Database(…, Query="…")`` invocation."""
         if self.config.enable_advance_lineage_sql_construct is False:
-            logger.info(
-                "Oracle.Database(…, Query=…) found for table %s but "
-                "enable_advance_lineage_sql_construct=False — skipping lineage.",
-                self.table.full_name,
+            self.reporter.info(
+                title="Oracle inline native-query lineage skipped",
+                message=(
+                    "Oracle.Database(…, Query=…) was found but "
+                    "enable_advance_lineage_sql_construct=False — set the flag "
+                    "to extract lineage from inline native SQL."
+                ),
+                context=f"table={self.table.full_name}",
             )
             return Lineage.empty()
 
@@ -849,7 +866,7 @@ class OracleLineage(AbstractLineage):
                 for table in statement.find_all(exp.Table):
                     if not table.db:
                         return True
-        except Exception as e:
+        except (sqlglot.errors.SqlglotError, ValueError, AttributeError) as e:
             # Conservative: parse failure is reported as "unqualified" so the user
             # gets the missing-default_schema warning instead of silent zero-lineage.
             # Logged at WARNING so a dialect regression is visible, not hidden by

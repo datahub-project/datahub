@@ -7,8 +7,12 @@ exercising the full ``parser.get_upstream_tables`` pipeline; the corresponding
 end-to-end coverage lives in ``tests/integration/powerbi/test_m_parser.py``.
 """
 
-from typing import List, Optional
+from contextlib import AbstractContextManager
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
+
+import pytest
+import sqlglot.errors
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
@@ -20,9 +24,11 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBIPlatformDetail,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
     ResolvePlatformInstanceFromServerToPlatformInstance,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    DataAccessFunctionDetail,
     DataPlatformTable,
     Lineage,
 )
@@ -75,7 +81,7 @@ def _build_oracle_lineage(
         table=table,
         config=config,
         reporter=PowerBiDashboardSourceReport(),
-        platform_instance_resolver=MagicMock(),
+        platform_instance_resolver=MagicMock(spec=AbstractDataPlatformInstanceResolver),
     )
 
 
@@ -125,13 +131,27 @@ def test_oracle_sql_has_unqualified_tables_treats_unparseable_as_unqualified():
     failure — locks in the conservative fallback. We patch sqlglot.parse to raise
     so the test does not depend on which inputs sqlglot's permissive Oracle
     dialect happens to reject."""
-    instance = MagicMock(spec=OracleLineage)
-    instance.table = MagicMock(full_name="MWBE.foo")
+    instance = _build_oracle_lineage(config=_build_config())
     with patch(
         "datahub.ingestion.source.powerbi.m_query.pattern_handler.sqlglot.parse",
-        side_effect=Exception("boom"),
+        side_effect=sqlglot.errors.ParseError("boom"),
     ):
-        assert OracleLineage._sql_has_unqualified_tables(instance, "SELECT 1") is True
+        assert instance._sql_has_unqualified_tables("SELECT 1") is True
+
+
+def test_oracle_sql_has_unqualified_tables_lets_unexpected_exceptions_propagate():
+    """The exception handler is narrowed to (SqlglotError, ValueError,
+    AttributeError); a genuinely unexpected error (e.g. RuntimeError) should
+    surface, not be silently swallowed under the conservative-True fallback."""
+    instance = _build_oracle_lineage(config=_build_config())
+    with (
+        patch(
+            "datahub.ingestion.source.powerbi.m_query.pattern_handler.sqlglot.parse",
+            side_effect=RuntimeError("unexpected"),
+        ),
+        pytest.raises(RuntimeError, match="unexpected"),
+    ):
+        instance._sql_has_unqualified_tables("SELECT 1")
 
 
 def test_sql_has_unqualified_tables_true_for_unqualified_sql():
@@ -167,7 +187,9 @@ def test_sql_has_unqualified_tables_normalizes_special_chars_and_drop_statements
 
 def test_create_lineage_from_query_returns_empty_when_advance_lineage_disabled():
     """``enable_advance_lineage_sql_construct=False`` disables the inline-Query
-    branch entirely — matches MSSql and NativeQueryLineage behavior."""
+    branch entirely — matches MSSql and NativeQueryLineage behavior. The skip
+    is surfaced as a structured ``reporter.info`` so the user investigating
+    "no Oracle lineage" sees it in the ingestion report."""
     config = _build_config(enable_advance_lineage_sql_construct=False)
     instance = _build_oracle_lineage(config=config)
     # parse_custom_sql must not be touched in this branch.
@@ -180,13 +202,22 @@ def test_create_lineage_from_query_returns_empty_when_advance_lineage_disabled()
     )
     assert result == Lineage.empty()
 
+    info_titles = [entry.title for entry in instance.reporter.infos]
+    assert any(
+        "inline native-query lineage skipped" in (t or "") for t in info_titles
+    ), (
+        f"Expected info entry about skipped inline native-query lineage; got: {info_titles}"
+    )
+
 
 def test_create_lineage_from_query_warns_when_unqualified_sql_and_no_default_schema():
     """Plain ``PlatformDetail`` (no default_schema) + unqualified SQL must emit
     the 'missing default_schema' structured warning."""
     config = _build_config(enable_advance_lineage_sql_construct=True)
     instance = _build_oracle_lineage(config=config)
-    instance.platform_instance_resolver = MagicMock()
+    instance.platform_instance_resolver = MagicMock(
+        spec=AbstractDataPlatformInstanceResolver
+    )
     instance.platform_instance_resolver.get_platform_instance.return_value = (
         PlatformDetail()
     )
@@ -213,7 +244,9 @@ def test_create_lineage_from_query_skips_warning_when_sql_is_qualified():
     no ``default_schema`` is configured."""
     config = _build_config(enable_advance_lineage_sql_construct=True)
     instance = _build_oracle_lineage(config=config)
-    instance.platform_instance_resolver = MagicMock()
+    instance.platform_instance_resolver = MagicMock(
+        spec=AbstractDataPlatformInstanceResolver
+    )
     instance.platform_instance_resolver.get_platform_instance.return_value = (
         PlatformDetail()
     )
@@ -246,9 +279,12 @@ def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns
         )
     ]
     instance = _build_oracle_lineage(config=config, columns=pbi_columns)
-    instance.platform_instance_resolver = MagicMock()
+    instance.platform_instance_resolver = MagicMock(
+        spec=AbstractDataPlatformInstanceResolver
+    )
+    oracle_detail = OraclePlatformDetail(default_schema="hr")
     instance.platform_instance_resolver.get_platform_instance.return_value = (
-        OraclePlatformDetail(default_schema="hr")
+        oracle_detail
     )
 
     parsed_lineage = Lineage(
@@ -289,6 +325,9 @@ def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns
     # database=None matches Oracle ingestion's 2-part URN shape.
     assert kwargs["database"] is None
     assert kwargs["schema"] == "hr"
+    # The resolved OraclePlatformDetail must be threaded through to
+    # parse_custom_sql so the resolver isn't re-run inside it.
+    assert kwargs["platform_detail"] is oracle_detail
 
     assert result.upstreams == parsed_lineage.upstreams
     assert len(result.column_lineage) == 1
@@ -301,6 +340,124 @@ def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns
     # missing-default_schema warning must NOT fire.
     warning_titles = [entry.title for entry in instance.reporter.warnings]
     assert not any("default_schema" in (t or "") for t in warning_titles)
+
+
+# ---------------------------------------------------------------------------
+# OracleLineage.create_lineage — Oracle.Database routing branches
+# ---------------------------------------------------------------------------
+
+
+def _make_data_access_func_detail(
+    *, args: List[Optional[str]], record_fields: Dict[str, str]
+) -> DataAccessFunctionDetail:
+    """Build a placeholder ``DataAccessFunctionDetail``; routing tests patch
+    ``_get_arg_values`` / ``_get_record_args`` to return canned values, so the
+    ``arg_list`` and ``node_map`` contents do not need to be realistic."""
+    return DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=None,
+        node_map={},
+        parameters={},
+    )
+
+
+def _patch_arg_helpers(
+    args: List[Optional[str]], record_fields: Dict[str, str]
+) -> AbstractContextManager[None]:
+    """Context manager that patches both ``_get_arg_values`` and
+    ``_get_record_args`` at the pattern_handler module level."""
+    return patch.multiple(
+        "datahub.ingestion.source.powerbi.m_query.pattern_handler",
+        _get_arg_values=MagicMock(return_value=args),
+        _get_record_args=MagicMock(return_value=record_fields),
+    )
+
+
+def test_create_lineage_routes_to_query_branch_when_query_record_present():
+    """``Oracle.Database(server, [Query="…"])`` must dispatch to
+    ``_create_lineage_from_query``, not the accessor-based path."""
+    instance = _build_oracle_lineage(config=_build_config())
+    instance._create_lineage_from_query = MagicMock(  # type: ignore[method-assign]
+        return_value=Lineage.empty()
+    )
+    detail = _make_data_access_func_detail(
+        args=["EDWPSFN"], record_fields={"Query": "SELECT * FROM HR.EMPLOYEES"}
+    )
+
+    with _patch_arg_helpers(
+        args=["EDWPSFN"], record_fields={"Query": "SELECT * FROM HR.EMPLOYEES"}
+    ):
+        instance.create_lineage(detail)
+
+    instance._create_lineage_from_query.assert_called_once_with(
+        server="edwpsfn", query="SELECT * FROM HR.EMPLOYEES"
+    )
+
+
+def test_create_lineage_returns_empty_when_no_query_and_no_db_name():
+    """Bare TNS alias with no ``Query=`` means we cannot reach the accessor
+    path (which needs a db_name); the routing must short-circuit to
+    ``Lineage.empty()`` rather than crash dereferencing ``identifier_accessor``."""
+    instance = _build_oracle_lineage(config=_build_config())
+    detail = _make_data_access_func_detail(args=["EDWPSFN"], record_fields={})
+
+    with _patch_arg_helpers(args=["EDWPSFN"], record_fields={}):
+        result = instance.create_lineage(detail)
+
+    assert result == Lineage.empty()
+
+
+def test_create_lineage_returns_empty_when_args_are_empty_or_first_is_none():
+    """``Oracle.Database()`` with no args (or ``args[0] is None``) returns
+    ``Lineage.empty()`` and does not emit a connection-string warning — the
+    warning is only for *unrecognized* string forms, not absent ones."""
+    instance = _build_oracle_lineage(config=_build_config())
+
+    # Empty args.
+    with _patch_arg_helpers(args=[], record_fields={}):
+        assert (
+            instance.create_lineage(
+                _make_data_access_func_detail(args=[], record_fields={})
+            )
+            == Lineage.empty()
+        )
+
+    # First arg is None (unresolved parameter reference).
+    with _patch_arg_helpers(args=[None], record_fields={}):
+        assert (
+            instance.create_lineage(
+                _make_data_access_func_detail(args=[None], record_fields={})
+            )
+            == Lineage.empty()
+        )
+
+    # No "connection string not recognized" warning for these branches.
+    warning_titles = [entry.title for entry in instance.reporter.warnings]
+    assert not any(
+        "connection string not recognized" in (t or "") for t in warning_titles
+    ), (
+        "Empty/None args[0] should short-circuit silently; the unrecognized-form "
+        f"warning is reserved for actual unparseable strings. Got: {warning_titles}"
+    )
+
+
+def test_create_lineage_warns_when_connection_string_unrecognized():
+    """An Oracle.Database call whose first argument is a non-empty but
+    unparseable string (e.g. ``"host:port:SID"``) must emit a structured
+    ``reporter.warning`` so an operator sees it in the ingestion report."""
+    instance = _build_oracle_lineage(config=_build_config())
+
+    with _patch_arg_helpers(args=["host:port:SID"], record_fields={}):
+        result = instance.create_lineage(
+            _make_data_access_func_detail(args=["host:port:SID"], record_fields={})
+        )
+
+    assert result == Lineage.empty()
+    warning_titles = [entry.title for entry in instance.reporter.warnings]
+    assert any(
+        "connection string not recognized" in (t or "") for t in warning_titles
+    ), f"Expected unrecognized-form warning; got: {warning_titles}"
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +483,20 @@ def test_server_to_platform_instance_lookup_is_case_insensitive():
     )
     resolved = resolver.get_platform_instance(detail)
     assert resolved.platform_instance == "prod_oracle"
+
+
+def test_server_to_platform_instance_rejects_case_insensitive_duplicate_keys():
+    """``server_to_platform_instance`` keys must be unique case-insensitively
+    because the resolver falls back to a case-insensitive lookup. A recipe
+    with both ``EDWPSFN`` and ``edwpsfn`` would silently pick one by dict
+    insertion order — the validator forbids that ambiguity at config-load."""
+    with pytest.raises(ValueError, match="case-insensitive duplicate keys"):
+        _build_config(
+            server_to_platform_instance={
+                "EDWPSFN": {"platform_instance": "a"},
+                "edwpsfn": {"platform_instance": "b"},
+            },
+        )
 
 
 def test_server_to_platform_instance_lookup_returns_default_when_server_missing():
@@ -424,12 +595,8 @@ def test_remap_column_lineage_empty_inputs():
         )
     ]
 
-    # Empty column_lineage is returned as-is.
     assert _remap_column_lineage_to_pbi_fields([], pbi_columns) == []
-
-    # None pbi_columns: no remapping, original content returned unchanged.
-    result = _remap_column_lineage_to_pbi_fields(cll, None)
-    assert result == cll
+    assert _remap_column_lineage_to_pbi_fields(cll, None) == cll
 
     # Already-matching case: downstream column name already matches pbi field name.
     matching_cll = [
