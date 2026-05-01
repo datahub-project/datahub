@@ -302,6 +302,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
+    # T4.A — Connection registry counters.
+    # 1 if the registry was built successfully from /v2/connections; 0 if the
+    # API call failed (ingest continues with an empty registry).
+    connection_registry_built: int = 0
+    # Records with confidence > 0.0 (platform type is known).
+    connections_resolved: int = 0
+    # Records with 0.0 < confidence < 1.0 (platform known but some
+    # warehouse-URN-shaping fields absent — e.g. no default_database).
+    connections_with_partial_metadata: int = 0
+    # Records with confidence == 0.0 (Sigma type not in platform map).
+    connections_unmappable_type: int = 0
+
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(

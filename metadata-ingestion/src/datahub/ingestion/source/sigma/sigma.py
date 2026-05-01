@@ -38,6 +38,10 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
     WorkspaceCounts,
 )
+from datahub.ingestion.source.sigma.connection_registry import (
+    SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
+    SigmaConnectionRegistry,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     DataModelElementUpstream,
     DataModelKey,
@@ -273,6 +277,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
+
+        # T4.A — build connection registry (foundation; not consumed yet by
+        # any CLL path). T4.B/C/D will read self.connection_registry.
+        try:
+            raw_connections = self.sigma_api.get_connections()
+            self.connection_registry = SigmaConnectionRegistry.build(
+                raw_connections,
+                reporter=self.reporter,
+                type_to_platform_map=SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
+            )
+            self.reporter.connection_registry_built = 1
+        except Exception as e:
+            logger.warning(
+                "Could not build Sigma Connection registry; T4.A registry will be empty. Error: %s",
+                e,
+            )
+            self.connection_registry = SigmaConnectionRegistry()
+            # Don't fail ingest — T4.A is foundation only; downstream T4.B/C/D
+            # handle an empty registry gracefully.
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:

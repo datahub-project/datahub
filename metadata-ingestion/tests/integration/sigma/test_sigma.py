@@ -432,6 +432,27 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         "json": {"entries": [], "total": 0, "nextPage": None},
     }
 
+    # T4.A — default connections mock (one Snowflake connection).
+    # Tests that need a specific connection shape can override via override_data.
+    api_vs_response["https://aws-api.sigmacomputing.com/v2/connections"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "connectionId": "conn-test-snowflake",
+                    "name": "Test Snowflake",
+                    "type": "snowflake",
+                    "host": "acme.snowflakecomputing.com",
+                    "account": "acme",
+                    "warehouse": "COMPUTE_WH",
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+
     api_vs_response.update(override_data)
 
     for url in api_vs_response:
@@ -5962,3 +5983,49 @@ def test_sigma_ingest_data_models_workspaceId_mismatch_uses_files(
     assert element_browse_paths_seen == 3, (
         f"expected BrowsePathsV2 for all 3 DM elements; got {element_browse_paths_seen}"
     )
+
+
+@pytest.mark.integration
+def test_sigma_connection_registry(pytestconfig, tmp_path, requests_mock):
+    """T4.A: verify connection registry builds from /v2/connections mock.
+
+    Asserts that connections_resolved > 0 in the run report and that no
+    existing CLL counters change (zero behavior change guarantee).
+    """
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-t4a-connection-registry-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/sigma_t4a_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    # T4.A acceptance gate: registry must have built and resolved at least one connection.
+    assert report.connection_registry_built == 1, (
+        "connection_registry_built should be 1 after successful registry build"
+    )
+    assert report.connections_resolved >= 1, (
+        f"connections_resolved should be >= 1; got {report.connections_resolved}"
+    )
+
+    # Zero behavior change: no existing CLL counters should have fired.
+    assert report.data_model_element_fgl_emitted == 0
+    assert report.chart_input_fields_resolved == 0
