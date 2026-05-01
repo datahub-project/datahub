@@ -44,7 +44,9 @@ def create_bundled_venv(
     constraints_path = os.path.join(venv_base_path, "constraints.txt")
     try:
         print("  → Creating venv...")
-        subprocess.run(["uv", "venv", venv_path], check=True, capture_output=True)
+        subprocess.run(
+            ["uv", "venv", "--clear", venv_path], check=True, capture_output=True
+        )
 
         print("  → Installing base packages...")
         base_cmd = f"source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools --constraint {constraints_path}"

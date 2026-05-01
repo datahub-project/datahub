@@ -1359,6 +1359,7 @@ module.exports = {
         "datahub-web-react/src/app/analytics/README",
         // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
+        "docs/docker/bundled-ingestion-venvs",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",
