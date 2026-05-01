@@ -651,8 +651,7 @@ public class AggregationQueryBuilder {
     originFacet.setAggregations(new LongMap(mergedCounts));
     originFacet.setFilterValues(mergedFilterValues);
     envFacet.setAggregations(new LongMap(mergedCounts));
-    envFacet.setFilterValues(
-        new FilterValueArray(SearchUtil.convertToFilters(mergedCounts, Collections.emptySet())));
+    envFacet.setFilterValues(mergedFilterValues);
   }
 
   private void processMissingAggregations(
