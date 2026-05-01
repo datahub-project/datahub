@@ -67,7 +67,7 @@ In addition, both the `By Tables` tab and the `Incidents` tab will apply your gl
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/view-applied.png"/>
 </p>
 
-## Data Observability Agent <span style={{ fontSize: '0.7em', verticalAlign: 'middle', padding: '2px 8px', borderRadius: '12px', background: '#f0e7ff', color: '#5b3aaa', fontWeight: 600 }}>Private Beta</span>
+## Data Observability Agent (Private Beta)
 
 The Data Observability Agent is an AI assistant embedded directly in the Data Health Dashboard. It helps you go from "I have a lot of tables and not enough monitors" to "the right checks are in place, and I know where to focus first" — without leaving the dashboard.
 
