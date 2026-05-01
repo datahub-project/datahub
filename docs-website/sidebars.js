@@ -190,6 +190,12 @@ module.exports = {
           ],
         },
         {
+          label: "Agents",
+          type: "doc",
+          id: "docs/features/feature-guides/agents",
+          className: "saasOnly",
+        },
+        {
           label: "Analytics Agent",
           type: "doc",
           id: "docs/features/feature-guides/analytics-agent",

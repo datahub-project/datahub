@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import (
@@ -898,6 +899,170 @@ class TestPaginatedRawEntries:
         assert entries == []
         assert not api.report.warnings
 
+
+class TestGetWorkbookColumnFormulas:
+    def test_collects_formulas_across_next_page(self) -> None:
+        api = _create_sigma_api()
+        responses = [
+            _paginated_response(
+                [
+                    {
+                        "elementId": "elem-1",
+                        "name": "col-a",
+                        "formula": "[Source/col-a]",
+                    }
+                ],
+                next_page=2,
+            ),
+            _paginated_response(
+                [
+                    {
+                        "elementId": "elem-2",
+                        "name": "col-b",
+                        "formula": "[Source/col-b]",
+                    }
+                ]
+            ),
+        ]
+
+        with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
+            formulas = api.get_workbook_column_formulas("wb-1")
+
+        assert formulas == {
+            "elem-1": {"col-a": "[Source/col-a]"},
+            "elem-2": {"col-b": "[Source/col-b]"},
+        }
+        assert "page=2" in mock_get.call_args_list[1].args[0]
+
+    def test_collects_formulas_across_next_page_token(self) -> None:
+        api = _create_sigma_api()
+        responses = [
+            _paginated_response(
+                [
+                    {
+                        "elementId": "elem-1",
+                        "name": "col-a",
+                        "formula": "[Source/col-a]",
+                    }
+                ],
+                next_page_token="tok&=2",
+            ),
+            _paginated_response(
+                [
+                    {
+                        "elementId": "elem-2",
+                        "name": "col-b",
+                        "formula": "[Source/col-b]",
+                    }
+                ]
+            ),
+        ]
+
+        with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
+            formulas = api.get_workbook_column_formulas("wb-1")
+
+        assert formulas == {
+            "elem-1": {"col-a": "[Source/col-a]"},
+            "elem-2": {"col-b": "[Source/col-b]"},
+        }
+        assert "nextPageToken=tok%26%3D2" in mock_get.call_args_list[1].args[0]
+
+    def test_404_returns_empty_without_warning(self) -> None:
+        api = _create_sigma_api()
+        empty_404 = MagicMock(status_code=404)
+
+        with patch.object(api, "_get_api_call", return_value=empty_404):
+            formulas = api.get_workbook_column_formulas("wb-1")
+
+        assert formulas == {}
+        assert not api.report.warnings
+
+    def test_mid_pagination_failure_preserves_partial_results_and_warns(self) -> None:
+        api = _create_sigma_api()
+        page_1 = _paginated_response(
+            [
+                {
+                    "elementId": "elem-1",
+                    "name": "col-a",
+                    "formula": "[Source/col-a]",
+                }
+            ],
+            next_page=2,
+        )
+        page_2 = MagicMock(status_code=500)
+        http_error = requests.HTTPError("server error")
+        http_error.response = page_2
+        page_2.raise_for_status.side_effect = http_error
+
+        with patch.object(api, "_get_api_call", side_effect=[page_1, page_2]):
+            formulas = api.get_workbook_column_formulas("wb-1")
+
+        assert formulas == {"elem-1": {"col-a": "[Source/col-a]"}}
+        assert any(
+            warning.title == "Sigma paginated endpoint aborted"
+            for warning in api.report.warnings
+        )
+
+
+class TestGetWorkbookPages:
+    def test_workbook_lineage_pattern_denied_skips_column_formula_fetch(self) -> None:
+        api = _create_sigma_api()
+        api.config.workbook_lineage_pattern = AllowDenyPattern(deny=[".*"])
+        workbook = Workbook(
+            workbookId="wb-1",
+            name="Denied Workbook",
+            ownerId="u",
+            createdBy="u",
+            updatedBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            url="https://sigma.example/wb",
+            path="Acryl Data/Denied Workbook",
+            latestVersion=1,
+        )
+        pages_response = MagicMock(status_code=200)
+        pages_response.json.return_value = {
+            "entries": [{"pageId": "page-1", "name": "Page 1"}]
+        }
+
+        with (
+            patch.object(api, "_get_api_call", return_value=pages_response),
+            patch.object(api, "get_page_elements", return_value=[]),
+            patch.object(api, "get_workbook_column_formulas") as mock_formulas,
+        ):
+            pages = api.get_workbook_pages(workbook)
+
+        assert len(pages) == 1
+        mock_formulas.assert_not_called()
+
+    def test_workbook_lineage_pattern_denied_passes_no_column_formulas(self) -> None:
+        api = _create_sigma_api()
+        api.config.workbook_lineage_pattern = AllowDenyPattern(deny=[".*"])
+        workbook = Workbook(
+            workbookId="wb-1",
+            name="Denied Workbook",
+            ownerId="u",
+            createdBy="u",
+            updatedBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            url="https://sigma.example/wb",
+            path="Acryl Data/Denied Workbook",
+            latestVersion=1,
+        )
+        pages_response = MagicMock(status_code=200)
+        pages_response.json.return_value = {
+            "entries": [{"pageId": "page-1", "name": "Page 1"}]
+        }
+
+        with (
+            patch.object(api, "_get_api_call", return_value=pages_response),
+            patch.object(api, "get_page_elements", return_value=[]) as mock_elements,
+        ):
+            api.get_workbook_pages(workbook)
+
+        assert mock_elements.call_args.kwargs["column_formulas_by_element"] is None
+
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every
         page of lineage, not just the first.
@@ -1621,6 +1786,7 @@ class TestChartInputsInsertionOrder:
                     all_input_fields=[],
                     paths=[],
                     elementId_to_chart_urn={},
+                    wb_element_index={},
                 )
             )
 

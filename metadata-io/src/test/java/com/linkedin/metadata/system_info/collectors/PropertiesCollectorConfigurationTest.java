@@ -989,6 +989,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.endpoint",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.model",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.local.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.local.model",
+          "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.efConstruction",
+          "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.m",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size",

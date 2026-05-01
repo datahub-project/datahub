@@ -1,8 +1,8 @@
-# full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via WOLFI_BASE_IMAGE.
+# full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via BASE_IMAGE.
 # The full variant has additional deps preinstalled, like a JRE and Oracle client.
 ARG APP_ENV=full
 ARG PYTHON_VERSION=3.11
-ARG WOLFI_BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
+ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base (Wolfi)
 # Stages:
@@ -10,7 +10,7 @@ ARG WOLFI_BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 # - ingestion-base-slim: LDAP/SASL/Kerberos, librdkafka, ODBC, etc.
 # - ingestion-base-full: JRE, build toolchain, Oracle Instant Client
 
-FROM ${WOLFI_BASE_IMAGE} AS python-base
+FROM ${BASE_IMAGE} AS python-base
 
 ENV HOME=/home/datahub
 USER root
@@ -86,11 +86,17 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
+COPY docker/snippets/setup_java_runtime.sh /tmp/setup_java_runtime_major.sh
+# JRE on PATH for layertools/builds; JAVA_MAJOR is read from setup_java_runtime.sh (same source as service images).
 # build-base pulls gcc (includes g++ driver), make, binutils, glibc-dev on Wolfi; there is no separate g++ apk.
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
-    apk add --no-cache --update-cache \
-    openjdk-21-jre \
-    build-base
+    JAVA_MAJOR=$(grep -E '^JAVA_MAJOR=[0-9]+$' /tmp/setup_java_runtime_major.sh | head -1 | cut -d= -f2) \
+    && test -n "${JAVA_MAJOR}" \
+    && apk add --no-cache --update-cache \
+    "openjdk-${JAVA_MAJOR}-jre" \
+    build-base \
+    && ln -sf "/usr/lib/jvm/java-${JAVA_MAJOR}-openjdk/bin/java" /usr/bin/java \
+    && rm -f /tmp/setup_java_runtime_major.sh
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
