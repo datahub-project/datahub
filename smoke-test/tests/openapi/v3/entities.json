@@ -176,8 +176,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['facets'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -233,8 +232,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['facets'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -310,6 +308,7 @@
                   "actor":"urn:li:corpuser:datahub"
                 },
                 "version":"1",
+                "schemaVersion": 1,
                 "properties": {
                   "eventSource":"OPENAPI"
                 }

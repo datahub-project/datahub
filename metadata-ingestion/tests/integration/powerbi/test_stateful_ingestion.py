@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional, cast
 from unittest import mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline
@@ -192,6 +192,7 @@ def default_source_config():
         "client_secret": "bar",
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
         "extract_lineage": False,
+        "extract_column_level_lineage": False,
         "extract_reports": False,
         "extract_ownership": False,
         "ownership": {
@@ -271,10 +272,15 @@ def ingest(pipeline_name, tmp_path, mock_datahub_graph):
         return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_stateful_ingestion(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+    mock_msal,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
+    mock_datahub_graph,
 ):
     register_mock_api_state1(request_mock=requests_mock)
     pipeline1 = ingest("run1", tmp_path, mock_datahub_graph)

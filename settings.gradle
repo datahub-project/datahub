@@ -1,3 +1,10 @@
+pluginManagement {
+  repositories {
+    gradlePluginPortal()
+    mavenCentral()
+  }
+}
+
 include 'datahub-web-react'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
@@ -31,9 +38,6 @@ include 'metadata-jobs:pe-consumer'
 include 'metadata-jobs:mae-consumer-job'
 include 'metadata-jobs:mce-consumer-job'
 include ':docker'
-include ':docker:elasticsearch-setup'
-include ':docker:mysql-setup'
-include ':docker:postgres-setup'
 include ':docker:datahub-ingestion'
 include ':docker:datahub-ingestion-base'
 include 'metadata-models'
@@ -51,7 +55,6 @@ include 'metadata-perf'
 include 'docs-website'
 include 'metadata-models-custom'
 include 'entity-registry:custom-test-model'
-include 'metadata-integration:java:spark-lineage-legacy'
 include 'metadata-integration:java:datahub-client'
 include 'metadata-integration:java:custom-plugin-lib'
 include 'metadata-integration:java:datahub-event'
@@ -82,16 +85,19 @@ include ':metadata-service:iceberg-catalog'
 include ':metadata-service:events-service'
 include ':datahub-actions'
 include ':datahub-agent-context'
+// CVE-patched fork of com.linkedin.avroutil1:helper-all (in-repo JAR; see build.gradle dependencySubstitution)
+include 'vendor:avroutil1-helper-all-fork'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');
+    def isCi = System.getenv('CI');
 
 
 
     remote(HttpBuildCache) {
         url = 'https://cache.depot.dev'
         enabled = depotSecret != null
-        push = true
+        push = isCi // Push only on CI. Local development only pulls
         credentials {
             username = ''
             password = depotSecret

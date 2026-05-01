@@ -9,6 +9,7 @@ import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
+import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
@@ -101,6 +102,7 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <GlobalStyles />
+                <ToastRenderer />
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

@@ -31,7 +31,7 @@ const SummaryTitle = styled(Typography.Title)`
     }
 `;
 
-export type IncidentsSummary = {
+type IncidentsSummary = {
     totalIncident: number;
     resolvedIncident: number;
     activeIncident: number;

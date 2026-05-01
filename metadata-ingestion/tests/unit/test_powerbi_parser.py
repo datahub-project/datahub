@@ -1,5 +1,4 @@
 import pytest
-from lark import Token, Tree
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
@@ -133,15 +132,25 @@ def test_athena_lineage_valid_three_level_hierarchy(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    # Mock argument list (Tree) with region
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-east-1"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -163,12 +172,16 @@ def test_athena_lineage_missing_server(athena_lineage):
     )
 
     # Empty argument list (no region)
-    arg_list: Tree = Tree("arg_list", [])
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {"kind": "ArrayWrapper", "elements": []},
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -179,14 +192,25 @@ def test_athena_lineage_missing_server(athena_lineage):
 
 def test_athena_lineage_missing_identifier_accessor(athena_lineage):
     """Test Athena lineage returns empty when identifier accessor is None."""
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-east-1"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=None,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -201,14 +225,25 @@ def test_athena_lineage_incomplete_hierarchy_missing_database(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=None
     )
 
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-west-2"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-west-2"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -225,14 +260,25 @@ def test_athena_lineage_incomplete_hierarchy_missing_table(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"eu-west-1"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"eu-west-1"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -252,14 +298,25 @@ def test_athena_lineage_malformed_items_missing_name_key(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-east-1"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -283,14 +340,25 @@ def test_athena_lineage_different_regions(athena_lineage):
             identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
         )
 
-        arg_list: Tree = Tree(
-            "arg_list", [Tree("string", [Token("STRING", f'"{region}"')])]
-        )
+        arg_list: dict = {
+            "kind": "InvokeExpression",
+            "content": {
+                "kind": "ArrayWrapper",
+                "elements": [
+                    {
+                        "kind": "LiteralExpression",
+                        "literalKind": "Text",
+                        "literal": f'"{region}"',
+                    }
+                ],
+            },
+        }
 
         data_access_func_detail = DataAccessFunctionDetail(
             arg_list=arg_list,
             data_access_function_name="AmazonAthena.Databases",
             identifier_accessor=catalog_accessor,
+            node_map={},
         )
 
         lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -322,14 +390,25 @@ def test_athena_custom_catalog_name(athena_lineage):
         identifier="catalog", items={"Name": "my_glue_catalog"}, next=db_accessor
     )
 
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-west-2"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-west-2"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -353,14 +432,25 @@ def test_athena_empty_database_name(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-east-1"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -381,14 +471,25 @@ def test_athena_empty_table_name(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-east-1"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)
@@ -409,14 +510,25 @@ def test_athena_whitespace_only_names(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list: Tree = Tree(
-        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
-    )
+    arg_list: dict = {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"us-east-1"',
+                }
+            ],
+        },
+    }
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
         data_access_function_name="AmazonAthena.Databases",
         identifier_accessor=catalog_accessor,
+        node_map={},
     )
 
     lineage = athena_lineage.create_lineage(data_access_func_detail)

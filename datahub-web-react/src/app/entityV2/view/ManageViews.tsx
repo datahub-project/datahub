@@ -1,4 +1,5 @@
-import { Button, PageTitle, Tabs, colors } from '@components';
+import { Button, PageTitle, Tabs } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -46,7 +47,7 @@ const ListContainer = styled.div`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow: auto;
 `;
 
@@ -113,7 +114,7 @@ export const ManageViews = () => {
                         id="create-new-view-button"
                         onClick={() => setShowViewBuilder(true)}
                         data-testid="create-new-view-button"
-                        icon={{ icon: 'Plus', source: 'phosphor' }}
+                        icon={{ icon: Plus }}
                         disabled={false}
                     >
                         Create View

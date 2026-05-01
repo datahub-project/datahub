@@ -104,9 +104,7 @@ export const SummaryTab = ({
                     Logs
                 </Heading>
                 <SectionSubHeader>
-                    <SubHeaderParagraph color="gray" colorLevel={600}>
-                        View logs that were collected during the sync.
-                    </SubHeaderParagraph>
+                    <SubHeaderParagraph>View logs that were collected during the sync.</SubHeaderParagraph>
                     <ButtonGroup>
                         <Button variant="text" onClick={() => onTabChange(TabType.Logs)}>
                             View All
@@ -130,7 +128,7 @@ export const SummaryTab = ({
                         Recipe
                     </Heading>
                     <SectionSubHeader>
-                        <SubHeaderParagraph color="gray" colorLevel={600}>
+                        <SubHeaderParagraph>
                             The configurations used for this sync with the data source.
                         </SubHeaderParagraph>
                         <ButtonGroup>

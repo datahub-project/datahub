@@ -1,5 +1,5 @@
 ---
-description: This page provides an overview of the Data Health Dashboard
+description: "Use the Data Health Dashboard in DataHub Cloud Observe to monitor assertion status, freshness, and data quality across assets."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -83,6 +83,8 @@ To create and manage Monitoring Rules, you must have the **`Manage Tests`** plat
 4. **Save the rule** — DataHub will automatically create Smart Assertions on all datasets that currently match the predicate.
 
 You can create and manage Monitoring Rules from the **Data Health Dashboard** by clicking the **Monitoring Rules** button.
+
+<div align="center"><iframe width="561" height="409" src="https://www.loom.com/embed/6b372ee252e840dbb504cc2561e88712" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
 ### Automatic Lifecycle Management
 

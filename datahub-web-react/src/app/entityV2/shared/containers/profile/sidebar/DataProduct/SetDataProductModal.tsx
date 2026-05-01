@@ -5,7 +5,6 @@ import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
@@ -37,7 +36,6 @@ interface Props {
     titleOverride?: string;
     onOkOverride?: (result: string) => void;
     setDataProducts?: (dataProducts: DataProduct[]) => void;
-    refetch?: () => void;
 }
 
 export default function SetDataProductModal({
@@ -47,11 +45,9 @@ export default function SetDataProductModal({
     titleOverride,
     onOkOverride,
     setDataProducts,
-    refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { reloadByKeyType } = useReloadableContext();
-    const { refetch: refetchEntity } = useEntityContext();
+    const { reloadByKeyType, bypassCacheForUrn } = useReloadableContext();
     const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchAddToDataProductsMutation] = useBatchAddToDataProductsMutation();
@@ -113,11 +109,10 @@ export default function SetDataProductModal({
         sendAnalytics();
         onModalClose();
         setSelectedDataProducts([]);
-        setTimeout(() => {
-            refetch?.();
-            refetchEntity?.();
-            reloadByKeyType([getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)]);
-        }, 3000);
+        urns.forEach((urn) => {
+            bypassCacheForUrn(urn);
+        });
+        reloadByKeyType([getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)], 3000);
     };
 
     const handleMutationError = (e: any, errorMessage: string) => {

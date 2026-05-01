@@ -5,8 +5,8 @@ import { EntitySidebar } from '@app/entity/shared/containers/profile/sidebar/Ent
 import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import { EntitySidebarSection } from '@app/entity/shared/types';
 
-export const MAX_SIDEBAR_WIDTH = 800;
-export const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 800;
+const MIN_SIDEBAR_WIDTH = 200;
 
 const Sidebar = styled.div<{ $width: number; backgroundColor?: string }>`
     max-height: 100%;

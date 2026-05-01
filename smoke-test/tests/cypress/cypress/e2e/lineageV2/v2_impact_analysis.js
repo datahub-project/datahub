@@ -22,7 +22,6 @@ const startAtDataSetLineage = () => {
 
 describe("impact analysis", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 

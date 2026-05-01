@@ -14,15 +14,15 @@ const Container = styled.div`
     justify-content: space-between;
     align-items: start;
     padding: 20px 24px;
-    border-bottom: 1px solid #f0f0f0;
-    background-color: #fff;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const NavBar = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const Status = styled.div``;

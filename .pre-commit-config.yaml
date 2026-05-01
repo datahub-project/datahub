@@ -216,12 +216,6 @@ repos:
         files: ^metadata-integration/java/openlineage-converter/.*\.java$
         pass_filenames: false
 
-      - id: metadata-integration-java-spark-lineage-legacy-spotless
-        name: metadata-integration/java/spark-lineage-legacy Spotless Apply
-        entry: ./gradlew :metadata-integration:java:spark-lineage-legacy:spotlessApply
-          -x generateGitPropertiesGlobal
-        language: system
-        files: ^metadata-integration/java/spark-lineage-legacy/.*\.java$
         pass_filenames: false
 
       - id: metadata-io-spotless
@@ -563,3 +557,11 @@ repos:
           - yaml
         files: ^\.github/workflows/
         entry: docker.io/rhysd/actionlint:1.7.11
+
+      - id: datahub-web-react-lint
+        name: Lint datahub-web-react
+        description: Runs lint on files in datahub-web-react
+        language: system
+        pass_filenames: false
+        files: ^datahub-web-react/.*\.(ts|tsx|js)$
+        entry: ./gradlew :datahub-web-react:lintFix

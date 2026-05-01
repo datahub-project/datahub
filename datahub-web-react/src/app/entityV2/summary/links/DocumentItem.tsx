@@ -1,4 +1,5 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,7 +15,7 @@ const DocumentContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
     cursor: pointer;
@@ -56,7 +57,7 @@ export default function DocumentItem({ document, onClick }: Props) {
     return (
         <DocumentContainer onClick={handleClick} data-testid={`${document.urn}-${title}`}>
             <LeftSection>
-                <Icon icon="FileText" source="phosphor" color="primary" size="lg" />
+                <Icon icon={FileText} color="primary" size="lg" />
                 <Text
                     style={{
                         overflow: 'hidden',

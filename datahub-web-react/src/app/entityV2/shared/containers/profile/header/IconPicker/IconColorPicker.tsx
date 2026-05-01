@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { Input } from 'antd';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';
@@ -41,8 +42,9 @@ const IconColorPicker: React.FC<IconColorPickerProps> = ({
     const refetch = useRefetch();
     const { urn } = useEntityData();
     const [updateDisplayProperties] = useUpdateDisplayPropertiesMutation();
+    const theme = useTheme();
 
-    const [stagedColor, setStagedColor] = React.useState<string>(color || '#000000');
+    const [stagedColor, setStagedColor] = React.useState<string>(color || theme.colors.colorPickerDefault);
     const [stagedIcon, setStagedIcon] = React.useState<string>(icon || 'account_circle');
 
     return (

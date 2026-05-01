@@ -9,6 +9,8 @@ public class ConsumerConfiguration {
   private int maxPartitionFetchBytes;
   private boolean stopOnDeserializationError;
   private boolean healthCheckEnabled;
+  private int authExceptionRetryIntervalSeconds;
+  private int maxAuthExceptionRetries;
 
   private ConsumerOptions mcp;
   private ConsumerOptions mcl;

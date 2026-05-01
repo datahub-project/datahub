@@ -14,22 +14,29 @@ import com.deblock.jsondiff.viewer.PatchDiffViewer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
@@ -62,6 +69,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -92,6 +100,7 @@ public class ElasticsearchController {
   private final EntityService<?> entityService;
   private final ObjectMapper objectMapper;
   private final ESSearchDAO esSearchDAO;
+  private final Urn incrementalReindexUpgradeUrn;
 
   public ElasticsearchController(
       OperationContext systemOperationContext,
@@ -100,7 +109,9 @@ public class ElasticsearchController {
       EntitySearchService searchService,
       EntityService<?> entityService,
       AuthorizerChain authorizerChain,
-      ESSearchDAO esSearchDAO) {
+      ESSearchDAO esSearchDAO,
+      GitVersion gitVersion,
+      @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
     this.systemOperationContext = systemOperationContext;
     this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;
@@ -109,6 +120,11 @@ public class ElasticsearchController {
     this.entityService = entityService;
     this.objectMapper = systemOperationContext.getObjectMapper();
     this.esSearchDAO = esSearchDAO;
+    this.incrementalReindexUpgradeUrn =
+        BootstrapStep.getUpgradeUrn(
+            IncrementalReindexState.UPGRADE_ID_PREFIX
+                + "_"
+                + String.format("%s-%s", gitVersion.getVersion(), revision));
   }
 
   @InitBinder
@@ -964,6 +980,103 @@ public class ElasticsearchController {
                 aspectNames,
                 batchSize,
                 createDefaultAspects)));
+  }
+
+  @Tag(
+      name = "ElasticSearch Operations",
+      description = "An API for managing your elasticsearch instance")
+  @PostMapping(
+      path = "/incrementalReindex/entity/{entityName}/dualWrite/disable",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(
+      summary = "Disable rollback dual-write (incremental reindex)",
+      description =
+          "Marks the index for the given entity as DUAL_WRITE_DISABLED in Phase 1 upgrade state"
+              + " so the MAE consumer stops dual-writing to the old backing index. Call this after"
+              + " confirming that rollback to the previous version is no longer needed. The alias"
+              + " swap itself happens during Phase 1 (blocking system update).")
+  public ResponseEntity<String> disableDualWriteForEntity(
+      HttpServletRequest request, @PathVariable("entityName") @Nonnull String entityName) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "disableDualWriteForEntity", List.of()),
+            authorizerChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN)
+          .body(actorUrnStr + " is not authorized to disable dual-write");
+    }
+
+    try {
+      String indexName =
+          opContext.getSearchContext().getIndexConvention().getEntityIndexName(entityName);
+      Optional<DataHubUpgradeResult> phase1 =
+          BootstrapStep.getUpgradeResult(opContext, incrementalReindexUpgradeUrn, entityService);
+      if (phase1.isEmpty() || phase1.get().getResult() == null) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(
+                new JSONObject()
+                    .put("success", false)
+                    .put(
+                        "message",
+                        "No Phase 1 incremental reindex state for entity '" + entityName + "'")
+                    .toString());
+      }
+      Map<String, String> result = phase1.get().getResult();
+      String statusStr =
+          result.get(IncrementalReindexState.key(indexName, IncrementalReindexState.STATUS));
+
+      if (IncrementalReindexState.Status.DUAL_WRITE_DISABLED.name().equals(statusStr)) {
+        return ResponseEntity.ok(
+            new JSONObject()
+                .put("success", true)
+                .put("message", "Dual-write already disabled for index " + indexName)
+                .toString());
+      }
+
+      if (statusStr == null || !IncrementalReindexState.Status.COMPLETED.name().equals(statusStr)) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(
+                new JSONObject()
+                    .put("success", false)
+                    .put(
+                        "message",
+                        "Entity '"
+                            + entityName
+                            + "' (index "
+                            + indexName
+                            + ") is not in COMPLETED state")
+                    .toString());
+      }
+
+      DataHubUpgradeState phaseState = phase1.get().getState();
+      DataHubUpgradeResultConditionalPersist.mergeAndPersist(
+          opContext,
+          entityService,
+          incrementalReindexUpgradeUrn,
+          IncrementalReindexState.persistDualWriteDisabledMerge(indexName, phaseState));
+
+      return ResponseEntity.ok(
+          new JSONObject()
+              .put("success", true)
+              .put("message", "Dual-write disabled for index " + indexName)
+              .toString());
+    } catch (Exception e) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(
+              new JSONObject()
+                  .put("success", false)
+                  .put("message", "Failed to disable dual-write: " + e.getMessage())
+                  .toString());
+    }
   }
 
   @Nullable

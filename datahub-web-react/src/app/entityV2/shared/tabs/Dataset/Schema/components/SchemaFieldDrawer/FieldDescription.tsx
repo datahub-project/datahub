@@ -1,7 +1,6 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { message } from 'antd';
+import { Icon, Tooltip, toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -11,7 +10,6 @@ import { sanitizeRichText } from '@components/components/Editor/utils';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -27,28 +25,17 @@ import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '@types';
 const AddNewDescription = styled.div`
     margin: 0px;
     padding: 0px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
-    }
-`;
-
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 10px;
-        margin-right: 8px;
+        color: ${(props) => props.theme.colors.textBrand};
     }
 `;
 
 const AddDescriptionText = styled.span`
-    color: ${REDESIGN_COLORS.DARK_GREY};
     font-size: 12px;
     font-weight: 500;
     line-height: 16px;
-    :hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
-    }
 `;
 
 const DescriptionWrapper = styled.div`
@@ -89,13 +76,13 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
     const onSuccessfulMutation = () => {
         refresh();
         sendAnalytics();
-        message.destroy();
-        message.success({ content: 'Updated!', duration: 2 });
+        toast.destroy();
+        toast.success('Updated!', { duration: 2 });
     };
 
     const onFailMutation = (e) => {
-        message.destroy();
-        if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });
+        toast.destroy();
+        if (e instanceof Error) toast.error(`Proposal Failed! \n ${e.message || ''}`, { duration: 2 });
     };
     const onClose = () => {
         setIsModalVisible(false);
@@ -134,7 +121,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
                                 e.stopPropagation();
                                 setIsModalVisible(true);
                             }}
-                            button={<EditOutlinedIcon />}
+                            icon={PencilSimple}
                         />
                     )
                 }
@@ -147,7 +134,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
                                         setIsModalVisible(true);
                                     }}
                                 >
-                                    <StyledPlusOutlined />
+                                    <Icon icon={Plus} size="sm" />
                                     <AddDescriptionText>Add Description</AddDescriptionText>
                                 </AddNewDescription>,
                             ]}
@@ -173,7 +160,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
                     propagatedDescription={propagatedDescription || ''}
                     onClose={onClose}
                     onSubmit={(updatedDescription: string) => {
-                        message.loading({ content: 'Updating...' });
+                        toast.loading('Updating...');
                         updateDescription(generateMutationVariables(updatedDescription))
                             .then(onSuccessfulMutation)
                             .catch(onFailMutation);

@@ -3,6 +3,9 @@
 This module provides utilities for building LangChain tools from DataHub MCP tools.
 """
 
-from datahub_agent_context.langchain_tools.builder import build_langchain_tools
+from datahub_agent_context.langchain_tools.builder import (
+    build_langchain_cloud_tools,
+    build_langchain_tools,
+)
 
-__all__ = ["build_langchain_tools"]
+__all__ = ["build_langchain_tools", "build_langchain_cloud_tools"]

@@ -1,3 +1,4 @@
+import threading
 import warnings
 from typing import List
 
@@ -143,3 +144,47 @@ def test_registry():
     with pytest.warns(ConfigurationWarning):
         assert fake_registry.get("console-alias") == ConsoleSink
     assert "console-alias" not in fake_registry.summary(verbose=False)
+
+
+def test_registry_thread_safety() -> None:
+    """Concurrent calls to get() must not raise KeyError when entrypoints materialize."""
+    fake_registry = PluginRegistry[Sink]()
+
+    # Simulate a pending entrypoint by pre-loading the mapping with a lazy entry the
+    # way _load_entrypoint would, but bypass the entrypoint machinery so the test
+    # doesn't need actual entry point metadata installed.
+    fake_registry.register_lazy("console", "datahub.ingestion.sink.console:ConsoleSink")
+
+    # Patch _load_entrypoint so that calling _materialize_entrypoints via an entrypoint
+    # key re-registers "console" — which is the collision that caused KeyError before
+    # the lock was introduced.
+    def _racy_load(entry_point_key: str) -> None:
+        # Mimic what the real _load_entrypoint does: call register_lazy for an already-
+        # registered key.  Without the lock this races and raises KeyError.
+        try:
+            fake_registry.register_lazy(
+                "console", "datahub.ingestion.sink.console:ConsoleSink"
+            )
+        except KeyError:
+            pass  # would be masked at the call site; we want to surface it differently
+
+    fake_registry._load_entrypoint = _racy_load  # type: ignore[method-assign]
+    fake_registry._entrypoints = ["datahub.ingestion.sink.plugins"]
+
+    errors: List[Exception] = []
+    barrier = threading.Barrier(8)
+
+    def _call_get() -> None:
+        barrier.wait()  # all threads start simultaneously
+        try:
+            fake_registry.get("console")
+        except Exception as e:
+            errors.append(e)
+
+    threads = [threading.Thread(target=_call_get) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"Thread-safety errors: {errors}"

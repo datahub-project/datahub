@@ -27,9 +27,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import (
     ClientMode,
     DataHubGraph,
-    RelatedEntity,
     get_default_graph,
 )
+from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,
@@ -253,7 +253,11 @@ def dataplatform2instance_func(
                 relationshipType, entity_type
             )
             aspect_map = cli_utils.get_aspects_for_entity(
-                graph._session, graph.config.server, target_urn, aspects=[aspect_name]
+                graph._session,
+                graph.config.server,
+                target_urn,
+                aspects=[aspect_name],
+                typed=True,
             )
             if aspect_name in aspect_map:
                 aspect = aspect_map[aspect_name]

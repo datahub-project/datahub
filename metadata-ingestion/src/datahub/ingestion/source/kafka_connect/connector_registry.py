@@ -23,9 +23,9 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
     get_platform_instance,
 )
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 if TYPE_CHECKING:
-    from datahub.ingestion.api.common import PipelineContext
     from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
@@ -41,35 +41,28 @@ class ConnectorRegistry:
 
     @staticmethod
     def create_schema_resolver(
-        ctx: Optional["PipelineContext"],
         config: KafkaConnectSourceConfig,
         connector: BaseConnector,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
     ) -> Optional["SchemaResolver"]:
         """
         Create SchemaResolver for enhanced lineage extraction if enabled.
 
         Args:
-            ctx: Pipeline context (contains graph connection)
             config: Kafka Connect source configuration
             connector: Connector instance to get platform from
+            schema_resolver_provider: Pre-configured provider for bulk-fetching schemas
 
         Returns:
-            SchemaResolver instance if feature is enabled and graph is available, None otherwise
+            SchemaResolver instance if feature is enabled and provider is available, None otherwise
         """
         if not config.use_schema_resolver:
             return None
 
-        if not ctx:
-            logger.debug(
-                f"SchemaResolver not available for connector {connector.connector_manifest.name}: "
-                "PipelineContext is None"
-            )
-            return None
-
-        if not ctx.graph:
+        if not schema_resolver_provider:
             logger.warning(
                 f"SchemaResolver not available for connector {connector.connector_manifest.name}: "
-                "DataHub graph connection is not available. Make sure the ingestion is running with "
+                "No SchemaResolverProvider configured. Make sure the ingestion is running with "
                 "a valid DataHub connection (datahub_api or sink configuration)."
             )
             return None
@@ -88,10 +81,7 @@ class ConnectorRegistry:
                 f"with platform={platform}, platform_instance={platform_instance}, env={config.env}"
             )
 
-            # Use initialize_schema_resolver_from_datahub to create and populate the cache
-            # This pre-fetches all schema metadata from DataHub for the given platform/env
-            # Similar to BigQuery's approach for schema resolution
-            return ctx.graph.initialize_schema_resolver_from_datahub(
+            return schema_resolver_provider.get(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=config.env,
@@ -99,7 +89,8 @@ class ConnectorRegistry:
         except Exception as e:
             logger.warning(
                 f"Failed to create SchemaResolver for connector {connector.connector_manifest.name}: {e}. "
-                "Falling back to standard lineage extraction."
+                "Falling back to standard lineage extraction.",
+                exc_info=True,
             )
             return None
 
@@ -108,7 +99,7 @@ class ConnectorRegistry:
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
-        ctx: Optional["PipelineContext"] = None,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
     ) -> Optional[BaseConnector]:
         """
         Get the appropriate connector instance for a manifest.
@@ -117,7 +108,7 @@ class ConnectorRegistry:
             manifest: The connector manifest
             config: DataHub configuration
             report: Ingestion report
-            ctx: Pipeline context (optional, for schema resolver)
+            schema_resolver_provider: Pre-configured provider for bulk-fetching schemas
 
         Returns:
             Connector instance or None if no handler found
@@ -153,7 +144,7 @@ class ConnectorRegistry:
 
             # Create and attach schema resolver using connector's platform
             schema_resolver = ConnectorRegistry.create_schema_resolver(
-                ctx, config, connector
+                config, connector, schema_resolver_provider
             )
             if schema_resolver:
                 connector.schema_resolver = schema_resolver
@@ -214,11 +205,13 @@ class ConnectorRegistry:
         """Get appropriate sink connector implementation."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
             BIGQUERY_SINK_CONNECTOR_CLASS,
+            CLICKHOUSE_SINK_CONNECTOR_CLASS,
             CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
             DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
             S3_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
+            ClickHouseSinkConnector,
             ConfluentS3SinkConnector,
             JdbcSinkConnector,
             SnowflakeSinkConnector,
@@ -245,6 +238,9 @@ class ConnectorRegistry:
             return JdbcSinkConnector(manifest, config, report, platform="postgres")
         elif connector_class_value == MYSQL_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="mysql")
+        # ClickHouse sink connector
+        elif connector_class_value == CLICKHOUSE_SINK_CONNECTOR_CLASS:
+            return ClickHouseSinkConnector(manifest, config, report)
         # Self-hosted JDBC sink connectors — platform auto-detected from connection.url
         elif connector_class_value in (
             DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
@@ -259,7 +255,7 @@ class ConnectorRegistry:
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
-        ctx: Optional["PipelineContext"] = None,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
     ) -> List[str]:
         """Extract topics from config using the appropriate connector."""
         logger.debug(
@@ -268,7 +264,7 @@ class ConnectorRegistry:
         )
 
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report, ctx
+            manifest, config, report, schema_resolver_provider
         )
         if connector:
             logger.debug(

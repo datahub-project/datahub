@@ -1,21 +1,13 @@
 import _ from 'lodash';
+import { DefaultTheme } from 'styled-components';
 
-import {
-    AssertionChartType,
-    AssertionDataPoint,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
+import { AssertionResultType } from '@types';
 
-import { AssertionInfo, AssertionResultType, AssertionType, Maybe } from '@types';
-
-export const ACCENT_COLOR_HEX = '#222222';
-export const EXTRA_HIGHLIGHT_COLOR_HEX = '#4050E7';
-export const SUCCESS_COLOR_HEX = '#52C41A';
-export const FAILURE_COLOR_HEX = '#F5222D';
-export const ERROR_COLOR_HEX = '#FAAD14';
-export const INIT_COLOR_HEX = '#8C8C8C';
-export const EXPECTED_RANGE_SHADE_COLOR = '#11d469';
-
-export const getFillColor = (type: AssertionResultType) => {
+export const getFillColor = (type: AssertionResultType, theme: DefaultTheme) => {
+    const SUCCESS_COLOR_HEX = theme.colors.iconSuccess;
+    const FAILURE_COLOR_HEX = theme.colors.iconError;
+    const ERROR_COLOR_HEX = theme.colors.iconWarning;
+    const INIT_COLOR_HEX = theme.colors.textTertiary;
     switch (type) {
         case AssertionResultType.Success:
             return SUCCESS_COLOR_HEX;
@@ -29,16 +21,6 @@ export const getFillColor = (type: AssertionResultType) => {
             throw new Error(`Unsupported Assertion Result Type ${type} provided.`);
     }
 };
-
-/**
- * For now we're keeping it simple by only showing the range of values being displayed on the chart
- * @param minY
- * @param maxY
- * @returns {number[]}
- */
-export function generateYScaleTickValues(minY: number, maxY: number): number[] {
-    return [minY, maxY];
-}
 
 export function generateTimeScaleTickValues(startMs: number, endMs: number): Date[] {
     const ticks: Date[] = [];
@@ -108,40 +90,3 @@ export function getCustomTimeScaleTickValue(v, timeRange) {
     // Format as month and day if the range is more than one day
     return v.toLocaleDateString('en-us', { month: 'short', day: 'numeric' });
 }
-
-export const getBestChartTypeForAssertion = (
-    assertionInfo?: AssertionInfo | Maybe<AssertionInfo>,
-): AssertionChartType => {
-    switch (assertionInfo?.type) {
-        case AssertionType.Freshness:
-            return AssertionChartType.Freshness;
-        case AssertionType.Field:
-            return AssertionChartType.ValuesOverTime;
-        case AssertionType.Sql:
-            return AssertionChartType.ValuesOverTime;
-        case AssertionType.Volume:
-            return AssertionChartType.ValuesOverTime;
-        default:
-            break;
-    }
-    return AssertionChartType.StatusOverTime; // safest catch-all fallback
-};
-
-/**
- * Duplicates a datapoint with +- a certain amount of buffer on the timestamp
- * Useful to extend a line with some buffer to the left and right
- * @param dataPoint
- * @param timestampMillisModifiers
- * @returns {AssertionDataPoint[]}
- */
-export const duplicateDataPointsAcrossBufferedTimeRange = (
-    dataPoint: AssertionDataPoint,
-    timestampMillisBuffer: number,
-): AssertionDataPoint[] => {
-    const timestampMillisModifiers = [-timestampMillisBuffer, 0, timestampMillisBuffer];
-    const points: AssertionDataPoint[] = timestampMillisModifiers.map((tsModifier) => ({
-        ...dataPoint,
-        time: dataPoint.time + tsModifier,
-    }));
-    return points;
-};

@@ -1,11 +1,11 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import OwnersSection from '@app/domainV2/OwnersSection';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
@@ -18,21 +18,9 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({
-    state,
-    updateState,
-    prev,
-    submit,
-    sourceRefetch,
-    isEditing,
-    selectedSource,
-}: StepProps) => {
-    const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-
-    useEffect(() => {
-        setExistingOwners(selectedSource?.ownership?.owners || []);
-    }, [selectedSource?.ownership?.owners]);
+export const NameSourceStep = ({ state, updateState, prev, submit, selectedSource }: StepProps) => {
+    const existingOwnerUrns = (selectedSource?.ownership?.owners || []).map((o) => o.owner.urn);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(existingOwnerUrns);
 
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
@@ -42,10 +30,12 @@ export const NameSourceStep = ({
         updateState(newState);
     };
 
-    const setOwners = (newOwners: PendingOwner[]) => {
+    const handleOwnerUrnsChange = (urns: string[]) => {
+        setSelectedOwnerUrns(urns);
+        const newUrns = urns.filter((urn) => !existingOwnerUrns.includes(urn));
         const newState: SourceBuilderState = {
             ...state,
-            owners: newOwners,
+            owners: newUrns,
         };
         updateState(newState);
     };
@@ -193,14 +183,7 @@ export const NameSourceStep = ({
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
-                <OwnersSection
-                    selectedOwnerUrns={selectedOwnerUrns}
-                    setSelectedOwnerUrns={setSelectedOwnerUrns}
-                    existingOwners={existingOwners}
-                    onChange={setOwners}
-                    sourceRefetch={sourceRefetch}
-                    isEditForm={isEditing}
-                />
+                <OwnersSection selectedOwnerUrns={selectedOwnerUrns} setSelectedOwnerUrns={handleOwnerUrnsChange} />
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         {/* NOTE: Executor ID is OSS-only, used by actions pod */}

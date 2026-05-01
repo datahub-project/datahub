@@ -1,0 +1,10 @@
+source:
+  type: confluence
+  config:
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@example.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+sink:
+  # sink configs

@@ -1,3 +1,7 @@
+---
+description: "Send Great Expectations assertion results to DataHub using the DataHubValidationAction and the Python REST emitter integration."
+---
+
 # Great Expectations
 
 This guide helps to setup and configure `DataHubValidationAction` in Great Expectations to send assertions(expectations) and their results to DataHub using DataHub's Python Rest emitter.

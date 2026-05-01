@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 
 import com.codahale.metrics.MetricRegistry;
@@ -679,6 +680,79 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return exp;
   }
 
+  @Override
+  @Nonnull
+  public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+      @Nonnull Map<String, Long> aspectTargetVersions,
+      long afterCreatedOnMs,
+      int batchSize,
+      int limit) {
+    validateConnection();
+
+    // Only include aspects whose target version is above the default — nothing to migrate
+    // otherwise.
+    Map<String, Long> versionedAspects =
+        aspectTargetVersions.entrySet().stream()
+            .filter(e -> e.getValue() > DEFAULT_SCHEMA_VERSION)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    if (versionedAspects.isEmpty()) {
+      return PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build();
+    }
+
+    // Build: OR over aspects of (aspect = X AND schemaVersion != targetVersion(X))
+    // "not at target" means: schemaVersion key is absent, OR its value != target.
+    ExpressionList<EbeanAspectV2> base =
+        server
+            .find(EbeanAspectV2.class)
+            .select(EbeanAspectV2.ALL_COLUMNS)
+            .where()
+            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+
+    if (afterCreatedOnMs > 0) {
+      base =
+          base.ge(
+              EbeanAspectV2.CREATED_ON_COLUMN,
+              Timestamp.from(Instant.ofEpochMilli(afterCreatedOnMs)));
+    }
+
+    // Use LIKE-based raw() rather than Ebean's jsonEqualTo() / jsonNotEqualTo(): jsonEqualTo() on
+    // Postgres generates "(col ->> 'key')::bigint = ?" where the bind parameter is untyped, causing
+    // "operator does not exist: bigint = unknown" at runtime. NOT LIKE on the serialised JSON
+    // is DB-agnostic; schemaVersion values are small integers that cannot collide with other
+    // JSON key or value substrings (the key name "schemaVersion" is controlled by us).
+    final io.ebean.Junction<EbeanAspectV2> aspectOr = base.or();
+    for (Map.Entry<String, Long> entry : versionedAspects.entrySet()) {
+      long target = entry.getValue();
+      // Per-aspect: (aspect = X) AND (schemaVersion absent OR schemaVersion != target)
+      aspectOr
+          .and()
+          .eq(EbeanAspectV2.ASPECT_COLUMN, entry.getKey())
+          .or()
+          .raw(
+              "("
+                  + EbeanAspectV2.SYSTEM_METADATA_COLUMN
+                  + " IS NULL OR "
+                  + EbeanAspectV2.SYSTEM_METADATA_COLUMN
+                  + " NOT LIKE '%\"schemaVersion\"%')")
+          .raw(
+              EbeanAspectV2.SYSTEM_METADATA_COLUMN + " NOT LIKE ?",
+              "%" + "\"schemaVersion\":" + target + "%")
+          .endOr()
+          .endAnd();
+    }
+
+    ExpressionList<EbeanAspectV2> exp = aspectOr.endOr();
+
+    if (limit > 0) {
+      exp = exp.setMaxRows(limit);
+    }
+
+    Stream<EbeanAspectV2> stream = exp.orderBy().asc(EbeanAspectV2.CREATED_ON_COLUMN).findStream();
+
+    return PartitionedStream.<EbeanAspectV2>builder().delegateStream(stream).build();
+  }
+
   /**
    * Warning the stream must be closed
    *
@@ -931,13 +1005,34 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
-    for (EbeanAspectV2.PrimaryKey key : dbResults) {
-      if (result.get(key.getUrn()).get(key.getAspect()) <= key.getVersion()) {
-        result.get(key.getUrn()).put(key.getAspect(), key.getVersion() + 1L);
-      }
-    }
+    mergeNextVersionsFromDb(result, dbResults);
 
     return result;
+  }
+
+  /**
+   * Merges DB max-version results into the request-keyed result map. Package-private for testing.
+   */
+  static void mergeNextVersionsFromDb(
+      Map<String, Map<String, Long>> result, List<EbeanAspectV2.PrimaryKey> dbResults) {
+    for (EbeanAspectV2.PrimaryKey key : dbResults) {
+      try {
+        if (result.get(key.getUrn()).get(key.getAspect()) <= key.getVersion()) {
+          result.get(key.getUrn()).put(key.getAspect(), key.getVersion() + 1L);
+        }
+      } catch (NullPointerException e) {
+        throw new IllegalStateException(
+            "URN or aspect from database did not match request keys (urn=\""
+                + key.getUrn()
+                + "\", aspect=\""
+                + key.getAspect()
+                + "\"). "
+                + "Possible cause: MySQL database/table created with different charset or collation "
+                + "than mysql-setup (ensure CHARACTER SET utf8mb4 COLLATE utf8mb4_bin). "
+                + "Create schema via docker/mysql-setup or datahub-upgrade SqlSetup with aligned DDL.",
+            e);
+      }
+    }
   }
 
   @Nonnull

@@ -104,14 +104,83 @@ module.exports = {
           },
           items: [
             {
-              label: "Langchain",
+              label: "DataHub Skills",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/skills",
+            },
+            {
+              label: "Snowflake",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Cortex Agents",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/snowflake",
+                },
+                {
+                  label: "Cortex Code",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/snowflake-cortex-code",
+                },
+              ],
+            },
+            {
+              label: "Google",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Gemini CLI",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/gemini-cli",
+                },
+                {
+                  label: "Agent Development Kit (ADK)",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/google-adk",
+                },
+                {
+                  label: "Vertex AI",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/google-vertex-ai",
+                },
+              ],
+            },
+            {
+              label: "Databricks",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Genie Code",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/databricks-genie-code",
+                },
+                {
+                  label: "Agent Bricks",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/databricks-agent-bricks",
+                },
+              ],
+            },
+            {
+              label: "LangChain",
               type: "doc",
               id: "docs/dev-guides/agent-context/langchain",
             },
             {
-              label: "Snowflake",
+              label: "Cursor",
               type: "doc",
-              id: "docs/dev-guides/agent-context/snowflake",
+              id: "docs/dev-guides/agent-context/cursor",
+            },
+            {
+              label: "Claude",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/claude",
             },
             {
               label: "Microsoft Copilot Studio",
@@ -119,6 +188,17 @@ module.exports = {
               id: "docs/dev-guides/agent-context/copilot-studio",
             },
           ],
+        },
+        {
+          label: "Agents",
+          type: "doc",
+          id: "docs/features/feature-guides/agents",
+          className: "saasOnly",
+        },
+        {
+          label: "Analytics Agent",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-agent",
         },
         {
           label: "Assertions (Data Quality)",
@@ -164,6 +244,12 @@ module.exports = {
               label: "Smart Assertions ⚡ (Anomaly Detection)",
               type: "doc",
               id: "docs/managed-datahub/observe/smart-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Backfill Assertion History",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-backfill",
               className: "saasOnly",
             },
             {
@@ -244,12 +330,6 @@ module.exports = {
               label: "Snowflake Tag Sync",
               type: "doc",
               id: "docs/automations/snowflake-tag-propagation",
-              className: "saasOnly",
-            },
-            {
-              label: "AI Classification",
-              type: "doc",
-              id: "docs/automations/ai-term-suggestion",
               className: "saasOnly",
             },
             {
@@ -472,6 +552,11 @@ module.exports = {
           type: "doc",
           id: "docs/tags",
         },
+        {
+          label: "Views",
+          type: "doc",
+          id: "docs/features/feature-guides/views/overview",
+        },
       ],
     },
     // DataHub Cloud.
@@ -604,6 +689,8 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_1_0_0",
+        "docs/managed-datahub/release-notes/v_0_3_17",
         "docs/managed-datahub/release-notes/v_0_3_16",
         "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
@@ -719,7 +806,7 @@ module.exports = {
           ],
         },
         {
-          PowerBI: [
+          "Power BI": [
             "docs/quick-ingestion-guides/powerbi/overview",
             "docs/quick-ingestion-guides/powerbi/setup",
             "docs/quick-ingestion-guides/powerbi/configuration",
@@ -763,7 +850,6 @@ module.exports = {
         //"docker/airflow/local_airflow",
         "metadata-ingestion/integration_docs/great-expectations",
         "metadata-integration/java/datahub-protobuf/README",
-        //"metadata-integration/java/spark-lineage-legacy/README",
         //"metadata-ingestion/source-docs-template",
         {
           type: "autogenerated",
@@ -1040,10 +1126,11 @@ module.exports = {
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
       items: [
-        "docs/cli-commands/dataset",
-        "docs/cli-commands/graphql",
-        "docs/cli-commands/search",
-        "docs/datahub_lite",
+        { type: "doc", id: "docs/cli-commands/search", label: "search" },
+        { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
+        { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
+        { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },
     {

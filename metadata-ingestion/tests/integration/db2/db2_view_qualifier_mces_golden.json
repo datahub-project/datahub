@@ -562,7 +562,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:db2,TESTDB.QUALIFIER_TARGET.MYTABLE,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.QUALIFIER_TEST.MYVIEW%2CPROD%29"
+                    "query": "urn:li:query:view_90e9a87c579c8aefc98b8457267ba6054c878bca285e152ab9bead8f3dede275"
                 }
             ],
             "fineGrainedLineages": [
@@ -577,7 +577,7 @@
                     ],
                     "transformOperation": "COPY: \"MYTABLE\".\"ID\" AS \"ID\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.QUALIFIER_TEST.MYVIEW%2CPROD%29"
+                    "query": "urn:li:query:view_90e9a87c579c8aefc98b8457267ba6054c878bca285e152ab9bead8f3dede275"
                 }
             ]
         }
@@ -615,7 +615,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.QUALIFIER_TEST.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_90e9a87c579c8aefc98b8457267ba6054c878bca285e152ab9bead8f3dede275",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -644,7 +644,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.QUALIFIER_TEST.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_90e9a87c579c8aefc98b8457267ba6054c878bca285e152ab9bead8f3dede275",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -673,7 +673,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.QUALIFIER_TEST.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_90e9a87c579c8aefc98b8457267ba6054c878bca285e152ab9bead8f3dede275",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -689,7 +689,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.QUALIFIER_TEST.MYVIEW%2CPROD%29",
+    "entityUrn": "urn:li:query:view_90e9a87c579c8aefc98b8457267ba6054c878bca285e152ab9bead8f3dede275",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

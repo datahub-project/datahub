@@ -1,4 +1,5 @@
 import { Button, Editor, Text, Tooltip } from '@components';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import queryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
@@ -91,7 +92,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                                 variant="text"
                                 color="gray"
                                 size="xs"
-                                icon={{ icon: 'PencilSimpleLine', source: 'phosphor', size: 'lg' }}
+                                icon={{ icon: PencilSimpleLine, size: 'lg' }}
                                 style={{ padding: '0 2px' }}
                                 onClick={() => setShowDescriptionModal(true)}
                                 data-testid="edit-description-button"

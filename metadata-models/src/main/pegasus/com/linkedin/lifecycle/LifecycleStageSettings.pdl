@@ -1,0 +1,12 @@
+namespace com.linkedin.lifecycle
+
+/**
+ * Settings that control how entities in a given lifecycle stage behave in the platform.
+ */
+record LifecycleStageSettings {
+  /**
+   * When true, entities in this stage are excluded from default search results.
+   * Users can still discover them by explicitly filtering on the lifecycleStage field.
+   */
+  hideInSearch: boolean = false
+}

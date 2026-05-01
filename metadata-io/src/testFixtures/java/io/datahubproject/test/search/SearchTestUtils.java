@@ -99,6 +99,7 @@ public class SearchTestUtils {
                           .maxThreads(1)
                           .queryOptimization(true)
                           .pointInTimeCreationEnabled(true) // Enable PIT for graph queries
+                          .sliceFutureDrainTimeoutSeconds(2)
                           .build())
                   .build())
           .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(1).build())
