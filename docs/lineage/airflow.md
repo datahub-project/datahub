@@ -80,7 +80,7 @@ enabled = True  # default
 
 ## Automatic lineage extraction
 
-To automatically extract lineage information, the plugin builds on top of Airflow's built-in [OpenLineage extractors](https://openlineage.io/docs/integrations/airflow/default-extractors).
+To automatically extract lineage information, the plugin builds on top of Airflow's built-in [OpenLineage support](https://airflow.apache.org/docs/apache-airflow-providers-openlineage/stable/supported_classes.html).
 As such, we support a superset of the default operators that Airflow/OpenLineage supports.
 
 The SQL-related extractors have been updated to use [DataHub's SQL lineage parser](./sql_parsing.md), which is more robust than the built-in one and uses DataHub's metadata information to generate column-level lineage.
@@ -391,7 +391,7 @@ See this [example PR](https://github.com/datahub-project/datahub/pull/10452) whi
 
 ## Cleanup obsolete pipelines and tasks from DataHub
 
-There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the DataHub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
+There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the DataHub, let's call such pipelines and tasks, `obsolete pipelines and tasks`
 
 Following are the steps to cleanup them from the datahub:
 

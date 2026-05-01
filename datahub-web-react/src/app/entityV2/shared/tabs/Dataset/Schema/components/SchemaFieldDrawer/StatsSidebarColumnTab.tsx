@@ -1,8 +1,7 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import StatChart, { ChartCard } from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
@@ -14,13 +13,12 @@ import NoStatsAvailble from '@images/no-stats-available.svg?react';
 
 const CHART_WIDTH = 460;
 const CHART_HEIGHT = 170;
-const DEFAULT_LINE_COLOR = REDESIGN_COLORS.BACKGROUND_PURPLE;
 
 const StatSection = styled.div`
     padding: 12px 16px;
     // Temporary solution for chart circle color, as V1 theme colors are in place.
     circle {
-        fill: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};
+        fill: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 
@@ -32,7 +30,7 @@ const ChartRow = styled.div`
     & > ${ChartCard} {
         box-shadow: none;
         border-radius: 9px;
-        border: 1px solid #eeeef3;
+        border: 1px solid ${(props) => props.theme.colors.border};
         .ant-card-body {
             padding: 5px;
         }
@@ -47,7 +45,7 @@ const NoDataContainer = styled.div`
 `;
 
 const Section = styled.div`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 700;
     font-size: 12px;
     line-height: 24px;
@@ -56,7 +54,7 @@ const Section = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: ${REDESIGN_COLORS.WHITE};
+    color: ${(props) => props.theme.colors.bg};
 `;
 
 interface Props {
@@ -73,6 +71,8 @@ const getLookbackWindowSize = (window: LookbackWindow) => {
 };
 
 export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Props) {
+    const theme = useTheme();
+    const defaultLineColor = theme.colors.chartsBrandBase;
     const { fieldProfile, profiles } = properties;
     const selectedFieldPath = fieldProfile?.fieldPath || '';
 
@@ -122,7 +122,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Null Count Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
@@ -131,7 +131,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Null Percentage Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
@@ -140,7 +140,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Distinct Count Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
@@ -149,7 +149,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
+                    lineColor={defaultLineColor}
                     title="Distinct Percentage Over Time"
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}

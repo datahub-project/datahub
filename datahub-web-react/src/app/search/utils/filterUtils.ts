@@ -181,20 +181,6 @@ export function getFiltersWithQuickFilter(selectedQuickFilter: QuickFilter | nul
     return filters;
 }
 
-export function getAutoCompleteInputFromQuickFilter(selectedQuickFilter: QuickFilter | null) {
-    const filters: FacetFilterInput[] = [];
-    const types: EntityType[] = [];
-    if (selectedQuickFilter) {
-        if (selectedQuickFilter.field === QuickFilterField.Entity) {
-            types.push(selectedQuickFilter.value as EntityType);
-        } else if (selectedQuickFilter.field === QuickFilterField.Platform) {
-            filters.push(generateFilterInputFromQuickFilter(selectedQuickFilter));
-        }
-    }
-
-    return { filters, types };
-}
-
 /**
  * Ensures a single "Environment" filter is shown in the UI.
  *

@@ -131,7 +131,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       }
 
       if (deletedCount > 0) {
-        log.info(
+        log.debug(
             "Retention applied: deleted {} total rows across {} (urn, aspect) pairs",
             deletedCount,
             nonEmptyContexts.size());

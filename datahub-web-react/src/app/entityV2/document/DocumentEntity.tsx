@@ -1,4 +1,4 @@
-import { FileText } from '@phosphor-icons/react';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';

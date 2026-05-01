@@ -1,7 +1,7 @@
 import json
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import (
     Any,
@@ -34,6 +34,18 @@ from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
+from datahub.utilities.str_enum import StrEnum
+
+
+class SnowflakeStageType(StrEnum):
+    INTERNAL = "INTERNAL"
+    EXTERNAL = "EXTERNAL"
+
+
+class SnowflakeTaskState(StrEnum):
+    STARTED = "STARTED"
+    SUSPENDED = "SUSPENDED"
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -85,6 +97,15 @@ class SnowflakeTag:
     schema: str
     name: str
     value: str
+    inherited_from: Optional[SnowflakeObjectDomain] = None
+
+    @property
+    def is_inherited(self) -> bool:
+        return self.inherited_from is not None
+
+    def as_inherited(self, level: SnowflakeObjectDomain) -> "SnowflakeTag":
+        """Return a copy marked as inherited from a parent object *level*."""
+        return replace(self, inherited_from=level)
 
     def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
@@ -375,6 +396,54 @@ class SnowflakeStreamlitApp:
     owner_role_type: str
 
 
+@dataclass
+class SnowflakeStage:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    comment: Optional[str]
+    stage_type: SnowflakeStageType
+    url: Optional[str] = None  # For external stages only
+    cloud: Optional[str] = None
+    region: Optional[str] = None
+    storage_integration: Optional[str] = None
+    owner_role_type: str = "ROLE"
+
+
+@dataclass
+class SnowflakeTask:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    definition: str  # SQL body
+    state: SnowflakeTaskState
+    owner_role_type: str
+    comment: Optional[str] = None
+    warehouse: Optional[str] = None
+    schedule: Optional[str] = None
+    predecessors: List[str] = field(default_factory=list)
+    condition: Optional[str] = None  # WHEN clause
+    allow_overlapping_execution: bool = False
+
+
+@dataclass
+class SnowflakePipe:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    definition: str  # COPY INTO statement
+    comment: Optional[str] = None
+    auto_ingest: bool = False
+    notification_channel: Optional[str] = None
+    owner_role_type: str = "ROLE"
+
+
 class _SnowflakeTagCache:
     def __init__(self) -> None:
         # self._database_tags[<database_name>] = list of tags applied to database
@@ -401,7 +470,7 @@ class _SnowflakeTagCache:
         self._database_tags[db_name].append(tag)
 
     def get_database_tags(self, db_name: str) -> List[SnowflakeTag]:
-        return self._database_tags[db_name]
+        return self._database_tags.get(db_name, [])
 
     def add_schema_tag(self, schema_name: str, db_name: str, tag: SnowflakeTag) -> None:
         self._schema_tags[db_name][schema_name].append(tag)
@@ -417,7 +486,9 @@ class _SnowflakeTagCache:
     def get_table_tags(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeTag]:
-        return self._table_tags[db_name][schema_name][table_name]
+        return (
+            self._table_tags.get(db_name, {}).get(schema_name, {}).get(table_name, [])
+        )
 
     def add_column_tag(
         self,
@@ -435,6 +506,99 @@ class _SnowflakeTagCache:
         return (
             self._column_tags.get(db_name, {}).get(schema_name, {}).get(table_name, {})
         )
+
+    # --- Inheritance-aware methods ---
+    # These emulate Snowflake's tag inheritance: a tag set on a database is
+    # inherited by its schemas, tables, and columns.  A more-specific
+    # assignment (e.g. directly on the table) overrides the inherited value.
+
+    @staticmethod
+    def _deduplicate_tags(tags: List[SnowflakeTag]) -> List[SnowflakeTag]:
+        """Deduplicate tags by (database, schema, name), preferring direct over inherited."""
+        best: Dict[tuple, SnowflakeTag] = {}
+        for tag in tags:
+            key = (tag.database, tag.schema, tag.name)
+            existing = best.get(key)
+            if existing is None or (existing.is_inherited and not tag.is_inherited):
+                best[key] = tag
+        return list(best.values())
+
+    @staticmethod
+    def _mark_inherited(
+        tags: List[SnowflakeTag], level: SnowflakeObjectDomain
+    ) -> List[SnowflakeTag]:
+        return [t.as_inherited(level) for t in tags]
+
+    def get_schema_tags_with_inheritance(
+        self, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_schema_tags(schema_name, db_name)
+        inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + inherited)
+
+    def get_table_tags_with_inheritance(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_table_tags(table_name, schema_name, db_name)
+        schema_inherited = self._mark_inherited(
+            self.get_schema_tags(schema_name, db_name),
+            SnowflakeObjectDomain.SCHEMA,
+        )
+        db_inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + schema_inherited + db_inherited)
+
+    def get_column_tags_for_table_with_inheritance(
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        column_names: Optional[List[str]] = None,
+    ) -> Dict[str, List[SnowflakeTag]]:
+        """Return column tags with inheritance from table, schema, and database levels.
+
+        Args:
+            column_names: All column names in the table. When provided,
+                inherited parent tags are applied to every column, not just
+                those with direct column tags.
+        """
+        direct_column_tags = self.get_column_tags_for_table(
+            table_name, schema_name, db_name
+        )
+
+        # Tags inherited by every column in this table
+        parent_tags = (
+            self._mark_inherited(
+                self.get_table_tags(table_name, schema_name, db_name),
+                SnowflakeObjectDomain.TABLE,
+            )
+            + self._mark_inherited(
+                self.get_schema_tags(schema_name, db_name),
+                SnowflakeObjectDomain.SCHEMA,
+            )
+            + self._mark_inherited(
+                self.get_database_tags(db_name),
+                SnowflakeObjectDomain.DATABASE,
+            )
+        )
+
+        if not parent_tags:
+            return dict(direct_column_tags)
+
+        # Apply parent tags to all known columns, merging with direct tags
+        all_columns = (
+            column_names
+            if column_names is not None
+            else list(direct_column_tags.keys())
+        )
+        result: Dict[str, List[SnowflakeTag]] = {}
+        for col_name in all_columns:
+            col_tags = list(direct_column_tags.get(col_name, []))
+            result[col_name] = self._deduplicate_tags(col_tags + parent_tags)
+        return result
 
 
 class SnowflakeDataDictionary(SupportsAsObj):
@@ -1493,11 +1657,23 @@ class SnowflakeDataDictionary(SupportsAsObj):
         tags = _SnowflakeTagCache()
 
         for tag in cur:
+            tag_db = tag["TAG_DATABASE"]
+            tag_schema = tag["TAG_SCHEMA"]
+            tag_name = tag["TAG_NAME"]
+            tag_value = tag["TAG_VALUE"]
+            if tag_db is None or tag_schema is None or tag_name is None:
+                logger.warning(
+                    f"Skipping tag with null definition fields: "
+                    f"TAG_DATABASE={tag_db}, TAG_SCHEMA={tag_schema}, "
+                    f"TAG_NAME={tag_name}"
+                )
+                continue
+
             snowflake_tag = SnowflakeTag(
-                database=tag["TAG_DATABASE"],
-                schema=tag["TAG_SCHEMA"],
-                name=tag["TAG_NAME"],
-                value=tag["TAG_VALUE"],
+                database=tag_db,
+                schema=tag_schema,
+                name=tag_name,
+                value=tag_value or "",
             )
 
             # This is the name of the object, unless the object is a column, in which
@@ -1508,17 +1684,47 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # This will be null if the object is a database
             object_database = tag["OBJECT_DATABASE"]
 
-            domain = tag["DOMAIN"].lower()
+            raw_domain = tag["DOMAIN"]
+            if raw_domain is None:
+                logger.warning(
+                    f"Skipping tag with null DOMAIN: "
+                    f"tag={tag_name}, object_name={object_name}"
+                )
+                continue
+            domain = raw_domain.lower()
             if domain == SnowflakeObjectDomain.DATABASE:
                 tags.add_database_tag(object_name, snowflake_tag)
             elif domain == SnowflakeObjectDomain.SCHEMA:
+                if object_database is None:
+                    logger.warning(
+                        f"Skipping schema tag with null OBJECT_DATABASE: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}"
+                    )
+                    continue
                 tags.add_schema_tag(object_name, object_database, snowflake_tag)
             elif domain == SnowflakeObjectDomain.TABLE:  # including views
+                if object_schema is None or object_database is None:
+                    logger.warning(
+                        f"Skipping table tag with null OBJECT_SCHEMA/OBJECT_DATABASE: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}"
+                    )
+                    continue
                 tags.add_table_tag(
                     object_name, object_schema, object_database, snowflake_tag
                 )
             elif domain == SnowflakeObjectDomain.COLUMN:
                 column_name = tag["COLUMN_NAME"]
+                if (
+                    column_name is None
+                    or object_schema is None
+                    or object_database is None
+                ):
+                    logger.warning(
+                        f"Skipping column tag with null fields: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}, "
+                        f"column_name={column_name}"
+                    )
+                    continue
                 tags.add_column_tag(
                     column_name,
                     object_name,
@@ -1527,56 +1733,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     snowflake_tag,
                 )
             else:
-                # This should never happen.
-                logger.error(f"Encountered an unexpected domain: {domain}")
-                continue
-
-        return tags
-
-    def get_tags_for_object_with_propagation(
-        self,
-        domain: str,
-        quoted_identifier: str,
-        db_name: str,
-    ) -> List[SnowflakeTag]:
-        tags: List[SnowflakeTag] = []
-
-        cur = self.connection.query(
-            SnowflakeQuery.get_all_tags_on_object_with_propagation(
-                db_name, quoted_identifier, domain
-            ),
-        )
-
-        for tag in cur:
-            tags.append(
-                SnowflakeTag(
-                    database=tag["TAG_DATABASE"],
-                    schema=tag["TAG_SCHEMA"],
-                    name=tag["TAG_NAME"],
-                    value=tag["TAG_VALUE"],
+                self.report.warning(
+                    title="Unexpected tag domain encountered",
+                    message=f"Tag '{snowflake_tag.name}' has domain '{domain}' which is not "
+                    "recognized. This tag will be skipped.",
+                    context=f"database={db_name}, object={object_name}",
                 )
-            )
-        return tags
-
-    def get_tags_on_columns_for_table(
-        self, quoted_table_name: str, db_name: str
-    ) -> Dict[str, List[SnowflakeTag]]:
-        tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
-        cur = self.connection.query(
-            SnowflakeQuery.get_tags_on_columns_with_propagation(
-                db_name, quoted_table_name
-            ),
-        )
-
-        for tag in cur:
-            column_name = tag["COLUMN_NAME"]
-            snowflake_tag = SnowflakeTag(
-                database=tag["TAG_DATABASE"],
-                schema=tag["TAG_SCHEMA"],
-                name=tag["TAG_NAME"],
-                value=tag["TAG_VALUE"],
-            )
-            tags[column_name].append(snowflake_tag)
+                continue
 
         return tags
 
@@ -1829,3 +1992,125 @@ class SnowflakeDataDictionary(SupportsAsObj):
             logger.debug(
                 f"Failed to populate dynamic table definitions for {db_name}: {e}"
             )
+
+    def get_stages_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakeStage]:
+        stages: List[SnowflakeStage] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_stages_for_schema(schema_name, db_name)
+            )
+            for stage in cur:
+                stages.append(
+                    SnowflakeStage(
+                        name=stage["name"],
+                        created=stage["created_on"],
+                        owner=stage.get("owner", ""),
+                        database_name=stage.get("database_name", db_name),
+                        schema_name=stage.get("schema_name", schema_name),
+                        comment=stage.get("comment"),
+                        stage_type=SnowflakeStageType(
+                            (stage.get("type") or "INTERNAL").upper()
+                        ),
+                        url=stage.get("url") or None,
+                        cloud=stage.get("cloud") or None,
+                        region=stage.get("region") or None,
+                        storage_integration=stage.get("storage_integration") or None,
+                        owner_role_type=stage.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get stages for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return stages
+
+    def get_tasks_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakeTask]:
+        tasks: List[SnowflakeTask] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_tasks_for_schema(schema_name, db_name)
+            )
+            for task in cur:
+                predecessors_raw = task.get("predecessors", "[]")
+                if isinstance(predecessors_raw, str):
+                    try:
+                        predecessors = json.loads(predecessors_raw)
+                    except (ValueError, TypeError) as pred_err:
+                        self.report.warning(
+                            "Failed to parse task predecessors",
+                            f"{db_name}.{schema_name}.{task.get('name')}: raw={predecessors_raw!r}",
+                            exc=pred_err,
+                        )
+                        predecessors = []
+                else:
+                    predecessors = predecessors_raw if predecessors_raw else []
+
+                tasks.append(
+                    SnowflakeTask(
+                        name=task["name"],
+                        created=task["created_on"],
+                        owner=task.get("owner", ""),
+                        database_name=task.get("database_name", db_name),
+                        schema_name=task.get("schema_name", schema_name),
+                        comment=task.get("comment"),
+                        warehouse=task.get("warehouse") or None,
+                        schedule=task.get("schedule") or None,
+                        predecessors=predecessors,
+                        state=SnowflakeTaskState(
+                            (task.get("state") or "SUSPENDED").upper()
+                        ),
+                        definition=task.get("definition", ""),
+                        condition=task.get("condition") or None,
+                        allow_overlapping_execution=task.get(
+                            "allow_overlapping_execution", False
+                        )
+                        == "true"
+                        or task.get("allow_overlapping_execution", False) is True,
+                        owner_role_type=task.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get tasks for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return tasks
+
+    def get_pipes_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakePipe]:
+        pipes: List[SnowflakePipe] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_pipes_for_schema(schema_name, db_name)
+            )
+            for pipe in cur:
+                pipes.append(
+                    SnowflakePipe(
+                        name=pipe["name"],
+                        created=pipe["created_on"],
+                        owner=pipe.get("owner", ""),
+                        database_name=pipe.get("database_name", db_name),
+                        schema_name=pipe.get("schema_name", schema_name),
+                        comment=pipe.get("comment"),
+                        definition=pipe.get("definition", ""),
+                        auto_ingest=pipe.get("auto_ingest", "false") == "true"
+                        or pipe.get("auto_ingest", False) is True,
+                        notification_channel=pipe.get("notification_channel") or None,
+                        owner_role_type=pipe.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get pipes for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return pipes

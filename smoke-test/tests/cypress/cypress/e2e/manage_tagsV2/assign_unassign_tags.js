@@ -9,7 +9,6 @@ const SAMPLE_DATASET_NAME = "SampleCypressHiveDataset";
 
 describe("tags - assign/unassign", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

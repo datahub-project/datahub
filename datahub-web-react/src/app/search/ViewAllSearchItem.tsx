@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -31,7 +32,7 @@ function ViewAllSearchItem({ searchTarget: searchText }: { searchTarget?: string
     return (
         <ViewAllContainer>
             <ExploreForEntity>
-                <Icon icon="MagnifyingGlass" source="phosphor" />
+                <Icon icon={MagnifyingGlass} />
                 <ExploreForEntityText>
                     View all results for <Typography.Text strong>{searchText}</Typography.Text>
                 </ExploreForEntityText>

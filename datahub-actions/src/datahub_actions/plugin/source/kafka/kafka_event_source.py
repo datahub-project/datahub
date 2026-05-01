@@ -98,7 +98,7 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
 class KafkaEventSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_routes: Optional[Dict[str, str]] = Field(default=None)
-    async_commit_enabled: bool = False
+    async_commit_enabled: bool = True
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
@@ -318,17 +318,16 @@ class KafkaEventSource(EventSource):
         )
 
     def ack(self, event: EventEnvelope, processed: bool = True) -> None:
-        # See for details: https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md#auto-offset-commit
+        if not processed:  # No action if event not processed successfully
+            return
 
-        if processed or not self.source_config.async_commit_enabled:
-            # Immediately commit if the message was processed by the upstream,
-            # or delayed commit is disabled
+        # See for details: https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md#auto-offset-commit
+        if self.source_config.async_commit_enabled:
+            self._store_offsets(event)
+        else:
             with_retry(
                 self.source_config.commit_retry_count,
                 self.source_config.commit_retry_backoff,
                 self._commit_offsets,
                 event,
             )
-        else:
-            # Otherwise store offset for periodic autocommit
-            self._store_offsets(event)

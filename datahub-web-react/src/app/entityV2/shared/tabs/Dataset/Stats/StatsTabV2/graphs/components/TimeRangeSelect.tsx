@@ -1,3 +1,4 @@
+import { Calendar } from '@phosphor-icons/react/dist/csr/Calendar';
 import React from 'react';
 
 import { SelectOption, SimpleSelect } from '@src/alchemy-components';
@@ -24,7 +25,7 @@ export default function TimeRangeSelect({ options, values, loading, onUpdate, ch
     return (
         <SimpleSelect
             dataTestId="timerange-select"
-            icon="CalendarToday"
+            icon={Calendar}
             placeholder="Choose time range"
             options={options}
             values={values}

@@ -1,7 +1,10 @@
 import warnings
 from typing import Generic, List, Optional, Tuple, TypeVar, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
+from datahub.emitter.mcp_patch_builder import (
+    MetadataPatchProposal,
+    PatchPath,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass as DatasetProperties,
@@ -18,6 +21,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, TagUrn, Urn
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.documentation import HasDocumentationPatch
 from datahub.specific.aspect_helpers.fine_grained_lineage import (
     HasFineGrainedLineagePatch,
 )
@@ -27,7 +31,9 @@ from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
 )
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
-from datahub.specific.aspect_helpers.terms import HasTermsPatch
+from datahub.specific.aspect_helpers.terms import (
+    HasTermsPatch,
+)
 
 _Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
@@ -57,7 +63,17 @@ class FieldPatchHelper(Generic[_Parent]):
         )
         return self
 
-    def remove_tag(self, tag: Union[str, Urn]) -> "FieldPatchHelper":
+    def remove_tag(
+        self,
+        tag: Union[str, Urn],
+        attribution_source: Optional[Union[str, Urn]] = None,
+    ) -> "FieldPatchHelper":
+        if attribution_source is not None:
+            warnings.warn(
+                "attribution_source is not supported for field-level tag removal and will be ignored.",
+                stacklevel=2,
+            )
+
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
         self._parent._add_patch(
@@ -83,7 +99,17 @@ class FieldPatchHelper(Generic[_Parent]):
         )
         return self
 
-    def remove_term(self, term: Union[str, Urn]) -> "FieldPatchHelper":
+    def remove_term(
+        self,
+        term: Union[str, Urn],
+        attribution_source: Optional[Union[str, Urn]] = None,
+    ) -> "FieldPatchHelper":
+        if attribution_source is not None:
+            warnings.warn(
+                "attribution_source is not supported for field-level glossary term removal and will be ignored.",
+                stacklevel=2,
+            )
+
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
         self._parent._add_patch(
@@ -106,6 +132,7 @@ class DatasetPatchBuilder(
     HasTermsPatch,
     HasFineGrainedLineagePatch,
     HasSiblingsPatch,
+    HasDocumentationPatch,
     MetadataPatchProposal,
 ):
     def __init__(

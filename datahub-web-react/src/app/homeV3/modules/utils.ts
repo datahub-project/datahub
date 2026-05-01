@@ -1,4 +1,4 @@
-import { IconNames } from '@components';
+import React from 'react';
 
 import { DEFAULT_MODULE_ICON, MODULE_TYPE_TO_DESCRIPTION, MODULE_TYPE_TO_ICON } from '@app/homeV3/modules/constants';
 import { ModuleInfo } from '@app/homeV3/modules/types';
@@ -10,7 +10,7 @@ export function getModuleType(module: PageModuleFragment): DataHubPageModuleType
     return module.properties.type;
 }
 
-export function getModuleIcon(module: PageModuleFragment): IconNames {
+export function getModuleIcon(module: PageModuleFragment): React.ComponentType<any> {
     return MODULE_TYPE_TO_ICON.get(getModuleType(module)) ?? DEFAULT_MODULE_ICON;
 }
 

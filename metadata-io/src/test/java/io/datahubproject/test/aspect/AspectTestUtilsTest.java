@@ -319,12 +319,17 @@ public class AspectTestUtilsTest {
 
     PluginConfiguration pluginConfiguration =
         new PluginConfiguration(
-            configs, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+            configs,
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList());
 
     return new PluginFactory(
         pluginConfiguration,
         Collections.emptyList(),
         validators,
+        Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList());

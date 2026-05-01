@@ -1,4 +1,4 @@
-import { Hexagon } from '@phosphor-icons/react';
+import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
 import React from 'react';
 
 import { getRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';

@@ -390,19 +390,6 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def get_all_tags_on_object_with_propagation(
-        db_name: str, quoted_identifier: str, domain: str
-    ) -> str:
-        # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
-        return f"""
-        SELECT tag_database as "TAG_DATABASE",
-        tag_schema AS "TAG_SCHEMA",
-        tag_name AS "TAG_NAME",
-        tag_value AS "TAG_VALUE"
-        FROM table("{db_name}".information_schema.tag_references('{quoted_identifier}', '{domain}'));
-        """
-
-    @staticmethod
     def get_all_tags_in_database_without_propagation(db_name: str) -> str:
         allowed_object_domains = (
             "("
@@ -428,20 +415,6 @@ class SnowflakeQuery:
         WHERE (object_database = '{db_name}' OR object_name = '{db_name}')
         AND domain in {allowed_object_domains}
         AND object_deleted IS NULL;
-        """
-
-    @staticmethod
-    def get_tags_on_columns_with_propagation(
-        db_name: str, quoted_table_identifier: str
-    ) -> str:
-        # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
-        return f"""
-        SELECT tag_database as "TAG_DATABASE",
-        tag_schema AS "TAG_SCHEMA",
-        tag_name AS "TAG_NAME",
-        tag_value AS "TAG_VALUE",
-        column_name AS "COLUMN_NAME"
-        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
         """
 
     @staticmethod
@@ -773,6 +746,18 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def show_foreign_keys_for_schema(schema_name: str, db_name: str) -> str:
         return f"""
         show imported keys in schema "{db_name}"."{schema_name}" """
+
+    @staticmethod
+    def show_stages_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW STAGES IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_tasks_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW TASKS IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_pipes_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW PIPES IN SCHEMA "{db_name}"."{schema_name}";"""
 
     @staticmethod
     def operational_data_for_time_window(

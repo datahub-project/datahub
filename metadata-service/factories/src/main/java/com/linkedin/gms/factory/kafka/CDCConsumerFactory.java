@@ -76,6 +76,12 @@ public class CDCConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(customizedProperties));
     factory.setAutoStartup(false);
+    int authRetrySeconds = kafkaConfiguration.getConsumer().getAuthExceptionRetryIntervalSeconds();
+    if (authRetrySeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authRetrySeconds));
+    }
 
     log.info("CDC KafkaListenerContainerFactory built successfully for JSON CDC messages");
 

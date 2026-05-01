@@ -8,6 +8,7 @@ apply from: "../../gradle/versioning/versioning.gradle"
 dependencies {
     implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonDataBind
+    implementation externalDependency.fabric8KubernetesClient
 
     implementation externalDependency.slf4jApi
 

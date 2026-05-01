@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -52,6 +53,26 @@ public class IndexUtils {
   private IndexUtils() {}
 
   private static List<ReindexConfig> _reindexConfigs = new ArrayList<>();
+
+  /** Clears the cached reindex configs. Visible for testing. */
+  @com.google.common.annotations.VisibleForTesting
+  public static void clearReindexConfigCache() {
+    _reindexConfigs = new ArrayList<>();
+  }
+
+  public static List<ReindexConfig> getIndicesNeedingReindex(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> services,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
+      throws IOException {
+    final List<ReindexConfig> reindexConfigs =
+        getAllReindexConfigs(opContext, services, structuredProperties);
+
+    // Get indices to update
+    return reindexConfigs.stream()
+        .filter(ReindexConfig::requiresReindex)
+        .collect(Collectors.toList());
+  }
 
   public static List<ReindexConfig> getAllReindexConfigs(
       OperationContext opContext,

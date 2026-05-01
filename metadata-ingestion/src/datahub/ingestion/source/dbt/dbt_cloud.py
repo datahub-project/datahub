@@ -41,6 +41,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -62,7 +63,13 @@ class AutoDiscoveryConfig(ConfigModel):
 
     enabled: bool = Field(
         default=False,
-        description="Enable/disable auto-discovery mode. When enabled, discovers jobs for the specified project. Only production jobs with generate_docs=True are ingested.",
+        description="Enable/disable auto-discovery mode. When enabled, discovers production jobs for the specified project.",
+    )
+
+    require_generate_docs: bool = Field(
+        default=False,
+        description="If True, only ingest jobs that have 'Generate docs on run' enabled in dbt Cloud. "
+        "If False (default), ingest all production jobs regardless of the generate_docs setting.",
     )
 
     job_id_pattern: AllowDenyPattern = Field(
@@ -323,6 +330,31 @@ _DBT_FIELDS_BY_TYPE = {
     ownerName
     ownerEmail
     dependsOn
+""",
+    "semanticModels": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    packageName
+    dependsOn
+    entities {{
+      name
+      type
+      description
+      expr
+    }}
+    dimensions {{
+      name
+      type
+      description
+      expr
+      typeParams
+    }}
+    measures {{
+      name
+      agg
+      description
+      expr
+      createMetric
+    }}
 """,
     # Currently unsupported dbt node types:
     # - metrics
@@ -614,22 +646,40 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
             raise
 
-        # Filter jobs by generate_docs=True and job_id_pattern
+        # Filter jobs by job_id_pattern and optionally by generate_docs
         filtered_job_ids: List[int] = []
         for job in all_jobs:
-            if job.generate_docs and self.config.auto_discovery.job_id_pattern.allowed(
+            passes_docs_check = (
+                not self.config.auto_discovery.require_generate_docs
+                or job.generate_docs
+            )
+            passes_pattern_check = self.config.auto_discovery.job_id_pattern.allowed(
                 str(job.id)
-            ):
+            )
+
+            if passes_docs_check and passes_pattern_check:
                 filtered_job_ids.append(job.id)
             else:
                 self.report.total_jobs_processed_skipped += 1
+                skip_reasons = []
+                if not passes_pattern_check:
+                    skip_reasons.append("did not match job_id_pattern")
+                if not passes_docs_check:
+                    skip_reasons.append("generate_docs is not enabled")
+                reason_str = " and ".join(skip_reasons)
+                # generate_docs is only relevant when require_generate_docs filters on it
+                req_docs = self.config.auto_discovery.require_generate_docs
                 logger.debug(
-                    f"Skipping job {job.id}: generate_docs={job.generate_docs}, "
-                    f"matches_pattern={self.config.auto_discovery.job_id_pattern.allowed(str(job.id))}"
+                    "Skipping job %s: reason=%s, matches_pattern=%s%s",
+                    job.id,
+                    reason_str,
+                    passes_pattern_check,
+                    f", generate_docs={job.generate_docs}" if req_docs else "",
                 )
                 self.report.warning(
                     title="DBT Cloud Jobs Skipped Processing",
-                    message=f"Jobs from account_id: {self.config.account_id}, project_id: {self.config.project_id}, environment_id: {production_env.id} were skipped because it did not match the job_id_pattern or did not generate_docs",
+                    message=f"Job from account_id: {self.config.account_id}, project_id: {self.config.project_id}, "
+                    f"environment_id: {production_env.id} was skipped because {reason_str}",
                     context=str(job.id),
                 )
 
@@ -669,6 +719,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             self.report.processed_jobs_list.append(job_id)
             self.report.total_jobs_processed += 1
             for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
+                # Skip semantic models if not enabled
+                if (
+                    node_type == "semanticModels"
+                    and not self.config.entities_enabled.can_emit_semantic_models
+                ):
+                    continue
+
                 try:
                     logger.info(
                         f"Fetching {node_type} from dbt Cloud for job_id: {job_id}"
@@ -695,8 +752,36 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
+        # Resolve database/schema for semantic models from their upstream nodes
+        semantic_models_needing_resolution = [
+            n
+            for n in nodes
+            if n.node_type == "semantic_model" and (not n.database or not n.schema)
+        ]
+        if semantic_models_needing_resolution:
+            nodes_by_name = {node.dbt_name: node for node in nodes}
+            for node in semantic_models_needing_resolution:
+                for upstream_name in node.upstream_nodes:
+                    if upstream_name in nodes_by_name:
+                        ref_node = nodes_by_name[upstream_name]
+                        if not node.database and ref_node.database:
+                            object.__setattr__(node, "database", ref_node.database)
+                        if not node.schema and ref_node.schema:
+                            object.__setattr__(node, "schema", ref_node.schema)
+                        break
+
         # Parse exposures
         self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
+
+        # Track semantic model count
+        semantic_model_count = sum(
+            1 for node in nodes if node.node_type == "semantic_model"
+        )
+        if semantic_model_count > 0:
+            self.report.num_semantic_models_emitted = semantic_model_count
+            logger.info(
+                f"Fetched {semantic_model_count} semantic models from dbt Cloud"
+            )
 
         additional_metadata: Dict[str, Optional[str]] = {
             "account_id": str(self.config.account_id),
@@ -856,7 +941,17 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
 
         columns: List[DBTColumn] = []
-        if "columns" in node and node["columns"] is not None:
+        if resource_type == "semantic_model":
+            # For semantic models, convert entities/dimensions/measures to columns
+            entities = node.get("entities", [])
+            dimensions = node.get("dimensions", [])
+            measures = node.get("measures", [])
+            columns = convert_semantic_model_fields_to_columns(
+                entities=entities,
+                dimensions=dimensions,
+                measures=measures,
+            )
+        elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
                 sorted(
@@ -869,6 +964,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         test_result = None
         if resource_type == "test":
             test_info, test_result = self._extract_test_info(node, name)
+
+        # Determine language - semantic models are YAML, others are SQL
+        language = "yaml" if resource_type == "semantic_model" else "sql"
 
         return DBTNode(
             dbt_name=key,
@@ -892,7 +990,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             query_tag={},  # TODO: Get this from the dbt API.
             tags=tags,
             owner=owner,
-            language="sql",  # TODO: dbt Cloud doesn't surface this
+            language=language,
             raw_code=raw_code,
             compiled_code=compiled_code,
             columns=columns,

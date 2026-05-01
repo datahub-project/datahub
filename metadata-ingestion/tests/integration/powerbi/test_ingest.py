@@ -6,7 +6,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -82,7 +82,7 @@ def register_mock_api(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_mysql_ingest(
@@ -140,7 +140,7 @@ def test_mysql_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_mysql_odbc_datasource_ingest(
@@ -198,7 +198,7 @@ def test_mysql_odbc_datasource_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_mysql_odbc_query_ingest(
@@ -232,6 +232,7 @@ def test_mysql_odbc_query_ingest(
                     "dsn_to_platform_name": {"testdb01": "mysql"},
                     "dsn_to_database_schema": {"testdb01": "employees"},
                     "extract_lineage": True,
+                    "extract_column_level_lineage": False,
                     "extract_reports": False,
                     "extract_independent_datasets": True,
                     "convert_urns_to_lowercase": True,
@@ -257,7 +258,7 @@ def test_mysql_odbc_query_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_soft_reference_mode_no_user_entities(
@@ -324,7 +325,7 @@ def test_soft_reference_mode_no_user_entities(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_empty_owner_criteria_includes_all_users(

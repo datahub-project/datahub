@@ -177,31 +177,13 @@ class DremioSourceMapEntry:
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 class DremioSource(StatefulIngestionSourceBase):
     """
-    This plugin integrates with Dremio to extract and ingest metadata into DataHub.
-    The following types of metadata are extracted:
+    Source that extracts metadata from Dremio via REST API and SQL queries.
 
-    - Metadata for Spaces, Folders, Sources, and Datasets:
-        - Includes physical and virtual datasets, with detailed information about each dataset.
-        - Extracts metadata about Dremio's organizational hierarchy: Spaces (top-level), Folders (sub-level), and Sources (external data connections).
-
-    - Schema and Column Information:
-        - Column types and schema metadata associated with each physical and virtual dataset.
-        - Extracts column-level metadata, such as names, data types, and descriptions, if available.
-
-    - Lineage Information:
-        - Dataset-level and column-level lineage tracking:
-            - Dataset-level lineage shows dependencies and relationships between physical and virtual datasets.
-            - Column-level lineage tracks transformations applied to individual columns across datasets.
-        - Lineage information helps trace the flow of data and transformations within Dremio.
-
-    - Ownership and Glossary Terms:
-        - Metadata related to ownership of datasets, extracted from Dremio’s ownership model.
-        - Glossary terms and business metadata associated with datasets, providing additional context to the data.
-        - Note: Ownership information will only be available for the Cloud and Enterprise editions, it will not be available for the Community edition.
-
-    - Optional SQL Profiling (if enabled):
-        - Table, row, and column statistics can be profiled and ingested via optional SQL queries.
-        - Extracts statistics about tables and columns, such as row counts and data distribution, for better insight into the dataset structure.
+    Implementation notes:
+    - Uses Dremio's REST API v3 for catalog metadata
+    - Supports both Dremio Cloud (project-based) and on-premise instances
+    - Uses SQLAlchemy for optional profiling queries
+    - Parses SQL job history for query-based lineage when enabled
     """
 
     config: DremioSourceConfig

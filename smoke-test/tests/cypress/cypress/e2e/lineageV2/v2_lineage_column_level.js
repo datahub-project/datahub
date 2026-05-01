@@ -9,10 +9,6 @@ const expandContractColumns = (asset) => {
 };
 
 describe("column-level lineage graph test", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-  });
-
   it("navigate to lineage graph view and verify that column-level lineage is showing correctly", () => {
     cy.login();
     cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, DATASET_URN);

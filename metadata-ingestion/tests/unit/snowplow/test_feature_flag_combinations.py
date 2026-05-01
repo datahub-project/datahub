@@ -45,6 +45,9 @@ class TestEnrichmentsWithoutEventSpecProcessor:
         """Create mock dependencies for pipeline processor."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.pipeline_label = None
+        deps.config.event_spec_statuses = None
         # Key config: extract_event_specifications is FALSE but extract_enrichments is TRUE
         deps.config.extract_event_specifications = False
         deps.config.extract_pipelines = True
@@ -289,6 +292,9 @@ class TestAllEventSpecsProcessed:
         """Create mock dependencies for event spec processor."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.pipeline_label = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"
@@ -380,6 +386,9 @@ class TestProcessorCoordination:
         """Create mock dependencies for EventSpecProcessor."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.pipeline_label = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"
@@ -403,6 +412,9 @@ class TestProcessorCoordination:
         """Create mock dependencies for PipelineProcessor."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.pipeline_label = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.extract_pipelines = True
         deps.config.extract_enrichments = True

@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -121,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -137,7 +137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -153,7 +153,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -171,7 +171,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -192,7 +192,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -208,7 +208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -233,7 +233,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1759227091"
+                            "transient_lastddltime": "1771824853"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -325,7 +325,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -343,7 +343,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -362,7 +362,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -387,7 +387,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -406,7 +406,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -427,11 +427,57 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -447,7 +493,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -470,7 +516,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1759227097"
+                            "transient_lastddltime": "1771824858"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -525,7 +571,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1615443388097,
+                                        "time": 1632398400000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -548,7 +594,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1615443388097,
+                                        "time": 1632398400000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -571,7 +617,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1615443388097,
+                                        "time": 1632398400000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -594,7 +640,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1615443388097,
+                                        "time": 1632398400000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -607,7 +653,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -625,7 +671,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -644,7 +690,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -669,7 +715,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -688,7 +734,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -709,11 +755,68 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.classification_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.classification_test,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.classification_test,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.classification_test,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.classification_test,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.classification_test,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.classification_test,PROD),email)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.classification_test,PROD),gender)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.classification_test,PROD),gender)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.classification_test,PROD),age)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.classification_test,PROD),age)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -729,7 +832,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -752,7 +855,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227094"
+                            "transient_lastddltime": "1771824856"
                         },
                         "name": "map_test",
                         "tags": []
@@ -813,7 +916,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -831,7 +934,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -850,7 +953,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -875,7 +978,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -894,7 +997,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -915,11 +1018,35 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD),keyvalue)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD),keyvalue)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD),recordid)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD),recordid)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -935,7 +1062,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -958,7 +1085,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227094"
+                            "transient_lastddltime": "1771824856"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1063,7 +1190,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1081,7 +1208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1100,7 +1227,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1125,7 +1252,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1144,7 +1271,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1165,11 +1292,79 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD),service.provider.name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD),service.provider.name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD),service.provider.id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD),service.provider.id)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1185,7 +1380,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1270,7 +1465,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1288,7 +1483,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1307,7 +1502,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1332,7 +1527,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1351,7 +1546,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1372,11 +1567,46 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD),foo)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD),foo)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD),bar)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD),bar)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD),baz)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD),baz)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1392,7 +1622,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1415,7 +1645,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227088"
+                            "transient_lastddltime": "1771824850"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1500,7 +1730,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1518,7 +1748,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1537,7 +1767,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1562,7 +1792,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1581,7 +1811,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1602,11 +1832,57 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1622,7 +1898,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1642,7 +1918,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227093"
+                            "transient_lastddltime": "1771824855"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1727,7 +2003,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1745,7 +2021,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1764,7 +2040,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1789,7 +2065,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1808,7 +2084,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1829,11 +2105,57 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1849,7 +2171,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1872,7 +2194,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227087"
+                            "transient_lastddltime": "1771824850"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -1929,7 +2251,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1947,7 +2269,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1966,7 +2288,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1991,7 +2313,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2010,7 +2332,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2031,11 +2353,35 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD),foo)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD),foo)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD),bar)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD),bar)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2051,7 +2397,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2074,7 +2420,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227094"
+                            "transient_lastddltime": "1771824856"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2207,7 +2553,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2225,7 +2571,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2244,7 +2590,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2269,7 +2615,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2288,7 +2634,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2309,11 +2655,101 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo.tag)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo.tag)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo.field0)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo.field0)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo.field1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo.field1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo.field2)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo.field2)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo.field3)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo.field3)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo.field3.a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo.field3.a)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD),foo.field3.b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD),foo.field3.b)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2329,7 +2765,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2437,7 +2873,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2455,7 +2891,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2473,7 +2909,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2492,7 +2928,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2517,7 +2953,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2536,7 +2972,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2551,7 +2987,78 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1615443388097,
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1632398400000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -2560,7 +3067,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Chivedb.db1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f"
                 }
             ],
             "fineGrainedLineages": [
@@ -2575,7 +3082,7 @@
                     ],
                     "transformOperation": "COPY: \"array_struct_test\".\"property_id\" AS \"property_id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Chivedb.db1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2588,20 +3095,20 @@
                     ],
                     "transformOperation": "COPY: \"array_struct_test\".\"service\" AS \"service\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Chivedb.db1.array_struct_test_view%2CPROD%29"
+                    "query": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Chivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -2623,14 +3130,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Chivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2640,13 +3147,13 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)"
                 },
                 {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)"
+                },
+                {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),property_id)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),service)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),property_id)"
@@ -2658,14 +3165,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Chivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2674,7 +3181,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2690,7 +3197,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2706,7 +3213,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2722,7 +3229,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2738,7 +3245,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2754,7 +3261,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2770,7 +3277,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2786,7 +3293,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2802,7 +3309,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2818,7 +3325,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2834,14 +3341,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Chivedb.db1.array_struct_test_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_c0fe61e1bbcf7ab45e66495ff781748c141fd05cbf6d93d87330df475b17f31f",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2850,7 +3357,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2866,7 +3373,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2882,7 +3389,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2898,7 +3405,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2914,7 +3421,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }

@@ -1,3 +1,4 @@
+import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -7,14 +8,13 @@ import { isSystemActor } from '@app/entityV2/document/changeHistory/utils/change
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Icon } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { DocumentChangeType, EntityType } from '@types';
 
 const ActionText = styled.div`
     font-size: 14px;
     line-height: 20px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow-wrap: break-word;
 `;
 
@@ -27,18 +27,18 @@ const ActorName = styled.span`
 
 const ClickableText = styled(Link)`
     font-weight: bold;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     text-decoration: none;
     cursor: pointer;
 
     &:hover {
         text-decoration: underline;
-        color: ${colors.gray[800]};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 const SeeVersionLink = styled.a`
-    color: ${colors.primary[500]};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
     text-decoration: none;
 
@@ -68,7 +68,7 @@ const ActorDisplay: React.FC<ActorDisplayProps> = ({ actorName, actor }) => {
     if (isSystem) {
         return (
             <ActorName>
-                <Icon icon="Sparkle" color="violet" size="sm" />
+                <Icon icon={Sparkle} color="violet" size="sm" />
                 {actorName}
             </ActorName>
         );
@@ -99,13 +99,13 @@ interface ActorWithDetailsProps {
     details: Record<string, string>;
 }
 
-export const CreatedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => (
+const CreatedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => (
     <ActionText>
         <ActorDisplay actorName={actorName} actor={actor} /> created document
     </ActionText>
 );
 
-export const TitleChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => (
+const TitleChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => (
     <ActionText>
         <ActorDisplay actorName={actorName} actor={actor} /> changed title to{' '}
         <ActorName>{details.newTitle || 'Untitled'}</ActorName>
@@ -118,14 +118,14 @@ interface TextChangedMessageProps {
     onSeeVersion: () => void;
 }
 
-export const TextChangedMessage: React.FC<TextChangedMessageProps> = ({ actorName, actor, onSeeVersion }) => (
+const TextChangedMessage: React.FC<TextChangedMessageProps> = ({ actorName, actor, onSeeVersion }) => (
     <ActionText>
         <ActorDisplay actorName={actorName} actor={actor} /> edited the document.{' '}
         <SeeVersionLink onClick={onSeeVersion}>View previous</SeeVersionLink>
     </ActionText>
 );
 
-export const StateChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+const StateChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
     const { newState } = details;
 
     if (newState === 'PUBLISHED') {
@@ -151,7 +151,7 @@ export const StateChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName
     );
 };
 
-export const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
     const entityRegistry = useEntityRegistry();
     const { oldParent, newParent } = details;
 
@@ -202,13 +202,13 @@ export const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorNam
     );
 };
 
-export const DeletedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => (
+const DeletedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => (
     <ActionText>
         <ActorDisplay actorName={actorName} actor={actor} /> deleted document
     </ActionText>
 );
 
-export const RelatedAssetChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+const RelatedAssetChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
     const entityRegistry = useEntityRegistry();
     const { entityUrn, operation } = details;
     const { entities, loading } = useGetEntities(entityUrn ? [entityUrn] : []);
@@ -244,7 +244,7 @@ export const RelatedAssetChangedMessage: React.FC<ActorWithDetailsProps> = ({ ac
     );
 };
 
-export const RelatedDocumentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+const RelatedDocumentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
     const entityRegistry = useEntityRegistry();
     const { entityUrn, operation } = details;
     const { entities, loading } = useGetEntities(entityUrn ? [entityUrn] : []);
@@ -286,7 +286,7 @@ interface DefaultMessageProps {
     description: string;
 }
 
-export const DefaultMessage: React.FC<DefaultMessageProps> = ({ actorName, actor, description }) => (
+const DefaultMessage: React.FC<DefaultMessageProps> = ({ actorName, actor, description }) => (
     <ActionText>
         <ActorDisplay actorName={actorName} actor={actor} /> {description}
     </ActionText>

@@ -59,6 +59,45 @@ def mock_graphql_response() -> Dict[str, Any]:
             "seeds": [],
             "snapshots": [],
             "tests": [],
+            "exposures": [],
+            "semanticModels": [
+                {
+                    "uniqueId": "semantic_model.test_project.test_metrics",
+                    "name": "test_metrics",
+                    "description": "Test semantic model",
+                    "resourceType": "semantic_model",
+                    "packageName": "test_project",
+                    "meta": {},
+                    "tags": [],
+                    "dependsOn": ["model.test_project.test_model"],
+                    "entities": [
+                        {
+                            "name": "id",
+                            "type": "primary",
+                            "description": "",
+                            "expr": "id",
+                        }
+                    ],
+                    "dimensions": [
+                        {
+                            "name": "created_at",
+                            "type": "time",
+                            "description": "",
+                            "expr": "created_at",
+                            "typeParams": {},
+                        }
+                    ],
+                    "measures": [
+                        {
+                            "name": "count",
+                            "agg": "count",
+                            "description": "",
+                            "expr": "*",
+                            "createMetric": False,
+                        }
+                    ],
+                }
+            ],
         }
     }
 
@@ -177,8 +216,8 @@ class TestAutoDiscoveryEndToEnd:
         nodes, additional_metadata = source.load_nodes()
 
         # Assertions
-        # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures = 6 calls per job)
-        assert mock_graphql.call_count == 12  # 2 jobs * 6 node types
+        # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures, semanticModels = 7 calls per job)
+        assert mock_graphql.call_count == 14  # 2 jobs * 7 node types
 
         # Verify both job IDs were queried
         job_ids_queried = {
@@ -190,8 +229,21 @@ class TestAutoDiscoveryEndToEnd:
         for call in mock_graphql.call_args_list:
             assert call[1]["variables"]["runId"] is None
 
-        # Verify nodes were collected (2 models from 2 jobs)
-        assert len(nodes) == 2
+        # Verify nodes were collected (2 models + 2 semantic models from 2 jobs)
+        assert len(nodes) == 4
+
+        # Verify semantic models were parsed correctly
+        semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
+        assert len(semantic_models) == 2
+
+        for sm in semantic_models:
+            assert len(sm.columns) > 0
+            column_types = {c.data_type for c in sm.columns}
+            assert (
+                any(ct.startswith("entity:") for ct in column_types)
+                or any(ct.startswith("dimension:") for ct in column_types)
+                or any(ct.startswith("measure:") for ct in column_types)
+            )
 
         # Verify metadata contains account_id but not job_id (since multiple jobs)
         assert additional_metadata["account_id"] == "123456"
@@ -240,8 +292,8 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes, _ = source.load_nodes()
 
-        # Should have nodes from jobs 100 and 300 only (2 models)
-        assert len(nodes) == 2
+        # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
+        assert len(nodes) == 4
 
         # Verify warning was logged for job 200 failure
         # (This is implicit - the source continues without raising)
@@ -249,19 +301,21 @@ class TestAutoDiscoveryEndToEnd:
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
-    def test_auto_discovery_no_jobs_found(
+    def test_auto_discovery_includes_jobs_without_generate_docs(
         self,
         mock_get_envs: mock.Mock,
         mock_get_jobs: mock.Mock,
         mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
     ) -> None:
-        """Should return empty results when no jobs are discovered."""
+        """By default, should ingest jobs even without generate_docs enabled."""
         mock_get_envs.return_value = [
             DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
         ]
         mock_get_jobs.return_value = [
-            DBTCloudJob(id=100, generate_docs=False),  # Filtered out
+            DBTCloudJob(id=100, generate_docs=False),
         ]
+        mock_graphql.return_value = mock_graphql_response
 
         config = DBTCloudConfig(
             access_url="https://test.getdbt.com",
@@ -277,11 +331,52 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes, additional_metadata = source.load_nodes()
 
-        # Should have no nodes and empty metadata when no jobs are found
+        # mock_graphql_response fixture returns 1 model + 1 semantic model per job
+        assert len(nodes) == 2
+        assert {n.node_type for n in nodes} == {"model", "semantic_model"}
+        assert additional_metadata["account_id"] == "123456"
+
+        job_ids_queried = {
+            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+        }
+        assert 100 in job_ids_queried
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discovery_no_jobs_with_require_generate_docs(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        """Should return empty results when require_generate_docs=True and no jobs have it."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=False),
+        ]
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            auto_discovery=AutoDiscoveryConfig(
+                enabled=True, require_generate_docs=True
+            ),
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        nodes, additional_metadata = source.load_nodes()
+
         assert len(nodes) == 0
         assert additional_metadata == {}
 
-        # Should not have called GraphQL
         mock_graphql.assert_not_called()
 
 
@@ -466,11 +561,13 @@ class TestMetadataConsistency:
 
         # Verify both modes produce the same nodes
         assert len(nodes_explicit) == len(nodes_auto)
-        assert len(nodes_explicit) == 1  # One model from our mock response
+        assert (
+            len(nodes_explicit) == 2
+        )  # One model + one semantic model from our mock response
 
-        # Compare node metadata field by field
-        node_explicit = nodes_explicit[0]
-        node_auto = nodes_auto[0]
+        # Compare node metadata field by field (compare models only)
+        node_explicit = next(n for n in nodes_explicit if n.node_type == "model")
+        node_auto = next(n for n in nodes_auto if n.node_type == "model")
 
         # These fields should be identical
         assert node_explicit.name == node_auto.name

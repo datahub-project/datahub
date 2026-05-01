@@ -1,11 +1,14 @@
-import { Button, Divider, Modal, Typography } from 'antd';
+import { Avatar, Heading, Modal, Pill, Text } from '@components';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import { mapAvatarTypeToEntityType } from '@components/components/Avatar/utils';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
+import { CorpUser, DataHubPolicy, DataHubRole, EntityType } from '@types';
 
 type Props = {
     role: DataHubRole;
@@ -14,60 +17,117 @@ type Props = {
 };
 
 const PolicyContainer = styled.div`
-    padding-left: 20px;
-    padding-right: 20px;
-    > div {
-        margin-bottom: 32px;
-    }
-`;
-
-const ButtonsContainer = styled.div`
     display: flex;
-    width: 100%;
-    justify-content: flex-end;
-    align-items: center;
+    flex-direction: column;
+    gap: 16px;
 `;
 
-const ThinDivider = styled(Divider)`
-    margin-top: 8px;
-    margin-bottom: 8px;
+const Section = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 `;
 
-/**
- * Component used for displaying the details about an existing Role.
- */
+const PillsContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+`;
+
 export default function RoleDetailsModal({ role, open, onClose }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const actionButtons = (
-        <ButtonsContainer>
-            <Button onClick={onClose}>Close</Button>
-        </ButtonsContainer>
-    );
-
     const castedRole = role as any;
 
-    const users = castedRole?.users?.relationships?.map((relationship) => relationship.entity as CorpUser);
-    const policies = castedRole?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy);
+    const users: CorpUser[] = castedRole?.users?.relationships?.map((r) => r.entity as CorpUser) || [];
+    const policies: DataHubPolicy[] = castedRole?.policies?.relationships?.map((r) => r.entity as DataHubPolicy) || [];
+
+    const allAvatars: AvatarItemProps[] = users.map((user) => {
+        const isGroup = user?.urn?.startsWith('urn:li:corpGroup');
+        return {
+            name: entityRegistry.getDisplayName(isGroup ? EntityType.CorpGroup : EntityType.CorpUser, user),
+            imageUrl: user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined,
+            urn: user?.urn,
+            type: isGroup ? AvatarType.group : AvatarType.user,
+        };
+    });
+
+    const userAvatars = allAvatars.filter((a) => a.type === AvatarType.user);
+    const groupAvatars = allAvatars.filter((a) => a.type === AvatarType.group);
+
+    const renderAvatarPills = (avatars: AvatarItemProps[]) => (
+        <PillsContainer>
+            {avatars.map((avatar) => {
+                const pill = (
+                    <Avatar
+                        key={avatar.urn}
+                        name={avatar.name}
+                        imageUrl={avatar.imageUrl}
+                        type={avatar.type}
+                        size="sm"
+                        showInPill
+                    />
+                );
+                return avatar.urn && avatar.type != null ? (
+                    <Link
+                        key={avatar.urn}
+                        to={entityRegistry.getEntityUrl(mapAvatarTypeToEntityType(avatar.type), avatar.urn)}
+                    >
+                        {pill}
+                    </Link>
+                ) : (
+                    pill
+                );
+            })}
+        </PillsContainer>
+    );
+
+    if (!open) return null;
 
     return (
-        <Modal title={role?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
+        <Modal title={role?.name || ''} onCancel={onClose}>
             <PolicyContainer>
-                <div>
-                    <Typography.Title level={5}>Description</Typography.Title>
-                    <ThinDivider />
-                    <Typography.Text type="secondary">{role?.description}</Typography.Text>
-                </div>
-                <div>
-                    <Typography.Title level={5}>Users</Typography.Title>
-                    <ThinDivider />
-                    <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={50} size={28} />
-                </div>
-                <div>
-                    <Typography.Title level={5}>Associated Policies</Typography.Title>
-                    <ThinDivider />
-                    <AvatarsGroup policies={policies} entityRegistry={entityRegistry} maxCount={50} size={28} />
-                </div>
+                <Section>
+                    <Heading type="h5" size="sm" weight="bold">
+                        Description
+                    </Heading>
+                    <Text color="gray" size="md">
+                        {role?.description}
+                    </Text>
+                </Section>
+                {userAvatars.length > 0 && (
+                    <Section>
+                        <Heading type="h5" size="sm" weight="bold">
+                            Users
+                        </Heading>
+                        {renderAvatarPills(userAvatars)}
+                    </Section>
+                )}
+                {groupAvatars.length > 0 && (
+                    <Section>
+                        <Heading type="h5" size="sm" weight="bold">
+                            Groups
+                        </Heading>
+                        {renderAvatarPills(groupAvatars)}
+                    </Section>
+                )}
+                <Section>
+                    <Heading type="h5" size="sm" weight="bold">
+                        Associated Policies
+                    </Heading>
+                    <PillsContainer>
+                        {policies.map((policy) => (
+                            <Pill
+                                key={policy.urn}
+                                label={policy?.name || ''}
+                                variant="outline"
+                                color="gray"
+                                size="sm"
+                                clickable={false}
+                            />
+                        ))}
+                    </PillsContainer>
+                </Section>
             </PolicyContainer>
         </Modal>
     );

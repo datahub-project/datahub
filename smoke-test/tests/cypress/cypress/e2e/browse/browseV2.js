@@ -1,6 +1,7 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("search", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("search", () => {
   beforeEach(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");

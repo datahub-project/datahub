@@ -15,8 +15,11 @@ import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -797,6 +800,33 @@ public class DocumentMapperTest {
       assertEquals(result.getInstitutionalMemory().getElements().size(), 1);
       assertEquals(
           result.getInstitutionalMemory().getElements().get(0).getUrl(), "https://example.com/doc");
+    }
+  }
+
+  @Test
+  public void testMapPopulatesDeprecatedGlobalTagsAlias() throws URISyntaxException {
+    // The shared sidebar tags section reads the deprecated `globalTags` alias (matching
+    // Dataset / DataProduct / Domain), so Document must populate both `tags` and
+    // `globalTags` from the GlobalTags aspect.
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    GlobalTags globalTags = new GlobalTags();
+    globalTags.setTags(
+        new TagAssociationArray(
+            com.google.common.collect.ImmutableList.of(
+                new TagAssociation().setTag(new TagUrn("bug-repro-a")))));
+    addAspectToResponse(entityResponse, GLOBAL_TAGS_ASPECT_NAME, globalTags);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result.getTags(), "tags field must be populated");
+      assertNotNull(result.getGlobalTags(), "deprecated globalTags alias must also be populated");
+      // Both fields must point to the same mapped instance — guards against regressions where
+      // only one of the two setter calls is kept.
+      assertSame(result.getGlobalTags(), result.getTags());
     }
   }
 

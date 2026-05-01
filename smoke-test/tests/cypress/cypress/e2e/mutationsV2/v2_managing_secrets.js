@@ -1,6 +1,6 @@
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });
@@ -13,8 +13,7 @@ describe("managing secrets for ingestion creation", () => {
     const ingestion_source_name = `ingestion source ${number}`;
 
     // Navigate to the manage ingestion page → secrets
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToIngestionPage();
     // cy.openEntityTab("Secrets");
 

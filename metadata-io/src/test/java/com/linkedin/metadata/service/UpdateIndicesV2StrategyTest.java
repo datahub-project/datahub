@@ -166,6 +166,39 @@ public class UpdateIndicesV2StrategyTest {
   }
 
   @Test
+  public void testUpdateSearchIndices_CallsAppendRunIdWhenRunIdPresent() throws Exception {
+    when(mockSystemMetadata.hasRunId()).thenReturn(true);
+    when(mockSystemMetadata.getRunId()).thenReturn("run-123");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+    when(mockSearchDocument.toString()).thenReturn("{\"test\": \"document\"}");
+    when(mockSearchDocument.isEmpty()).thenReturn(false);
+
+    ObjectNode mockPreviousSearchDocument = mock(ObjectNode.class);
+    when(mockPreviousSearchDocument.toString()).thenReturn("{\"previous\": \"document\"}");
+    when(searchDocumentTransformer.transformAspect(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockPreviousAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            eq(mockAuditStamp)))
+        .thenReturn(Optional.of(mockPreviousSearchDocument));
+
+    strategy.updateSearchIndices(operationContext, Collections.singletonList(mockEvent));
+
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
+    verify(elasticSearchService).appendRunId(eq(operationContext), eq(testUrn), eq("run-123"));
+  }
+
+  @Test
   public void testUpdateSearchIndices_EmptySearchDocument() throws Exception {
     // Setup mocks - return empty search document
     when(searchDocumentTransformer.transformAspect(

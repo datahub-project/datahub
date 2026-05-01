@@ -1,4 +1,4 @@
-import { IdentificationBadge } from '@phosphor-icons/react';
+import { IdentificationBadge } from '@phosphor-icons/react/dist/csr/IdentificationBadge';
 import * as React from 'react';
 import styled from 'styled-components';
 

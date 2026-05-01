@@ -1,4 +1,4 @@
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DefaultTheme } from 'styled-components';
 
 /**
  * Normalizes a percentile integer to a 3-tier
@@ -17,12 +17,12 @@ export const percentileToLabel = (pct: number) => {
 /**
  * Normalizes a percentile to a color.
  */
-export const percentileToColor = (pct: number) => {
+export const percentileToColor = (pct: number, theme: DefaultTheme) => {
     /* eslint-disable no-else-return */
     if (pct <= 30) {
-        return ANTD_GRAY[3];
+        return theme.colors.bgSurface;
     } else if (pct > 30 && pct <= 80) {
-        return '#EBF3F2';
+        return theme.colors.bgSurfaceSuccess;
     }
-    return '#cef5f0';
+    return theme.colors.bgSurfaceSuccessHover;
 };

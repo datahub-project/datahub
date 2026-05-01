@@ -1,6 +1,6 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { message } from 'antd';
+import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -60,7 +60,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const removeDomain = (urnToRemoveFrom) => {
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
-                message.success({ content: 'Removed Domain.', duration: 2 });
+                toast.success('Removed Domain.', { duration: 2 });
                 refetch?.();
                 // Reload modules
                 // Assets - as assets module in domain summary tab could be updated
@@ -77,9 +77,9 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 }
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove domain: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(`Failed to remove domain: \n ${e.message || ''}`, { duration: 3 });
                 }
             });
     };
@@ -111,7 +111,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 }
                 extra={
                     <SectionActionButton
-                        button={domain ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                        icon={domain ? PencilSimple : Plus}
                         onClick={(event) => {
                             setShowModal(true);
                             event.stopPropagation();

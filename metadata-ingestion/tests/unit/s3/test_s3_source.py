@@ -4,9 +4,9 @@ from typing import List, Tuple
 from unittest.mock import Mock, call, patch
 
 import pytest
+import time_machine
 from boto3.session import Session
-from freezegun import freeze_time
-from moto import mock_s3
+from moto import mock_aws
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -26,7 +26,7 @@ logging.getLogger("s3transfer").setLevel(logging.INFO)
 
 @pytest.fixture(autouse=True)
 def s3():
-    with mock_s3():
+    with mock_aws():
         conn = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",
@@ -306,9 +306,9 @@ def test_get_folder_info_returns_latest_file_in_each_folder(s3_resource):
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
-    with freeze_time("2025-01-01 01:00:00"):
+    with time_machine.travel("2025-01-01 01:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0001.csv")
-    with freeze_time("2025-01-01 02:00:00"):
+    with time_machine.travel("2025-01-01 02:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0002.csv")
         bucket.put_object(Key="my-folder/dir2/0001.csv")
 
@@ -372,9 +372,9 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
-    with freeze_time("2025-01-01 01:00:00"):
+    with time_machine.travel("2025-01-01 01:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0001.csv")
-    with freeze_time("2025-01-01 02:00:00"):
+    with time_machine.travel("2025-01-01 02:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0002.csv", Body=" " * 150)
 
     # act
