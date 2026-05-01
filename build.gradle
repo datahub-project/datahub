@@ -59,7 +59,7 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
   ext.logbackClassic = '1.5.32'
-  ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
+  ext.hadoop3Version = '3.4.1' // Hadoop >=3.4.0 required for CVE-2024-23454 (TAR symlink path traversal in unTar); >3.3.4 for CVE-2021-37404, command injection, path traversal, deserialization RCE
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.6.0'
   ext.ebeanVersion = '15.5.2'
