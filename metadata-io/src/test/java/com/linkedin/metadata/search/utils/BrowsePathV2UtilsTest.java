@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.utils;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,11 +28,9 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -229,18 +226,10 @@ public class BrowsePathV2UtilsTest {
     Urn datasetUrn = UrnUtils.getUrn(snowflakeDatasetUrn);
     EntityService mockService = mock(EntityService.class);
 
-    // Stub the abstract exists() to indicate the DataPlatformInstance entity exists.
-    // exists(opContext, urn, true) delegates: → exists(Collection, true, false)
-    //   → exists(Collection, null, true, false)  [abstract — stubbed here]
     DataPlatformInstanceUrn platformInstanceUrn =
         new DataPlatformInstanceUrn(new DataPlatformUrn("snowflake"), "myinstance");
-    when(mockService.exists(
-            any(OperationContext.class),
-            any(Collection.class),
-            isNull(),
-            anyBoolean(),
-            anyBoolean()))
-        .thenReturn(Set.of(platformInstanceUrn));
+    when(mockService.exists(any(OperationContext.class), eq(platformInstanceUrn), anyBoolean()))
+        .thenReturn(true);
 
     BrowsePathsV2 browsePathsV2 =
         BrowsePathV2Utils.getDefaultBrowsePathV2(
