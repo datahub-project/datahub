@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-4",
       content:
-        '<div class="shimmer-banner"><span>Analytics Agent — Now Open Source</span><a href="https://datahub.com/blog/datahub-analytics-agent/?utm_term=docs" target="_blank" class="button"><div>Read the Blog<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>New: Open Source Analytics Agent</span><a href="https://datahub.com/blog/datahub-analytics-agent/?utm_term=docs" target="_blank" class="button"><div>Read the Blog<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
