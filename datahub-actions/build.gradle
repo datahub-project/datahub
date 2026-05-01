@@ -157,7 +157,11 @@ docker {
   // Set build args for non-bake builds based on dockerTarget property
   def targetVariant = docker_target ?: defaultVariant.get()
   def variantArgs = variants.get()[targetVariant]?.args ?: variants.get()[defaultVariant.get()].args
-  buildArgs(variantArgs)
+  def mergedArgs = new LinkedHashMap<>(variantArgs)
+  if (project.hasProperty('dockerBaseImage')) {
+    mergedArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
+  }
+  buildArgs(mergedArgs)
 }
 
 build.dependsOn install

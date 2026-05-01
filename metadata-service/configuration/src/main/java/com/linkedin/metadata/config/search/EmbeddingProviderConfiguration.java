@@ -7,12 +7,13 @@ import lombok.NoArgsConstructor;
 /**
  * Configuration for embedding providers used to generate query embeddings for semantic search.
  *
- * <p>Supports three providers:
+ * <p>Supports four providers:
  *
  * <ul>
  *   <li><b>aws-bedrock</b>: AWS Bedrock Runtime API with Cohere/Titan models
  *   <li><b>openai</b>: OpenAI Embeddings API with text-embedding-3-small/large/ada-002 models
  *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
+ *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
  * </ul>
  */
 @Data
@@ -21,8 +22,8 @@ import lombok.NoArgsConstructor;
 public class EmbeddingProviderConfiguration {
 
   /**
-   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere". Defaults to
-   * "openai".
+   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere", "local".
+   * Defaults to "openai".
    */
   private String type = "openai";
 
@@ -41,6 +42,9 @@ public class EmbeddingProviderConfiguration {
   /** Configuration for Cohere embedding provider. */
   private CohereConfig cohere = new CohereConfig();
 
+  /** Configuration for local embedding provider (Ollama or any OpenAI-compatible server). */
+  private LocalConfig local = new LocalConfig();
+
   /**
    * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
    */
@@ -55,6 +59,8 @@ public class EmbeddingProviderConfiguration {
         return cohere != null ? cohere.getModel() : null;
       case "aws-bedrock":
         return bedrock != null ? bedrock.getModel() : null;
+      case "local":
+        return local != null ? local.getModel() : null;
       default:
         return null;
     }
@@ -110,6 +116,32 @@ public class EmbeddingProviderConfiguration {
      * "https://{resource-name}.openai.azure.com/openai/deployments/{deployment-id}/embeddings?api-version=2023-05-15"
      */
     private String endpoint = "https://api.openai.com/v1/embeddings";
+  }
+
+  /** Local server configuration (Ollama or any OpenAI-compatible embeddings endpoint). */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class LocalConfig {
+    /**
+     * URL of the local OpenAI-compatible embeddings endpoint. Defaults to Ollama's default address.
+     * When running inside Docker Compose with the ollama service, use
+     * "http://ollama:11434/v1/embeddings".
+     */
+    private String endpoint = "http://localhost:11434/v1/embeddings";
+
+    /**
+     * Embedding model to use. Must be pulled on the local server before use.
+     *
+     * <ul>
+     *   <li><b>nomic-embed-text</b> (default): 768 dimensions, good quality/speed balance
+     *   <li><b>mxbai-embed-large</b>: 1024 dimensions, higher quality
+     *   <li><b>all-minilm</b>: 384 dimensions, fastest
+     * </ul>
+     *
+     * Pull a model with: {@code ollama pull <model>}
+     */
+    private String model = "nomic-embed-text";
   }
 
   /** Cohere-specific configuration. */

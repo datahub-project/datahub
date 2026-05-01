@@ -37,7 +37,7 @@
   "business-glossary": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
-    "description": "A source provided by DataHub for ingesting glossary metadata that provides a comprehensive list of business terms and definitions used within an organization.",
+    "description": "Ingest a comprehensive list of business terms, definitions, and term hierarchies into DataHub from a YAML-based business glossary file.",
     "img_path": "img/datahub-logo-color-mark.svg"
   },
   "clickhouse": {
@@ -70,7 +70,7 @@
   "databricks": {
     "platform_type": "ETL/ELT",
     "connection_type": "Pull",
-    "description": "Databricks is a cloud-based data processing and analytics platform that enables data scientists and engineers to collaborate and build data-driven applications.",
+    "description": "Databricks is a cloud-based data and AI platform built on Apache Spark, used for data engineering, analytics, and machine learning workflows.",
     "img_path": "img/logos/platforms/databricks.png",
     "extra_features": [
       "Status Aspect"
@@ -133,7 +133,7 @@
   "metadata-file": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
-    "description": "An ingestion source for single files provided by DataHub",
+    "description": "Ingest metadata from a JSON file containing pre-generated DataHub MCEs/MCPs \u2014 useful for backfills, debugging, and offline pipelines.",
     "title": "File",
     "img_path": "img/datahub-logo-color-mark.svg"
   },
@@ -285,13 +285,13 @@
   "okta": {
     "platform_type": "Identity Provider",
     "connection_type": "Pull",
-    "description": "Okta is a cloud-based identity and access management tool that enables secure and seamless access to applications and data across multiple devices and platforms.",
+    "description": "Okta is a cloud-based identity and access management platform that enables secure single sign-on across applications and devices.",
     "img_path": "img/logos/platforms/okta.png"
   },
   "openapi": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
-    "description": "OpenAPI is a specification for building and documenting RESTful APIs.",
+    "description": "OpenAPI is a specification for building and documenting RESTful APIs. Ingest endpoints and schemas as DataHub datasets and lineage.",
     "img_path": "img/logos/platforms/openapi.png"
   },
   "oracle": {
@@ -313,7 +313,7 @@
   "powerbi": {
     "platform_type": "BI Tool",
     "connection_type": "Pull",
-    "description": "PowerBI is a business analytics service by Microsoft that provides interactive visualizations and business intelligence capabilities with an interface simple enough for end users to create their own reports and dashboards.",
+    "description": "Power BI is a Microsoft business analytics service that provides interactive visualizations and self-service business intelligence dashboards.",
     "img_path": "img/logos/platforms/powerbi.png",
     "extra_features": [
       "Lower Casing",
@@ -343,7 +343,7 @@
   "hive-metastore": {
     "platform_type": "Database",
     "connection_type": "Pull",
-    "description": "Hive Metastore (HMS) is a service that stores metadata that is related to Hive, Presto, Trino and other services in a backend Relational Database Management System (RDBMS).",
+    "description": "Hive Metastore (HMS) stores metadata for Hive, Presto, Trino, and Spark in a backend RDBMS such as MySQL or PostgreSQL.",
     "img_path": "img/logos/platforms/presto.svg",
     "extra_features": [
       "Status Aspect"
@@ -370,7 +370,7 @@
   "redash": {
     "platform_type": "BI Tool",
     "connection_type": "Pull",
-    "description": "Redash is a data visualization and collaboration platform that allows users to connect and query multiple data sources and create interactive dashboards and visualizations."
+    "description": "Redash is a data visualization and collaboration platform for connecting to data sources and building interactive dashboards."
   },
   "redshift": {
     "platform_type": "Database",
@@ -386,7 +386,7 @@
       "Data Lake"
     ],
     "connection_type": "Pull",
-    "description": "S3 Data Lake is a cloud-based data storage and management tool that allows users to store, manage, and analyze large amounts of data in a scalable and cost-effective manner.",
+    "description": "Amazon S3 is a cloud object storage service for storing and analyzing data files at scale, commonly used as a data lake foundation.",
     "title": "S3 Data Lake"
   },
   "sagemaker": {
@@ -397,7 +397,7 @@
   "salesforce": {
     "platform_type": "CRM",
     "connection_type": "Pull",
-    "description": "Salesforce is a cloud-based customer relationship management (CRM) platform that helps businesses manage their sales, marketing, and customer service activities.",
+    "description": "Salesforce is a cloud-based CRM platform that helps businesses manage sales, marketing, customer service, and analytics activities.",
     "img_path": "img/logos/platforms/salesforce.png"
   },
   "hana": {
@@ -412,7 +412,7 @@
     "external": true,
     "platform_type": "Collaboration",
     "connection_type": "Push",
-    "description": "Send notifications to Slack channels on updates to entities in DataHub.",
+    "description": "Send notifications to Slack channels for entity changes, assertions, and incidents in DataHub. Includes user discovery from Slack workspaces.",
     "img_path": "img/logos/companies/slack.svg",
     "doc_path_override": "docs/actions/actions/slack",
     "extra_features": [
@@ -450,7 +450,7 @@
   "superset": {
     "platform_type": "BI Tool",
     "connection_type": "Pull",
-    "description": "Superset is an open-source data exploration and visualization platform that allows users to create interactive dashboards and perform ad-hoc analysis on various data sources."
+    "description": "Apache Superset is an open-source data exploration and visualization platform for building interactive dashboards and ad-hoc analysis."
   },
   "tableau": {
     "platform_type": "BI Tool",
@@ -465,7 +465,7 @@
   "teradata": {
     "platform_type": "Database",
     "connection_type": "Pull",
-    "description": "Teradata is a data warehousing and analytics tool that allows users to store, manage, and analyze large amounts of data in a scalable and cost-effective manner.",
+    "description": "Teradata is an enterprise data warehouse platform for storing, managing, and analyzing large volumes of structured data at scale.",
     "extra_features": [
       "Lower Casing",
       "Status Aspect"
@@ -474,7 +474,7 @@
   "trino": {
     "platform_type": "Database",
     "connection_type": "Pull",
-    "description": "Trino is an open-source distributed SQL query engine designed to query large-scale data processing systems, including Hadoop, Cassandra, and relational databases.",
+    "description": "Trino is an open-source distributed SQL query engine for fast analytics on large-scale data warehouses, lakes, and federated sources.",
     "img_path": "img/logos/platforms/trino.png",
     "extra_features": [
       "Status Aspect"
@@ -594,12 +594,12 @@
   "snaplogic": {
     "platform_type": "ETL/ELT",
     "connection_type": "Pull",
-    "description": "SnapLogic is an enterprise integration platform as a service (iPaaS) that enables organizations to connect applications, data sources, and APIs across cloud and on-premises environments through a low-code drag-and-drop interface with hundreds of pre-built connectors, simplifying and accelerating data and application integration."
+    "description": "SnapLogic is an enterprise iPaaS that connects applications, data sources, and APIs across cloud and on-premises environments via low-code workflows."
   },
   "rdf": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
-    "description": "RDF (Resource Description Framework) is a standard model for data interchange on the web, enabling ingestion of ontologies and knowledge graphs as DataHub glossary terms."
+    "description": "RDF (Resource Description Framework) is a standard model for data interchange. Ingest ontologies and knowledge graphs as DataHub glossary terms."
   },
   "flink": {
     "platform_type": "ETL/ELT",
@@ -981,7 +981,7 @@
   "notion": {
     "platform_type": "Collaboration",
     "connection_type": "Pull",
-    "description": "All-in-one workspace for notes, docs, project management, and collaboration.",
+    "description": "Notion is an all-in-one workspace for notes, docs, wikis, and project management. Ingest pages and databases as DataHub datasets.",
     "img_path": "img/logos/platforms/notion.svg"
   },
   "excel": {
@@ -1009,7 +1009,7 @@
     "platform_type": "Internal",
     "connection_type": "Pull",
     "title": "DataHub Documents",
-    "description": "DataHub utility for managing and ingesting documentation assets.",
+    "description": "DataHub utility for ingesting and managing documentation assets, runbooks, and tribal-knowledge documents stored in DataHub.",
     "img_path": "img/datahub-logo-color-mark.svg"
   },
   "datahubgc": {
@@ -1023,7 +1023,7 @@
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
     "title": "SQL Queries",
-    "description": "DataHub utility for ingesting SQL query metadata and lineage from query logs.",
+    "description": "DataHub utility for ingesting SQL query metadata and lineage from query log files, generating column-level lineage between datasets.",
     "img_path": "img/logos/platforms/sql-queries.svg"
   }
 }

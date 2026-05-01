@@ -37,6 +37,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- **(Docker / Gradle)** Java service images (`datahub-gms`, `datahub-mce-consumer`, `datahub-mae-consumer`, `datahub-upgrade`, `datahub-frontend-react`) use a **default base image** and apk-style packages at build time. Override the base with Docker **`BASE_IMAGE`** / Gradle **`-PdockerBaseImage=...`**, and the apk repository line with **`APK_REPOSITORY_URL`** / **`-PapkRepositoryUrl=...`**. If you previously passed a legacy Gradle property for a custom package mirror, migrate to **`apkRepositoryUrl`** (and ensure the mirror layout matches your chosen base image). **`datahub-actions`** uses the same **`BASE_IMAGE`** build arg.
 - #17407: BigQuery **`extract_policy_tags_from_catalog`:** The policy tag extraction feature has been rewritten to use `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` combined with batch Data Catalog API calls instead of per-column `get_table()` and `get_policy_tag()` calls. This eliminates millions of redundant API calls (e.g. 434k → ~10 for a 29k-table warehouse), reducing extraction time from hours to seconds. The old code path has been removed with no fallback. Action required if you use `extract_policy_tags_from_catalog: true`: (1) Verify BigQuery API v2 is available in your environment (available since ~2020). (2) If the Data Catalog API is blocked by VPC Service Controls, policy tag resource names will be stored instead of display names — this is graceful degradation, not a failure. (3) Review ingestion logs for any new warnings about missing `policy_tags` column in INFORMATION_SCHEMA results.
 - **Bootstrap Steps Moved to System-Update Job.** The following metadata ingestion steps now run during system-update instead of GMS startup:
 
@@ -234,7 +235,7 @@ Patch release focused on security and dependency updates (Play frontend and Java
 
 ### Notable Changes
 
-- datahub-actions moved to wolfi-base image
+- datahub-actions default **base image** updated (override with **`BASE_IMAGE`**)
 
 ### Bug Fixes
 
