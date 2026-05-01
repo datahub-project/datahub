@@ -84,8 +84,7 @@ Tell the agent which tables (or which slice of your data landscape) you care abo
 - **Freshness** — for tables on a regular refresh cadence
 - **Volume** — for tables with expected row counts or growth rates
 - **Field** — column-level quality (null checks, format validation, statistical monitoring)
-- **Schema** — to catch breaking changes like dropped columns or type changes
-- **SQL** — for custom business-logic checks (e.g., revenue > 0, no orphaned records)
+- ...and more
 
 The agent picks an appropriate source type automatically based on whether the dataset has an active platform connection or only DataHub metadata, and creates assertions in active mode so they start running immediately.
 
