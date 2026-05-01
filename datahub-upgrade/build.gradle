@@ -37,7 +37,7 @@ dependencies {
 
   constraints {
     implementation(externalDependency.hadoopCommon3) {
-      because("previous versions are vulnerable to CVE-2021-37404")
+      because("previous versions are vulnerable to CVE-2021-37404 and CVE-2024-23454 (fixed in 3.4.0+)")
     }
     implementation(externalDependency.snakeYaml) {
       because("previous versions are vulnerable to CVE-2022-25857")
