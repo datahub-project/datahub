@@ -60,7 +60,7 @@ jobs:
   ai-smoke-test:
     name: "Quickstart AI + Semantic Search Smoke Test"
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
 
     steps:
       # -----------------------------------------------------------------------
