@@ -53,6 +53,35 @@ def test_groups_config_from_env_multiple_groups() -> None:
     assert set(cfg["groups"].keys()) == {"common", "gc_docs"}
 
 
+def test_groups_config_aux_primary_from_env() -> None:
+    cfg = groups_config_from_plugin_group_env(
+        {
+            "BUNDLED_VENV_PLUGINS_COMMON": "s3,file",
+            "BUNDLED_VENV_AUX_PRIMARY_COMMON": "file",
+        }
+    )
+    assert cfg["groups"]["common"]["aux_primary_plugin"] == "file"
+
+
+def test_groups_config_aux_primary_unknown_group_raises() -> None:
+    with pytest.raises(ValueError, match="no .* group was defined"):
+        groups_config_from_plugin_group_env({"BUNDLED_VENV_AUX_PRIMARY_COMMON": "s3"})
+
+
+def test_build_group_plan_carries_aux_primary() -> None:
+    cfg = {
+        "groups": {
+            "common": {
+                "plugins": ["s3", "file"],
+                "aux_primary_plugin": "file",
+            }
+        }
+    }
+    plans = build_group_plans(["s3", "file"], cfg, slim_mode=False)
+    assert len(plans) == 1
+    assert plans[0].aux_primary_plugin == "file"
+
+
 def test_groups_config_from_env_empty_means_no_groups() -> None:
     assert groups_config_from_plugin_group_env({"PATH": "/usr/bin"}) is None
 

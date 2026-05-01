@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared helpers for bundled venv group resolution (used by build script and tests)."""
+"""Shared helpers for bundled venv group resolution (used by build script and tests).
+
+Optional module ``bundled_venv_plugin_extras_local`` may define ``plugin_extras_for_plugin``
+for site-specific or downstream overrides; otherwise the OSS default implementation is used.
+"""
 
 from __future__ import annotations
 
@@ -23,8 +27,12 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 # GROUP_ID lowercased (e.g. BUNDLED_VENV_PLUGINS_COMMON -> group "common").
 GROUP_PLUGINS_ENV_PREFIX = "BUNDLED_VENV_PLUGINS_"
 
-# Adding a new plug-in with a -slim variant has to be defined here
-PLUGINS_WITH_SLIM_VARIANT = ["s3"]
+# Optional: which group member selects variant-specific auxiliary pip installs (suffix
+# aligned with BUNDLED_VENV_PLUGINS_<same>).
+GROUP_AUX_PRIMARY_ENV_PREFIX = "BUNDLED_VENV_AUX_PRIMARY_"
+
+# Plugins with PySpark-heavy extras — use -slim in slim mode (matches executor image builds).
+PLUGINS_WITH_SLIM_VARIANT = ["s3", "gcs", "abs"]
 
 # Additional extras to install for specific plugins beyond the standard set.
 PLUGIN_ADDITIONAL_EXTRAS: Dict[str, List[str]] = {
@@ -32,8 +40,8 @@ PLUGIN_ADDITIONAL_EXTRAS: Dict[str, List[str]] = {
 }
 
 
-def plugin_extras_for_plugin(plugin: str, slim_mode: bool) -> List[str]:
-    """Return ordered unique extras for one plugin (same semantics as legacy per-plugin install)."""
+def _default_plugin_extras_for_plugin(plugin: str, slim_mode: bool) -> List[str]:
+    """OSS default: standard ingestion extras per plugin (no vendor-specific branches)."""
     plugin_extra = plugin
     if slim_mode and plugin in PLUGINS_WITH_SLIM_VARIANT:
         plugin_extra = f"{plugin}-slim"
@@ -54,6 +62,14 @@ def plugin_extras_for_plugin(plugin: str, slim_mode: bool) -> List[str]:
             seen.add(add)
             out.append(add)
     return out
+
+
+try:
+    import bundled_venv_plugin_extras_local as _plugin_extras_local
+
+    plugin_extras_for_plugin = _plugin_extras_local.plugin_extras_for_plugin
+except ImportError:
+    plugin_extras_for_plugin = _default_plugin_extras_for_plugin
 
 
 def sorted_union_extras(plugins: Sequence[str], slim_mode: bool) -> List[str]:
@@ -104,6 +120,29 @@ def groups_config_from_plugin_group_env(
             )
         groups[label] = {"plugins": plugins}
 
+    for key, raw in environ.items():
+        if not key.startswith(GROUP_AUX_PRIMARY_ENV_PREFIX):
+            continue
+        suffix = key[len(GROUP_AUX_PRIMARY_ENV_PREFIX) :]
+        if not suffix:
+            continue
+        label = suffix.lower()
+        if label not in groups:
+            raise ValueError(
+                f"{key} sets auxiliary primary for group {label!r}, but no "
+                f"{GROUP_PLUGINS_ENV_PREFIX}<same suffix> group was defined"
+            )
+        primary = raw.strip()
+        if not primary:
+            raise ValueError(f"{key} must be a non-empty plugin name")
+        existing = groups[label].get("aux_primary_plugin")
+        if existing is not None and existing != primary:
+            raise ValueError(
+                f"Conflicting auxiliary primary for group {label!r}: "
+                f"{existing!r} vs {primary!r}"
+            )
+        groups[label]["aux_primary_plugin"] = primary
+
     if not groups:
         return None
     return {"groups": groups}
@@ -117,6 +156,8 @@ class BundledVenvGroupPlan:
     members: Tuple[str, ...]
     extras: Tuple[str, ...]
     canonical_dir_name: str  # e.g. common-venv (named groups); plugin-bundled for singletons
+    # Which member drives auxiliary install variant selection; None = resolver chooses.
+    aux_primary_plugin: Optional[str] = None
 
 
 def _resolve_group_extras(
@@ -202,6 +243,19 @@ def build_group_plans(
 
         extras = _resolve_group_extras(label, group_cfg, members, slim_mode)
         canonical = f"{label}-venv"
+        aux_raw = group_cfg.get("aux_primary_plugin")
+        aux_primary: Optional[str] = None
+        if aux_raw is not None:
+            if not isinstance(aux_raw, str):
+                raise ValueError(
+                    f'Group "{label}": "aux_primary_plugin" must be a string when set'
+                )
+            c = aux_raw.strip()
+            if c not in members:
+                raise ValueError(
+                    f'Group "{label}": aux_primary_plugin {c!r} must be in plugins list'
+                )
+            aux_primary = c
         assigned.update(members)
         plans.append(
             BundledVenvGroupPlan(
@@ -209,6 +263,7 @@ def build_group_plans(
                 members=tuple(members),
                 extras=tuple(extras),
                 canonical_dir_name=canonical,
+                aux_primary_plugin=aux_primary,
             )
         )
 
@@ -221,6 +276,7 @@ def build_group_plans(
                     members=(p,),
                     extras=tuple(ex),
                     canonical_dir_name=f"{p}-bundled",
+                    aux_primary_plugin=None,
                 )
             )
 

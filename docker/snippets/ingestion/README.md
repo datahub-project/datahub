@@ -44,13 +44,14 @@ Unless overridden in code/tests via an internal `extras` list on a group dict, i
 
 ## Environment variables
 
-| Variable                        | Description                                                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `BUNDLED_VENV_PLUGINS`          | Comma-separated list of every plugin that must have a `{plugin}-bundled` path.                               |
-| `BUNDLED_VENV_PLUGINS_<suffix>` | Comma-separated plugins sharing `{suffix.lower()}-venv`; symlinks `{plugin}-bundled` → that dir when needed. |
-| `BUNDLED_CLI_VERSION`           | PyPI version pin for `acryl-datahub` (single version for all bundled venvs).                                 |
-| `DATAHUB_BUNDLED_VENV_PATH`     | Directory for venvs and `constraints.txt` (default `/opt/datahub/venvs`).                                    |
-| `BUNDLED_VENV_SLIM_MODE`        | When `true`, use `-slim` extras where defined and verify PySpark is absent after install.                    |
+| Variable                            | Description                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `BUNDLED_VENV_PLUGINS`              | Comma-separated list of every plugin that must have a `{plugin}-bundled` path.                               |
+| `BUNDLED_VENV_PLUGINS_<suffix>`     | Comma-separated plugins sharing `{suffix.lower()}-venv`; symlinks `{plugin}-bundled` → that dir when needed. |
+| `BUNDLED_VENV_AUX_PRIMARY_<suffix>` | Optional. One plugin name from that group; suffix matches the same group’s `BUNDLED_VENV_PLUGINS_<suffix>`.  |
+| `BUNDLED_CLI_VERSION`               | PyPI version pin for `acryl-datahub` (single version for all bundled venvs).                                 |
+| `DATAHUB_BUNDLED_VENV_PATH`         | Directory for venvs and `constraints.txt` (default `/opt/datahub/venvs`).                                    |
+| `BUNDLED_VENV_SLIM_MODE`            | When `true`, use `-slim` extras where defined and verify PySpark is absent after install.                    |
 
 ## Validation
 
