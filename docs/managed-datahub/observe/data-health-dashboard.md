@@ -79,7 +79,7 @@ The Data Observability Agent is an AI assistant embedded directly in the Data He
 
 **1. Setting up anomaly detection and data quality checks**
 
-Tell the agent which tables (or which slice of your data landscape) you care about, and it will recommend and create the right assertions for you:
+Tell the agent what slice of your data landscape you care most about — or let it figure out what's most important for you — and it will recommend and create the right assertions:
 
 - **Freshness** — for tables on a regular refresh cadence
 - **Volume** — for tables with expected row counts or growth rates
