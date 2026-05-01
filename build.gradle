@@ -279,7 +279,8 @@ project.ext.externalDependency = [
     'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
-    'postgresql': 'org.postgresql:postgresql:42.7.8',
+    // CVE-2026-42198: SCRAM iteration DoS fixed in 42.7.11+
+    'postgresql': 'org.postgresql:postgresql:42.7.11',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
     'grpcNettyShaded': "io.grpc:grpc-netty-shaded:$grpcVersion",
