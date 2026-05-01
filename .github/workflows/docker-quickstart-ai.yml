@@ -1,0 +1,256 @@
+name: AI Smoke Tests (Local Embeddings)
+
+# Runs the full quickstart-ai stack (DataHub + Ollama) and validates that
+# semantic search works end-to-end using the local embedding provider.
+#
+# Triggered by changes to any of the moving parts: Java provider, Python
+# ingestion pipeline, Docker Compose Ollama config, or the smoke tests
+# themselves.  Also runs nightly to catch regressions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      embedding_model:
+        description: "Ollama embedding model to test with"
+        required: false
+        default: "nomic-embed-text"
+        type: string
+  schedule:
+    - cron: "0 3 * * *" # 3 AM UTC daily
+  push:
+    branches:
+      - master
+      - releases/**
+    paths:
+      - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Local*"
+      - "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingProvider*"
+      - "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/EmbeddingProvider*"
+      - "metadata-service/configuration/src/main/resources/application.yaml"
+      - "docker/profiles/docker-compose.ollama.yml"
+      - "docker/profiles/docker-compose.gms.yml"
+      - "docker/build.gradle"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/chunking_*.py"
+      - "smoke-test/tests/semantic/test_local_embedding_provider.py"
+      - "smoke-test/tests/semantic/test_semantic_search.py"
+      - ".github/workflows/docker-quickstart-ai.yml"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Local*"
+      - "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingProvider*"
+      - "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/EmbeddingProvider*"
+      - "metadata-service/configuration/src/main/resources/application.yaml"
+      - "docker/profiles/docker-compose.ollama.yml"
+      - "docker/profiles/docker-compose.gms.yml"
+      - "docker/build.gradle"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/chunking_*.py"
+      - "smoke-test/tests/semantic/test_local_embedding_provider.py"
+      - "smoke-test/tests/semantic/test_semantic_search.py"
+      - ".github/workflows/docker-quickstart-ai.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  DATAHUB_VERSION: "smoke-ai-${{ github.run_id }}"
+  LOCAL_EMBEDDING_MODEL: ${{ github.event.inputs.embedding_model || 'nomic-embed-text' }}
+
+jobs:
+  ai-smoke-test:
+    name: "Quickstart AI + Semantic Search Smoke Test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      # -----------------------------------------------------------------------
+      # Setup
+      # -----------------------------------------------------------------------
+
+      - name: Free disk space
+        run: |
+          sudo apt-get remove -y 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v5
+        with:
+          python-version: "3.10"
+
+      # -----------------------------------------------------------------------
+      # Build DataHub Docker images from source
+      # -----------------------------------------------------------------------
+
+      - name: Build quickstart Docker images
+        run: ./gradlew :docker:buildImagesQuickstart -Ptag=${{ env.DATAHUB_VERSION }}
+        env:
+          DOCKER_BUILDKIT: "1"
+
+      # -----------------------------------------------------------------------
+      # Write GMS AI env vars — these are injected into the GMS container via
+      # DATAHUB_LOCAL_COMMON_ENV (read as an env_file by docker-compose.gms.yml).
+      # GMS reaches Ollama over the Docker bridge network; the CI runner reaches
+      # it via the mapped port at localhost:11434.
+      # -----------------------------------------------------------------------
+
+      - name: Write GMS AI env file
+        run: |
+          printf '%s\n' \
+            "EMBEDDING_PROVIDER_TYPE=local" \
+            "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true" \
+            "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
+            "LOCAL_EMBEDDING_ENDPOINT=http://ollama:11434/v1/embeddings" \
+            "LOCAL_EMBEDDING_MODEL=${LOCAL_EMBEDDING_MODEL}" \
+            > /tmp/ai-gms.env
+
+      # -----------------------------------------------------------------------
+      # Start DataHub + Ollama
+      # Activates two profiles simultaneously:
+      #   quickstart-consumers — core DataHub services (GMS, ES, MySQL, Kafka, …)
+      #   quickstart-ai        — Ollama server + one-shot model-pull + warmup
+      # -----------------------------------------------------------------------
+
+      - name: Start DataHub with Ollama (quickstart-consumers + quickstart-ai)
+        run: |
+          SIGNING_KEY=$(openssl rand -base64 32)
+          SIGNING_SALT=$(openssl rand -base64 32)
+
+          DATAHUB_VERSION=${{ env.DATAHUB_VERSION }} \
+          DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${SIGNING_KEY} \
+          DATAHUB_TOKEN_SERVICE_SALT=${SIGNING_SALT} \
+          DATAHUB_SEARCH_IMAGE=opensearchproject/opensearch \
+          DATAHUB_SEARCH_TAG=2.19.3 \
+          XPACK_SECURITY_ENABLED=plugins.security.disabled=true \
+          ELASTICSEARCH_USE_SSL=false \
+          USE_AWS_ELASTICSEARCH=true \
+          ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=1 \
+          POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10 \
+          DATAHUB_TELEMETRY_ENABLED=false \
+          DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
+          DATAHUB_LOCAL_ACTIONS_ENV=$(pwd)/smoke-test/test_resources/actions/actions.env \
+          DATAHUB_LOCAL_COMMON_ENV=/tmp/ai-gms.env \
+          LOCAL_EMBEDDING_MODEL=${{ env.LOCAL_EMBEDDING_MODEL }} \
+          docker compose \
+            -p datahub \
+            --project-directory docker/profiles \
+            --profile quickstart-consumers \
+            --profile quickstart-ai \
+            up -d --quiet-pull
+
+      # -----------------------------------------------------------------------
+      # Post-startup tuning (matches existing smoke test conventions)
+      # -----------------------------------------------------------------------
+
+      # Wait for GMS to be reachable before tuning OpenSearch.
+      # ollama-model-init is a one-shot init container that exits with 0 once
+      # the model is pulled and warmed up; we poll for both GMS and Ollama
+      # readiness rather than relying on `docker compose --wait`, which treats
+      # any container exit (even successful) as a failure.
+      - name: Wait for GMS to be ready
+        run: |
+          echo "Waiting for GMS at http://localhost:8080/health..."
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✓ GMS is ready (attempt ${i})"
+              exit 0
+            fi
+            echo "  Attempt ${i}/90 — GMS not ready yet, waiting 10s..."
+            sleep 10
+          done
+          echo "ERROR: GMS did not become ready within 900s."
+          docker ps -a
+          exit 1
+
+      - name: Relax OpenSearch disk threshold
+        run: |
+          curl -sf -XPUT "http://localhost:9200/_cluster/settings" \
+            -H "Content-Type: application/json" \
+            -d '{"persistent":{"cluster.routing.allocation.disk.threshold_enabled":"false"}}' \
+          || echo "Warning: could not relax disk threshold (non-fatal)"
+
+      # -----------------------------------------------------------------------
+      # Wait for Ollama model to be fully loaded.
+      # ollama-model-init pulls the model and warms it up inside the container
+      # network. We also probe from the CI runner (via the mapped port) to
+      # confirm the model is hot before handing off to the smoke tests.
+      # -----------------------------------------------------------------------
+
+      - name: Wait for Ollama model readiness
+        run: |
+          MODEL="${{ env.LOCAL_EMBEDDING_MODEL }}"
+          echo "Waiting for Ollama model '${MODEL}' to respond at localhost:11434..."
+          for i in $(seq 1 60); do
+            if curl -sf -X POST http://localhost:11434/v1/embeddings \
+                -H "Content-Type: application/json" \
+                -d "{\"model\":\"${MODEL}\",\"input\":\"readiness probe\"}" \
+                > /dev/null 2>&1; then
+              echo "✓ Ollama model '${MODEL}' is ready (attempt ${i})"
+              exit 0
+            fi
+            echo "  Attempt ${i}/60 — model not ready yet, waiting 10s..."
+            sleep 10
+          done
+          echo "ERROR: Ollama model '${MODEL}' did not become ready within 600s."
+          exit 1
+
+      # -----------------------------------------------------------------------
+      # Install smoke test dependencies
+      # -----------------------------------------------------------------------
+
+      - name: Install smoke test dependencies
+        run: ./gradlew :smoke-test:installDev
+
+      # -----------------------------------------------------------------------
+      # Run AI smoke tests
+      # -----------------------------------------------------------------------
+
+      - name: Run AI embedding smoke tests
+        working-directory: smoke-test
+        run: |
+          source venv/bin/activate
+          pytest tests/semantic/test_local_embedding_provider.py \
+            -v \
+            --junit-xml=junit.smoke-ai.xml \
+            --timeout=120
+        env:
+          DATAHUB_GMS_URL: "http://localhost:8080"
+          LOCAL_EMBEDDING_PROVIDER_TESTS: "true"
+          LOCAL_EMBEDDING_ENDPOINT: "http://localhost:11434/v1/embeddings"
+          LOCAL_EMBEDDING_MODEL: ${{ env.LOCAL_EMBEDDING_MODEL }}
+          EMBEDDING_WAIT_SECONDS: "30"
+
+      # -----------------------------------------------------------------------
+      # Artifacts
+      # -----------------------------------------------------------------------
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ai-smoke-test-results-${{ github.run_id }}
+          path: smoke-test/junit.smoke-ai.xml
+          retention-days: 30
+
+      - name: Collect Docker logs on failure
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+
+      - name: Upload Docker logs on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docker-logs-ai-${{ github.run_id }}
+          path: docker_logs/${{ github.job }}/
+          retention-days: 5

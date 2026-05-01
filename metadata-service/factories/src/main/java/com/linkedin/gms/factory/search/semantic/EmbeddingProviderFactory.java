@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.search.embedding.LocalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.OpenAIEmbeddingProvider;
 import javax.annotation.Nonnull;
@@ -17,12 +18,13 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Factory for creating embedding providers used in semantic search.
  *
- * <p>Supports three embedding providers:
+ * <p>Supports four embedding providers:
  *
  * <ul>
  *   <li><b>aws-bedrock</b>: AWS Bedrock Runtime API with Cohere/Titan models
  *   <li><b>openai</b>: OpenAI Embeddings API with text-embedding-3-small/large models
  *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
+ *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
  * </ul>
  *
  * <p>The provider is conditionally created only when semantic search is enabled in the
@@ -73,9 +75,10 @@ public class EmbeddingProviderFactory {
       case "aws-bedrock" -> createAwsBedrockProvider(config);
       case "openai" -> createOpenAIProvider(config);
       case "cohere" -> createCohereProvider(config);
+      case "local" -> createLocalProvider(config);
       default -> throw new IllegalStateException(
           String.format(
-              "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere",
+              "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local",
               providerType));
     };
   }
@@ -127,5 +130,16 @@ public class EmbeddingProviderFactory {
 
     return new CohereEmbeddingProvider(
         cohereConfig.getApiKey(), cohereConfig.getEndpoint(), cohereConfig.getModel());
+  }
+
+  private EmbeddingProvider createLocalProvider(EmbeddingProviderConfiguration config) {
+    EmbeddingProviderConfiguration.LocalConfig localConfig = config.getLocal();
+
+    log.info(
+        "Configuring local embedding provider: endpoint={}, model={}",
+        localConfig.getEndpoint(),
+        localConfig.getModel());
+
+    return new LocalEmbeddingProvider(localConfig.getEndpoint(), localConfig.getModel());
   }
 }
