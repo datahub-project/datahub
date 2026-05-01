@@ -12,6 +12,7 @@ import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -41,6 +43,9 @@ public class UpsertCustomAssertionResolverTest {
   private static final Urn TEST_FIELD_URN =
       UrnUtils.getUrn(
           "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field1)");
+  private static final Urn TEST_FIELD_URN_2 =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field2)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
 
   private static final String TEST_INVALID_ASSERTION_URN = "test";
@@ -59,7 +64,52 @@ public class UpsertCustomAssertionResolverTest {
           TEST_DATASET_URN.toString(),
           customAssertionType,
           customAssertionDescription,
-          "field1",
+          null, // deprecated fieldPath
+          Arrays.asList("field1", "field2"), // new fieldPaths
+          new PlatformInput(null, "DQplatform"),
+          customAssertionUrl,
+          customAssertionLogic);
+
+  // Input using only the deprecated fieldPath (no fieldPaths)
+  private static final UpsertCustomAssertionInput TEST_INPUT_LEGACY_FIELD_PATH_ONLY =
+      new UpsertCustomAssertionInput(
+          TEST_DATASET_URN.toString(),
+          customAssertionType,
+          customAssertionDescription,
+          "legacyField", // deprecated fieldPath
+          null, // no fieldPaths
+          new PlatformInput(null, "DQplatform"),
+          customAssertionUrl,
+          customAssertionLogic);
+
+  private static final Urn TEST_LEGACY_FIELD_URN =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),legacyField)");
+
+  // Input with both fieldPath and fieldPaths where fieldPath is NOT in fieldPaths
+  private static final UpsertCustomAssertionInput TEST_INPUT_BOTH_FIELD_PATHS_NO_DUPLICATE =
+      new UpsertCustomAssertionInput(
+          TEST_DATASET_URN.toString(),
+          customAssertionType,
+          customAssertionDescription,
+          "field3", // deprecated fieldPath, different from fieldPaths
+          Arrays.asList("field1", "field2"),
+          new PlatformInput(null, "DQplatform"),
+          customAssertionUrl,
+          customAssertionLogic);
+
+  private static final Urn TEST_FIELD_URN_3 =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field3)");
+
+  // Input with both fieldPath and fieldPaths where fieldPath IS already in fieldPaths
+  private static final UpsertCustomAssertionInput TEST_INPUT_BOTH_FIELD_PATHS_WITH_DUPLICATE =
+      new UpsertCustomAssertionInput(
+          TEST_DATASET_URN.toString(),
+          customAssertionType,
+          customAssertionDescription,
+          "field1", // same as first entry in fieldPaths
+          Arrays.asList("field1", "field2"),
           new PlatformInput(null, "DQplatform"),
           customAssertionUrl,
           customAssertionLogic);
@@ -69,7 +119,8 @@ public class UpsertCustomAssertionResolverTest {
           TEST_DATASET_URN.toString(),
           customAssertionType,
           customAssertionDescription,
-          "field1",
+          null,
+          Arrays.asList("field1"),
           new PlatformInput(null, null),
           customAssertionUrl,
           customAssertionLogic);
@@ -79,7 +130,8 @@ public class UpsertCustomAssertionResolverTest {
           TEST_INVALID_DATASET_URN,
           customAssertionType,
           customAssertionDescription,
-          "field1",
+          null,
+          Arrays.asList("field1"),
           new PlatformInput(null, "DQplatform"),
           customAssertionUrl,
           customAssertionLogic);
@@ -100,7 +152,7 @@ public class UpsertCustomAssertionResolverTest {
               new CustomAssertionInfo()
                   .setEntity(TEST_DATASET_URN)
                   .setType(customAssertionType)
-                  .setField(TEST_FIELD_URN)
+                  .setFields(new UrnArray(Arrays.asList(TEST_FIELD_URN, TEST_FIELD_URN_2)))
                   .setLogic(customAssertionLogic));
 
   private static final DataPlatformInstance TEST_DATA_PLATFORM_INSTANCE =
@@ -199,6 +251,153 @@ public class UpsertCustomAssertionResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getExternalUrl().toString()),
             Mockito.eq(TEST_DATA_PLATFORM_INSTANCE),
             Mockito.eq(TEST_ASSERTION_INFO.getCustomAssertion()));
+  }
+
+  @Test
+  public void testGetCreateAssertionWithLegacyFieldPathOnly() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_LEGACY_FIELD_PATH_ONLY);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(mockedService.generateAssertionUrn()).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            mockedService.getAssertionEntityResponse(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
+                            Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_DATA_PLATFORM_INSTANCE.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
+
+    Assertion assertion = resolver.get(mockEnv).get();
+    assertNotNull(assertion);
+
+    // Verify the CustomAssertionInfo has fields populated from the legacy fieldPath
+    Mockito.verify(mockedService, Mockito.times(1))
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.argThat(
+                customInfo ->
+                    customInfo.getFields() != null
+                        && customInfo.getFields().size() == 1
+                        && customInfo.getFields().contains(TEST_LEGACY_FIELD_URN)));
+  }
+
+  @Test
+  public void testGetCreateAssertionWithBothFieldPathAndFieldPaths() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_BOTH_FIELD_PATHS_NO_DUPLICATE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(mockedService.generateAssertionUrn()).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            mockedService.getAssertionEntityResponse(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
+                            Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_DATA_PLATFORM_INSTANCE.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
+
+    Assertion assertion = resolver.get(mockEnv).get();
+    assertNotNull(assertion);
+
+    // fieldPaths has field1, field2 and fieldPath has field3 -> 3 total fields
+    Mockito.verify(mockedService, Mockito.times(1))
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.argThat(
+                customInfo ->
+                    customInfo.getFields() != null
+                        && customInfo.getFields().size() == 3
+                        && customInfo.getFields().contains(TEST_FIELD_URN)
+                        && customInfo.getFields().contains(TEST_FIELD_URN_2)
+                        && customInfo.getFields().contains(TEST_FIELD_URN_3)));
+  }
+
+  @Test
+  public void testGetCreateAssertionWithDuplicateFieldPath() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_BOTH_FIELD_PATHS_WITH_DUPLICATE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(mockedService.generateAssertionUrn()).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            mockedService.getAssertionEntityResponse(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())),
+                            Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_DATA_PLATFORM_INSTANCE.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
+
+    Assertion assertion = resolver.get(mockEnv).get();
+    assertNotNull(assertion);
+
+    // fieldPaths has field1, field2 and fieldPath also has field1 -> deduplicated to 2
+    Mockito.verify(mockedService, Mockito.times(1))
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.argThat(
+                customInfo ->
+                    customInfo.getFields() != null
+                        && customInfo.getFields().size() == 2
+                        && customInfo.getFields().contains(TEST_FIELD_URN)
+                        && customInfo.getFields().contains(TEST_FIELD_URN_2)));
   }
 
   @Test
