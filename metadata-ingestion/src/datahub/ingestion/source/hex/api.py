@@ -1,7 +1,8 @@
+import functools
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, TypeVar, Union
 
 import requests
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -27,6 +28,45 @@ from datahub.ingestion.source.hex.model import (
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+_F = TypeVar("_F", bound=Callable)
+
+
+def _api_call(name: str, paginated: bool = False) -> Callable[[_F], _F]:
+    """
+    Decorator that tracks Hex API calls on self.report.
+
+    For non-paginated methods: increments api_calls[name] once per call.
+    For paginated methods (paginated=True): increments api_calls[name] once
+    per outer invocation AND injects a _track_page() helper onto self that
+    the method body calls once per inner HTTP request. This produces:
+
+      api_calls["list_cells"]       # outer invocations (one per project)
+      api_calls["list_cells.pages"] # actual HTTP page requests
+    """
+
+    def decorator(func: _F) -> _F:
+        pages_key = f"{name}.pages"
+
+        @functools.wraps(func)
+        def wrapper(self: "HexApi", *args: Any, **kwargs: Any) -> Any:
+            self.report.api_calls[name] = self.report.api_calls.get(name, 0) + 1
+            self.report.api_total_calls += 1
+            if paginated:
+                # Inject a page-tracking helper the method body can call.
+                def _track_page() -> None:
+                    self.report.api_calls[pages_key] = (
+                        self.report.api_calls.get(pages_key, 0) + 1
+                    )
+                    self.report.api_total_calls += 1
+
+                self._track_page = _track_page  # type: ignore[attr-defined]
+            return func(self, *args, **kwargs)
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
 
 # The following models were Claude-generated from Hex API OpenAPI definition https://static.hex.site/openapi.json
 # To be exclusively used internally for the deserialization of the API response
@@ -204,11 +244,13 @@ class HexApiProjectsListResponse(BaseModel):
 
 @dataclass
 class HexApiReport(SourceReport):
-    fetch_projects_page_calls: int = 0
-    fetch_projects_page_items: int = 0
-    fetch_cells_calls: int = 0
-    fetch_queried_tables_calls: int = 0
-    fetch_runs_calls: int = 0
+    # Per-endpoint call counts — populated automatically by @_api_call decorators.
+    # Keys match the name passed to @_api_call on each HexApi method.
+    api_calls: Dict[str, int] = field(default_factory=dict)
+    # Total HTTP requests across all endpoints (sum of api_calls values).
+    api_total_calls: int = 0
+    # Items returned by paginated list endpoints.
+    api_projects_items: int = 0
 
 
 class HexApi:
@@ -255,6 +297,7 @@ class HexApi:
 
         return session
 
+    @_api_call("list_projects")
     def fetch_projects(
         self,
         include_components: bool = True,
@@ -281,11 +324,11 @@ class HexApi:
         while params["after"]:
             yield from self._fetch_projects_page(params)
 
+    @_api_call("list_projects.pages")
     def _fetch_projects_page(
         self, params: Dict[str, Any]
     ) -> Generator[Union[Project, Component], None, None]:
         logger.debug(f"Fetching projects page with params: {params}")
-        self.report.fetch_projects_page_calls += 1
         try:
             response = self.session.get(
                 url=self._list_projects_url(),
@@ -301,7 +344,7 @@ class HexApi:
                 api_response.pagination.after if api_response.pagination else None
             )
 
-            self.report.fetch_projects_page_items += len(api_response.values)
+            self.report.api_projects_items += len(api_response.values)
 
             for item in api_response.values:
                 try:
@@ -408,6 +451,7 @@ class HexApi:
     # Data connections  (/v1/data-connections)
     # ------------------------------------------------------------------
 
+    @_api_call("list_connections")
     def fetch_connections(self) -> Dict[str, Any]:
         """
         Return {connection_id: (name, connection_type)} for all data connections.
@@ -438,6 +482,7 @@ class HexApi:
     # Cells  (all tiers — /v1/cells?projectId=)
     # ------------------------------------------------------------------
 
+    @_api_call("list_cells", paginated=True)
     def fetch_cells(self, project_id: str) -> List[dict]:
         """
         Return all cells for a project via paginated REST calls.
@@ -465,7 +510,7 @@ class HexApi:
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                self.report.fetch_cells_calls += 1
+                self._track_page()  # counts list_cells.pages
             except Exception as e:
                 self.report.warning(
                     title="Failed to fetch cells",
@@ -483,6 +528,7 @@ class HexApi:
     # Queried tables  (ENTERPRISE tier — /v1/projects/{id}/queriedTables)
     # ------------------------------------------------------------------
 
+    @_api_call("queried_tables")
     def fetch_queried_tables(self, project_id: str) -> Optional[List[dict]]:
         """
         Return [{dataConnectionId, dataConnectionName, tableName}] for all
@@ -500,7 +546,6 @@ class HexApi:
             if resp.status_code == 403:
                 return None  # non-ENTERPRISE workspace
             resp.raise_for_status()
-            self.report.fetch_queried_tables_calls += 1
             return resp.json().get("values", [])
         except Exception as e:
             self.report.warning(
@@ -514,6 +559,7 @@ class HexApi:
     # Run history  (/v1/projects/{id}/runs)
     # ------------------------------------------------------------------
 
+    @_api_call("run_list")
     def fetch_latest_run(self, project_id: str) -> Optional[RunRecord]:
         """Return the most recent run for a project, or None if unavailable."""
         try:
@@ -524,7 +570,6 @@ class HexApi:
                 timeout=30,
             )
             resp.raise_for_status()
-            self.report.fetch_runs_calls += 1
             runs = resp.json().get("runs", [])
             if not runs:
                 return None

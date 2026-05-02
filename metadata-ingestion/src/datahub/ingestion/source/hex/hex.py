@@ -174,6 +174,9 @@ class HexReport(
 ):
     projects_with_lineage: int = 0
     projects_without_sql_cells: int = 0
+    # Incremental ingestion counters — visible in ingestion run summary
+    projects_full_refresh: int = 0
+    projects_incremental_skip: int = 0
 
 
 class _HexIncrementalHandler:
@@ -188,7 +191,7 @@ class _HexIncrementalHandler:
         return HEX_INCREMENTAL_JOB_ID
 
     def is_checkpointing_enabled(self) -> bool:
-        return self._source.is_stateful_ingestion_configured()
+        return self._source.state_provider.is_stateful_ingestion_configured()
 
     def create_checkpoint(self) -> Optional[Checkpoint[HexIncrementalCheckpointState]]:
         assert self._source.ctx.pipeline_name
@@ -395,7 +398,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Read incremental checkpoint — None on first run or when ignore_old_state=true
         run_start_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
-        last_checkpoint = self.get_last_checkpoint(
+        last_checkpoint = self.state_provider.get_last_checkpoint(
             HEX_INCREMENTAL_JOB_ID, HexIncrementalCheckpointState
         )
         last_ingested_at_ms: Optional[int] = (
@@ -442,14 +445,29 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             yield from self.mapper.map_workspace()
 
             for project in self.project_registry.values():
+                is_light = project.id in self._light_project_ids
+                if is_light:
+                    # Project unchanged since last checkpoint — skip all full aspects.
+                    # Only emit lastRefreshed PATCH if a new COMPLETED run happened;
+                    # everything else (title, description, lineage, tags, usage stats)
+                    # is unchanged and the DataHub record is already current.
+                    self.report.projects_incremental_skip += 1
+                    if project.latest_run and project.latest_run.status == "COMPLETED":
+                        yield from self.mapper.map_project_last_refreshed(
+                            project=project,
+                            last_refreshed_ms=make_ts_millis(
+                                project.latest_run.start_time
+                            ),
+                        )
+                    continue
+
+                self.report.projects_full_refresh += 1
                 yield from self.mapper.map_project(project=project)
                 if project.upstream_datasets:
                     yield from self.mapper.map_project_lineage(
                         project=project,
                         upstream_urns=project.upstream_datasets,
                     )
-                # lastRefreshed is emitted as a targeted PATCH only on COMPLETED
-                # runs so the value is never cleared by an ERRORED run.
                 if project.latest_run and project.latest_run.status == "COMPLETED":
                     yield from self.mapper.map_project_last_refreshed(
                         project=project,
@@ -465,7 +483,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         # Commit incremental checkpoint. ignore_new_state is honoured by
         # get_current_checkpoint returning None when set.
-        cur_checkpoint = self.get_current_checkpoint(HEX_INCREMENTAL_JOB_ID)
+        cur_checkpoint = self.state_provider.get_current_checkpoint(
+            HEX_INCREMENTAL_JOB_ID
+        )
         if cur_checkpoint is not None:
             cur_checkpoint.state = HexIncrementalCheckpointState(
                 last_ingested_at_millis=run_start_ms
