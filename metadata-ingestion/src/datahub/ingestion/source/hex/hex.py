@@ -20,7 +20,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    MetadataWorkUnitProcessor,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
@@ -187,7 +192,7 @@ class HexReport(
 @capability(
     SourceCapability.TAGS, "Status, categories, and collections emitted as tags"
 )
-class HexSource(StatefulIngestionSourceBase):
+class HexSource(TestableSource, StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
@@ -217,6 +222,73 @@ class HexSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "HexSource":
         config = HexSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        import requests
+
+        report = TestConnectionReport()
+        report.capability_report = {}
+
+        try:
+            config = HexSourceConfig.parse_obj_allow_extras(config_dict)
+            base = config.base_url.rstrip("/")
+            headers = {"Authorization": f"Bearer {config.token.get_secret_value()}"}
+
+            # Basic connectivity — GET /v1/users/me (lightweight, just validates token)
+            resp = requests.get(f"{base}/users/me", headers=headers, timeout=15)
+            if resp.status_code == 401:
+                report.basic_connectivity = CapabilityReport(
+                    capable=False,
+                    failure_reason="Authentication failed — check that your token is valid and not expired.",
+                )
+                return report
+            resp.raise_for_status()
+            report.basic_connectivity = CapabilityReport(capable=True)
+
+            # Capabilities that only require a valid token
+            for cap in (
+                SourceCapability.DESCRIPTIONS,
+                SourceCapability.OWNERSHIP,
+                SourceCapability.CONTAINERS,
+                SourceCapability.USAGE_STATS,
+                SourceCapability.TAGS,
+            ):
+                report.capability_report[cap] = CapabilityReport(capable=True)
+
+            # Lineage — verify we can list projects and data connections
+            proj_resp = requests.get(
+                f"{base}/projects",
+                headers=headers,
+                params={"limit": 1},
+                timeout=15,
+            )
+            conn_resp = requests.get(
+                f"{base}/data-connections", headers=headers, timeout=15
+            )
+            if proj_resp.ok and conn_resp.ok:
+                report.capability_report[SourceCapability.LINEAGE_COARSE] = (
+                    CapabilityReport(capable=True)
+                )
+            else:
+                report.capability_report[SourceCapability.LINEAGE_COARSE] = (
+                    CapabilityReport(
+                        capable=False,
+                        failure_reason="Could not access /v1/projects or /v1/data-connections. "
+                        "Lineage may still work but connection type resolution could be limited.",
+                    )
+                )
+
+        except Exception as e:
+            logger.exception(f"test_connection failed: {e}")
+            report.internal_failure = True
+            report.internal_failure_reason = str(e)
+            if report.basic_connectivity is None:
+                report.basic_connectivity = CapabilityReport(
+                    capable=False, failure_reason=str(e)
+                )
+
+        return report
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
