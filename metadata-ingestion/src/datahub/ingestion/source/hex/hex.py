@@ -256,7 +256,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             ):
                 report.capability_report[cap] = CapabilityReport(capable=True)
 
-            # Lineage — verify we can list projects and data connections
+            # --- Lineage tier detection ---
+
+            # Fetch first project ID — needed to probe queriedTables
             proj_resp = requests.get(
                 f"{base}/projects",
                 headers=headers,
@@ -266,18 +268,71 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             conn_resp = requests.get(
                 f"{base}/data-connections", headers=headers, timeout=15
             )
-            if proj_resp.ok and conn_resp.ok:
-                report.capability_report[SourceCapability.LINEAGE_COARSE] = (
-                    CapabilityReport(capable=True)
+
+            first_project_id: Optional[str] = None
+            if proj_resp.ok:
+                projects = proj_resp.json().get("values", [])
+                if projects:
+                    first_project_id = projects[0].get("id")
+
+            # Tier 1: queriedTables (ENTERPRISE only)
+            # Hex returns 403 for non-ENTERPRISE workspaces.
+            enterprise_lineage = False
+            if first_project_id:
+                qt_resp = requests.get(
+                    f"{base}/projects/{first_project_id}/queriedTables",
+                    headers=headers,
+                    timeout=15,
                 )
-            else:
-                report.capability_report[SourceCapability.LINEAGE_COARSE] = (
-                    CapabilityReport(
+                if qt_resp.ok:
+                    enterprise_lineage = True
+                    report.capability_report[
+                        "Lineage via queriedTables API (ENTERPRISE)"
+                    ] = CapabilityReport(
+                        capable=True,
+                        mitigation_message="Hex returns the exact list of warehouse tables "
+                        "this project queries — no SQL parsing required.",
+                    )
+                else:
+                    report.capability_report[
+                        "Lineage via queriedTables API (ENTERPRISE)"
+                    ] = CapabilityReport(
                         capable=False,
-                        failure_reason="Could not access /v1/projects or /v1/data-connections. "
-                        "Lineage may still work but connection type resolution could be limited.",
+                        failure_reason=f"HTTP {qt_resp.status_code} — workspace is not on "
+                        "the ENTERPRISE tier or token lacks access.",
+                        mitigation_message="Upgrade to Hex ENTERPRISE to unlock exact lineage. "
+                        "SQL-parsing lineage (Tier 2) is still available.",
+                    )
+
+            # Tier 2: cells + SQL parsing (all tiers)
+            cells_accessible = proj_resp.ok and conn_resp.ok
+            if cells_accessible:
+                report.capability_report["Lineage via SQL parsing (all tiers)"] = (
+                    CapabilityReport(
+                        capable=True,
+                        mitigation_message="SQL is extracted from each project's cells and parsed "
+                        "with sqlglot. Cells with unknown connection IDs are skipped "
+                        "rather than emitting wrong lineage.",
                     )
                 )
+            else:
+                report.capability_report["Lineage via SQL parsing (all tiers)"] = (
+                    CapabilityReport(
+                        capable=False,
+                        failure_reason="Could not access /v1/projects or /v1/data-connections.",
+                        mitigation_message="Verify the token has at least standard user access.",
+                    )
+                )
+
+            # Top-level LINEAGE_COARSE — capable if either tier works
+            report.capability_report[SourceCapability.LINEAGE_COARSE] = (
+                CapabilityReport(
+                    capable=enterprise_lineage or cells_accessible,
+                    failure_reason=None
+                    if (enterprise_lineage or cells_accessible)
+                    else "Neither lineage tier is available — check token permissions.",
+                )
+            )
 
         except Exception as e:
             logger.exception(f"test_connection failed: {e}")
