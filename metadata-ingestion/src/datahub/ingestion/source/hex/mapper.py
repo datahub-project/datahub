@@ -119,19 +119,19 @@ class Mapper:
         dashboard_urn = self._get_dashboard_urn(name=project.id)
 
         custom_properties: dict = {"id": project.id}
-        last_refreshed_ts: Optional[int] = None
         if project.latest_run:
             run = project.latest_run
-            last_refreshed_ts = make_ts_millis(run.start_time)
-            # Status and elapsed time go in customProperties — lastRefreshed
-            # carries the timestamp in the first-class DashboardInfo field,
-            # matching the pattern used by Mode and other BI connectors.
             custom_properties["last_run_status"] = run.status
             if run.elapsed_seconds is not None:
                 custom_properties["last_run_elapsed_seconds"] = str(
                     int(run.elapsed_seconds)
                 )
 
+        # lastRefreshed is intentionally NOT set here — it is emitted as a
+        # separate targeted PATCH by map_project_last_refreshed() and only on
+        # COMPLETED runs. Setting it in a full replace would clear the previous
+        # value on every ERRORED run, making the field unreliable as a freshness
+        # signal for projects with sustained failures.
         dashboard_info = DashboardInfoClass(
             title=project.title,
             description=project.description or "",
@@ -141,7 +141,6 @@ class Mapper:
             externalUrl=self._get_project_or_component_external_url(project),
             customProperties=custom_properties,
             datasetEdges=self._dataset_edges(project.upstream_datasets),
-            lastRefreshed=last_refreshed_ts,
             # TODO: support schema field upstream, maybe InputFields?
         )
 
@@ -429,6 +428,31 @@ class Mapper:
                 entityUrn=dashboard_urn.urn(),
                 aspect=UpstreamLineageClass(upstreams=upstreams),
             ).as_workunit()
+
+    def map_project_last_refreshed(
+        self, project: Project, last_refreshed_ms: int
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit a targeted DashboardInfo PATCH that sets only lastRefreshed.
+
+        This is always a PATCH (never a full replace) so the existing title,
+        description, edges, and all other DashboardInfo fields are preserved on
+        the server side by DashboardInfoTemplate.applyPatch().
+
+        Only call this method when the run status is COMPLETED — the caller is
+        responsible for not calling it on ERRORED runs, which ensures that
+        lastRefreshed in DataHub always reflects the last known-good refresh
+        time regardless of how many consecutive failures have occurred.
+        """
+        from datahub.specific.dashboard import DashboardPatchBuilder
+
+        dashboard_urn = self._get_dashboard_urn(project.id)
+        patch_builder = DashboardPatchBuilder(dashboard_urn.urn())
+        patch_builder.set_last_refreshed(last_refreshed_ms)
+        for mcp in patch_builder.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+            )
 
     def _maybe_patch_wu(self, wu: MetadataWorkUnit) -> Optional[MetadataWorkUnit]:
         # So far we only have support for DashboardInfo aspect

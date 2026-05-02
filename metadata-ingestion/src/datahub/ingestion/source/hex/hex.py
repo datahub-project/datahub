@@ -11,6 +11,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.emitter.mce_builder import make_ts_millis
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -385,12 +386,18 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             yield from self.mapper.map_workspace()
 
             for project in self.project_registry.values():
-                # map_project embeds latest_run into DashboardInfo.customProperties
                 yield from self.mapper.map_project(project=project)
                 if project.upstream_datasets:
                     yield from self.mapper.map_project_lineage(
                         project=project,
                         upstream_urns=project.upstream_datasets,
+                    )
+                # lastRefreshed is emitted as a targeted PATCH only on COMPLETED
+                # runs so the value is never cleared by an ERRORED run.
+                if project.latest_run and project.latest_run.status == "COMPLETED":
+                    yield from self.mapper.map_project_last_refreshed(
+                        project=project,
+                        last_refreshed_ms=make_ts_millis(project.latest_run.start_time),
                     )
 
             for component in self.component_registry.values():
