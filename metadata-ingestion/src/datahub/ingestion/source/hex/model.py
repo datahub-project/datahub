@@ -2,7 +2,26 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Union
 
+import pydantic
+
+from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+
+
+class HexIncrementalCheckpointState(CheckpointStateBase):
+    """
+    Checkpoint state for incremental Hex ingestion.
+
+    Stores the timestamp of the last successful run. On subsequent runs, projects
+    whose last_edited_at is older than this timestamp skip the expensive per-project
+    fetches (cells, lineage, context documents) since their output hasn't changed.
+
+    The checkpoint job_id includes the connector's major.minor version
+    (HEX_INCREMENTAL_JOB_ID) so bumping minor or major automatically abandons
+    this state and forces a full re-process on the next run.
+    """
+
+    last_ingested_at_millis: pydantic.NonNegativeInt = 0
 
 
 @dataclass

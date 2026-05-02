@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from pydantic import Field, SecretStr
 from typing_extensions import assert_never
@@ -21,6 +22,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -33,6 +35,7 @@ from datahub.ingestion.source.hex.api import HexApi, HexApiReport
 from datahub.ingestion.source.hex.constants import (
     HEX_API_BASE_URL_DEFAULT,
     HEX_API_PAGE_SIZE_DEFAULT,
+    HEX_INCREMENTAL_JOB_ID,
     HEX_PLATFORM_NAME,
 )
 from datahub.ingestion.source.hex.document_builder import HexDocumentBuilder
@@ -44,12 +47,14 @@ from datahub.ingestion.source.hex.mapper import Mapper
 from datahub.ingestion.source.hex.model import (
     Component,
     ExploreCell,
+    HexIncrementalCheckpointState,
     Project,
     SqlCell,
 )
 from datahub.ingestion.source.hex.query_fetcher import (
     HexQueryFetcherReport,
 )
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -171,6 +176,30 @@ class HexReport(
     projects_without_sql_cells: int = 0
 
 
+class _HexIncrementalHandler:
+    """Minimal use-case handler that registers the incremental checkpoint job with the framework."""
+
+    def __init__(self, source: "HexSource") -> None:
+        self._source = source
+        source.state_provider.register_stateful_ingestion_usecase_handler(self)
+
+    @property
+    def job_id(self) -> JobId:
+        return HEX_INCREMENTAL_JOB_ID
+
+    def is_checkpointing_enabled(self) -> bool:
+        return self._source.is_stateful_ingestion_configured()
+
+    def create_checkpoint(self) -> Optional[Checkpoint[HexIncrementalCheckpointState]]:
+        assert self._source.ctx.pipeline_name
+        return Checkpoint(
+            job_name=str(HEX_INCREMENTAL_JOB_ID),
+            pipeline_name=self._source.ctx.pipeline_name,
+            run_id=self._source.ctx.run_id,
+            state=HexIncrementalCheckpointState(),
+        )
+
+
 @platform_name("Hex")
 @config_class(HexSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -218,6 +247,12 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         )
         self.project_registry: Dict[str, Project] = {}
         self.component_registry: Dict[str, Component] = {}
+        # Projects whose last_edited_at hasn't changed since the last checkpoint.
+        # These skip the expensive per-project fetches (cells, lineage, context docs).
+        self._light_project_ids: Set[str] = set()
+        # Register the incremental ingestion use-case handler so the framework
+        # knows how to create/commit checkpoints for HEX_INCREMENTAL_JOB_ID.
+        _HexIncrementalHandler(self)
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "HexSource":
@@ -358,8 +393,29 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         return self.report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # Read incremental checkpoint — None on first run or when ignore_old_state=true
+        run_start_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+        last_checkpoint = self.get_last_checkpoint(
+            HEX_INCREMENTAL_JOB_ID, HexIncrementalCheckpointState
+        )
+        last_ingested_at_ms: Optional[int] = (
+            last_checkpoint.state.last_ingested_at_millis
+            if last_checkpoint and last_checkpoint.state.last_ingested_at_millis
+            else None
+        )
+        if last_ingested_at_ms:
+            logger.info(
+                "Incremental ingestion: last checkpoint at %s. "
+                "Projects unchanged since then will skip cells/lineage/context fetches.",
+                datetime.fromtimestamp(
+                    last_ingested_at_ms / 1000, tz=timezone.utc
+                ).isoformat(),
+            )
+        else:
+            logger.info("No incremental checkpoint found — performing full ingestion.")
+
         with self.report.new_stage("Fetch Hex projects and components"):
-            self._populate_registries()
+            self._populate_registries(last_ingested_at_ms=last_ingested_at_ms)
 
         # Build connections map once — used by lineage and context documents
         connections_by_id: Dict[str, Any] = {}
@@ -407,7 +463,15 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             with self.report.new_stage("Emit context documents"):
                 yield from self._emit_context_documents(connections_by_id)
 
-    def _populate_registries(self) -> None:
+        # Commit incremental checkpoint. ignore_new_state is honoured by
+        # get_current_checkpoint returning None when set.
+        cur_checkpoint = self.get_current_checkpoint(HEX_INCREMENTAL_JOB_ID)
+        if cur_checkpoint is not None:
+            cur_checkpoint.state = HexIncrementalCheckpointState(
+                last_ingested_at_millis=run_start_ms
+            )
+
+    def _populate_registries(self, last_ingested_at_ms: Optional[int] = None) -> None:
         for item in self.hex_api.fetch_projects(
             include_components=self.source_config.include_components,
         ):
@@ -426,6 +490,15 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             if isinstance(item, Project):
                 if self.source_config.project_title_pattern.allowed(item.title):
                     self.project_registry[item.id] = item
+                    # Tag as light if unchanged since last checkpoint.
+                    # last_edited_at comes from lastEditedAt in the project list response.
+                    if (
+                        last_ingested_at_ms
+                        and item.last_edited_at
+                        and int(item.last_edited_at.timestamp() * 1000)
+                        <= last_ingested_at_ms
+                    ):
+                        self._light_project_ids.add(item.id)
             elif isinstance(item, Component):
                 if (
                     self.source_config.include_components
@@ -434,6 +507,15 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     self.component_registry[item.id] = item
             else:
                 assert_never(item)
+
+        if last_ingested_at_ms:
+            light = len(self._light_project_ids)
+            full = len(self.project_registry) - light
+            logger.info(
+                "Incremental: %d projects need full re-processing, %d unchanged (skipping cells/lineage/context).",
+                full,
+                light,
+            )
 
     def _enrich_lineage(self, connections_by_id: Dict[str, Any]) -> None:
         # {connection_id: connection_type} — connection_platform_map overrides take precedence
@@ -454,6 +536,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         queried_tables_available: Optional[bool] = None
 
         for project in self.project_registry.values():
+            if project.id in self._light_project_ids:
+                continue  # unchanged since last run — lineage hasn't changed
+
             lineage_builder.set_project_id(project.id)
             upstream_urns: List[str] = []
 
@@ -499,6 +584,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         for project in self.project_registry.values():
+            if project.id in self._light_project_ids:
+                continue  # cells unchanged — skip re-fetching and re-emitting the document
+
             raw_cells = self.hex_api.fetch_cells(project.id)
             sql_cells, explore_cells, section_names, markdown = _parse_cells(raw_cells)
             dashboard_urn = self.mapper._get_dashboard_urn(project.id).urn()
