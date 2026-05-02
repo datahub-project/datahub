@@ -1,11 +1,10 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import pydantic
 
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 
 
 class HexIncrementalCheckpointState(CheckpointStateBase):
@@ -106,10 +105,9 @@ class Project:
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
     # Dataset URN strings resolved by the lineage builder.
+    # These are stored in DashboardInfo.datasetEdges — the correct
+    # dataset-level lineage mechanism for Dashboard entities.
     upstream_datasets: List[str] = field(default_factory=list)
-    upstream_schema_fields: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
-        default_factory=list
-    )
     latest_run: Optional[RunRecord] = None
 
 

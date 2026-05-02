@@ -795,7 +795,7 @@ class TestMapper(unittest.TestCase):
 
     def test_dataset_edges(self):
         from datahub.metadata.schema_classes import EdgeClass
-        from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+        from datahub.metadata.urns import DatasetUrn
 
         mapper = Mapper(
             workspace_name=self.workspace_name,
@@ -805,49 +805,22 @@ class TestMapper(unittest.TestCase):
         edges = mapper._dataset_edges([])
         assert not edges
 
-        # Test with only DatasetUrns
-        dataset_urn1 = DatasetUrn(
-            platform="snowflake",
-            name="test-dataset-1",
-        )
-        dataset_urn2 = DatasetUrn(
-            platform="bigquery",
-            name="test-dataset-2",
-        )
+        # Test with dataset URN strings (lineage builder now exclusively returns List[str])
+        dataset_urn1 = DatasetUrn(platform="snowflake", name="test-dataset-1")
+        dataset_urn2 = DatasetUrn(platform="bigquery", name="test-dataset-2")
 
-        edges = mapper._dataset_edges([dataset_urn1, dataset_urn2])
+        edges = mapper._dataset_edges([dataset_urn1.urn(), dataset_urn2.urn()])
         assert edges and len(edges) == 2
         assert all(isinstance(edge, EdgeClass) for edge in edges)
         assert edges[0].destinationUrn == dataset_urn1.urn()
         assert edges[1].destinationUrn == dataset_urn2.urn()
 
-        # Test with mixed DatasetUrns and SchemaFieldUrns - should filter out SchemaFieldUrns
-        schema_field_urn = SchemaFieldUrn(
-            parent=dataset_urn1,
-            field_path="test.field.path",
-        )
-
-        edges = mapper._dataset_edges([dataset_urn1, schema_field_urn, dataset_urn2])
-        assert edges and len(edges) == 2  # SchemaFieldUrn should be filtered out
-        assert edges[0].destinationUrn == dataset_urn1.urn()
-        assert edges[1].destinationUrn == dataset_urn2.urn()
-
     def test_map_project_with_upstream_datasets(self):
-        from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+        from datahub.metadata.urns import DatasetUrn
 
-        # Create a project with upstream datasets
-        dataset_urn1 = DatasetUrn(
-            platform="snowflake",
-            name="test-dataset-1",
-        )
-        dataset_urn2 = DatasetUrn(
-            platform="bigquery",
-            name="test-dataset-2",
-        )
-        schema_field_urn = SchemaFieldUrn(
-            parent=dataset_urn1,
-            field_path="test.field.path",
-        )
+        # Create a project with upstream datasets (lineage builder returns List[str])
+        dataset_urn1 = DatasetUrn(platform="snowflake", name="test-dataset-1")
+        dataset_urn2 = DatasetUrn(platform="bigquery", name="test-dataset-2")
 
         project = Project(
             id="uuid1",
@@ -858,7 +831,7 @@ class TestMapper(unittest.TestCase):
             status=Status(name="Published"),
             creator=Owner(email="creator@example.com"),
             owner=Owner(email="owner@example.com"),
-            upstream_datasets=[dataset_urn1, schema_field_urn, dataset_urn2],
+            upstream_datasets=[dataset_urn1.urn(), dataset_urn2.urn()],
         )
 
         mapper = Mapper(
@@ -883,7 +856,6 @@ class TestMapper(unittest.TestCase):
         edge_urns = [edge.destinationUrn for edge in dashboard_info.datasetEdges]
         assert dataset_urn1.urn() in edge_urns
         assert dataset_urn2.urn() in edge_urns
-        assert schema_field_urn.urn() not in edge_urns  # Should be filtered out
 
     def test_external_urls(self):
         mapper = Mapper(

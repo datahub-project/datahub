@@ -50,8 +50,8 @@ class TestHexAPI(unittest.TestCase):
 
         # check pagination
         assert mock_get.call_count == 2
-        assert self.report.fetch_projects_page_calls == 2
-        assert self.report.fetch_projects_page_items == len(
+        assert self.report.api_calls.get("list_projects.pages", 0) == 2
+        assert self.report.api_projects_items == len(
             mock_response1.json()["values"]
         ) + len(mock_response2.json()["values"])
 
@@ -225,7 +225,7 @@ class TestHexAPI(unittest.TestCase):
 
         # Verify results are empty and error was reported
         assert len(results) == 0
-        assert self.report.fetch_projects_page_calls == 1
+        assert self.report.api_calls.get("list_projects.pages", 0) == 1
         failures = list(self.report.failures)
         assert len(failures) == 1
         assert (
@@ -262,7 +262,7 @@ class TestHexAPI(unittest.TestCase):
 
         # Verify results are empty and error was reported
         assert len(results) == 0
-        assert self.report.fetch_projects_page_calls == 1
+        assert self.report.api_calls.get("list_projects.pages", 0) == 1
         failures = list(self.report.failures)
         assert len(failures) == 1
         assert (
@@ -335,7 +335,7 @@ class TestHexAPI(unittest.TestCase):
         assert len(results) == 1
         assert results[0].id == "valid_item"
 
-        assert self.report.fetch_projects_page_calls == 1
+        assert self.report.api_calls.get("list_projects.pages", 0) == 1
         warnings = list(self.report.warnings)
         assert len(warnings) == 1
         assert warnings[0].title and warnings[0].title == "Incomplete metadata"

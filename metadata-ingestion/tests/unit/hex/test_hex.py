@@ -1,22 +1,11 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+import warnings
 from unittest.mock import MagicMock, patch
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hex.hex import HexSource, HexSourceConfig
 from tests.unit.hex.conftest import load_json_data
-
-
-def datetime_approx_equal(
-    dt1: datetime, dt2: datetime, tolerance_seconds: int = 5
-) -> bool:
-    if dt1.tzinfo is None:
-        dt1 = dt1.replace(tzinfo=timezone.utc)
-    if dt2.tzinfo is None:
-        dt2 = dt2.replace(tzinfo=timezone.utc)
-
-    diff = abs((dt1 - dt2).total_seconds())
-    return diff <= tolerance_seconds
 
 
 class TestHexSourceConfig(unittest.TestCase):
@@ -52,112 +41,22 @@ class TestHexSourceConfig(unittest.TestCase):
         config = HexSourceConfig.model_validate(input_config)
         assert config and not config.include_lineage
 
-        # default values for lineage_start_time and lineage_end_time
-        config = HexSourceConfig.model_validate(self.minimum_input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime.now(tz=timezone.utc) - timedelta(days=1),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time, datetime.now(tz=timezone.utc)
-            )
-        )
-        # set values for lineage_start_time and lineage_end_time
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_start_time": "2025-03-24 12:00:00",
-            "lineage_end_time": "2025-03-25 12:00:00",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime(2025, 3, 24, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        # set lineage_end_time only
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_end_time": "2025-03-25 12:00:00",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc)
-                - timedelta(days=1),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        # set lineage_start_time only
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_start_time": "2025-03-25 12:00:00",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime(2025, 3, 25, 12, 0, 0, tzinfo=timezone.utc),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time, datetime.now(tz=timezone.utc)
-            )
-        )
-        # set relative times for lineage_start_time and lineage_end_time
-        input_config = {
-            **self.minimum_input_config,
-            "lineage_start_time": "-3day",
-            "lineage_end_time": "now",
-        }
-        config = HexSourceConfig.model_validate(input_config)
-        assert (
-            config.lineage_start_time
-            and isinstance(config.lineage_start_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_start_time,
-                datetime.now(tz=timezone.utc) - timedelta(days=3),
-            )
-        )
-        assert (
-            config.lineage_end_time
-            and isinstance(config.lineage_end_time, datetime)
-            and datetime_approx_equal(
-                config.lineage_end_time, datetime.now(tz=timezone.utc)
-            )
-        )
+    def test_deprecated_lineage_fields_emit_warnings(self):
+        """Removed fields emit ConfigurationWarning instead of silently being ignored."""
+        deprecated_fields = [
+            "lineage_start_time",
+            "lineage_end_time",
+            "datahub_page_size",
+        ]
+        for field in deprecated_fields:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                HexSourceConfig.model_validate(
+                    {**self.minimum_input_config, field: "some-value"}
+                )
+                assert any(
+                    issubclass(warning.category, ConfigurationWarning) for warning in w
+                ), f"Expected ConfigurationWarning for deprecated field '{field}'"
 
     def test_category_pattern_filtering(self):
         """Test that category_pattern filters projects/components correctly using page3_data"""

@@ -53,15 +53,11 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
     TimeWindowSizeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
 )
 from datahub.metadata.urns import (
     ContainerUrn,
     CorpUserUrn,
     DashboardUrn,
-    DatasetUrn,
-    SchemaFieldUrn,
     Urn,
 )
 
@@ -399,24 +395,6 @@ class Mapper:
             maybe_wu = self._maybe_patch_wu(wu)
             if maybe_wu:
                 yield maybe_wu
-
-    def map_project_lineage(
-        self,
-        project: Project,
-        upstream_urns: List[Union[DatasetUrn, SchemaFieldUrn, str]],
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit UpstreamLineage for a project given a list of upstream dataset URNs."""
-        upstreams = []
-        for urn in upstream_urns:
-            urn_str = urn if isinstance(urn, str) else urn.urn()
-            if urn_str.startswith("urn:li:dataset:"):
-                upstreams.append(UpstreamClass(dataset=urn_str, type="TRANSFORMED"))
-        if upstreams:
-            dashboard_urn = self._get_dashboard_urn(project.id)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn.urn(),
-                aspect=UpstreamLineageClass(upstreams=upstreams),
-            ).as_workunit()
 
     def map_project_last_refreshed(
         self, project: Project, last_refreshed_ms: int

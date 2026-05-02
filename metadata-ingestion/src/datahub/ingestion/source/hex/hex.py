@@ -463,12 +463,10 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     continue
 
                 self.report.projects_full_refresh += 1
+                # upstream_datasets are already embedded in DashboardInfo.datasetEdges
+                # via map_project() — the correct lineage mechanism for Dashboard entities.
+                # upstreamLineage aspect is NOT registered on dashboard in entity-registry.yml.
                 yield from self.mapper.map_project(project=project)
-                if project.upstream_datasets:
-                    yield from self.mapper.map_project_lineage(
-                        project=project,
-                        upstream_urns=project.upstream_datasets,
-                    )
                 new_run_ms = self._new_completed_run_ms(project)
                 if new_run_ms is not None:
                     yield from self.mapper.map_project_last_refreshed(
