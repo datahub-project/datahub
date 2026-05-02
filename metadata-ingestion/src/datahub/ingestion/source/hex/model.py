@@ -105,9 +105,8 @@ class Project:
     creator: Optional[Owner] = None
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
-    upstream_datasets: List[Union[DatasetUrn, SchemaFieldUrn, str]] = field(
-        default_factory=list
-    )
+    # Dataset URN strings resolved by the lineage builder.
+    upstream_datasets: List[str] = field(default_factory=list)
     upstream_schema_fields: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
         default_factory=list
     )

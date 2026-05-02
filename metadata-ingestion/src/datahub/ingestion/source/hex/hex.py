@@ -454,12 +454,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     # Only emit lastRefreshed PATCH if a COMPLETED run happened AFTER
                     # the last checkpoint (i.e. it's new since the previous ingestion).
                     self.report.projects_incremental_skip += 1
-                    if self._is_new_completed_run(project):
+                    new_run_ms = self._new_completed_run_ms(project)
+                    if new_run_ms is not None:
                         yield from self.mapper.map_project_last_refreshed(
                             project=project,
-                            last_refreshed_ms=make_ts_millis(
-                                project.latest_run.start_time  # type: ignore[union-attr]
-                            ),
+                            last_refreshed_ms=new_run_ms,
                         )
                     continue
 
@@ -470,12 +469,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                         project=project,
                         upstream_urns=project.upstream_datasets,
                     )
-                if self._is_new_completed_run(project):
+                new_run_ms = self._new_completed_run_ms(project)
+                if new_run_ms is not None:
                     yield from self.mapper.map_project_last_refreshed(
                         project=project,
-                        last_refreshed_ms=make_ts_millis(
-                            project.latest_run.start_time  # type: ignore[union-attr]
-                        ),
+                        last_refreshed_ms=new_run_ms,
                     )
 
             for component in self.component_registry.values():
@@ -589,24 +587,27 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 upstream_urns = lineage_builder.build_upstream_urns(sql_cells)
 
             if upstream_urns:
-                project.upstream_datasets = upstream_urns  # type: ignore[assignment]
+                project.upstream_datasets = upstream_urns
                 self.report.projects_with_lineage += 1
 
     def _enrich_run_history(self) -> None:
         for project in self.project_registry.values():
             run = self.hex_api.fetch_latest_run(project.id)
             if run:
-                project.latest_run = run  # type: ignore[assignment]
+                project.latest_run = run
 
-    def _is_new_completed_run(self, project: Project) -> bool:
-        """Return True only if this project has a COMPLETED run that happened
-        AFTER the last checkpoint — i.e. a genuinely new execution since the
-        previous ingestion. Runs older than the checkpoint were already emitted
-        and re-emitting them would be stale."""
+    def _new_completed_run_ms(self, project: Project) -> Optional[int]:
+        """Return the run start timestamp (ms) if the project has a COMPLETED run
+        that happened AFTER the last checkpoint, otherwise None.
+
+        Runs older than the checkpoint were already emitted in the previous
+        ingestion — re-emitting would be stale. On the first run (no checkpoint)
+        last_ingested_at_ms is None so all COMPLETED runs are considered new.
+        """
         if not project.latest_run or project.latest_run.status != "COMPLETED":
-            return False
+            return None
         run_ms = make_ts_millis(project.latest_run.start_time)
-        return run_ms > (self._last_ingested_at_ms or 0)
+        return run_ms if run_ms > (self._last_ingested_at_ms or 0) else None
 
     def _emit_context_documents(
         self, connections_by_id: Dict[str, Any]

@@ -383,21 +383,10 @@ class Mapper:
             else None,
         )
 
-    def _dataset_edges(
-        self, upstream: List[Union[DatasetUrn, SchemaFieldUrn]]
-    ) -> Optional[List[EdgeClass]]:
-        # TBC: is there support for CLL in Dashboards? for the moment, skip SchemaFieldUrns
-        return (
-            [
-                EdgeClass(
-                    destinationUrn=upstream_urn.urn(),
-                )
-                for upstream_urn in upstream
-                if isinstance(upstream_urn, DatasetUrn)
-            ]
-            if upstream
-            else None
-        )
+    def _dataset_edges(self, upstream: List[str]) -> Optional[List[EdgeClass]]:
+        if not upstream:
+            return None
+        return [EdgeClass(destinationUrn=urn) for urn in upstream]
 
     def _yield_mcps(
         self, entity_urn: Urn, aspects: List[Optional[_Aspect]]
