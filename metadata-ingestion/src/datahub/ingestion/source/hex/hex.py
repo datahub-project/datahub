@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -31,10 +32,19 @@ from datahub.ingestion.source.hex.constants import (
     HEX_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_NAME,
 )
+from datahub.ingestion.source.hex.document_builder import HexDocumentBuilder
+from datahub.ingestion.source.hex.lineage_builder import (
+    HexLineageBuilder,
+    LineageBuilderReport,
+)
 from datahub.ingestion.source.hex.mapper import Mapper
-from datahub.ingestion.source.hex.model import Component, Project
+from datahub.ingestion.source.hex.model import (
+    Component,
+    ExploreCell,
+    Project,
+    SqlCell,
+)
 from datahub.ingestion.source.hex.query_fetcher import (
-    HexQueryFetcher,
     HexQueryFetcherReport,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -46,7 +56,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.sdk.main_client import DataHubClient
+
+logger = logging.getLogger(__name__)
 
 
 class HexSourceConfig(
@@ -105,19 +116,44 @@ class HexSourceConfig(
     )
     include_lineage: bool = Field(
         default=True,
-        description='Include Hex lineage, being fetched from DataHub. See "Limitations" section in the docs for more details about the limitations of this feature.',
+        description="Extract upstream lineage. Uses queriedTables API (ENTERPRISE workspaces) "
+        "or falls back to parsing SQL from cells (all workspaces). No warehouse ingestion "
+        "dependency required.",
     )
+    sql_parsing_platform_default: str = Field(
+        default="snowflake",
+        description="Fallback SQL dialect when a cell's connection type cannot be resolved.",
+    )
+    connection_platform_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Override connection type resolution: map connection ID to DataHub platform. "
+        'Example: {"<connection_uuid>": "snowflake"}',
+    )
+    include_run_history: bool = Field(
+        default=True,
+        description="Emit the most recent scheduled run as an Operation aspect.",
+    )
+    include_context_documents: bool = Field(
+        default=True,
+        description="Emit a DataHub Document per project containing SQL sources, "
+        "visualisation metadata, and notebook documentation. Documents are hidden from "
+        "global search and linked to the project Dashboard for AI agent retrieval.",
+    )
+    # --- Legacy DataHub-query-fetcher lineage fields (deprecated) ---
+    # These were used by the old lineage path that searched DataHub for Query entities.
+    # They are kept for backward compatibility but no longer have effect when
+    # include_lineage=True (which now uses the REST API approach).
     lineage_start_time: Optional[datetime] = Field(
         default=None,
-        description="Earliest date of lineage to consider. Default: 1 day before lineage end time. You can specify absolute time like '2023-01-01' or relative time like '-7 days' or '-7d'.",
+        description="Deprecated. No longer used; lineage now comes directly from the Hex API.",
     )
     lineage_end_time: Optional[datetime] = Field(
         default=None,
-        description="Latest date of lineage to consider. Default: Current time in UTC. You can specify absolute time like '2023-01-01' or relative time like '-1 day' or '-1d'.",
+        description="Deprecated. No longer used; lineage now comes directly from the Hex API.",
     )
     datahub_page_size: int = Field(
         default=DATAHUB_API_PAGE_SIZE_DEFAULT,
-        description="Number of items to fetch per DataHub API call.",
+        description="Deprecated. No longer used; lineage now comes directly from the Hex API.",
     )
     category_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -177,8 +213,10 @@ class HexReport(
     StaleEntityRemovalSourceReport,
     HexApiReport,
     HexQueryFetcherReport,
+    LineageBuilderReport,
 ):
-    pass
+    projects_with_lineage: int = 0
+    projects_without_sql_cells: int = 0
 
 
 @platform_name("Hex")
@@ -194,6 +232,14 @@ class HexReport(
     subtype_modifier=[
         SourceCapabilityModifier.HEX_PROJECT,
     ],
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default via queriedTables API (ENTERPRISE) or SQL parsing from cells (all tiers). "
+    "No warehouse ingestion dependency required.",
+)
+@capability(
+    SourceCapability.TAGS, "Status, categories, and collections emitted as tags"
 )
 class HexSource(StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
@@ -221,26 +267,6 @@ class HexSource(StatefulIngestionSourceBase):
         self.project_registry: Dict[str, Project] = {}
         self.component_registry: Dict[str, Component] = {}
 
-        self.datahub_client: Optional[DataHubClient] = None
-        self.query_fetcher: Optional[HexQueryFetcher] = None
-        if self.source_config.include_lineage:
-            graph = ctx.require_graph("Lineage")
-            assert self.source_config.lineage_start_time and isinstance(
-                self.source_config.lineage_start_time, datetime
-            )
-            assert self.source_config.lineage_end_time and isinstance(
-                self.source_config.lineage_end_time, datetime
-            )
-            self.datahub_client = DataHubClient(graph=graph)
-            self.query_fetcher = HexQueryFetcher(
-                datahub_client=self.datahub_client,
-                workspace_name=self.source_config.workspace_name,
-                start_datetime=self.source_config.lineage_start_time,
-                end_datetime=self.source_config.lineage_end_time,
-                report=self.report,
-                page_size=self.source_config.datahub_page_size,
-            )
-
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "HexSource":
         config = HexSourceConfig.model_validate(config_dict)
@@ -258,71 +284,222 @@ class HexSource(StatefulIngestionSourceBase):
         return self.report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        with self.report.new_stage("Fetch Hex assets from Hex API"):
-            for project_or_component in self.hex_api.fetch_projects():
-                if project_or_component.categories and (
-                    any(
-                        self.source_config.category_pattern.denied(c.name)
-                        for c in project_or_component.categories
-                    )
-                    or not any(
-                        self.source_config.category_pattern.allowed(c.name)
-                        for c in project_or_component.categories
-                    )
-                ):
-                    continue
+        with self.report.new_stage("Fetch Hex projects and components"):
+            self._populate_registries()
 
-                if isinstance(project_or_component, Project):
-                    if self.source_config.project_title_pattern.allowed(
-                        project_or_component.title
-                    ):
-                        self.project_registry[project_or_component.id] = (
-                            project_or_component
-                        )
-                elif isinstance(project_or_component, Component):
-                    if (
-                        self.source_config.include_components
-                        and self.source_config.component_title_pattern.allowed(
-                            project_or_component.title
-                        )
-                    ):
-                        self.component_registry[project_or_component.id] = (
-                            project_or_component
-                        )
-                else:
-                    assert_never(project_or_component)
+        # Build connections map once — used by lineage and context documents
+        connections_by_id: Dict[str, Any] = {}
+        if (
+            self.source_config.include_lineage
+            or self.source_config.include_context_documents
+        ):
+            connections_by_id = self.hex_api.fetch_connections()
+            # Apply manual overrides from config
+            for conn_id, platform in self.source_config.connection_platform_map.items():
+                if conn_id in connections_by_id:
+                    name, _ = connections_by_id[conn_id]
+                    connections_by_id[conn_id] = (name, platform)
 
         if self.source_config.include_lineage:
-            assert self.datahub_client and self.query_fetcher
+            with self.report.new_stage("Extract lineage via Hex REST API"):
+                self._enrich_lineage(connections_by_id)
 
-            with self.report.new_stage(
-                "Fetch Hex lineage from existing Queries in DataHub"
-            ):
-                for query_metadata in self.query_fetcher.fetch():
-                    project = self.project_registry.get(query_metadata.hex_project_id)
-                    if project:
-                        project.upstream_datasets.extend(
-                            query_metadata.dataset_subjects
-                        )
-                        project.upstream_schema_fields.extend(
-                            query_metadata.schema_field_subjects
-                        )
-                    else:
-                        self.report.report_warning(
-                            title="Missing project for lineage",
-                            message="Lineage missed because missed project, likely due to filter patterns or deleted project.",
-                            context=str(
-                                dict(
-                                    query_urn=query_metadata.urn,
-                                    hex_project_id=query_metadata.hex_project_id,
-                                )
-                            ),
-                        )
+        if self.source_config.include_run_history:
+            with self.report.new_stage("Fetch run history"):
+                self._enrich_run_history()
 
         with self.report.new_stage("Emit"):
             yield from self.mapper.map_workspace()
 
             for project in self.project_registry.values():
                 yield from self.mapper.map_project(project=project)
+                if project.upstream_datasets:
+                    yield from self.mapper.map_project_lineage(
+                        project=project,
+                        upstream_urns=project.upstream_datasets,
+                    )
+                if project.latest_run:
+                    yield from self.mapper.map_project_run(
+                        project=project,
+                        run=project.latest_run,
+                    )
+
             for component in self.component_registry.values():
                 yield from self.mapper.map_component(component=component)
+
+        if self.source_config.include_context_documents:
+            with self.report.new_stage("Emit context documents"):
+                yield from self._emit_context_documents(connections_by_id)
+
+    def _populate_registries(self) -> None:
+        for item in self.hex_api.fetch_projects(
+            include_components=self.source_config.include_components,
+        ):
+            if item.categories and (
+                any(
+                    self.source_config.category_pattern.denied(c.name)
+                    for c in item.categories
+                )
+                or not any(
+                    self.source_config.category_pattern.allowed(c.name)
+                    for c in item.categories
+                )
+            ):
+                continue
+
+            if isinstance(item, Project):
+                if self.source_config.project_title_pattern.allowed(item.title):
+                    self.project_registry[item.id] = item
+            elif isinstance(item, Component):
+                if (
+                    self.source_config.include_components
+                    and self.source_config.component_title_pattern.allowed(item.title)
+                ):
+                    self.component_registry[item.id] = item
+            else:
+                assert_never(item)
+
+    def _enrich_lineage(self, connections_by_id: Dict[str, Any]) -> None:
+        # {connection_id: connection_type} for the lineage builder
+        conn_types = {cid: ctype for cid, (_, ctype) in connections_by_id.items()}
+
+        lineage_builder = HexLineageBuilder(
+            connections=conn_types,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            sql_parsing_platform_default=self.source_config.sql_parsing_platform_default,
+            report=self.report,
+        )
+
+        # Probe queriedTables on the first project to detect ENTERPRISE availability
+        queried_tables_available: Optional[bool] = None
+
+        for project in self.project_registry.values():
+            upstream_urns: List[str] = []
+
+            # Tier 1: queriedTables (ENTERPRISE)
+            if queried_tables_available is not False:
+                queried = self.hex_api.fetch_queried_tables(project.id)
+                if queried is not None:
+                    queried_tables_available = True
+                    upstream_urns = lineage_builder.build_from_queried_tables(queried)
+                elif queried_tables_available is None:
+                    queried_tables_available = False
+                    logger.info(
+                        "queriedTables returned 403 — workspace is not ENTERPRISE tier; "
+                        "using cell-based SQL parsing for all projects"
+                    )
+
+            # Tier 2: cells + SQL parsing (fallback)
+            if not upstream_urns and queried_tables_available is not True:
+                raw_cells = self.hex_api.fetch_cells(project.id)
+                sql_cells = _extract_sql_cells(raw_cells)
+                if not sql_cells:
+                    self.report.projects_without_sql_cells += 1
+                    continue
+                upstream_urns = lineage_builder.build_upstream_urns(sql_cells)
+
+            if upstream_urns:
+                project.upstream_datasets = upstream_urns  # type: ignore[assignment]
+                self.report.projects_with_lineage += 1
+
+    def _enrich_run_history(self) -> None:
+        for project in self.project_registry.values():
+            run = self.hex_api.fetch_latest_run(project.id)
+            if run:
+                project.latest_run = run  # type: ignore[assignment]
+
+    def _emit_context_documents(
+        self, connections_by_id: Dict[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
+        doc_builder = HexDocumentBuilder(
+            workspace_name=self.source_config.workspace_name,
+            platform_instance=self.source_config.platform_instance,
+            connections=connections_by_id,
+        )
+
+        for project in self.project_registry.values():
+            raw_cells = self.hex_api.fetch_cells(project.id)
+            sql_cells, explore_cells, section_names, markdown = _parse_cells(raw_cells)
+            dashboard_urn = self.mapper._get_dashboard_urn(project.id).urn()
+            yield from doc_builder.build_document(
+                project=project,
+                sql_cells=sql_cells,
+                explore_cells=explore_cells,
+                section_names=section_names,
+                markdown_content=markdown,
+                dashboard_urn=dashboard_urn,
+            )
+
+
+# ------------------------------------------------------------------
+# Cell-parsing helpers
+# ------------------------------------------------------------------
+
+
+def _extract_sql_cells(raw_cells: List[dict]) -> List[SqlCell]:
+    result = []
+    for cell in raw_cells:
+        if cell.get("cellType") != "SQL":
+            continue
+        contents = cell.get("contents") or {}
+        sql_data = contents.get("sqlCell") or {}
+        source = sql_data.get("source") or ""
+        conn_id = cell.get("dataConnectionId")
+        if source and conn_id:
+            result.append(
+                SqlCell(
+                    cell_id=cell.get("staticId") or cell.get("id", ""),
+                    cell_label=cell.get("label"),
+                    sql_source=source,
+                    data_connection_id=conn_id,
+                )
+            )
+    return result
+
+
+def _parse_cells(
+    raw_cells: List[dict],
+) -> "tuple[List[SqlCell], List[ExploreCell], List[str], str]":
+    sql_cells, explore_cells, markdown_parts, section_names = [], [], [], []
+    for cell in raw_cells:
+        ct = cell.get("cellType", "")
+        contents = cell.get("contents") or {}
+        label = cell.get("label") or ""
+
+        if ct == "SQL":
+            sql_data = contents.get("sqlCell") or {}
+            source = sql_data.get("source") or ""
+            conn_id = cell.get("dataConnectionId")
+            if source and conn_id:
+                sql_cells.append(
+                    SqlCell(
+                        cell_id=cell.get("staticId") or cell.get("id", ""),
+                        cell_label=label or None,
+                        sql_source=source,
+                        data_connection_id=conn_id,
+                    )
+                )
+        elif ct == "EXPLORE":
+            explore_cells.append(
+                ExploreCell(
+                    cell_id=cell.get("staticId") or cell.get("id", ""),
+                    cell_label=label or None,
+                    dataframe=None,
+                    chart_type=None,
+                )
+            )
+        elif ct == "MARKDOWN":
+            md_data = contents.get("markdownCell") or {}
+            source = md_data.get("source") or ""
+            if source.strip():
+                markdown_parts.append(source)
+        elif ct == "COLLAPSIBLE" and label:
+            section_names.append(label)
+
+    return (
+        sql_cells,
+        explore_cells,
+        section_names,
+        "\n\n".join(p for p in markdown_parts if p.strip()),
+    )

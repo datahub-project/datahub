@@ -11,6 +11,38 @@ class Workspace:
 
 
 @dataclass
+class SqlCell:
+    """A SQL cell from the /v1/cells REST API."""
+
+    cell_id: str
+    cell_label: Optional[str]
+    sql_source: str
+    # None → in-memory transform, no external DB
+    data_connection_id: Optional[str]
+
+
+@dataclass
+class ExploreCell:
+    """A visualisation cell from the /v1/cells REST API."""
+
+    cell_id: str
+    cell_label: Optional[str]
+    # dataframe reference not exposed by REST (only in YAML export)
+    dataframe: Optional[str]
+    chart_type: Optional[str]
+
+
+@dataclass
+class RunRecord:
+    """Latest run from /v1/projects/{id}/runs."""
+
+    run_id: str
+    status: str
+    start_time: datetime
+    elapsed_seconds: Optional[float] = None
+
+
+@dataclass
 class Status:
     name: str
 
@@ -54,12 +86,13 @@ class Project:
     creator: Optional[Owner] = None
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
-    upstream_datasets: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
+    upstream_datasets: List[Union[DatasetUrn, SchemaFieldUrn, str]] = field(
         default_factory=list
     )
     upstream_schema_fields: List[Union[DatasetUrn, SchemaFieldUrn]] = field(
         default_factory=list
     )
+    latest_run: Optional[RunRecord] = None
 
 
 @dataclass

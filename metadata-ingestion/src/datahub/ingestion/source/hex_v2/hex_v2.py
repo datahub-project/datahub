@@ -419,8 +419,6 @@ class HexV2Source(StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
             connections=connections,
         )
-        from datahub.emitter.mce_builder import make_dashboard_urn
-
         for project in self.project_registry.values():
             parsed = self._parsed_yamls.get(project.id)
             if parsed is None:
@@ -430,11 +428,7 @@ class HexV2Source(StatefulIngestionSourceBase):
                 )
                 continue
 
-            dashboard_urn = make_dashboard_urn(
-                platform="hex",
-                name=project.id,
-                platform_instance=self.source_config.platform_instance,
-            )
+            dashboard_urn = self.mapper._dashboard_urn(project.id).urn()
             yield from doc_builder.build_document(
                 project=project,
                 parsed_yaml=parsed,

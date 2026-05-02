@@ -21,6 +21,7 @@ from datahub.ingestion.source.hex.model import (
     Component,
     Owner,
     Project,
+    RunRecord,
     Status,
 )
 from datahub.utilities.str_enum import StrEnum
@@ -205,6 +206,9 @@ class HexApiProjectsListResponse(BaseModel):
 class HexApiReport(SourceReport):
     fetch_projects_page_calls: int = 0
     fetch_projects_page_items: int = 0
+    fetch_cells_calls: int = 0
+    fetch_queried_tables_calls: int = 0
+    fetch_runs_calls: int = 0
 
 
 class HexApi:
@@ -399,3 +403,153 @@ class HexApi:
             )
         else:
             assert_never(hex_item.type)
+
+    # ------------------------------------------------------------------
+    # Data connections  (/v1/data-connections)
+    # ------------------------------------------------------------------
+
+    def fetch_connections(self) -> Dict[str, Any]:
+        """
+        Return {connection_id: (name, connection_type)} for all data connections.
+
+        Used to resolve dataConnectionId references in cells to DataHub platform names
+        and to display human-readable connection labels in context documents.
+        """
+        try:
+            resp = self.session.get(
+                url=f"{self.base_url}/data-connections",
+                headers=self._auth_header(),
+                timeout=30,
+            )
+            resp.raise_for_status()
+            result: Dict[str, Any] = {}
+            for conn in resp.json().get("values", []):
+                result[conn["id"]] = (conn.get("name", ""), conn.get("type", ""))
+            return result
+        except Exception as e:
+            self.report.warning(
+                title="Failed to fetch data connections",
+                message="Connection type resolution will fall back to default platform",
+                exc=e,
+            )
+            return {}
+
+    # ------------------------------------------------------------------
+    # Cells  (all tiers — /v1/cells?projectId=)
+    # ------------------------------------------------------------------
+
+    def fetch_cells(self, project_id: str) -> List[dict]:
+        """
+        Return all cells for a project via paginated REST calls.
+
+        Response shape per cell:
+          {id, staticId, cellType, label, dataConnectionId,
+           contents: {sqlCell: {source}, markdownCell: {source}, codeCell: null},
+           projectId}
+        """
+        cells: List[dict] = []
+        after: Optional[str] = None
+        while True:
+            params: Dict[str, Any] = {
+                "projectId": project_id,
+                "limit": self.page_size,
+            }
+            if after:
+                params["after"] = after
+            try:
+                resp = self.session.get(
+                    url=f"{self.base_url}/cells",
+                    headers=self._auth_header(),
+                    params=params,
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                self.report.fetch_cells_calls += 1
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to fetch cells",
+                    message=f"Cells API call failed for project {project_id}",
+                    exc=e,
+                )
+                break
+            cells.extend(data.get("values", []))
+            after = (data.get("pagination") or {}).get("after")
+            if not after:
+                break
+        return cells
+
+    # ------------------------------------------------------------------
+    # Queried tables  (ENTERPRISE tier — /v1/projects/{id}/queriedTables)
+    # ------------------------------------------------------------------
+
+    def fetch_queried_tables(self, project_id: str) -> Optional[List[dict]]:
+        """
+        Return [{dataConnectionId, dataConnectionName, tableName}] for all
+        warehouse tables touched by this project, or None on 403 (non-ENTERPRISE).
+
+        This is the most accurate lineage source — Hex's own pre-resolved table
+        list requiring no SQL parsing on the DataHub side.
+        """
+        try:
+            resp = self.session.get(
+                url=f"{self.base_url}/projects/{project_id}/queriedTables",
+                headers=self._auth_header(),
+                timeout=30,
+            )
+            if resp.status_code == 403:
+                return None  # non-ENTERPRISE workspace
+            resp.raise_for_status()
+            self.report.fetch_queried_tables_calls += 1
+            return resp.json().get("values", [])
+        except Exception as e:
+            self.report.warning(
+                title="Failed to fetch queriedTables",
+                message=f"queriedTables call failed for {project_id}; falling back to cell-based lineage",
+                exc=e,
+            )
+            return None
+
+    # ------------------------------------------------------------------
+    # Run history  (/v1/projects/{id}/runs)
+    # ------------------------------------------------------------------
+
+    def fetch_latest_run(self, project_id: str) -> Optional[RunRecord]:
+        """Return the most recent run for a project, or None if unavailable."""
+        try:
+            resp = self.session.get(
+                url=f"{self.base_url}/projects/{project_id}/runs",
+                headers=self._auth_header(),
+                params={"limit": 1},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            self.report.fetch_runs_calls += 1
+            runs = resp.json().get("runs", [])
+            if not runs:
+                return None
+            r = runs[0]
+            start_time = _parse_iso(r.get("startTime"))
+            if not start_time:
+                return None
+            elapsed_ms = r.get("elapsedTime")
+            return RunRecord(
+                run_id=r.get("runId", ""),
+                status=r.get("status", "UNKNOWN"),
+                start_time=start_time,
+                # API returns milliseconds; convert to seconds
+                elapsed_seconds=elapsed_ms / 1000.0 if elapsed_ms else None,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to fetch run history",
+                message=f"Run history call failed for {project_id}",
+                exc=e,
+            )
+            return None
+
+
+def _parse_iso(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))

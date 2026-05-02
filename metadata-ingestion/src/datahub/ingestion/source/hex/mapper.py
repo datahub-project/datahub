@@ -32,6 +32,7 @@ from datahub.ingestion.source.hex.model import (
     Component,
     Owner,
     Project,
+    RunRecord,
     Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -48,11 +49,15 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     EdgeClass,
     GlobalTagsClass,
+    OperationClass,
+    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     SubTypesClass,
     TagAssociationClass,
     TimeWindowSizeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import (
     ContainerUrn,
@@ -394,6 +399,44 @@ class Mapper:
             maybe_wu = self._maybe_patch_wu(wu)
             if maybe_wu:
                 yield maybe_wu
+
+    def map_project_lineage(
+        self,
+        project: Project,
+        upstream_urns: List[Union[DatasetUrn, SchemaFieldUrn, str]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit UpstreamLineage for a project given a list of upstream dataset URNs."""
+        upstreams = []
+        for urn in upstream_urns:
+            urn_str = urn if isinstance(urn, str) else urn.urn()
+            if urn_str.startswith("urn:li:dataset:"):
+                upstreams.append(UpstreamClass(dataset=urn_str, type="TRANSFORMED"))
+        if upstreams:
+            dashboard_urn = self._get_dashboard_urn(project.id)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn.urn(),
+                aspect=UpstreamLineageClass(upstreams=upstreams),
+            ).as_workunit()
+
+    def map_project_run(
+        self, project: Project, run: RunRecord
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit an Operation aspect for the latest run of a project."""
+        dashboard_urn = self._get_dashboard_urn(project.id)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn.urn(),
+            aspect=OperationClass(
+                timestampMillis=make_ts_millis(run.start_time),
+                lastUpdatedTimestamp=make_ts_millis(run.start_time),
+                operationType=OperationTypeClass.UPDATE,
+                actor=DEFAULT_INGESTION_USER_URN.urn(),
+                customProperties={
+                    "run_id": run.run_id,
+                    "status": run.status,
+                    "elapsed_seconds": str(run.elapsed_seconds or ""),
+                },
+            ),
+        ).as_workunit()
 
     def _maybe_patch_wu(self, wu: MetadataWorkUnit) -> Optional[MetadataWorkUnit]:
         # So far we only have support for DashboardInfo aspect
