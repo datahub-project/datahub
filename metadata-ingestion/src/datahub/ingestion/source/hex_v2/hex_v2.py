@@ -30,8 +30,17 @@ from datahub.ingestion.source.hex_v2.lineage_builder import (
     LineageBuilderReport,
 )
 from datahub.ingestion.source.hex_v2.mapper import HexV2Mapper
-from datahub.ingestion.source.hex_v2.model import Collection, Component, Project
-from datahub.ingestion.source.hex_v2.yaml_parser import HexYamlParser, ParsedProjectYaml
+from datahub.ingestion.source.hex_v2.model import (
+    Collection,
+    Component,
+    Project,
+    SqlCell,
+)
+from datahub.ingestion.source.hex_v2.yaml_parser import (
+    ExploreCell,
+    HexYamlParser,
+    ParsedProjectYaml,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -322,7 +331,17 @@ class HexV2Source(StatefulIngestionSourceBase):
                     self.component_registry[pid].collections = colls
 
     def _enrich_lineage(self) -> None:
-        """Export each project YAML, parse SQL cells, build upstream URNs."""
+        """
+        Build upstream lineage for each project using a tiered approach:
+
+        Tier 1 — queriedTables API (ENTERPRISE workspaces):
+            Hex's own pre-resolved table list. No SQL parsing. Most accurate.
+            Returns None (403) for non-ENTERPRISE workspaces → fall through to Tier 2.
+
+        Tier 2 — Cells API + sqlglot SQL parsing (all workspaces):
+            Fetches SQL cells via REST, parses with sqlglot per cell.
+            Best-effort; may miss complex CTEs or unsupported dialects.
+        """
         connections = self.cli_client.list_connections()
 
         # Override connection_type mapping from config
@@ -338,39 +357,60 @@ class HexV2Source(StatefulIngestionSourceBase):
             report=self.report,
         )
 
+        # Probe queriedTables on the first project to detect ENTERPRISE availability.
+        # If it returns None (403), skip the probe for all subsequent projects.
+        queried_tables_available: Optional[bool] = None
+
         for project in self.project_registry.values():
-            yaml_content = self.cli_client.export_project_yaml(project.id)
-            if yaml_content is None:
-                self.report.projects_export_skipped += 1
-                continue
+            upstream_urns: List[str] = []
 
-            parsed = self.yaml_parser.parse(yaml_content)
-            if parsed is None:
-                self.report.projects_export_skipped += 1
-                continue
+            # --- Tier 1: queriedTables (ENTERPRISE) ---
+            if queried_tables_available is not False:
+                queried = self.cli_client.fetch_queried_tables(project.id)
+                if queried is not None:
+                    queried_tables_available = True
+                    upstream_urns = lineage_builder.build_from_queried_tables(queried)
+                elif queried_tables_available is None:
+                    # First 403 — note it and fall through to Tier 2 for all projects
+                    queried_tables_available = False
+                    logger.info(
+                        "queriedTables returned 403 — workspace is not ENTERPRISE tier; "
+                        "using cell-based SQL parsing for all projects"
+                    )
 
-            # Cache for document generation (avoids a second export)
-            self._parsed_yamls[project.id] = parsed
+            # --- Tier 2: Cells API + SQL parsing (fallback) ---
+            if not upstream_urns and queried_tables_available is not True:
+                raw_cells = self.cli_client.fetch_cells(project.id)
+                sql_cells = _extract_sql_cells(raw_cells)
 
-            if not parsed.sql_cells:
-                self.report.projects_without_sql_cells += 1
-                continue
+                # Cache parsed cell data for context document generation
+                self._parsed_yamls[project.id] = _cells_to_parsed_yaml(
+                    project_id=project.id,
+                    title=project.title,
+                    raw_cells=raw_cells,
+                )
 
-            upstream_urns = lineage_builder.build_upstream_urns(parsed.sql_cells)
+                if not sql_cells:
+                    self.report.projects_without_sql_cells += 1
+                    continue
+
+                upstream_urns = lineage_builder.build_upstream_urns(sql_cells)
             if upstream_urns:
                 project.upstream_datasets = upstream_urns
                 self.report.projects_with_lineage += 1
 
     def _export_yamls_for_documents(self) -> None:
-        """Export and cache YAML for projects that weren't exported during lineage."""
+        """Fetch and cache cell data for projects not yet populated during lineage."""
         for project in self.project_registry.values():
             if project.id in self._parsed_yamls:
                 continue
-            yaml_content = self.cli_client.export_project_yaml(project.id)
-            if yaml_content:
-                parsed = self.yaml_parser.parse(yaml_content)
-                if parsed:
-                    self._parsed_yamls[project.id] = parsed
+            raw_cells = self.cli_client.fetch_cells(project.id)
+            if raw_cells:
+                self._parsed_yamls[project.id] = _cells_to_parsed_yaml(
+                    project_id=project.id,
+                    title=project.title,
+                    raw_cells=raw_cells,
+                )
 
     def _emit_context_documents(self) -> Iterable[MetadataWorkUnit]:
         connections = self.cli_client.list_connections()
@@ -406,3 +446,96 @@ class HexV2Source(StatefulIngestionSourceBase):
             run = self.cli_client.get_latest_run(project.id)
             if run:
                 project.latest_run = run
+
+
+# ------------------------------------------------------------------
+# Helpers for converting raw Cells API responses to ParsedProjectYaml
+# ------------------------------------------------------------------
+
+
+def _extract_sql_cells(raw_cells: List[dict]) -> List[SqlCell]:
+    """Extract SqlCell objects from raw /v1/cells API responses."""
+    result = []
+    for cell in raw_cells:
+        if cell.get("cellType") != "SQL":
+            continue
+        contents = cell.get("contents") or {}
+        sql_cell_data = contents.get("sqlCell") or {}
+        source = sql_cell_data.get("source") or ""
+        connection_id = cell.get("dataConnectionId")
+        if source and connection_id:
+            result.append(
+                SqlCell(
+                    cell_id=cell.get("staticId") or cell.get("id", ""),
+                    cell_label=cell.get("label"),
+                    sql_source=source,
+                    data_connection_id=connection_id,
+                )
+            )
+    return result
+
+
+def _cells_to_parsed_yaml(
+    project_id: str,
+    title: str,
+    raw_cells: List[dict],
+) -> "ParsedProjectYaml":
+    """
+    Build a ParsedProjectYaml from raw /v1/cells API responses.
+
+    Replaces YAML export parsing for lineage and context documents.
+    EXPLORE chart spec is unavailable via REST (contents are null),
+    but label and cell type are preserved.
+    """
+    sql_cells = []
+    explore_cells = []
+    markdown_parts = []
+    section_names = []
+
+    for cell in raw_cells:
+        ct = cell.get("cellType", "")
+        contents = cell.get("contents") or {}
+        label = cell.get("label") or ""
+
+        if ct == "SQL":
+            sql_data = contents.get("sqlCell") or {}
+            source = sql_data.get("source") or ""
+            conn_id = cell.get("dataConnectionId")
+            if source and conn_id:
+                sql_cells.append(
+                    SqlCell(
+                        cell_id=cell.get("staticId") or cell.get("id", ""),
+                        cell_label=label or None,
+                        sql_source=source,
+                        data_connection_id=conn_id,
+                    )
+                )
+
+        elif ct == "EXPLORE":
+            explore_cells.append(
+                ExploreCell(
+                    cell_id=cell.get("staticId") or cell.get("id", ""),
+                    cell_label=label or None,
+                    # dataframe reference not exposed by REST API
+                    dataframe=None,
+                    chart_type=None,
+                )
+            )
+
+        elif ct == "MARKDOWN":
+            md_data = contents.get("markdownCell") or {}
+            source = md_data.get("source") or ""
+            if source.strip():
+                markdown_parts.append(source)
+
+        elif ct == "COLLAPSIBLE" and label:
+            section_names.append(label)
+
+    return ParsedProjectYaml(
+        project_id=project_id,
+        title=title,
+        sql_cells=sql_cells,
+        explore_cells=explore_cells,
+        section_names=section_names,
+        markdown_content="\n\n".join(p for p in markdown_parts if p.strip()),
+    )

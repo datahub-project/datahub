@@ -195,6 +195,75 @@ class HexCliClient:
         return result
 
     # ------------------------------------------------------------------
+    # Queried tables  (ENTERPRISE tier only — 403 = fall back to cells)
+    # ------------------------------------------------------------------
+
+    def fetch_queried_tables(self, project_id: str) -> Optional[List[dict]]:
+        """
+        Return [{dataConnectionId, dataConnectionName, tableName}] for all
+        warehouse tables touched by this project, or None if the workspace
+        is not on the ENTERPRISE tier (403).
+
+        This is the gold-standard lineage source — Hex's own resolution of
+        every table every cell actually queries, with no SQL parsing needed.
+        """
+        try:
+            resp = self._session.get(
+                f"{self._api_base_url}/projects/{project_id}/queriedTables",
+                timeout=self._timeout,
+            )
+            if resp.status_code == 403:
+                return None  # not ENTERPRISE — caller should fall back
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("values", [])
+        except Exception as e:
+            self._report.warning(
+                title="Failed to fetch queriedTables",
+                message=f"queriedTables call failed for {project_id}; falling back to cell-based lineage",
+                exc=e,
+            )
+            return None
+
+    # ------------------------------------------------------------------
+    # Cells  (all tiers — fallback lineage + context document content)
+    # ------------------------------------------------------------------
+
+    def fetch_cells(self, project_id: str) -> List[dict]:
+        """
+        Return all cells for a project via paginated REST calls.
+
+        Each cell has: id, staticId, cellType, label, dataConnectionId,
+        contents.{sqlCell, codeCell, markdownCell}, projectId.
+        """
+        cells: List[dict] = []
+        after: Optional[str] = None
+        while True:
+            params: dict = {"projectId": project_id, "limit": self._page_size}
+            if after:
+                params["after"] = after
+            try:
+                resp = self._session.get(
+                    f"{self._api_base_url}/cells",
+                    params=params,
+                    timeout=self._timeout,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                self._report.warning(
+                    title="Failed to fetch cells",
+                    message=f"Cells API call failed for project {project_id}",
+                    exc=e,
+                )
+                break
+            cells.extend(data.get("values", []))
+            after = (data.get("pagination") or {}).get("after")
+            if not after:
+                break
+        return cells
+
+    # ------------------------------------------------------------------
     # Project listing
     # ------------------------------------------------------------------
 
