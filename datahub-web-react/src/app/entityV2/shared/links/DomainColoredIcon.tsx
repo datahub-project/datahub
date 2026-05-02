@@ -1,9 +1,9 @@
-import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import styled from 'styled-components';
 
 import { hexToRgb, hexToRgba, useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import { useMuiIcons } from '@app/sharedV2/icons/useMuiIcons';
 
 import { Domain } from '@types';
 
@@ -32,20 +32,19 @@ type Props = {
     onClick?: () => void;
 };
 
-// looks through the object keys of Muicon and finds the best match for the search string
+// looks through the object keys of the icons module and finds the best match for the search string
 // returns the icon if found, otherwise returns undefined
-function getIcon(search: string): React.ElementType | undefined {
-    // If the search string is empty or consists only of whitespace after trimming,
-    // return undefined to signify that no valid search string is present.
+function getIcon(search: string, icons: Record<string, React.ElementType>): React.ElementType | undefined {
     if (!search.trim()) return undefined;
 
-    const icon = Object.keys(Muicon).find((key) => key.toLowerCase().includes(search.toLowerCase()));
-    return icon ? Muicon[icon] : undefined;
+    const icon = Object.keys(icons).find((key) => key.toLowerCase().includes(search.toLowerCase()));
+    return icon ? icons[icon] : undefined;
 }
 
 export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20, onClick }: Props): JSX.Element => {
+    const icons = useMuiIcons();
     const iconName = domain?.displayProperties?.icon?.name || '';
-    const MaterialIcon = getIcon(iconName);
+    const MaterialIcon = icons ? getIcon(iconName, icons) : undefined;
 
     const generateColor = useGenerateDomainColorFromPalette();
     const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
