@@ -253,8 +253,10 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         # Projects whose last_edited_at hasn't changed since the last checkpoint.
         # These skip the expensive per-project fetches (cells, lineage, context docs).
         self._light_project_ids: Set[str] = set()
-        # Register the incremental ingestion use-case handler so the framework
-        # knows how to create/commit checkpoints for HEX_INCREMENTAL_JOB_ID.
+        # Timestamp of the last successful checkpoint (millis). Used to guard
+        # against re-emitting run history that was already captured.
+        self._last_ingested_at_ms: Optional[int] = None
+        # Register the incremental ingestion use-case handler.
         _HexIncrementalHandler(self)
 
     @classmethod
@@ -406,6 +408,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             if last_checkpoint and last_checkpoint.state.last_ingested_at_millis
             else None
         )
+        self._last_ingested_at_ms = last_ingested_at_ms
         if last_ingested_at_ms:
             logger.info(
                 "Incremental ingestion: last checkpoint at %s. "
@@ -448,15 +451,14 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 is_light = project.id in self._light_project_ids
                 if is_light:
                     # Project unchanged since last checkpoint — skip all full aspects.
-                    # Only emit lastRefreshed PATCH if a new COMPLETED run happened;
-                    # everything else (title, description, lineage, tags, usage stats)
-                    # is unchanged and the DataHub record is already current.
+                    # Only emit lastRefreshed PATCH if a COMPLETED run happened AFTER
+                    # the last checkpoint (i.e. it's new since the previous ingestion).
                     self.report.projects_incremental_skip += 1
-                    if project.latest_run and project.latest_run.status == "COMPLETED":
+                    if self._is_new_completed_run(project):
                         yield from self.mapper.map_project_last_refreshed(
                             project=project,
                             last_refreshed_ms=make_ts_millis(
-                                project.latest_run.start_time
+                                project.latest_run.start_time  # type: ignore[union-attr]
                             ),
                         )
                     continue
@@ -468,10 +470,12 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                         project=project,
                         upstream_urns=project.upstream_datasets,
                     )
-                if project.latest_run and project.latest_run.status == "COMPLETED":
+                if self._is_new_completed_run(project):
                     yield from self.mapper.map_project_last_refreshed(
                         project=project,
-                        last_refreshed_ms=make_ts_millis(project.latest_run.start_time),
+                        last_refreshed_ms=make_ts_millis(
+                            project.latest_run.start_time  # type: ignore[union-attr]
+                        ),
                     )
 
             for component in self.component_registry.values():
@@ -593,6 +597,16 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             run = self.hex_api.fetch_latest_run(project.id)
             if run:
                 project.latest_run = run  # type: ignore[assignment]
+
+    def _is_new_completed_run(self, project: Project) -> bool:
+        """Return True only if this project has a COMPLETED run that happened
+        AFTER the last checkpoint — i.e. a genuinely new execution since the
+        previous ingestion. Runs older than the checkpoint were already emitted
+        and re-emitting them would be stale."""
+        if not project.latest_run or project.latest_run.status != "COMPLETED":
+            return False
+        run_ms = make_ts_millis(project.latest_run.start_time)
+        return run_ms > (self._last_ingested_at_ms or 0)
 
     def _emit_context_documents(
         self, connections_by_id: Dict[str, Any]
