@@ -13,6 +13,7 @@ import {
     PLATFORM_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getBrowseResultGroupLabel } from '@app/searchV2/sidebar/browseSortUtils';
 
 import { AggregationMetadata, BrowseResultGroupV2, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
@@ -127,8 +128,7 @@ export const useBrowseResultGroup = () => {
 export const useBrowseDisplayName = () => {
     const entityRegistry = useEntityRegistry();
     const browseResultGroup = useBrowseResultGroup();
-    const { entity } = browseResultGroup;
-    return entity ? entityRegistry.getDisplayName(entity.type, entity) : browseResultGroup.name;
+    return getBrowseResultGroupLabel(browseResultGroup, entityRegistry);
 };
 
 export const useBrowsePath = () => {

@@ -1,9 +1,12 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useBrowsePath, useEntityType } from '@app/searchV2/sidebar/BrowseContext';
+import { useBrowseSortOrder } from '@app/searchV2/sidebar/BrowseSortContext';
+import { sortBrowseResultGroups } from '@app/searchV2/sidebar/browseSortUtils';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from '@app/searchV2/sidebar/constants';
 import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
 import useIntersect from '@app/shared/useIntersect';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '@graphql/browseV2.generated';
 
@@ -15,7 +18,9 @@ const useBrowsePagination = ({ skip }: Props) => {
     const initializing = useRef(true);
     const type = useEntityType();
     const path = useBrowsePath();
+    const entityRegistry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
+    const sortOrder = useBrowseSortOrder();
     const [startToBrowseMap, setStartToBrowseMap] = useState<Record<number, GetBrowseResultsV2Query | undefined>>({});
     const startList = useMemo(
         () =>
@@ -24,10 +29,10 @@ const useBrowsePagination = ({ skip }: Props) => {
                 .sort((a, b) => a - b),
         [startToBrowseMap],
     );
-    const groups = useMemo(
-        () => startList.flatMap((start) => startToBrowseMap[start]?.browseV2?.groups ?? []),
-        [startList, startToBrowseMap],
-    );
+    const groups = useMemo(() => {
+        const flattenedGroups = startList.flatMap((start) => startToBrowseMap[start]?.browseV2?.groups ?? []);
+        return sortBrowseResultGroups(flattenedGroups, sortOrder, entityRegistry);
+    }, [entityRegistry, sortOrder, startList, startToBrowseMap]);
     const latestStart = startList.length ? startList[startList.length - 1] : -1;
     const latestData = latestStart >= 0 ? startToBrowseMap[latestStart] : null;
     const total = latestData?.browseV2?.total ?? -1;
