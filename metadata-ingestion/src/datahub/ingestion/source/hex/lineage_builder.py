@@ -6,6 +6,7 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.hex.constants import CONNECTION_TYPE_TO_DATAHUB_PLATFORM
 from datahub.ingestion.source.hex.model import SqlCell
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
 logger = logging.getLogger(__name__)
@@ -173,6 +174,10 @@ class HexLineageBuilder:
         return platform, None
 
     def _parse_cell(self, cell: SqlCell, platform: str) -> List[str]:
+        # Use DataHub's canonical platform → sqlglot dialect mapping.
+        # datahub.sql_parsing.sql_parsing_common.get_dialect_str handles all
+        # known divergences (mssql→tsql, athena→trino, etc.) in one place.
+        dialect = get_dialect_str(platform)
         resolver = SchemaResolver(
             platform=platform,
             platform_instance=self._platform_instance,
@@ -182,7 +187,7 @@ class HexLineageBuilder:
             result = sqlglot_lineage(
                 sql=cell.sql_source,
                 schema_resolver=resolver,
-                override_dialect=platform,
+                override_dialect=dialect,
             )
         except Exception as e:
             self._report.sql_cells_failed += 1

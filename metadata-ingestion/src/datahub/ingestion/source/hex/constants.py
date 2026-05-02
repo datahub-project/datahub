@@ -7,7 +7,8 @@ HEX_API_PAGE_SIZE_DEFAULT = 100
 
 DATAHUB_API_PAGE_SIZE_DEFAULT = 100
 
-# connection_type values from /v1/data-connections → DataHub platform names
+# connection_type values from /v1/data-connections → DataHub platform names.
+# Used for constructing dataset URNs (urn:li:dataPlatform:<name>).
 CONNECTION_TYPE_TO_DATAHUB_PLATFORM: dict[str, str] = {
     "snowflake": "snowflake",
     "bigquery": "bigquery",
