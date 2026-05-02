@@ -6,25 +6,11 @@ HEX_PLATFORM_URN = DataPlatformUrn(platform_name=HEX_PLATFORM_NAME)
 HEX_API_BASE_URL_DEFAULT = "https://app.hex.tech/api/v1"
 HEX_API_PAGE_SIZE_DEFAULT = 100
 
-# Connector semantic version.
-# Bump minor or major when the set of emitted aspects changes — this rotates
-# the checkpoint job_ids so existing incremental state is abandoned and the
-# next run performs a full re-process.
-# Patch bumps (bug fixes, perf, docs) do NOT rotate the checkpoint.
-HEX_CONNECTOR_VERSION = "1.0.0"
-
-
-def _checkpoint_version_suffix() -> str:
-    """Return 'vMAJOR.MINOR' from HEX_CONNECTOR_VERSION."""
-    major, minor, _ = HEX_CONNECTOR_VERSION.split(".")
-    return f"v{major}.{minor}"
-
-
-# Job IDs for stateful ingestion checkpoints.
-HEX_STALE_REMOVAL_JOB_ID = JobId(
-    f"hex_stale_entity_removal_{_checkpoint_version_suffix()}"
-)
-HEX_INCREMENTAL_JOB_ID = JobId(f"hex_incremental_{_checkpoint_version_suffix()}")
+# Job ID for the incremental ingestion checkpoint.
+# Checkpoint-key versioning (to force re-bootstrap when connector logic changes)
+# is tracked as a separate framework improvement via the @semantic_version
+# decorator tech spec — applicable to all connectors, not just hex.
+HEX_INCREMENTAL_JOB_ID = JobId("hex_incremental")
 
 DATAHUB_API_PAGE_SIZE_DEFAULT = 100
 
