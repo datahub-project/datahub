@@ -108,15 +108,12 @@ def test_hex_ingestion_with_lineage(
     pipeline = Pipeline.create(
         {
             "pipeline_name": "test-hex-with-lineage",
-            "datahub_api": {
-                "server": "http://localhost:8010",  # Mock DataHub API URL
-            },
             "source": {
                 "type": "hex",
                 "config": {
-                    "workspace_name": "some-hex-workspace",
+                    "workspace_name": "test-workspace",
                     "token": "test-token",
-                    "base_url": "http://localhost:8000/api/v1",  # Mock Hex API URL
+                    "base_url": "http://localhost:8000/api/v1",
                     "platform_instance": "hex_test",
                     "include_lineage": True,
                     "stateful_ingestion": {

@@ -1,79 +1,191 @@
 #!/usr/bin/env python3
 """
-Simple HTTP server that returns the same JSON response for any request to /api/v1/projects
+Mock Hex API server for integration tests.
+Handles all endpoints used by the hex connector.
 """
 
 import http.server
 import json
+import re
 import socketserver
-from http import HTTPStatus
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 PORT = 8000
 
-# Load the mock response data
 with open("/app/hex_projects_response.json", "r") as f:
-    HEX_PROJECTS_RESPONSE = f.read()
+    HEX_PROJECTS_RESPONSE = json.load(f)
+
+# Extract project IDs from the mock data
+PROJECT_IDS = [p["id"] for p in HEX_PROJECTS_RESPONSE.get("values", [])]
+
+CONNECTIONS_RESPONSE = {
+    "values": [
+        {
+            "id": "conn-snowflake-analytics",
+            "name": "Analytics Hub",
+            "type": "snowflake",
+            "description": "Primary analytics warehouse",
+        },
+        {
+            "id": "conn-snowflake-global",
+            "name": "Global Hub",
+            "type": "snowflake",
+            "description": "Global analytics warehouse",
+        },
+    ],
+    "pagination": {"after": None, "before": None},
+}
+
+# Minimal SQL cells per project (only first 2 projects get real cells)
+_CELLS_BY_PROJECT: dict = {}
+if len(PROJECT_IDS) >= 2:
+    _CELLS_BY_PROJECT[PROJECT_IDS[0]] = {
+        "values": [
+            {
+                "id": "cell-sql-1",
+                "staticId": "cell-sql-1",
+                "cellType": "SQL",
+                "label": "Customer query",
+                "dataConnectionId": "conn-snowflake-analytics",
+                "projectId": PROJECT_IDS[0],
+                "contents": {
+                    "sqlCell": {
+                        "source": "SELECT * FROM analytics.public.customers LIMIT 100"
+                    },
+                    "codeCell": None,
+                    "markdownCell": None,
+                },
+            },
+            {
+                "id": "cell-md-1",
+                "staticId": "cell-md-1",
+                "cellType": "MARKDOWN",
+                "label": "Overview",
+                "dataConnectionId": None,
+                "projectId": PROJECT_IDS[0],
+                "contents": {
+                    "sqlCell": None,
+                    "codeCell": None,
+                    "markdownCell": {"source": "# Overview\n\nThis is a test project."},
+                },
+            },
+        ],
+        "pagination": {"after": None},
+    }
+    _CELLS_BY_PROJECT[PROJECT_IDS[6]] = {  # PlayNotebook
+        "values": [
+            {
+                "id": "cell-sql-play-1",
+                "staticId": "cell-sql-play-1",
+                "cellType": "SQL",
+                "label": "Orders query",
+                "dataConnectionId": "conn-snowflake-global",
+                "projectId": PROJECT_IDS[6],
+                "contents": {
+                    "sqlCell": {
+                        "source": "SELECT order_id, customer_id FROM global.public.orders"
+                    },
+                    "codeCell": None,
+                    "markdownCell": None,
+                },
+            },
+        ],
+        "pagination": {"after": None},
+    }
+
+EMPTY_CELLS = {"values": [], "pagination": {"after": None}}
+
+# Runs for a couple of projects
+_RUNS_BY_PROJECT: dict = {}
+if len(PROJECT_IDS) >= 1:
+    _RUNS_BY_PROJECT[PROJECT_IDS[0]] = {
+        "runs": [
+            {
+                "projectId": PROJECT_IDS[0],
+                "runId": "run-001",
+                "status": "COMPLETED",
+                "startTime": "2025-03-25T10:00:00.000Z",
+                "endTime": "2025-03-25T10:01:00.000Z",
+                "elapsedTime": 60000,
+                "runTrigger": "SCHEDULED",
+            }
+        ]
+    }
 
 
 class MockHexAPIHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        """Handle GET requests"""
-        parsed_url = urlparse(self.path)
-        path = parsed_url.path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        params = parse_qs(parsed.query)
 
-        # Health check endpoint
         if path == "/health":
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"OK")
+            self._respond(200, "OK", content_type="text/plain")
             return
 
-        # Mock Hex API endpoints
+        # Data connections
+        if path == "/api/v1/data-connections":
+            self._respond_json(CONNECTIONS_RESPONSE)
+            return
+
+        # Cells — keyed by projectId query param
+        if path == "/api/v1/cells":
+            project_id = (params.get("projectId") or [None])[0]
+            cells = _CELLS_BY_PROJECT.get(project_id, EMPTY_CELLS)
+            self._respond_json(cells)
+            return
+
+        # queriedTables — always 403 (non-ENTERPRISE workspace in tests)
+        m = re.match(r"^/api/v1/projects/([^/]+)/queriedTables$", path)
+        if m:
+            self._respond_json(
+                {
+                    "message": "This endpoint requires the workspace to be at least ENTERPRISE tier."
+                },
+                status=403,
+            )
+            return
+
+        # Run history
+        m = re.match(r"^/api/v1/projects/([^/]+)/runs$", path)
+        if m:
+            project_id = m.group(1)
+            runs = _RUNS_BY_PROJECT.get(project_id, {"runs": []})
+            self._respond_json(runs)
+            return
+
+        # Projects list
         if path.startswith("/api/v1/projects"):
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(HEX_PROJECTS_RESPONSE.encode())
+            self._respond_json(HEX_PROJECTS_RESPONSE)
             return
 
-        # Default 404 response
-        self.send_response(HTTPStatus.NOT_FOUND)
-        self.send_header("Content-type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps({"error": "Not found", "path": self.path}).encode())
+        self._respond_json({"error": "Not found", "path": path}, status=404)
 
     def do_HEAD(self):
-        """Handle HEAD requests (used by wget --spider for health checks)"""
-        parsed_url = urlparse(self.path)
-        path = parsed_url.path
+        parsed = urlparse(self.path)
+        if parsed.path == "/health":
+            self._respond(200, "", content_type="text/plain")
+        elif parsed.path.startswith("/api/v1/projects"):
+            self._respond(200, "", content_type="application/json")
+        else:
+            self._respond(404, "", content_type="application/json")
 
-        # Health check endpoint
-        if path == "/health":
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", "text/plain")
-            self.end_headers()
-            return
-
-        # Mock Hex API endpoints
-        if path.startswith("/api/v1/projects"):
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            return
-
-        # Default 404 response
-        self.send_response(HTTPStatus.NOT_FOUND)
-        self.send_header("Content-type", "application/json")
+    def _respond(self, status, body, content_type="application/json"):
+        self.send_response(status)
+        self.send_header("Content-type", content_type)
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
+        if body:
+            self.wfile.write(body.encode() if isinstance(body, str) else body)
+
+    def _respond_json(self, data, status=200):
+        body = json.dumps(data)
+        self._respond(status, body)
+
+    def log_message(self, format, *args):
+        pass  # suppress request logs
 
 
-# Set up the server
-handler = MockHexAPIHandler
-httpd = socketserver.TCPServer(("", PORT), handler)
-
+httpd = socketserver.TCPServer(("", PORT), MockHexAPIHandler)
 print(f"Serving mock Hex API at port {PORT}")
 httpd.serve_forever()
