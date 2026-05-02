@@ -1,18 +1,16 @@
 import logging
-from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr
 from typing_extensions import assert_never
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -27,7 +25,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
 from datahub.ingestion.source.hex.constants import (
-    DATAHUB_API_PAGE_SIZE_DEFAULT,
     HEX_API_BASE_URL_DEFAULT,
     HEX_API_PAGE_SIZE_DEFAULT,
     HEX_PLATFORM_NAME,
@@ -137,73 +134,24 @@ class HexSourceConfig(
         "visualisation metadata, and notebook documentation. Documents are hidden from "
         "global search and linked to the project Dashboard for AI agent retrieval.",
     )
-    # --- Legacy DataHub-query-fetcher lineage fields (deprecated) ---
-    # These were used by the old lineage path that searched DataHub for Query entities.
-    # They are kept for backward compatibility but no longer have effect when
-    # include_lineage=True (which now uses the REST API approach).
-    lineage_start_time: Optional[datetime] = Field(
-        default=None,
-        description="Deprecated. No longer used; lineage now comes directly from the Hex API.",
-    )
-    lineage_end_time: Optional[datetime] = Field(
-        default=None,
-        description="Deprecated. No longer used; lineage now comes directly from the Hex API.",
-    )
-    datahub_page_size: int = Field(
-        default=DATAHUB_API_PAGE_SIZE_DEFAULT,
-        description="Deprecated. No longer used; lineage now comes directly from the Hex API.",
-    )
     category_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern for categories to filter in ingestion. This will exclude any project or component that has any category denied or not explicitly allowed.",
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_lineage_times(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        # In-place update of the input dict would cause state contamination. This was discovered through test failures
-        # in test_hex.py where the same dict is reused.
-        # So a deepcopy is performed first.
-        data = deepcopy(data)
-
-        if "lineage_end_time" not in data or data["lineage_end_time"] is None:
-            data["lineage_end_time"] = datetime.now(tz=timezone.utc)
-        # if string is given, parse it
-        if isinstance(data["lineage_end_time"], str):
-            data["lineage_end_time"] = parse_user_datetime(data["lineage_end_time"])
-        # if no timezone is given, assume UTC
-        if data["lineage_end_time"].tzinfo is None:
-            data["lineage_end_time"] = data["lineage_end_time"].replace(
-                tzinfo=timezone.utc
-            )
-        # at this point, we ensure there is a non null datetime with UTC timezone for lineage_end_time
-        assert (
-            data["lineage_end_time"]
-            and isinstance(data["lineage_end_time"], datetime)
-            and data["lineage_end_time"].tzinfo is not None
-            and data["lineage_end_time"].tzinfo == timezone.utc
-        )
-
-        # lineage_start_time default = lineage_end_time - 1 day
-        if "lineage_start_time" not in data or data["lineage_start_time"] is None:
-            data["lineage_start_time"] = data["lineage_end_time"] - timedelta(days=1)
-        # if string is given, parse it
-        if isinstance(data["lineage_start_time"], str):
-            data["lineage_start_time"] = parse_user_datetime(data["lineage_start_time"])
-        # if no timezone is given, assume UTC
-        if data["lineage_start_time"].tzinfo is None:
-            data["lineage_start_time"] = data["lineage_start_time"].replace(
-                tzinfo=timezone.utc
-            )
-        # at this point, we ensure there is a non null datetime with UTC timezone for lineage_start_time
-        assert (
-            data["lineage_start_time"]
-            and isinstance(data["lineage_start_time"], datetime)
-            and data["lineage_start_time"].tzinfo is not None
-            and data["lineage_start_time"].tzinfo == timezone.utc
-        )
-
-        return data
+    # Removed fields — emit a clear warning rather than silently ignoring.
+    # These were used by the old DataHub-query-fetcher lineage path which searched
+    # DataHub for Query entities tagged with Hex metadata comments. Lineage now comes
+    # directly from the Hex REST API and none of these fields have any effect.
+    _lineage_start_time_removed = pydantic_removed_field(
+        "lineage_start_time", month="May", year=2026
+    )
+    _lineage_end_time_removed = pydantic_removed_field(
+        "lineage_end_time", month="May", year=2026
+    )
+    _datahub_page_size_removed = pydantic_removed_field(
+        "datahub_page_size", month="May", year=2026
+    )
 
 
 @dataclass
