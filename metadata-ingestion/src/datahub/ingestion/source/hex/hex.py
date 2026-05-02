@@ -120,13 +120,11 @@ class HexSourceConfig(
         "or falls back to parsing SQL from cells (all workspaces). No warehouse ingestion "
         "dependency required.",
     )
-    sql_parsing_platform_default: str = Field(
-        default="snowflake",
-        description="Fallback SQL dialect when a cell's connection type cannot be resolved.",
-    )
     connection_platform_map: Dict[str, str] = Field(
         default_factory=dict,
-        description="Override connection type resolution: map connection ID to DataHub platform. "
+        description="Map connection ID to DataHub platform name for connections that cannot "
+        "be resolved automatically (deleted connections, permission gaps, unsupported types). "
+        "Lineage is skipped — not guessed — for unmapped connections. "
         'Example: {"<connection_uuid>": "snowflake"}',
     )
     include_run_history: bool = Field(
@@ -360,14 +358,17 @@ class HexSource(StatefulIngestionSourceBase):
                 assert_never(item)
 
     def _enrich_lineage(self, connections_by_id: Dict[str, Any]) -> None:
-        # {connection_id: connection_type} for the lineage builder
-        conn_types = {cid: ctype for cid, (_, ctype) in connections_by_id.items()}
+        # {connection_id: connection_type} — connection_platform_map overrides take precedence
+        conn_types: Dict[str, str] = {
+            cid: ctype for cid, (_, ctype) in connections_by_id.items()
+        }
+        # Explicit overrides: user-supplied connection_id → platform mappings
+        conn_types.update(self.source_config.connection_platform_map)
 
         lineage_builder = HexLineageBuilder(
             connections=conn_types,
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
-            sql_parsing_platform_default=self.source_config.sql_parsing_platform_default,
             report=self.report,
         )
 
@@ -375,6 +376,7 @@ class HexSource(StatefulIngestionSourceBase):
         queried_tables_available: Optional[bool] = None
 
         for project in self.project_registry.values():
+            lineage_builder.set_project_id(project.id)
             upstream_urns: List[str] = []
 
             # Tier 1: queriedTables (ENTERPRISE)
