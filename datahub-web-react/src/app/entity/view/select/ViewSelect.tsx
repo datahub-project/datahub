@@ -1,6 +1,6 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Select } from 'antd';
 import React, { CSSProperties, useEffect, useRef, useState } from 'react';
-import { VscTriangleDown } from 'react-icons/vsc';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -22,7 +22,7 @@ type ViewBuilderDisplayState = {
     view?: DataHubView;
 };
 
-const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
+const TriangleIcon = styled(CaretDown)<{ isOpen: boolean }>`
     color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : ANTD_GRAY_V2[10])};
 `;
 

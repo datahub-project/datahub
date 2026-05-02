@@ -13,9 +13,9 @@ import {
     VideoCameraOutlined,
 } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Binary } from '@phosphor-icons/react/dist/csr/Binary';
 import { Typography } from 'antd';
 import React, { FC } from 'react';
-import { VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';
 
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
@@ -46,7 +46,7 @@ const DATA_TYPE_ICON_MAP: Record<MlFeatureDataType, { icon: FC<{ style: any }> |
     [MlFeatureDataType.Byte]: {
         icon: () => (
             <IconSpan role="img" aria-label="calendar" className="anticon anticon-calendar">
-                <VscFileBinary />
+                <Binary />
             </IconSpan>
         ),
         size: 18,

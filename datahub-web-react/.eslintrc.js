@@ -131,6 +131,13 @@ module.exports = {
                             "Import dayjs from '@utils/dayjs' instead. The utils wrapper registers all required plugins (utc, isoWeek, timezone, etc.) — importing bare 'dayjs' silently skips plugin registration.",
                     },
                 ],
+                patterns: [
+                    {
+                        group: ['react-icons', 'react-icons/*'],
+                        message:
+                            'react-icons was removed for bundle size. Use Phosphor icons from @phosphor-icons/react/dist/csr/IconName instead.',
+                    },
+                ],
             },
         ],
         '@typescript-eslint/no-explicit-any': 'off',
