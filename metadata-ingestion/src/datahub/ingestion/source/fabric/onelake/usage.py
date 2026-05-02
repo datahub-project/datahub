@@ -85,11 +85,16 @@ class FabricUsageExtractor:
         return False
 
     def update_state_on_success(self) -> None:
-        """Persist the resolved time window so future runs can short-circuit."""
+        """Persist the resolved time window so future runs can short-circuit.
+
+        Use the resolved (`self.start_time` / `self.end_time`) — not the raw
+        config window — so we don't over-claim coverage when the skip handler
+        narrowed the window to only the uncovered portion.
+        """
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.update_state(
-                self.config.start_time,
-                self.config.end_time,
+                self.start_time,
+                self.end_time,
                 self.config.bucket_duration,
             )
 

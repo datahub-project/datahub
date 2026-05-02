@@ -3,7 +3,7 @@
 import logging
 import re
 import struct
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Dict,
@@ -595,9 +595,15 @@ class SqlAnalyticsEndpointClient:
         sql += " ORDER BY start_time"
         query = text(sql)
 
+        # Bind as naive UTC so pyodbc → ODBC 18 emits a datetime2 parameter
+        # directly, matching the column type. Passing tz-aware datetimes works
+        # but relies on the driver's implicit datetimeoffset → datetime2
+        # coercion, which has varied across driver versions.
+        sql_start = start_time.astimezone(timezone.utc).replace(tzinfo=None)
+        sql_end = end_time.astimezone(timezone.utc).replace(tzinfo=None)
         with engine.connect() as connection:
             cursor = connection.execute(
-                query, {"start_time": start_time, "end_time": end_time}
+                query, {"start_time": sql_start, "end_time": sql_end}
             )
             while True:
                 batch = cursor.fetchmany(batch_size)
