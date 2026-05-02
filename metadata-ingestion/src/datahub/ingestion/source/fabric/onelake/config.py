@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
 class ExtractSchemaConfig(ConfigModel):
@@ -73,6 +74,31 @@ class SqlEndpointConfig(ConfigModel):
         description="Timeout for SQL queries in seconds",
         ge=1,
         le=300,
+    )
+
+
+class FabricUsageConfig(BaseUsageConfig):
+    """Usage tracking configuration for Fabric OneLake.
+
+    Retention is 30 days per Microsoft Fabric documentation:
+    https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights
+    """
+
+    include_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Master toggle for Fabric usage extraction. When False, no "
+            "`datasetUsageStatistics` or `operation` aspects are emitted from "
+            "queryinsights, regardless of `include_operational_stats`."
+        ),
+    )
+
+    skip_failed_queries: bool = Field(
+        default=True,
+        description=(
+            "When True, the SQL filter excludes rows where status != 'Succeeded' "
+            "(canceled / failed queries are skipped at the source)."
+        ),
     )
 
 
@@ -208,6 +234,16 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    # Usage tracking
+    usage: FabricUsageConfig = Field(
+        default=FabricUsageConfig(),
+        description=(
+            "Usage tracking configuration. Reads `queryinsights.exec_requests_history` "
+            "on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires "
+            "`extract_schema.enabled=True` and a configured `sql_endpoint`."
+        ),
+    )
+
     @model_validator(mode="after")
     def validate_sql_endpoint_dependencies(self):
         """sql_endpoint must be configured when any feature that uses it is enabled.
@@ -229,5 +265,20 @@ class FabricOneLakeSourceConfig(
                 "when extract_schema.enabled=True with "
                 "method='sql_analytics_endpoint'. "
                 "Both features query the SQL Analytics Endpoint."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_extraction_prerequisites(self):
+        """Usage requires the SQL Analytics Endpoint — queryinsights lives there."""
+        if self.usage.include_usage_statistics and (
+            self.sql_endpoint is None or not self.sql_endpoint.enabled
+        ):
+            raise ValueError(
+                "usage.include_usage_statistics=True requires a configured and "
+                "enabled sql_endpoint, because usage is read from "
+                "queryinsights.exec_requests_history on the SQL Analytics Endpoint. "
+                "Either set usage.include_usage_statistics=False to disable usage "
+                "extraction, or configure sql_endpoint with enabled=True."
             )
         return self

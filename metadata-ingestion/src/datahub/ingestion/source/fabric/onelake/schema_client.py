@@ -3,7 +3,16 @@
 import logging
 import re
 import struct
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Tuple
+from datetime import datetime
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+)
 
 from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.engine import Engine
@@ -18,7 +27,11 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
-from datahub.ingestion.source.fabric.onelake.models import FabricColumn, FabricView
+from datahub.ingestion.source.fabric.onelake.models import (
+    FabricColumn,
+    FabricQueryInsightsRow,
+    FabricView,
+)
 from datahub.ingestion.source.fabric.onelake.schema_report import (
     SqlAnalyticsEndpointReport,
 )
@@ -100,6 +113,30 @@ class SchemaExtractionClient(Protocol):
 
         Returns:
             List of FabricView objects with name, schema, and optional definition
+        """
+        ...
+
+    def stream_usage_history(
+        self,
+        workspace_id: str,
+        item_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        skip_failed_queries: bool,
+        batch_size: int = 1000,
+    ) -> Iterator[FabricQueryInsightsRow]:
+        """Stream rows from queryinsights.exec_requests_history within a time window.
+
+        Args:
+            workspace_id: Workspace GUID (used for engine cache key)
+            item_id: Lakehouse / Warehouse GUID (used for engine cache key)
+            start_time: Inclusive lower bound on `start_time` column
+            end_time: Exclusive upper bound on `start_time` column
+            skip_failed_queries: When True, filter `status = 'Succeeded'` at the source
+            batch_size: Server-side fetch size
+
+        Yields:
+            One `FabricQueryInsightsRow` per matching row, ordered by `start_time`.
         """
         ...
 
@@ -517,6 +554,69 @@ class SqlAnalyticsEndpointClient:
             if self.report:
                 self.report.failures += 1
             raise
+
+    def stream_usage_history(
+        self,
+        workspace_id: str,
+        item_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        skip_failed_queries: bool,
+        batch_size: int = 1000,
+    ) -> Iterator[FabricQueryInsightsRow]:
+        """Stream queryinsights.exec_requests_history rows for a single item.
+
+        Reuses the same engine cache (`_get_engine`) as schema and view extraction so
+        the SQLAlchemy connection pool is shared across all read paths for an item.
+
+        Filters `start_time` server-side so we never hold more than `batch_size` rows
+        in memory regardless of workspace size. The view itself is scoped to the
+        connected lakehouse / warehouse — cross-database queries appear in the
+        connecting context's view, so per-item querying is the correct unit.
+
+        Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
+        """
+        engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+
+        sql = """
+            SELECT
+                start_time,
+                statement_type,
+                login_name,
+                row_count,
+                status,
+                query_hash,
+                command
+            FROM queryinsights.exec_requests_history
+            WHERE start_time >= :start_time AND start_time < :end_time
+        """
+        if skip_failed_queries:
+            sql += " AND status = 'Succeeded'"
+        sql += " ORDER BY start_time"
+        query = text(sql)
+
+        with engine.connect() as connection:
+            cursor = connection.execute(
+                query, {"start_time": start_time, "end_time": end_time}
+            )
+            while True:
+                batch = cursor.fetchmany(batch_size)
+                if not batch:
+                    break
+                for row in batch:
+                    row_mapping = row._mapping
+                    # query_hash surfaces from pyodbc as binary(8); coerce to str at the
+                    # boundary so consumers don't have to think about its wire type.
+                    raw_hash = row_mapping["query_hash"]
+                    yield FabricQueryInsightsRow(
+                        start_time=row_mapping["start_time"],
+                        statement_type=row_mapping["statement_type"],
+                        login_name=row_mapping["login_name"],
+                        row_count=row_mapping["row_count"],
+                        status=row_mapping["status"],
+                        query_hash=str(raw_hash) if raw_hash is not None else None,
+                        command=row_mapping["command"],
+                    )
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:
         """Get or create SQLAlchemy engine for a workspace/item combination.
