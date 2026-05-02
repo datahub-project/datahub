@@ -32,7 +32,6 @@ from datahub.ingestion.source.hex.model import (
     Component,
     Owner,
     Project,
-    RunRecord,
     Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -49,8 +48,6 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     EdgeClass,
     GlobalTagsClass,
-    OperationClass,
-    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     SubTypesClass,
@@ -121,6 +118,20 @@ class Mapper:
     def map_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         dashboard_urn = self._get_dashboard_urn(name=project.id)
 
+        custom_properties: dict = {"id": project.id}
+        last_refreshed_ts: Optional[int] = None
+        if project.latest_run:
+            run = project.latest_run
+            last_refreshed_ts = make_ts_millis(run.start_time)
+            # Status and elapsed time go in customProperties — lastRefreshed
+            # carries the timestamp in the first-class DashboardInfo field,
+            # matching the pattern used by Mode and other BI connectors.
+            custom_properties["last_run_status"] = run.status
+            if run.elapsed_seconds is not None:
+                custom_properties["last_run_elapsed_seconds"] = str(
+                    int(run.elapsed_seconds)
+                )
+
         dashboard_info = DashboardInfoClass(
             title=project.title,
             description=project.description or "",
@@ -128,8 +139,9 @@ class Mapper:
                 created_at=project.created_at, last_edited_at=project.last_edited_at
             ),
             externalUrl=self._get_project_or_component_external_url(project),
-            customProperties=dict(id=project.id),
+            customProperties=custom_properties,
             datasetEdges=self._dataset_edges(project.upstream_datasets),
+            lastRefreshed=last_refreshed_ts,
             # TODO: support schema field upstream, maybe InputFields?
         )
 
@@ -417,26 +429,6 @@ class Mapper:
                 entityUrn=dashboard_urn.urn(),
                 aspect=UpstreamLineageClass(upstreams=upstreams),
             ).as_workunit()
-
-    def map_project_run(
-        self, project: Project, run: RunRecord
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit an Operation aspect for the latest run of a project."""
-        dashboard_urn = self._get_dashboard_urn(project.id)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dashboard_urn.urn(),
-            aspect=OperationClass(
-                timestampMillis=make_ts_millis(run.start_time),
-                lastUpdatedTimestamp=make_ts_millis(run.start_time),
-                operationType=OperationTypeClass.UPDATE,
-                actor=DEFAULT_INGESTION_USER_URN.urn(),
-                customProperties={
-                    "run_id": run.run_id,
-                    "status": run.status,
-                    "elapsed_seconds": str(run.elapsed_seconds or ""),
-                },
-            ),
-        ).as_workunit()
 
     def _maybe_patch_wu(self, wu: MetadataWorkUnit) -> Optional[MetadataWorkUnit]:
         # So far we only have support for DashboardInfo aspect

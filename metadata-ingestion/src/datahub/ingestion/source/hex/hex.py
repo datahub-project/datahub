@@ -385,16 +385,12 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             yield from self.mapper.map_workspace()
 
             for project in self.project_registry.values():
+                # map_project embeds latest_run into DashboardInfo.customProperties
                 yield from self.mapper.map_project(project=project)
                 if project.upstream_datasets:
                     yield from self.mapper.map_project_lineage(
                         project=project,
                         upstream_urns=project.upstream_datasets,
-                    )
-                if project.latest_run:
-                    yield from self.mapper.map_project_run(
-                        project=project,
-                        run=project.latest_run,
                     )
 
             for component in self.component_registry.values():
