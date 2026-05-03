@@ -1,3 +1,21 @@
+"""
+DEPRECATED — not used by the current hex connector.
+
+The original lineage approach searched DataHub for Query entities tagged with
+Hex metadata comments (``-- Hex query metadata: {...}``), requiring a prior
+warehouse ingestion run with ``use_queries_v2: true``.
+
+The current connector fetches lineage directly from the Hex REST APIs
+(/v1/cells, /v1/projects/{id}/queriedTables) with no warehouse dependency.
+
+This module is intentionally kept as a fallback in case a future scenario
+requires reverting to the DataHub-query-search approach (e.g. if Hex removes
+the cells API or imposes prohibitive rate limits). To reactivate it, wire
+``HexQueryFetcher`` back into ``HexSource.get_workunits_internal()`` and
+restore the ``datahub_api`` config fields that were removed via
+``pydantic_removed_field``.
+"""
+
 import logging
 import re
 from dataclasses import dataclass, field
