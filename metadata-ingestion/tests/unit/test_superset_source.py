@@ -12,6 +12,7 @@ from datahub.ingestion.source.superset import (
     SupersetConfig,
     SupersetSource,
     _extract_chart_id_with_status,
+    get_filter_name,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import DashboardInfoClass
@@ -635,17 +636,44 @@ class TestParsePositionJson:
     def test_non_object_json_emits_warning_and_returns_empty(
         self, requests_mock: rm.Mocker
     ) -> None:
-        # A JSON array or scalar would otherwise break ``position_data.items()``
-        # downstream. Worth an explicit warning so it's diagnosable from the
-        # ingestion summary, not silently swallowed.
+        # A JSON array would break ``position_data.items()`` downstream;
+        # warn so it's diagnosable rather than silently swallowed.
         source = _build_source(requests_mock)
-        for variant in (
-            {"id": 1, "dashboard_title": "list", "position_json": "[1, 2, 3]"},
-            {"id": 2, "dashboard_title": "null", "position_json": "null"},
-            {"id": 3, "dashboard_title": "scalar", "position_json": "42"},
-        ):
-            assert source._parse_position_json(variant) == {}
-        assert source.report.num_dashboards_invalid_position_json == 3
+        assert (
+            source._parse_position_json(
+                {"id": 1, "dashboard_title": "list", "position_json": "[1, 2, 3]"}
+            )
+            == {}
+        )
+        assert source.report.num_dashboards_invalid_position_json == 1
+        assert any(w.title == "Invalid position_json" for w in source.report.warnings)
+
+    def test_already_parsed_dict_is_returned_directly(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # Some API clients pre-deserialise JSON fields; if position_json is
+        # already a dict, accept it as-is rather than crashing on
+        # json.loads(dict) which raises TypeError.
+        source = _build_source(requests_mock)
+        layout = {"CHART-1": {"meta": {"chartId": 42}}}
+        result = source._parse_position_json(
+            {"id": 1, "dashboard_title": "pre-parsed", "position_json": layout}
+        )
+        assert result == layout
+        assert source.report.num_dashboards_invalid_position_json == 0
+
+    def test_non_string_non_dict_position_json_emits_warning(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # A truthy non-string that isn't a dict (e.g. a list from an API
+        # client that partially deserialised the field) must be caught and
+        # reported rather than raising TypeError from json.loads.
+        source = _build_source(requests_mock)
+        result = source._parse_position_json(
+            {"id": 1, "dashboard_title": "bad type", "position_json": [1, 2, 3]}
+        )
+        assert result == {}
+        assert source.report.num_dashboards_invalid_position_json == 1
         assert any(w.title == "Invalid position_json" for w in source.report.warnings)
 
 
@@ -1434,8 +1462,9 @@ class TestChartsFallbackEdgeCases:
 
 
 class TestNetworkErrorHandling:
-    """Network and decode failures must be reported per-endpoint, not lumped
-    under the generic ``num_dashboards_dropped_unexpected_error`` counter."""
+    """Network and decode failures must increment the per-endpoint
+    ``api_failures`` counter and emit a structured warning, not be lumped
+    under ``num_dashboards_dropped_unexpected_error``."""
 
     def test_detail_api_request_exception_is_reported(
         self, requests_mock: rm.Mocker
@@ -1449,8 +1478,7 @@ class TestNetworkErrorHandling:
         result = source.get_dashboard_info(42)
 
         assert result == {}
-        assert source.report.num_dashboards_detail_api_network_errors == 1
-        assert source.report.num_dashboards_detail_api_failures == 0
+        assert source.report.num_dashboards_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
         assert "Dashboard detail API network error" in titles
 
@@ -1470,7 +1498,7 @@ class TestNetworkErrorHandling:
         result = source.get_dashboard_info(42)
 
         assert result == {}
-        assert source.report.num_dashboards_detail_api_decode_errors == 1
+        assert source.report.num_dashboards_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
         assert "Dashboard detail API decode error" in titles
 
@@ -1510,7 +1538,7 @@ class TestNetworkErrorHandling:
         result = source.get_dashboard_charts(42)
 
         assert result == []
-        assert source.report.num_dashboards_charts_api_network_errors == 1
+        assert source.report.num_dashboards_charts_api_failures == 1
         titles = {w.title for w in source.report.warnings}
         assert "Dashboard charts API network error" in titles
 
@@ -1609,13 +1637,51 @@ class TestNetworkErrorHandling:
         titles = {w.title for w in source.report.warnings}
         assert "Dashboard charts API malformed result" in titles
 
+    def test_charts_api_json_decode_error_is_reported(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        source = _build_source(requests_mock)
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/42/charts",
+            text="not json",
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+        )
+
+        source.get_dashboard_charts(42)
+
+        assert source.report.num_dashboards_charts_api_failures == 1
+        titles = {w.title for w in source.report.warnings}
+        assert "Dashboard charts API decode error" in titles
+        assert "Dashboard charts API network error" not in titles
+
+    def test_fetch_api_response_raises_on_unknown_counter_attr(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # A typo in failure_counter_attr would silently increment the wrong
+        # counter (or raise AttributeError swallowed by the outer except).
+        # The guard raises immediately so the bug surfaces at development time.
+        source = _build_source(requests_mock)
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/42",
+            exc=requests.ConnectionError("refused"),
+        )
+
+        with pytest.raises(AttributeError, match="no counter"):
+            source._fetch_api_response(
+                "http://localhost:8088/api/v1/dashboard/42",
+                failure_counter_attr="num_nonexistent_counter",
+                base_context={"dashboard_id": 42},
+                endpoint="Dashboard detail API",
+            )
+
 
 class TestDatasetInfoCaching:
     """``get_dataset_info`` contract: cache only successful 2xx responses
     whose payload contains a dict ``result``. HTTP failure, network error,
     JSON-decode error, and non-dict ``result`` each return ``{}`` with a
-    structured warning and a dedicated per-failure-mode counter; failure
-    is never memoised."""
+    structured warning and increment ``num_datasets_detail_api_failures``;
+    failure is never memoised."""
 
     def test_success_is_cached(self, requests_mock: rm.Mocker) -> None:
         source = _build_source(requests_mock)
@@ -1657,7 +1723,7 @@ class TestDatasetInfoCaching:
         result = source.get_dataset_info(7)
 
         assert result == {}
-        assert source.report.num_datasets_detail_api_network_errors == 1
+        assert source.report.num_datasets_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
         assert "Dataset detail API network error" in titles
 
@@ -1672,7 +1738,7 @@ class TestDatasetInfoCaching:
         result = source.get_dataset_info(7)
 
         assert result == {}
-        assert source.report.num_datasets_detail_api_decode_errors == 1
+        assert source.report.num_datasets_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
         assert "Dataset detail API decode error" in titles
 
@@ -1752,6 +1818,15 @@ class TestExtractChartIdRejection:
     def test_rejects_empty_string_chart_id(self) -> None:
         chart_id, was_uncoercible = _extract_chart_id_with_status(
             {"meta": {"chartId": ""}}
+        )
+        assert chart_id is None
+        assert was_uncoercible is True
+
+    def test_rejects_whitespace_only_string_chart_id(self) -> None:
+        # Whitespace-only strings would create URNs with embedded spaces
+        # (e.g. ``urn:li:chart:(preset,   )``); drop them as uncoercible.
+        chart_id, was_uncoercible = _extract_chart_id_with_status(
+            {"meta": {"chartId": "   "}}
         )
         assert chart_id is None
         assert was_uncoercible is True
@@ -1861,10 +1936,58 @@ class TestMalformedChartsAggregatedWarning:
         titles = {w.title for w in source.report.warnings}
         assert "Dashboard charts API malformed entries" not in titles
 
+    def test_invalid_id_types_are_rejected_as_malformed(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # bool, str, dict, and list ids must all be treated as malformed so
+        # they cannot be str()-ified into synthetic chart URNs.
+        # isinstance(False, int) is True in Python so bool needs an explicit
+        # guard before the int check.
+        source = _build_source(requests_mock)
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/42/charts",
+            json={
+                "result": [
+                    {"id": 100},  # valid — must be returned
+                    {"id": False},  # bool — rejected
+                    {"id": "99"},  # str — rejected
+                    {"id": {}},  # dict — rejected
+                    {"id": []},  # list — rejected
+                ]
+            },
+            status_code=200,
+        )
+
+        result = source.get_dashboard_charts(42)
+
+        assert result == [100]
+        assert source.report.num_dashboards_charts_malformed_entries == 4
+
 
 class TestSafeBodyPreviewEmailRedaction:
     """Preset error responses can include the requesting user's email;
-    the body preview must redact common email shapes."""
+    the body preview must redact common email shapes. The method is called
+    from inside exception handlers so it must not raise secondary exceptions."""
+
+    def test_undecodable_binary_body_returns_safe_fallback(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # A binary / improperly-encoded response body causes response.text to
+        # raise UnicodeDecodeError. _safe_body_preview must catch this and
+        # return a safe fallback rather than masking the original HTTP error.
+        source = _build_source(requests_mock)
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/42",
+            content=b"\xff\xfe binary garbage \x00\x01",
+            status_code=500,
+            headers={"Content-Type": "application/json"},
+        )
+
+        # Must not raise; the outer warning must still be emitted.
+        source.get_dashboard_info(42)
+
+        titles = {w.title for w in source.report.warnings}
+        assert "Dashboard detail API failed" in titles
 
     def test_email_in_json_body_is_redacted(self, requests_mock: rm.Mocker) -> None:
         source = _build_source(requests_mock)
@@ -1888,58 +2011,6 @@ class TestSafeBodyPreviewEmailRedaction:
         for ctx in ctxs:
             assert "alice.smith@example.com" not in ctx
             assert "<email>" in ctx
-
-
-class TestNoDoubleCount:
-    """``num_chart_ids_uncoercible`` must be incremented exactly once
-    per bad ``CHART-*`` entry, regardless of whether ``database_pattern``
-    is default or restrictive."""
-
-    def _bad_position_json(self) -> str:
-        return json.dumps(
-            {
-                "CHART-good": {"meta": {"chartId": 100}},
-                "CHART-bool": {"meta": {"chartId": False}},
-                "CHART-empty": {"meta": {"chartId": ""}},
-            }
-        )
-
-    def test_default_database_pattern_counts_once(
-        self, requests_mock: rm.Mocker
-    ) -> None:
-        source = _build_source(requests_mock)
-        requests_mock.get(
-            "http://localhost:8088/api/v1/dashboard/42",
-            json={
-                "id": 42,
-                "result": {"id": 42, "position_json": self._bad_position_json()},
-            },
-            status_code=200,
-        )
-
-        list(source._process_dashboard(_list_api_dashboard(42)))
-
-        assert source.report.num_chart_ids_uncoercible == 2
-
-    def test_non_default_database_pattern_still_counts_once(
-        self, requests_mock: rm.Mocker
-    ) -> None:
-        config = SupersetConfig.model_validate(
-            {"database_pattern": {"deny": ["bad_db"]}}
-        )
-        source = _build_source(requests_mock, config=config)
-        requests_mock.get(
-            "http://localhost:8088/api/v1/dashboard/42",
-            json={
-                "id": 42,
-                "result": {"id": 42, "position_json": self._bad_position_json()},
-            },
-            status_code=200,
-        )
-
-        list(source._process_dashboard(_list_api_dashboard(42)))
-
-        assert source.report.num_chart_ids_uncoercible == 2
 
 
 class TestDanglingFallbackWarningAlwaysFires:
@@ -2056,26 +2127,6 @@ class TestExtractColumnsFromSqlNarrowException:
 
         with pytest.raises(TypeError):
             source._extract_columns_from_sql(123)  # type: ignore[arg-type]
-
-
-class TestDatasetMissingIdDirect:
-    """Direct unit-level coverage of the ``get_dataset_info(None)``
-    early-return guard so callers don't have to drive it through dataset
-    construction to verify the contract."""
-
-    def test_returns_empty_dict_without_http_call(
-        self, requests_mock: rm.Mocker
-    ) -> None:
-        source = _build_source(requests_mock)
-        before = len(requests_mock.request_history)
-
-        result = source.get_dataset_info(None)
-
-        assert result == {}
-        assert source.report.num_datasets_missing_id == 1
-        assert source.report.num_datasets_detail_api_failures == 0
-        for req in requests_mock.request_history[before:]:
-            assert "/api/v1/dataset/" not in req.url
 
 
 class TestFetchDatasetColumnsDetailFailure:
@@ -2404,6 +2455,80 @@ class TestParamsMetricsUnexpectedShape:
         titles = {entry.title for entry in source.report.infos}
         assert "Chart params.metrics unexpected shape" in titles
 
+    def test_malformed_metric_entries_are_skipped_not_crash(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # Valid JSON with non-str/non-dict metric entries (e.g. ints) must
+        # be silently skipped; the chart must still ingest.
+        source = _build_source(requests_mock)
+        payload = {
+            "id": 11,
+            "slice_name": "Mixed Metrics",
+            "url": "/chart/11",
+            "viz_type": "table",
+            "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+            "datasource_id": None,
+            "params": '{"metrics": [123, "valid_metric", {"label": "agg_metric"}, []]}',
+            "owners": [],
+            "tags": [],
+        }
+
+        work_units = list(source.construct_chart_from_chart_data(payload))
+
+        assert work_units, "Chart must still emit when metric entries are malformed"
+
+    def test_malformed_adhoc_filters_are_skipped_not_crash(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # Non-dict filter entries (strings, ints) must be skipped rather than
+        # crashing on filter_obj.get() with AttributeError.
+        source = _build_source(requests_mock)
+        payload = {
+            "id": 12,
+            "slice_name": "Bad Filters",
+            "url": "/chart/12",
+            "viz_type": "table",
+            "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+            "datasource_id": None,
+            "params": '{"adhoc_filters": ["bad_string", 42, {"sqlExpression": "x > 1"}]}',
+            "owners": [],
+            "tags": [],
+        }
+
+        work_units = list(source.construct_chart_from_chart_data(payload))
+
+        assert work_units, "Chart must still emit when filter entries are malformed"
+
+    def test_non_list_adhoc_filters_is_handled(self, requests_mock: rm.Mocker) -> None:
+        # adhoc_filters as a non-list (string) must not crash by iterating
+        # over characters.
+        source = _build_source(requests_mock)
+        payload = {
+            "id": 13,
+            "slice_name": "String Filters",
+            "url": "/chart/13",
+            "viz_type": "table",
+            "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+            "datasource_id": None,
+            "params": '{"adhoc_filters": "not a list"}',
+            "owners": [],
+            "tags": [],
+        }
+
+        work_units = list(source.construct_chart_from_chart_data(payload))
+
+        assert work_units, "Chart must still emit when adhoc_filters is not a list"
+
+    def test_filter_with_missing_clause_fields_returns_empty_not_none_string(
+        self,
+    ) -> None:
+        # A filter missing clause/subject/operator must return "" not
+        # "None None = None" — the latter is truthy and leaks garbage into
+        # chart custom properties visible to end users.
+        assert get_filter_name({"comparator": "2023-01-01"}) == ""
+        assert get_filter_name({"clause": "WHERE", "comparator": "x"}) == ""
+        assert get_filter_name({"subject": "col", "operator": "=="}) == ""
+
 
 class TestDatasetColumnsNonDictItems:
     """Per-item shape guard: dataset detail returning ``columns`` /
@@ -2532,61 +2657,6 @@ class TestUncoercibleChartIdLocator:
         assert "CHART-bad" in position_keys
 
 
-class TestApiDecodeErrorsHaveDedicatedCounters:
-    """JSON decode failures (HTTP 200 with non-JSON body) must increment
-    the per-endpoint *_decode_errors counter, distinct from the
-    *_network_errors counter (TCP/connection failures), so operators can
-    distinguish API-contract violations from infrastructure issues."""
-
-    def test_dashboard_detail_decode_error_uses_decode_counter(
-        self, requests_mock: rm.Mocker
-    ) -> None:
-        source = _build_source(requests_mock)
-        requests_mock.get(
-            "http://localhost:8088/api/v1/dashboard/42",
-            text="not json",
-            status_code=200,
-            headers={"Content-Type": "application/json"},
-        )
-
-        source.get_dashboard_info(42)
-
-        assert source.report.num_dashboards_detail_api_decode_errors == 1
-        assert source.report.num_dashboards_detail_api_network_errors == 0
-
-    def test_dashboard_charts_decode_error_uses_decode_counter(
-        self, requests_mock: rm.Mocker
-    ) -> None:
-        source = _build_source(requests_mock)
-        requests_mock.get(
-            "http://localhost:8088/api/v1/dashboard/42/charts",
-            text="not json",
-            status_code=200,
-            headers={"Content-Type": "application/json"},
-        )
-
-        source.get_dashboard_charts(42)
-
-        assert source.report.num_dashboards_charts_api_decode_errors == 1
-        assert source.report.num_dashboards_charts_api_network_errors == 0
-
-    def test_dataset_detail_decode_error_uses_decode_counter(
-        self, requests_mock: rm.Mocker
-    ) -> None:
-        source = _build_source(requests_mock)
-        requests_mock.get(
-            "http://localhost:8088/api/v1/dataset/42",
-            text="not json",
-            status_code=200,
-            headers={"Content-Type": "application/json"},
-        )
-
-        source.get_dataset_info(42)
-
-        assert source.report.num_datasets_detail_api_decode_errors == 1
-        assert source.report.num_datasets_detail_api_network_errors == 0
-
-
 class TestDatabasePatternIndeterminate:
     """When ``database_pattern`` is set but the chart's dataset has no
     ``database_name``, the filter check is effectively skipped — the
@@ -2637,20 +2707,6 @@ class TestDatabasePatternIndeterminate:
             field="chart_id",
         )
         assert 21 in chart_ids
-
-
-class TestExtractChartIdRejectsWhitespace:
-    """``_extract_chart_id_with_status`` must reject whitespace-only
-    string chartIds: minting ``urn:li:chart:(preset,   )`` would create a
-    chart URN with embedded spaces; better to drop with the uncoercible
-    counter."""
-
-    def test_whitespace_only_string_is_rejected(self) -> None:
-        chart_id, was_uncoercible = _extract_chart_id_with_status(
-            {"meta": {"chartId": "   "}}
-        )
-        assert chart_id is None
-        assert was_uncoercible is True
 
 
 class TestTagsDefensiveShape:

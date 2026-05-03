@@ -227,18 +227,8 @@ class SupersetSourceReport(StaleEntityRemovalSourceReport):
     # the lineage edge dangles.
     num_dashboards_charts_unknown: int = 0
     num_dashboards_charts_api_failures: int = 0
-    # Network failures: TCP/connection-level (timeout, refused, DNS).
-    # Decode failures: HTTP 200 but body wasn't JSON (proxy quirk, login
-    # redirect under wrong content-type). Separated so operators can
-    # distinguish infrastructure issues from API-contract violations.
-    num_dashboards_detail_api_network_errors: int = 0
-    num_dashboards_detail_api_decode_errors: int = 0
-    num_dashboards_charts_api_network_errors: int = 0
-    num_dashboards_charts_api_decode_errors: int = 0
     num_dashboards_charts_malformed_entries: int = 0
     num_datasets_detail_api_failures: int = 0
-    num_datasets_detail_api_network_errors: int = 0
-    num_datasets_detail_api_decode_errors: int = 0
     num_datasets_missing_id: int = 0
     # CHART-* entries whose meta.chartId was present but not a valid int/
     # non-empty str. Dropped silently because the caller can't recover;
@@ -400,6 +390,8 @@ def get_metric_name(metric):
         return ""
     if isinstance(metric, str):
         return metric
+    if not isinstance(metric, dict):
+        return ""
     label = metric.get("label")
     if not label:
         return ""
@@ -407,6 +399,8 @@ def get_metric_name(metric):
 
 
 def get_filter_name(filter_obj):
+    if not isinstance(filter_obj, dict):
+        return ""
     sql_expression = filter_obj.get("sqlExpression")
     if sql_expression:
         return sql_expression
@@ -415,6 +409,8 @@ def get_filter_name(filter_obj):
     column = filter_obj.get("subject")
     operator = filter_obj.get("operator")
     comparator = filter_obj.get("comparator")
+    if clause is None or column is None or operator is None:
+        return ""
     return f"{clause} {column} {operator} {comparator}"
 
 
@@ -586,7 +582,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         email.
         """
         content_type = response.headers.get("Content-Type", "").lower()
-        body = response.text
+        try:
+            body = response.text
+        except UnicodeDecodeError:
+            return f"<undecodable body: content-type={content_type or 'unknown'}>"
         body_smells_html = (
             body.lstrip().startswith("<")
             or "<html" in body.lower()
@@ -596,6 +595,85 @@ class SupersetSource(StatefulIngestionSourceBase):
             return f"<non-json body: content-type={content_type or 'unknown'}, len={len(body)}>"
         return SupersetSource._EMAIL_REDACT_RE.sub("<email>", body[:200])
 
+    def _fetch_api_response(
+        self,
+        url: str,
+        *,
+        failure_counter_attr: str,
+        base_context: Dict[str, Any],
+        endpoint: str,
+    ) -> Optional[Any]:
+        """GET ``url`` and return the decoded JSON payload, or ``None`` on any
+        transport or decode failure.
+
+        On failure, increments ``self.report.<failure_counter_attr>`` and emits
+        a structured warning. ``base_context`` fields appear in every warning
+        context; the keys ``error``, ``error_type``, ``status_code``, and
+        ``body_preview`` are reserved — caller-supplied values for those keys
+        are silently overwritten. Warning titles follow ``"{endpoint} {type}"``
+        (e.g. ``endpoint="Dashboard detail API"`` →
+        ``"Dashboard detail API network error"``).
+
+        Result-shape validation and caching are the caller's responsibility."""
+        if not hasattr(self.report, failure_counter_attr):
+            raise AttributeError(
+                f"SupersetSourceReport has no counter '{failure_counter_attr}'"
+            )
+        try:
+            response = self.session.get(url, timeout=self.config.timeout)
+        except requests.RequestException as e:
+            setattr(
+                self.report,
+                failure_counter_attr,
+                getattr(self.report, failure_counter_attr) + 1,
+            )
+            self.report.warning(
+                message="Network error.",
+                context=self._warning_context(
+                    **{**base_context, "error": str(e), "error_type": type(e).__name__}
+                ),
+                title=f"{endpoint} network error",
+            )
+            return None
+        if response.status_code != 200:
+            setattr(
+                self.report,
+                failure_counter_attr,
+                getattr(self.report, failure_counter_attr) + 1,
+            )
+            self.report.warning(
+                message="Unexpected HTTP status.",
+                context=self._warning_context(
+                    **{
+                        **base_context,
+                        "status_code": response.status_code,
+                        "body_preview": self._safe_body_preview(response),
+                    }
+                ),
+                title=f"{endpoint} failed",
+            )
+            return None
+        try:
+            return response.json()
+        except ValueError as e:
+            setattr(
+                self.report,
+                failure_counter_attr,
+                getattr(self.report, failure_counter_attr) + 1,
+            )
+            self.report.warning(
+                message="Response was not valid JSON.",
+                context=self._warning_context(
+                    **{
+                        **base_context,
+                        "error": str(e),
+                        "body_preview": self._safe_body_preview(response),
+                    }
+                ),
+                title=f"{endpoint} decode error",
+            )
+            return None
+
     def get_dashboard_info(self, dashboard_id: int) -> Dict[str, Any]:
         """Fetch dashboard detail. Returns ``{}`` on failure; failures are
         not cached so transient errors don't poison the rest of the run."""
@@ -603,43 +681,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         if cached is not None:
             return cached
         url = f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}"
-        try:
-            dashboard_response = self.session.get(url, timeout=self.config.timeout)
-        except requests.RequestException as e:
-            self.report.num_dashboards_detail_api_network_errors += 1
-            self.report.warning(
-                message="Network error fetching dashboard detail.",
-                context=self._warning_context(
-                    dashboard_id=dashboard_id, error=str(e), error_type=type(e).__name__
-                ),
-                title="Dashboard detail API network error",
-            )
-            return {}
-        if dashboard_response.status_code != 200:
-            self.report.num_dashboards_detail_api_failures += 1
-            self.report.warning(
-                message="Failed to fetch dashboard detail.",
-                context=self._warning_context(
-                    dashboard_id=dashboard_id,
-                    status_code=dashboard_response.status_code,
-                    body_preview=self._safe_body_preview(dashboard_response),
-                ),
-                title="Dashboard detail API failed",
-            )
-            return {}
-        try:
-            payload = dashboard_response.json()
-        except ValueError as e:
-            self.report.num_dashboards_detail_api_decode_errors += 1
-            self.report.warning(
-                message="Dashboard detail response was not valid JSON.",
-                context=self._warning_context(
-                    dashboard_id=dashboard_id,
-                    error=str(e),
-                    body_preview=self._safe_body_preview(dashboard_response),
-                ),
-                title="Dashboard detail API decode error",
-            )
+        payload = self._fetch_api_response(
+            url,
+            failure_counter_attr="num_dashboards_detail_api_failures",
+            base_context={"dashboard_id": dashboard_id},
+            endpoint="Dashboard detail API",
+        )
+        if payload is None:
             return {}
         # Reject and don't cache: result must be a dict for downstream
         # iteration; caching a malformed response would break every hit.
@@ -667,43 +715,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         if cached is not None:
             return cached
         url = f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}/charts"
-        try:
-            response = self.session.get(url, timeout=self.config.timeout)
-        except requests.RequestException as e:
-            self.report.num_dashboards_charts_api_network_errors += 1
-            self.report.warning(
-                message="Network error fetching /charts fallback.",
-                context=self._warning_context(
-                    dashboard_id=dashboard_id, error=str(e), error_type=type(e).__name__
-                ),
-                title="Dashboard charts API network error",
-            )
-            return []
-        if response.status_code != 200:
-            self.report.num_dashboards_charts_api_failures += 1
-            self.report.warning(
-                message="Failed to fetch /charts fallback.",
-                context=self._warning_context(
-                    dashboard_id=dashboard_id,
-                    status_code=response.status_code,
-                    body_preview=self._safe_body_preview(response),
-                ),
-                title="Dashboard charts API failed",
-            )
-            return []
-        try:
-            payload = response.json()
-        except ValueError as e:
-            self.report.num_dashboards_charts_api_decode_errors += 1
-            self.report.warning(
-                message="/charts response was not valid JSON.",
-                context=self._warning_context(
-                    dashboard_id=dashboard_id,
-                    error=str(e),
-                    body_preview=self._safe_body_preview(response),
-                ),
-                title="Dashboard charts API decode error",
-            )
+        payload = self._fetch_api_response(
+            url,
+            failure_counter_attr="num_dashboards_charts_api_failures",
+            base_context={"dashboard_id": dashboard_id},
+            endpoint="Dashboard charts API",
+        )
+        if payload is None:
             return []
         results = payload.get("result")
         if not isinstance(results, list):
@@ -720,10 +738,21 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_ids: List[int] = []
         malformed = 0
         for chart in results:
-            if not isinstance(chart, dict) or chart.get("id") is None:
+            if not isinstance(chart, dict):
                 malformed += 1
                 continue
-            chart_ids.append(chart["id"])
+            raw_id = chart.get("id")
+            # Apply the same rejection rules as _extract_chart_id_with_status:
+            # bool must be rejected before int because isinstance(False, int)
+            # is True in Python and would mint urn:li:chart:(preset,False).
+            if (
+                raw_id is None
+                or isinstance(raw_id, bool)
+                or not isinstance(raw_id, int)
+            ):
+                malformed += 1
+                continue
+            chart_ids.append(raw_id)
         if malformed:
             # Aggregate per dashboard so operators can identify which
             # dashboard had bad entries (the global counter alone gives no
@@ -744,11 +773,17 @@ class SupersetSource(StatefulIngestionSourceBase):
     def _parse_position_json(self, dashboard_data: Dict[str, Any]) -> Dict[str, Any]:
         """Parse ``position_json`` defensively. Returns ``{}`` on any
         non-JSON-object input — the dashboard still ingests, the failure
-        is visible in the report."""
-        raw_position_data = dashboard_data.get("position_json") or "{}"
+        is visible in the report.
+
+        Accepts an already-parsed dict in case an API client pre-deserialises
+        the field. Catches TypeError so a truthy non-string value (list, int,
+        …) doesn't escape the try block and crash the dashboard."""
+        raw = dashboard_data.get("position_json") or "{}"
+        if isinstance(raw, dict):
+            return raw
         try:
-            parsed = json.loads(raw_position_data)
-        except json.JSONDecodeError as e:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError) as e:
             self.report.num_dashboards_invalid_position_json += 1
             self.report.warning(
                 message="Could not parse position_json.",
@@ -756,7 +791,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dashboard_id=dashboard_data.get("id"),
                     dashboard_title=dashboard_data.get("dashboard_title", ""),
                     error=str(e),
-                    value_preview=raw_position_data[:200],
+                    value_preview=str(raw)[:200],
                 ),
                 title="Invalid position_json",
             )
@@ -769,7 +804,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dashboard_id=dashboard_data.get("id"),
                     dashboard_title=dashboard_data.get("dashboard_title", ""),
                     json_type=type(parsed).__name__,
-                    value_preview=raw_position_data[:200],
+                    value_preview=str(raw)[:200],
                 ),
                 title="Invalid position_json",
             )
@@ -781,8 +816,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         Returns ``{}`` on any failure (missing id, network error, non-200,
         invalid JSON, non-dict ``result``); failures are deliberately not
-        cached so a transient 5xx does not poison subsequent calls. The
-        per-failure counters distinguish the cause for operators."""
+        cached so a transient 5xx does not poison subsequent calls."""
         if dataset_id is None:
             self.report.num_datasets_missing_id += 1
             self.report.warning(
@@ -794,43 +828,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         if cached is not None:
             return cached
         url = f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}"
-        try:
-            response = self.session.get(url, timeout=self.config.timeout)
-        except requests.RequestException as e:
-            self.report.num_datasets_detail_api_network_errors += 1
-            self.report.warning(
-                message="Network error fetching dataset detail.",
-                context=self._warning_context(
-                    dataset_id=dataset_id, error=str(e), error_type=type(e).__name__
-                ),
-                title="Dataset detail API network error",
-            )
-            return {}
-        if response.status_code != 200:
-            self.report.num_datasets_detail_api_failures += 1
-            self.report.warning(
-                message="Failed to fetch dataset detail.",
-                context=self._warning_context(
-                    dataset_id=dataset_id,
-                    status_code=response.status_code,
-                    body_preview=self._safe_body_preview(response),
-                ),
-                title="Dataset detail API failed",
-            )
-            return {}
-        try:
-            payload = response.json()
-        except ValueError as e:
-            self.report.num_datasets_detail_api_decode_errors += 1
-            self.report.warning(
-                message="Dataset detail response was not valid JSON.",
-                context=self._warning_context(
-                    dataset_id=dataset_id,
-                    error=str(e),
-                    body_preview=self._safe_body_preview(response),
-                ),
-                title="Dataset detail API decode error",
-            )
+        payload = self._fetch_api_response(
+            url,
+            failure_counter_attr="num_datasets_detail_api_failures",
+            base_context={"dataset_id": dataset_id},
+            endpoint="Dataset detail API",
+        )
+        if payload is None:
             return {}
         # Reject and don't cache: result must be a dict for downstream
         # iteration; caching a malformed response would break every hit.
@@ -997,7 +1001,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return dashboard_snapshot
 
-    def _warn_database_filtered_charts(
+    def _report_filtered_chart_references(
         self,
         *,
         position_data: Dict[str, Any],
@@ -1142,7 +1146,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
 
             if self.config.database_pattern != AllowDenyPattern.allow_all():
-                self._warn_database_filtered_charts(
+                self._report_filtered_chart_references(
                     position_data=position_data,
                     dashboard_id=dashboard_id,
                     dashboard_title=dashboard_title,
@@ -1604,11 +1608,11 @@ class SupersetSource(StatefulIngestionSourceBase):
                 title="Chart params.metrics unexpected shape",
             )
             metrics_iter = []
-        metrics = [get_metric_name(metric) for metric in metrics_iter]
-        filters = [
-            get_filter_name(filter_obj)
-            for filter_obj in params.get("adhoc_filters", [])
-        ]
+        metrics = [m for m in (get_metric_name(metric) for metric in metrics_iter) if m]
+        raw_filters = params.get("adhoc_filters") or []
+        if not isinstance(raw_filters, list):
+            raw_filters = []
+        filters = [f for f in (get_filter_name(fo) for fo in raw_filters) if f]
         group_bys = params.get("groupby", []) or []
         if isinstance(group_bys, str):
             group_bys = [group_bys]
