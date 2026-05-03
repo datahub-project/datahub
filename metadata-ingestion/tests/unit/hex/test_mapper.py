@@ -483,18 +483,17 @@ class TestMapper(unittest.TestCase):
         assert len(chart_usage_wus) == 2
         usage_all_time_wu = chart_usage_wus[0]
         usage_last_7_days_wu = chart_usage_wus[1]
+        assert isinstance(usage_all_time_wu.metadata, MetadataChangeProposalWrapper)
+        assert isinstance(usage_last_7_days_wu.metadata, MetadataChangeProposalWrapper)
+        assert isinstance(usage_all_time_wu.metadata.aspect, ChartUsageStatisticsClass)
         assert isinstance(
-            usage_all_time_wu.metadata.aspect, ChartUsageStatisticsClass
-        ) and isinstance(
             usage_last_7_days_wu.metadata.aspect, ChartUsageStatisticsClass
         )
+        assert usage_all_time_wu.metadata.aspect.viewsCount == 100
+        assert usage_last_7_days_wu.metadata.aspect.viewsCount == 10
+        assert not usage_all_time_wu.metadata.aspect.eventGranularity
         assert (
-            usage_all_time_wu.metadata.aspect.viewsCount == 100
-            and usage_last_7_days_wu.metadata.aspect.viewsCount == 10
-        )
-        assert (
-            not usage_all_time_wu.metadata.aspect.eventGranularity
-            and usage_last_7_days_wu.metadata.aspect.eventGranularity
+            usage_last_7_days_wu.metadata.aspect.eventGranularity
             == TimeWindowSizeClass(unit=CalendarIntervalClass.WEEK, multiple=1)
         )
 

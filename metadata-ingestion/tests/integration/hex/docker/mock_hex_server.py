@@ -222,7 +222,8 @@ class MockHexAPIHandler(http.server.SimpleHTTPRequestHandler):
 
         # Cells — keyed by projectId query param
         if path == "/api/v1/cells":
-            project_id = (params.get("projectId") or [None])[0]
+            project_id_list = params.get("projectId")
+            project_id = project_id_list[0] if project_id_list else ""
             cells = _CELLS_BY_PROJECT.get(project_id, EMPTY_CELLS)
             self._respond_json(cells)
             return
