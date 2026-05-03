@@ -268,15 +268,15 @@ class HexApi:
         self.report = report
         self.page_size = page_size
         self.session = self._create_retry_session()
+        # Callable attribute, not a method, so @_api_call(paginated=True) can
+        # override it via self._track_page = ... without a [method-assign] error.
+        self._track_page: Callable[[], None] = lambda: None
 
     def _list_projects_url(self):
         return f"{self.base_url}/projects"
 
     def _auth_header(self):
         return {"Authorization": f"Bearer {self.token}"}
-
-    def _track_page(self) -> None:
-        """Stub overridden at call time by @_api_call(paginated=True)."""
 
     def _create_retry_session(self) -> requests.Session:
         """Create a requests session with retry logic for rate limiting.

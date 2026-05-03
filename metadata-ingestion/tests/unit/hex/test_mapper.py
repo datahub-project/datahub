@@ -512,7 +512,9 @@ class TestMapper(unittest.TestCase):
             for wu in work_units
         )
         # no PATCH WUs — ChartInfo does not support patch in this connector
-        assert not any(wu.metadata.changeType == "PATCH" for wu in work_units)
+        assert not any(
+            getattr(wu.metadata, "changeType", None) == "PATCH" for wu in work_units
+        )
 
         # what if we set platform_instance
 
@@ -887,13 +889,13 @@ class TestMapper(unittest.TestCase):
                 assert url_aspects[0].externalUrl == expected_external_url
             elif isinstance(project_or_component, Component):
                 work_units = list(mapper.map_component(project_or_component))
-                url_aspects = [
+                chart_aspects = [
                     wu.get_aspect_of_type(ChartInfoClass)
                     for wu in work_units
                     if wu.get_aspect_of_type(ChartInfoClass)
                 ]
-                assert len(url_aspects) == 1
-                assert url_aspects[0]
-                assert url_aspects[0].chartUrl == expected_external_url
+                assert len(chart_aspects) == 1
+                assert chart_aspects[0]
+                assert chart_aspects[0].chartUrl == expected_external_url
             else:
                 raise AssertionError()

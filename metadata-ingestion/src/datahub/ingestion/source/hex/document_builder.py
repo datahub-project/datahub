@@ -87,10 +87,12 @@ class HexDocumentBuilder:
 
         if explore_cells:
             parts.append("## Visualisations\n")
-            for cell in explore_cells:
-                label = cell.cell_label or cell.cell_id
-                df = f"`{cell.dataframe}`" if cell.dataframe else ""
-                chart = f" ({cell.chart_type})" if cell.chart_type else ""
+            for explore_cell in explore_cells:
+                label = explore_cell.cell_label or explore_cell.cell_id
+                df = f"`{explore_cell.dataframe}`" if explore_cell.dataframe else ""
+                chart = (
+                    f" ({explore_cell.chart_type})" if explore_cell.chart_type else ""
+                )
                 suffix = f" — visualises {df}" if df else ""
                 parts.append(f"- **{label}**{chart}{suffix}")
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.hex.document_builder import HexDocumentBuilder
 from datahub.ingestion.source.hex.model import (
@@ -13,34 +14,64 @@ from datahub.ingestion.source.hex.model import (
 )
 
 WORKSPACE = "test-workspace"
-CONNECTIONS = {
+CONNECTIONS: Dict[str, Tuple[str, str]] = {
     "conn-sf": ("Analytics Hub", "snowflake"),
     "conn-bq": ("BQ Hub", "bigquery"),
 }
 
 
-def _builder(**kwargs) -> HexDocumentBuilder:
+def _builder(
+    workspace_name: str = WORKSPACE,
+    platform_instance: Optional[str] = None,
+    connections: Optional[Dict[str, Tuple[str, str]]] = None,
+) -> HexDocumentBuilder:
     return HexDocumentBuilder(
-        workspace_name=kwargs.get("workspace_name", WORKSPACE),
-        platform_instance=kwargs.get("platform_instance"),
-        connections=kwargs.get("connections", CONNECTIONS),
+        workspace_name=workspace_name,
+        platform_instance=platform_instance,
+        connections=connections if connections is not None else CONNECTIONS,
     )
 
 
-def _project(**kwargs) -> Project:
-    defaults = dict(
-        id="proj-1",
-        title="My Project",
-        description=None,
+def _project(
+    id: str = "proj-1",
+    title: str = "My Project",
+    description: Optional[str] = None,
+    owner: Optional[Owner] = None,
+    creator: Optional[Owner] = None,
+    status: Optional[Status] = None,
+    categories: Optional[List[Category]] = None,
+    collections: Optional[List[Collection]] = None,
+    last_edited_at: Optional[datetime] = None,
+    created_at: Optional[datetime] = None,
+) -> Project:
+    return Project(
+        id=id,
+        title=title,
+        description=description,
+        owner=owner,
+        creator=creator,
+        status=status,
+        categories=categories,
+        collections=collections,
+        last_edited_at=last_edited_at,
+        created_at=created_at,
     )
-    defaults.update(kwargs)
-    return Project(**defaults)
 
 
-def _component(**kwargs) -> Component:
-    defaults = dict(id="comp-1", title="My Component", description=None)
-    defaults.update(kwargs)
-    return Component(**defaults)
+def _component(
+    id: str = "comp-1",
+    title: str = "My Component",
+    description: Optional[str] = None,
+    owner: Optional[Owner] = None,
+    status: Optional[Status] = None,
+) -> Component:
+    return Component(
+        id=id,
+        title=title,
+        description=description,
+        owner=owner,
+        status=status,
+    )
 
 
 def _sql_cell(source: str, conn_id: str = "conn-sf", label: str = "Query") -> SqlCell:

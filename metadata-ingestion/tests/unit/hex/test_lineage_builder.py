@@ -1,3 +1,5 @@
+from typing import Dict, Optional
+
 from datahub.ingestion.source.hex.lineage_builder import (
     HexLineageBuilder,
     LineageBuilderReport,
@@ -10,23 +12,27 @@ BIGQUERY_CONN = "conn-bq-1"
 UNKNOWN_CONN = "conn-unknown-1"
 UNSUPPORTED_TYPE_CONN = "conn-cassandra-1"
 
-CONNECTIONS = {
+CONNECTIONS: Dict[str, str] = {
     SNOWFLAKE_CONN: "snowflake",
     BIGQUERY_CONN: "bigquery",
     UNSUPPORTED_TYPE_CONN: "cassandra",  # not in CONNECTION_TYPE_TO_DATAHUB_PLATFORM
 }
 
 
-def _builder(**kwargs) -> HexLineageBuilder:
-    defaults = dict(
-        connections=CONNECTIONS,
-        platform_instance=None,
-        env="PROD",
-        report=LineageBuilderReport(),
-        project_id="proj-1",
+def _builder(
+    connections: Optional[Dict[str, str]] = None,
+    platform_instance: Optional[str] = None,
+    env: str = "PROD",
+    report: Optional[LineageBuilderReport] = None,
+    project_id: str = "proj-1",
+) -> HexLineageBuilder:
+    return HexLineageBuilder(
+        connections=connections if connections is not None else CONNECTIONS,
+        platform_instance=platform_instance,
+        env=env,
+        report=report if report is not None else LineageBuilderReport(),
+        project_id=project_id,
     )
-    defaults.update(kwargs)
-    return HexLineageBuilder(**defaults)
 
 
 def _cell(sql: str, conn_id: str = SNOWFLAKE_CONN, label: str = "q") -> SqlCell:
