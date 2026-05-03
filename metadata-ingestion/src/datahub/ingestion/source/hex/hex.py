@@ -63,6 +63,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
+    StatefulIngestionUsecaseHandlerBase,
 )
 
 logger = logging.getLogger(__name__)
@@ -179,7 +180,7 @@ class HexReport(
     projects_incremental_skip: int = 0
 
 
-class _HexIncrementalHandler:
+class _HexIncrementalHandler(StatefulIngestionUsecaseHandlerBase):
     """Minimal use-case handler that registers the incremental checkpoint job with the framework."""
 
     def __init__(self, source: "HexSource") -> None:
