@@ -263,6 +263,7 @@ public class SampleDataFixtureConfiguration {
             new ESGraphQueryDAO(
                 _searchClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null),
             indexBuilder,
+            null,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(opContext, Collections.emptySet());
     return graphService;

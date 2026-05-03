@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -81,15 +82,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final Cache<String, Boolean> semanticIndexExistsCache;
 
   /**
-   * Creates an UpdateIndicesV2Strategy with optional semantic search support.
-   *
-   * @param v2Config V2 index configuration
-   * @param elasticSearchService Elasticsearch service for index operations
-   * @param searchDocumentTransformer Document transformer for search documents
-   * @param timeseriesAspectService Service for timeseries aspect operations
-   * @param idHashAlgo Hash algorithm for document IDs
-   * @param semanticSearchConfig Semantic search configuration (null to disable dual-write)
-   * @param indexConvention Index naming convention for deriving semantic index names (required)
+   * Backward-compatible constructor; delegates to the canonical constructor with {@code
+   * engineType=null} (legacy ES7/OpenSearch mapping behavior).
    */
   public UpdateIndicesV2Strategy(
       @Nonnull EntityIndexVersionConfiguration v2Config,
@@ -99,6 +93,40 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull String idHashAlgo,
       @Nullable SemanticSearchConfiguration semanticSearchConfig,
       @Nonnull IndexConvention indexConvention) {
+    this(
+        v2Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        idHashAlgo,
+        semanticSearchConfig,
+        indexConvention,
+        null);
+  }
+
+  /**
+   * Creates an UpdateIndicesV2Strategy with optional semantic search support and ES version-aware
+   * mapping generation.
+   *
+   * @param v2Config V2 index configuration
+   * @param elasticSearchService Elasticsearch service for index operations
+   * @param searchDocumentTransformer Document transformer for search documents
+   * @param timeseriesAspectService Service for timeseries aspect operations
+   * @param idHashAlgo Hash algorithm for document IDs
+   * @param semanticSearchConfig Semantic search configuration (null to disable dual-write)
+   * @param indexConvention Index naming convention for deriving semantic index names (required)
+   * @param engineType Search engine type used to drive ES version-aware mapping behavior in the
+   *     internally-constructed {@link V2MappingsBuilder}.
+   */
+  public UpdateIndicesV2Strategy(
+      @Nonnull EntityIndexVersionConfiguration v2Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
+      @Nullable SemanticSearchConfiguration semanticSearchConfig,
+      @Nonnull IndexConvention indexConvention,
+      @Nullable SearchEngineType engineType) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -110,7 +138,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         new V2MappingsBuilder(
             com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
                 .v2(v2Config)
-                .build());
+                .build(),
+            engineType);
     this.semanticIndexExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)

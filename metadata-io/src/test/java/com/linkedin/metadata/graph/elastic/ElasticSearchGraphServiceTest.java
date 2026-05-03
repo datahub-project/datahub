@@ -76,6 +76,7 @@ public class ElasticSearchGraphServiceTest {
             mockWriteDAO,
             mockReadDAO,
             mock(ESIndexBuilder.class),
+            null,
             "md5");
   }
 

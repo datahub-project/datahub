@@ -39,6 +39,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -79,6 +80,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphWriteDAO graphWriteDAO;
   private final ESGraphQueryDAO graphReadDAO;
   private final ESIndexBuilder indexBuilder;
+  @Nullable private final SearchEngineType engineType;
   private final String idHashAlgo;
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
@@ -328,7 +330,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return List.of(
         indexBuilder.buildReindexState(
             indexConvention.getIndexName(INDEX_NAME),
-            GraphRelationshipMappingsBuilder.getMappings(),
+            GraphRelationshipMappingsBuilder.getMappings(engineType),
             Collections.emptyMap()));
   }
 
@@ -340,7 +342,9 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =
           indexBuilder.buildReindexState(
-              indexName, GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
+              indexName,
+              GraphRelationshipMappingsBuilder.getMappings(engineType),
+              Collections.emptyMap());
 
       // Use clearIndex which handles deletion and recreation
       indexBuilder.clearIndex(indexName, config);

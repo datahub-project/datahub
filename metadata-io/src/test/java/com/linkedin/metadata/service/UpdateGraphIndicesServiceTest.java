@@ -94,6 +94,7 @@ public class UpdateGraphIndicesServiceTest {
                 mockWriteDAO,
                 mockReadDAO,
                 mock(ESIndexBuilder.class),
+                null,
                 "md5"));
   }
 

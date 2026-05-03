@@ -10,6 +10,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUt
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
@@ -172,6 +173,19 @@ public class SearchClientShimFactory {
           "Elasticsearch 8.18+ required for semantic search; cluster is in ES 7 compatibility mode. "
               + "Upgrade the cluster or set semanticSearch.enabled=false.");
     }
+  }
+
+  /**
+   * Exposes the resolved search engine type as a Spring bean so other components can branch on ES7
+   * vs ES8+ vs OpenSearch without each one calling {@code SearchClientShim#getEngineType()}.
+   */
+  @Bean
+  @Nonnull
+  public SearchEngineType searchEngineType(
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
+    SearchEngineType type = searchClient.getEngineType();
+    log.info("Resolved searchEngineType bean: {}", type);
+    return type;
   }
 
   /** Parse the engine type from string configuration */

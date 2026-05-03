@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSear
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,10 +31,12 @@ public class MappingsBuilderFactory {
   @Bean("legacyMappingsBuilder")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
   @Nonnull
-  protected MappingsBuilder createLegacyMappingsBuilder(ConfigurationProvider configProvider) {
+  protected MappingsBuilder createLegacyMappingsBuilder(
+      ConfigurationProvider configProvider,
+      @Qualifier("searchEngineType") SearchEngineType engineType) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
-    log.info("Creating LegacyMappingsBuilder bean");
-    return new V2MappingsBuilder(entityIndexConfig);
+    log.info("Creating LegacyMappingsBuilder bean (engineType={})", engineType);
+    return new V2MappingsBuilder(entityIndexConfig, engineType);
   }
 
   @Bean("multiEntityMappingsBuilder")

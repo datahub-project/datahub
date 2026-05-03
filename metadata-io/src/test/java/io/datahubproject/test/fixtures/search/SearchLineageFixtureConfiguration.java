@@ -246,6 +246,7 @@ public abstract class SearchLineageFixtureConfiguration {
             new ESGraphQueryDAO(
                 searchClient, TEST_GRAPH_SERVICE_CONFIG, getElasticSearchConfiguration(), null),
             indexBuilder,
+            null,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(opContext, Collections.emptySet());
     return graphService;

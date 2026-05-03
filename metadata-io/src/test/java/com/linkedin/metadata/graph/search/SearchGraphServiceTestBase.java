@@ -129,6 +129,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         writeDAO,
         readDAO,
         getIndexBuilder(),
+        null,
         "MD5");
   }
 
