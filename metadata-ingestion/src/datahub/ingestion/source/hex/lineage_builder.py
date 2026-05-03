@@ -8,9 +8,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.source.hex.constants import CONNECTION_TYPE_TO_DATAHUB_PLATFORM
 from datahub.ingestion.source.hex.model import SqlCell
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+
+_MAX_SAMPLE_MISMATCHES = 5
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -28,6 +31,26 @@ class SkippedCell:
 
 
 @dataclass
+class MismatchedCell:
+    """
+    A SQL cell whose parsed table URNs did not fully match the queriedTables
+    result for that project. Column lineage was skipped for unmatched tables.
+
+    Common causes: unqualified table names in SQL that queriedTables resolves
+    to a fully-qualified name, view references, dynamic SQL in Python cells
+    that produces a different table path, or schema/database prefix differences.
+    """
+
+    project_id: str
+    cell_id: str
+    cell_label: Optional[str]
+    # table URNs that SQL parsing produced but were absent from queriedTables
+    unmatched_parsed_urns: List[str]
+    # representative subset of queriedTables URNs for that project (for comparison)
+    sample_queried_urns: List[str]
+
+
+@dataclass
 class LineageBuilderReport:
     sql_cells_attempted: int = 0
     sql_cells_succeeded: int = 0
@@ -38,6 +61,13 @@ class LineageBuilderReport:
     skipped_cells: List[SkippedCell] = field(default_factory=list)
     projects_lineage_via_queried_tables: int = 0
     projects_lineage_via_sql_parsing: int = 0
+    # ENTERPRISE cross-validation: SQL parsing vs queriedTables
+    enterprise_column_fields_emitted: int = 0
+    enterprise_column_fields_skipped_mismatch: int = 0
+    enterprise_cells_with_mismatch: int = 0
+    enterprise_sample_mismatched_cells: List[MismatchedCell] = field(
+        default_factory=list
+    )
 
 
 class HexLineageBuilder:
@@ -180,6 +210,80 @@ class HexLineageBuilder:
         self._report.upstream_datasets_found += len(dataset_result)
         self._report.projects_lineage_via_sql_parsing += 1
         return dataset_result, field_result
+
+    def build_validated_column_lineage(
+        self,
+        sql_cells: List[SqlCell],
+        queried_table_urns: List[str],
+    ) -> List[str]:
+        """
+        Extract column-level lineage from SQL cells, cross-validated against
+        the queriedTables result set.
+
+        For ENTERPRISE workspaces: queriedTables provides runtime-proven dataset
+        URNs. SQL parsing may produce table URNs that differ (unqualified names,
+        view references, dynamic SQL). A column reference is only emitted if its
+        parent dataset URN appears in queriedTables — otherwise the SchemaFieldUrn
+        would dangle (pointing to a dataset that may not exist in DataHub or that
+        represents a different entity than intended).
+
+        Mismatches are recorded in the report with sample cells for diagnostics.
+        """
+        queried_set = set(queried_table_urns)
+        validated_fields: List[str] = []
+        seen_fields: Set[str] = set()
+
+        for cell in sql_cells:
+            platform, _ = self._resolve_platform(cell.data_connection_id)
+            if platform is None:
+                continue
+
+            _, field_urns = self._parse_cell(cell, platform)
+            if not field_urns:
+                continue
+
+            matched: List[str] = []
+            unmatched_tables: Set[str] = set()
+
+            for furn in field_urns:
+                try:
+                    parent_urn = SchemaFieldUrn.from_string(furn).parent
+                except Exception:
+                    continue
+                if parent_urn in queried_set:
+                    matched.append(furn)
+                else:
+                    unmatched_tables.add(parent_urn)
+
+            if unmatched_tables:
+                self._report.enterprise_cells_with_mismatch += 1
+                self._report.enterprise_column_fields_skipped_mismatch += sum(
+                    1
+                    for f in field_urns
+                    if SchemaFieldUrn.from_string(f).parent not in queried_set
+                )
+                if (
+                    len(self._report.enterprise_sample_mismatched_cells)
+                    < _MAX_SAMPLE_MISMATCHES
+                ):
+                    self._report.enterprise_sample_mismatched_cells.append(
+                        MismatchedCell(
+                            project_id=self._project_id,
+                            cell_id=cell.cell_id,
+                            cell_label=cell.cell_label,
+                            unmatched_parsed_urns=sorted(unmatched_tables),
+                            # show up to 5 queriedTables URNs for comparison
+                            sample_queried_urns=queried_table_urns[:5],
+                        )
+                    )
+
+            for furn in matched:
+                if furn not in seen_fields:
+                    seen_fields.add(furn)
+                    validated_fields.append(furn)
+
+        self._report.enterprise_column_fields_emitted += len(validated_fields)
+        return validated_fields
 
     def _resolve_platform(
         self, connection_id: Optional[str]

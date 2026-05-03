@@ -6,11 +6,16 @@ Handles all endpoints used by the hex connector.
 
 import http.server
 import json
+import os
 import re
 import socketserver
 from urllib.parse import parse_qs, urlparse
 
 PORT = 8000
+
+# Set ENTERPRISE_MODE=1 to simulate an ENTERPRISE workspace where queriedTables
+# returns real data instead of 403.
+ENTERPRISE_MODE = os.environ.get("ENTERPRISE_MODE", "0") == "1"
 
 with open("/app/hex_projects_response.json", "r") as f:
     HEX_PROJECTS_RESPONSE = json.load(f)
@@ -133,6 +138,30 @@ if len(PROJECT_IDS) >= 8:
 
 EMPTY_CELLS = {"values": [], "pagination": {"after": None}}
 
+# queriedTables responses for ENTERPRISE_MODE — mirrors what the cells produce so
+# the cross-validation in build_validated_column_lineage can match them.
+_QUERIED_TABLES_BY_PROJECT: dict = {}
+if len(PROJECT_IDS) >= 1:
+    _QUERIED_TABLES_BY_PROJECT[PROJECT_IDS[0]] = {
+        "values": [
+            {
+                "dataConnectionId": "conn-snowflake-analytics",
+                "dataConnectionName": "Analytics Hub",
+                "tableName": "analytics.public.customers",
+            }
+        ]
+    }
+if len(PROJECT_IDS) >= 7:
+    _QUERIED_TABLES_BY_PROJECT[PROJECT_IDS[6]] = {  # PlayNotebook
+        "values": [
+            {
+                "dataConnectionId": "conn-snowflake-global",
+                "dataConnectionName": "Global Hub",
+                "tableName": "global.public.orders",
+            }
+        ]
+    }
+
 # Export YAML responses — only for projects that import components.
 # Shape mirrors POST /api/v1/projects/export response.
 # The YAML lists only native SQL cells + COMPONENT_IMPORT entries (no inlined component SQL).
@@ -198,15 +227,20 @@ class MockHexAPIHandler(http.server.SimpleHTTPRequestHandler):
             self._respond_json(cells)
             return
 
-        # queriedTables — always 403 (non-ENTERPRISE workspace in tests)
+        # queriedTables — 403 in normal mode, real data in ENTERPRISE_MODE
         m = re.match(r"^/api/v1/projects/([^/]+)/queriedTables$", path)
         if m:
-            self._respond_json(
-                {
-                    "message": "This endpoint requires the workspace to be at least ENTERPRISE tier."
-                },
-                status=403,
-            )
+            if ENTERPRISE_MODE:
+                project_id = m.group(1)
+                result = _QUERIED_TABLES_BY_PROJECT.get(project_id, {"values": []})
+                self._respond_json(result)
+            else:
+                self._respond_json(
+                    {
+                        "message": "This endpoint requires the workspace to be at least ENTERPRISE tier."
+                    },
+                    status=403,
+                )
             return
 
         # Run history

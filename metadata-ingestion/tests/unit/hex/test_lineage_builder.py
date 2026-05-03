@@ -284,3 +284,112 @@ def test_skipped_cell_attributes():
     assert s.connection_id == UNKNOWN_CONN
     assert s.cell_label == "My Query"
     assert s.reason == "unknown_connection_id"
+
+
+# ------------------------------------------------------------------
+# build_validated_column_lineage  (ENTERPRISE cross-validation)
+# ------------------------------------------------------------------
+
+
+def _make_dataset_urn(
+    table: str, platform: str = "snowflake", env: str = "PROD"
+) -> str:
+    from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+
+    return make_dataset_urn_with_platform_instance(
+        platform=platform, name=table, platform_instance=None, env=env
+    )
+
+
+def test_validated_cll_emits_when_table_matches():
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    orders_urn = _make_dataset_urn("db.schema.orders")
+    queried = [orders_urn]
+    sql = "SELECT order_id, customer_id FROM db.schema.orders"
+    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    assert len(fields) > 0
+    assert any("order_id" in f for f in fields)
+    assert report.enterprise_column_fields_emitted > 0
+    assert report.enterprise_cells_with_mismatch == 0
+
+
+def test_validated_cll_skips_when_table_not_in_queried():
+    report = LineageBuilderReport()
+    b = _builder(report=report, project_id="proj-ent")
+    # queriedTables has no entry for the table SQL parsing finds
+    queried = [_make_dataset_urn("db.schema.other_table")]
+    sql = "SELECT order_id FROM db.schema.orders"
+    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    assert fields == []
+    assert report.enterprise_cells_with_mismatch == 1
+    assert report.enterprise_column_fields_skipped_mismatch > 0
+
+
+def test_validated_cll_partial_match_emits_matched_columns_only():
+    """Two tables in SQL: one in queriedTables, one not. Only matched columns emitted."""
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    customers_urn = _make_dataset_urn("db.s.customers")
+    # orders is NOT in queriedTables
+    queried = [customers_urn]
+    sql = "SELECT a.id, b.name FROM db.s.customers a JOIN db.s.orders b ON a.id = b.cid"
+    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    # columns from customers should be emitted; columns from orders should be skipped
+    assert any("customers" in f for f in fields)
+    assert not any("orders" in f for f in fields)
+    assert report.enterprise_cells_with_mismatch == 1
+    assert report.enterprise_column_fields_skipped_mismatch > 0
+    assert report.enterprise_column_fields_emitted > 0
+
+
+def test_validated_cll_mismatch_sample_stored():
+    report = LineageBuilderReport()
+    b = _builder(report=report, project_id="proj-ent")
+    queried = [_make_dataset_urn("db.schema.other")]
+    sql = "SELECT id FROM db.schema.orders"
+    b.build_validated_column_lineage([_cell(sql, label="Orders query")], queried)
+    assert len(report.enterprise_sample_mismatched_cells) == 1
+    sample = report.enterprise_sample_mismatched_cells[0]
+    assert sample.project_id == "proj-ent"
+    assert sample.cell_label == "Orders query"
+    assert len(sample.unmatched_parsed_urns) > 0
+    assert len(sample.sample_queried_urns) > 0
+
+
+def test_validated_cll_sample_capped_at_max():
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    queried = [_make_dataset_urn("db.schema.other")]
+    # 10 different cells all mismatching — only 5 samples stored
+    cells = [_cell(f"SELECT id FROM db.schema.t{i}", label=f"q{i}") for i in range(10)]
+    b.build_validated_column_lineage(cells, queried)
+    assert len(report.enterprise_sample_mismatched_cells) == 5
+
+
+def test_validated_cll_deduplicates_fields_across_cells():
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    orders_urn = _make_dataset_urn("db.schema.orders")
+    queried = [orders_urn]
+    sql = "SELECT order_id FROM db.schema.orders"
+    # same SQL twice — same field should not be emitted twice
+    fields = b.build_validated_column_lineage([_cell(sql), _cell(sql)], queried)
+    assert len(fields) == len(set(fields))
+
+
+def test_validated_cll_empty_sql_cells_returns_empty():
+    b = _builder()
+    fields = b.build_validated_column_lineage([], [_make_dataset_urn("db.s.t")])
+    assert fields == []
+
+
+def test_validated_cll_unknown_connection_skipped_silently():
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    queried = [_make_dataset_urn("db.s.t")]
+    fields = b.build_validated_column_lineage(
+        [_cell("SELECT id FROM db.s.t", conn_id=UNKNOWN_CONN)], queried
+    )
+    assert fields == []
+    assert report.enterprise_cells_with_mismatch == 0  # skipped before parsing

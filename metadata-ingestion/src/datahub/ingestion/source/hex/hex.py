@@ -601,12 +601,24 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     cid for cid in comp_ids if cid in self.component_registry
                 ]
 
-            # Tier 1: queriedTables (ENTERPRISE) — captures all tables including from components
+            # Tier 1: queriedTables (ENTERPRISE) — runtime-proven dataset-level lineage
             if queried_tables_available is not False:
                 queried = self.hex_api.fetch_queried_tables(project.id)
                 if queried is not None:
                     queried_tables_available = True
                     upstream_urns = lineage_builder.build_from_queried_tables(queried)
+                    # Extract column-level lineage from already-cached SQL cells,
+                    # cross-validated against queriedTables so only columns whose
+                    # parent dataset is runtime-confirmed are emitted. Mismatches
+                    # (e.g. unqualified names, view aliases) are recorded in the report.
+                    if upstream_urns and self.ctx.graph:
+                        sql_cells_for_cll = _extract_sql_cells(raw_cells)
+                        if sql_cells_for_cll:
+                            project.input_fields = (
+                                lineage_builder.build_validated_column_lineage(
+                                    sql_cells_for_cll, upstream_urns
+                                )
+                            )
                 elif queried_tables_available is None:
                     queried_tables_available = False
                     logger.info(
