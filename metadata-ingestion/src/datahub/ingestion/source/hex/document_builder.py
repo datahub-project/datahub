@@ -1,16 +1,16 @@
 """
-Generates DataHub Document entities for Hex projects from the /v1/cells REST API.
+Generates DataHub Document entities for Hex projects and components from the /v1/cells REST API.
 
-Each project gets one context document (show_in_global_context=False) linked to
-the project Dashboard as a related asset — invisible in catalog search, accessible
+Each project/component gets one context document (show_in_global_context=False) linked to
+the Dashboard as a related asset — invisible in catalog search, accessible
 to AI agents that have the project in scope.
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.hex.model import ExploreCell, Project, SqlCell
+from datahub.ingestion.source.hex.model import Component, ExploreCell, Project, SqlCell
 from datahub.sdk import Document
 
 logger = logging.getLogger(__name__)
@@ -32,16 +32,17 @@ class HexDocumentBuilder:
 
     def build_document(
         self,
-        project: Project,
+        project: Union[Project, Component],
         sql_cells: List[SqlCell],
         explore_cells: List[ExploreCell],
         section_names: List[str],
         markdown_content: str,
         dashboard_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
+        entity_type = "Component" if isinstance(project, Component) else "Project"
         doc = Document.create_document(
             id=f"hex-{project.id}",
-            title=f"Hex Project: {project.title}",
+            title=f"Hex {entity_type}: {project.title}",
             text=self._render_markdown(
                 project, sql_cells, explore_cells, section_names, markdown_content
             ),
@@ -60,7 +61,7 @@ class HexDocumentBuilder:
 
     def _render_markdown(
         self,
-        project: Project,
+        project: Union[Project, Component],
         sql_cells: List[SqlCell],
         explore_cells: List[ExploreCell],
         section_names: List[str],
@@ -99,7 +100,7 @@ class HexDocumentBuilder:
 
         return "\n\n".join(parts)
 
-    def _render_header(self, project: Project) -> str:
+    def _render_header(self, project: Union[Project, Component]) -> str:
         lines = [f"# {project.title}\n"]
         lines.append(f"**Workspace:** {self._workspace}  ")
         if project.owner:

@@ -6,6 +6,7 @@ from datahub._codegen.aspect import (
     _Aspect,  # TODO: is there a better import than this one?
 )
 from datahub.emitter.mce_builder import (
+    make_chart_urn,
     make_container_urn,
     make_dashboard_urn,
     make_data_platform_urn,
@@ -41,6 +42,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
+    ChartInfoClass,
+    ChartUsageStatisticsClass,
     ContainerClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
@@ -48,13 +51,19 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     EdgeClass,
     GlobalTagsClass,
+    InputFieldClass,
+    InputFieldsClass,
+    NullTypeClass,
     OwnerClass,
     OwnershipClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SubTypesClass,
     TagAssociationClass,
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import (
+    ChartUrn,
     ContainerUrn,
     CorpUserUrn,
     DashboardUrn,
@@ -137,7 +146,11 @@ class Mapper:
             externalUrl=self._get_project_or_component_external_url(project),
             customProperties=custom_properties,
             datasetEdges=self._dataset_edges(project.upstream_datasets),
-            # TODO: support schema field upstream, maybe InputFields?
+            charts=[
+                self._get_chart_urn(comp_id).urn()
+                for comp_id in project.used_component_ids
+            ]
+            or None,
         )
 
         subtypes = SubTypesClass(
@@ -162,6 +175,8 @@ class Mapper:
             self._dashboard_usage_statistics(analytics=project.analytics)
         )
 
+        input_fields_aspect = self._input_fields(project.input_fields)
+
         yield from self._yield_mcps(
             entity_urn=dashboard_urn,
             aspects=[
@@ -173,20 +188,22 @@ class Mapper:
                 ownership,
                 usage_stats_all_time,
                 usage_stats_last_7_days,
+                input_fields_aspect,
             ],
         )
 
     def map_component(self, component: Component) -> Iterable[MetadataWorkUnit]:
-        dashboard_urn = self._get_dashboard_urn(name=component.id)
+        chart_urn = self._get_chart_urn(name=component.id)
 
-        dashboard_info = DashboardInfoClass(
+        chart_info = ChartInfoClass(
             title=component.title,
             description=component.description or "",
             lastModified=self._change_audit_stamps(
                 created_at=component.created_at, last_edited_at=component.last_edited_at
             ),
-            externalUrl=self._get_project_or_component_external_url(component),
+            chartUrl=self._get_project_or_component_external_url(component),
             customProperties=dict(id=component.id),
+            inputs=component.upstream_datasets or None,
         )
 
         subtypes = SubTypesClass(
@@ -207,14 +224,16 @@ class Mapper:
 
         ownership = self._ownership(creator=component.creator, owner=component.owner)
 
-        usage_stats_all_time, usage_stats_last_7_days = (
-            self._dashboard_usage_statistics(analytics=component.analytics)
+        usage_stats_all_time, usage_stats_last_7_days = self._chart_usage_statistics(
+            analytics=component.analytics
         )
 
+        input_fields_aspect = self._input_fields(component.input_fields)
+
         yield from self._yield_mcps(
-            entity_urn=dashboard_urn,
+            entity_urn=chart_urn,
             aspects=[
-                dashboard_info,
+                chart_info,
                 subtypes,
                 platform_instance,
                 container,
@@ -222,6 +241,7 @@ class Mapper:
                 ownership,
                 usage_stats_all_time,
                 usage_stats_last_7_days,
+                input_fields_aspect,
             ],
         )
 
@@ -253,6 +273,16 @@ class Mapper:
         dashboard_urn = Urn.from_string(dashboard_urn_str)
         assert isinstance(dashboard_urn, DashboardUrn)
         return dashboard_urn
+
+    def _get_chart_urn(self, name: str) -> ChartUrn:
+        chart_urn_str = make_chart_urn(
+            platform=HEX_PLATFORM_NAME,
+            name=name,
+            platform_instance=self._platform_instance,
+        )
+        chart_urn = Urn.from_string(chart_urn_str)
+        assert isinstance(chart_urn, ChartUrn)
+        return chart_urn
 
     def _get_project_or_component_external_url(
         self,
@@ -369,6 +399,35 @@ class Mapper:
         )
         return (usage_all_time, usage_last_7_days)
 
+    def _chart_usage_statistics(
+        self, analytics: Optional[Analytics]
+    ) -> Tuple[
+        Optional[ChartUsageStatisticsClass], Optional[ChartUsageStatisticsClass]
+    ]:
+        tm_millis = make_ts_millis(datetime.now())
+
+        usage_all_time: Optional[ChartUsageStatisticsClass] = (
+            ChartUsageStatisticsClass(
+                timestampMillis=tm_millis,
+                viewsCount=analytics.appviews_all_time,
+            )
+            if analytics and analytics.appviews_all_time
+            else None
+        )
+
+        usage_last_7_days: Optional[ChartUsageStatisticsClass] = (
+            ChartUsageStatisticsClass(
+                timestampMillis=tm_millis,
+                viewsCount=analytics.appviews_last_7_days,
+                eventGranularity=TimeWindowSizeClass(
+                    unit=CalendarIntervalClass.WEEK, multiple=1
+                ),
+            )
+            if analytics and analytics.appviews_last_7_days
+            else None
+        )
+        return (usage_all_time, usage_last_7_days)
+
     def _platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=make_data_platform_urn(HEX_PLATFORM_NAME),
@@ -378,6 +437,39 @@ class Mapper:
             if self._platform_instance
             else None,
         )
+
+    @staticmethod
+    def _input_fields(field_urns: List[str]) -> Optional[InputFieldsClass]:
+        """Build InputFieldsClass from schema field URN strings.
+
+        Each URN has the form urn:li:schemaField:(dataset_urn,column_name).
+        The validator (auto_validate_input_fields) requires schemaField.fieldPath
+        to be non-empty, so we populate it from the URN's field path component.
+        Type is set to NullType since SQL parsing does not infer column types.
+        """
+        if not field_urns:
+            return None
+        fields: List[InputFieldClass] = []
+        for urn in field_urns:
+            # Extract column name: last comma-delimited segment before closing paren
+            # e.g. "urn:li:schemaField:(urn:li:dataset:(...),col_name)"
+            try:
+                col_name = urn.rsplit(",", 1)[-1].rstrip(")")
+            except Exception:
+                col_name = ""
+            if not col_name:
+                continue
+            fields.append(
+                InputFieldClass(
+                    schemaFieldUrn=urn,
+                    schemaField=SchemaFieldClass(
+                        fieldPath=col_name,
+                        type=SchemaFieldDataTypeClass(type=NullTypeClass()),
+                        nativeDataType="",
+                    ),
+                )
+            )
+        return InputFieldsClass(fields=fields) if fields else None
 
     def _dataset_edges(self, upstream: List[str]) -> Optional[List[EdgeClass]]:
         if not upstream:

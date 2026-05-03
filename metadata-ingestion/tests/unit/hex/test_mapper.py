@@ -28,6 +28,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dashboard import (
 )
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
+    ChartInfoClass,
     ContainerClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
@@ -366,32 +367,32 @@ class TestMapper(unittest.TestCase):
             ),
         )
 
-        # check URNs
+        # check URNs — components are Chart entities now
 
         work_units = list(mapper.map_component(component))
         assert len(work_units) == 8
         assert all(
             isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            and wu.metadata.entityUrn == "urn:li:chart:(hex,uuid1)"
             for wu in work_units
         )
 
-        # check DashboardInfoClass
+        # check ChartInfoClass
 
-        dashboard_info_wus = [
-            wu for wu in work_units if wu.get_aspect_of_type(DashboardInfoClass)
+        chart_info_wus = [
+            wu for wu in work_units if wu.get_aspect_of_type(ChartInfoClass)
         ]
-        assert len(dashboard_info_wus) == 1
+        assert len(chart_info_wus) == 1
         assert isinstance(
-            dashboard_info_wus[0].metadata, MetadataChangeProposalWrapper
-        ) and isinstance(dashboard_info_wus[0].metadata.aspect, DashboardInfoClass)
-        assert dashboard_info_wus[0].metadata.aspect.title == "Test Component"
-        assert dashboard_info_wus[0].metadata.aspect.description == "A test component"
+            chart_info_wus[0].metadata, MetadataChangeProposalWrapper
+        ) and isinstance(chart_info_wus[0].metadata.aspect, ChartInfoClass)
+        assert chart_info_wus[0].metadata.aspect.title == "Test Component"
+        assert chart_info_wus[0].metadata.aspect.description == "A test component"
         assert (
-            dashboard_info_wus[0].metadata.aspect.externalUrl
+            chart_info_wus[0].metadata.aspect.chartUrl
             == "https://app.hex.tech/test-workspace/hex/uuid1"
         )
-        assert dashboard_info_wus[0].metadata.aspect.customProperties == {"id": "uuid1"}
+        assert chart_info_wus[0].metadata.aspect.customProperties == {"id": "uuid1"}
 
         # check SubTypesClass
 
@@ -472,75 +473,47 @@ class TestMapper(unittest.TestCase):
             ]
         )
 
-        # check DashboardUsageStatistics
+        # check ChartUsageStatisticsClass (components are Chart entities)
 
-        dashboard_usage_statistics_wus = [
-            wu for wu in work_units if wu.get_aspect_of_type(DashboardUsageStatistics)
+        from datahub.metadata.schema_classes import ChartUsageStatisticsClass
+
+        chart_usage_wus = [
+            wu for wu in work_units if wu.get_aspect_of_type(ChartUsageStatisticsClass)
         ]
-        assert len(dashboard_usage_statistics_wus) == 2
-        usage_stats_all_time_wu = dashboard_usage_statistics_wus[0]
-        usage_stats_last_7_days_wu = dashboard_usage_statistics_wus[1]
-        assert (
-            isinstance(usage_stats_all_time_wu.metadata, MetadataChangeProposalWrapper)
-            and isinstance(
-                usage_stats_all_time_wu.metadata.aspect, DashboardUsageStatistics
-            )
-            and isinstance(
-                usage_stats_last_7_days_wu.metadata, MetadataChangeProposalWrapper
-            )
-            and isinstance(
-                usage_stats_last_7_days_wu.metadata.aspect, DashboardUsageStatistics
-            )
+        assert len(chart_usage_wus) == 2
+        usage_all_time_wu = chart_usage_wus[0]
+        usage_last_7_days_wu = chart_usage_wus[1]
+        assert isinstance(
+            usage_all_time_wu.metadata.aspect, ChartUsageStatisticsClass
+        ) and isinstance(
+            usage_last_7_days_wu.metadata.aspect, ChartUsageStatisticsClass
         )
         assert (
-            usage_stats_all_time_wu.metadata.aspect.viewsCount == 100
-            and usage_stats_last_7_days_wu.metadata.aspect.viewsCount == 10
+            usage_all_time_wu.metadata.aspect.viewsCount == 100
+            and usage_last_7_days_wu.metadata.aspect.viewsCount == 10
         )
         assert (
-            not usage_stats_all_time_wu.metadata.aspect.eventGranularity
-            and usage_stats_last_7_days_wu.metadata.aspect.eventGranularity
+            not usage_all_time_wu.metadata.aspect.eventGranularity
+            and usage_last_7_days_wu.metadata.aspect.eventGranularity
             == TimeWindowSizeClass(unit=CalendarIntervalClass.WEEK, multiple=1)
         )
-        assert (
-            usage_stats_all_time_wu.metadata.aspect.lastViewedAt
-            == usage_stats_last_7_days_wu.metadata.aspect.lastViewedAt
-            == make_ts_millis(datetime(2022, 1, 1))
-        )
 
-        # what if we set patch_metadata to True
+        # patch_metadata=True has no effect on Chart entities (only Dashboard patches are supported)
 
         mapper = Mapper(
             workspace_name=self.workspace_name,
             patch_metadata=True,
         )
 
-        # mostly the same
-
         work_units = list(mapper.map_component(component))
         assert len(work_units) == 8
         assert all(
-            isinstance(
-                wu.metadata,
-                (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
-            )
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn == "urn:li:chart:(hex,uuid1)"
             for wu in work_units
         )
-
-        # but DashboardInfo patch
-
-        patche_wus = [
-            wu
-            for wu in work_units
-            if isinstance(
-                wu.metadata,
-                (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
-            )
-            and wu.metadata.changeType == "PATCH"
-        ]
-        assert len(patche_wus) == 1
-        assert isinstance(patche_wus[0].metadata, MetadataChangeProposalClass)
-        assert patche_wus[0].metadata.aspectName == "dashboardInfo"
+        # no PATCH WUs — ChartInfo does not support patch in this connector
+        assert not any(wu.metadata.changeType == "PATCH" for wu in work_units)
 
         # what if we set platform_instance
 
@@ -905,15 +878,23 @@ class TestMapper(unittest.TestCase):
         for expected_external_url, project_or_component in cases:
             if isinstance(project_or_component, Project):
                 work_units = list(mapper.map_project(project_or_component))
+                url_aspects = [
+                    wu.get_aspect_of_type(DashboardInfoClass)
+                    for wu in work_units
+                    if wu.get_aspect_of_type(DashboardInfoClass)
+                ]
+                assert len(url_aspects) == 1
+                assert url_aspects[0]
+                assert url_aspects[0].externalUrl == expected_external_url
             elif isinstance(project_or_component, Component):
                 work_units = list(mapper.map_component(project_or_component))
+                url_aspects = [
+                    wu.get_aspect_of_type(ChartInfoClass)
+                    for wu in work_units
+                    if wu.get_aspect_of_type(ChartInfoClass)
+                ]
+                assert len(url_aspects) == 1
+                assert url_aspects[0]
+                assert url_aspects[0].chartUrl == expected_external_url
             else:
                 raise AssertionError()
-            dashboard_info_aspects = [
-                wu.get_aspect_of_type(DashboardInfoClass)
-                for wu in work_units
-                if wu.get_aspect_of_type(DashboardInfoClass)
-            ]
-            assert len(dashboard_info_aspects) == 1
-            assert dashboard_info_aspects[0]
-            assert dashboard_info_aspects[0].externalUrl == expected_external_url

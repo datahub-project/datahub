@@ -550,6 +550,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
             report=self.report,
+            graph=self.ctx.graph,
         )
 
         # Probe queriedTables on the first project to detect ENTERPRISE availability
@@ -562,7 +563,25 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             lineage_builder.set_project_id(project.id)
             upstream_urns: List[str] = []
 
-            # Tier 1: queriedTables (ENTERPRISE)
+            # Detect whether this project imports any components.
+            # The cells API includes COMPONENT_IMPORT cells (without component IDs).
+            # If any exist, call the export API to learn which component IDs are used
+            # and to obtain only the project's native SQL (not inlined component SQL).
+            raw_cells = self.hex_api.fetch_cells(project.id)
+            has_component_imports = any(
+                c.get("cellType") == "COMPONENT_IMPORT" for c in raw_cells
+            )
+            native_sql_cells: List[dict] = []
+            if has_component_imports:
+                native_sql_cells, comp_ids = self.hex_api.fetch_project_export(
+                    project.id
+                )
+                # Only link components that are in the registry (respect title/category filters)
+                project.used_component_ids = [
+                    cid for cid in comp_ids if cid in self.component_registry
+                ]
+
+            # Tier 1: queriedTables (ENTERPRISE) — captures all tables including from components
             if queried_tables_available is not False:
                 queried = self.hex_api.fetch_queried_tables(project.id)
                 if queried is not None:
@@ -575,18 +594,46 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                         "using cell-based SQL parsing for all projects"
                     )
 
-            # Tier 2: cells + SQL parsing (fallback)
+            # Tier 2: SQL parsing (fallback)
             if not upstream_urns and queried_tables_available is not True:
-                raw_cells = self.hex_api.fetch_cells(project.id)
-                sql_cells = _extract_sql_cells(raw_cells)
-                if not sql_cells:
+                if has_component_imports:
+                    # Use only native SQL from the export YAML — component SQL belongs
+                    # at the component level, not duplicated on the project
+                    sql_cells = _extract_sql_cells(native_sql_cells)
+                else:
+                    sql_cells = _extract_sql_cells(raw_cells)
+
+                if sql_cells:
+                    upstream_urns, input_fields = lineage_builder.build_upstream_urns(
+                        sql_cells
+                    )
+                    project.input_fields = input_fields
+                elif not has_component_imports:
                     self.report.projects_without_sql_cells += 1
-                    continue
-                upstream_urns = lineage_builder.build_upstream_urns(sql_cells)
 
             if upstream_urns:
                 project.upstream_datasets = upstream_urns
                 self.report.projects_with_lineage += 1
+
+        # Enrich component lineage exactly once per component (component cells → ChartInfo.inputs)
+        enriched_component_ids: set = set()
+        for project in self.project_registry.values():
+            for comp_id in project.used_component_ids:
+                if comp_id in enriched_component_ids:
+                    continue
+                enriched_component_ids.add(comp_id)
+                component = self.component_registry.get(comp_id)
+                if component is None:
+                    continue
+                lineage_builder.set_project_id(comp_id)
+                comp_cells = self.hex_api.fetch_cells(comp_id)
+                comp_sql_cells = _extract_sql_cells(comp_cells)
+                if comp_sql_cells:
+                    comp_urns, comp_fields = lineage_builder.build_upstream_urns(
+                        comp_sql_cells
+                    )
+                    component.upstream_datasets = comp_urns
+                    component.input_fields = comp_fields
 
     def _enrich_run_history(self) -> None:
         for project in self.project_registry.values():
@@ -630,6 +677,20 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 section_names=section_names,
                 markdown_content=markdown,
                 dashboard_urn=dashboard_urn,
+            )
+
+        for component in self.component_registry.values():
+            raw_cells = self.hex_api.fetch_cells(component.id)
+            sql_cells, explore_cells, section_names, markdown = _parse_cells(raw_cells)
+            # Components are Chart entities — related_asset must be the Chart URN
+            chart_urn = self.mapper._get_chart_urn(component.id).urn()
+            yield from doc_builder.build_document(
+                project=component,
+                sql_cells=sql_cells,
+                explore_cells=explore_cells,
+                section_names=section_names,
+                markdown_content=markdown,
+                dashboard_urn=chart_urn,
             )
 
 

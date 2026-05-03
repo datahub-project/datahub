@@ -108,6 +108,12 @@ class Project:
     # These are stored in DashboardInfo.datasetEdges — the correct
     # dataset-level lineage mechanism for Dashboard entities.
     upstream_datasets: List[str] = field(default_factory=list)
+    # SchemaField URN strings for column-level lineage (InputFieldsClass).
+    # Populated only when a graph-backed SchemaResolver is available.
+    input_fields: List[str] = field(default_factory=list)
+    # Component IDs imported by this project (populated via export API).
+    # Stored in DashboardInfo.charts as Chart URNs.
+    used_component_ids: List[str] = field(default_factory=list)
     latest_run: Optional[RunRecord] = None
 
 
@@ -125,3 +131,9 @@ class Component:
     creator: Optional[Owner] = None
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
+    # Dataset URN strings resolved from the component's own SQL cells.
+    # Stored in ChartInfo.inputs.
+    upstream_datasets: List[str] = field(default_factory=list)
+    # SchemaField URN strings for column-level lineage (InputFieldsClass).
+    # Populated only when a graph-backed SchemaResolver is available.
+    input_fields: List[str] = field(default_factory=list)

@@ -72,9 +72,25 @@ if len(PROJECT_IDS) >= 2:
         ],
         "pagination": {"after": None},
     }
-    _CELLS_BY_PROJECT[PROJECT_IDS[6]] = {  # PlayNotebook
+    _CELLS_BY_PROJECT[
+        PROJECT_IDS[6]
+    ] = {  # PlayNotebook — imports a component + its inlined SQL
         "values": [
             {
+                "id": "cell-comp-import-1",
+                "staticId": "cell-comp-import-1",
+                "cellType": "COMPONENT_IMPORT",
+                "label": None,
+                "dataConnectionId": None,
+                "projectId": PROJECT_IDS[6],
+                "contents": {
+                    "sqlCell": None,
+                    "codeCell": None,
+                    "markdownCell": None,
+                },
+            },
+            {
+                # SQL cell inlined from the imported component — no component ID visible
                 "id": "cell-sql-play-1",
                 "staticId": "cell-sql-play-1",
                 "cellType": "SQL",
@@ -93,7 +109,54 @@ if len(PROJECT_IDS) >= 2:
         "pagination": {"after": None},
     }
 
+if len(PROJECT_IDS) >= 8:
+    _CELLS_BY_PROJECT[PROJECT_IDS[7]] = {  # Cancelled Orders component
+        "values": [
+            {
+                "id": "cell-sql-comp-1",
+                "staticId": "cell-sql-comp-1",
+                "cellType": "SQL",
+                "label": "Cancelled orders query",
+                "dataConnectionId": "conn-snowflake-analytics",
+                "projectId": PROJECT_IDS[7],
+                "contents": {
+                    "sqlCell": {
+                        "source": "SELECT order_id FROM analytics.public.orders WHERE status = 'cancelled'"
+                    },
+                    "codeCell": None,
+                    "markdownCell": None,
+                },
+            },
+        ],
+        "pagination": {"after": None},
+    }
+
 EMPTY_CELLS = {"values": [], "pagination": {"after": None}}
+
+# Export YAML responses — only for projects that import components.
+# Shape mirrors POST /api/v1/projects/export response.
+# The YAML lists only native SQL cells + COMPONENT_IMPORT entries (no inlined component SQL).
+_EXPORT_BY_PROJECT: dict = {}
+if len(PROJECT_IDS) >= 8:
+    # PlayNotebook (PROJECT_IDS[6]) imports the Cancelled Orders component (PROJECT_IDS[7])
+    _EXPORT_BY_PROJECT[PROJECT_IDS[6]] = {
+        "filename": "PlayNotebook.yaml",
+        "content": (
+            "schemaVersion: 3\n"
+            "meta:\n"
+            f"  projectId: {PROJECT_IDS[6]}\n"
+            "  title: PlayNotebook\n"
+            "  hexType: PROJECT\n"
+            "cells:\n"
+            "  - cellType: COMPONENT_IMPORT\n"
+            f"    cellId: cell-comp-import-1\n"
+            "    cellLabel: null\n"
+            "    config:\n"
+            "      component:\n"
+            f"        id: {PROJECT_IDS[7]}\n"
+            '        version: "1"\n'
+        ),
+    }
 
 # Runs for a couple of projects
 _RUNS_BY_PROJECT: dict = {}
@@ -157,6 +220,34 @@ class MockHexAPIHandler(http.server.SimpleHTTPRequestHandler):
         # Projects list
         if path.startswith("/api/v1/projects"):
             self._respond_json(HEX_PROJECTS_RESPONSE)
+            return
+
+        self._respond_json({"error": "Not found", "path": path}, status=404)
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        # Project export — returns YAML with native cells + COMPONENT_IMPORT references
+        if path == "/api/v1/projects/export":
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+            project_id = body.get("projectId")
+            export = _EXPORT_BY_PROJECT.get(project_id)
+            if export:
+                self._respond_json(export)
+            else:
+                # Project has no components — return minimal YAML with no cells
+                self._respond_json(
+                    {
+                        "filename": f"{project_id}.yaml",
+                        "content": (
+                            "schemaVersion: 3\n"
+                            f"meta:\n  projectId: {project_id}\n  hexType: PROJECT\n"
+                            "cells: []\n"
+                        ),
+                    }
+                )
             return
 
         self._respond_json({"error": "Not found", "path": path}, status=404)

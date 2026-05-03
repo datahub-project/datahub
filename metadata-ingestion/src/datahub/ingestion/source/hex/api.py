@@ -525,6 +525,72 @@ class HexApi:
         return cells
 
     # ------------------------------------------------------------------
+    # Project export  (/v1/projects/export — reveals COMPONENT_IMPORT ids)
+    # ------------------------------------------------------------------
+
+    @_api_call("export_project")
+    def fetch_project_export(self, project_id: str) -> "tuple[List[dict], List[str]]":
+        """
+        POST /api/v1/projects/export returns the full project YAML.
+
+        This is the only API that exposes which component IDs a project imports
+        (the cells API strips config.component.id from COMPONENT_IMPORT cells).
+
+        Returns (native_sql_cells, component_ids) where:
+          native_sql_cells — raw cell dicts for SQL cells defined in the project
+                             itself (not inlined from components), in the same
+                             shape as /v1/cells, usable by _extract_sql_cells().
+          component_ids    — list of component project IDs imported by this project.
+        """
+        import yaml
+
+        try:
+            resp = self.session.post(
+                url=f"{self.base_url}/projects/export",
+                headers=self._auth_header(),
+                json={"projectId": project_id, "version": "draft"},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            content_yaml = resp.json().get("content", "")
+            content = yaml.safe_load(content_yaml) or {}
+        except Exception as e:
+            self.report.warning(
+                title="Failed to fetch project export",
+                message=f"Export API call failed for project {project_id}; component linkage unavailable",
+                exc=e,
+            )
+            return [], []
+
+        native_sql_cells: List[dict] = []
+        component_ids: List[str] = []
+
+        for cell in content.get("cells", []):
+            ct = cell.get("cellType", "")
+            if ct == "SQL":
+                # Normalise YAML cell shape to match the /v1/cells shape
+                native_sql_cells.append(
+                    {
+                        "staticId": cell.get("cellId", ""),
+                        "id": cell.get("cellId", ""),
+                        "cellType": "SQL",
+                        "label": cell.get("cellLabel"),
+                        "dataConnectionId": cell.get("dataConnectionId"),
+                        "contents": {
+                            "sqlCell": {"source": cell.get("source", "")},
+                            "codeCell": None,
+                            "markdownCell": None,
+                        },
+                    }
+                )
+            elif ct == "COMPONENT_IMPORT":
+                comp_id = cell.get("config", {}).get("component", {}).get("id")
+                if comp_id:
+                    component_ids.append(comp_id)
+
+        return native_sql_cells, component_ids
+
+    # ------------------------------------------------------------------
     # Queried tables  (ENTERPRISE tier — /v1/projects/{id}/queriedTables)
     # ------------------------------------------------------------------
 

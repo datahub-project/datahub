@@ -1,13 +1,19 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.ingestion.source.hex.constants import CONNECTION_TYPE_TO_DATAHUB_PLATFORM
 from datahub.ingestion.source.hex.model import SqlCell
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +68,21 @@ class HexLineageBuilder:
         report: LineageBuilderReport,
         # current project_id, updated per project by the caller
         project_id: str = "",
+        # DataHub graph client for schema resolution. When provided, the
+        # SchemaResolver fetches table schemas from DataHub on demand, enabling
+        # SELECT * expansion and accurate column-level lineage. When None,
+        # schema-less parsing is used (dataset-level lineage only).
+        graph: Optional["DataHubGraph"] = None,
     ):
         self._connections = connections
         self._platform_instance = platform_instance
         self._env = env
         self._report = report
         self._project_id = project_id
+        self._graph = graph
+        # One SchemaResolver per platform — shared across cells of the same
+        # platform so cached schemas are reused within a single ingestion run.
+        self._schema_resolvers: Dict[str, SchemaResolver] = {}
 
     def set_project_id(self, project_id: str) -> None:
         self._project_id = project_id
@@ -113,15 +128,26 @@ class HexLineageBuilder:
         self._report.projects_lineage_via_queried_tables += 1
         return result
 
-    def build_upstream_urns(self, sql_cells: List[SqlCell]) -> List[str]:
+    def build_upstream_urns(
+        self, sql_cells: List[SqlCell]
+    ) -> Tuple[List[str], List[str]]:
         """
-        Parse SQL from each cell and return de-duplicated upstream dataset URNs.
+        Parse SQL from each cell and return:
+          - de-duplicated upstream dataset URNs  (dataset-level lineage)
+          - de-duplicated upstream schema field URNs  (column-level lineage)
+
+        Column-level lineage requires a graph-backed SchemaResolver to expand
+        SELECT * and resolve ambiguous column references. Without a graph the
+        second list will be empty for SELECT * queries but populated for queries
+        with explicit column references.
 
         Cells with unresolvable connections are skipped and recorded in the
         report — never emitted with a fallback platform.
         """
-        seen: Set[str] = set()
-        result: List[str] = []
+        seen_datasets: Set[str] = set()
+        seen_fields: Set[str] = set()
+        dataset_result: List[str] = []
+        field_result: List[str] = []
 
         for cell in sql_cells:
             self._report.sql_cells_attempted += 1
@@ -137,19 +163,23 @@ class HexLineageBuilder:
                 )
                 continue
 
-            upstream_urns = self._parse_cell(cell, platform)
-            if upstream_urns:
+            dataset_urns, field_urns = self._parse_cell(cell, platform)
+            if dataset_urns:
                 self._report.sql_cells_succeeded += 1
-                for urn in upstream_urns:
-                    if urn not in seen:
-                        seen.add(urn)
-                        result.append(urn)
+                for urn in dataset_urns:
+                    if urn not in seen_datasets:
+                        seen_datasets.add(urn)
+                        dataset_result.append(urn)
+                for urn in field_urns:
+                    if urn not in seen_fields:
+                        seen_fields.add(urn)
+                        field_result.append(urn)
             else:
                 self._report.sql_cells_no_upstreams += 1
 
-        self._report.upstream_datasets_found += len(result)
+        self._report.upstream_datasets_found += len(dataset_result)
         self._report.projects_lineage_via_sql_parsing += 1
-        return result
+        return dataset_result, field_result
 
     def _resolve_platform(
         self, connection_id: Optional[str]
@@ -173,16 +203,27 @@ class HexLineageBuilder:
 
         return platform, None
 
-    def _parse_cell(self, cell: SqlCell, platform: str) -> List[str]:
-        # Use DataHub's canonical platform → sqlglot dialect mapping.
-        # datahub.sql_parsing.sql_parsing_common.get_dialect_str handles all
-        # known divergences (mssql→tsql, athena→trino, etc.) in one place.
+    def _get_resolver(self, platform: str) -> SchemaResolver:
+        """Return the cached SchemaResolver for this platform, creating it if needed."""
+        if platform not in self._schema_resolvers:
+            self._schema_resolvers[platform] = SchemaResolver(
+                platform=platform,
+                platform_instance=self._platform_instance,
+                env=self._env,
+                graph=self._graph,
+            )
+        return self._schema_resolvers[platform]
+
+    def _parse_cell(self, cell: SqlCell, platform: str) -> Tuple[List[str], List[str]]:
+        """
+        Parse one SQL cell and return (dataset_urns, schema_field_urns).
+
+        Uses DataHub's canonical platform → sqlglot dialect mapping.
+        Column-level lineage is populated when a graph-backed SchemaResolver
+        can resolve table schemas; otherwise the field list is empty.
+        """
         dialect = get_dialect_str(platform)
-        resolver = SchemaResolver(
-            platform=platform,
-            platform_instance=self._platform_instance,
-            env=self._env,
-        )
+        resolver = self._get_resolver(platform)
         try:
             result = sqlglot_lineage(
                 sql=cell.sql_source,
@@ -197,9 +238,27 @@ class HexLineageBuilder:
                 cell.cell_label,
                 e,
             )
-            return []
+            return [], []
 
-        return [urn for urn in result.in_tables if isinstance(urn, str)]
+        dataset_urns = [urn for urn in result.in_tables if isinstance(urn, str)]
+
+        # Extract unique upstream schema field URNs from column lineage.
+        # Each ColumnLineageInfo.upstreams entry is a ColumnRef with a
+        # resolved dataset URN and column name.
+        field_urns: List[str] = []
+        if result.column_lineage:
+            seen: Set[str] = set()
+            for col_info in result.column_lineage:
+                for upstream in col_info.upstreams:
+                    if upstream.table and upstream.column:
+                        furn = make_schema_field_urn(
+                            str(upstream.table), upstream.column
+                        )
+                        if furn not in seen:
+                            seen.add(furn)
+                            field_urns.append(furn)
+
+        return dataset_urns, field_urns
 
     def _record_skip(
         self,
