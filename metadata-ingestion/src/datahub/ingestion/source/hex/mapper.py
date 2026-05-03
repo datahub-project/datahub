@@ -67,6 +67,7 @@ from datahub.metadata.urns import (
     ContainerUrn,
     CorpUserUrn,
     DashboardUrn,
+    SchemaFieldUrn,
     Urn,
 )
 
@@ -451,10 +452,8 @@ class Mapper:
             return None
         fields: List[InputFieldClass] = []
         for urn in field_urns:
-            # Extract column name: last comma-delimited segment before closing paren
-            # e.g. "urn:li:schemaField:(urn:li:dataset:(...),col_name)"
             try:
-                col_name = urn.rsplit(",", 1)[-1].rstrip(")")
+                col_name = SchemaFieldUrn.from_string(urn).field_path
             except Exception:
                 col_name = ""
             if not col_name:

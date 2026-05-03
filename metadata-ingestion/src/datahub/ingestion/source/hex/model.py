@@ -24,11 +24,6 @@ class HexIncrementalCheckpointState(CheckpointStateBase):
 
 
 @dataclass
-class Workspace:
-    name: str
-
-
-@dataclass
 class SqlCell:
     """A SQL cell from the /v1/cells REST API."""
 

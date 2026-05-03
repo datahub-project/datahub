@@ -223,6 +223,12 @@ class _HexIncrementalHandler:
     "No warehouse ingestion dependency required.",
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Column-level lineage via SQL parsing when datahub-api is configured. "
+    "The graph-backed SchemaResolver fetches table schemas from DataHub on demand to expand SELECT * "
+    "and resolve column references. Graceful degradation to dataset-level when datahub-api is absent.",
+)
+@capability(
     SourceCapability.TAGS, "Status, categories, and collections emitted as tags"
 )
 class HexSource(TestableSource, StatefulIngestionSourceBase):
@@ -253,6 +259,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         # Projects whose last_edited_at hasn't changed since the last checkpoint.
         # These skip the expensive per-project fetches (cells, lineage, context docs).
         self._light_project_ids: Set[str] = set()
+        # Cache of raw cells per entity ID, populated during lineage enrichment and
+        # reused by context document generation to avoid fetching twice per project.
+        self._cells_cache: Dict[str, List[dict]] = {}
         # Timestamp of the last successful checkpoint (millis). Used to guard
         # against re-emitting run history that was already captured.
         self._last_ingested_at_ms: Optional[int] = None
@@ -266,18 +275,23 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        import requests
-
         report = TestConnectionReport()
         report.capability_report = {}
 
         try:
             config = HexSourceConfig.parse_obj_allow_extras(config_dict)
+            # Use the HexApi retry session — consistent with actual ingestion behaviour
+            # (bare requests.get() would fail on rate-limited or flaky responses)
+            api = HexApi(
+                report=HexReport(),
+                token=config.token.get_secret_value(),
+                base_url=config.base_url,
+            )
             base = config.base_url.rstrip("/")
             headers = {"Authorization": f"Bearer {config.token.get_secret_value()}"}
 
             # Basic connectivity — GET /v1/users/me (lightweight, just validates token)
-            resp = requests.get(f"{base}/users/me", headers=headers, timeout=15)
+            resp = api.session.get(f"{base}/users/me", headers=headers, timeout=15)
             if resp.status_code == 401:
                 report.basic_connectivity = CapabilityReport(
                     capable=False,
@@ -300,13 +314,13 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             # --- Lineage tier detection ---
 
             # Fetch first project ID — needed to probe queriedTables
-            proj_resp = requests.get(
+            proj_resp = api.session.get(
                 f"{base}/projects",
                 headers=headers,
                 params={"limit": 1},
                 timeout=15,
             )
-            conn_resp = requests.get(
+            conn_resp = api.session.get(
                 f"{base}/data-connections", headers=headers, timeout=15
             )
 
@@ -320,7 +334,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             # Hex returns 403 for non-ENTERPRISE workspaces.
             enterprise_lineage = False
             if first_project_id:
-                qt_resp = requests.get(
+                qt_resp = api.session.get(
                     f"{base}/projects/{first_project_id}/queriedTables",
                     headers=headers,
                     timeout=15,
@@ -430,11 +444,16 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             or self.source_config.include_context_documents
         ):
             connections_by_id = self.hex_api.fetch_connections()
-            # Apply manual overrides from config
+            # Apply manual overrides from config. The primary use case is deleted
+            # connections that no longer appear in /v1/data-connections — those
+            # are inserted with a synthetic name so both lineage and context docs work.
             for conn_id, platform in self.source_config.connection_platform_map.items():
-                if conn_id in connections_by_id:
-                    name, _ = connections_by_id[conn_id]
-                    connections_by_id[conn_id] = (name, platform)
+                name = (
+                    connections_by_id[conn_id][0]
+                    if conn_id in connections_by_id
+                    else conn_id
+                )
+                connections_by_id[conn_id] = (name, platform)
 
         if self.source_config.include_lineage:
             with self.report.new_stage("Extract lineage via Hex REST API"):
@@ -568,6 +587,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             # If any exist, call the export API to learn which component IDs are used
             # and to obtain only the project's native SQL (not inlined component SQL).
             raw_cells = self.hex_api.fetch_cells(project.id)
+            self._cells_cache[project.id] = raw_cells  # reused by context doc stage
             has_component_imports = any(
                 c.get("cellType") == "COMPONENT_IMPORT" for c in raw_cells
             )
@@ -627,6 +647,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     continue
                 lineage_builder.set_project_id(comp_id)
                 comp_cells = self.hex_api.fetch_cells(comp_id)
+                self._cells_cache[comp_id] = comp_cells  # reused by context doc stage
                 comp_sql_cells = _extract_sql_cells(comp_cells)
                 if comp_sql_cells:
                     comp_urns, comp_fields = lineage_builder.build_upstream_urns(
@@ -667,7 +688,10 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             if project.id in self._light_project_ids:
                 continue  # cells unchanged — skip re-fetching and re-emitting the document
 
-            raw_cells = self.hex_api.fetch_cells(project.id)
+            # Reuse cells fetched during lineage enrichment if available
+            raw_cells = self._cells_cache.get(project.id) or self.hex_api.fetch_cells(
+                project.id
+            )
             sql_cells, explore_cells, section_names, markdown = _parse_cells(raw_cells)
             dashboard_urn = self.mapper._get_dashboard_urn(project.id).urn()
             yield from doc_builder.build_document(
@@ -680,7 +704,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             )
 
         for component in self.component_registry.values():
-            raw_cells = self.hex_api.fetch_cells(component.id)
+            raw_cells = self._cells_cache.get(component.id) or self.hex_api.fetch_cells(
+                component.id
+            )
             sql_cells, explore_cells, section_names, markdown = _parse_cells(raw_cells)
             # Components are Chart entities — related_asset must be the Chart URN
             chart_urn = self.mapper._get_chart_urn(component.id).urn()
