@@ -183,6 +183,28 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter restores the observability signal.
     chart_dataset_upstream_name_missing: int = 0
 
+    # Chart InputFields — one counter fires per chart column (not per formula ref).
+    # The resolver (_resolve_chart_formula_upstream) is a pure predicate: it
+    # returns a resolved (urn, field) pair or None; all counting happens in
+    # _build_element_input_fields so every column lands in exactly one bucket.
+    # Invariant: resolved + self_ref_fallback + skipped_parameter + skipped_sibling
+    #            == total chart columns processed across the workbook.
+    chart_input_fields_resolved: int = 0
+    # Column emitted with self-referential schemaFieldUrn because no formula ref
+    # resolved (includes: no-formula column, unresolvable ref, mixed param+real
+    # where the real refs fail). Keeps V2 column list visible unconditionally.
+    chart_input_fields_self_ref_fallback: int = 0
+    # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
+    chart_input_fields_skipped_parameter: int = 0
+    # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
+    chart_input_fields_skipped_sibling: int = 0
+    # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
+    # against a workbook element name (warehouse fallback intentionally skipped).
+    chart_input_fields_case_mismatch: int = 0
+    # Workbooks whose /columns pagination aborted partway through. InputFields
+    # for those workbooks may be missing columns that appear after the failure.
+    column_formulas_fetch_partial: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
@@ -245,6 +267,26 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Duplicate ``column.name`` on a single DM element, dropped to avoid
     # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
+
+    # DM element column-level lineage (FGL) counters.
+    # How many FGL entries were emitted across all elements.
+    data_model_element_fgl_emitted: int = 0
+    # Refs where multiple sibling candidates passed the /lineage filter;
+    # sorted-first URN was chosen (matches T2 PR1's collision precedent).
+    data_model_element_fgl_collision_pick_first: int = 0
+    # Refs whose source element is outside this DM; deferred to cross-DM resolution.
+    data_model_element_fgl_cross_dm_deferred: int = 0
+    # Refs where element-name matches the element's own warehouse-table name
+    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
+    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
+    # upstream is the warehouse inode — out of RESOLVE-A scope.
+    data_model_element_fgl_warehouse_passthrough_deferred: int = 0
+    # Refs whose source element is in this DM but not listed as an upstream by
+    # /lineage; dropped to avoid orphan FGL the UI silently rejects.
+    data_model_element_fgl_dropped_orphan_upstream: int = 0
+    # Refs whose column name has no matching fieldPath in the upstream element's
+    # schema; dropped to avoid a dangling schemaField URN.
+    data_model_element_fgl_dropped_unknown_upstream_column: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;

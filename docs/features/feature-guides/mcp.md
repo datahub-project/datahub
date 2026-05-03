@@ -264,6 +264,24 @@ For clients that don't yet support remote MCP servers, use `mcp-remote`:
 
 </details>
 
+## Service Accounts for Agentic Workflows
+
+For autonomous or agentic workflows — such as CI/CD pipelines, scheduled scripts, or AI agents that run without human intervention — we recommend using a [Service Account](service-accounts.md) rather than a personal access token.
+
+**Setup:**
+
+1. Create a service account in **Settings > Users & Groups > Service Accounts**
+2. Generate an access token for the service account
+3. Use that token when configuring the MCP server connection
+
+**Scoping search with a Default View** _(DataHub Cloud v1.0.0+ / DataHub Core v1.6.0+)_**:**
+
+Service accounts support a **Default View** that restricts which data assets the MCP server searches across. This is configured directly from the Service Accounts management screen (the "Default View" column). When set, all searches performed by the MCP server using that service account's token will be scoped to the selected view — useful for limiting an agent's visibility to a specific domain, platform, or team's assets.
+
+:::tip
+Combine a service account with a default view to create a tightly-scoped MCP connection — for example, a "Snowflake Production" view for an agent that only needs access to production Snowflake datasets.
+:::
+
 ## Self-Hosted MCP Server Usage
 
 Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub) locally. This works with any DataHub instance — both DataHub Core and DataHub Cloud.

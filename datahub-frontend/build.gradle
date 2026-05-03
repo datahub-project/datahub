@@ -100,14 +100,18 @@ docker {
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
+    include 'docker/snippets/*'
     include "docker/${docker_dir}/*"
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
   additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
   def dockerBuildArgs = [:]
-  if (project.hasProperty('alpineApkRepositoryUrl')) {
-    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  if (project.hasProperty('dockerBaseImage')) {
+    dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
+  }
+  if (project.hasProperty('apkRepositoryUrl')) {
+    dockerBuildArgs.APK_REPOSITORY_URL = project.getProperty('apkRepositoryUrl')
   }
   if (project.hasProperty('githubMirrorUrl')) {
     dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')

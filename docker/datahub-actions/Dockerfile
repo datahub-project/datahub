@@ -1,8 +1,8 @@
-# full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via WOLFI_BASE_IMAGE.
+# full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via BASE_IMAGE.
 # The full variant has additional deps preinstalled, like a JRE and Oracle client.
 ARG APP_ENV=full
 ARG PYTHON_VERSION=3.11
-ARG WOLFI_BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
+ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base (Wolfi)
 # Stages:
@@ -10,7 +10,7 @@ ARG WOLFI_BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 # - ingestion-base-slim: LDAP/SASL/Kerberos, librdkafka, ODBC, etc.
 # - ingestion-base-full: JRE, build toolchain, Oracle Instant Client
 
-FROM ${WOLFI_BASE_IMAGE} AS python-base
+FROM ${BASE_IMAGE} AS python-base
 
 ENV HOME=/home/datahub
 USER root
@@ -86,11 +86,17 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
+COPY docker/snippets/setup_java_runtime.sh /tmp/setup_java_runtime_major.sh
+# JRE on PATH for layertools/builds; JAVA_MAJOR is read from setup_java_runtime.sh (same source as service images).
 # build-base pulls gcc (includes g++ driver), make, binutils, glibc-dev on Wolfi; there is no separate g++ apk.
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
-    apk add --no-cache --update-cache \
-    openjdk-21-jre \
-    build-base
+    JAVA_MAJOR=$(grep -E '^JAVA_MAJOR=[0-9]+$' /tmp/setup_java_runtime_major.sh | head -1 | cut -d= -f2) \
+    && test -n "${JAVA_MAJOR}" \
+    && apk add --no-cache --update-cache \
+    "openjdk-${JAVA_MAJOR}-jre" \
+    build-base \
+    && ln -sf "/usr/lib/jvm/java-${JAVA_MAJOR}-openjdk/bin/java" /usr/bin/java \
+    && rm -f /tmp/setup_java_runtime_major.sh
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
@@ -111,6 +117,7 @@ ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -125,6 +132,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -153,6 +161,7 @@ ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -167,6 +176,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -195,6 +205,7 @@ ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -209,6 +220,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -236,7 +248,24 @@ FROM ingestion-base-full AS final-full
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="false"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-full $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
@@ -292,7 +321,24 @@ FROM ingestion-base-slim AS final-slim
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-slim $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
@@ -347,6 +393,13 @@ FROM ingestion-base-slim AS final-locked
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-locked $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
