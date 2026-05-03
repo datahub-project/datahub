@@ -1727,6 +1727,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level lineage via SQL parsing when datahub-api is configured. The graph-backed SchemaResolver fetches table schemas from DataHub on demand to expand SELECT * and resolve column references. Graceful degradation to dataset-level when datahub-api is absent.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "USAGE_STATS",
           "description": "Supported by default",
           "subtype_modifier": [
@@ -1753,8 +1759,20 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Status, categories, and collections emitted as tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default via queriedTables API (ENTERPRISE) or SQL parsing from cells (all tiers). No warehouse ingestion dependency required.",
           "subtype_modifier": null,
           "supported": true
         }
