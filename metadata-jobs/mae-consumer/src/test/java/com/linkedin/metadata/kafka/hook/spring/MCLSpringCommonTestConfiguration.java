@@ -122,4 +122,9 @@ public class MCLSpringCommonTestConfiguration {
 
   @MockBean(name = "searchClientShim", answer = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
+
+  @Bean(name = "searchEngineType")
+  public SearchClientShim.SearchEngineType searchEngineType() {
+    return SearchClientShim.SearchEngineType.ELASTICSEARCH_8;
+  }
 }
