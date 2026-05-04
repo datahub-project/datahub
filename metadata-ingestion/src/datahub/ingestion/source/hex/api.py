@@ -1,8 +1,11 @@
 import functools
 import logging
+import threading
+import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Generator, List, Optional, TypeVar, Union
+from typing import Any, Callable, Deque, Dict, Generator, List, Optional, TypeVar, Union
 
 import requests
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -253,6 +256,45 @@ class HexApiReport(SourceReport):
     api_projects_items: int = 0
 
 
+class _RateLimiter:
+    """Sliding-window rate limiter.
+
+    Tracks call timestamps in a deque. Before each call, removes timestamps
+    older than `period` seconds and sleeps if `max_calls` are still in the
+    window. Thread-safe via a reentrant lock.
+    """
+
+    def __init__(self, max_calls: int, period: float) -> None:
+        self._max_calls = max_calls
+        self._period = period
+        self._calls: Deque[float] = deque()
+        self._lock = threading.Lock()
+
+    def acquire(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            # Drop timestamps that have aged out of the window
+            while self._calls and self._calls[0] <= now - self._period:
+                self._calls.popleft()
+
+            if len(self._calls) >= self._max_calls:
+                # Sleep until the oldest call expires
+                sleep_for = self._period - (now - self._calls[0])
+                if sleep_for > 0:
+                    logger.debug(
+                        "Hex API rate limit reached (%d/%ds). Sleeping %.2fs.",
+                        self._max_calls,
+                        self._period,
+                        sleep_for,
+                    )
+                    time.sleep(sleep_for)
+                now = time.monotonic()
+                while self._calls and self._calls[0] <= now - self._period:
+                    self._calls.popleft()
+
+            self._calls.append(time.monotonic())
+
+
 class HexApi:
     """https://learn.hex.tech/docs/api/api-reference"""
 
@@ -271,6 +313,19 @@ class HexApi:
         # Callable attribute, not a method, so @_api_call(paginated=True) can
         # override it via self._track_page = ... without a [method-assign] error.
         self._track_page: Callable[[], None] = lambda: None
+        # Proactive rate limiter: stay under Hex's 60 req/min limit.
+        # Patching session.request means every get/post/etc. is throttled
+        # transparently — no call-site changes needed.
+        _limiter = _RateLimiter(max_calls=57, period=60.0)
+        _orig_request = self.session.request
+
+        def _rate_limited_request(
+            method: str, url: str, **kwargs: Any
+        ) -> requests.Response:
+            _limiter.acquire()
+            return _orig_request(method, url, **kwargs)
+
+        self.session.request = _rate_limited_request  # type: ignore[method-assign]
 
     def _list_projects_url(self):
         return f"{self.base_url}/projects"

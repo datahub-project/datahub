@@ -492,7 +492,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         for urn in legacy_urns:
             yield MetadataWorkUnit(
                 id=f"migrate-remove-{urn}",
-                metadata=MetadataChangeProposalWrapper(
+                mcp=MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=StatusClass(removed=True),
                 ),

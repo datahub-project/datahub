@@ -345,3 +345,31 @@ class TestHexAPI(unittest.TestCase):
             == "Incomplete metadata because of error mapping item"
         )
         assert warnings[0].context
+
+
+class TestRateLimiter:
+    def test_allows_calls_within_limit(self):
+        from datahub.ingestion.source.hex.api import _RateLimiter
+
+        limiter = _RateLimiter(max_calls=5, period=60.0)
+        import time
+
+        start = time.monotonic()
+        for _ in range(5):
+            limiter.acquire()
+        # 5 calls within limit should be near-instant
+        assert time.monotonic() - start < 1.0
+
+    def test_sleeps_when_limit_exceeded(self):
+        import time
+
+        from datahub.ingestion.source.hex.api import _RateLimiter
+
+        # 3 calls in 0.2s window — 4th should sleep
+        limiter = _RateLimiter(max_calls=3, period=0.2)
+        for _ in range(3):
+            limiter.acquire()
+        start = time.monotonic()
+        limiter.acquire()  # this one should sleep ~0.2s
+        elapsed = time.monotonic() - start
+        assert elapsed >= 0.1  # at least waited some time
