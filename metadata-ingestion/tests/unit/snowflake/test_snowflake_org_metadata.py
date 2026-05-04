@@ -57,6 +57,7 @@ def _make_source_and_conn(
     source.identifiers = identifiers
 
     conn = MagicMock()
+    source.connection = conn
     if org_query_fails:
 
         def query_side_effect(sql: str) -> List[Dict[str, Any]]:

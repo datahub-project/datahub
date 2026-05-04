@@ -14,7 +14,10 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
     SnowflakeSchema,
 )
-from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
+from datahub.ingestion.source.snowflake.snowflake_shares import (
+    SnowflakeSharesHandler,
+    parse_share_grants,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
@@ -601,3 +604,60 @@ def test_auto_share_locator_only_origin_resolves_via_locator() -> None:
     wus = list(handler.get_auto_share_workunits([db]))
     assert len(wus) == 4
     assert report.num_auto_shares_discovered == 1
+
+
+# ---------------------------------------------------------------------------
+# Phase E.2: producer-side QUERY_HISTORY parser
+# ---------------------------------------------------------------------------
+
+
+def test_parse_share_grants_basic() -> None:
+    queries = ["GRANT USAGE ON DATABASE prod_analytics TO SHARE analytics_share"]
+    assert parse_share_grants(queries) == {"ANALYTICS_SHARE": "PROD_ANALYTICS"}
+
+
+def test_parse_share_grants_quoted_identifiers() -> None:
+    queries = [
+        'GRANT USAGE ON DATABASE "My Prod DB" TO SHARE "My Share"',
+    ]
+    assert parse_share_grants(queries) == {"My Share": "My Prod DB"}
+
+
+def test_parse_share_grants_extra_whitespace_and_newlines() -> None:
+    queries = [
+        "GRANT  USAGE\n  ON\tDATABASE   prod_db\n  TO   SHARE   my_share",
+    ]
+    assert parse_share_grants(queries) == {"MY_SHARE": "PROD_DB"}
+
+
+def test_parse_share_grants_first_seen_wins() -> None:
+    # Caller is expected to pass queries in reverse-chronological order, so
+    # the FIRST occurrence of a share name wins (most recent grant).
+    queries = [
+        "GRANT USAGE ON DATABASE new_db TO SHARE share_x",
+        "GRANT USAGE ON DATABASE old_db TO SHARE share_x",
+    ]
+    assert parse_share_grants(queries) == {"SHARE_X": "NEW_DB"}
+
+
+def test_parse_share_grants_multiple_shares() -> None:
+    queries = [
+        "GRANT USAGE ON DATABASE db1 TO SHARE share1",
+        "GRANT USAGE ON DATABASE db2 TO SHARE share2",
+    ]
+    assert parse_share_grants(queries) == {"SHARE1": "DB1", "SHARE2": "DB2"}
+
+
+def test_parse_share_grants_ignores_non_matching_queries() -> None:
+    queries = [
+        "SELECT 1",
+        "GRANT SELECT ON TABLE foo TO ROLE bar",  # different grant
+        "GRANT USAGE ON DATABASE prod_db TO SHARE my_share",
+    ]
+    assert parse_share_grants(queries) == {"MY_SHARE": "PROD_DB"}
+
+
+def test_parse_share_grants_empty_input() -> None:
+    assert parse_share_grants([]) == {}
+    assert parse_share_grants([""]) == {}
+    assert parse_share_grants([None]) == {}  # type: ignore[list-item]

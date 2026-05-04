@@ -497,6 +497,17 @@ class SnowflakeV2Config(
         "Skipped for databases already covered by manual `shares` config.",
     )
 
+    publish_share_database_mapping: bool = Field(
+        default=True,
+        description="If enabled, mines `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` for "
+        "`GRANT USAGE ON DATABASE ... TO SHARE ...` DDL and publishes the resulting "
+        "share -> database mapping on the platform instance's customProperties. "
+        "Consumers can read this from the DataHub graph to resolve producer database "
+        "names without manual `share_database_mapping` config. Uses already-granted "
+        "`IMPORTED PRIVILEGES on SNOWFLAKE`. Subject to QUERY_HISTORY's 365-day "
+        "retention.",
+    )
+
     share_database_mapping: Dict[str, str] = Field(
         default_factory=dict,
         description="Maps Snowflake share names to producer database names, used by "

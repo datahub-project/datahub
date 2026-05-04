@@ -202,6 +202,28 @@ class SnowflakeQuery:
         return "select CURRENT_ORGANIZATION_NAME()"
 
     @staticmethod
+    def share_grant_history(lookback_days: int = 365) -> str:
+        """Query QUERY_HISTORY for `GRANT USAGE ON DATABASE ... TO SHARE ...` DDL.
+
+        Used by Phase E.2 to build a share -> producer database mapping that
+        consumers can read to construct cross-account producer URNs without
+        elevated privileges. `IMPORTED PRIVILEGES on SNOWFLAKE` (already
+        granted for lineage extraction) is sufficient.
+
+        ACCOUNT_USAGE.QUERY_HISTORY retains 365 days; older grants need
+        manual `share_database_mapping` config.
+        """
+        return f"""
+SELECT query_text, start_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE query_text ILIKE '%GRANT USAGE ON DATABASE%TO SHARE%'
+  AND execution_status = 'SUCCESS'
+  AND start_time >= DATEADD(day, -{lookback_days}, CURRENT_TIMESTAMP())
+ORDER BY start_time DESC
+LIMIT 1000
+"""
+
+    @staticmethod
     def show_databases() -> str:
         return "show databases"
 

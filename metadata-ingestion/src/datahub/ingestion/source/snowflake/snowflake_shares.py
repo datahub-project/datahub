@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -8,6 +9,8 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     DatabaseId,
     SnowflakeV2Config,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDatabase
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
@@ -19,6 +22,41 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# Matches `GRANT USAGE ON DATABASE <db> TO SHARE <share>` allowing whitespace
+# variation and quoted identifiers. Used by Phase E.2 producer-side mining.
+_IDENT = r'(?:"[^"]+"|[\w$]+)'
+_SHARE_GRANT_RE = re.compile(
+    rf"GRANT\s+USAGE\s+ON\s+DATABASE\s+({_IDENT})\s+TO\s+SHARE\s+({_IDENT})",
+    re.IGNORECASE,
+)
+
+
+def _normalize_identifier(identifier: str) -> str:
+    """Match Snowflake's storage rules: unquoted -> uppercase, quoted -> preserved."""
+    if len(identifier) >= 2 and identifier.startswith('"') and identifier.endswith('"'):
+        return identifier[1:-1]
+    return identifier.upper()
+
+
+def parse_share_grants(query_texts: Iterable[str]) -> Dict[str, str]:
+    """Parse `GRANT USAGE ON DATABASE ... TO SHARE ...` DDL.
+
+    Returns share_name -> database_name. Identifiers are normalized to match
+    Snowflake's storage (unquoted -> uppercase, quoted -> preserved). The
+    first occurrence of a given share name wins; callers should pass query
+    texts in reverse-chronological order so that the most recent grant
+    determines the mapping.
+    """
+    mapping: Dict[str, str] = {}
+    for query_text in query_texts:
+        if not query_text:
+            continue
+        for match in _SHARE_GRANT_RE.finditer(query_text):
+            db = _normalize_identifier(match.group(1))
+            share = _normalize_identifier(match.group(2))
+            mapping.setdefault(share, db)
+    return mapping
 
 
 class SnowflakeSharesHandler(SnowflakeCommonMixin):
@@ -78,6 +116,39 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self.report_missing_databases(
             databases, list(inbounds.keys()), list(outbounds.keys())
         )
+
+    def discover_share_database_mapping(
+        self, connection: SnowflakeConnection
+    ) -> Dict[str, str]:
+        """Phase E.2: mine producer-side QUERY_HISTORY for share -> database grants.
+
+        Returns share_name -> database_name (both uppercased). Empty dict on
+        any failure (missing privileges, query timeout, etc.) — callers must
+        treat absence as "unknown" and not as "no grants exist".
+        """
+        try:
+            rows = connection.query(SnowflakeQuery.share_grant_history())
+        except Exception as e:
+            self.report.warning(
+                title="Share-to-database mining skipped",
+                message=(
+                    "Could not query SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY for "
+                    "share grants. Consumers will need explicit "
+                    "`share_database_mapping` config to resolve producer "
+                    "database names."
+                ),
+                exc=e,
+            )
+            return {}
+
+        query_texts = [row["QUERY_TEXT"] for row in rows if row.get("QUERY_TEXT")]
+        mapping = parse_share_grants(query_texts)
+        if mapping:
+            logger.info(
+                "Discovered share->database mapping for %d shares from QUERY_HISTORY.",
+                len(mapping),
+            )
+        return mapping
 
     def get_auto_share_workunits(
         self,

@@ -729,6 +729,19 @@ class SnowflakeV2Source(
                 custom_properties["account_identifier"] = (
                     f"{self.report.organization_name}.{self.report.account_locator}"
                 )
+
+        # Phase E.2: publish share->database mapping so consumers can resolve
+        # producer database names without elevated privileges.
+        if self.config.publish_share_database_mapping:
+            mapping = SnowflakeSharesHandler(
+                self.config, self.report
+            ).discover_share_database_mapping(self.connection)
+            if mapping:
+                custom_properties["share_database_mapping"] = json.dumps(
+                    mapping, sort_keys=True
+                )
+                self.report.num_share_database_mappings_published = len(mapping)
+
         yield MetadataChangeProposalWrapper(
             entityUrn=platform_instance_urn,
             aspect=DataPlatformInstancePropertiesClass(
