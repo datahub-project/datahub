@@ -464,24 +464,23 @@ def test_auto_share_emits_siblings_and_lineage_when_resolved() -> None:
     assert report.num_auto_shares_skipped_unresolved_producer == 0
     assert report.num_auto_shares_skipped_unknown_share_db == 0
 
-    siblings_count = sum(1 for wu in wus if isinstance(wu.metadata.aspect, Siblings))
+    siblings_count = sum(1 for wu in wus if wu.get_aspect_of_type(Siblings) is not None)
     lineage_count = sum(
-        1 for wu in wus if isinstance(wu.metadata.aspect, UpstreamLineage)
+        1 for wu in wus if wu.get_aspect_of_type(UpstreamLineage) is not None
     )
     assert siblings_count == 2
     assert lineage_count == 2
 
     for wu in wus:
-        if isinstance(wu.metadata.aspect, Siblings):
-            assert wu.metadata.aspect.primary is False
-            assert len(wu.metadata.aspect.siblings) == 1
-            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
-        elif isinstance(wu.metadata.aspect, UpstreamLineage):
-            assert len(wu.metadata.aspect.upstreams) == 1
-            assert (
-                "producer_inst.prod_analytics"
-                in wu.metadata.aspect.upstreams[0].dataset
-            )
+        siblings = wu.get_aspect_of_type(Siblings)
+        lineage = wu.get_aspect_of_type(UpstreamLineage)
+        if siblings is not None:
+            assert siblings.primary is False
+            assert len(siblings.siblings) == 1
+            assert "producer_inst.prod_analytics" in siblings.siblings[0]
+        elif lineage is not None:
+            assert len(lineage.upstreams) == 1
+            assert "producer_inst.prod_analytics" in lineage.upstreams[0].dataset
 
 
 def test_auto_share_skips_when_disabled() -> None:
@@ -530,8 +529,9 @@ def test_auto_share_uses_account_locator_fallback_when_enabled() -> None:
     assert len(wus) == 4
     assert report.num_auto_shares_discovered == 1
     for wu in wus:
-        if isinstance(wu.metadata.aspect, Siblings):
-            assert "acct_a.prod_analytics" in wu.metadata.aspect.siblings[0]
+        siblings = wu.get_aspect_of_type(Siblings)
+        if siblings is not None:
+            assert "acct_a.prod_analytics" in siblings.siblings[0]
 
 
 def test_auto_share_skips_unknown_share_db() -> None:
@@ -693,8 +693,9 @@ def test_auto_share_reads_mapping_from_graph_when_available() -> None:
     assert len(wus) == 4
     assert report.num_auto_shares_discovered == 1
     for wu in wus:
-        if isinstance(wu.metadata.aspect, Siblings):
-            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
+        siblings = wu.get_aspect_of_type(Siblings)
+        if siblings is not None:
+            assert "producer_inst.prod_analytics" in siblings.siblings[0]
 
 
 def test_auto_share_graph_mapping_takes_precedence_over_local_config() -> None:
@@ -712,9 +713,10 @@ def test_auto_share_graph_mapping_takes_precedence_over_local_config() -> None:
     wus = list(handler.get_auto_share_workunits([db]))
 
     for wu in wus:
-        if isinstance(wu.metadata.aspect, Siblings):
-            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
-            assert "stale_db" not in wu.metadata.aspect.siblings[0]
+        siblings = wu.get_aspect_of_type(Siblings)
+        if siblings is not None:
+            assert "producer_inst.prod_analytics" in siblings.siblings[0]
+            assert "stale_db" not in siblings.siblings[0]
 
 
 def test_auto_share_falls_back_to_local_config_when_graph_has_no_mapping() -> None:
@@ -734,8 +736,9 @@ def test_auto_share_falls_back_to_local_config_when_graph_has_no_mapping() -> No
     wus = list(handler.get_auto_share_workunits([db]))
     assert len(wus) == 4
     for wu in wus:
-        if isinstance(wu.metadata.aspect, Siblings):
-            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
+        siblings = wu.get_aspect_of_type(Siblings)
+        if siblings is not None:
+            assert "producer_inst.prod_analytics" in siblings.siblings[0]
 
 
 def test_auto_share_skipped_when_validate_urns_and_producer_missing() -> None:
