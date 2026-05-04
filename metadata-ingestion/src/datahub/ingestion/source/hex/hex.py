@@ -444,7 +444,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 type: DASHBOARD
                 query: "*"
                 filters: [
-                    {field: "platform", value: "hex"}
+                    {field: "platform", value: "urn:li:dataPlatform:hex"}
                     {field: "typeNames", value: "Component"}
                 ]
                 start: $start
