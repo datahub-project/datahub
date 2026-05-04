@@ -272,7 +272,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # How many FGL entries were emitted across all elements.
     data_model_element_fgl_emitted: int = 0
     # Refs where multiple sibling candidates passed the /lineage filter;
-    # sorted-first URN was chosen (matches T2 PR1's collision precedent).
+    # sorted-first URN was chosen (matches the existing intra-DM collision behavior).
     data_model_element_fgl_collision_pick_first: int = 0
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
@@ -302,17 +302,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
-    # T4.A — Connection registry counters.
+    # Connection registry counters.
     # 1 if the registry was built successfully from /v2/connections; 0 if the
     # API call failed (ingest continues with an empty registry).
     connection_registry_built: int = 0
-    # Records with confidence > 0.0 (platform type is known).
+    # Records whose Sigma type mapped to a known DataHub platform.
     connections_resolved: int = 0
-    # Records with 0.0 < confidence < 1.0 (platform known but some
-    # warehouse-URN-shaping fields absent — e.g. no default_database).
-    connections_with_partial_metadata: int = 0
-    # Records with confidence == 0.0 (Sigma type not in platform map).
+    # Records whose Sigma type is not in the platform map -- non-zero is a
+    # signal to extend SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP.
     connections_unmappable_type: int = 0
+    # Records dropped because they had no connectionId / id field.
+    connections_skipped_missing_id: int = 0
+    # Records whose connectionId collided with one already seen; later
+    # records overwrite earlier ones in by_id.
+    connections_duplicate_id: int = 0
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):

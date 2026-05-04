@@ -264,8 +264,8 @@ class SigmaAPI:
     def get_connections(self) -> List[Dict[str, Any]]:
         """Fetch all Sigma Connections (paginated). Returns raw API payloads.
 
-        P1 probe documented field shape; mapping to SigmaConnectionRecord happens
-        in connection_registry.SigmaConnectionRegistry.build().
+        Mapping to SigmaConnectionRecord happens in
+        connection_registry.SigmaConnectionRegistry.build().
         """
         return self._paginated_raw_entries(
             f"{self.config.api_url}/connections",

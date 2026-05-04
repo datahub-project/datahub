@@ -9,8 +9,9 @@ from datahub.ingestion.source.sigma.connection_registry import (
 @dataclass
 class _FakeReporter:
     connections_resolved: int = 0
-    connections_with_partial_metadata: int = 0
     connections_unmappable_type: int = 0
+    connections_skipped_missing_id: int = 0
+    connections_duplicate_id: int = 0
 
 
 def _build(raw: list, reporter: _FakeReporter = None) -> SigmaConnectionRegistry:
@@ -44,23 +45,6 @@ def test_registry_builds_from_full_metadata():
     assert rec.confidence == 1.0
 
 
-def test_registry_partial_metadata_records_lower_confidence():
-    # host missing → confidence 0.5
-    raw = [
-        {
-            "connectionId": "conn-2",
-            "name": "Partial Snowflake",
-            "type": "snowflake",
-        }
-    ]
-    reporter = _FakeReporter()
-    registry = _build(raw, reporter)
-    rec = registry.get("conn-2")
-    assert rec is not None
-    assert rec.confidence == 0.5
-    assert reporter.connections_with_partial_metadata == 1
-
-
 def test_registry_unmappable_type_keeps_record_at_zero_confidence():
     raw = [
         {
@@ -84,24 +68,74 @@ def test_registry_get_returns_none_for_unknown_id():
     assert registry.get("nonexistent") is None
 
 
-def test_registry_is_resolvable_predicate():
+def test_registry_synapse_maps_to_mssql():
+    # Azure Synapse (Dedicated SQL) is ingested as `mssql` in DataHub.
     raw = [
         {
-            "connectionId": "conn-ok",
-            "name": "OK",
-            "type": "snowflake",
-            "host": "acme.snowflakecomputing.com",
+            "connectionId": "conn-syn",
+            "name": "Synapse",
+            "type": "synapse",
+            "host": "synapse.example.com",
         },
         {
-            "connectionId": "conn-bad",
-            "name": "Bad",
-            "type": "oracle",
+            "connectionId": "conn-azsyn",
+            "name": "Azure Synapse",
+            "type": "azure_synapse",
+            "host": "azsynapse.example.com",
         },
     ]
     registry = _build(raw)
-    assert registry.is_resolvable("conn-ok") is True
-    assert registry.is_resolvable("conn-bad") is False
-    assert registry.is_resolvable("nonexistent") is False
+    assert registry.get("conn-syn").datahub_platform == "mssql"
+    assert registry.get("conn-azsyn").datahub_platform == "mssql"
+
+
+def test_registry_skips_records_without_id():
+    raw = [
+        {"name": "no id", "type": "snowflake"},
+        {"connectionId": "", "name": "empty id", "type": "snowflake"},
+    ]
+    reporter = _FakeReporter()
+    registry = _build(raw, reporter)
+    assert registry.by_id == {}
+    assert reporter.connections_skipped_missing_id == 2
+    assert reporter.connections_resolved == 0
+
+
+def test_registry_counts_duplicate_ids():
+    raw = [
+        {
+            "connectionId": "dup",
+            "name": "First",
+            "type": "snowflake",
+            "host": "first.snowflakecomputing.com",
+        },
+        {
+            "connectionId": "dup",
+            "name": "Second",
+            "type": "snowflake",
+            "host": "second.snowflakecomputing.com",
+        },
+    ]
+    reporter = _FakeReporter()
+    registry = _build(raw, reporter)
+    assert reporter.connections_duplicate_id == 1
+    # Later record wins.
+    assert registry.get("dup").host == "second.snowflakecomputing.com"
+
+
+def test_registry_record_default_confidence_is_zero():
+    # Records constructed outside build() default to untrusted.
+    from datahub.ingestion.source.sigma.connection_registry import (
+        SigmaConnectionRecord,
+    )
+
+    rec = SigmaConnectionRecord(
+        connection_id="x",
+        name="x",
+        sigma_type="snowflake",
+        datahub_platform="snowflake",
+    )
+    assert rec.confidence == 0.0
 
 
 def test_registry_build_handles_empty_input():
@@ -116,25 +150,22 @@ def test_registry_build_increments_reporter_counters():
     raw = [
         {
             "connectionId": "c1",
-            "name": "Full",
+            "name": "Snowflake mappable",
             "type": "snowflake",
             "host": "acme.snowflakecomputing.com",
         },
         {
             "connectionId": "c2",
-            "name": "Partial",
+            "name": "BigQuery mappable",
             "type": "bigquery",
-            # host missing → partial
         },
         {
             "connectionId": "c3",
-            "name": "Unknown",
+            "name": "Unknown type",
             "type": "oracle",
         },
     ]
     reporter = _FakeReporter()
     _build(raw, reporter)
-    # c1 (full) + c2 (partial) are both resolved (confidence > 0)
     assert reporter.connections_resolved == 2
-    assert reporter.connections_with_partial_metadata == 1
     assert reporter.connections_unmappable_type == 1

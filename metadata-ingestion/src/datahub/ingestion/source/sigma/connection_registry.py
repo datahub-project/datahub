@@ -1,9 +1,13 @@
+import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-# Sigma connection `type` → DataHub `dataPlatform` name.
-# P1 probe confirmed: only "snowflake" on the Acryl PoC tenant.
-# Other platforms are mapped per Sigma's documented warehouse types.
+logger = logging.getLogger(__name__)
+
+# Sigma connection `type` → DataHub `dataPlatform` name. Values must match
+# the canonical platform names in
+# metadata-service/configuration/.../data-platforms.yaml; URN construction
+# silently produces non-resolving entities otherwise.
 SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP: Dict[str, str] = {
     "snowflake": "snowflake",
     "bigquery": "bigquery",
@@ -16,21 +20,9 @@ SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP: Dict[str, str] = {
     "spark": "spark",
     "trino": "trino",
     "presto": "presto",
-    "synapse": "microsoft-synapse",
-    "azure_synapse": "microsoft-synapse",
-}
-
-# Fields that must be present for a platform record to reach confidence=1.0.
-# P1 probe: Sigma does not expose default_database at the connection level;
-# all Snowflake records will be confidence=0.5 until the API changes.
-_REQUIRED_FIELDS_PER_PLATFORM: Dict[str, List[str]] = {
-    "snowflake": ["host"],
-    "bigquery": ["host"],
-    "redshift": ["host"],
-    "databricks": ["host"],
-    "postgres": ["host"],
-    "mysql": ["host"],
-    "default": ["host"],
+    # Azure Synapse Dedicated SQL is ingested as `mssql` in DataHub.
+    "synapse": "mssql",
+    "azure_synapse": "mssql",
 }
 
 
@@ -38,31 +30,29 @@ _REQUIRED_FIELDS_PER_PLATFORM: Dict[str, List[str]] = {
 class SigmaConnectionRecord:
     """Resolved Sigma Connection metadata for warehouse-URN construction.
 
-    Built at SigmaSource init from /v2/connections; consumed by T4.B (entity-level
-    DM→warehouse edges), T4.C (hi-fidelity short-name resolution in chart/DM
-    formula resolvers), T4.D (Custom-SQL element platform-instance disambiguation).
+    Built at SigmaSource init from /v2/connections.
 
     Confidence policy (set by SigmaConnectionRegistry.build):
-      1.0  all platform-required fields present
-      0.5  some warehouse-URN-shaping fields missing (partial info)
+      1.0  datahub_platform mapping known
       0.0  datahub_platform mapping unknown (record kept for debugging only;
            never used to construct URNs)
+
+    Default is 0.0 so a record constructed outside `build()` is treated as
+    untrusted; only records that flow through the build path can claim 1.0.
     """
 
     connection_id: str
     name: str
     sigma_type: str
     datahub_platform: str
-    # P1 probe: `host` field present (e.g. "<org>.snowflakecomputing.com").
     host: Optional[str] = None
-    # P1 probe: `account` field present for Snowflake (e.g. "<org>-<locator>").
-    # More reliable than parsing host for URN construction.
+    # `account` is more reliable than parsing host for Snowflake URN construction.
     account: Optional[str] = None
     default_database: Optional[str] = None
     default_schema: Optional[str] = None
     # Warehouse / cluster name (Snowflake: COMPUTE_WH, Databricks: cluster id).
     instance_hint: Optional[str] = None
-    confidence: float = 1.0
+    confidence: float = 0.0
 
 
 @dataclass
@@ -74,14 +64,10 @@ class SigmaConnectionRegistry:
     def get(self, connection_id: str) -> Optional[SigmaConnectionRecord]:
         return self.by_id.get(connection_id)
 
-    def is_resolvable(self, connection_id: str) -> bool:
-        rec = self.by_id.get(connection_id)
-        return rec is not None and rec.confidence > 0.0
-
     @classmethod
     def build(
         cls,
-        raw_connections: List[Dict],
+        raw_connections: List[Dict[str, Any]],
         *,
         reporter: object,
         type_to_platform_map: Dict[str, str],
@@ -97,6 +83,8 @@ class SigmaConnectionRegistry:
         for raw in raw_connections:
             conn_id = raw.get("connectionId") or raw.get("id", "")
             if not conn_id:
+                logger.debug("Skipping Sigma connection payload without id: %s", raw)
+                _increment(reporter, "connections_skipped_missing_id")
                 continue
 
             name = raw.get("name", "")
@@ -109,20 +97,12 @@ class SigmaConnectionRegistry:
             default_database = raw.get("database") or raw.get("defaultDatabase") or None
             default_schema = raw.get("schema") or raw.get("defaultSchema") or None
 
-            if not datahub_platform:
+            if datahub_platform:
+                confidence = 1.0
+                _increment(reporter, "connections_resolved")
+            else:
                 confidence = 0.0
                 _increment(reporter, "connections_unmappable_type")
-            else:
-                required = _REQUIRED_FIELDS_PER_PLATFORM.get(
-                    datahub_platform, _REQUIRED_FIELDS_PER_PLATFORM["default"]
-                )
-                field_values = {"host": host}
-                present = [f for f in required if field_values.get(f)]
-                if len(present) == len(required):
-                    confidence = 1.0
-                else:
-                    confidence = 0.5
-                    _increment(reporter, "connections_with_partial_metadata")
 
             record = SigmaConnectionRecord(
                 connection_id=conn_id,
@@ -136,17 +116,24 @@ class SigmaConnectionRegistry:
                 instance_hint=instance_hint,
                 confidence=confidence,
             )
+            if conn_id in registry.by_id:
+                logger.debug(
+                    "Duplicate Sigma connectionId %r; later record overwrites earlier.",
+                    conn_id,
+                )
+                _increment(reporter, "connections_duplicate_id")
             registry.by_id[conn_id] = record
-
-            if confidence > 0.0:
-                _increment(reporter, "connections_resolved")
 
         return registry
 
 
 def _increment(reporter: object, counter: str) -> None:
-    """Safely increment a named int counter on reporter (no-op if absent)."""
+    """Safely increment a named int counter on reporter (no-op if absent).
+
+    Tolerates fake reporters in tests that omit some counters; mistyped
+    counter names log at debug so they are not completely silent.
+    """
     try:
         setattr(reporter, counter, getattr(reporter, counter) + 1)
     except AttributeError:
-        pass
+        logger.debug("Reporter has no counter named %r; increment skipped.", counter)

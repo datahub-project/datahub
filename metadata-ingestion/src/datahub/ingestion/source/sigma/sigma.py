@@ -278,8 +278,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
 
-        # T4.A — build connection registry (foundation; not consumed yet by
-        # any CLL path). T4.B/C/D will read self.connection_registry.
+        # Build the connection registry. SigmaAPI.get_connections() routes
+        # through _paginated_raw_entries, which already surfaces transport
+        # failures via report.warning and returns partial results -- so this
+        # try/except is defensive against programming bugs in build() rather
+        # than transport errors. logger.exception preserves the traceback so
+        # the failure is debuggable; report.warning surfaces it in the run
+        # report instead of leaving connection_registry_built=0 as the only
+        # programmatic signal.
         try:
             raw_connections = self.sigma_api.get_connections()
             self.connection_registry = SigmaConnectionRegistry.build(
@@ -289,13 +295,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             self.reporter.connection_registry_built = 1
         except Exception as e:
-            logger.warning(
-                "Could not build Sigma Connection registry; T4.A registry will be empty. Error: %s",
-                e,
+            logger.exception(
+                "Failed to build Sigma Connection registry; continuing with empty registry."
+            )
+            self.reporter.warning(
+                title="Sigma Connection registry build failed",
+                message="Connection registry is empty; warehouse-URN resolution "
+                "for downstream lineage will be unavailable.",
+                exc=e,
             )
             self.connection_registry = SigmaConnectionRegistry()
-            # Don't fail ingest — T4.A is foundation only; downstream T4.B/C/D
-            # handle an empty registry gracefully.
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
