@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -26,19 +26,23 @@ SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP: Dict[str, str] = {
 }
 
 
+class _ConnectionRegistryCounters(Protocol):
+    """Subset of SigmaSourceReport that build() bumps. Declared structurally
+    so test fakes do not need to import the full report class."""
+
+    connections_resolved: int
+    connections_unmappable_type: int
+    connections_skipped_missing_id: int
+    connections_duplicate_id: int
+
+
 @dataclass(frozen=True)
 class SigmaConnectionRecord:
     """Resolved Sigma Connection metadata for warehouse-URN construction.
 
-    Built at SigmaSource init from /v2/connections.
-
-    Confidence policy (set by SigmaConnectionRegistry.build):
-      1.0  datahub_platform mapping known
-      0.0  datahub_platform mapping unknown (record kept for debugging only;
-           never used to construct URNs)
-
-    Default is 0.0 so a record constructed outside `build()` is treated as
-    untrusted; only records that flow through the build path can claim 1.0.
+    Built at SigmaSource init from /v2/connections. ``is_mappable`` is False
+    by default so a record constructed outside ``build()`` is treated as
+    untrusted; only records flowing through the build path can claim True.
     """
 
     connection_id: str
@@ -52,7 +56,8 @@ class SigmaConnectionRecord:
     default_schema: Optional[str] = None
     # Warehouse / cluster name (Snowflake: COMPUTE_WH, Databricks: cluster id).
     instance_hint: Optional[str] = None
-    confidence: float = 0.0
+    # True iff sigma_type mapped to a known DataHub platform.
+    is_mappable: bool = False
 
 
 @dataclass
@@ -69,71 +74,82 @@ class SigmaConnectionRegistry:
         cls,
         raw_connections: List[Dict[str, Any]],
         *,
-        reporter: object,
+        reporter: _ConnectionRegistryCounters,
         type_to_platform_map: Dict[str, str],
     ) -> "SigmaConnectionRegistry":
         """Build the registry from raw /v2/connections payloads.
 
-        Each raw connection is mapped via `type_to_platform_map` (Sigma type →
-        DataHub platform). Records with unmappable types are kept with
-        confidence=0.0 so operators can audit gaps via the
-        `connections_unmappable_type` counter.
+        Each raw connection is mapped via ``type_to_platform_map`` (Sigma type
+        → DataHub platform). Records with unmappable types are kept with
+        ``is_mappable=False`` so operators can audit gaps via the
+        ``connections_unmappable_type`` counter.
         """
         registry = cls()
         for raw in raw_connections:
-            conn_id = raw.get("connectionId") or raw.get("id", "")
-            if not conn_id:
-                logger.debug("Skipping Sigma connection payload without id: %s", raw)
-                _increment(reporter, "connections_skipped_missing_id")
+            record = _record_from_raw(raw, type_to_platform_map)
+            if record is None:
+                reporter.connections_skipped_missing_id += 1
                 continue
 
-            name = raw.get("name", "")
-            sigma_type = str(raw.get("type") or raw.get("connectionType") or "").lower()
-            datahub_platform = type_to_platform_map.get(sigma_type, "")
-
-            host = raw.get("host") or None
-            account = raw.get("account") or None
-            instance_hint = raw.get("warehouse") or raw.get("cluster") or None
-            default_database = raw.get("database") or raw.get("defaultDatabase") or None
-            default_schema = raw.get("schema") or raw.get("defaultSchema") or None
-
-            if datahub_platform:
-                confidence = 1.0
-                _increment(reporter, "connections_resolved")
+            if record.is_mappable:
+                reporter.connections_resolved += 1
             else:
-                confidence = 0.0
-                _increment(reporter, "connections_unmappable_type")
+                reporter.connections_unmappable_type += 1
 
-            record = SigmaConnectionRecord(
-                connection_id=conn_id,
-                name=name,
-                sigma_type=sigma_type,
-                datahub_platform=datahub_platform,
-                host=host,
-                account=account,
-                default_database=default_database,
-                default_schema=default_schema,
-                instance_hint=instance_hint,
-                confidence=confidence,
-            )
-            if conn_id in registry.by_id:
+            if record.connection_id in registry.by_id:
                 logger.debug(
                     "Duplicate Sigma connectionId %r; later record overwrites earlier.",
-                    conn_id,
+                    record.connection_id,
                 )
-                _increment(reporter, "connections_duplicate_id")
-            registry.by_id[conn_id] = record
+                reporter.connections_duplicate_id += 1
+            registry.by_id[record.connection_id] = record
 
         return registry
 
 
-def _increment(reporter: object, counter: str) -> None:
-    """Safely increment a named int counter on reporter (no-op if absent).
+def _record_from_raw(
+    raw: Dict[str, Any],
+    type_to_platform_map: Dict[str, str],
+) -> Optional[SigmaConnectionRecord]:
+    """Parse one /v2/connections payload into a record.
 
-    Tolerates fake reporters in tests that omit some counters; mistyped
-    counter names log at debug so they are not completely silent.
+    Returns None when the payload has no usable id; the caller treats that as
+    a skip and bumps the missing-id counter.
     """
-    try:
-        setattr(reporter, counter, getattr(reporter, counter) + 1)
-    except AttributeError:
-        logger.debug("Reporter has no counter named %r; increment skipped.", counter)
+    conn_id = raw.get("connectionId") or raw.get("id", "")
+    if not conn_id:
+        logger.debug("Skipping Sigma connection payload without id: %s", raw)
+        return None
+
+    sigma_type = str(raw.get("type") or raw.get("connectionType") or "").lower()
+    datahub_platform = type_to_platform_map.get(sigma_type, "")
+
+    return SigmaConnectionRecord(
+        connection_id=conn_id,
+        name=raw.get("name", ""),
+        sigma_type=sigma_type,
+        datahub_platform=datahub_platform,
+        host=_str_or_none(raw.get("host")),
+        account=_str_or_none(raw.get("account")),
+        default_database=(
+            _str_or_none(raw.get("database"))
+            or _str_or_none(raw.get("defaultDatabase"))
+        ),
+        default_schema=(
+            _str_or_none(raw.get("schema")) or _str_or_none(raw.get("defaultSchema"))
+        ),
+        instance_hint=(
+            _str_or_none(raw.get("warehouse")) or _str_or_none(raw.get("cluster"))
+        ),
+        is_mappable=bool(datahub_platform),
+    )
+
+
+def _str_or_none(value: Any) -> Optional[str]:
+    """Return ``value`` if it is a non-empty string, else None.
+
+    Sigma's API returns ``""`` (not absent fields) for some optional fields;
+    this normalizes both shapes to ``None`` so callers do not have to
+    distinguish.
+    """
+    return value if isinstance(value, str) and value else None

@@ -42,10 +42,10 @@ def test_registry_builds_from_full_metadata():
     assert rec.host == "acme.snowflakecomputing.com"
     assert rec.account == "acme"
     assert rec.instance_hint == "COMPUTE_WH"
-    assert rec.confidence == 1.0
+    assert rec.is_mappable is True
 
 
-def test_registry_unmappable_type_keeps_record_at_zero_confidence():
+def test_registry_unmappable_type_keeps_record_unmappable():
     raw = [
         {
             "connectionId": "conn-3",
@@ -59,7 +59,7 @@ def test_registry_unmappable_type_keeps_record_at_zero_confidence():
     rec = registry.get("conn-3")
     assert rec is not None
     assert rec.datahub_platform == ""
-    assert rec.confidence == 0.0
+    assert rec.is_mappable is False
     assert reporter.connections_unmappable_type == 1
 
 
@@ -123,7 +123,7 @@ def test_registry_counts_duplicate_ids():
     assert registry.get("dup").host == "second.snowflakecomputing.com"
 
 
-def test_registry_record_default_confidence_is_zero():
+def test_registry_record_default_is_unmappable():
     # Records constructed outside build() default to untrusted.
     from datahub.ingestion.source.sigma.connection_registry import (
         SigmaConnectionRecord,
@@ -135,7 +135,7 @@ def test_registry_record_default_confidence_is_zero():
         sigma_type="snowflake",
         datahub_platform="snowflake",
     )
-    assert rec.confidence == 0.0
+    assert rec.is_mappable is False
 
 
 def test_registry_build_handles_empty_input():

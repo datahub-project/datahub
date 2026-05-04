@@ -221,6 +221,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     config: SigmaSourceConfig
     reporter: SigmaSourceReport
+    connection_registry: SigmaConnectionRegistry
     platform: str = "sigma"
 
     def __init__(self, config: SigmaSourceConfig, ctx: PipelineContext):
@@ -278,22 +279,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
 
-        # Build the connection registry. SigmaAPI.get_connections() routes
-        # through _paginated_raw_entries, which already surfaces transport
-        # failures via report.warning and returns partial results -- so this
-        # try/except is defensive against programming bugs in build() rather
-        # than transport errors. logger.exception preserves the traceback so
-        # the failure is debuggable; report.warning surfaces it in the run
-        # report instead of leaving connection_registry_built=0 as the only
-        # programmatic signal.
+        self.connection_registry = self._build_connection_registry()
+
+    def _build_connection_registry(self) -> SigmaConnectionRegistry:
+        """Fetch /v2/connections and build the in-memory registry.
+
+        SigmaAPI.get_connections() routes through _paginated_raw_entries, which
+        already surfaces transport failures via report.warning and returns
+        partial results -- so the try/except here is defensive against
+        programming bugs in build() rather than transport errors.
+        logger.exception preserves the traceback so the failure is debuggable;
+        report.warning surfaces it in the run report instead of leaving
+        connection_registry_built=0 as the only programmatic signal.
+        """
         try:
-            raw_connections = self.sigma_api.get_connections()
-            self.connection_registry = SigmaConnectionRegistry.build(
-                raw_connections,
+            registry = SigmaConnectionRegistry.build(
+                self.sigma_api.get_connections(),
                 reporter=self.reporter,
                 type_to_platform_map=SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
             )
             self.reporter.connection_registry_built = 1
+            return registry
         except Exception as e:
             logger.exception(
                 "Failed to build Sigma Connection registry; continuing with empty registry."
@@ -304,7 +310,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 "for downstream lineage will be unavailable.",
                 exc=e,
             )
-            self.connection_registry = SigmaConnectionRegistry()
+            return SigmaConnectionRegistry()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
