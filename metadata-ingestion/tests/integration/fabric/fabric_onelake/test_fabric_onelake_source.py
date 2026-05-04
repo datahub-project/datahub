@@ -20,6 +20,7 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
     FabricTable,
     FabricView,
+    FabricWarehouse,
     FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
@@ -263,6 +264,107 @@ def test_fabric_onelake_lakehouse_with_views(pytestconfig: pytest.Config) -> Non
                 Path(__file__).parent
                 / "golden"
                 / "test_fabric_onelake_lakehouse_with_views_golden.json"
+            )
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=output_file,
+                golden_path=str(golden_path),
+            )
+
+    finally:
+        Path(output_file).unlink(missing_ok=True)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_fabric_onelake_warehouse_with_views(pytestconfig: pytest.Config) -> None:
+    """View extraction works on warehouses, not just lakehouses.
+
+    Mirrors test_fabric_onelake_lakehouse_with_views but exercises the warehouse
+    code path (`_process_warehouse` -> `_process_item_views`) to guard against
+    regressions where view discovery is wired up for lakehouses only.
+    """
+    view = FabricView(
+        name="v_total_orders",
+        schema_name="dbo",
+        item_id="wh-789",
+        workspace_id="ws-123",
+        view_definition=(
+            "SELECT order_id, SUM(amount) AS total FROM dbo.orders GROUP BY order_id"
+        ),
+    )
+    schema_map = {
+        ("dbo", "v_total_orders"): [
+            FabricColumn(name="order_id", data_type="int", is_nullable=False),
+            FabricColumn(name="total", data_type="decimal", is_nullable=True),
+        ],
+    }
+
+    mock_schema_client = MagicMock()
+    mock_schema_client.get_all_views.return_value = [view]
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        output_file = tmp.name
+
+    try:
+        with (
+            patch.object(
+                OneLakeClient,
+                "list_workspaces",
+                return_value=[FabricWorkspace(id="ws-123", name="Test Workspace")],
+            ),
+            patch.object(OneLakeClient, "list_lakehouses", return_value=[]),
+            patch.object(
+                OneLakeClient,
+                "list_warehouses",
+                return_value=[
+                    FabricWarehouse(
+                        id="wh-789",
+                        name="Test Warehouse",
+                        workspace_id="ws-123",
+                        type="Warehouse",
+                    )
+                ],
+            ),
+            patch.object(OneLakeClient, "list_warehouse_tables", return_value=[]),
+            patch.object(
+                FabricOneLakeSource,
+                "_create_schema_client",
+                return_value=mock_schema_client,
+            ),
+            patch.object(
+                FabricOneLakeSource,
+                "_fetch_schema_map",
+                return_value=schema_map,
+            ),
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "fabric-onelake",
+                        "config": {
+                            "credential": {
+                                "authentication_method": "service_principal",
+                                "client_id": "test-client",
+                                "client_secret": "test-secret",
+                                "tenant_id": "test-tenant",
+                            },
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": output_file},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            golden_path = (
+                Path(__file__).parent
+                / "golden"
+                / "test_fabric_onelake_warehouse_with_views_golden.json"
             )
             mce_helpers.check_golden_file(
                 pytestconfig,
