@@ -560,7 +560,9 @@ class SnowflakeV2Source(
 
         databases = schema_extractor.databases
 
-        shares_handler = SnowflakeSharesHandler(self.config, self.report)
+        shares_handler = SnowflakeSharesHandler(
+            self.config, self.report, graph=self.ctx.graph
+        )
         if self.config.shares:
             yield from shares_handler.get_shares_workunits(databases)
         if self.config.auto_discover_inbound_shares:
@@ -732,7 +734,7 @@ class SnowflakeV2Source(
 
         if self.config.publish_share_database_mapping:
             mapping = SnowflakeSharesHandler(
-                self.config, self.report
+                self.config, self.report, graph=self.ctx.graph
             ).discover_share_database_mapping(self.connection)
             if mapping:
                 custom_properties["share_database_mapping"] = json.dumps(

@@ -58,6 +58,9 @@ def _make_source_and_conn(
 
     conn = MagicMock()
     source.connection = conn
+    ctx = MagicMock()
+    ctx.graph = None
+    source.ctx = ctx
     if org_query_fails:
 
         def query_side_effect(sql: str) -> List[Dict[str, Any]]:

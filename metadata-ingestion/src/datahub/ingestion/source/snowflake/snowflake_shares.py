@@ -1,10 +1,15 @@
+import json
 import logging
 import re
 from typing import Dict, Iterable, List, Optional
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DatabaseId,
     SnowflakeV2Config,
@@ -20,6 +25,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     Upstream,
     UpstreamLineage,
 )
+from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -64,9 +70,11 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
+        graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config = config
         self.report = report
+        self.graph = graph
 
     def get_shares_workunits(
         self,
@@ -195,16 +203,18 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                 )
                 continue
 
-            producer_database = self._resolve_share_database(share_name)
+            producer_database = self._resolve_share_database(
+                share_name, producer_platform_instance
+            )
             if producer_database is None:
                 self.report.num_auto_shares_skipped_unknown_share_db += 1
                 self.report.warning(
                     title="Auto-share lineage skipped — share-to-database mapping unknown",
                     message=(
                         f"Could not resolve share {share_name!r} to producer "
-                        "database name. Add it to `share_database_mapping` (consumer "
-                        "recipe) or wait for Phase E.2 (QUERY_HISTORY mining on "
-                        "producer side)."
+                        "database name. Either ingest the producer first (so its "
+                        "`share_database_mapping` is published to the graph) or add "
+                        "it to the consumer's `share_database_mapping` config."
                     ),
                     context=f"db={db.name}, producer_account={account_identifier}",
                 )
@@ -222,11 +232,55 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
 
             self.report.num_auto_shares_discovered += 1
 
-    def _resolve_share_database(self, share_name: str) -> Optional[str]:
+    def _resolve_share_database(
+        self, share_name: str, producer_platform_instance: str
+    ) -> Optional[str]:
+        # Prefer the producer's published mapping in the graph (Phase E.2).
+        graph_mapping = self._fetch_published_share_mapping(producer_platform_instance)
+        for key, value in graph_mapping.items():
+            if key.upper() == share_name.upper():
+                return value
+
+        # Fall back to consumer-side static config.
         for key, value in self.config.share_database_mapping.items():
             if key.upper() == share_name.upper():
                 return value
         return None
+
+    def _fetch_published_share_mapping(
+        self, producer_platform_instance: str
+    ) -> Dict[str, str]:
+        if self.graph is None:
+            return {}
+
+        producer_dpi_urn = make_dataplatform_instance_urn(
+            self.identifiers.platform, producer_platform_instance
+        )
+        try:
+            props = self.graph.get_aspect(
+                producer_dpi_urn, DataPlatformInstancePropertiesClass
+            )
+        except Exception as e:
+            logger.debug(
+                "Graph lookup for %s failed: %s", producer_dpi_urn, e, exc_info=True
+            )
+            return {}
+
+        if props is None or not props.customProperties:
+            return {}
+        mapping_json = props.customProperties.get("share_database_mapping")
+        if not mapping_json:
+            return {}
+        try:
+            mapping = json.loads(mapping_json)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Invalid share_database_mapping JSON on %s, ignoring", producer_dpi_urn
+            )
+            return {}
+        if not isinstance(mapping, dict):
+            return {}
+        return {str(k): str(v) for k, v in mapping.items()}
 
     def _emit_auto_share_workunits(
         self,
@@ -248,6 +302,17 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             ),
             producer_platform_instance,
         )
+
+        # Opt-in: skip if the producer URN doesn't exist in the graph yet.
+        # Off by default so that consumers ingested before producers still
+        # establish lineage that activates when the producer ingests.
+        if (
+            self.config.validate_producer_urns_in_graph
+            and self.graph is not None
+            and not self.graph.exists(producer_urn)
+        ):
+            self.report.num_auto_shares_skipped_producer_urn_missing += 1
+            return
 
         self.report.num_siblings_emitted += 1
         yield MetadataChangeProposalWrapper(

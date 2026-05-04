@@ -508,6 +508,16 @@ class SnowflakeV2Config(
         "retention.",
     )
 
+    validate_producer_urns_in_graph: bool = Field(
+        default=False,
+        description="If enabled, the auto-share emitter calls `graph.exists()` on "
+        "each constructed producer URN before emitting siblings/lineage, skipping "
+        "any URN that is not yet in the graph. Off by default so that consumers "
+        "ingested before their producer still establish lineage that activates "
+        "when the producer ingests. Per-table graph call has cost proportional "
+        "to the number of shared tables.",
+    )
+
     share_database_mapping: Dict[str, str] = Field(
         default_factory=dict,
         description="Maps Snowflake share names to producer database names, used by "

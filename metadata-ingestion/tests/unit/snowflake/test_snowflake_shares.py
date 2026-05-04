@@ -1,4 +1,6 @@
+import json
 from typing import List
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -21,6 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_shares import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
+from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 
 
 @pytest.fixture(scope="module")
@@ -656,3 +659,141 @@ def test_parse_share_grants_empty_input() -> None:
     assert parse_share_grants([]) == {}
     assert parse_share_grants([""]) == {}
     assert parse_share_grants([None]) == {}  # type: ignore[list-item]
+
+
+# ---------------------------------------------------------------------------
+# M5: graph-backed share->DB resolution and producer URN validation
+# ---------------------------------------------------------------------------
+
+
+def _graph_with_published_mapping(mapping: dict) -> MagicMock:
+    graph = MagicMock()
+    props = DataPlatformInstancePropertiesClass(
+        customProperties={"share_database_mapping": json.dumps(mapping)},
+    )
+    graph.get_aspect.return_value = props
+    graph.exists.return_value = True
+    return graph
+
+
+def test_auto_share_reads_mapping_from_graph_when_available() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        # Note: no local share_database_mapping — must come from graph
+    )
+    report = SnowflakeV2Report()
+    graph = _graph_with_published_mapping({"ANALYTICS_SHARE": "PROD_ANALYTICS"})
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+
+    assert len(wus) == 4
+    assert report.num_auto_shares_discovered == 1
+    for wu in wus:
+        if isinstance(wu.metadata.aspect, Siblings):
+            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
+
+
+def test_auto_share_graph_mapping_takes_precedence_over_local_config() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "STALE_DB"},
+    )
+    report = SnowflakeV2Report()
+    graph = _graph_with_published_mapping({"ANALYTICS_SHARE": "PROD_ANALYTICS"})
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+
+    for wu in wus:
+        if isinstance(wu.metadata.aspect, Siblings):
+            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
+            assert "stale_db" not in wu.metadata.aspect.siblings[0]
+
+
+def test_auto_share_falls_back_to_local_config_when_graph_has_no_mapping() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    graph = MagicMock()
+    graph.get_aspect.return_value = None  # producer not yet ingested
+    graph.exists.return_value = True
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert len(wus) == 4
+    for wu in wus:
+        if isinstance(wu.metadata.aspect, Siblings):
+            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
+
+
+def test_auto_share_skipped_when_validate_urns_and_producer_missing() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+        validate_producer_urns_in_graph=True,
+    )
+    report = SnowflakeV2Report()
+    graph = MagicMock()
+    graph.get_aspect.return_value = None
+    graph.exists.return_value = False
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert wus == []
+    assert report.num_auto_shares_skipped_producer_urn_missing == 2  # table + view
+
+
+def test_auto_share_emits_when_validate_urns_off_and_producer_missing() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+        # validate_producer_urns_in_graph defaults to False
+    )
+    report = SnowflakeV2Report()
+    graph = MagicMock()
+    graph.get_aspect.return_value = None
+    graph.exists.return_value = False  # would skip if validation were on
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert len(wus) == 4
+    assert report.num_auto_shares_skipped_producer_urn_missing == 0
+
+
+def test_auto_share_handles_corrupt_published_mapping_gracefully() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    graph = MagicMock()
+    graph.get_aspect.return_value = DataPlatformInstancePropertiesClass(
+        customProperties={"share_database_mapping": "{not valid json"},
+    )
+    graph.exists.return_value = True
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    # Falls back to local config, which has the mapping
+    assert len(wus) == 4
