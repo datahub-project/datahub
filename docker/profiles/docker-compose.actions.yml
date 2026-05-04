@@ -12,7 +12,6 @@ x-datahub-actions-service: &datahub-actions-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_ACTIONS_ENV:-empty2.env}
   ports:
-    # Prometheus metrics endpoint (configurable via DATAHUB_MAPPED_ACTIONS_METRICS_PORT, defaults to 8000)
     - ${DATAHUB_MAPPED_ACTIONS_METRICS_PORT:-8000}:8000
   environment:
     <<: *search-datastore-env

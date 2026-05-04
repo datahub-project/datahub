@@ -605,11 +605,14 @@ def test_create_list_get_ingestion_execution_request(auth_session):
 @pytest.mark.dependency(depends=["test_create_list_get_ingestion_execution_request"])
 def test_mcl_early_filter_metrics():
     """
-    Test that MCL early filter metrics are being generated.
+    Validate MCL early filtering performance optimization is working.
 
-    After running managed ingestion (which generates MCL events),
-    verify that the kafka_mcl_early_filter_total metric shows
-    both rejected and passed events.
+    MCL early filtering is a performance optimization that rejects non-matching
+    events before deserialization. This test validates the feature by checking
+    Prometheus metrics after running managed ingestion (which generates MCL events).
+
+    The kafka_mcl_early_filter_total metric should show both rejected (optimized)
+    and passed (deserialized) events with a high rejection rate (>50%).
     """
     import requests
 
