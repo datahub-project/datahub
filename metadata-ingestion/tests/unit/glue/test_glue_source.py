@@ -46,6 +46,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response,
     get_databases_response_for_lineage,
     get_databases_response_profiling,
+    get_databases_response_with_mixed_database,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
@@ -64,9 +65,13 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_tables_lineage_response_1,
     get_tables_response_1,
     get_tables_response_2,
+    get_tables_response_for_mixed_database,
     get_tables_response_for_target_database,
     get_tables_response_profiling_1,
+    mixed_database,
+    normal_table_in_mixed_database,
     resource_link_database,
+    resource_link_table_in_mixed_database,
     tables_1,
     tables_2,
     tables_profiling_1,
@@ -317,6 +322,55 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         )
 
         assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+
+
+@pytest.mark.parametrize(
+    "ignore_resource_links, expected_tables",
+    [
+        # When ignore_resource_links is True, the table-level resource link
+        # (TargetTable) is dropped and only the normal table is yielded.
+        (True, [normal_table_in_mixed_database]),
+        # When ignore_resource_links is False, both tables are yielded.
+        (
+            False,
+            [normal_table_in_mixed_database, resource_link_table_in_mixed_database],
+        ),
+    ],
+)
+def test_ignore_resource_links_filters_table_level_links(
+    ignore_resource_links, expected_tables
+):
+    """Regression test for CUS-8715.
+
+    Lake Formation supports table-granularity sharing where a regular database
+    contains tables that are resource links (i.e. tables with a TargetTable
+    field). Database-level filtering does not catch these, so the table-level
+    filter must drop them when ignore_resource_links is enabled.
+    """
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="eu-west-1",
+            ignore_resource_links=ignore_resource_links,
+        ),
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases",
+            get_databases_response_with_mixed_database,
+            {},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_for_mixed_database,
+            {"DatabaseName": "mixed-database"},
+        )
+
+        databases, tables = source.get_all_databases_and_tables()
+
+    assert databases == [mixed_database]
+    assert tables == expected_tables
 
 
 def test_platform_must_be_valid():
