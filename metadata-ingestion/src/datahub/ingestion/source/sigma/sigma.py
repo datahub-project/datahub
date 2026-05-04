@@ -671,8 +671,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         caller bumps it post-dedup so diamond source_ids (multiple inode-
         entries resolving to the same URN) don't inflate the counter.
 
-        Note: platform_instance is always None; per-connection overrides are
-        a follow-up (TODO: add connection_to_platform_map to SigmaSourceConfig).
+        Note: platform_instance is always None, which emits a base-platform URN
+        (no instance suffix).  This matches the warehouse connector's URN only
+        when no platform_instance is configured there.  For multi-instance
+        deployments (e.g. prod-snowflake / dev-snowflake), the emitted edge
+        will reference a non-existent URN — a known limitation documented in
+        the PR description.  The correct fix is a per-connection override map
+        (TODO: add connection_to_platform_map to SigmaSourceConfig).  Using
+        self.config.platform_instance here would be wrong: that is the Sigma
+        source's own instance identifier, not the warehouse source's.
         """
         ref = warehouse_map.get(url_id_suffix)
         if ref is None:
@@ -841,6 +848,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urns: List[str] = []
         seen: Set[str] = set()
         unresolved_seen: Set[str] = set()
+        # Separate dedup set for warehouse connection failures so the counter
+        # fires once per unique source_id regardless of whether the SD path
+        # resolves (which would leave the source_id out of unresolved_seen).
+        warehouse_failure_seen: Set[str] = set()
         for source_id in element.source_ids:
             upstream_urn: Optional[str] = None
             shape: str = ""
@@ -850,30 +861,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 shape = "intra"
             elif source_id.startswith("inode-"):
                 url_id_suffix = source_id[len("inode-") :]
-                # Check warehouse map first (type=table nodes).  The existing
-                # SD resolver handles type=dataset (Sigma Dataset) nodes; both
-                # can fire for the same inode when a file is catalogued as both
-                # a Sigma Dataset and a warehouse table.
-                warehouse_urn: Optional[str] = None
+                # Check warehouse map (type=table nodes) and the existing SD
+                # resolver (type=dataset nodes) in parallel; both can fire for
+                # the same inode when a file is catalogued as both.
                 warehouse_urn = self._resolve_dm_element_warehouse_upstream(
                     url_id_suffix=url_id_suffix,
                     warehouse_map=warehouse_url_id_map,
                 )
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
-                # Warehouse URN: deduped separately; emitted counter bumped
-                # post-dedup so diamond source_ids don't inflate the signal.
+                # Warehouse success: deduped via seen; counter bumped post-dedup
+                # so diamond source_ids don't inflate the signal.
                 if warehouse_urn and warehouse_urn not in seen:
                     upstream_urns.append(warehouse_urn)
                     seen.add(warehouse_urn)
                     self.reporter.dm_element_warehouse_upstream_emitted += 1
-                # Connection-failure counter: gated on unresolved_seen to
-                # match the cross-DM symmetry (one bump per unique source_id).
+                # Connection-failure counter: uses its own dedup set so a
+                # duplicate source_id fires at most once even when the SD path
+                # resolves (which would leave source_id out of unresolved_seen).
                 if (
                     warehouse_urn is None
                     and url_id_suffix in warehouse_url_id_map
-                    and source_id not in unresolved_seen
+                    and source_id not in warehouse_failure_seen
                 ):
+                    warehouse_failure_seen.add(source_id)
                     self.reporter.dm_element_warehouse_unknown_connection += 1
                 if (
                     upstream_urn is None
@@ -1265,6 +1276,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Resolve all type=table inodes for this DM once before the element loop.
         # One /files call per unique inode (cached across DMs).
         warehouse_url_id_map = self._build_dm_warehouse_url_id_map(data_model)
+        # Warn once if the registry is empty while this DM has warehouse inodes —
+        # a failed registry build silently turns off warehouse upstream emission
+        # for the entire run; making it visible here lets operators triage it.
+        if (
+            data_model.warehouse_inodes_by_inode_id
+            and not self.connection_registry.by_id
+        ):
+            self.reporter.warning(
+                title="Sigma connection registry is empty — warehouse lineage unavailable",
+                message=(
+                    "The connection registry contains no records. All warehouse "
+                    "upstream edges for DM elements will be skipped. Check "
+                    "whether the /v2/connections fetch succeeded and the "
+                    "connections_skipped_missing_id counter."
+                ),
+                context=f"dm={data_model.dataModelId}",
+            )
         # ``data_model.path`` starts with the workspace name (e.g.
         # "Acryl Data/Marketing"); drop index 0 because the workspace is
         # already the enclosing Container. ``split`` on a path with no

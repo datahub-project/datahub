@@ -150,6 +150,30 @@ class TestBuildDmWarehouseUrlIdMap:
         assert result == {}
         assert source.reporter.dm_element_warehouse_table_lookup_failed == 1
 
+    def test_rate_limited_files_call_increments_rate_limit_counter(self):
+        import requests
+
+        from datahub.ingestion.source.sigma.config import (
+            SigmaSourceConfig,
+            SigmaSourceReport,
+        )
+        from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+
+        config = SigmaSourceConfig.model_validate(
+            {"client_id": "x", "client_secret": "y"}
+        )
+        report = SigmaSourceReport()
+        with patch.object(SigmaAPI, "_generate_token"):
+            api = SigmaAPI(config, report)
+
+        fake_response = requests.Response()
+        fake_response.status_code = 429
+        with patch.object(api, "_get_api_call", return_value=fake_response):
+            result = api.get_file_metadata("some-inode")
+
+        assert result is None
+        assert report.dm_element_warehouse_table_lookup_rate_limited == 1
+
     def test_path_unparseable_fewer_than_3_segments(self):
         source = _make_source()
         dm = _make_dm_with_inodes(
@@ -453,6 +477,7 @@ class TestUpstreamLineageWarehouseWiring:
             in upstream_urns
         )
         assert source.reporter.dm_element_warehouse_upstream_emitted == 1
+        assert source.reporter.data_model_element_external_upstreams == 1
         assert source.reporter.data_model_element_upstreams_unresolved == 0
 
     def test_unresolved_counter_not_bumped_when_warehouse_resolves(self):
@@ -547,9 +572,41 @@ class TestUpstreamLineageWarehouseWiring:
         assert len(lineage.upstreams) == 1
         assert source.reporter.dm_element_warehouse_upstream_emitted == 1
 
+    def test_unknown_connection_not_double_counted_on_diamond_when_sd_resolves(self):
+        """Bug #1 regression: duplicate source_ids where warehouse fails but SD
+        resolves must only bump dm_element_warehouse_unknown_connection once."""
+        source = _make_source()
+        # Warehouse map has the inode but the connection is not in the registry.
+        ref = _WarehouseTableRef(
+            connection_id="conn-unknown",
+            db="DB",
+            schema="SCH",
+            table="TBL",
+        )
+        warehouse_map = {"url-x": ref}
+        # SD map resolves the same inode.
+        source.sigma_dataset_urn_by_url_id["url-x"] = (
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,url-x,PROD)"
+        )
+        # Diamond: same source_id appears twice.
+        element = _make_minimal_element(source_ids=["inode-url-x", "inode-url-x"])
+        dm = SigmaDataModel(
+            dataModelId="dm-1",
+            name="DM",
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z",
+        )
+
+        lineage = self._run(source, element, dm, warehouse_map)
+
+        assert lineage is not None
+        assert len(lineage.upstreams) == 1  # SD URN only
+        # Must fire exactly once despite the duplicate source_id.
+        assert source.reporter.dm_element_warehouse_unknown_connection == 1
+
 
 # ---------------------------------------------------------------------------
-# Tests: sigma_api.py _assemble_data_model entry guard (#5)
+# Tests: sigma_api.py _assemble_data_model entry guard
 # ---------------------------------------------------------------------------
 
 
