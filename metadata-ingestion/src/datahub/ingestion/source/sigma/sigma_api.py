@@ -1094,14 +1094,16 @@ class SigmaAPI:
                 # needed to construct fully-qualified warehouse Dataset URNs.
                 inode_id = str(entry.get("inodeId") or "")
                 conn_id = str(entry.get("connectionId") or "")
-                name = str(entry.get("name") or "")
-                if not (inode_id and name and conn_id):
+                # name is intentionally NOT required here: the table name is
+                # taken from /files/{inodeId} (the canonical source) rather
+                # than from the lineage entry, which may carry a display label,
+                # a stale name, or be absent entirely for some Sigma releases.
+                if not (inode_id and conn_id):
                     self.report.dm_element_warehouse_table_entry_incomplete += 1
                     missing = [
                         f
                         for f, v in (
                             ("inodeId", inode_id),
-                            ("name", name),
                             ("connectionId", conn_id),
                         )
                         if not v
@@ -1109,16 +1111,15 @@ class SigmaAPI:
                     self.report.warning(
                         title="Sigma type=table lineage entry is incomplete",
                         message=(
-                            "A type=table lineage entry is missing one or more "
-                            "required fields. Warehouse upstream skipped to avoid "
-                            "emitting a malformed URN."
+                            "A type=table lineage entry is missing inodeId or "
+                            "connectionId. Warehouse upstream skipped."
                         ),
                         context=(
                             f"dm={data_model.dataModelId}, missing_fields={missing}"
                         ),
                     )
                     continue
-                raw: WarehouseInodeRaw = {"connectionId": conn_id, "name": name}
+                raw: WarehouseInodeRaw = {"connectionId": conn_id}
                 data_model.warehouse_inodes_by_inode_id[inode_id] = raw
             # ``type: dataset`` entries (CSV uploads) are terminal;
             # warehouse lineage is handled above via type=table.

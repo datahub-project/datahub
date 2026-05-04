@@ -190,7 +190,11 @@ CrossDmOutcome = Literal[
 
 # Platforms where DataHub stores identifiers lower-cased, matching the
 # corresponding source connector's normalization. Snowflake is confirmed via
-# snowflake_utils.py::snowflake_identifier() (identifier.lower()).
+# snowflake_utils.py::snowflake_identifier() (identifier.lower()), which is
+# the default and does not check convert_urns_to_lowercase. If a Snowflake
+# source is configured with convert_urns_to_lowercase: false, its URNs will
+# be upper-cased and the edges emitted here will dangle. That non-default
+# configuration is unsupported without a per-connection casing override.
 # Other platforms are excluded until their DataHub source's URN convention is
 # explicitly verified — adding an unvalidated platform risks emitting URNs
 # that don't match the warehouse connector's output.
@@ -604,7 +608,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         result: Dict[str, _WarehouseTableRef] = {}
         for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
             conn_id = raw["connectionId"]
-            table_name = raw["name"]
             first_attempt = inode_id not in self._files_cache
             files_data = self._get_file_metadata_cached(inode_id)
             if files_data is None:
@@ -620,13 +623,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             url_id = str(files_data.get("urlId") or "")
             path = str(files_data.get("path") or "")
+            # Use /files["name"] as the canonical table name — it is the
+            # authoritative source and avoids trusting the lineage entry's
+            # name field, which may be a display label or absent.
+            table_name = str(files_data.get("name") or "")
             parts = path.split("/")
             # Validate: exactly 3 non-empty segments and a non-empty urlId.
             # Rejects "Acryl Workspace" (CSV uploads), "Connection Root//PUBLIC"
             # (empty DB segment -> malformed URN), and >3 segments.
             # H4 TODO: confirm with Sigma whether API path strings are localised;
             # if so, relax the literal "Connection Root" check.
-            path_invalid = not url_id or len(parts) != 3 or not all(parts)
+            path_invalid = (
+                not url_id or not table_name or len(parts) != 3 or not all(parts)
+            )
             root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
             if path_invalid or root_unexpected:
                 # Dedup per inode: a single misconfigured inode shared across N
@@ -645,7 +654,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             "no empty segments and a non-empty urlId. "
                             "Warehouse upstream skipped for this inode."
                         ),
-                        context=f"inode={inode_id}, path={path!r}, url_id={url_id!r}",
+                        context=(
+                            f"inode={inode_id}, path={path!r}, "
+                            f"url_id={url_id!r}, table_name={table_name!r}"
+                        ),
                     )
                 continue
             result[url_id] = _WarehouseTableRef(

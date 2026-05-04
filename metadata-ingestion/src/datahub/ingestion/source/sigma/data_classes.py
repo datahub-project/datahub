@@ -203,10 +203,14 @@ class File(BaseModel):
 
 
 class WarehouseInodeRaw(TypedDict):
-    """Raw type=table lineage entry stashed for /files lookup."""
+    """Minimal type=table lineage entry stashed for /files/{inodeId} lookup.
+
+    Only connectionId is required here; the table name is taken from the
+    /files response (the canonical source) rather than from the lineage entry,
+    which may carry a display label or stale name.
+    """
 
     connectionId: str
-    name: str
 
 
 class SigmaDataModelColumn(BaseModel):

@@ -135,7 +135,7 @@ class TestBuildDmWarehouseUrlIdMap:
     def test_cache_deduplicates_files_calls(self):
         source = _make_source()
         inode_id = "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e"
-        inodes = {inode_id: {"connectionId": _SNOWFLAKE_CONN_ID, "name": "CUSTOMERS"}}
+        inodes = {inode_id: {"connectionId": _SNOWFLAKE_CONN_ID}}
         dm1 = _make_dm_with_inodes(inodes)
         dm2 = _make_dm_with_inodes(inodes)
         with patch.object(
@@ -147,9 +147,7 @@ class TestBuildDmWarehouseUrlIdMap:
 
     def test_files_lookup_failure_increments_counter(self):
         source = _make_source()
-        dm = _make_dm_with_inodes(
-            {"bad-inode": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
-        )
+        dm = _make_dm_with_inodes({"bad-inode": {"connectionId": _SNOWFLAKE_CONN_ID}})
         with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
             result = source._build_dm_warehouse_url_id_map(dm)
 
@@ -160,7 +158,7 @@ class TestBuildDmWarehouseUrlIdMap:
         """H7: a failed /files inode shared by N DMs must only bump
         dm_element_warehouse_table_lookup_failed once (first_attempt gate)."""
         source = _make_source()
-        inodes = {"bad-inode": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
+        inodes = {"bad-inode": {"connectionId": _SNOWFLAKE_CONN_ID}}
         dm1 = _make_dm_with_inodes(inodes)
         dm2 = _make_dm_with_inodes(inodes)
         with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
@@ -171,9 +169,7 @@ class TestBuildDmWarehouseUrlIdMap:
 
     def test_path_unparseable_fewer_than_3_segments(self):
         source = _make_source()
-        dm = _make_dm_with_inodes(
-            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "data.csv"}}
-        )
+        dm = _make_dm_with_inodes({"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID}})
         with patch.object(
             source.sigma_api,
             "get_file_metadata",
@@ -191,9 +187,7 @@ class TestBuildDmWarehouseUrlIdMap:
 
     def test_unrecognised_path_root_counts_as_unparseable(self):
         source = _make_source()
-        dm = _make_dm_with_inodes(
-            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "MY_TABLE"}}
-        )
+        dm = _make_dm_with_inodes({"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID}})
         with patch.object(
             source.sigma_api,
             "get_file_metadata",
@@ -211,9 +205,7 @@ class TestBuildDmWarehouseUrlIdMap:
 
     def test_empty_url_id_counts_as_path_unparseable(self):
         source = _make_source()
-        dm = _make_dm_with_inodes(
-            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
-        )
+        dm = _make_dm_with_inodes({"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID}})
         with patch.object(
             source.sigma_api,
             "get_file_metadata",
@@ -231,9 +223,7 @@ class TestBuildDmWarehouseUrlIdMap:
 
     def test_path_unparseable_more_than_3_segments(self):
         source = _make_source()
-        dm = _make_dm_with_inodes(
-            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
-        )
+        dm = _make_dm_with_inodes({"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID}})
         with patch.object(
             source.sigma_api,
             "get_file_metadata",
@@ -252,9 +242,7 @@ class TestBuildDmWarehouseUrlIdMap:
     def test_path_unparseable_empty_segment(self):
         # B2: "Connection Root//PUBLIC" passes len==3 but has an empty DB segment.
         source = _make_source()
-        dm = _make_dm_with_inodes(
-            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
-        )
+        dm = _make_dm_with_inodes({"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID}})
         with patch.object(
             source.sigma_api,
             "get_file_metadata",
@@ -598,8 +586,8 @@ class TestUpstreamLineageWarehouseWiring:
         assert source.reporter.dm_element_warehouse_upstream_emitted == 0
 
     def test_empty_registry_warning_fires_once_per_run(self):
-        """H7: the empty-registry warning is gated on _registry_empty_warned so
-        it fires at most once even when multiple DMs have warehouse inodes."""
+        """H2/H7: _registry_empty_warned gates the once-per-run empty-registry
+        warning so N DMs with warehouse inodes don't produce N identical warnings."""
         config = SigmaSourceConfig.model_validate(
             {"client_id": "test", "client_secret": "test"}
         )
@@ -607,25 +595,37 @@ class TestUpstreamLineageWarehouseWiring:
         with patch.object(SigmaAPI, "_generate_token"):
             source = SigmaSource(config=config, ctx=ctx)
         source.connection_registry = SigmaConnectionRegistry()  # empty
-        dm = SigmaDataModel(
-            dataModelId="dm-warn",
-            name="DM",
-            createdAt="2024-01-01T00:00:00Z",
-            updatedAt="2024-01-01T00:00:00Z",
-            warehouse_inodes_by_inode_id={
-                "inode-1": {"connectionId": "c", "name": "T"}
-            },
-        )
-        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
-            source._build_dm_warehouse_url_id_map(dm)
-            source._build_dm_warehouse_url_id_map(dm)  # second call, same DM
 
-        registry_warnings = [
+        def _trigger_check() -> None:
+            """Replicate the guard in _gen_data_model_element_workunits."""
+            if (
+                not source._registry_empty_warned
+                and not source.connection_registry.by_id
+            ):
+                source._registry_empty_warned = True
+                source.reporter.warning(
+                    title="Sigma connection registry is empty — warehouse lineage unavailable",
+                    message="test sentinel",
+                )
+
+        assert not source._registry_empty_warned
+
+        _trigger_check()
+        assert source._registry_empty_warned
+        hits = [
             w
             for w in source.reporter.warnings
             if "registry is empty" in (w.title or "")
         ]
-        assert len(registry_warnings) == 0  # H2: warning fires at workunits level
+        assert len(hits) == 1
+
+        _trigger_check()  # second DM — must not re-fire
+        hits2 = [
+            w
+            for w in source.reporter.warnings
+            if "registry is empty" in (w.title or "")
+        ]
+        assert len(hits2) == 1
 
     def test_diamond_source_ids_emit_once(self):
         """Two source_ids resolving to the same warehouse URN produce one
@@ -729,7 +729,9 @@ class TestSigmaApiGetFileMetadata:
 
 
 class TestWarehouseInodeEntryGuard:
-    def test_missing_name_or_inode_counts_incomplete(self):
+    def test_missing_inode_or_connection_counts_incomplete(self):
+        """name is no longer required at the lineage entry level — table name
+        comes from /files. Only inodeId and connectionId are mandatory here."""
         config = SigmaSourceConfig.model_validate(
             {"client_id": "x", "client_secret": "y"}
         )
@@ -744,16 +746,16 @@ class TestWarehouseInodeEntryGuard:
             updatedAt="2024-01-01T00:00:00Z",
         )
         lineage_entries = [
-            # empty name — should be rejected, counter bumped
+            # empty inodeId — rejected
+            {"type": "table", "inodeId": "", "connectionId": "conn-1"},
+            # empty name — no longer rejected; table name comes from /files
             {
                 "type": "table",
                 "inodeId": "inode-1",
                 "connectionId": "conn-1",
                 "name": "",
             },
-            # empty inodeId — should be rejected, counter bumped
-            {"type": "table", "inodeId": "", "connectionId": "conn-1", "name": "TABLE"},
-            # valid
+            # valid entry with all fields
             {
                 "type": "table",
                 "inodeId": "inode-2",
@@ -770,8 +772,9 @@ class TestWarehouseInodeEntryGuard:
         ):
             api._assemble_data_model(dm, file_meta=None)
 
-        assert report.dm_element_warehouse_table_entry_incomplete == 2
-        assert list(dm.warehouse_inodes_by_inode_id.keys()) == ["inode-2"]
+        # Only the empty-inodeId entry is rejected now (empty name passes).
+        assert report.dm_element_warehouse_table_entry_incomplete == 1
+        assert set(dm.warehouse_inodes_by_inode_id.keys()) == {"inode-1", "inode-2"}
 
     def test_empty_connection_id_counts_incomplete(self):
         """H7: empty connectionId must be caught at entry guard, not mis-fired
