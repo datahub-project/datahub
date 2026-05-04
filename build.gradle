@@ -59,7 +59,7 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
   ext.logbackClassic = '1.5.32'
-  ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
+  ext.hadoop3Version = '3.4.1' // Hadoop >=3.4.0 required for CVE-2024-23454 (TAR symlink path traversal in unTar); >3.3.4 for CVE-2021-37404, command injection, path traversal, deserialization RCE
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.6.0'
   ext.ebeanVersion = '15.5.2'
@@ -279,7 +279,8 @@ project.ext.externalDependency = [
     'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
-    'postgresql': 'org.postgresql:postgresql:42.7.8',
+    // CVE-2026-42198: SCRAM iteration DoS fixed in 42.7.11+
+    'postgresql': 'org.postgresql:postgresql:42.7.11',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
     'grpcNettyShaded': "io.grpc:grpc-netty-shaded:$grpcVersion",

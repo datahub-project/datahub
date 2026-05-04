@@ -133,4 +133,31 @@ export class DatasetPage extends BasePage {
     await this.clickSchemaField(fieldName);
     await expect(this.page.getByText(termName)).toBeVisible();
   }
+
+  // ── Ownership helpers (V1 UI) ─────────────────────────────────────────────
+
+  async addOwner(owner: string, ownerType: string): Promise<void> {
+    await this.page.locator('[data-testid="add-owners-button"]').first().click({ force: true });
+    await expect(this.page.locator('[data-testid="add-owners-select"]')).toBeVisible({ timeout: 10000 });
+    await this.page.locator('[data-testid="add-owners-select-base"]').click({ force: true });
+    await this.page.locator('[data-testid="dropdown-search-input"]').fill(owner);
+    await this.page.locator('[data-testid="add-owners-select-dropdown"]').getByText(owner).click({ force: true });
+    await expect(this.page.getByText(owner)).toBeVisible();
+    await this.page.getByRole('dialog').getByText('Technical Owner').click();
+    await this.page.getByRole('listbox').locator('..').getByText(ownerType).click();
+    await expect(this.page.getByRole('dialog').getByText(ownerType)).toBeVisible();
+    await this.page.getByText('Done').click();
+    await expect(this.page.getByText('Owners Added')).toBeVisible({ timeout: 15000 });
+    await expect(this.page.getByText(ownerType)).toBeVisible();
+    await expect(this.page.getByText(owner)).toBeVisible();
+  }
+
+  // elementId is a dynamic selector (e.g. href targeting a specific user/group URN)
+  // so it is passed in from the test rather than hardcoded here.
+  async removeOwner(owner: string, elementId: string): Promise<void> {
+    await this.page.locator(elementId).locator('xpath=following-sibling::*[1]').click();
+    await this.page.getByText('Yes').click();
+    await expect(this.page.getByText('Owner Removed')).toBeVisible({ timeout: 15000 });
+    await expect(this.page.getByText(owner)).not.toBeVisible({ timeout: 10000 });
+  }
 }
