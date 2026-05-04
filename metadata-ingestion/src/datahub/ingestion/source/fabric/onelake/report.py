@@ -51,6 +51,10 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
     filtered_views: LossyList[str] = field(default_factory=LossyList)
 
+    # Views whose definition was unavailable (e.g. caller lacks
+    # `VIEW DEFINITION` permission); their lineage cannot be parsed.
+    views_missing_definition: LossyList[str] = field(default_factory=LossyList)
+
     # API metrics (can be populated from FabricClientReport)
     api_calls_total_count: int = 0
     api_calls_total_error_count: int = 0
@@ -107,6 +111,10 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     def report_view_filtered(self, view_name: str) -> None:
         """Record a filtered view."""
         self.filtered_views.append(view_name)
+
+    def report_view_missing_definition(self, view_name: str) -> None:
+        """Record a view whose SQL definition was unavailable for lineage parsing."""
+        self.views_missing_definition.append(view_name)
 
     def report_api_call(self) -> None:
         """Track an API call."""

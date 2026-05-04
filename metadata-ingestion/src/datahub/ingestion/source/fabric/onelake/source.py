@@ -210,6 +210,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self) -> None:
+        self.client.close()
         self.aggregator.close()
         super().close()
 
@@ -268,8 +269,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 context="",
                 exc=e,
             )
-        finally:
-            self.client.close()
 
     def _create_workspace_container(
         self, workspace: FabricWorkspace
@@ -364,9 +363,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         yield lakehouse_container
 
-        # Create schema client once (shared between tables and views)
-        schema_client, schema_map = self._create_schema_client_and_map(
+        schema_client = self._create_schema_client(
             workspace, lakehouse.id, "Lakehouse", lakehouse.name
+        )
+        schema_map = self._fetch_schema_map(
+            schema_client, workspace, lakehouse.id, "Lakehouse"
         )
 
         # Track emitted schema containers to avoid duplicates
@@ -419,9 +420,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         yield warehouse_container
 
-        # Create schema client once (shared between tables and views)
-        schema_client, schema_map = self._create_schema_client_and_map(
+        schema_client = self._create_schema_client(
             workspace, warehouse.id, "Warehouse", warehouse.name
+        )
+        schema_map = self._fetch_schema_map(
+            schema_client, workspace, warehouse.id, "Warehouse"
         )
 
         # Track emitted schema containers to avoid duplicates
@@ -616,23 +619,19 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         yield dataset
 
-    def _create_schema_client_and_map(
+    def _create_schema_client(
         self,
         workspace: FabricWorkspace,
         item_id: str,
         item_type: Literal["Lakehouse", "Warehouse"],
         item_display_name: str,
-    ) -> tuple[
-        Optional["SchemaExtractionClient"],
-        dict[tuple[str, str], list[FabricColumn]],
-    ]:
-        """Create a schema extraction client and fetch column metadata.
-
-        Returns the client (for reuse by view discovery) and the schema_map.
-        Returns (None, {}) if schema extraction is not enabled or fails.
+    ) -> Optional["SchemaExtractionClient"]:
+        """Create a SQL Analytics Endpoint client, shared by column-schema and
+        view extraction. Returns None on failure; both features skip this item.
         """
-        if not (self.config.extract_schema.enabled and self.config.sql_endpoint):
-            return None, {}
+        needs_endpoint = self.config.extract_schema.enabled or self.config.extract_views
+        if not (needs_endpoint and self.config.sql_endpoint):
+            return None
 
         try:
             from datahub.ingestion.source.fabric.onelake.schema_client import (
@@ -640,7 +639,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 create_schema_extraction_client,
             )
 
-            schema_client: SchemaExtractionClient = create_schema_extraction_client(
+            client: SchemaExtractionClient = create_schema_extraction_client(
                 method=self.config.extract_schema.method,
                 auth_helper=self.client.auth_helper,
                 config=self.config.sql_endpoint,
@@ -651,27 +650,62 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 base_client=self.client,
                 item_display_name=item_display_name,
             )
-
-            schema_map = schema_client.get_all_table_columns(
-                workspace_id=workspace.id,
-                item_id=item_id,
-            )
-            return schema_client, schema_map
+            return client
         except Exception as e:
             error_msg = str(e)
             logger.warning(
-                f"Failed to extract schema for item {item_id}: {error_msg}. "
-                "Tables will lack column metadata and view extraction will be skipped."
+                f"Failed to initialize SQL Analytics Endpoint for item {item_id}: "
+                f"{error_msg}. Both column-schema and view extraction will be "
+                "skipped for this item.",
+                exc_info=True,
             )
             self.report.report_warning(
-                title="Schema Extraction Failed",
+                title="SQL Analytics Endpoint Initialization Failed",
                 message=(
-                    "Failed to extract schema metadata from SQL Analytics Endpoint. "
-                    "Tables will lack column metadata and view extraction will be skipped."
+                    "Failed to initialize the SQL Analytics Endpoint client. "
+                    "Both column-schema and view extraction will be skipped for "
+                    "this item."
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
+                exc=e,
             )
-            return None, {}
+            return None
+
+    def _fetch_schema_map(
+        self,
+        schema_client: Optional["SchemaExtractionClient"],
+        workspace: FabricWorkspace,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+    ) -> dict[tuple[str, str], list[FabricColumn]]:
+        """Fetch column metadata for all tables/views in the item. Failure only
+        affects column-level schema; view discovery is unaffected.
+        """
+        if schema_client is None or not self.config.extract_schema.enabled:
+            return {}
+
+        try:
+            return schema_client.get_all_table_columns(
+                workspace_id=workspace.id,
+                item_id=item_id,
+            )
+        except Exception as e:
+            error_msg = str(e)
+            logger.warning(
+                f"Failed to fetch column metadata for item {item_id}: {error_msg}. "
+                "Tables and views will be emitted without column-level schema.",
+                exc_info=True,
+            )
+            self.report.report_warning(
+                title="Column Metadata Extraction Failed",
+                message=(
+                    "Failed to query INFORMATION_SCHEMA.COLUMNS. Tables and views "
+                    "will be emitted without column-level schema."
+                ),
+                context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
+                exc=e,
+            )
+            return {}
 
     def _make_schema_key(
         self,
@@ -782,10 +816,18 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
 
         except Exception as e:
+            error_msg = str(e)
+            logger.warning(
+                f"Failed to discover views for item {item_id}: {error_msg}. "
+                "Views will be missing for this item.",
+                exc_info=True,
+            )
             self.report.report_warning(
-                title="Failed to Process Views",
-                message="Unable to discover views from item.",
-                context=f"item_id={item_id}, item_type={item_type}",
+                title="View Discovery Failed",
+                message=(
+                    "Failed to query INFORMATION_SCHEMA.VIEWS. Views will be missing for this item."
+                ),
+                context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
             )
 
@@ -836,4 +878,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 view_definition=view.view_definition,
                 default_db=f"{workspace.id}.{item_id}",
                 default_schema=self._norm(schema_name),
+            )
+        else:
+            self.report.report_view_missing_definition(f"{schema_name}.{view.name}")
+            logger.debug(
+                f"Skipping view lineage for {schema_name}.{view.name}: view_definition is unavailable."
             )

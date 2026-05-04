@@ -178,9 +178,9 @@ def test_fabric_onelake_lakehouse_with_views(pytestconfig: pytest.Config) -> Non
     """View extraction emits a view dataset with definition and View subtype.
 
     Views are discovered via INFORMATION_SCHEMA.VIEWS over the SQL Analytics
-    Endpoint, so we patch _create_schema_client_and_map to return a mock
-    schema_client whose get_all_views() yields one view, plus a schema_map
-    populated with that view's columns.
+    Endpoint, so we patch _create_schema_client to return a mock client whose
+    get_all_views() yields one view, and _fetch_schema_map to return the
+    matching column metadata.
     """
     view = FabricView(
         name="v_active_customers",
@@ -227,8 +227,13 @@ def test_fabric_onelake_lakehouse_with_views(pytestconfig: pytest.Config) -> Non
             patch.object(OneLakeClient, "list_lakehouse_tables", return_value=[]),
             patch.object(
                 FabricOneLakeSource,
-                "_create_schema_client_and_map",
-                return_value=(mock_schema_client, schema_map),
+                "_create_schema_client",
+                return_value=mock_schema_client,
+            ),
+            patch.object(
+                FabricOneLakeSource,
+                "_fetch_schema_map",
+                return_value=schema_map,
             ),
         ):
             pipeline = Pipeline.create(

@@ -165,9 +165,8 @@ class FabricOneLakeSourceConfig(
         default=True,
         description=(
             "Whether to extract views and their definitions. "
-            "Requires extract_schema.enabled=True and a configured sql_endpoint, "
-            "because views are discovered via INFORMATION_SCHEMA.VIEWS over the "
-            "SQL Analytics Endpoint."
+            "Requires a configured sql_endpoint, because views are discovered via "
+            "INFORMATION_SCHEMA.VIEWS over the SQL Analytics Endpoint."
         ),
     )
 
@@ -194,8 +193,9 @@ class FabricOneLakeSourceConfig(
     # SQL Analytics Endpoint configuration
     sql_endpoint: Optional[SqlEndpointConfig] = Field(
         default_factory=SqlEndpointConfig,
-        description="SQL Analytics Endpoint configuration for schema extraction. "
-        "Required when extract_schema.enabled=True and extract_schema.method='sql_analytics_endpoint'.",
+        description="SQL Analytics Endpoint configuration. "
+        "Required when extract_views=True or when extract_schema.enabled=True with "
+        "method='sql_analytics_endpoint'.",
     )
 
     # Stateful Ingestion
@@ -209,30 +209,25 @@ class FabricOneLakeSourceConfig(
     )
 
     @model_validator(mode="after")
-    def validate_schema_extraction_config(self):
-        """Validate that sql_endpoint is enabled when extract_schema requires it."""
-        if (
+    def validate_sql_endpoint_dependencies(self):
+        """sql_endpoint must be configured when any feature that uses it is enabled.
+
+        Both view discovery (INFORMATION_SCHEMA.VIEWS) and column-level schema
+        extraction (INFORMATION_SCHEMA.COLUMNS) go through the SQL Analytics
+        Endpoint, but they are otherwise independent — a user may enable either
+        one without the other.
+        """
+        needs_sql_endpoint = self.extract_views or (
             self.extract_schema.enabled
             and self.extract_schema.method == "sql_analytics_endpoint"
-        ):
-            if self.sql_endpoint is None or not self.sql_endpoint.enabled:
-                raise ValueError(
-                    "sql_endpoint.enabled must be True when extract_schema.enabled=True "
-                    "and extract_schema.method='sql_analytics_endpoint'"
-                )
-        return self
-
-    @model_validator(mode="after")
-    def validate_view_extraction_prerequisites(self):
-        """Views require a working SQL Analytics Endpoint via schema extraction."""
-        if self.extract_views and (
-            not self.extract_schema.enabled or self.sql_endpoint is None
+        )
+        if needs_sql_endpoint and (
+            self.sql_endpoint is None or not self.sql_endpoint.enabled
         ):
             raise ValueError(
-                "extract_views=True requires extract_schema.enabled=True and a "
-                "configured sql_endpoint, because view discovery uses the SQL "
-                "Analytics Endpoint (INFORMATION_SCHEMA.VIEWS). "
-                "Either set extract_views=False to disable view extraction, or "
-                "enable extract_schema and configure sql_endpoint."
+                "sql_endpoint.enabled must be True when extract_views=True or "
+                "when extract_schema.enabled=True with "
+                "method='sql_analytics_endpoint'. "
+                "Both features query the SQL Analytics Endpoint."
             )
         return self
