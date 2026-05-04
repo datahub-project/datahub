@@ -1,3 +1,7 @@
+---
+description: "Provision new user accounts in DataHub via invite links, JIT SSO provisioning, or direct creation through the metadata APIs."
+---
+
 # Onboarding Users to DataHub
 
 New user accounts can be provisioned on DataHub in 3 ways:

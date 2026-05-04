@@ -1,3 +1,7 @@
+---
+description: "Install the DataHub Microsoft Teams App in your tenant to deliver notifications and surface metadata directly in Teams."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Microsoft Teams App Setup

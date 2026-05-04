@@ -1,3 +1,7 @@
+---
+description: "Restrict which entities users can discover in DataHub search results using Search Access Controls and View Entity permissions."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Search Access Controls

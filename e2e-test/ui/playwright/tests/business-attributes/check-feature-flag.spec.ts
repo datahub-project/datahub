@@ -20,13 +20,14 @@ test.describe('Business Attribute Feature Flag', () => {
     const json = (await response.json()) as {
       data?: { appConfig?: { featureFlags?: { businessAttributeEntityEnabled?: boolean } } };
     };
-    const businessAttributeEnabled =
-      json?.data?.appConfig?.featureFlags?.businessAttributeEntityEnabled;
+    const businessAttributeEnabled = json?.data?.appConfig?.featureFlags?.businessAttributeEntityEnabled;
 
     logger.info('feature flag check', { businessAttributeEnabled });
 
     if (!businessAttributeEnabled) {
-      logger.warn('Business Attribute feature is disabled — set BUSINESS_ATTRIBUTE_ENTITY_ENABLED=true and restart DataHub');
+      logger.warn(
+        'Business Attribute feature is disabled — set BUSINESS_ATTRIBUTE_ENTITY_ENABLED=true and restart DataHub',
+      );
       test.skip(true, 'Business Attribute feature is not enabled');
     }
 

@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for defining and applying Structured Properties to DataHub entities via the GraphQL and OpenAPI endpoints."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

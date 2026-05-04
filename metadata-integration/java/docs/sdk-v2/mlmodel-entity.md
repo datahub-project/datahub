@@ -1,3 +1,7 @@
+---
+description: "Create and manage MLModel entities in DataHub using the Java SDK V2 to represent trained models from MLflow, SageMaker, and more."
+---
+
 # MLModel Entity
 
 ## Overview

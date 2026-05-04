@@ -9,7 +9,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -132,6 +132,29 @@ class SigmaWorkspaceEntityFilterReport(EntityFilterReport):
 
 
 @dataclass
+class ElementDmEdgeReport(Report):
+    """Workbook-to-DM-element bridge counters. Matched by element name."""
+
+    # Edge emitted as a unique chart input.
+    resolved: int = 0
+    # URN already present on the chart (e.g. diamond lineage).
+    deduped: int = 0
+    # Multiple elements share the name; deterministic pick.
+    ambiguous: int = 0
+    # DM ingested but name did not match (no edge; ChartInfo.inputs requires
+    # Dataset URNs, not Container URNs).
+    name_unmatched_but_dm_known: int = 0
+    # Lineage node had no ``name``; distinct from the rename-miss counter.
+    upstream_name_missing: int = 0
+    # DM not in this run.
+    unresolved: int = 0
+    # Sigma places the DM-reference node only in ``edges[].source`` (not as a
+    # ``dependencies`` key). We synthesize the upstream using the workbook
+    # element's own ``name`` (Sigma's default mirrors the DM element name).
+    synthesized_from_edge_only: int = 0
+
+
+@dataclass
 class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workspaces: SigmaWorkspaceEntityFilterReport = field(
         default_factory=SigmaWorkspaceEntityFilterReport
@@ -154,6 +177,34 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # of the chart map (e.g. pivot-table blocked by page-element allowlist).
     num_filtered_sheet_upstreams: int = 0
 
+    # Chart upstream node of type=dataset had ``name=None``. The SQL-bridge
+    # cannot correlate it against a warehouse table, so the chart-to-Sigma-
+    # dataset edge is skipped. Pre-PR this raised ValidationError; this
+    # counter restores the observability signal.
+    chart_dataset_upstream_name_missing: int = 0
+
+    # Chart InputFields — one counter fires per chart column (not per formula ref).
+    # The resolver (_resolve_chart_formula_upstream) is a pure predicate: it
+    # returns a resolved (urn, field) pair or None; all counting happens in
+    # _build_element_input_fields so every column lands in exactly one bucket.
+    # Invariant: resolved + self_ref_fallback + skipped_parameter + skipped_sibling
+    #            == total chart columns processed across the workbook.
+    chart_input_fields_resolved: int = 0
+    # Column emitted with self-referential schemaFieldUrn because no formula ref
+    # resolved (includes: no-formula column, unresolvable ref, mixed param+real
+    # where the real refs fail). Keeps V2 column list visible unconditionally.
+    chart_input_fields_self_ref_fallback: int = 0
+    # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
+    chart_input_fields_skipped_parameter: int = 0
+    # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
+    chart_input_fields_skipped_sibling: int = 0
+    # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
+    # against a workbook element name (warehouse fallback intentionally skipped).
+    chart_input_fields_case_mismatch: int = 0
+    # Workbooks whose /columns pagination aborted partway through. InputFields
+    # for those workbooks may be missing columns that appear after the failure.
+    column_formulas_fetch_partial: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
@@ -168,13 +219,74 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_upstreams_unknown_shape: int = 0
     data_model_element_upstreams_unresolved: int = 0
 
+    # Cross-DM element references (DM-A element pulls from DM-B). Success
+    # counters bump once per unique upstream URN (diamonds deduped).
+    # ``_resolved = _strict + _ambiguous + _single_element_fallback``
+    # (``_ambiguous`` and ``_single_element_fallback`` are sub-shapes of
+    # ``_resolved``; clean strict-name-match = _resolved - _ambiguous -
+    # _single_element_fallback).
+    # Failure counters bump per source_id (each is a distinct missing ref)
+    # and also bump ``data_model_element_upstreams_unresolved``:
+    # ``_name_unmatched_but_dm_known``: producer DM ingested, no name match
+    #   (typically a consumer-side rename).
+    # ``_dm_unknown``: producer DM not in this run.
+    # ``_consumer_name_missing``: consumer element had a blank name; the
+    #   name-bridge was never attempted.
+    # ``_self_reference``: producer prefix matches the consuming DM (API
+    #   payload anomaly; defensively skipped).
+    data_model_element_cross_dm_upstreams_resolved: int = 0
+    data_model_element_cross_dm_upstreams_ambiguous: int = 0
+    data_model_element_cross_dm_upstreams_single_element_fallback: int = 0
+    data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known: int = 0
+    data_model_element_cross_dm_upstreams_dm_unknown: int = 0
+    data_model_element_cross_dm_upstreams_consumer_name_missing: int = 0
+    data_model_element_cross_dm_upstreams_self_reference: int = 0
+
+    # Personal-space / unlisted DMs discovered via /v2/dataModels/{urlId}.
+    # ``_discovered``: an unlisted DM was fetched and added to the run.
+    # ``_unresolved``: fetch returned non-200 (usually 403 / 404).
+    # ``_rate_limited``: fetch returned 429 after the urllib3 retry budget
+    #   was exhausted -- sub-count of ``_unresolved`` surfaced separately
+    #   so operators can distinguish "Sigma is rate-limiting us" (transient,
+    #   re-run the job) from "the DM is genuinely forbidden or deleted"
+    #   (steady-state). ``_unresolved`` is still bumped for 429 so the
+    #   aggregate stays accurate.
+    data_model_external_references_discovered: int = 0
+    data_model_external_reference_unresolved: int = 0
+    data_model_external_reference_rate_limited: int = 0
+
     # /columns entries with ``elementId = None`` (DM-global calculations),
     # dropped because there is no element Dataset to attach them to.
     data_model_columns_without_element_dropped: int = 0
 
+    # Two DMs claimed the same ``urlId`` bridge key. The first wins; the
+    # second is skipped at emit time to avoid an unlinked orphan. Non-zero
+    # means a reissued slug; see warning log for ``(dataModelId, urlId)``.
+    data_models_bridge_key_collision: int = 0
+
     # Duplicate ``column.name`` on a single DM element, dropped to avoid
     # ``SchemaMetadata`` with duplicate ``fieldPath`` values.
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
+
+    # DM element column-level lineage (FGL) counters.
+    # How many FGL entries were emitted across all elements.
+    data_model_element_fgl_emitted: int = 0
+    # Refs where multiple sibling candidates passed the /lineage filter;
+    # sorted-first URN was chosen (matches T2 PR1's collision precedent).
+    data_model_element_fgl_collision_pick_first: int = 0
+    # Refs whose source element is outside this DM; deferred to cross-DM resolution.
+    data_model_element_fgl_cross_dm_deferred: int = 0
+    # Refs where element-name matches the element's own warehouse-table name
+    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
+    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
+    # upstream is the warehouse inode — out of RESOLVE-A scope.
+    data_model_element_fgl_warehouse_passthrough_deferred: int = 0
+    # Refs whose source element is in this DM but not listed as an upstream by
+    # /lineage; dropped to avoid orphan FGL the UI silently rejects.
+    data_model_element_fgl_dropped_orphan_upstream: int = 0
+    # Refs whose column name has no matching fieldPath in the upstream element's
+    # schema; dropped to avoid a dangling schemaField URN.
+    data_model_element_fgl_dropped_unknown_upstream_column: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
@@ -187,6 +299,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # emit a user-visible warning to prevent report flooding on a
     # vendor-wide regression; this counter captures the rest.
     pagination_malformed_entries_dropped: int = 0
+
+    element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -267,4 +381,22 @@ class SigmaSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma Data Model names in ingestion. "
         "Requires ingest_data_models to be enabled.",
+    )
+    max_personal_dm_discovery_rounds: int = pydantic.Field(
+        default=20,
+        ge=1,
+        description="Belt-and-braces safety cap on the number of passes the "
+        "personal-space Data Model discovery loop is allowed to make. Each "
+        "pass fetches ``/v2/dataModels/{urlId}`` for every newly-seen "
+        "cross-DM ``<urlId>`` prefix; the loop terminates naturally when "
+        "``unresolved_seen`` plateaus (monotonically growing set), so under "
+        "a well-behaved API this cap is never hit. Must be ``>= 1`` -- set "
+        "``ingest_shared_entities: False`` (or leave it at the default) if "
+        "the goal is to disable personal-space discovery entirely; ``0`` / "
+        "negative values are rejected because the first pass is required "
+        "to prepopulate the bridge maps for listed DMs. Exists to protect "
+        "against pathological Sigma payloads (e.g. a chain of personal-space "
+        "DMs that keep referencing newly-discovered personal-space DMs) by "
+        "breaking with a ``SourceReport.warning`` instead of looping "
+        "unbounded.",
     )
