@@ -1,7 +1,7 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Dropdown } from 'antd';
 import React from 'react';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import OptionLabel from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/OptionLabel';
 import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
@@ -13,6 +13,7 @@ const DropdownBase = styled.div`
     display: flex;
     gap: 8px;
     align-items: center;
+    color: 1px solid ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props<T extends LinkItem> {
@@ -20,7 +21,6 @@ interface Props<T extends LinkItem> {
 }
 
 export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Props<T>) {
-    const theme = useTheme();
     const onLinkItemClick = (linkItem: T) => {
         linkItem.attributes.onClick?.();
         window.open(linkItem.url, '_blank', 'noopener,noreferrer');
@@ -40,10 +40,8 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
             overlayStyle={{ zIndex: 1200 }}
         >
             <DropdownBase data-testid="view-more-dropdown">
-                <Text size="sm" color="gray" colorLevel={1700}>
-                    View more
-                </Text>
-                <CaretDown size={12} color={theme.colors.textSecondary} />
+                <Text size="sm">View more</Text>
+                <CaretDown size={12} />
             </DropdownBase>
         </Dropdown>
     );

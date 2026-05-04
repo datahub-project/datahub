@@ -89,7 +89,7 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
-                : `color: ${props.theme.colors.textTertiary};`}
+                : `color: ${props.theme.colors.icon};`}
     }
 `;
 

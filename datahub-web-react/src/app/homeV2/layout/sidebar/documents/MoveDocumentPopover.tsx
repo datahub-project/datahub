@@ -43,12 +43,12 @@ const TreeScrollContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 `;
 

@@ -16,7 +16,7 @@ const NoDataContainer = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: ${(props) => props.theme.colors.bg};
+    color: transparent;
 `;
 
 export default function NoStats() {

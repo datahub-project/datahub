@@ -1,5 +1,5 @@
 import React from 'react';
-import styled, { CSSObject, useTheme } from 'styled-components';
+import styled, { CSSObject } from 'styled-components';
 
 import StackPlatformImages from '@app/entityV2/shared/containers/profile/header/PlatformContent/StackPlatformImages';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -27,10 +27,9 @@ interface Props {
 
 function PlatformHeaderIcons(props: Props) {
     const { platform, platforms, size = 28, styles } = props;
-    const theme = useTheme();
     const iconStyles = {
         borderRadius: '16px',
-        border: `1px solid ${theme.colors.bg}`,
+        border: '1px solid transparent',
         padding: '10px',
     };
 

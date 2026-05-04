@@ -42,7 +42,7 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
 
     :hover {
-        color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.textBrandOnBgFill};
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 

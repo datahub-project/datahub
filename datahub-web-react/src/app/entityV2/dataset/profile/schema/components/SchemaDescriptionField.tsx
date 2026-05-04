@@ -70,7 +70,7 @@ const DescriptionContainer = styled.div`
 const EditedLabel = styled(Typography.Text)`
     display: inline-block;
     margin-left: 8px;
-    color: ${(props) => props.theme.colors.textDisabled};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-style: italic;
     position: relative;
     top: -2px;

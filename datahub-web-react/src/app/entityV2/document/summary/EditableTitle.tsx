@@ -42,7 +42,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     }
 
     &::placeholder {
-        color: ${(props) => props.theme.colors.icon};
+        color: ${(props) => props.theme.colors.textTertiary};
         opacity: 0.4;
     }
 `;

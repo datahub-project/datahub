@@ -11,7 +11,7 @@ const Title = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin: 0px;
         padding: 0px;
-        color: ${(props) => (props.secondary && props.theme.colors.textDisabled) || props.theme.colors.text};
+        color: ${(props) => (props.secondary && props.theme.colors.textTertiary) || props.theme.colors.text};
     }
     max-height: 40px;
     overflow: hidden;
@@ -63,7 +63,7 @@ const Date = styled.div`
 
 const EmptyText = styled.div`
     && {
-        color: ${(props) => props.theme.colors.textDisabled};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 

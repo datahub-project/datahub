@@ -17,7 +17,7 @@ const StyledTable = styled(Table)`
     height: inherit;
 
     &&& .ant-table-cell {
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${(props) => props.theme.colors.bg};
     }
     &&& .ant-table-thead .ant-table-cell {
         font-weight: 600;

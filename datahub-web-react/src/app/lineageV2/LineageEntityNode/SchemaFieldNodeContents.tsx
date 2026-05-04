@@ -99,7 +99,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const IconsWrapper = styled.div`
     align-items: center;
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.icon};
     display: flex;
     flex-direction: column;
     font-size: 24px;
