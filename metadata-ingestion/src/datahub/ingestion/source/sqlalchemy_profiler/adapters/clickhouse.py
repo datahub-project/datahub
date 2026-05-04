@@ -11,10 +11,33 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
+)
 
 
 class ClickHouseAdapter(PlatformAdapter):
     """Profiling adapter for ClickHouse's non-standard SQL aggregates."""
+
+    def setup_profiling(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        # ClickHouse session-scoped temp tables are incompatible with connection-pool
+        # cross-connection reads, so this adapter never creates temp tables.
+        unsupported = []
+        if context.custom_sql:
+            unsupported.append("custom_sql")
+        if self.config.limit:
+            unsupported.append("limit")
+        if self.config.offset:
+            unsupported.append("offset")
+        if unsupported:
+            self.report.warning(
+                title="Profiling: ClickHouse SQLAlchemy profiler options ignored",
+                message="custom_sql, limit, and offset are not supported on the SQLAlchemy profiler path; full-table profiling will be used instead",
+                context=f"{context.pretty_name}: ignored options: {unsupported}",
+            )
+        return super().setup_profiling(context, conn)
 
     def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
         # uniq() is HyperLogLog, materially faster than COUNT(DISTINCT) on large columns.
@@ -65,48 +88,6 @@ class ClickHouseAdapter(PlatformAdapter):
             )
             return None
         return None if non_null_count <= 1 else 0.0
-
-    def supports_row_count_estimation(self) -> bool:
-        return True
-
-    def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
-    ) -> Optional[int]:
-        """Read MergeTree row count from system.tables; fall back to count() otherwise."""
-        # `database = NULL` never matches, so skip the fast path entirely when
-        # schema is unset rather than waste a round-trip.
-        if table.schema is not None:
-            try:
-                result = conn.execute(
-                    sa.text(
-                        "SELECT total_rows FROM system.tables "
-                        "WHERE database = :db AND name = :tbl"
-                    ),
-                    {"db": table.schema, "tbl": table.name},
-                ).scalar()
-                if result is not None:
-                    return int(result)
-            except (SQLAlchemyError, ValueError, TypeError) as e:
-                self.report.warning(
-                    title="Profiling: ClickHouse row count estimate query failed",
-                    message="system.tables lookup failed; falling back to count()",
-                    context=_format_context(table),
-                    exc=e,
-                )
-
-        try:
-            result = conn.execute(
-                sa.select([sa.func.count()]).select_from(table)
-            ).scalar()
-            return int(result) if result is not None else None
-        except (SQLAlchemyError, ValueError, TypeError) as e:
-            self.report.warning(
-                title="Profiling: ClickHouse count() fallback failed",
-                message="Both system.tables and count() row count queries failed",
-                context=_format_context(table),
-                exc=e,
-            )
-            return None
 
     def get_column_quantiles(
         self,
@@ -201,11 +182,8 @@ class ClickHouseAdapter(PlatformAdapter):
         if failures:
             self.report.warning(
                 title="Profiling: some ClickHouse quantiles unavailable",
-                message=(
-                    f"{len(failures)}/{len(quantiles)} quantile queries failed "
-                    "(after batched-form fallback)"
-                ),
-                context=f"{_format_context(table, column)}: failed={failures}",
+                message="One or more per-quantile queries failed after batched-form fallback",
+                context=f"{_format_context(table, column)}: {len(failures)}/{len(quantiles)} failed; failed_at={failures}",
                 exc=first_exc,
             )
         return results

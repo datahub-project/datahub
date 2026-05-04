@@ -950,53 +950,74 @@ class TestClickHouseAdapter:
         # Distinguish from the non_null_count-disambiguation path.
         assert any("compute stdev" in w.title.lower() for w in report.warnings)
 
-    def test_supports_row_count_estimation(self, adapter):
-        assert adapter.supports_row_count_estimation() is True
+    def test_supports_row_count_estimation_is_false(self, adapter):
+        assert adapter.supports_row_count_estimation() is False
 
-    def test_get_estimated_row_count_uses_system_tables(
-        self, adapter, mock_table, mock_clickhouse_engine
+    def test_setup_profiling_warns_on_custom_sql(self, adapter, report):
+        """custom_sql is unsupported on the ClickHouse SQLAlchemy path; warn and proceed."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            custom_sql="SELECT * FROM other",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.sql_table is not None
+        assert any("ignored" in w.title.lower() for w in report.warnings)
+
+    def test_setup_profiling_warns_on_limit_or_offset(self, adapter, report, config):
+        """limit/offset are unsupported on the ClickHouse SQLAlchemy path; warn and proceed."""
+        config.limit = 500
+        adapter.config = config
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.sql_table is not None
+        assert any("ignored" in w.title.lower() for w in report.warnings)
+
+    def test_setup_profiling_warns_on_offset_without_limit(
+        self, adapter, report, config
     ):
-        """Fast path queries system.tables.total_rows with bound :db / :tbl params."""
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = 99_000
+        """offset alone (no limit) is also unsupported; warn and proceed."""
+        config.offset = 100
+        adapter.config = config
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            result = adapter.setup_profiling(context, mock_conn)
 
-        row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
+        assert result.sql_table is not None
+        assert any("ignored" in w.title.lower() for w in report.warnings)
 
-        assert row_count == 99_000
-        executed = mock_conn.execute.call_args[0][0]
-        sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
-        assert "system.tables" in sql
-        assert "total_rows" in sql
-        # Bound parameters, not interpolation
-        params = mock_conn.execute.call_args[0][1]
-        assert params == {"db": "test_schema", "tbl": "test_table"}
+    def test_setup_profiling_no_warning_for_normal_table(self, adapter, report):
+        """Normal full-table profiling produces no warning."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            adapter.setup_profiling(context, mock_conn)
 
-    def test_get_estimated_row_count_falls_back_to_count_when_total_rows_null(
-        self, adapter, mock_table
-    ):
-        """Views / Distributed / Log return NULL from system.tables → fall back to count()."""
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.side_effect = [None, 4321]
-
-        row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
-
-        assert row_count == 4321
-        assert mock_conn.execute.call_count == 2
-
-    def test_get_estimated_row_count_system_tables_failure_falls_back_and_warns(
-        self, adapter, report, mock_table
-    ):
-        """system.tables query failure (e.g. no permission) warns and falls back to count()."""
-        mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
-            sa.exc.SQLAlchemyError("denied"),
-            MagicMock(scalar=MagicMock(return_value=42)),
-        ]
-
-        row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
-
-        assert row_count == 42
-        assert any("row count" in w.title.lower() for w in report.warnings)
+        assert report.warnings == []
 
     def test_get_column_quantiles_default_levels(
         self, adapter, real_table, mock_clickhouse_engine
@@ -1139,36 +1160,6 @@ class TestClickHouseAdapter:
             profiling={"enabled": True, "method": "sqlalchemy"},
         )
         assert cfg.profiling.method == "sqlalchemy"
-
-    def test_get_estimated_row_count_both_paths_fail_returns_none_with_warnings(
-        self, adapter, report, mock_table
-    ):
-        """When system.tables AND count() both fail, return None and warn twice."""
-        mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
-            sa.exc.SQLAlchemyError("system.tables denied"),
-            sa.exc.SQLAlchemyError("count denied"),
-        ]
-        assert adapter.get_estimated_row_count(mock_table, mock_conn) is None
-        titles = [w.title.lower() for w in report.warnings]
-        assert any("row count" in t for t in titles)
-        assert any("count()" in t and "fallback" in t for t in titles)
-
-    def test_get_estimated_row_count_skips_system_tables_when_schema_unset(
-        self, adapter
-    ):
-        """When table.schema is None, skip the system.tables fast path and go straight to count()."""
-        table = Mock(spec=sa.Table)
-        table.name = "test_table"
-        table.schema = None
-        table.columns = []
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = 7
-
-        row_count = adapter.get_estimated_row_count(table, mock_conn)
-
-        assert row_count == 7
-        assert mock_conn.execute.call_count == 1
 
     def test_get_column_stdev_non_null_count_failure_reports_warning(
         self, adapter, report, mock_table
