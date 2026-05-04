@@ -558,8 +558,10 @@ class TestWarehouseTableRefFqName:
         )
         assert ref.fq_name("bigquery") == "myProject.myDataset.myTable"
 
-    def test_redshift_lowercased(self):
+    def test_unvalidated_platform_preserves_case(self):
+        # Platforms not in _WAREHOUSE_LOWERCASE_PLATFORMS preserve the casing
+        # Sigma reports until their DataHub source's URN convention is verified.
         ref = _WarehouseTableRef(
             connection_id="c", db="DEV", schema="PUBLIC", table="ORDERS"
         )
-        assert ref.fq_name("redshift") == "dev.public.orders"
+        assert ref.fq_name("redshift") == "DEV.PUBLIC.ORDERS"

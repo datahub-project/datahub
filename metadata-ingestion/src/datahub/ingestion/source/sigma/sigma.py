@@ -188,26 +188,13 @@ CrossDmOutcome = Literal[
     "name_unmatched_but_dm_known",
 ]
 
-# Heuristic: platforms where unquoted SQL identifiers are case-insensitive and
-# DataHub conventionally stores them lower-cased (matching the Snowflake
-# connector's snowflake_identifier() behaviour).  This is a best-effort default
-# and can be wrong for quoted identifiers, collation-dependent engines (MSSQL,
-# MySQL), or metastore-dependent runtimes (Spark, Databricks, Athena, Trino).
-# BigQuery is case-sensitive and is therefore NOT included here.
-_WAREHOUSE_LOWERCASE_PLATFORMS: frozenset = frozenset(
-    {
-        "snowflake",
-        "redshift",
-        "postgres",
-        "mysql",
-        "athena",
-        "trino",
-        "presto",
-        "mssql",
-        "spark",
-        "databricks",
-    }
-)
+# Platforms where DataHub stores identifiers lower-cased, matching the
+# corresponding source connector's normalization. Snowflake is confirmed via
+# snowflake_utils.py::snowflake_identifier() (identifier.lower()).
+# Other platforms are excluded until their DataHub source's URN convention is
+# explicitly verified — adding an unvalidated platform risks emitting URNs
+# that don't match the warehouse connector's output.
+_WAREHOUSE_LOWERCASE_PLATFORMS: frozenset = frozenset({"snowflake"})
 
 # Sentinel for a /files path whose root segment is not "Connection Root".
 _FILES_PATH_ROOT = "Connection Root"
@@ -598,7 +585,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _build_dm_warehouse_url_id_map(
         self, data_model: SigmaDataModel
-    ) -> Dict[str, "_WarehouseTableRef"]:
+    ) -> Dict[str, _WarehouseTableRef]:
         """For each type=table lineage inode on this DM, call /files/{inodeId}
         (cached) to get the ``urlId`` and ``path``.  Returns a map of
         ``urlId → _WarehouseTableRef`` so ``_gen_data_model_element_upstream_lineage``
@@ -608,7 +595,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           - dm_element_warehouse_table_lookup_failed
           - dm_element_warehouse_path_unparseable
         """
-        result: Dict[str, "_WarehouseTableRef"] = {}
+        result: Dict[str, _WarehouseTableRef] = {}
         for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
             conn_id = raw["connectionId"]
             table_name = raw["name"]
@@ -659,7 +646,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self,
         *,
         url_id_suffix: str,
-        warehouse_map: Dict[str, "_WarehouseTableRef"],
+        warehouse_map: Dict[str, _WarehouseTableRef],
     ) -> Optional[str]:
         """Resolve a warehouse-table-backed inode sourceId to a fully-qualified
         warehouse Dataset URN via the connection registry.
@@ -830,7 +817,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
-        warehouse_url_id_map: Optional[Dict[str, "_WarehouseTableRef"]] = None,
+        warehouse_url_id_map: Optional[Dict[str, _WarehouseTableRef]] = None,
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
