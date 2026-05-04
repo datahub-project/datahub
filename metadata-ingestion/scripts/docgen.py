@@ -801,6 +801,20 @@ def generate(  # noqa: C901
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
 
+    # Load integrations catalog once for SEO meta descriptions on platform pages.
+    # The catalog already powers the /integrations page; reusing it here ensures
+    # the meta description matches the marketing card copy for each connector.
+    catalog_descriptions: Dict[str, str] = {}
+    if extra_docs:
+        catalog_path = os.path.join(extra_docs, "integrations_catalog.json")
+        if os.path.exists(catalog_path):
+            with open(catalog_path) as cf:
+                catalog_for_desc: Dict[str, Any] = json.load(cf)
+            for pid, entry in catalog_for_desc.items():
+                desc = entry.get("description")
+                if desc:
+                    catalog_descriptions[pid] = desc
+
     # Sort platforms by platform name.
     platforms = dict(sorted(platforms.items(), key=lambda x: x[1].name.casefold()))
 
@@ -822,7 +836,13 @@ def generate(  # noqa: C901
 
         with open(platform_doc_file, "w") as f:
             i += 1
-            f.write(f"---\nsidebar_position: {i}\n---\n\n")
+            description = catalog_descriptions.get(platform_id)
+            f.write("---\n")
+            f.write(f"sidebar_position: {i}\n")
+            if description:
+                # json.dumps yields a YAML-compatible double-quoted string.
+                f.write(f"description: {json.dumps(description)}\n")
+            f.write("---\n\n")
             f.write(
                 "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n"
             )

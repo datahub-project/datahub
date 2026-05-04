@@ -15,6 +15,7 @@ from typing import (
     Type,
     TypeVar,
 )
+from urllib.parse import urlencode
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -259,6 +260,17 @@ class SigmaAPI:
                 message=f"Unable to fetch files metadata. Exception: {e}"
             )
             return {}
+
+    def get_connections(self) -> List[Dict[str, Any]]:
+        """Fetch all Sigma Connections (paginated). Returns raw API payloads.
+
+        Mapping to SigmaConnectionRecord happens in
+        connection_registry.SigmaConnectionRegistry.build().
+        """
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/connections",
+            "Unable to fetch Sigma connections.",
+        )
 
     def get_sigma_datasets(self) -> List[SigmaDataset]:
         logger.debug("Fetching all accessible datasets metadata.")
@@ -615,7 +627,44 @@ class SigmaAPI:
             )
         return None
 
-    def get_page_elements(self, workbook: Workbook, page: Page) -> List[Element]:
+    def get_workbook_column_formulas(
+        self, workbook_id: str
+    ) -> Dict[str, Dict[str, Optional[str]]]:
+        """Fetch per-element column formulas from GET /workbooks/{id}/columns.
+
+        Returns: elementId -> {column_name: formula_or_None}
+
+        The /columns endpoint is the authoritative source for column formulas
+        in production; the page-elements endpoint returns columns as plain strings.
+        If pagination aborts partway through, a report warning is emitted by
+        _paginated_raw_entries and column_formulas_fetch_partial is incremented so
+        the partial-data workbook is distinguishable from one with few formulas.
+        """
+        error_ctx = f"Unable to fetch column formulas for workbook {workbook_id}."
+        warnings_before = self.report.warnings.total_elements
+        result: Dict[str, Dict[str, Optional[str]]] = {}
+        for col in self._paginated_raw_entries(
+            f"{self.config.api_url}/workbooks/{workbook_id}/columns",
+            error_ctx,
+            silent_statuses=(404,),
+        ):
+            elem_id = col.get(Constant.ELEMENTID)
+            name = col.get(Constant.NAME)
+            formula: Optional[str] = col.get("formula") or None
+            if elem_id and name:
+                result.setdefault(elem_id, {})[name] = formula
+        if self.report.warnings.total_elements > warnings_before:
+            self.report.column_formulas_fetch_partial += 1
+        return result
+
+    def get_page_elements(
+        self,
+        workbook: Workbook,
+        page: Page,
+        column_formulas_by_element: Optional[
+            Dict[str, Dict[str, Optional[str]]]
+        ] = None,
+    ) -> List[Element]:
         try:
             elements: List[Element] = []
             response = self._get_api_call(
@@ -638,6 +687,10 @@ class SigmaAPI:
                     f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 )
                 element = Element.model_validate(element_dict)
+                if column_formulas_by_element is not None:
+                    element.column_formulas = column_formulas_by_element.get(
+                        element.elementId, {}
+                    )
                 if (
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
@@ -657,13 +710,27 @@ class SigmaAPI:
     def get_workbook_pages(self, workbook: Workbook) -> List[Page]:
         try:
             pages: List[Page] = []
+            column_formulas_by_element: Optional[
+                Dict[str, Dict[str, Optional[str]]]
+            ] = None
+            if (
+                self.config.extract_lineage
+                and self.config.workbook_lineage_pattern.allowed(workbook.name)
+            ):
+                column_formulas_by_element = self.get_workbook_column_formulas(
+                    workbook.workbookId
+                )
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages"
             )
             response.raise_for_status()
             for page_dict in response.json()[Constant.ENTRIES]:
                 page = Page.model_validate(page_dict)
-                page.elements = self.get_page_elements(workbook, page)
+                page.elements = self.get_page_elements(
+                    workbook,
+                    page,
+                    column_formulas_by_element=column_formulas_by_element,
+                )
                 pages.append(page)
             return pages
         except Exception as e:
@@ -721,10 +788,10 @@ class SigmaAPI:
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
                     cursor_key: Tuple[str, str] = ("page", str(next_page))
-                    cursor = f"page={next_page}"
+                    cursor = urlencode({"page": next_page})
                 elif next_token:
                     cursor_key = ("nextPageToken", str(next_token))
-                    cursor = f"nextPageToken={next_token}"
+                    cursor = urlencode({"nextPageToken": next_token})
                 else:
                     break
                 if cursor_key in seen_cursors:
@@ -989,6 +1056,9 @@ class SigmaAPI:
                 continue
             columns_by_element.setdefault(column.elementId, []).append(column)
 
+        # Reset before populating so repeated _assemble_data_model calls
+        # (e.g. during alias discovery) cannot accumulate stale entries.
+        data_model.source_dm_element_names = {}
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -999,6 +1069,23 @@ class SigmaAPI:
                     source_ids_by_element[element_id] = [
                         s for s in source_ids if isinstance(s, str)
                     ]
+            elif entry_type == "data-model":
+                # Each ``data-model`` entry names the specific element consumed
+                # from a source DM.  Stash by source dataModelId so
+                # ``_resolve_dm_element_cross_dm_upstream`` can look up the
+                # correct source element name without relying on the consuming
+                # element sharing that name.
+                src_dm_id = entry.get("dataModelId")
+                src_name = entry.get("name")
+                if (
+                    isinstance(src_dm_id, str)
+                    and src_dm_id
+                    and isinstance(src_name, str)
+                    and src_name.strip()
+                ):
+                    data_model.source_dm_element_names.setdefault(src_dm_id, []).append(
+                        src_name.strip()
+                    )
             # ``type: dataset`` / ``type: table`` entries are resolved
             # on the fly from their ``inode-<id>`` source_ids; no DM-side
             # stash is needed.

@@ -10,9 +10,6 @@ import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -30,21 +27,18 @@ import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.apache.http.HttpEntity;
-import org.apache.http.StatusLine;
-import org.apache.http.util.EntityUtils;
+import java.util.Map;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.client.Request;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -68,14 +62,7 @@ public class SemanticEntitySearchServiceTest {
 
   @Mock private SearchFlags mockSearchFlags;
 
-  @Mock private RawResponse mockResponse;
-
-  @Mock private HttpEntity mockHttpEntity;
-
-  @Mock private StatusLine mockStatusLine;
-
   private MappingsBuilder mappingsBuilder;
-
   private ObjectMapper objectMapper;
   private SemanticEntitySearchService service;
   private AutoCloseable mocks;
@@ -87,7 +74,7 @@ public class SemanticEntitySearchServiceTest {
   private static final float[] TEST_EMBEDDING = {0.1f, 0.2f, 0.3f, 0.4f};
 
   @BeforeMethod
-  public void setUp() {
+  public void setUp() throws IOException {
     mocks = MockitoAnnotations.openMocks(this);
     objectMapper = new ObjectMapper();
     mappingsBuilder = new NoOpMappingsBuilder();
@@ -101,6 +88,10 @@ public class SemanticEntitySearchServiceTest {
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
     when(mockSearchContext.getSearchFlags()).thenReturn(mockSearchFlags);
     when(mockSearchFlags.isFilterNonLatestVersions()).thenReturn(false);
+
+    // Default: return empty KnnSearchResponse so tests without specific setup don't NPE
+    when(searchClientShim.searchKnn(any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(List.of()));
 
     service =
         new SemanticEntitySearchService(searchClientShim, mockEmbeddingProvider, mappingsBuilder);
@@ -148,10 +139,9 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testBasicSearchSuccess() throws IOException {
-    // Setup mock response
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(
-            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
+    // Setup mock response via searchKnn shim
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)"), List.of(0.95));
 
     SearchResult result =
         service.search(
@@ -175,12 +165,15 @@ public class SemanticEntitySearchServiceTest {
     // Verify embedding provider was called
     verify(mockEmbeddingProvider).embed(TEST_QUERY, null);
 
-    // Verify OpenSearch request was made
-    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
-    Request capturedRequest = requestCaptor.getValue();
-    assertEquals(capturedRequest.getMethod(), "POST");
-    assertTrue(capturedRequest.getEndpoint().contains(TEST_SEMANTIC_INDEX));
+    // Verify searchKnn was called with the correct index name
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(searchClientShim).searchKnn(requestCaptor.capture());
+    KnnSearchRequest capturedRequest = requestCaptor.getValue();
+    assertTrue(
+        capturedRequest.indexName().contains(TEST_SEMANTIC_INDEX),
+        "KnnSearchRequest indexName should contain the semantic index. Got: "
+            + capturedRequest.indexName());
   }
 
   @Test
@@ -189,9 +182,8 @@ public class SemanticEntitySearchServiceTest {
     when(mockEntityRegistry.getEntitySpec(TEST_ENTITY_NAME)).thenReturn(mockEntitySpec);
 
     // Setup mock response
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(
-            1, "urn:li:dataset:(urn:li:dataPlatform:hive,test.table,PROD)", 0.85));
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:hive,test.table,PROD)"), List.of(0.85));
 
     // Create a filter
     Filter filter = createTestFilter("platform", "urn:li:dataPlatform:hive");
@@ -203,23 +195,19 @@ public class SemanticEntitySearchServiceTest {
     assertNotNull(result);
     assertEquals(result.getPageSize().intValue(), 5);
 
-    // Verify request contains filter
-    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
-    // Additional verification of filter inclusion would require parsing the JSON body
+    // Verify searchKnn was called
+    verify(searchClientShim).searchKnn(any(KnnSearchRequest.class));
   }
 
   @Test
   public void testSearchPagination() throws IOException {
     // Setup mock response with multiple hits
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(
-            3,
-            Arrays.asList(
-                "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:test,table2,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:test,table3,PROD)"),
-            Arrays.asList(0.95, 0.90, 0.85)));
+    setupMockKnnResponse(
+        Arrays.asList(
+            "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:test,table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:test,table3,PROD)"),
+        Arrays.asList(0.95, 0.90, 0.85));
 
     // Test pagination from=1, size=2
     SearchResult result =
@@ -236,8 +224,8 @@ public class SemanticEntitySearchServiceTest {
   @Test
   public void testSearchPaginationBeyondResults() throws IOException {
     // Setup mock response with 1 hit
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(1, "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)", 0.95));
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)"), List.of(0.95));
 
     // Test pagination beyond available results
     SearchResult result =
@@ -253,8 +241,8 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testSearchWithNullPageSize() throws IOException {
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(1, "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)", 0.95));
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)"), List.of(0.95));
 
     SearchResult result =
         service.search(
@@ -265,8 +253,8 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testSearchOpenSearchIOException() throws IOException {
-    when(searchClientShim.performLowLevelRequest(any(Request.class)))
+  public void testSearchKnnIOException() throws IOException {
+    when(searchClientShim.searchKnn(any(KnnSearchRequest.class)))
         .thenThrow(new IOException("Connection failed"));
 
     assertThrows(
@@ -290,9 +278,8 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testSearchInvalidUrnInResponse() throws IOException {
-    // Setup mock response with invalid URN
-    ObjectNode mockResponseJson = createMockSearchResponse(1, "invalid-urn", 0.95);
-    setupMockOpenSearchResponse(mockResponseJson);
+    // Setup mock response with invalid URN — should be skipped
+    setupMockKnnResponse(List.of("invalid-urn"), List.of(0.95));
 
     SearchResult result =
         service.search(
@@ -309,8 +296,8 @@ public class SemanticEntitySearchServiceTest {
     when(mockIndexConvention.getEntityIndexName("dataset")).thenReturn("datasetindex_v2");
     when(mockIndexConvention.getEntityIndexName("chart")).thenReturn("chartindex_v2");
 
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(1, "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)", 0.95));
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)"), List.of(0.95));
 
     SearchResult result =
         service.search(
@@ -318,13 +305,13 @@ public class SemanticEntitySearchServiceTest {
 
     assertNotNull(result);
 
-    // Verify request includes both semantic indices
-    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
-    Request capturedRequest = requestCaptor.getValue();
-    String endpoint = capturedRequest.getEndpoint();
-    assertTrue(endpoint.contains("datasetindex_v2_semantic"));
-    assertTrue(endpoint.contains("chartindex_v2_semantic"));
+    // Verify searchKnn was called with comma-joined index names
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(searchClientShim).searchKnn(requestCaptor.capture());
+    String indexName = requestCaptor.getValue().indexName();
+    assertTrue(indexName.contains("datasetindex_v2_semantic"), "indexName must include dataset");
+    assertTrue(indexName.contains("chartindex_v2_semantic"), "indexName must include chart");
   }
 
   @Test
@@ -333,8 +320,8 @@ public class SemanticEntitySearchServiceTest {
     when(mockEntityRegistry.getEntitySpec(TEST_ENTITY_NAME))
         .thenThrow(new RuntimeException("Entity spec not found"));
 
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(1, "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)", 0.95));
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)"), List.of(0.95));
 
     // Should continue with empty field types
     SearchResult result =
@@ -346,48 +333,22 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testSearchWithDefaultFieldsOnly() throws IOException {
-    // Setup mock response
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(
-            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
-
-    // No fetchExtraFields specified, should use default fields
-
-    SearchResult result =
-        service.search(
-            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
-
-    assertNotNull(result);
-    assertEquals(result.getEntities().size(), 1);
-
-    // Verify the request was made with default fields
-    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
-    Request capturedRequest = requestCaptor.getValue();
-
-    // Parse the request body to verify _source contains default fields
-    String requestBody = extractRequestBody(capturedRequest);
-    assertNotNull(requestBody);
-    assertTrue(
-        requestBody.contains("_source"),
-        "Request body should contain _source field. Actual body: " + requestBody);
-    // Default fields from SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH should be
-    // present
-  }
-
-  @Test
   public void testSearchWithFetchExtraFields() throws IOException {
-    // Setup mock response with extra fields in _source
-    ObjectNode mockResponse =
-        createMockSearchResponseWithExtraFields(
-            1,
-            "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)",
-            0.95,
-            "Test Dataset",
-            "urn:li:dataPlatform:test",
-            "test.table");
-    setupMockOpenSearchResponse(mockResponse);
+    // Setup mock response with extra fields in source
+    Map<String, Object> source =
+        Map.of(
+            "urn", "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)",
+            "name", "Test Dataset",
+            "platform", "urn:li:dataPlatform:test",
+            "qualifiedName", "test.table",
+            "usageCountLast30Days", 42);
+
+    KnnSearchResponse response =
+        new KnnSearchResponse(
+            List.of(
+                new KnnSearchResponse.Hit(
+                    "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95, source)));
+    when(searchClientShim.searchKnn(any(KnnSearchRequest.class))).thenReturn(response);
 
     // Setup fetchExtraFields
     StringArray extraFields = new StringArray();
@@ -404,171 +365,68 @@ public class SemanticEntitySearchServiceTest {
 
     SearchEntity entity = result.getEntities().get(0);
     assertNotNull(entity.getExtraFields());
-
-    // Verify extra fields are present in the result
-    assertNotNull(entity.getExtraFields());
     assertTrue(entity.getExtraFields().size() > 0);
     assertTrue(entity.getExtraFields().containsKey("name"));
     assertTrue(entity.getExtraFields().containsKey("platform"));
     assertTrue(entity.getExtraFields().containsKey("qualifiedName"));
-
-    // Verify the request was made with both default and extra fields
-    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
-    Request capturedRequest = requestCaptor.getValue();
-
-    String requestBody = extractRequestBody(capturedRequest);
-    assertNotNull(requestBody);
-    assertTrue(
-        requestBody.contains("_source"),
-        "Request body should contain _source field. Actual body: " + requestBody);
   }
 
   @Test
-  public void testSearchWithEmptyFetchExtraFields() throws IOException {
-    // Setup mock response
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(
-            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
+  public void testSearchFieldFetchingPassedToShim() throws IOException {
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)"), List.of(0.95));
 
-    // Empty fetchExtraFields array should behave like no extra fields
-    StringArray emptyExtraFields = new StringArray();
+    service.search(mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
 
-    SearchResult result =
-        service.search(
-            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(searchClientShim).searchKnn(requestCaptor.capture());
 
-    assertNotNull(result);
-    assertEquals(result.getEntities().size(), 1);
-
-    // Should behave the same as default fields only
-    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
-    Request capturedRequest = requestCaptor.getValue();
-
-    String requestBody = extractRequestBody(capturedRequest);
-    assertNotNull(requestBody);
+    // fieldsToFetch must not be empty — default fields should always be populated
     assertTrue(
-        requestBody.contains("_source"),
-        "Request body should contain _source field. Actual body: " + requestBody);
+        !requestCaptor.getValue().fieldsToFetch().isEmpty(),
+        "fieldsToFetch must not be empty; default fields should be included");
   }
 
   @Test
-  public void testSearchFieldFetchingParity() throws IOException {
-    // This test verifies that semantic search uses the same field fetching logic as keyword search
-    setupMockOpenSearchResponse(
-        createMockSearchResponse(
-            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
+  public void testSearchRoutedThroughSearchKnn() throws IOException {
+    // This test asserts that SemanticEntitySearchService calls searchClientShim.searchKnn(...)
+    // — never performLowLevelRequest — so ES 8 and OS 2 both receive the correct query format.
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)"), List.of(0.9));
 
-    // Setup extra fields that would be commonly requested
-    StringArray extraFields = new StringArray();
-    extraFields.add("customProperties");
-    extraFields.add("description");
+    service.search(mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
 
-    SearchResult result =
-        service.search(
-            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(searchClientShim).searchKnn(requestCaptor.capture());
 
-    assertNotNull(result);
-
-    // Verify the search request includes both default fields and extra fields
-    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
-    Request capturedRequest = requestCaptor.getValue();
-
-    // The request should contain the combined field set (default + extra)
-    String requestBody = extractRequestBody(capturedRequest);
-    assertNotNull(requestBody);
-    assertTrue(
-        requestBody.contains("_source"),
-        "Request body should contain _source field. Actual body: " + requestBody);
-
-    // Verify that SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH fields are included
-    // This ensures parity with keyword search field fetching logic
+    KnnSearchRequest req = requestCaptor.getValue();
+    assertEquals(req.indexName(), TEST_SEMANTIC_INDEX, "indexName must be the semantic index");
+    assertEquals(req.vectorField(), "embeddings.text_embedding_3_large.chunks.vector");
+    assertEquals(req.queryVector(), TEST_EMBEDDING);
+    assertTrue(req.k() >= 1, "k must be positive");
   }
 
+  // -------------------------------------------------------------------------
   // Helper methods
+  // -------------------------------------------------------------------------
 
-  private String extractRequestBody(Request request) throws IOException {
-    if (request.getEntity() != null) {
-      return EntityUtils.toString(request.getEntity());
-    }
-    return "";
-  }
-
-  private void setupMockOpenSearchResponse(ObjectNode responseJson) throws IOException {
-    String responseBody = objectMapper.writeValueAsString(responseJson);
-    when(mockResponse.getEntity()).thenReturn(mockHttpEntity);
-    when(mockHttpEntity.getContent()).thenReturn(new ByteArrayInputStream(responseBody.getBytes()));
-    when(searchClientShim.performLowLevelRequest(any(Request.class))).thenReturn(mockResponse);
-  }
-
-  private ObjectNode createMockSearchResponse(int totalHits, String urn, double score) {
-    return createMockSearchResponse(totalHits, Arrays.asList(urn), Arrays.asList(score));
-  }
-
-  private ObjectNode createMockSearchResponse(
-      int totalHits, List<String> urns, List<Double> scores) {
-    ObjectNode response = JsonNodeFactory.instance.objectNode();
-
-    // Create hits structure
-    ObjectNode hits = JsonNodeFactory.instance.objectNode();
-    ObjectNode total = JsonNodeFactory.instance.objectNode();
-    total.put("value", totalHits);
-    hits.set("total", total);
-
-    // Create hits array
-    ArrayNode hitsArray = JsonNodeFactory.instance.arrayNode();
+  private void setupMockKnnResponse(List<String> urns, List<Double> scores) throws IOException {
+    List<KnnSearchResponse.Hit> hits = new java.util.ArrayList<>();
     for (int i = 0; i < urns.size() && i < scores.size(); i++) {
-      ObjectNode hit = JsonNodeFactory.instance.objectNode();
-      Double score = scores.get(i);
-      if (score != null) {
-        hit.put("_score", score.doubleValue());
-      }
-
-      ObjectNode source = JsonNodeFactory.instance.objectNode();
-      source.put("urn", urns.get(i));
-      source.put("name", "Test Dataset " + (i + 1));
-      source.put("platform", "urn:li:dataPlatform:test");
-      hit.set("_source", source);
-
-      hitsArray.add(hit);
+      Map<String, Object> source =
+          Map.of(
+              "urn",
+              urns.get(i),
+              "name",
+              "Test Dataset " + (i + 1),
+              "platform",
+              "urn:li:dataPlatform:test");
+      hits.add(new KnnSearchResponse.Hit(urns.get(i), scores.get(i), source));
     }
-    hits.set("hits", hitsArray);
-    response.set("hits", hits);
-
-    return response;
-  }
-
-  private ObjectNode createMockSearchResponseWithExtraFields(
-      int totalHits, String urn, double score, String name, String platform, String qualifiedName) {
-    ObjectNode response = JsonNodeFactory.instance.objectNode();
-
-    // Create hits structure
-    ObjectNode hits = JsonNodeFactory.instance.objectNode();
-    ObjectNode total = JsonNodeFactory.instance.objectNode();
-    total.put("value", totalHits);
-    hits.set("total", total);
-
-    // Create hits array with extra fields
-    ArrayNode hitsArray = JsonNodeFactory.instance.arrayNode();
-    ObjectNode hit = JsonNodeFactory.instance.objectNode();
-    hit.put("_score", score);
-
-    ObjectNode source = JsonNodeFactory.instance.objectNode();
-    source.put("urn", urn);
-    source.put("name", name);
-    source.put("platform", platform);
-    source.put("qualifiedName", qualifiedName);
-    // Add default fields that would be included
-    source.put("usageCountLast30Days", 42);
-    hit.set("_source", source);
-
-    hitsArray.add(hit);
-    hits.set("hits", hitsArray);
-    response.set("hits", hits);
-
-    return response;
+    when(searchClientShim.searchKnn(any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(hits));
   }
 
   private Filter createTestFilter(String field, String value) {
