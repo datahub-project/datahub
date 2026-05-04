@@ -277,6 +277,7 @@ datacatalog_lineage_common = {
 
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
+    "google-cloud-resource-manager<2.0.0",
     *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
@@ -394,7 +395,6 @@ s3_base = {
     # overflow/infinite loop GHSA-c8rr-9gxc-jprv). Keep <6 until major API review.
     "ujson>=5.12.0,<6.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
@@ -481,7 +481,8 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
+    "Authlib>=1.6.11,<2.0.0",
 }
 
 superset_common = {
@@ -895,6 +896,8 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
+    # moto: AWS mocks for S3 / Dynamo / secrets tests only, not a runtime S3 source dependency
+    "moto[s3]>=5.0.0,<6.0.0",
     *lint_requirements,
     *test_api_requirements,
     "coverage>=5.1,<8.0.0",

@@ -1,9 +1,13 @@
 #!/bin/sh
 set -u
 
+# Use absolute paths so -Dconfig.file and logback work when CWD is not / (e.g. some K8s/compose
+# setups set workdir to the app root; relative datahub-frontend/conf/... would not exist).
+DATAHUB_HOME="${DATAHUB_HOME:-/datahub-frontend}"
+
 PROMETHEUS_AGENT=""
 if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
-  PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub-frontend/client-prometheus-config.yaml"
+  PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:${DATAHUB_HOME}/client-prometheus-config.yaml"
 fi
 
 export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
@@ -47,14 +51,14 @@ fi
 # this string
 export JAVA_OPTS="${JAVA_MEMORY_OPTS:-"-Xms512m -Xmx1024m"} \
    -Dhttp.port=$SERVER_PORT \
-   -Dconfig.file=datahub-frontend/conf/application.conf \
-   -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
-   -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
+   -Dconfig.file=${DATAHUB_HOME}/conf/application.conf \
+   -Djava.security.auth.login.config=${DATAHUB_HOME}/conf/jaas.conf \
+   -Dlogback.configurationFile=${DATAHUB_HOME}/conf/logback.xml \
    -Dlogback.debug=false \
    ${PROMETHEUS_AGENT:-} ${OTEL_AGENT:-} \
    ${TRUSTSTORE_FILE:-} ${TRUSTSTORE_TYPE:-} ${TRUSTSTORE_PASSWORD:-} \
    ${HTTP_PROXY:-} ${HTTPS_PROXY:-} ${NO_PROXY:-} \
    -Dpidfile.path=/dev/null"
 
-exec ./datahub-frontend/bin/datahub-frontend
+exec "${DATAHUB_HOME}/bin/datahub-frontend"
 

@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import ItemNotFoundError
@@ -188,6 +189,54 @@ def test_client_get_dataflow() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(flow_urn)
+
+
+def test_dataflow_env_uppercase() -> None:
+    """Uppercase env is stored as-is in both the URN and the aspect."""
+    d = DataFlow(platform="airflow", name="dag", env="DEV")
+    assert d.urn.cluster == "DEV"
+    assert str(d.urn) == "urn:li:dataFlow:(airflow,dag,DEV)"
+    assert d.env == "DEV"
+
+
+def test_dataflow_env_lowercase_normalized_in_aspect() -> None:
+    """Lowercase cluster (Airflow default 'prod') is preserved in the URN identity but
+    uppercased in the DataFlowInfo aspect, which requires a FabricType enum value."""
+    d = DataFlow(platform="airflow", name="dag", env="prod")
+    # URN identity must keep the original casing so we don't silently rename entities.
+    assert d.urn.cluster == "prod"
+    assert str(d.urn) == "urn:li:dataFlow:(airflow,dag,prod)"
+    # Aspect env must be uppercase for Elasticsearch indexing / Environment search filter.
+    assert d.env == "PROD"
+
+
+def test_dataflow_env_invalid_cluster_gives_none_in_aspect() -> None:
+    """A cluster value that is not a FabricType enum member produces None in the aspect
+    (no AvroTypeException), while the URN retains the original value."""
+    d = DataFlow(platform="airflow", name="dag", env="custom-cluster")
+    assert d.urn.cluster == "custom-cluster"
+    assert d.env is None
+
+
+def test_dataflow_new_from_graph_preserves_cluster() -> None:
+    """_new_from_graph must reconstruct the entity with the exact URN cluster,
+    not silently replace it with DEFAULT_ENV.  This is the core of ING-2363:
+    client.entities.get(urn) was returning a DataFlow with a different URN."""
+    # Simulate an Airflow-created entity: URN cluster is lowercase "prod".
+    urn = DataFlowUrn(orchestrator="airflow", flow_id="dag_name", cluster="prod")
+    aspects: models.AspectBag = {
+        "dataFlowInfo": models.DataFlowInfoClass(
+            name="dag_name",
+            env="PROD",  # stored uppercase in the aspect
+        ),
+    }
+    flow = DataFlow._new_from_graph(urn, aspects)
+
+    # URN must be identical to the input — no silent prod → PROD rename.
+    assert str(flow.urn) == "urn:li:dataFlow:(airflow,dag_name,prod)"
+    assert flow.urn.cluster == "prod"
+    # Aspect env comes from the graph (already uppercase).
+    assert flow.env == "PROD"
 
 
 def test_dataflow_with_container() -> None:

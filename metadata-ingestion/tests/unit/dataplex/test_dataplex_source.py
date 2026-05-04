@@ -17,8 +17,11 @@ def test_get_workunits_internal_wraps_project_processing() -> None:
     source.entries_processor.process_entries.return_value = iter([Mock()])
     source.config = Mock()
     source.config.project_ids = ["project-1"]
+    source._project_ids = ["project-1"]
     source.config.include_lineage = False
+    source.config.include_glossaries = False
     source.lineage_extractor = None
+    source.glossary_processor = None
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -43,8 +46,11 @@ def test_get_workunits_internal_reports_project_google_api_failure() -> None:
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.project_ids = ["project-1"]
+    source._project_ids = ["project-1"]
     source.config.include_lineage = False
+    source.config.include_glossaries = False
     source.lineage_extractor = None
+    source.glossary_processor = None
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -88,6 +94,20 @@ def test_source_init_wires_clients_processor_and_lineage_extractor() -> None:
         patch(
             "datahub.ingestion.source.dataplex.dataplex.DataplexEntriesProcessor"
         ) as entries_processor_cls,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.BusinessGlossaryServiceClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex._resolve_project_numbers",
+            return_value={"project-1": "123456789"},
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
+        ),
     ):
         source = DataplexSource(ctx, config)
 
@@ -120,6 +140,20 @@ def test_source_init_without_lineage_sets_lineage_members_to_none() -> None:
         patch(
             "datahub.ingestion.source.dataplex.dataplex.DataplexLineageExtractor"
         ) as lineage_extractor_cls,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.BusinessGlossaryServiceClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex._resolve_project_numbers",
+            return_value={"project-1": "123456789"},
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
+        ),
     ):
         source = DataplexSource(ctx, config)
 
@@ -200,10 +234,14 @@ def test_get_workunits_internal_iterates_all_projects() -> None:
     source.entries_processor.process_entries.return_value = iter([])
     source.config = Mock()
     source.config.project_ids = ["project-1", "project-2"]
+    source._project_ids = ["project-1", "project-2"]
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -241,9 +279,13 @@ def test_get_workunits_internal_skips_lineage_stage_when_disabled() -> None:
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.project_ids = ["project-1"]
+    source._project_ids = ["project-1"]
     source.config.include_lineage = False
+    source.config.include_glossaries = False
     source.lineage_extractor = None
-    source.entry_data = []
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -263,10 +305,14 @@ def test_get_workunits_internal_handles_empty_entries_for_lineage() -> None:
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.project_ids = ["project-1"]
+    source._project_ids = ["project-1"]
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = []
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -281,11 +327,14 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1"]
+    source._project_ids = ["project-1"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
-    source.entry_data.append(
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
         EntryDataTuple(
             dataplex_entry_short_name="entry-1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
@@ -296,7 +345,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
             datahub_dataset_name="project-1.ds.table",
             datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
-    )
+    ]
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
     lineage_wu = Mock()
@@ -307,7 +356,7 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
     ):
         assert list(source.get_workunits_internal()) == [lineage_wu]
     source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
-        source.entry_data,
+        source.ctx_data.entry_data,
         active_lineage_project_location_pairs=[("project-1", "us-central1")],
         max_workers=source.config.max_workers_lineage,
     )
@@ -323,10 +372,14 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1", "project-2"]
+    source._project_ids = ["project-1", "project-2"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = [
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
         EntryDataTuple(
             dataplex_entry_short_name="entry-1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
@@ -349,7 +402,7 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
         list(source.get_workunits_internal())
 
     source.lineage_extractor.get_lineage_workunits.assert_called_once_with(
-        source.entry_data,
+        source.ctx_data.entry_data,
         active_lineage_project_location_pairs=[
             ("project-1", "us-central1"),
             ("project-2", "us-central1"),
@@ -364,11 +417,14 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1"]
+    source._project_ids = ["project-1"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    source.entry_data = []
-    source.entry_data.append(
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
         EntryDataTuple(
             dataplex_entry_short_name="entry-1",
             dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/entry-1",
@@ -379,7 +435,7 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
             datahub_dataset_name="project-1.ds.table",
             datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
-    )
+    ]
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
     source.lineage_extractor.get_lineage_workunits.side_effect = RuntimeError("boom")
@@ -396,32 +452,35 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
     source.entries_processor = Mock()
     source.config = Mock()
     source.config.include_lineage = True
+    source.config.include_glossaries = False
     source.config.project_ids = ["project-1", "project-2"]
+    source._project_ids = ["project-1", "project-2"]
     source.config.lineage_locations = ["us-central1"]
     source.lineage_extractor = Mock()
-    entry_1 = EntryDataTuple(
-        dataplex_entry_short_name="entry-1",
-        dataplex_entry_name="projects/p1/locations/us/entryGroups/g/entries/entry-1",
-        dataplex_location="us",
-        dataplex_entry_fqn="bigquery:project-1.ds.table",
-        dataplex_entry_type_short_name="bigquery-table",
-        datahub_platform="bigquery",
-        datahub_dataset_name="project-1.ds.table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-    )
-    entry_2 = EntryDataTuple(
-        dataplex_entry_short_name="entry-2",
-        dataplex_entry_name="projects/p2/locations/us/entryGroups/g/entries/entry-2",
-        dataplex_location="us",
-        dataplex_entry_fqn="bigquery:project-2.ds.table",
-        dataplex_entry_type_short_name="bigquery-table",
-        datahub_platform="bigquery",
-        datahub_dataset_name="project-2.ds.table",
-        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-    )
-    source.entry_data = []
-    source.entry_data.append(entry_1)
-    source.entry_data.append(entry_2)
+    source.glossary_processor = None
+    source.ctx_data = Mock()
+    source.ctx_data.entry_data = [
+        EntryDataTuple(
+            dataplex_entry_short_name="entry-1",
+            dataplex_entry_name="projects/p1/locations/us/entryGroups/g/entries/entry-1",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project-1.ds.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project-1.ds.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        ),
+        EntryDataTuple(
+            dataplex_entry_short_name="entry-2",
+            dataplex_entry_name="projects/p2/locations/us/entryGroups/g/entries/entry-2",
+            dataplex_location="us",
+            dataplex_entry_fqn="bigquery:project-2.ds.table",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name="project-2.ds.table",
+            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+        ),
+    ]
     source.report = Mock()
     source.report.new_stage.return_value = nullcontext()
 
@@ -435,6 +494,167 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
     source.lineage_extractor.get_lineage_workunits.assert_called_once()
     args, _kwargs = source.lineage_extractor.get_lineage_workunits.call_args
     assert len(args[0]) == 2
+
+
+def test_project_ids_property_uses_explicit_project_ids() -> None:
+    """When project_ids is set, no Resource Manager API call is made."""
+    source = object.__new__(DataplexSource)
+    source.config = DataplexConfig(project_ids=["project-1", "project-2"])
+    source._credentials = None
+    source.report = Mock()
+
+    with patch(
+        "datahub.ingestion.source.dataplex.dataplex.resolve_gcp_projects"
+    ) as resolve_mock:
+        from datahub.ingestion.source.common.gcp_project_filter import GcpProject
+
+        resolve_mock.return_value = [
+            GcpProject(id="project-1", name="project-1"),
+            GcpProject(id="project-2", name="project-2"),
+        ]
+        resolved = source._project_ids
+
+    assert resolved == ["project-1", "project-2"]
+    # When project_ids is explicit, projects_client is None (no Resource Manager call).
+    assert resolve_mock.call_args.kwargs["projects_client"] is None
+
+
+def test_project_ids_property_uses_pattern_when_no_explicit_ids() -> None:
+    """When only project_id_pattern is set, projects come from the shared resolver."""
+    source = object.__new__(DataplexSource)
+    source.config = DataplexConfig(project_id_pattern={"allow": ["^prod-.*"]})
+    source._credentials = Mock()
+    source.report = Mock()
+
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.resourcemanager_v3.ProjectsClient"
+        ) as projects_client_cls,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.resolve_gcp_projects"
+        ) as resolve_mock,
+    ):
+        from datahub.ingestion.source.common.gcp_project_filter import GcpProject
+
+        resolve_mock.return_value = [
+            GcpProject(id="prod-a", name="prod-a"),
+            GcpProject(id="prod-b", name="prod-b"),
+        ]
+        resolved = source._project_ids
+
+    assert resolved == ["prod-a", "prod-b"]
+    projects_client_cls.assert_called_once_with(credentials=source._credentials)
+    assert (
+        resolve_mock.call_args.kwargs["projects_client"]
+        is projects_client_cls.return_value
+    )
+
+
+def test_project_ids_property_is_cached() -> None:
+    """The cached_property resolves once and reuses the result."""
+    source = object.__new__(DataplexSource)
+    source.config = DataplexConfig(project_ids=["project-1"])
+    source._credentials = None
+    source.report = Mock()
+
+    with patch(
+        "datahub.ingestion.source.dataplex.dataplex.resolve_gcp_projects"
+    ) as resolve_mock:
+        from datahub.ingestion.source.common.gcp_project_filter import GcpProject
+
+        resolve_mock.return_value = [GcpProject(id="project-1", name="project-1")]
+        first = source._project_ids
+        second = source._project_ids
+
+    assert first == second
+    resolve_mock.assert_called_once()
+
+
+def test_test_connection_pattern_only_resolves_and_lists_entry_groups() -> None:
+    """In pattern-only mode, test_connection must validate Resource Manager
+    access (by resolving at least one project) and Dataplex API access (by
+    listing entry groups on the resolved project)."""
+    from datahub.ingestion.source.common.gcp_project_filter import GcpProject
+
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
+        ) as catalog_client_cls,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.resourcemanager_v3.ProjectsClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.resolve_gcp_projects",
+            return_value=[GcpProject(id="prod-app", name="prod-app")],
+        ) as resolve_mock,
+    ):
+        catalog_client = catalog_client_cls.return_value
+        catalog_client.list_entry_groups.return_value = iter([Mock()])
+        report = DataplexSource.test_connection(
+            {"project_id_pattern": {"allow": ["^prod-.*"]}}
+        )
+
+    resolve_mock.assert_called_once()
+    catalog_client.list_entry_groups.assert_called_once()
+    parent = catalog_client.list_entry_groups.call_args.kwargs["request"].parent
+    assert "projects/prod-app" in parent
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+
+
+def test_test_connection_pattern_only_no_projects_resolved_fails() -> None:
+    """If Resource Manager returns no projects (or access is denied),
+    test_connection must report basic_connectivity as not capable."""
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
+        ) as catalog_client_cls,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.resourcemanager_v3.ProjectsClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.resolve_gcp_projects",
+            return_value=[],
+        ),
+    ):
+        report = DataplexSource.test_connection(
+            {"project_id_pattern": {"allow": ["^prod-.*"]}}
+        )
+
+    catalog_client = catalog_client_cls.return_value
+    catalog_client.list_entry_groups.assert_not_called()
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is not None
+    assert "No GCP projects matched" in report.basic_connectivity.failure_reason
+
+
+def test_get_workunits_internal_with_empty_resolved_projects() -> None:
+    """When resolve_gcp_projects yields no projects (pattern matches nothing or
+    Resource Manager error), get_workunits_internal still completes; the
+    underlying failure has been surfaced on the report by the resolver."""
+    source = object.__new__(DataplexSource)
+    source.entries_processor = Mock()
+    source.entries_processor.process_entries.return_value = iter([])
+    source.config = Mock()
+    source.config.project_ids = []
+    source._project_ids = []  # primes the cached_property cache
+    source.config.include_lineage = False
+    source.config.include_glossaries = False
+    source.lineage_extractor = None
+    source.glossary_processor = None
+    source.report = Mock()
+    source.report.new_stage.return_value = nullcontext()
+
+    with patch(
+        "datahub.ingestion.source.dataplex.dataplex.auto_workunit", return_value=[]
+    ):
+        workunits = list(source.get_workunits_internal())
+
+    assert workunits == []
+    source.entries_processor.process_entries.assert_called_once_with(
+        project_ids=[], max_workers=source.config.max_workers_entries
+    )
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:

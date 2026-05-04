@@ -169,6 +169,8 @@ class TestEventSpecProcessorStructuredProperties:
         """Create mock dependencies for event spec processor."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"

@@ -1,3 +1,7 @@
+---
+description: "Manage Groups in DataHub to assign roles, ownership, and access policies to organizational teams and departments."
+---
+
 # Authorization using Groups
 
 ## Introduction

@@ -228,6 +228,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
+            tcp_keepalive=config.tcp_keepalive,
         )
 
     @property

@@ -3,6 +3,10 @@ package io.datahubproject.test.search;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.util.Map;
@@ -419,11 +423,6 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   }
 
   @Override
-  public void addBulk(DocWriteRequest<?> writeRequest) {
-    delegate.addBulk(writeRequest);
-  }
-
-  @Override
   public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
     delegate.addBulk(urn, writeRequest);
   }
@@ -447,5 +446,21 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   @Override
   public void close() throws IOException {
     delegate.close();
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+    return delegate.searchKnn(request);
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    delegate.createSemanticIndex(spec);
+  }
+
+  @Override
+  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+    delegate.indexEmbeddings(batch);
   }
 }

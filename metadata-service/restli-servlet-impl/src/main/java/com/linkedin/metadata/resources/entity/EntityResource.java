@@ -32,6 +32,7 @@ import io.datahubproject.metadata.services.RestrictedService;
 import com.linkedin.data.template.SetMode;
 import io.datahubproject.metadata.context.OperationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -187,6 +188,26 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Inject
   private ElasticSearchConfiguration searchConfiguration;
+
+  @VisibleForTesting
+  void setEntityService(EntityService<?> entityService) {
+    this.entityService = entityService;
+  }
+
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    this.authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setSystemOperationContext(OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+  }
 
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
@@ -941,7 +962,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           DeleteEntityResponse response = new DeleteEntityResponse();
           if (aspectName == null) {
             RollbackRunResult result = entityService.deleteUrn(opContext, urn);
-            response.setRows(result.getRowsDeletedFromEntityDeletion());
+            Integer rows = result.getRowsDeletedFromEntityDeletion();
+            response.setRows(rows != null ? rows.longValue() : 0L);
           }
           Long numTimeseriesDocsDeleted =
               deleteTimeseriesAspects(

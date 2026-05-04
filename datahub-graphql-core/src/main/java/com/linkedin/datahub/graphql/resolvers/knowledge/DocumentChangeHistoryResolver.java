@@ -3,7 +3,9 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentChange;
@@ -46,6 +48,11 @@ public class DocumentChangeHistoryResolver
     final QueryContext context = environment.getContext();
     final Document source = environment.getSource();
     final Urn documentUrn = UrnUtils.getUrn(source.getUrn());
+
+    if (!AuthorizationUtils.canGetDocument(documentUrn, context)) {
+      throw new AuthorizationException(
+          "Unauthorized to view change history for entity: " + documentUrn);
+    }
 
     // Parse arguments
     final Long startTimeMillis = environment.getArgument("startTimeMillis");
