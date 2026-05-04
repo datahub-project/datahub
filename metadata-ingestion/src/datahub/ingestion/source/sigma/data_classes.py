@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from datetime import datetime
-from typing import Annotated, Dict, List, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -114,8 +114,51 @@ class Element(BaseModel):
     type: Optional[str] = None
     vizualizationType: Optional[str] = None
     query: Optional[str] = None
-    columns: List[str] = []
-    upstream_sources: Dict[str, "ElementUpstream"] = {}
+    columns: List[str] = Field(default_factory=list)
+    # name -> formula mapping populated when column entries carry formula data.
+    # Populated by the model_validator below; defaults to {} for plain string columns.
+    column_formulas: Dict[str, Optional[str]] = Field(default_factory=dict)
+    upstream_sources: Dict[str, "ElementUpstream"] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_column_formulas(cls, values: Any) -> Any:
+        """Accept columns as plain strings or as dicts with name+formula.
+
+        In production, the page-elements endpoint returns columns as plain strings
+        and formulas are hydrated externally from GET /workbooks/{id}/columns via
+        SigmaAPI.get_workbook_column_formulas().
+
+        In unit tests, column entries may be passed as dicts like
+        {"name": "Col", "formula": "[Source/Col]"} to bypass the API layer.
+        Production formula hydration should happen after validation via the
+        separate workbook columns response, not through this test helper path.
+        If Sigma ever changes the page-elements endpoint to return rich column
+        objects, this branch will intentionally preserve those formulas instead
+        of discarding the richer payload.
+        When dict entries are detected this validator:
+          - Replaces `columns` with a plain list of names (backward-compatible).
+          - Populates `column_formulas` with the name->formula mapping.
+        """
+        raw_columns = values.get("columns", [])
+        if raw_columns and any(isinstance(col, dict) for col in raw_columns):
+            column_names: List[str] = []
+            column_formulas: Dict[str, Optional[str]] = {}
+            for col in raw_columns:
+                if isinstance(col, dict):
+                    name = col.get("name", "")
+                    if not name:
+                        logger.debug(
+                            "Skipping Sigma column formula without a name: %s", col
+                        )
+                        continue
+                    column_names.append(name)
+                    column_formulas[name] = col.get("formula") or None
+                else:
+                    column_names.append(str(col))
+            values["columns"] = column_names
+            values["column_formulas"] = column_formulas
+        return values
 
     def get_urn_part(self):
         return self.elementId

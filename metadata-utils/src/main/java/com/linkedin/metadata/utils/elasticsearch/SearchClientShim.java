@@ -2,6 +2,10 @@ package com.linkedin.metadata.utils.elasticsearch;
 
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -340,6 +344,23 @@ public interface SearchClientShim<T> extends Closeable {
   void flushBulkProcessor();
 
   void closeBulkProcessor();
+
+  // -- Semantic search operations --------------------------------------------------
+
+  default KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+    throw new UnsupportedOperationException(
+        "searchKnn not supported by " + getEngineType() + " shim");
+  }
+
+  default void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    throw new UnsupportedOperationException(
+        "createSemanticIndex not supported by " + getEngineType() + " shim");
+  }
+
+  default void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+    throw new UnsupportedOperationException(
+        "indexEmbeddings not supported by " + getEngineType() + " shim");
+  }
 
   /**
    * Get the native client instance for advanced operations that require direct access WARNING:
