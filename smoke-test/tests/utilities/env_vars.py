@@ -62,6 +62,11 @@ def get_kafka_schema_registry_url() -> Optional[str]:
     return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL")
 
 
+def get_actions_metrics_url() -> Optional[str]:
+    """DataHub Actions Prometheus metrics URL."""
+    return os.getenv("DATAHUB_ACTIONS_METRICS_URL")
+
+
 # ============================================================================
 # Admin Credentials
 # ============================================================================

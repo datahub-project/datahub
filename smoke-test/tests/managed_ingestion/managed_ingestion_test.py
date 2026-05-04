@@ -600,3 +600,83 @@ def test_create_list_get_ingestion_execution_request(auth_session):
     variables = {"urn": ingestion_source_urn}
     res_data = execute_graphql(auth_session, query, variables)
     assert res_data["data"]["deleteIngestionSource"] is not None
+
+
+@pytest.mark.dependency(depends=["test_create_list_get_ingestion_execution_request"])
+def test_mcl_early_filter_metrics():
+    """
+    Test that MCL early filter metrics are being generated.
+
+    After running managed ingestion (which generates MCL events),
+    verify that the kafka_mcl_early_filter_total metric shows
+    both rejected and passed events.
+    """
+    import requests
+
+    from tests.utils import get_actions_metrics_url
+
+    prometheus_url = f"{get_actions_metrics_url()}/metrics"
+
+    logger.info(f"Fetching metrics from {prometheus_url}")
+    response = requests.get(prometheus_url)
+    assert response.status_code == 200, (
+        f"Failed to fetch metrics: {response.status_code}"
+    )
+
+    content = response.text
+
+    # Look for the kafka_mcl_early_filter_total metric
+    metric_lines = []
+    for line in content.split("\n"):
+        line = line.strip()
+        if line and not line.startswith("#"):
+            if "kafka_mcl_early_filter_total" in line:
+                metric_lines.append(line)
+
+    logger.info(
+        f"✅ Found {len(metric_lines)} kafka_mcl_early_filter_total metric lines"
+    )
+    for line in metric_lines:
+        logger.info(f"  - {line}")
+
+    # Verify metric exists
+    assert len(metric_lines) > 0, (
+        "kafka_mcl_early_filter_total metric not found in Prometheus output"
+    )
+
+    # Parse metrics to check for both rejected and passed events
+    rejected_count = 0.0
+    passed_count = 0.0
+
+    for line in metric_lines:
+        if 'result="rejected"' in line:
+            # Extract count from line like: kafka_mcl_early_filter_total{...} 42.0
+            count = float(line.split()[-1])
+            rejected_count += count
+            logger.info(f"  → Rejected events: {count}")
+        elif 'result="passed"' in line:
+            count = float(line.split()[-1])
+            passed_count += count
+            logger.info(f"  → Passed events: {count}")
+
+    # Verify we have both rejected and passed events
+    # The executor action config filters for entityType=dataHubExecutionRequest
+    # so most MCL events (dataset changes, etc.) should be rejected
+    logger.info(f"Total rejected: {rejected_count}, Total passed: {passed_count}")
+
+    assert rejected_count > 0, (
+        "No rejected events found - MCL early filter may not be working"
+    )
+    assert passed_count > 0, "No passed events found - no execution requests processed"
+
+    # Verify rejection rate is significant (executor action should reject most events)
+    total = rejected_count + passed_count
+    rejection_rate = rejected_count / total if total > 0 else 0
+    logger.info(f"📊 MCL early filter rejection rate: {rejection_rate:.1%}")
+
+    assert rejection_rate > 0.5, (
+        f"Expected >50% rejection rate, got {rejection_rate:.1%}. "
+        f"Early filter should reject most non-execution-request MCL events."
+    )
+
+    logger.info("🎉 MCL early filter metrics validated successfully!")

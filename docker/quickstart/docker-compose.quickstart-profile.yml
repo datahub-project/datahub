@@ -12,6 +12,7 @@ services:
     environment:
       ACTIONS_CONFIG: ''
       ACTIONS_EXTRA_PACKAGES: ''
+      DATAHUB_ACTIONS_MONITORING_ENABLED: 'true'
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_GMS_PROTOCOL: http
@@ -30,6 +31,11 @@ services:
     image: acryldata/datahub-actions:${DATAHUB_VERSION}-slim
     networks:
       default: null
+    ports:
+    - mode: ingress
+      target: 8000
+      published: '8000'
+      protocol: tcp
     volumes:
     - type: bind
       source: ${HOME}/.aws

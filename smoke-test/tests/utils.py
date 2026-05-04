@@ -101,6 +101,15 @@ def get_kafka_schema_registry():
     )
 
 
+def get_actions_metrics_url():
+    """Get URL for datahub-actions Prometheus metrics endpoint.
+
+    Defaults to http://localhost:8000 (port matches DATAHUB_MAPPED_ACTIONS_METRICS_PORT
+    from docker-compose configuration). Override via DATAHUB_ACTIONS_METRICS_URL env var.
+    """
+    return env_vars.get_actions_metrics_url() or "http://localhost:8000"
+
+
 def get_db_type():
     db_type = env_vars.get_db_type()
     if db_type:

@@ -11,6 +11,9 @@ x-datahub-actions-service: &datahub-actions-service
     - datahub-actions/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_ACTIONS_ENV:-empty2.env}
+  ports:
+    # Prometheus metrics endpoint (configurable via DATAHUB_MAPPED_ACTIONS_METRICS_PORT, defaults to 8000)
+    - ${DATAHUB_MAPPED_ACTIONS_METRICS_PORT:-8000}:8000
   environment:
     <<: *search-datastore-env
     ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
@@ -32,6 +35,7 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
     ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
+    DATAHUB_ACTIONS_MONITORING_ENABLED: "true"
 
 x-datahub-actions-quickstart-service: &datahub-actions-quickstart-service
   <<: *datahub-actions-service
@@ -44,6 +48,7 @@ x-datahub-actions-quickstart-service: &datahub-actions-quickstart-service
     ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
+    DATAHUB_ACTIONS_MONITORING_ENABLED: "true"
 
 services:
   datahub-actions-quickstart:

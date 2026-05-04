@@ -48,6 +48,8 @@ services:
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
     image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${DATAHUB_VERSION:-head}-slim
+    ports:
+    - ${DATAHUB_MAPPED_ACTIONS_METRICS_PORT:-8000}:8000
   datahub-frontend-react:
     depends_on:
       datahub-gms:
