@@ -1,5 +1,4 @@
 import datetime
-import functools
 import json
 import logging
 import re
@@ -384,6 +383,7 @@ class AthenaSource(SQLAlchemySource):
     def __init__(self, config: AthenaConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx, "athena")
         self.cursor: Optional[BaseCursor] = None
+        self._is_glue_catalog: Optional[bool] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
 
@@ -415,8 +415,8 @@ class AthenaSource(SQLAlchemySource):
             )
         catalog_name = self.config.catalog_name
         try:
-            client = self.cursor._connection.client  # type: ignore[union-attr]  # PyAthena internal: accessing boto3 Athena client
-            paginator = client.get_paginator("list_data_catalogs")  # type: ignore[attr-defined]  # boto3 Athena API, not in PyAthena stubs
+            client = self.cursor.connection.client  # type: ignore[union-attr]
+            paginator = client.get_paginator("list_data_catalogs")  # type: ignore[attr-defined]
             for page in paginator.paginate():
                 for catalog in page.get("DataCatalogsSummary", []):
                     if catalog.get("CatalogName", "").lower() == catalog_name.lower():
@@ -432,14 +432,23 @@ class AthenaSource(SQLAlchemySource):
             )
         return None
 
-    @functools.cached_property
+    @property
     def is_glue_catalog(self) -> bool:
+        if self._is_glue_catalog is not None:
+            return self._is_glue_catalog
         catalog_type = self._get_catalog_type()
         if catalog_type is not None:
-            return catalog_type == "GLUE"
+            self._is_glue_catalog = catalog_type == "GLUE"
+            return self._is_glue_catalog
         # AwsDataCatalog is always backed by Glue. Any other catalog name was
         # explicitly configured and is more likely non-Glue (Lambda/Hive/Federated).
-        return self.config.catalog_name.lower() == "awsdatacatalog"
+        is_glue_by_name = self.config.catalog_name.lower() == "awsdatacatalog"
+        self.report.warning(
+            message="Could not determine catalog type via API; falling back to name heuristic. "
+            "Upstream lineage URNs may be incorrect for all tables in this run.",
+            context=f"catalog={self.config.catalog_name}, assumed_glue={is_glue_by_name}",
+        )
+        return is_glue_by_name
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         schema, _view = dataset_identifier.split(".", 1)
