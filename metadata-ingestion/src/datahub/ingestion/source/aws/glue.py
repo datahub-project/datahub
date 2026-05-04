@@ -267,6 +267,16 @@ class GlueSourceConfig(
         description="If enabled, delta schemas can be alternatively fetched from table parameters.",
     )
 
+    extract_column_parameters: bool = Field(
+        default=False,
+        description=(
+            "If enabled, column-level Parameters from Glue StorageDescriptor columns are extracted "
+            "and stored in the jsonProps field of each schema field. Useful for surfacing column "
+            "metadata such as nullability flags (e.g. nullAllowed) or Iceberg field metadata "
+            "(e.g. iceberg.field.id) that Glue stores in the column Parameters dict."
+        ),
+    )
+
     include_column_lineage: bool = Field(
         default=True,
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
@@ -1870,6 +1880,14 @@ class GlueSource(StatefulIngestionSourceBase):
             and columns[0].get("Type", "") == "array<string>"
         )
 
+    def _get_column_json_props(self, column: Dict) -> Optional[str]:
+        """Return JSON-serialized column Parameters for jsonProps, or None if disabled/empty."""
+        if not self.source_config.extract_column_parameters:
+            return None
+        params = column.get("Parameters")
+        # sort_keys ensures deterministic output regardless of AWS API key ordering
+        return json.dumps(params, sort_keys=True) if params else None
+
     def _get_glue_schema_metadata(
         self, table: Dict, table_name: str
     ) -> Optional[SchemaMetadata]:
@@ -1886,6 +1904,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 default_nullable=True,
             )
             if schema_fields:
+                schema_fields[0].jsonProps = self._get_column_json_props(field)
                 fields.extend(schema_fields)
 
         # Process partition keys
@@ -1898,6 +1917,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 default_nullable=False,
             )
             if schema_fields:
+                schema_fields[0].jsonProps = self._get_column_json_props(partition_key)
                 fields.extend(schema_fields)
 
         return SchemaMetadata(
@@ -1912,7 +1932,13 @@ class GlueSource(StatefulIngestionSourceBase):
     def _get_delta_schema_metadata(
         self, table: Dict, table_name: str, dataset_urn: str
     ) -> Optional[SchemaMetadata]:
-        """Extract schema metadata from Delta table parameters."""
+        """Extract schema metadata from Delta table parameters.
+
+        Note: extract_column_parameters does not apply here. Delta schemas are
+        reconstructed from the Spark JSON schema embedded in table-level Parameters,
+        not from StorageDescriptor.Columns, so individual column Parameters dicts
+        are not present in this code path.
+        """
         try:
             # Reconstruct schema from parameters
             num_parts = int(table["Parameters"]["spark.sql.sources.schema.numParts"])

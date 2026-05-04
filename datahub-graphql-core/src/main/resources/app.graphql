@@ -873,6 +873,11 @@ type FeatureFlagsConfig {
   If enabled, hides lineage information in search result cards
   """
   hideLineageInSearchCards: Boolean!
+
+  """
+  If enabled, shows jsonProps values for schema fields in the Properties tab.
+  """
+  showColumnJsonProperties: Boolean!
 }
 
 """

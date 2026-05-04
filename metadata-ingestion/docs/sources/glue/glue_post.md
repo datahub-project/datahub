@@ -110,6 +110,32 @@ source:
 
 When this is configured, dataset URNs produced by the Glue connector will include the same `platform_instance` and `env` as the target platform's connector, ensuring entities merge correctly in DataHub. If the target platform connector does not use a `platform_instance`, no configuration is needed — URNs will match by default.
 
+#### Column Parameters
+
+AWS Glue stores additional column-level metadata in a `Parameters` dictionary on each column in
+`StorageDescriptor.Columns`. For example, Iceberg tables store `iceberg.field.id`,
+`iceberg.field.current`, and `iceberg.field.optional` there, and non-Iceberg tables may store
+custom properties such as `nullAllowed`.
+
+By default this data is not ingested. To surface it in DataHub's column **Properties** tab, enable:
+
+```yaml
+source:
+  type: glue
+  config:
+    extract_column_parameters: true
+```
+
+When enabled, each column's `Parameters` dict is serialized to JSON and stored in the `jsonProps`
+field of the corresponding schema field. The values appear as key-value pairs in the column
+Properties panel in the DataHub UI.
+
+> **Note:** This setting applies only to tables whose schema is read from
+> `StorageDescriptor.Columns`, which is the default for most table formats (Parquet, ORC, Avro,
+> Iceberg, etc.). Delta tables that use `extract_delta_schema_from_parameters: true` reconstruct
+> their schema from an embedded Spark JSON schema at the table level, where individual column
+> `Parameters` dicts are not present, so this setting has no effect for them.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

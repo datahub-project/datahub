@@ -1,5 +1,5 @@
 import { Empty, Table } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -15,7 +15,9 @@ import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { parseJsonPropsToRows } from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
+import { useShowColumnJsonProperties } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { Maybe, StructuredProperties } from '@src/types.generated';
@@ -41,6 +43,7 @@ interface Props {
         fieldPath?: string;
         fieldUrn?: string;
         fieldProperties?: Maybe<StructuredProperties>;
+        jsonProps?: string | null;
         refetch?: () => void;
         disableEdit?: boolean;
         disableSearch?: boolean;
@@ -56,18 +59,27 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
+    const showColumnJsonProperties = useShowColumnJsonProperties();
 
     const { structuredPropertyRows, expandedRowsFromFilter, structuredPropertyRowsRaw } = useStructuredProperties(
         entityRegistry,
         fieldPath || null,
         filterText,
+        fieldProperties,
     );
 
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
+
+    const jsonPropsRows = useMemo(
+        () => (showColumnJsonProperties ? parseJsonPropsToRows(properties?.jsonProps, filterText) : []),
+        [showColumnJsonProperties, properties?.jsonProps, filterText],
+    );
+
     const dataSource: PropertyRow[] = structuredPropertyRows
         .concat(customPropertyRows)
+        .concat(jsonPropsRows)
         .filter((row) => !row.structuredProperty?.settings?.isHidden);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());

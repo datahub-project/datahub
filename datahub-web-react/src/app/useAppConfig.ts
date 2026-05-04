@@ -51,6 +51,11 @@ export function useIsContextDocumentsEnabled(): boolean {
     return appConfig.config.featureFlags.contextDocumentsEnabled;
 }
 
+export function useShowColumnJsonProperties(): boolean {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showColumnJsonProperties;
+}
+
 function useFlagWithLocalStorageSync(key: string, f: (appConfig: AppConfig) => boolean) {
     const { config, loaded } = useAppConfig();
     const flagValue = f(config);

@@ -6,7 +6,7 @@ import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
 
-import { PropertyValue, StructuredPropertiesEntry } from '@types';
+import { Maybe, PropertyValue, StructuredProperties, StructuredPropertiesEntry } from '@types';
 
 const typeNameToType = {
     StringValue: { type: 'string', nativeDataType: 'text' },
@@ -216,12 +216,20 @@ export default function useStructuredProperties(
     entityRegistry: EntityRegistry,
     fieldPath: string | null,
     filterText?: string,
+    fieldProperties?: Maybe<StructuredProperties>,
 ) {
     const { entityData } = useEntityData();
     const { entityWithSchema } = useGetEntityWithSchema(!fieldPath);
 
     let structuredPropertyRowsRaw: PropertyRow[] = [];
-    if (fieldPath) {
+    if (fieldPath && fieldProperties?.properties) {
+        // Use the pre-fetched fieldProperties directly — this data comes from the same
+        // getDatasetSchema query that populates the Schema tab rows, so it's always current
+        // and avoids a secondary schema search that can miss if the Apollo cache is stale.
+        structuredPropertyRowsRaw = fieldProperties.properties
+            .filter((entry) => entry.structuredProperty.exists)
+            .map((entry) => mapStructuredPropertyToPropertyRow(entry));
+    } else if (fieldPath) {
         structuredPropertyRowsRaw = getFieldStructuredPropertyRows(
             fieldPath,
             entityWithSchema as GenericEntityProperties,

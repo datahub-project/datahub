@@ -42,6 +42,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     empty_database,
     flights_database,
     get_bucket_tagging,
+    get_databases_column_params_response,
     get_databases_delta_response,
     get_databases_response,
     get_databases_response_for_lineage,
@@ -65,6 +66,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_tables_lineage_response_1,
     get_tables_response_1,
     get_tables_response_2,
+    get_tables_response_column_params,
     get_tables_response_for_mixed_database,
     get_tables_response_for_target_database,
     get_tables_response_profiling_1,
@@ -92,6 +94,7 @@ def glue_source(
     use_s3_bucket_tags: bool = True,
     use_s3_object_tags: bool = True,
     extract_delta_schema_from_parameters: bool = False,
+    extract_column_parameters: bool = False,
     emit_storage_lineage: bool = False,
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
@@ -110,6 +113,7 @@ def glue_source(
             use_s3_bucket_tags=use_s3_bucket_tags,
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
+            extract_column_parameters=extract_column_parameters,
             emit_storage_lineage=emit_storage_lineage,
             include_column_lineage=include_column_lineage,
             extract_lakeformation_tags=extract_lakeformation_tags,
@@ -1556,4 +1560,124 @@ def test_glue_redact_job_script_secret_fields(secret_name):
 
     assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
         secret_value, "*****"
+    )
+
+
+def test_extract_column_parameters_disabled_by_default() -> None:
+    """Verify jsonProps is not set when extract_column_parameters=False (the default)."""
+    source = GlueSource(
+        ctx=PipelineContext(run_id="test"),
+        config=GlueSourceConfig(aws_region="us-west-2"),
+    )
+    table = {
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "col1",
+                    "Type": "string",
+                    "Parameters": {"nullAllowed": "false"},
+                },
+            ]
+        },
+        "PartitionKeys": [],
+    }
+    schema = source._get_glue_schema_metadata(table, "test_table")
+    assert schema is not None
+    assert all(f.jsonProps is None for f in schema.fields)
+
+
+def test_extract_column_parameters_empty_params_produces_no_json_props() -> None:
+    """Verify a column with an empty Parameters dict produces jsonProps=None, not '{}'."""
+    source = GlueSource(
+        ctx=PipelineContext(run_id="test"),
+        config=GlueSourceConfig(aws_region="us-west-2", extract_column_parameters=True),
+    )
+    table = {
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "col1", "Type": "string", "Parameters": {}},
+                {"Name": "col2", "Type": "string"},
+            ]
+        },
+        "PartitionKeys": [],
+    }
+    schema = source._get_glue_schema_metadata(table, "test_table")
+    assert schema is not None
+    assert all(f.jsonProps is None for f in schema.fields)
+
+
+def test_extract_column_parameters_struct_only_sets_top_level_field() -> None:
+    """Verify jsonProps is set only on the top-level field, not on nested struct sub-fields."""
+    source = GlueSource(
+        ctx=PipelineContext(run_id="test"),
+        config=GlueSourceConfig(aws_region="us-west-2", extract_column_parameters=True),
+    )
+    table = {
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "address",
+                    "Type": "struct<city:string,zip:string>",
+                    "Parameters": {"nullAllowed": "true"},
+                },
+            ]
+        },
+        "PartitionKeys": [],
+    }
+    schema = source._get_glue_schema_metadata(table, "test_table")
+    assert schema is not None
+    # First field is the top-level 'address' column — it should carry the jsonProps
+    assert schema.fields[0].fieldPath.endswith(".address")
+    assert schema.fields[0].jsonProps == '{"nullAllowed": "true"}'
+    # Nested sub-fields (city, zip) should not inherit the column-level Parameters
+    for sub_field in schema.fields[1:]:
+        assert sub_field.jsonProps is None
+
+
+def test_extract_column_parameters_sort_keys_deterministic() -> None:
+    """Verify output is sorted regardless of dict insertion order."""
+    source = GlueSource(
+        ctx=PipelineContext(run_id="test"),
+        config=GlueSourceConfig(aws_region="us-west-2", extract_column_parameters=True),
+    )
+    # Define params in reverse-alphabetical order to confirm sort_keys applies
+    col_z_first = {"Name": "col", "Type": "string", "Parameters": {"z": "1", "a": "2"}}
+    col_a_first = {"Name": "col", "Type": "string", "Parameters": {"a": "2", "z": "1"}}
+    result_z = source._get_column_json_props(col_z_first)
+    result_a = source._get_column_json_props(col_a_first)
+    assert result_z == result_a == '{"a": "2", "z": "1"}'
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_glue_with_extract_column_parameters(
+    tmp_path: Path,
+    pytestconfig: pytest.Config,
+) -> None:
+    glue_source_instance = glue_source(
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        extract_column_parameters=True,
+    )
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases", get_databases_column_params_response, {}
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_column_params,
+            {"DatabaseName": "iceberg-database"},
+        )
+        glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
+
+        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+
+        glue_stubber.assert_no_pending_responses()
+
+        write_metadata_file(tmp_path / "glue_column_params_mces.json", mce_objects)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_column_params_mces.json",
+        golden_path=test_resources_dir / "glue_column_params_mces_golden.json",
     )

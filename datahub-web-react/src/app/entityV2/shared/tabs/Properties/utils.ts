@@ -1,6 +1,33 @@
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 
+export function parseJsonPropsToRows(jsonProps: string | null | undefined, filterText = ''): PropertyRow[] {
+    if (!jsonProps) return [];
+    try {
+        const rawParsed = JSON.parse(jsonProps);
+        if (typeof rawParsed !== 'object' || rawParsed === null || Array.isArray(rawParsed)) {
+            return [];
+        }
+        const parsed = rawParsed as Record<string, unknown>;
+        return Object.entries(parsed)
+            .filter(
+                ([key, value]) =>
+                    !filterText ||
+                    key.toLocaleLowerCase().includes(filterText.toLocaleLowerCase()) ||
+                    String(value).toLocaleLowerCase().includes(filterText.toLocaleLowerCase()),
+            )
+            .map(([key, value]) => ({
+                displayName: key,
+                qualifiedName: `__jsonProp__${key}`,
+                values: [{ value: String(value), entity: null }],
+                type: { type: 'string', nativeDataType: 'string' },
+            }));
+    } catch (e) {
+        console.warn('Failed to parse jsonProps for schema field:', e);
+        return [];
+    }
+}
+
 function matchesName(name: string, filterText: string) {
     return name.toLocaleLowerCase().includes(filterText.toLocaleLowerCase());
 }

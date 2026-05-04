@@ -1,6 +1,6 @@
 import datetime
 import io
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from botocore.response import StreamingBody
 
@@ -1320,3 +1320,137 @@ def get_bucket_tagging() -> Dict[str, Any]:
 
 def get_object_tagging() -> Dict[str, Any]:
     return {"TagSet": [{"Key": "baz", "Value": "bob"}]}
+
+
+# Stubs for extract_column_parameters tests
+get_databases_column_params_response: Dict[str, Any] = {
+    "DatabaseList": [
+        {
+            "Name": "iceberg-database",
+            "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+            "CreateTableDefaultPermissions": [
+                {
+                    "Principal": {
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                    },
+                    "Permissions": ["ALL"],
+                }
+            ],
+            "CatalogId": "123412341234",
+        },
+    ]
+}
+
+column_params_tables: List[Dict[str, Any]] = [
+    {
+        "Name": "test_table_nullable",
+        "DatabaseName": "iceberg-database",
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
+        "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "col1",
+                    "Type": "string",
+                    "Parameters": {"nullAllowed": "false"},
+                },
+                {
+                    "Name": "col2",
+                    "Type": "string",
+                    "Parameters": {"nullAllowed": "true"},
+                },
+                {
+                    "Name": "col3",
+                    "Type": "string",
+                },
+            ],
+            "Location": "s3://test-bucket/test_table_nullable",
+            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+            "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+            "Compressed": False,
+            "NumberOfBuckets": 0,
+            "SerdeInfo": {
+                "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+                "Parameters": {},
+            },
+            "SortColumns": [],
+            "StoredAsSubDirectories": False,
+        },
+        "PartitionKeys": [
+            {
+                "Name": "partition_date",
+                "Type": "varchar(8)",
+                "Parameters": {"partition_key_info": "daily"},
+            }
+        ],
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {"table_name": "test_table_nullable"},
+        "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole/session",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "123412341234",
+        "VersionId": "0",
+    },
+    {
+        "Name": "test_iceberg_column_params",
+        "DatabaseName": "iceberg-database",
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
+        "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "emp_std_id",
+                    "Type": "string",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "1",
+                        "iceberg.field.optional": "false",
+                    },
+                },
+                {
+                    "Name": "dept_cd",
+                    "Type": "string",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "2",
+                        "iceberg.field.optional": "false",
+                    },
+                },
+                {
+                    "Name": "yr_nb",
+                    "Type": "decimal(10,0)",
+                    "Parameters": {
+                        "iceberg.field.current": "true",
+                        "iceberg.field.id": "3",
+                        "iceberg.field.optional": "false",
+                    },
+                },
+            ],
+            "Location": "s3://test-bucket/test_iceberg_column_params",
+            "Compressed": False,
+            "NumberOfBuckets": 0,
+            "SortColumns": [],
+            "StoredAsSubDirectories": False,
+        },
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {
+            "table_type": "ICEBERG",
+            "metadata_location": "s3://test-bucket/test_iceberg_column_params/metadata/00001.metadata.json",
+        },
+        "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole/session",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "123412341234",
+        "VersionId": "1",
+    },
+]
+
+get_tables_response_column_params: Dict[str, Any] = {"TableList": column_params_tables}

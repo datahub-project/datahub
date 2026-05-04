@@ -124,6 +124,7 @@ query appConfig {
             hideLineageInSearchCards
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
+            showColumnJsonProperties
         }
         chromeExtensionConfig {
             enabled

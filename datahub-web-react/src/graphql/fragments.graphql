@@ -992,6 +992,7 @@ fragment entitySchemaFieldFields on SchemaField {
     recursive
     isPartOfKey
     isPartitioningKey
+    jsonProps
     globalTags {
         ...globalTagsFields
     }
