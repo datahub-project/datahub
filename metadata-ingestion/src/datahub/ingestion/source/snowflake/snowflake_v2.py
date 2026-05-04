@@ -563,7 +563,7 @@ class SnowflakeV2Source(
         if self.config.shares:
             yield from SnowflakeSharesHandler(
                 self.config, self.report
-            ).get_shares_workunits(databases, self.connection)
+            ).get_shares_workunits(databases)
 
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)

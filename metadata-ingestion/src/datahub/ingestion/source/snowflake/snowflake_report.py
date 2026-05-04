@@ -144,12 +144,8 @@ class SnowflakeV2Report(
 
     edition: Optional[SnowflakeEdition] = None
 
-    # Share discovery metrics (only populated when enumerate_share_objects=True)
-    num_outbound_shares_discovered: int = 0
-    num_shared_objects_discovered: int = 0
-    shares_discovery_failed: bool = False
+    # Siblings emitted by SnowflakeSharesHandler (cross-account share lineage)
     num_siblings_emitted: int = 0
-    num_ghost_siblings_prevented: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

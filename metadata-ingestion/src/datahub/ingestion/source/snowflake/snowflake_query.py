@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
-SHOW_SHARES_MAX_PAGE_SIZE = 10000
 
 
 def create_deny_regex_sql_filter(
@@ -1635,16 +1634,3 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             AND sv.NAME = tc.semantic_view_name
         ORDER BY sv.SCHEMA, sv.NAME
         """
-
-    @staticmethod
-    def show_shares() -> str:
-        # Requires share OWNERSHIP privilege.
-        # Returns one row per share with columns: kind, name, database_name, owner, comment, ...
-        return f"SHOW SHARES LIMIT {SHOW_SHARES_MAX_PAGE_SIZE}"
-
-    @staticmethod
-    def describe_share(share_name: str) -> str:
-        # Requires share OWNERSHIP privilege.
-        # Returns one row per object granted to the share with columns: kind, name
-        # where kind is TABLE, VIEW, or SCHEMA and name is fully qualified.
-        return f'DESCRIBE SHARE "{share_name}"'
