@@ -54,6 +54,8 @@ dependencies {
   implementation 'software.amazon.awssdk:s3'
   // AWS SDK for Bedrock (semantic search embeddings)
   implementation 'software.amazon.awssdk:bedrockruntime'
+  // Google Auth library for Vertex AI embedding provider
+  implementation 'com.google.auth:google-auth-library-oauth2-http:1.30.0'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }

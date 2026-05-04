@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
  *   <li><b>openai</b>: OpenAI Embeddings API with text-embedding-3-small/large/ada-002 models
  *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
  *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
+ *   <li><b>vertex_ai</b>: Google Vertex AI Embeddings API with Gemini embedding models
  * </ul>
  */
 @Data
@@ -22,8 +23,8 @@ import lombok.NoArgsConstructor;
 public class EmbeddingProviderConfiguration {
 
   /**
-   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere", "local".
-   * Defaults to "openai".
+   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere", "local",
+   * "vertex_ai". Defaults to "openai".
    */
   private String type = "openai";
 
@@ -45,6 +46,9 @@ public class EmbeddingProviderConfiguration {
   /** Configuration for local embedding provider (Ollama or any OpenAI-compatible server). */
   private LocalConfig local = new LocalConfig();
 
+  /** Configuration for Google Vertex AI embedding provider. */
+  private VertexAiConfig vertexai = new VertexAiConfig();
+
   /**
    * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
    */
@@ -61,6 +65,8 @@ public class EmbeddingProviderConfiguration {
         return bedrock != null ? bedrock.getModel() : null;
       case "local":
         return local != null ? local.getModel() : null;
+      case "vertex_ai":
+        return vertexai != null ? vertexai.getModel() : null;
       default:
         return null;
     }
@@ -173,5 +179,35 @@ public class EmbeddingProviderConfiguration {
      * specify the full embed endpoint URL.
      */
     private String endpoint = "https://api.cohere.ai/v1/embed";
+  }
+
+  /** Google Vertex AI-specific configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class VertexAiConfig {
+    /**
+     * GCP project ID where Vertex AI is enabled. Required when type is "vertex_ai". Can be set via
+     * VERTEX_AI_PROJECT_ID environment variable.
+     */
+    private String projectId;
+
+    /**
+     * GCP region for the Vertex AI endpoint (e.g., "us-central1", "us-east1"). Defaults to
+     * "us-east1".
+     */
+    private String location = "us-east1";
+
+    /**
+     * Vertex AI embedding model name. Defaults to "gemini-embedding-001" (768 dimensions). Other
+     * options include "text-embedding-005" (768 dimensions).
+     */
+    private String model = "gemini-embedding-001";
+
+    /**
+     * Number of output embedding dimensions. Set to 0 to use the model's native dimensionality.
+     * Defaults to 768 (native dimensionality for gemini-embedding-001).
+     */
+    private int outputDimensionality = 768;
   }
 }

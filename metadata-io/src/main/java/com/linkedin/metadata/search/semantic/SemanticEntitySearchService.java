@@ -14,6 +14,7 @@ import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.utils.SearchUtil;
@@ -203,7 +204,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
 
     // 2) Generate query embedding
     // TODO: Make model configurable
-    float[] queryEmbedding = embeddingProvider.embed(input, null);
+    float[] queryEmbedding = embeddingProvider.embed(input, null, EmbeddingTaskType.QUERY);
 
     // 3) Get entity specs to extract field types
     List<EntitySpec> entitySpecs =

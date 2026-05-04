@@ -80,6 +80,12 @@ class Workspace:
     scan_result: dict
     independent_datasets: Dict[str, "PowerBIDataset"]  # key = dataset id
     app: Optional["App"]
+    # Built locally from the environment base URL + workspace id; the
+    # getGroupsAsAdmin payload does not include a webUrl for workspaces.
+    # None when the workspace type is not directly addressable in the
+    # PowerBI UI by id (e.g. PersonalGroup, which is only reachable via
+    # the /groups/me alias by its owner).
+    webUrl: Optional[str] = None
     # Fabric artifacts (Lakehouse, Warehouse, SQLAnalyticsEndpoint) for DirectLake lineage
     fabric_artifacts: Dict[str, "FabricArtifact"] = dataclasses.field(
         default_factory=dict
