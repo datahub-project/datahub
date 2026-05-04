@@ -59,11 +59,16 @@ class SchemaResolverProvider:
         env: str,
     ) -> SchemaResolver:
         """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env)."""
+        # Pass the graph through so that resolve_table() can fall back to a targeted
+        # per-URN fetch when the bulk pre-population missed an entry (e.g. transient
+        # GMS error mid-batch, pagination edge case, or filter mismatch). Already
+        # cached URNs short-circuit before any per-URN call is made, so this does not
+        # regress the bulk-fetch fast path.
         resolver = SchemaResolver(
             platform=platform,
             platform_instance=platform_instance,
             env=env,
-            graph=None,
+            graph=self._graph,
             report=self._report,
         )
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
