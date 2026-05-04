@@ -1,3 +1,5 @@
+import logging
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Union
 
 from pydantic import BaseModel
@@ -23,6 +25,8 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
 from datahub.utilities.search_utils import LogicalOperator
 
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 class OutboundSharePlatformResource(BaseModel):
     namespace: str
@@ -30,6 +34,8 @@ class OutboundSharePlatformResource(BaseModel):
     env: str
     source_database: str
     share_name: str
+    # Optional for backward-compat with resources written before this field was added.
+    ingested_at: Optional[datetime] = None
 
     def get_key(self) -> str:
         return f"{self.namespace}.{self.share_name}"
@@ -88,6 +94,7 @@ class RedshiftDatasharesHelper:
                     env=self.config.env,
                     source_database=share.source_database,
                     share_name=share.share_name,
+                    ingested_at=datetime.now(timezone.utc),
                 )
 
                 platform_resource = PlatformResource.create(
@@ -165,23 +172,91 @@ class RedshiftDatasharesHelper:
                 )
             else:
                 # Ideally we should get only one resource as primary key is namespace+share
-                # and type is "OUTBOUND_DATASHARE"
+                # and type is "OUTBOUND_DATASHARE"; if duplicates exist they are resolved below.
+                parsed: List[OutboundSharePlatformResource] = []
                 for resource in resources:
+                    if (
+                        resource.resource_info is None
+                        or resource.resource_info.value is None
+                    ):
+                        continue
+                    if resource.resource_info.resource_type != PLATFORM_RESOURCE_TYPE:
+                        continue
                     try:
-                        assert (
-                            resource.resource_info is not None
-                            and resource.resource_info.value is not None
-                        )
-                        return resource.resource_info.value.as_pydantic_object(
-                            OutboundSharePlatformResource, True
+                        parsed.append(
+                            resource.resource_info.value.as_pydantic_object(
+                                OutboundSharePlatformResource, True
+                            )
                         )
                     except Exception as e:
                         self.report.warning(
                             title="Upstream lineage of inbound datashare will be missing",
                             message="Failed to parse platform resource for outbound datashare",
-                            context=share.get_description(),
+                            context=f"{share.get_description()} resource={resource.id!r}",
                             exc=e,
                         )
+
+                if not parsed:
+                    self.report.warning(
+                        title="Upstream lineage of inbound datashare will be missing",
+                        message="Could not parse any matching OUTBOUND_DATASHARE PlatformResource for this share.",
+                        context=share.get_description(),
+                    )
+                    return None
+
+                _epoch = datetime.min.replace(tzinfo=timezone.utc)
+
+                def _aware(ts: Optional[datetime]) -> datetime:
+                    # Treat naive datetimes as UTC to avoid TypeError in sort.
+                    if ts is None:
+                        return _epoch
+                    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+                by_recency = sorted(
+                    parsed, key=lambda p: _aware(p.ingested_at), reverse=True
+                )
+
+                if by_recency[0].ingested_at is not None:
+                    candidates = by_recency
+                else:
+                    # No timestamps: prefer resources with platform_instance, as those come from newer ingestion runs.
+                    with_pi = [p for p in by_recency if p.platform_instance]
+                    without_pi = [p for p in by_recency if not p.platform_instance]
+                    if with_pi and without_pi:
+                        logger.warning(
+                            f"find_upstream_share: {len(with_pi)} resource(s) have "
+                            f"platform_instance and {len(without_pi)} do not (none "
+                            f"have ingested_at — legacy resources). Preferring "
+                            f"resource(s) with platform_instance set. Stale "
+                            f"resource(s) without platform_instance should be "
+                            f"cleaned up: "
+                            f"{[(p.namespace, p.share_name, p.env) for p in without_pi]}"
+                        )
+                    candidates = with_pi or without_pi
+
+                if len(candidates) > 1:
+                    chosen = candidates[0]
+                    logger.warning(
+                        f"find_upstream_share: {len(candidates)} candidate "
+                        f"resources remain; picking the most recently ingested. "
+                        f"Chosen: namespace={chosen.namespace!r} "
+                        f"share_name={chosen.share_name!r} "
+                        f"platform_instance={chosen.platform_instance!r} "
+                        f"env={chosen.env!r} "
+                        f"ingested_at={chosen.ingested_at!r}. "
+                        f"Consider cleaning up stale duplicates."
+                    )
+                    self.report.warning(
+                        title="Multiple matching outbound datashare PlatformResources",
+                        message=(
+                            "Found more than one OUTBOUND_DATASHARE PlatformResource "
+                            "matching this inbound share. Picking the most recently "
+                            "ingested; consider cleaning up duplicates."
+                        ),
+                        context=share.get_description(),
+                    )
+
+                return candidates[0]
 
         return None
 
