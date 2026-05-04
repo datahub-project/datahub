@@ -468,20 +468,52 @@ class SnowflakeV2Config(
         description="Maps Snowflake account identifiers to DataHub platform_instance names "
         "for automatic cross-account share lineage. Keys can be account locators "
         "(e.g., 'xy12345') or org-qualified names (e.g., 'myorg.account1'). "
-        "Accounts not in the mapping are skipped during auto-discovery.",
+        "Used as fallback when the producer's DataPlatformInstance is not in the graph.",
+    )
+
+    account_locator_fallback: bool = Field(
+        default=False,
+        description="If enabled, when an account is not found in `account_mapping`, "
+        "fall back to using the account_locator (e.g. 'xy12345') as the producer's "
+        "platform_instance. Useful when ingestion recipes consistently follow the "
+        "convention `platform_instance == account_locator`. Disabled by default to "
+        "avoid silently constructing wrong URNs.",
+    )
+
+    include_show_databases_metadata: bool = Field(
+        default=True,
+        description="If enabled, runs `SHOW DATABASES` to capture extra database metadata "
+        "(origin, kind, is_transient, retention_time, owner) and merges it into the "
+        "information_schema-based result. Required for Phase E auto-discovery of "
+        "inbound shares (which reads the `origin` field). Set to false to fall back "
+        "to information_schema-only metadata.",
     )
 
     def resolve_account_to_platform_instance(
-        self, account_identifier: str
+        self, account_identifier: str, account_locator: Optional[str] = None
     ) -> Optional[str]:
         """Resolve a Snowflake account identifier to a DataHub platform_instance.
 
-        Returns None if the account is not in account_mapping, signalling that
-        the caller should skip emitting siblings/lineage for this account.
+        Resolution order:
+        1. `account_mapping` config (case-insensitive on both keys: account_identifier
+           and the bare account_locator portion if `MYORG.LOCATOR` form is provided)
+        2. `account_locator_fallback` convention (account_locator as platform_instance)
+        3. None — caller should skip with warning
         """
-        for key, value in self.account_mapping.items():
-            if key.upper() == account_identifier.upper():
-                return value
+        candidates = [account_identifier]
+        if "." in account_identifier:
+            candidates.append(account_identifier.split(".", 1)[1])
+        if account_locator and account_locator not in candidates:
+            candidates.append(account_locator)
+
+        for candidate in candidates:
+            for key, value in self.account_mapping.items():
+                if key.upper() == candidate.upper():
+                    return value
+
+        if self.account_locator_fallback:
+            return (account_locator or candidates[-1]).lower()
+
         return None
 
     known_snowflake_edition: Optional[SnowflakeEdition] = Field(

@@ -108,3 +108,64 @@ def test_resolve_account_returns_none_for_unknown() -> None:
 def test_resolve_account_returns_none_for_empty_mapping() -> None:
     config = SnowflakeV2Config(account_id="abc12345")
     assert config.resolve_account_to_platform_instance("myorg.account2") is None
+
+
+def test_resolve_account_matches_bare_locator_in_org_qualified_input() -> None:
+    # Mapping keyed by bare locator should match an org-qualified input.
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        account_mapping={"account2": "instance2"},
+    )
+    assert config.resolve_account_to_platform_instance("myorg.account2") == "instance2"
+
+
+def test_resolve_account_matches_via_account_locator_arg() -> None:
+    # When the resolver receives the bare locator separately, it should match.
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        account_mapping={"account2": "instance2"},
+    )
+    assert (
+        config.resolve_account_to_platform_instance(
+            "myorg.other", account_locator="account2"
+        )
+        == "instance2"
+    )
+
+
+def test_resolve_account_locator_fallback_disabled_by_default() -> None:
+    config = SnowflakeV2Config(account_id="abc12345")
+    assert (
+        config.resolve_account_to_platform_instance(
+            "myorg.unknown", account_locator="xy12345"
+        )
+        is None
+    )
+
+
+def test_resolve_account_locator_fallback_when_enabled() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        account_locator_fallback=True,
+    )
+    assert (
+        config.resolve_account_to_platform_instance(
+            "myorg.unknown", account_locator="XY12345"
+        )
+        == "xy12345"
+    )
+
+
+def test_resolve_account_mapping_takes_precedence_over_fallback() -> None:
+    # If the mapping has a hit, use it even when fallback is on.
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        account_mapping={"myorg.account2": "instance2"},
+        account_locator_fallback=True,
+    )
+    assert (
+        config.resolve_account_to_platform_instance(
+            "myorg.account2", account_locator="account2"
+        )
+        == "instance2"
+    )

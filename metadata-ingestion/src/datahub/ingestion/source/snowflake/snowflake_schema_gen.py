@@ -336,15 +336,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
             # Merge fields from SHOW DATABASES (origin, kind, etc.) into
             # the information_schema results, which lack these columns.
-            show_db_lookup = {db.name.upper(): db for db in databases}
-            for db in ischema_databases:
-                show_db = show_db_lookup.get(db.name.upper())
-                if show_db:
-                    db.origin = show_db.origin
-                    db.kind = show_db.kind
-                    db.is_transient = show_db.is_transient
-                    db.retention_time = show_db.retention_time
-                    db.owner = show_db.owner
+            # Required for Phase E auto-discovery of inbound shares.
+            if self.config.include_show_databases_metadata:
+                show_db_lookup = {db.name.upper(): db for db in databases}
+                for db in ischema_databases:
+                    show_db = show_db_lookup.get(db.name.upper())
+                    if show_db:
+                        db.origin = show_db.origin
+                        db.kind = show_db.kind
+                        db.is_transient = show_db.is_transient
+                        db.retention_time = show_db.retention_time
+                        db.owner = show_db.owner
 
             return ischema_databases
 
