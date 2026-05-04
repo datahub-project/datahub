@@ -124,25 +124,23 @@ def _record_from_raw(
         name=raw.get("name", ""),
         sigma_type=sigma_type,
         datahub_platform=datahub_platform,
-        host=_str_or_none(raw.get("host")),
-        account=_str_or_none(raw.get("account")),
-        default_database=(
-            _str_or_none(raw.get("database"))
-            or _str_or_none(raw.get("defaultDatabase"))
-        ),
-        default_schema=(
-            _str_or_none(raw.get("schema")) or _str_or_none(raw.get("defaultSchema"))
-        ),
-        instance_hint=(
-            _str_or_none(raw.get("warehouse")) or _str_or_none(raw.get("cluster"))
-        ),
+        host=_first_str(raw, "host"),
+        account=_first_str(raw, "account"),
+        default_database=_first_str(raw, "database", "defaultDatabase"),
+        default_schema=_first_str(raw, "schema", "defaultSchema"),
+        instance_hint=_first_str(raw, "warehouse", "cluster"),
         is_mappable=bool(datahub_platform),
     )
 
 
-def _str_or_none(value: Any) -> Optional[str]:
-    """Return ``value`` if it is a non-empty string, else None.
+def _first_str(raw: Dict[str, Any], *keys: str) -> Optional[str]:
+    """First non-empty string value among ``keys`` in ``raw``, else None.
 
-    Sigma's API returns ``""`` for missing optional fields; normalize to None.
+    Sigma's API returns ``""`` for missing optional fields and sometimes
+    spells the same field two ways (e.g. ``database`` vs ``defaultDatabase``).
     """
-    return value if isinstance(value, str) and value else None
+    for key in keys:
+        value = raw.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None

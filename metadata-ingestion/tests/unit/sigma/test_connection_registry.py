@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from datahub.ingestion.source.sigma.connection_registry import (
     SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
@@ -14,7 +15,9 @@ class _FakeReporter:
     connections_duplicate_id: int = 0
 
 
-def _build(raw: list, reporter: _FakeReporter = None) -> SigmaConnectionRegistry:
+def _build(
+    raw: list, reporter: Optional[_FakeReporter] = None
+) -> SigmaConnectionRegistry:
     if reporter is None:
         reporter = _FakeReporter()
     return SigmaConnectionRegistry.build(
@@ -85,8 +88,10 @@ def test_registry_synapse_maps_to_mssql():
         },
     ]
     registry = _build(raw)
-    assert registry.get("conn-syn").datahub_platform == "mssql"
-    assert registry.get("conn-azsyn").datahub_platform == "mssql"
+    syn = registry.get("conn-syn")
+    azsyn = registry.get("conn-azsyn")
+    assert syn is not None and syn.datahub_platform == "mssql"
+    assert azsyn is not None and azsyn.datahub_platform == "mssql"
 
 
 def test_registry_skips_records_without_id():
@@ -120,7 +125,8 @@ def test_registry_counts_duplicate_ids():
     registry = _build(raw, reporter)
     assert reporter.connections_duplicate_id == 1
     # Later record wins.
-    assert registry.get("dup").host == "second.snowflakecomputing.com"
+    rec = registry.get("dup")
+    assert rec is not None and rec.host == "second.snowflakecomputing.com"
 
 
 def test_registry_record_default_is_unmappable():
