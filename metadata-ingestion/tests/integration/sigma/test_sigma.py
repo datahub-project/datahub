@@ -6339,3 +6339,259 @@ def test_sigma_connection_registry(pytestconfig, tmp_path, requests_mock):
     assert report.connections_resolved >= 1, (
         f"connections_resolved should be >= 1; got {report.connections_resolved}"
     )
+
+
+# ---------------------------------------------------------------------------
+# DM element -> warehouse table UpstreamLineage
+# Empirical shape from live Sigma API:
+#   type=table entry: {connectionId: "4b39cdcd-…", name: "CUSTOMERS", inodeId: "f09fe362-…"}
+#   /files/{inodeId}: {urlId: "7k3e6T4RK9oix71Nm2umE6", path: "Connection Root/…/PUBLIC"}
+#   Expected warehouse URN: urn:li:dataset:(urn:li:dataPlatform:snowflake,
+#                            warehouse_coffee_company.public.customers,PROD)
+# ---------------------------------------------------------------------------
+
+# Kyungsoo Snowflake DM IDs — sourced directly from live Sigma API probe.
+_T4B_DM_ID = "81e9980c-3ec8-4bbf-a38e-78f9fe472ce0"
+_T4B_DM_URL_ID = "Kyungsoo-Snowflake-DM-3X8LiCwzXUAwO30p1an0Zi"
+_T4B_CONN_ID = "4b39cdcd-5a58-4ff6-af0d-8409ff880a23"
+_T4B_INODE_ID = "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e"
+_T4B_URL_ID = "7k3e6T4RK9oix71Nm2umE6"
+_T4B_ELEMENT_ID = "byF6DckhFw"
+_T4B_WORKSPACE_ID = "3ee61405-3be2-4000-ba72-60d36757b95b"
+
+
+def _get_t4b_warehouse_dm_overrides() -> Dict[str, Dict]:
+    """Mock overrides for the warehouse-upstream integration test.
+
+    Uses real IDs and payload shapes from the live Sigma API probe.
+    """
+    return {
+        # Override connections to add the KYUNGSOO SNOWFLAKE connection.
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _T4B_CONN_ID,
+                        "name": "KYUNGSOO SNOWFLAKE",
+                        "type": "snowflake",
+                        "account": "diukgvb-woa55424",
+                        "host": "diukgvb-woa55424.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # DM file listing.
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _T4B_DM_ID,
+                        "urlId": _T4B_DM_URL_ID,
+                        "name": "Kyungsoo Snowflake DM",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "updatedBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "createdAt": "2026-05-04T00:00:00.000Z",
+                        "updatedAt": "2026-05-04T00:00:00.000Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # DM metadata listing.
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": _T4B_DM_ID,
+                        "urlId": _T4B_DM_URL_ID,
+                        "name": "Kyungsoo Snowflake DM",
+                        "description": "Integration fixture for warehouse-backed DM element",
+                        "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "createdAt": "2026-05-04T00:00:00.000Z",
+                        "updatedAt": "2026-05-04T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/dm/{_T4B_DM_URL_ID}",
+                        "latestVersion": 1,
+                        "workspaceId": _T4B_WORKSPACE_ID,
+                        "path": "Acryl Data",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # DM elements (one element, direct table source).
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_T4B_DM_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _T4B_ELEMENT_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # DM columns (one column for the element).
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_T4B_DM_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": "col-1",
+                        "name": "CUSTOMER_ID",
+                        "elementId": _T4B_ELEMENT_ID,
+                        "label": None,
+                        "formula": None,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # DM lineage — real shape from live probe.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_T4B_DM_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _T4B_CONN_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "inodeId": _T4B_INODE_ID,
+                    },
+                    {
+                        "elementId": _T4B_ELEMENT_ID,
+                        "type": "element",
+                        "sourceIds": [f"inode-{_T4B_URL_ID}"],
+                        "dataSourceIds": [f"inode-{_T4B_URL_ID}"],
+                    },
+                ],
+                "nextPage": None,
+            },
+        },
+        # /files/{inodeId} — real response from live probe.
+        f"https://aws-api.sigmacomputing.com/v2/files/{_T4B_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _T4B_INODE_ID,
+                "urlId": _T4B_URL_ID,
+                "name": "CUSTOMERS",
+                "type": "table",
+                "parentId": "3f583620-d373-4d73-bdb9-1e63aa1c58fb",
+                "parentUrlId": "1VwPpYZ44VbssheaUKZvFp",
+                "permission": "edit",
+                "path": "Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_warehouse_upstream(
+    pytestconfig, tmp_path, requests_mock
+):
+    """DM element with a type=table warehouse source gets an UpstreamLineage
+    aspect pointing at the Snowflake warehouse table URN.
+
+    Uses real IDs and payload shapes from a live Sigma API probe:
+      DM: Kyungsoo Snowflake DM (81e9980c-…)
+      Element: byF6DckhFw
+      Source: inode-7k3e6T4RK9oix71Nm2umE6 → type=table (CUSTOMERS)
+      Connection: 4b39cdcd-… (snowflake)
+      /files path: Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC
+      Expected URN:
+        urn:li:dataset:(urn:li:dataPlatform:snowflake,
+                        warehouse_coffee_company.public.customers,PROD)
+
+    Asserts:
+      - dm_element_warehouse_upstream_emitted == 1
+      - dm_element_warehouse_files_api_call == 1 (cache miss on first call)
+      - data_model_element_upstreams_unresolved == 0 (fully resolved)
+      - golden file contains UpstreamLineage aspect on element byF6DckhFw
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_t4b_warehouse_dm_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_warehouse_upstream_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_element_warehouse_upstream_emitted == 1, (
+        f"expected 1 warehouse upstream emitted; got {report.dm_element_warehouse_upstream_emitted}"
+    )
+    assert report.dm_element_warehouse_files_api_call == 1, (
+        f"expected 1 /files API call; got {report.dm_element_warehouse_files_api_call}"
+    )
+    assert report.dm_element_warehouse_files_cache_hit == 0
+    assert report.data_model_element_upstreams_unresolved == 0, (
+        f"unexpected unresolved upstreams: {report.data_model_element_upstreams_unresolved}"
+    )
+    assert report.connections_resolved == 1
+
+    # Verify the UpstreamLineage aspect on element byF6DckhFw contains the
+    # warehouse table URN.
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    expected_warehouse_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD)"
+    )
+    element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        f"{_T4B_DM_ID}.{_T4B_ELEMENT_ID},PROD)"
+    )
+    upstream_lineage_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(upstream_lineage_aspects) == 1, (
+        f"expected 1 upstreamLineage aspect on {element_urn}; "
+        f"got {len(upstream_lineage_aspects)}"
+    )
+    upstreams = upstream_lineage_aspects[0]["aspect"]["json"]["upstreams"]
+    upstream_dataset_urns = [u["dataset"] for u in upstreams]
+    assert expected_warehouse_urn in upstream_dataset_urns, (
+        f"warehouse URN not found in upstreams: {upstream_dataset_urns}"
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_warehouse_upstream.json",
+    )

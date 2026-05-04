@@ -281,6 +281,13 @@ class SigmaDataModel(BaseModel):
     # Used by cross-DM entity-level resolution to look up the correct source
     # element name without requiring the consuming element to share that name.
     source_dm_element_names: Dict[str, List[str]] = Field(default_factory=dict)
+    # Populated from /lineage ``type=table`` entries during assembly.
+    # Maps inodeId (UUID) → {"connectionId": str, "name": str} so the
+    # SigmaSource resolver can call /files/{inodeId} for the urlId + path
+    # needed to construct a fully-qualified warehouse Dataset URN.
+    warehouse_inodes_by_inode_id: Dict[str, Dict[str, str]] = Field(
+        default_factory=dict
+    )
 
     def get_url_id(self) -> str:
         """Return the DM's URL identifier: explicit ``urlId`` if set,

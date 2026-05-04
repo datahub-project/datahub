@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, Iterable, List, Literal, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Literal, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -187,6 +188,42 @@ CrossDmOutcome = Literal[
     "name_unmatched_but_dm_known",
 ]
 
+# Platforms where SQL identifiers are case-insensitive and DataHub stores them
+# lower-cased.  Mirrors the Snowflake connector's ``snowflake_identifier()``
+# convention (``identifier.lower()``).  BigQuery is case-sensitive; others not
+# listed here preserve the casing Sigma reports.
+_WAREHOUSE_LOWERCASE_PLATFORMS: frozenset = frozenset(
+    {
+        "snowflake",
+        "redshift",
+        "postgres",
+        "mysql",
+        "athena",
+        "trino",
+        "presto",
+        "mssql",
+        "spark",
+        "databricks",
+    }
+)
+
+# Sentinel for a /files path whose root segment is not "Connection Root".
+_FILES_PATH_ROOT = "Connection Root"
+
+
+@dataclass
+class _WarehouseTableRef:
+    """Resolved warehouse table coordinates derived from a /files response."""
+
+    connection_id: str
+    db: str
+    schema: str
+    table: str
+
+    def fq_name(self, platform: str) -> str:
+        name = f"{self.db}.{self.schema}.{self.table}"
+        return name.lower() if platform in _WAREHOUSE_LOWERCASE_PLATFORMS else name
+
 
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
@@ -284,6 +321,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 "False -- the pattern has no effect. Enable ingest_data_models "
                 "or remove data_model_pattern to silence this warning.",
             )
+        # Instance-level cache for /files/{inodeId} responses.
+        # Keyed by inodeId (UUID); value is the raw JSON dict or None on failure.
+        # Shared across all DMs so inodes that appear in multiple DMs hit the
+        # network only once.
+        self._files_cache: Dict[str, Optional[Dict[str, Any]]] = {}
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -542,6 +584,131 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         suffix = source_id[len("inode-") :]
         return self.sigma_dataset_urn_by_url_id.get(suffix)
 
+    def _get_file_metadata_cached(self, inode_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch /files/{inodeId} with instance-level caching (R3).
+
+        Bumps dm_element_warehouse_files_cache_hit on a hit and
+        dm_element_warehouse_files_api_call on a miss.  Stores None on failure
+        so repeated calls for a broken inode don't retry the network.
+        """
+        if inode_id in self._files_cache:
+            self.reporter.dm_element_warehouse_files_cache_hit += 1
+            return self._files_cache[inode_id]
+        self.reporter.dm_element_warehouse_files_api_call += 1
+        result = self.sigma_api.get_file_metadata(inode_id)
+        self._files_cache[inode_id] = result
+        return result
+
+    def _build_dm_warehouse_url_id_map(
+        self, data_model: SigmaDataModel
+    ) -> Dict[str, "_WarehouseTableRef"]:
+        """For each type=table lineage inode on this DM, call /files/{inodeId}
+        (cached) to get the ``urlId`` and ``path``.  Returns a map of
+        ``urlId → _WarehouseTableRef`` so ``_gen_data_model_element_upstream_lineage``
+        can look up by the suffix that element ``sourceIds`` use.
+
+        Counters bumped here:
+          - dm_element_warehouse_table_lookup_failed
+          - dm_element_warehouse_path_unparseable
+          - dm_element_warehouse_unexpected_path_root
+        """
+        result: Dict[str, "_WarehouseTableRef"] = {}
+        for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
+            conn_id = raw.get("connectionId", "")
+            table_name = raw.get("name", "")
+            files_data = self._get_file_metadata_cached(inode_id)
+            if files_data is None:
+                self.reporter.dm_element_warehouse_table_lookup_failed += 1
+                logger.debug(
+                    "DM %s: /files lookup failed for inode %r; skipping.",
+                    data_model.dataModelId,
+                    inode_id,
+                )
+                continue
+            url_id = str(files_data.get("urlId") or "")
+            path = str(files_data.get("path") or "")
+            parts = path.split("/")
+            if len(parts) < 3:
+                self.reporter.dm_element_warehouse_path_unparseable += 1
+                logger.debug(
+                    "DM %s inode %r: /files path %r has fewer than 3 segments; "
+                    "expected 'Connection Root/<DB>/<SCHEMA>'.",
+                    data_model.dataModelId,
+                    inode_id,
+                    path,
+                )
+                continue
+            if parts[0] != _FILES_PATH_ROOT:
+                self.reporter.dm_element_warehouse_unexpected_path_root += 1
+                logger.debug(
+                    "DM %s inode %r: /files path root %r != %r; "
+                    "skipping (forward-compat guard).",
+                    data_model.dataModelId,
+                    inode_id,
+                    parts[0],
+                    _FILES_PATH_ROOT,
+                )
+                continue
+            if not url_id:
+                self.reporter.dm_element_warehouse_path_unparseable += 1
+                continue
+            result[url_id] = _WarehouseTableRef(
+                connection_id=conn_id,
+                db=parts[1],
+                schema=parts[2],
+                table=table_name,
+            )
+        return result
+
+    def _resolve_dm_element_warehouse_upstream(
+        self,
+        *,
+        url_id_suffix: str,
+        warehouse_map: Dict[str, "_WarehouseTableRef"],
+        inode_source_id: str,
+    ) -> Optional[str]:
+        """Resolve a warehouse-table-backed inode sourceId to a fully-qualified
+        warehouse Dataset URN via the connection registry.
+
+        Returns None and bumps the appropriate counter when:
+          - url_id_suffix is not in warehouse_map (not a type=table inode)
+          - connection_id is not in the registry (dm_element_warehouse_unknown_connection)
+          - registry record has is_mappable=False (dm_element_warehouse_unmappable_platform)
+        On success, bumps dm_element_warehouse_upstream_emitted.
+        """
+        ref = warehouse_map.get(url_id_suffix)
+        if ref is None:
+            return None
+
+        record = self.connection_registry.get(ref.connection_id)
+        if record is None:
+            self.reporter.dm_element_warehouse_unknown_connection += 1
+            logger.debug(
+                "inode %r: connectionId %r not in connection registry.",
+                inode_source_id,
+                ref.connection_id,
+            )
+            return None
+
+        if not record.is_mappable:
+            self.reporter.dm_element_warehouse_unmappable_platform += 1
+            logger.debug(
+                "inode %r: connection %r has is_mappable=False (sigma_type=%r).",
+                inode_source_id,
+                ref.connection_id,
+                record.sigma_type,
+            )
+            return None
+
+        fq = ref.fq_name(record.datahub_platform)
+        self.reporter.dm_element_warehouse_upstream_emitted += 1
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=record.datahub_platform,
+            name=fq,
+            env=self.config.env,
+            platform_instance=None,
+        )
+
     def _resolve_dm_element_cross_dm_upstream(
         self,
         source_id: str,
@@ -673,6 +840,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
+        warehouse_url_id_map: Optional[Dict[str, "_WarehouseTableRef"]] = None,
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -692,9 +860,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_urn = elementId_to_dataset_urn[source_id]
                 shape = "intra"
             elif source_id.startswith("inode-"):
+                url_id_suffix = source_id[len("inode-") :]
+                # Check warehouse map first (type=table nodes).  The existing
+                # SD resolver handles type=dataset (Sigma Dataset) nodes; both
+                # can fire for the same inode when a file is catalogued as both
+                # a Sigma Dataset and a warehouse table.
+                warehouse_urn: Optional[str] = None
+                if warehouse_url_id_map:
+                    warehouse_urn = self._resolve_dm_element_warehouse_upstream(
+                        url_id_suffix=url_id_suffix,
+                        warehouse_map=warehouse_url_id_map,
+                        inode_source_id=source_id,
+                    )
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
-                if upstream_urn is None and source_id not in unresolved_seen:
+                # Collect both URNs; warehouse_urn is added after the loop's
+                # dedup-gate so both get an individual seen-check.
+                if warehouse_urn and warehouse_urn not in seen:
+                    upstream_urns.append(warehouse_urn)
+                    seen.add(warehouse_urn)
+                if (
+                    upstream_urn is None
+                    and warehouse_urn is None
+                    and source_id not in unresolved_seen
+                ):
                     unresolved_seen.add(source_id)
                     self.reporter.data_model_element_upstreams_unresolved_external += 1
                     self.reporter.data_model_element_upstreams_unresolved += 1
@@ -863,8 +1052,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
-        the lexicographically-first URN is chosen (matching T2 PR1's collision policy
-        and Sigma's server-side coalescing behaviour).
+        the lexicographically-first URN is chosen (matching the collision policy
+        used elsewhere in this connector and Sigma's server-side coalescing behaviour).
         """
         by_name, _ = _dedup_dm_element_columns(element.columns)
 
@@ -1005,8 +1194,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     continue
 
                 # Collision handling: multiple siblings passed /lineage filter.
-                # Pick sorted-first to match T2 PR1's _resolve_external_upstream
-                # policy and Sigma's server-side coalescing.
+                # Pick sorted-first to match the collision policy used elsewhere
+                # in this connector and Sigma's server-side coalescing.
                 if len(surviving_urns) > 1:
                     self.reporter.data_model_element_fgl_collision_pick_first += 1
                     self.reporter.warning(
@@ -1077,6 +1266,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
+        # Resolve all type=table inodes for this DM once before the element loop.
+        # One /files call per unique inode (cached across DMs).
+        warehouse_url_id_map = self._build_dm_warehouse_url_id_map(data_model)
         # ``data_model.path`` starts with the workspace name (e.g.
         # "Acryl Data/Marketing"); drop index 0 because the workspace is
         # already the enclosing Container. ``split`` on a path with no
@@ -1190,6 +1382,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element_dataset_urn,
                 elementId_to_dataset_urn,
                 element_name_to_eids,
+                warehouse_url_id_map,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(

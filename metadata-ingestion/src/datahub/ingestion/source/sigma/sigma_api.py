@@ -1059,6 +1059,7 @@ class SigmaAPI:
         # Reset before populating so repeated _assemble_data_model calls
         # (e.g. during alias discovery) cannot accumulate stale entries.
         data_model.source_dm_element_names = {}
+        data_model.warehouse_inodes_by_inode_id = {}
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -1086,15 +1087,54 @@ class SigmaAPI:
                     data_model.source_dm_element_names.setdefault(src_dm_id, []).append(
                         src_name.strip()
                     )
-            # ``type: dataset`` / ``type: table`` entries are resolved
-            # on the fly from their ``inode-<id>`` source_ids; no DM-side
-            # stash is needed.
+            elif entry_type == "table":
+                # Stash raw warehouse-table nodes keyed by inodeId so
+                # SigmaSource can call /files/{inodeId} for the urlId + path
+                # needed to construct fully-qualified warehouse Dataset URNs.
+                inode_id = entry.get("inodeId", "")
+                conn_id = entry.get("connectionId", "")
+                name = entry.get("name", "")
+                if inode_id:
+                    data_model.warehouse_inodes_by_inode_id[inode_id] = {
+                        "connectionId": conn_id,
+                        "name": name,
+                    }
+            # ``type: dataset`` entries (CSV uploads) are terminal;
+            # warehouse lineage is handled above via type=table.
 
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])
             element.source_ids = source_ids_by_element.get(element.elementId, [])
 
         data_model.elements = elements
+
+    def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch /files/{inodeId} and return the raw JSON dict, or None on
+        non-200.  Resolves a warehouse-table lineage ``inodeId`` (UUID) to its
+        ``urlId`` (alphanumeric slug) and file-system ``path``
+        (``Connection Root/<DB>/<SCHEMA>``).
+
+        Callers are responsible for caching; this method always makes a live
+        HTTP call so the instance-level cache on ``SigmaSource`` can be shared
+        across multiple callers without duplicating retry/error logic here.
+        """
+        logger.debug("Fetching file metadata for inode '%s'.", inode_id)
+        url = f"{self.config.api_url}/files/{inode_id}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code != 200:
+                logger.debug(
+                    "GET /files/%s returned HTTP %d; skipping.",
+                    inode_id,
+                    response.status_code,
+                )
+                return None
+            return response.json()
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch file metadata for inode '{inode_id}': {e}"
+            )
+            return None
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
         """Fetch a DM by its urlId (not UUID). Used to resolve personal-space
