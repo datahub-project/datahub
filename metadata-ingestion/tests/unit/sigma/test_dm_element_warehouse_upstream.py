@@ -115,8 +115,7 @@ class TestBuildDmWarehouseUrlIdMap:
         dm = _make_dm_with_inodes(
             {
                 "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e": {
-                    "connectionId": _SNOWFLAKE_CONN_ID,
-                    "name": "CUSTOMERS",
+                    "connectionId": _SNOWFLAKE_CONN_ID
                 }
             }
         )
@@ -155,7 +154,7 @@ class TestBuildDmWarehouseUrlIdMap:
         assert source.reporter.dm_element_warehouse_table_lookup_failed == 1
 
     def test_cache_failure_not_double_counted_across_dms(self):
-        """H7: a failed /files inode shared by N DMs must only bump
+        """A failed /files inode shared by N DMs must only bump
         dm_element_warehouse_table_lookup_failed once (first_attempt gate)."""
         source = _make_source()
         inodes = {"bad-inode": {"connectionId": _SNOWFLAKE_CONN_ID}}
@@ -586,7 +585,7 @@ class TestUpstreamLineageWarehouseWiring:
         assert source.reporter.dm_element_warehouse_upstream_emitted == 0
 
     def test_empty_registry_warning_fires_once_per_run(self):
-        """H2/H7: _registry_empty_warned gates the once-per-run empty-registry
+        """_registry_empty_warned gates the once-per-run empty-registry
         warning so N DMs with warehouse inodes don't produce N identical warnings."""
         config = SigmaSourceConfig.model_validate(
             {"client_id": "test", "client_secret": "test"}
@@ -777,7 +776,7 @@ class TestWarehouseInodeEntryGuard:
         assert set(dm.warehouse_inodes_by_inode_id.keys()) == {"inode-1", "inode-2"}
 
     def test_empty_connection_id_counts_incomplete(self):
-        """H7: empty connectionId must be caught at entry guard, not mis-fired
+        """Empty connectionId must be caught at entry guard, not mis-fired
         as dm_element_warehouse_unknown_connection downstream."""
         api = _make_api()
         dm = SigmaDataModel(
@@ -835,3 +834,9 @@ class TestWarehouseTableRefFqName:
             connection_id="c", db="DEV", schema="PUBLIC", table="ORDERS"
         )
         assert ref.fq_name("redshift") == "DEV.PUBLIC.ORDERS"
+
+    def test_snowflake_preserves_case_when_lowercase_false(self):
+        # connection_to_platform_map.convert_urns_to_lowercase=False lets
+        # operators match a Snowflake connector run with that flag disabled.
+        ref = _WarehouseTableRef(connection_id="c", db="DB", schema="SCH", table="TBL")
+        assert ref.fq_name("snowflake", lowercase=False) == "DB.SCH.TBL"

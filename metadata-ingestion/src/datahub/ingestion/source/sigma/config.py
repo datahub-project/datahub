@@ -328,6 +328,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Success: one per unique warehouse upstream URN emitted (post-dedup).
     dm_element_warehouse_upstream_emitted: int = 0
     # connectionId not in registry, or registry record has is_mappable=False.
+    # Note: this counter overlaps with data_model_element_upstreams_unresolved_external
+    # when both warehouse and SD resolution fail for the same source_id — the
+    # same edge is tallied in both buckets (warehouse failure sub-category +
+    # aggregate unresolved). This is intentional: the new counter sub-categorizes
+    # rather than replaces the existing one.
     dm_element_warehouse_unknown_connection: int = 0
     # /files/{inodeId} returned non-200 or raised an exception (first attempt
     # per inode only; cache hits of a prior failure are not double-counted).
@@ -350,6 +355,18 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     to None — correct for single-env, single-instance deployments but
     produces dangling lineage for multi-env or multi-instance setups.
     """
+
+    convert_urns_to_lowercase: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Whether to lower-case warehouse identifiers when constructing "
+            "Dataset URNs. Must match the convert_urns_to_lowercase setting "
+            "used by the corresponding warehouse connector recipe. Defaults "
+            "to True (matching the Snowflake connector default). Set to False "
+            "if the warehouse source was ingested with "
+            "convert_urns_to_lowercase: false."
+        ),
+    )
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):

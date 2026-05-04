@@ -188,16 +188,20 @@ CrossDmOutcome = Literal[
     "name_unmatched_but_dm_known",
 ]
 
-# Platforms where DataHub stores identifiers lower-cased, matching the
-# corresponding source connector's normalization. Snowflake is confirmed via
-# snowflake_utils.py::snowflake_identifier() (identifier.lower()), which is
-# the default and does not check convert_urns_to_lowercase. If a Snowflake
-# source is configured with convert_urns_to_lowercase: false, its URNs will
-# be upper-cased and the edges emitted here will dangle. That non-default
-# configuration is unsupported without a per-connection casing override.
-# Other platforms are excluded until their DataHub source's URN convention is
-# explicitly verified — adding an unvalidated platform risks emitting URNs
-# that don't match the warehouse connector's output.
+# Platforms that require a case bridge: Sigma's /files path reports identifiers
+# in the catalog's native casing, but the DataHub connector for these platforms
+# lower-cases identifiers before URN construction.
+#
+# Snowflake is the only platform in this set: Sigma reports uppercase
+# (e.g. "MYDB/PUBLIC/MYTABLE"), but the Snowflake connector lowercases via
+# snowflake_config.convert_urns_to_lowercase (default=True, see
+# snowflake_config.py). If that flag is set to False, the Snowflake connector
+# emits upper-cased URNs and the edges produced here will dangle; use
+# connection_to_platform_map.convert_urns_to_lowercase=False to match.
+#
+# Other platforms (Postgres, Redshift, etc.) preserve catalog casing in their
+# connectors; Sigma's /files path uses the same casing, so no bridge is needed
+# and they work correctly by default.
 _WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 
 # Expected root segment of the /files path for warehouse tables.
@@ -213,9 +217,11 @@ class _WarehouseTableRef:
     schema: str
     table: str
 
-    def fq_name(self, platform: str) -> str:
+    def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
         name = f"{self.db}.{self.schema}.{self.table}"
-        return name.lower() if platform in _WAREHOUSE_LOWERCASE_PLATFORMS else name
+        if platform in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+            return name.lower()
+        return name
 
 
 @platform_name("Sigma")
@@ -324,13 +330,36 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._files_path_unparseable_seen: Set[str] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
-        self._no_platform_map_warned: bool = False
+        # Per-platform set: platforms for which we've emitted a "first emission"
+        # info message noting that casing is unverified.
+        self._warned_unvalidated_platforms: Set[str] = set()
+        # Per-connection set: connectionIds emitted without a
+        # connection_to_platform_map entry; listed in the info message context.
+        self._no_platform_map_conn_ids: Set[str] = set()
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
 
         self.connection_registry = self._build_connection_registry()
+        # Warn on connection_to_platform_map keys that don't exist in the
+        # registry — a typo in the recipe UUID would silently make the override
+        # inactive and the operator would never know.
+        unknown_override_keys = [
+            k
+            for k in self.config.connection_to_platform_map
+            if k not in self.connection_registry.by_id
+        ]
+        if unknown_override_keys:
+            self.reporter.warning(
+                title="connection_to_platform_map references unknown connectionIds",
+                message=(
+                    "One or more keys in connection_to_platform_map do not match "
+                    "any Sigma connection returned by /v2/connections. The overrides "
+                    "for these keys will be silently ignored."
+                ),
+                context=f"unknown_keys={unknown_override_keys}",
+            )
 
     def _build_connection_registry(self) -> SigmaConnectionRegistry:
         """Fetch /v2/connections and build the in-memory registry.
@@ -714,31 +743,52 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        fq = ref.fq_name(record.datahub_platform)
-        # Use per-connection overrides when configured so the emitted URN
-        # matches the warehouse connector's env / platform_instance.  Falls
+        conn_override = self.config.connection_to_platform_map.get(ref.connection_id)
+        # Use per-connection convert_urns_to_lowercase to handle warehouses
+        # where the connector was run with that flag set to False.  Default=True
+        # matches both the Snowflake connector default and most other platforms.
+        lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        fq = ref.fq_name(record.datahub_platform, lowercase=lowercase)
+        # Use per-connection env / platform_instance overrides so the emitted
+        # URN matches what the warehouse connector actually produced.  Falls
         # back to the Sigma recipe's own env + platform_instance=None, which
         # is correct for single-env single-instance deployments.
-        conn_override = self.config.connection_to_platform_map.get(ref.connection_id)
         target_env = conn_override.env if conn_override else self.config.env
         target_platform_instance = (
             conn_override.platform_instance if conn_override else None
         )
-        # H1: warn once when emitting without a per-connection override so
-        # operators in multi-env / multi-instance setups know to configure
-        # connection_to_platform_map. Single-instance tenants are unaffected.
-        if conn_override is None and not self._no_platform_map_warned:
-            self._no_platform_map_warned = True
-            self.reporter.info(
-                title="Sigma warehouse URNs emitted without connection_to_platform_map",
-                message=(
-                    "Warehouse Dataset URNs are being emitted using the Sigma "
-                    "recipe's env and platform_instance=None. If your warehouse "
-                    "connector is configured with a different env or a "
-                    "platform_instance, configure connection_to_platform_map in "
-                    "the Sigma recipe to match."
-                ),
-            )
+        # Once-per-platform info when emitting for a platform not in
+        # _WAREHOUSE_LOWERCASE_PLATFORMS, so operators know to verify that
+        # a few emitted edges actually resolve in their DataHub instance.
+        if record.datahub_platform not in _WAREHOUSE_LOWERCASE_PLATFORMS:
+            if record.datahub_platform not in self._warned_unvalidated_platforms:
+                self._warned_unvalidated_platforms.add(record.datahub_platform)
+                self.reporter.info(
+                    title="Sigma warehouse URNs emitted for unvalidated platform",
+                    message=(
+                        "Warehouse Dataset URNs are being emitted for a platform "
+                        "that has not been empirically verified to produce matching "
+                        "URN casing. Spot-check a few lineage edges in your DataHub "
+                        "instance to confirm they resolve correctly."
+                    ),
+                    context=f"platform={record.datahub_platform}",
+                )
+        # Once per unique connectionId without an override, list the IDs in the
+        # info message so operators know which connections to add to
+        # connection_to_platform_map if env / platform_instance mismatches appear.
+        if conn_override is None:
+            self._no_platform_map_conn_ids.add(ref.connection_id)
+            if len(self._no_platform_map_conn_ids) == 1:
+                self.reporter.info(
+                    title="Sigma warehouse URNs emitted without connection_to_platform_map",
+                    message=(
+                        "Warehouse Dataset URNs are being emitted using the Sigma "
+                        "recipe's env and platform_instance=None. If your warehouse "
+                        "connector uses a different env or platform_instance, configure "
+                        "connection_to_platform_map in the Sigma recipe to match."
+                    ),
+                    context=f"connection_ids_without_override={sorted(self._no_platform_map_conn_ids)}",
+                )
         return builder.make_dataset_urn_with_platform_instance(
             platform=record.datahub_platform,
             name=fq,
