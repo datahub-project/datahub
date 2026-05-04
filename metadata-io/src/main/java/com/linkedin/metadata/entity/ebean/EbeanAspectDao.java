@@ -215,11 +215,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // (range_optimizer_max_mem_size)
     final List<EbeanAspectV2> results =
         batchGet(new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
-    for (EbeanAspectV2 result : results) {
-      result.setUrn(result.getKey().getUrn());
-      result.setAspect(result.getKey().getAspect());
-      result.setVersion(result.getKey().getVersion());
-    }
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
@@ -367,7 +362,35 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       finalResult.addAll(oneStatementResult);
     }
 
+    syncKeyScalarsFromEmbeddedId(finalResult);
     return finalResult;
+  }
+
+  /**
+   * Parsed {@link RawSql} keeps one bean property per <em>result column name</em>: a second {@code
+   * columnMapping} for the same column <strong>replaces</strong> the first, so we cannot map both
+   * {@code key.urn} and top-level {@code urn} for {@code urn}. Map only the embedded id; {@link
+   * #syncKeyScalarsFromEmbeddedId} fills the duplicate scalar fields.
+   */
+  @Nonnull
+  private static RawSql parseBatchGetRawSql(String sql) {
+    return RawSqlBuilder.parse(sql)
+        .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
+        .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
+        .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
+        .create();
+  }
+
+  /**
+   * RawSql maps result columns only to {@code key.*}; copy into the denormalized scalar fields so
+   * {@link EbeanAspectV2#getUrn()} and related accessors match the embedded id.
+   */
+  private static void syncKeyScalarsFromEmbeddedId(Iterable<EbeanAspectV2> aspects) {
+    for (EbeanAspectV2 aspect : aspects) {
+      aspect.setUrn(aspect.getKey().getUrn());
+      aspect.setAspect(aspect.getKey().getAspect());
+      aspect.setVersion(aspect.getKey().getVersion());
+    }
   }
 
   @Nonnull
@@ -452,12 +475,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       sb.append(" FOR UPDATE");
     }
 
-    final RawSql rawSql =
-        RawSqlBuilder.parse(sb.toString())
-            .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
-            .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
-            .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
-            .create();
+    final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
     final Query<EbeanAspectV2> query = server.find(EbeanAspectV2.class).setRawSql(rawSql);
 
@@ -511,12 +529,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       sb.append(" FOR UPDATE");
     }
 
-    final RawSql rawSql =
-        RawSqlBuilder.parse(sb.toString())
-            .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
-            .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
-            .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
-            .create();
+    final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
     final Query<EbeanAspectV2> query = server.find(EbeanAspectV2.class).setRawSql(rawSql);
 
