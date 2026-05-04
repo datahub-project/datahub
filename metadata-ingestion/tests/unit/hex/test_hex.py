@@ -250,13 +250,28 @@ class TestHexTestConnection(unittest.TestCase):
                 return self._make_response(cells_status, {"values": []})
             return self._make_response(404, {})
 
+        def mock_post(url, **kwargs):
+            # Export API — return a valid but empty YAML so sampling completes quickly
+            if "export" in url:
+                return self._make_response(
+                    200,
+                    {
+                        "filename": "test.yaml",
+                        "content": "meta:\n  title: Test\ncells: []\n",
+                    },
+                )
+            return self._make_response(404, {})
+
         with patch(
             "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
         ) as mock_session_factory:
             mock_session = MagicMock()
             mock_session.get.side_effect = mock_get
-            mock_session.request.side_effect = lambda method, url, **kw: mock_get(
-                url, **kw
+            mock_session.post.side_effect = mock_post
+            mock_session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
             )
             mock_session_factory.return_value = mock_session
 
@@ -282,7 +297,4 @@ class TestHexTestConnection(unittest.TestCase):
         assert lineage_cap.capable is False
         assert lineage_cap.failure_reason is not None
         assert "403" in lineage_cap.failure_reason
-        assert (
-            "metadata-only" in lineage_cap.failure_reason.lower()
-            or "content access" in lineage_cap.failure_reason.lower()
-        )
+        assert "Read projects" in lineage_cap.failure_reason

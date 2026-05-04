@@ -56,6 +56,7 @@ from datahub.ingestion.source.hex.query_fetcher import (
     HexQueryFetcherReport,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -283,6 +284,78 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     @staticmethod
+    def _sample_connections(
+        api: "HexApi", base: str, headers: dict
+    ) -> "Dict[str, set]":
+        """Sample up to 5 projects via export API to discover {conn_id → sample_tables}.
+
+        Uses export (not cells) so it works even when cells is 403.
+        Best-effort: exceptions are swallowed so test_connection always completes.
+        """
+        result: Dict[str, set] = {}
+        try:
+            import sqlglot as _sqlglot
+            import yaml as _yaml
+
+            sample_ids = [
+                p.get("id")
+                for p in api.session.get(
+                    f"{base}/projects",
+                    headers=headers,
+                    params={"limit": 5},
+                    timeout=15,
+                )
+                .json()
+                .get("values", [])
+                if p.get("id")
+            ]
+            for pid in sample_ids:
+                exp_r = api.session.post(
+                    f"{base}/projects/export",
+                    headers=headers,
+                    json={"projectId": pid, "version": "draft"},
+                    timeout=15,
+                )
+                if not exp_r.ok:
+                    continue
+                content = _yaml.safe_load(exp_r.json().get("content", "")) or {}
+                for cell in content.get("cells", []):
+                    if cell.get("cellType") != "SQL":
+                        continue
+                    cfg = cell.get("config", {})
+                    conn_id = cfg.get("dataConnectionId", "")
+                    sql_src = cfg.get("source", "")
+                    if not conn_id:
+                        continue
+                    result.setdefault(conn_id, set())
+                    if sql_src and len(result[conn_id]) < 3:
+                        for stmt in _sqlglot.parse(sql_src):
+                            if stmt:
+                                for tbl in stmt.find_all(_sqlglot.exp.Table):
+                                    name = str(tbl).split(" ")[0].strip("\"'`")
+                                    if "." in name and len(name) < 120:
+                                        result[conn_id].add(name)
+        except Exception:
+            pass
+        return result
+
+    @staticmethod
+    def _build_conn_failure_msg(
+        status_code: int, tables_by_conn: "Dict[str, set]"
+    ) -> str:
+        lines = [
+            f"HTTP {status_code} on /v1/data-connections — token cannot resolve "
+            "connection IDs to data platforms, resulting in zero lineage. "
+            "Add 'Read data connections' scope to the Workspace Token, OR provide "
+            "connection_platform_map in the recipe. "
+            f"Discovered {len(tables_by_conn)} connection(s) in sample:"
+        ]
+        for cid, tables in sorted(tables_by_conn.items()):
+            hint = ", ".join(sorted(tables)[:3]) if tables else "(no tables sampled)"
+            lines.append(f'  "{cid}": "<platform>"  # e.g. {hint}')
+        return "\n".join(lines)
+
+    @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         report = TestConnectionReport()
         report.capability_report = {}
@@ -371,9 +444,20 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             # Tier 2: cells + SQL parsing (all tiers)
             # Probe the cells endpoint directly — a token may be able to list
             # projects yet return 403 on cells (metadata-only / admin tokens).
+            # Also check whether data-connections is accessible; if not, lineage
+            # is only possible if the user provided connection_platform_map overrides.
+            has_conn_map = bool(config.connection_platform_map)
             cells_accessible = False
             cells_failure_reason: Optional[str] = None
-            if proj_resp.ok and conn_resp.ok and first_project_id:
+            if not conn_resp.ok and not has_conn_map:
+                cells_failure_reason = (
+                    f"HTTP {conn_resp.status_code} on /v1/data-connections — token cannot "
+                    "resolve connection IDs to data platforms, resulting in zero lineage. "
+                    "Add 'Read data connections' scope to the Workspace Token, OR provide "
+                    "connection_platform_map in the recipe to manually map connection IDs "
+                    'to platform names (e.g. {"<uuid>": "snowflake"}).'
+                )
+            elif proj_resp.ok and (conn_resp.ok or has_conn_map) and first_project_id:
                 cells_probe = api.session.get(
                     f"{base}/cells",
                     headers=headers,
@@ -391,10 +475,8 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                         "'Read projects' can enumerate projects but not access cells, "
                         "resulting in zero lineage."
                     )
-            elif not proj_resp.ok or not conn_resp.ok:
-                cells_failure_reason = (
-                    "Could not access /v1/projects or /v1/data-connections."
-                )
+            elif not proj_resp.ok:
+                cells_failure_reason = "Could not access /v1/projects."
 
             if cells_accessible:
                 report.capability_report["Lineage via SQL parsing (all tiers)"] = (
@@ -411,6 +493,28 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                         capable=False,
                         failure_reason=cells_failure_reason
                         or "Could not verify cells access.",
+                        mitigation_message="Verify the token has at least 'Can view' access "
+                        "on projects in the Hex workspace.",
+                    )
+                )
+
+            # Sample projects via export to discover unresolvable connection IDs
+            # and representative table names per connection. Best-effort only.
+            sampled_tables_by_conn = (
+                HexSource._sample_connections(api, base, headers)
+                if proj_resp.ok
+                else {}
+            )
+
+            # Enrich failure message with per-connection sample tables
+            if sampled_tables_by_conn and not conn_resp.ok and not has_conn_map:
+                cells_failure_reason = HexSource._build_conn_failure_msg(
+                    conn_resp.status_code, sampled_tables_by_conn
+                )
+                report.capability_report["Lineage via SQL parsing (all tiers)"] = (
+                    CapabilityReport(
+                        capable=False,
+                        failure_reason=cells_failure_reason,
                         mitigation_message="Verify the token has at least 'Can view' access "
                         "on projects in the Hex workspace.",
                     )
@@ -644,6 +748,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
     def _populate_registries(self, last_ingested_at_ms: Optional[int] = None) -> None:
         for item in self.hex_api.fetch_projects(
             include_components=self.source_config.include_components,
+            stop_before_ms=last_ingested_at_ms,
         ):
             if item.categories and (
                 any(
@@ -677,6 +782,47 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     self.component_registry[item.id] = item
             else:
                 assert_never(item)
+
+        # Seed light projects from the previous run's stale-entity-removal checkpoint.
+        # Because fetch_projects now sorts by LAST_EDITED_AT DESC and stops early,
+        # projects unchanged since the checkpoint never appear in the Hex API response.
+        # We add them to project_registry as light stubs so run-history checks and
+        # lastRefreshed PATCH emission still work without paginating through all of Hex.
+        if last_ingested_at_ms:
+            stale_checkpoint = self.state_provider.get_last_checkpoint(
+                JobId(f"{HEX_PLATFORM_NAME}_stale_entity_removal"),
+                GenericCheckpointState,
+            )
+            if stale_checkpoint:
+                prefix = (
+                    f"{self.source_config.platform_instance}."
+                    if self.source_config.platform_instance
+                    else ""
+                )
+                for urn in stale_checkpoint.state.urns:
+                    if not urn.startswith("urn:li:dashboard:(hex,"):
+                        continue
+                    # URN format: urn:li:dashboard:(hex,<prefix><project_id>)
+                    inner = urn[len("urn:li:dashboard:(hex,") : -1]
+                    project_id = (
+                        inner[len(prefix) :] if inner.startswith(prefix) else inner
+                    )
+                    if project_id not in self.project_registry:
+                        # Minimal stub — only id is needed for run-history PATCH
+                        self.project_registry[project_id] = Project(
+                            id=project_id, title="", description=None
+                        )
+                        self._light_project_ids.add(project_id)
+                logger.info(
+                    "Seeded %d additional light projects from checkpoint state "
+                    "(skipped by early-terminated Hex listing).",
+                    sum(
+                        1
+                        for pid in self._light_project_ids
+                        if self.project_registry.get(pid, Project("", "", None)).title
+                        == ""
+                    ),
+                )
 
         if last_ingested_at_ms:
             light = len(self._light_project_ids)
