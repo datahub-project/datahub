@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 from pydantic import Field, SecretStr
 from typing_extensions import assert_never
@@ -158,6 +158,12 @@ class HexSourceConfig(
     category_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern for categories to filter in ingestion. This will exclude any project or component that has any category denied or not explicitly allowed.",
+    )
+    max_projects: Optional[int] = Field(
+        default=None,
+        description="Maximum number of projects to process. Useful for testing or staged rollouts. "
+        "Components discovered during project processing are not counted. "
+        "Defaults to None (process all projects).",
     )
 
     # Removed fields — emit a clear warning rather than silently ignoring.
@@ -372,7 +378,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             base = config.base_url.rstrip("/")
             headers = {"Authorization": f"Bearer {config.token.get_secret_value()}"}
 
-            # Basic connectivity — GET /v1/users/me (lightweight, just validates token)
+            # Basic connectivity — probe /v1/users/me, then fall back to /v1/projects.
+            # Workspace tokens return 500 on /v1/users/me (it's a user-scoped endpoint);
+            # in that case we use the project listing as the connectivity check instead.
             resp = api.session.get(f"{base}/users/me", headers=headers, timeout=15)
             if resp.status_code == 401:
                 report.basic_connectivity = CapabilityReport(
@@ -380,8 +388,24 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     failure_reason="Authentication failed — check that your token is valid and not expired.",
                 )
                 return report
-            resp.raise_for_status()
-            report.basic_connectivity = CapabilityReport(capable=True)
+            if resp.ok:
+                report.basic_connectivity = CapabilityReport(capable=True)
+            else:
+                # 500 / other non-401 — workspace token; verify via projects listing
+                probe = api.session.get(
+                    f"{base}/projects",
+                    headers=headers,
+                    params={"limit": 1},
+                    timeout=15,
+                )
+                if probe.ok:
+                    report.basic_connectivity = CapabilityReport(capable=True)
+                else:
+                    report.basic_connectivity = CapabilityReport(
+                        capable=False,
+                        failure_reason=f"HTTP {probe.status_code} on /v1/projects — token is invalid or lacks workspace access.",
+                    )
+                    return report
 
             # Capabilities that only require a valid token
             for cap in (
@@ -669,9 +693,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         with self.report.new_stage("Migrate legacy Component entities"):
             yield from self._migrate_legacy_component_dashboards()
 
-        with self.report.new_stage("Fetch Hex projects and components"):
-            self._populate_registries(last_ingested_at_ms=last_ingested_at_ms)
-
         # Build connections map once — used by lineage and context documents
         connections_by_id: Dict[str, Any] = {}
         if (
@@ -679,9 +700,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             or self.source_config.include_context_documents
         ):
             connections_by_id = self.hex_api.fetch_connections()
-            # Apply manual overrides from config. The primary use case is deleted
-            # connections that no longer appear in /v1/data-connections — those
-            # are inserted with a synthetic name so both lineage and context docs work.
             for conn_id, platform in self.source_config.connection_platform_map.items():
                 name = (
                     connections_by_id[conn_id][0]
@@ -690,53 +708,69 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 )
                 connections_by_id[conn_id] = (name, platform)
 
-        if self.source_config.include_lineage:
-            with self.report.new_stage("Extract lineage via Hex REST API"):
-                self._enrich_lineage(connections_by_id)
+        lineage_builder = self._make_lineage_builder(connections_by_id)
 
-        if self.source_config.include_run_history:
-            with self.report.new_stage("Fetch run history"):
-                self._enrich_run_history()
+        # Seed light-stub projects from the previous checkpoint so run-history
+        # checks fire for projects skipped by early-terminated listing.
+        self._seed_light_projects_from_checkpoint(last_ingested_at_ms)
 
-        with self.report.new_stage("Emit"):
-            yield from self.mapper.map_workspace()
+        # Emit workspace container once before streaming projects
+        yield from self.mapper.map_workspace()
 
-            for project in self.project_registry.values():
-                is_light = project.id in self._light_project_ids
-                if is_light:
-                    # Project unchanged since last checkpoint — skip all full aspects.
-                    # Only emit lastRefreshed PATCH if a COMPLETED run happened AFTER
-                    # the last checkpoint (i.e. it's new since the previous ingestion).
-                    self.report.projects_incremental_skip += 1
-                    new_run_ms = self._new_completed_run_ms(project)
-                    if new_run_ms is not None:
-                        yield from self.mapper.map_project_last_refreshed(
-                            project=project,
-                            last_refreshed_ms=new_run_ms,
-                        )
+        # Single streaming pass: process and emit each item as it arrives.
+        # Components are fetched on-demand if a project imports one that hasn't
+        # appeared in the listing yet — cached in component_registry so each
+        # component is only processed once.
+        projects_processed = 0
+        with self.report.new_stage("Stream projects and components"):
+            for item in self.hex_api.fetch_projects(
+                include_components=self.source_config.include_components,
+                stop_before_ms=last_ingested_at_ms,
+            ):
+                if self._is_filtered(item):
                     continue
 
-                self.report.projects_full_refresh += 1
-                # upstream_datasets are already embedded in DashboardInfo.datasetEdges
-                # via map_project() — the correct lineage mechanism for Dashboard entities.
-                # upstreamLineage aspect is NOT registered on dashboard in entity-registry.yml.
-                yield from self.mapper.map_project(project=project)
-                new_run_ms = self._new_completed_run_ms(project)
-                if new_run_ms is not None:
-                    yield from self.mapper.map_project_last_refreshed(
-                        project=project,
-                        last_refreshed_ms=new_run_ms,
-                    )
+                if isinstance(item, Component):
+                    if item.id not in self.component_registry:
+                        yield from self._stream_component(
+                            item, lineage_builder, connections_by_id
+                        )
+                elif isinstance(item, Project):
+                    if item.id in self._light_project_ids:
+                        # Already a stub from checkpoint — only check run history
+                        self.project_registry[item.id] = item
+                        yield from self._emit_run_history_patch(item)
+                    elif self.source_config.project_title_pattern.allowed(item.title):
+                        yield from self._stream_project(
+                            item,
+                            lineage_builder,
+                            connections_by_id,
+                            last_ingested_at_ms,
+                        )
+                        projects_processed += 1
+                        if (
+                            self.source_config.max_projects is not None
+                            and projects_processed >= self.source_config.max_projects
+                        ):
+                            logger.info(
+                                "Reached max_projects limit (%d) — stopping.",
+                                self.source_config.max_projects,
+                            )
+                            break
+                else:
+                    assert_never(item)
 
-            for component in self.component_registry.values():
-                yield from self.mapper.map_component(component=component)
+        # Run-history patches for light stubs that never appeared in the listing
+        # (they were early-terminated; the stub was seeded from the checkpoint).
+        with self.report.new_stage("Run history for unchanged projects"):
+            for project in self.project_registry.values():
+                if project.id in self._light_project_ids and not project.latest_run:
+                    run = self.hex_api.fetch_latest_run(project.id)
+                    if run:
+                        project.latest_run = run
+                    yield from self._emit_run_history_patch(project)
 
-        if self.source_config.include_context_documents:
-            with self.report.new_stage("Emit context documents"):
-                yield from self._emit_context_documents(connections_by_id)
-
-        # Commit incremental checkpoint. ignore_new_state is honoured by
-        # get_current_checkpoint returning None when set.
+        # Commit incremental checkpoint.
         cur_checkpoint = self.state_provider.get_current_checkpoint(
             HEX_INCREMENTAL_JOB_ID
         )
@@ -833,6 +867,268 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 light,
             )
 
+    # ------------------------------------------------------------------
+    # Streaming helpers (called per-item during the single streaming pass)
+    # ------------------------------------------------------------------
+
+    def _make_lineage_builder(
+        self, connections_by_id: Dict[str, Any]
+    ) -> HexLineageBuilder:
+        conn_types: Dict[str, str] = {
+            cid: ctype for cid, (_, ctype) in connections_by_id.items()
+        }
+        conn_types.update(self.source_config.connection_platform_map)
+        return HexLineageBuilder(
+            connections=conn_types,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            report=self.report,
+            graph=self.ctx.graph,
+        )
+
+    def _is_filtered(self, item: Union[Project, Component]) -> bool:
+        """Return True if the item should be skipped due to category/title filters."""
+        if item.categories and (
+            any(
+                self.source_config.category_pattern.denied(c.name)
+                for c in item.categories
+            )
+            or not any(
+                self.source_config.category_pattern.allowed(c.name)
+                for c in item.categories
+            )
+        ):
+            return True
+        return False
+
+    def _fetch_and_cache_cells(self, entity_id: str) -> List[dict]:
+        """Export-first cell fetch with cells-API fallback, cached."""
+        if entity_id in self._cells_cache:
+            return self._cells_cache[entity_id]
+        all_cells, _ = self.hex_api.fetch_project_export(entity_id)
+        if not all_cells:
+            all_cells = self.hex_api.fetch_cells(entity_id)
+        self._cells_cache[entity_id] = all_cells
+        return all_cells
+
+    def _build_project_lineage(
+        self,
+        project: Project,
+        all_cells: List[dict],
+        lineage_builder: HexLineageBuilder,
+        queried_tables_available: "Optional[bool]",
+    ) -> "Optional[bool]":
+        """
+        Build lineage for a single project, mutating project.upstream_datasets
+        and project.input_fields in place.
+
+        Returns the updated queried_tables_available state (None/True/False).
+        """
+        lineage_builder.set_project_id(project.id)
+        native_sql_cells = [c for c in all_cells if c.get("cellType") == "SQL"]
+
+        # Tier 1: queriedTables (ENTERPRISE)
+        if queried_tables_available is not False:
+            queried = self.hex_api.fetch_queried_tables(project.id)
+            if queried is not None:
+                queried_tables_available = True
+                upstream_urns = lineage_builder.build_from_queried_tables(queried)
+                project.upstream_datasets = upstream_urns
+                if upstream_urns and self.ctx.graph:
+                    sql_cells = _extract_sql_cells(native_sql_cells)
+                    if sql_cells:
+                        project.input_fields = (
+                            lineage_builder.build_validated_column_lineage(
+                                sql_cells, upstream_urns
+                            )
+                        )
+                self.report.projects_with_lineage += 1
+                return queried_tables_available
+            elif queried_tables_available is None:
+                queried_tables_available = False
+                logger.info(
+                    "queriedTables returned 403 — workspace is not ENTERPRISE tier; "
+                    "using cell-based SQL parsing for all projects"
+                )
+
+        # Tier 2: SQL parsing
+        sql_cells = _extract_sql_cells(native_sql_cells)
+        if sql_cells:
+            upstream_urns, input_fields = lineage_builder.build_upstream_urns(sql_cells)
+            project.upstream_datasets = upstream_urns
+            project.input_fields = input_fields
+            if upstream_urns:
+                self.report.projects_with_lineage += 1
+        else:
+            self.report.projects_without_sql_cells += 1
+
+        return queried_tables_available
+
+    def _stream_component(
+        self,
+        component: Component,
+        lineage_builder: HexLineageBuilder,
+        connections_by_id: Dict[str, Any],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process and emit a component, adding it to component_registry."""
+        if not self.source_config.component_title_pattern.allowed(component.title):
+            return
+        self.component_registry[component.id] = component
+
+        # Component lineage from its own cells
+        comp_cells = self._fetch_and_cache_cells(component.id)
+        comp_sql_cells = _extract_sql_cells(comp_cells)
+        if comp_sql_cells:
+            lineage_builder.set_project_id(component.id)
+            comp_urns, comp_fields = lineage_builder.build_upstream_urns(comp_sql_cells)
+            component.upstream_datasets = comp_urns
+            component.input_fields = comp_fields
+
+        yield from self.mapper.map_component(component=component)
+
+        if self.source_config.include_context_documents:
+            sql_cells, explore_cells, section_names, markdown = _parse_cells(comp_cells)
+            chart_urn = self.mapper._get_chart_urn(component.id).urn()
+            doc_builder = HexDocumentBuilder(
+                workspace_name=self.source_config.workspace_name,
+                platform_instance=self.source_config.platform_instance,
+                connections=connections_by_id,
+            )
+            yield from doc_builder.build_document(
+                project=component,
+                sql_cells=sql_cells,
+                explore_cells=explore_cells,
+                section_names=section_names,
+                markdown_content=markdown,
+                dashboard_urn=chart_urn,
+            )
+
+    # Shared queried_tables state across streaming project calls
+    _queried_tables_available: Optional[bool] = None
+
+    def _stream_project(
+        self,
+        project: Project,
+        lineage_builder: HexLineageBuilder,
+        connections_by_id: Dict[str, Any],
+        last_ingested_at_ms: Optional[int],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process and emit a single project immediately."""
+        self.project_registry[project.id] = project
+        self.report.projects_full_refresh += 1
+
+        # Tag as light if unchanged since last checkpoint
+        if (
+            last_ingested_at_ms
+            and project.last_edited_at
+            and int(project.last_edited_at.timestamp() * 1000) <= last_ingested_at_ms
+        ):
+            self._light_project_ids.add(project.id)
+            # Light: check run history only
+            yield from self._emit_run_history_patch(project)
+            return
+
+        # Export: cells + component IDs
+        all_cells, comp_ids = self.hex_api.fetch_project_export(project.id)
+        if not all_cells:
+            all_cells = self.hex_api.fetch_cells(project.id)
+            comp_ids = []
+        self._cells_cache[project.id] = all_cells
+
+        # Resolve component imports — fetch on-demand if not yet in registry
+        for comp_id in comp_ids:
+            if comp_id not in self.component_registry:
+                fetched = self.hex_api.fetch_single_project(comp_id)
+                if fetched and isinstance(fetched, Component):
+                    if not self._is_filtered(fetched):
+                        yield from self._stream_component(
+                            fetched, lineage_builder, connections_by_id
+                        )
+        project.used_component_ids = [
+            cid for cid in comp_ids if cid in self.component_registry
+        ]
+
+        # Lineage
+        if self.source_config.include_lineage:
+            self._queried_tables_available = self._build_project_lineage(
+                project, all_cells, lineage_builder, self._queried_tables_available
+            )
+
+        # Run history
+        if self.source_config.include_run_history:
+            run = self.hex_api.fetch_latest_run(project.id)
+            if run:
+                project.latest_run = run
+
+        # Emit project MCPs
+        yield from self.mapper.map_project(project=project)
+        new_run_ms = self._new_completed_run_ms(project)
+        if new_run_ms is not None:
+            yield from self.mapper.map_project_last_refreshed(
+                project=project, last_refreshed_ms=new_run_ms
+            )
+
+        # Context document
+        if self.source_config.include_context_documents:
+            sql_cells, explore_cells, section_names, markdown = _parse_cells(all_cells)
+            doc_builder = HexDocumentBuilder(
+                workspace_name=self.source_config.workspace_name,
+                platform_instance=self.source_config.platform_instance,
+                connections=connections_by_id,
+            )
+            yield from doc_builder.build_document(
+                project=project,
+                sql_cells=sql_cells,
+                explore_cells=explore_cells,
+                section_names=section_names,
+                markdown_content=markdown,
+                dashboard_urn=self.mapper._get_dashboard_urn(project.id).urn(),
+            )
+
+    def _emit_run_history_patch(self, project: Project) -> Iterable[MetadataWorkUnit]:
+        """Emit a lastRefreshed PATCH if a new COMPLETED run exists."""
+        self.report.projects_incremental_skip += 1
+        new_run_ms = self._new_completed_run_ms(project)
+        if new_run_ms is not None:
+            yield from self.mapper.map_project_last_refreshed(
+                project=project, last_refreshed_ms=new_run_ms
+            )
+
+    def _seed_light_projects_from_checkpoint(
+        self, last_ingested_at_ms: Optional[int]
+    ) -> None:
+        """Seed light-stub projects from the stale-entity-removal checkpoint."""
+        if not last_ingested_at_ms:
+            return
+        stale_checkpoint = self.state_provider.get_last_checkpoint(
+            JobId(f"{HEX_PLATFORM_NAME}_stale_entity_removal"),
+            GenericCheckpointState,
+        )
+        if not stale_checkpoint:
+            return
+        prefix = (
+            f"{self.source_config.platform_instance}."
+            if self.source_config.platform_instance
+            else ""
+        )
+        count = 0
+        for urn in stale_checkpoint.state.urns:
+            if not urn.startswith("urn:li:dashboard:(hex,"):
+                continue
+            inner = urn[len("urn:li:dashboard:(hex,") : -1]
+            project_id = inner[len(prefix) :] if inner.startswith(prefix) else inner
+            if project_id not in self.project_registry:
+                self.project_registry[project_id] = Project(
+                    id=project_id, title="", description=None
+                )
+                self._light_project_ids.add(project_id)
+                count += 1
+        if count:
+            logger.info(
+                "Seeded %d light-stub projects from checkpoint (skipped by early termination).",
+                count,
+            )
+
     def _enrich_lineage(self, connections_by_id: Dict[str, Any]) -> None:
         # {connection_id: connection_type} — connection_platform_map overrides take precedence
         conn_types: Dict[str, str] = {
@@ -859,24 +1155,25 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             lineage_builder.set_project_id(project.id)
             upstream_urns: List[str] = []
 
-            # Detect whether this project imports any components.
-            # The cells API includes COMPONENT_IMPORT cells (without component IDs).
-            # If any exist, call the export API to learn which component IDs are used
-            # and to obtain only the project's native SQL (not inlined component SQL).
-            raw_cells = self.hex_api.fetch_cells(project.id)
-            self._cells_cache[project.id] = raw_cells  # reused by context doc stage
-            has_component_imports = any(
-                c.get("cellType") == "COMPONENT_IMPORT" for c in raw_cells
-            )
-            native_sql_cells: List[dict] = []
-            if has_component_imports:
-                native_sql_cells, comp_ids = self.hex_api.fetch_project_export(
-                    project.id
-                )
-                # Only link components that are in the registry (respect title/category filters)
-                project.used_component_ids = [
-                    cid for cid in comp_ids if cid in self.component_registry
-                ]
+            # Export-first: the export API provides richer data than the cells API —
+            # it exposes config.component.id in COMPONENT_IMPORT cells (cells API
+            # strips it) and works with tokens that lack the 'Read projects' cells
+            # scope (e.g. figma's metadata-only workspace token).
+            # The export returns ALL cells (SQL, MARKDOWN, COLLAPSIBLE, EXPLORE,
+            # COMPONENT_IMPORT) recursively flattened, plus component IDs.
+            # Fall back to the cells API only if export is unavailable.
+            all_cells, comp_ids = self.hex_api.fetch_project_export(project.id)
+            if not all_cells:
+                # Export failed (403 or empty) — try cells API as fallback
+                all_cells = self.hex_api.fetch_cells(project.id)
+                comp_ids = []  # cells API doesn't expose component IDs
+
+            self._cells_cache[project.id] = all_cells  # reused by context doc stage
+            project.used_component_ids = [
+                cid for cid in comp_ids if cid in self.component_registry
+            ]
+            # Native SQL = cells from export that are SQL type (no component SQL inlined)
+            native_sql_cells = [c for c in all_cells if c.get("cellType") == "SQL"]
 
             # Tier 1: queriedTables (ENTERPRISE) — runtime-proven dataset-level lineage
             if queried_tables_available is not False:
@@ -884,12 +1181,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 if queried is not None:
                     queried_tables_available = True
                     upstream_urns = lineage_builder.build_from_queried_tables(queried)
-                    # Extract column-level lineage from already-cached SQL cells,
-                    # cross-validated against queriedTables so only columns whose
-                    # parent dataset is runtime-confirmed are emitted. Mismatches
-                    # (e.g. unqualified names, view aliases) are recorded in the report.
+                    # Cross-validate column lineage against queriedTables result set
                     if upstream_urns and self.ctx.graph:
-                        sql_cells_for_cll = _extract_sql_cells(raw_cells)
+                        sql_cells_for_cll = _extract_sql_cells(native_sql_cells)
                         if sql_cells_for_cll:
                             project.input_fields = (
                                 lineage_builder.build_validated_column_lineage(
@@ -903,21 +1197,15 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                         "using cell-based SQL parsing for all projects"
                     )
 
-            # Tier 2: SQL parsing (fallback)
+            # Tier 2: SQL parsing from export cells (native SQL only, not component SQL)
             if not upstream_urns and queried_tables_available is not True:
-                if has_component_imports:
-                    # Use only native SQL from the export YAML — component SQL belongs
-                    # at the component level, not duplicated on the project
-                    sql_cells = _extract_sql_cells(native_sql_cells)
-                else:
-                    sql_cells = _extract_sql_cells(raw_cells)
-
+                sql_cells = _extract_sql_cells(native_sql_cells)
                 if sql_cells:
                     upstream_urns, input_fields = lineage_builder.build_upstream_urns(
                         sql_cells
                     )
                     project.input_fields = input_fields
-                elif not has_component_imports:
+                else:
                     self.report.projects_without_sql_cells += 1
 
             if upstream_urns:
@@ -935,7 +1223,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 if component is None:
                     continue
                 lineage_builder.set_project_id(comp_id)
-                comp_cells = self.hex_api.fetch_cells(comp_id)
+                comp_cells, _ = self.hex_api.fetch_project_export(comp_id)
+                if not comp_cells:
+                    comp_cells = self.hex_api.fetch_cells(comp_id)
                 self._cells_cache[comp_id] = comp_cells  # reused by context doc stage
                 comp_sql_cells = _extract_sql_cells(comp_cells)
                 if comp_sql_cells:

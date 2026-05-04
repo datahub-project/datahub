@@ -555,6 +555,36 @@ class HexApi:
             return {}
 
     # ------------------------------------------------------------------
+    # Single project/component  (/v1/projects/{id})
+    # ------------------------------------------------------------------
+
+    @_api_call("get_project")
+    def fetch_single_project(
+        self, project_id: str
+    ) -> Optional[Union[Project, Component]]:
+        """Fetch metadata for a single project or component by ID.
+
+        Used to resolve unknown component imports on-demand during streaming
+        ingestion — avoids waiting for the component to appear in the listing.
+        """
+        try:
+            resp = self.session.get(
+                url=f"{self.base_url}/projects/{project_id}",
+                headers=self._auth_header(),
+                timeout=30,
+            )
+            resp.raise_for_status()
+            item = HexApiProjectApiResource.model_validate(resp.json())
+            return self._map_data_from_model(item)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to fetch single project",
+                message=f"Could not fetch project {project_id}",
+                exc=e,
+            )
+            return None
+
+    # ------------------------------------------------------------------
     # Cells  (all tiers — /v1/cells?projectId=)
     # ------------------------------------------------------------------
 
@@ -604,19 +634,131 @@ class HexApi:
     # Project export  (/v1/projects/export — reveals COMPONENT_IMPORT ids)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _normalize_export_cells(
+        yaml_cells: List[dict],
+    ) -> "tuple[List[dict], List[str]]":
+        """
+        Flatten and normalise export YAML cells to the /v1/cells API shape.
+
+        The export YAML is hierarchical: COLLAPSIBLE containers hold nested cells
+        in config.cells. This method recursively flattens them so callers receive
+        a flat list identical in structure to what /v1/cells returns.
+
+        Returns (normalized_cells, component_ids).
+        """
+        result: List[dict] = []
+        component_ids: List[str] = []
+
+        for cell in yaml_cells:
+            ct = cell.get("cellType", "")
+            cfg = cell.get("config", {}) or {}
+            cell_id = cell.get("cellId", "")
+            label = cell.get("cellLabel")
+
+            if ct == "SQL":
+                result.append(
+                    {
+                        "staticId": cell_id,
+                        "id": cell_id,
+                        "cellType": "SQL",
+                        "label": label,
+                        "dataConnectionId": cfg.get("dataConnectionId"),
+                        "contents": {
+                            "sqlCell": {"source": cfg.get("source", "")},
+                            "codeCell": None,
+                            "markdownCell": None,
+                        },
+                    }
+                )
+            elif ct == "MARKDOWN":
+                result.append(
+                    {
+                        "staticId": cell_id,
+                        "id": cell_id,
+                        "cellType": "MARKDOWN",
+                        "label": label,
+                        "dataConnectionId": None,
+                        "contents": {
+                            "sqlCell": None,
+                            "codeCell": None,
+                            "markdownCell": {"source": cfg.get("source", "")},
+                        },
+                    }
+                )
+            elif ct == "COLLAPSIBLE":
+                # Emit a stub so _parse_cells captures the section name, then
+                # recurse into the nested children.
+                result.append(
+                    {
+                        "staticId": cell_id,
+                        "id": cell_id,
+                        "cellType": "COLLAPSIBLE",
+                        "label": label,
+                        "dataConnectionId": None,
+                        "contents": {
+                            "sqlCell": None,
+                            "codeCell": None,
+                            "markdownCell": None,
+                        },
+                    }
+                )
+                nested, nested_comp_ids = HexApi._normalize_export_cells(
+                    cfg.get("cells", [])
+                )
+                result.extend(nested)
+                component_ids.extend(nested_comp_ids)
+            elif ct == "EXPLORE":
+                result.append(
+                    {
+                        "staticId": cell_id,
+                        "id": cell_id,
+                        "cellType": "EXPLORE",
+                        "label": label,
+                        "dataConnectionId": None,
+                        "contents": {
+                            "sqlCell": None,
+                            "codeCell": None,
+                            "markdownCell": None,
+                        },
+                    }
+                )
+            elif ct == "COMPONENT_IMPORT":
+                comp_id = cfg.get("component", {}).get("id")
+                if comp_id:
+                    component_ids.append(comp_id)
+                result.append(
+                    {
+                        "staticId": cell_id,
+                        "id": cell_id,
+                        "cellType": "COMPONENT_IMPORT",
+                        "label": label,
+                        "dataConnectionId": None,
+                        "contents": {
+                            "sqlCell": None,
+                            "codeCell": None,
+                            "markdownCell": None,
+                        },
+                    }
+                )
+
+        return result, component_ids
+
     @_api_call("export_project")
     def fetch_project_export(self, project_id: str) -> "tuple[List[dict], List[str]]":
         """
         POST /api/v1/projects/export returns the full project YAML.
 
-        This is the only API that exposes which component IDs a project imports
-        (the cells API strips config.component.id from COMPONENT_IMPORT cells).
+        Unlike the cells API this endpoint:
+        - Exposes config.component.id in COMPONENT_IMPORT cells (cells API strips it)
+        - Contains SQL cells with source in config.source (not contents.sqlCell.source)
+        - Organises cells hierarchically inside COLLAPSIBLE containers
+        - Works with tokens that lack the 'Read projects' cells scope
 
-        Returns (native_sql_cells, component_ids) where:
-          native_sql_cells — raw cell dicts for SQL cells defined in the project
-                             itself (not inlined from components), in the same
-                             shape as /v1/cells, usable by _extract_sql_cells().
-          component_ids    — list of component project IDs imported by this project.
+        Returns (all_normalized_cells, component_ids) where:
+          all_normalized_cells — flat list of all cells in /v1/cells API shape,
+                                 recursively extracted from COLLAPSIBLE containers.
+          component_ids        — component project IDs imported by this project.
         """
         import yaml
 
@@ -633,38 +775,12 @@ class HexApi:
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch project export",
-                message=f"Export API call failed for project {project_id}; component linkage unavailable",
+                message=f"Export API call failed for project {project_id}",
                 exc=e,
             )
             return [], []
 
-        native_sql_cells: List[dict] = []
-        component_ids: List[str] = []
-
-        for cell in content.get("cells", []):
-            ct = cell.get("cellType", "")
-            if ct == "SQL":
-                # Normalise YAML cell shape to match the /v1/cells shape
-                native_sql_cells.append(
-                    {
-                        "staticId": cell.get("cellId", ""),
-                        "id": cell.get("cellId", ""),
-                        "cellType": "SQL",
-                        "label": cell.get("cellLabel"),
-                        "dataConnectionId": cell.get("dataConnectionId"),
-                        "contents": {
-                            "sqlCell": {"source": cell.get("source", "")},
-                            "codeCell": None,
-                            "markdownCell": None,
-                        },
-                    }
-                )
-            elif ct == "COMPONENT_IMPORT":
-                comp_id = cell.get("config", {}).get("component", {}).get("id")
-                if comp_id:
-                    component_ids.append(comp_id)
-
-        return native_sql_cells, component_ids
+        return HexApi._normalize_export_cells(content.get("cells", []))
 
     # ------------------------------------------------------------------
     # Queried tables  (ENTERPRISE tier — /v1/projects/{id}/queriedTables)
