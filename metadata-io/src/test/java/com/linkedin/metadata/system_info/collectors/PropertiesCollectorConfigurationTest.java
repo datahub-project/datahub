@@ -597,6 +597,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.bulkProcessor.refreshPolicy",
           "elasticsearch.bulkProcessor.requestsLimit",
           "elasticsearch.bulkProcessor.sizeLimit",
+          "elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds",
           "elasticsearch.bulkProcessor.threadCount",
           "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
@@ -996,6 +997,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.spaceType",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.efConstruction",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.m",
+          // MAE consumer (shared YAML; active when MAE_CONSUMER_ENABLED=true)
+          "maeConsumer.enabled",
+          "maeConsumer.elasticsearch.socketTimeoutMs",
+          "maeConsumer.elasticsearch.connectionRequestTimeoutMs",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size",
