@@ -1,3 +1,4 @@
+import contextlib
 import json
 from contextlib import contextmanager
 from typing import Iterator
@@ -8,8 +9,10 @@ import pytest
 from airflow.models import Connection, DagBag
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
+from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
@@ -213,3 +216,169 @@ def test_entities():
         ValueError, match="only supports datasets and upstream datajobs"
     ):
         Urn("urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)")
+
+
+def _make_lineage_config(
+    enable_datajob_lineage: bool = True,
+    filter_str: str = '{"allow": [".*"]}',
+) -> DatahubLineageConfig:
+    # model_construct skips validation; we only need the fields read by the code under test.
+    return DatahubLineageConfig.model_construct(  # type: ignore[call-arg]
+        enable_datajob_lineage=enable_datajob_lineage,
+        datajob_lineage_dag_filter_pattern=AllowDenyPattern.model_validate_json(
+            filter_str
+        ),
+    )
+
+
+def test_should_emit_datajob_lineage_default_allows_all():
+    cfg = _make_lineage_config()
+    assert cfg.should_emit_datajob_lineage("any_dag") is True
+
+
+def test_should_emit_datajob_lineage_global_disable_overrides_filter():
+    cfg = _make_lineage_config(enable_datajob_lineage=False)
+    assert cfg.should_emit_datajob_lineage("any_dag") is False
+
+
+def test_should_emit_datajob_lineage_per_dag_deny():
+    cfg = _make_lineage_config(filter_str='{"deny": ["cosmos_dbt_dag"]}')
+    assert cfg.should_emit_datajob_lineage("cosmos_dbt_dag") is False
+    assert cfg.should_emit_datajob_lineage("etl_pipeline") is True
+
+
+def test_should_emit_datajob_lineage_per_dag_allow():
+    cfg = _make_lineage_config(filter_str='{"allow": ["analytics_.*"]}')
+    assert cfg.should_emit_datajob_lineage("analytics_users") is True
+    assert cfg.should_emit_datajob_lineage("billing_pipeline") is False
+
+
+def test_get_lineage_config_reads_per_dag_filter_str():
+    fake_conf = {
+        ("datahub", "datajob_lineage_dag_filter_str"): '{"deny": ["my_dag"]}',
+    }
+
+    def fake_get(section, key, fallback=None):
+        return fake_conf.get((section, key), fallback)
+
+    with mock.patch("datahub_airflow_plugin._config.conf.get", side_effect=fake_get):
+        cfg = get_lineage_config()
+
+    assert cfg.should_emit_datajob_lineage("my_dag") is False
+    assert cfg.should_emit_datajob_lineage("other_dag") is True
+
+
+def _import_listener_modules():
+    """Import both listener modules. Skip if Airflow runtime not available."""
+    try:
+        from datahub_airflow_plugin.airflow2 import datahub_listener as a2_listener
+        from datahub_airflow_plugin.airflow3 import datahub_listener as a3_listener
+    except Exception as e:
+        pytest.skip(f"Airflow listener modules unavailable: {e}")
+    return a2_listener, a3_listener
+
+
+@pytest.mark.parametrize("airflow_version", ["airflow2", "airflow3"])
+def test_listener_extract_lineage_skips_when_dag_denied(airflow_version):
+    a2, a3 = _import_listener_modules()
+    listener_module = a2 if airflow_version == "airflow2" else a3
+
+    listener = listener_module.DataHubListener.__new__(listener_module.DataHubListener)
+    listener.config = _make_lineage_config(filter_str='{"deny": ["denied_dag"]}')
+
+    datajob = mock.MagicMock()
+    task = mock.MagicMock(dag_id="denied_dag", task_id="t1")
+
+    listener._extract_lineage(
+        datajob, mock.MagicMock(), task, mock.MagicMock(), complete=False
+    )
+
+    # Early return means no inlets/outlets/FGLs are touched on the datajob.
+    datajob.inlets.append.assert_not_called()
+    datajob.outlets.append.assert_not_called()
+
+
+@pytest.mark.parametrize("airflow_version", ["airflow2", "airflow3"])
+def test_listener_extract_lineage_skips_when_global_disabled(airflow_version):
+    a2, a3 = _import_listener_modules()
+    listener_module = a2 if airflow_version == "airflow2" else a3
+
+    listener = listener_module.DataHubListener.__new__(listener_module.DataHubListener)
+    listener.config = _make_lineage_config(enable_datajob_lineage=False)
+
+    datajob = mock.MagicMock()
+    task = mock.MagicMock(dag_id="any_dag", task_id="t1")
+
+    listener._extract_lineage(
+        datajob, mock.MagicMock(), task, mock.MagicMock(), complete=False
+    )
+
+    datajob.inlets.append.assert_not_called()
+    datajob.outlets.append.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("airflow_version", "dag_id", "expected_generate_lineage"),
+    [
+        ("airflow2", "allowed_dag", True),
+        ("airflow2", "denied_dag", False),
+        ("airflow3", "allowed_dag", True),
+        ("airflow3", "denied_dag", False),
+    ],
+)
+def test_listener_generate_and_emit_datajob_passes_filter_to_generate_mcp(
+    airflow_version, dag_id, expected_generate_lineage
+):
+    """Verify generate_mcp is called with generate_lineage gated on the per-DAG filter."""
+    a2, a3 = _import_listener_modules()
+    listener_module = a2 if airflow_version == "airflow2" else a3
+
+    listener = listener_module.DataHubListener.__new__(listener_module.DataHubListener)
+    listener.config = _make_lineage_config(filter_str='{"deny": ["denied_dag"]}')
+    listener.config.cluster = "PROD"
+    listener.config.capture_tags_info = False
+    listener.config.capture_ownership_info = False
+    listener.config.materialize_iolets = False
+
+    # Stub emitter access used by both listener variants.
+    emitter = mock.MagicMock()
+    listener._emitter = emitter
+    listener._make_emit_callback = mock.MagicMock(return_value=None)
+
+    datajob = mock.MagicMock()
+    datajob.generate_mcp.return_value = []
+
+    dag = mock.MagicMock(dag_id=dag_id)
+    task = mock.MagicMock(dag_id=dag_id, task_id="t1")
+    task_instance = mock.MagicMock(task=task)
+    dagrun = mock.MagicMock()
+
+    patches = [
+        mock.patch.object(listener, "_extract_lineage"),
+        mock.patch.object(
+            listener_module.AirflowGenerator,
+            "generate_datajob",
+            return_value=datajob,
+        ),
+    ]
+    if airflow_version == "airflow3":
+        patches.append(
+            mock.patch.object(listener, "_get_emitter", return_value=emitter)
+        )
+
+    with contextlib.ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        listener._generate_and_emit_datajob(
+            dagrun=dagrun,
+            task=task,
+            dag=dag,
+            task_instance=task_instance,
+            complete=True,
+        )
+
+    datajob.generate_mcp.assert_called_once()
+    assert (
+        datajob.generate_mcp.call_args.kwargs["generate_lineage"]
+        is expected_generate_lineage
+    )

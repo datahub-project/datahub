@@ -1001,15 +1001,13 @@ class DataHubListener:
         # Add lineage info
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=complete)  # type: ignore[arg-type]
 
-        should_generate_lineage = self.config.should_emit_datajob_lineage(dag.dag_id)
-
         # Emit DataJob MCPs
         # Skip dataJobInputOutput aspects on task start to avoid file emitter merging duplicates
         # The file emitter merges aspects with the same entity URN and aspect name,
         # which causes FGLs from start and completion to be combined into duplicates.
         # We only emit the aspect on completion when lineage is complete and accurate.
         for mcp in datajob.generate_mcp(
-            generate_lineage=should_generate_lineage,
+            generate_lineage=self.config.should_emit_datajob_lineage(dag.dag_id),
             materialize_iolets=self.config.materialize_iolets,
         ):
             # Skip dataJobInputOutput aspects on task start
