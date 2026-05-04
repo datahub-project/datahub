@@ -560,10 +560,11 @@ class SnowflakeV2Source(
 
         databases = schema_extractor.databases
 
+        shares_handler = SnowflakeSharesHandler(self.config, self.report)
         if self.config.shares:
-            yield from SnowflakeSharesHandler(
-                self.config, self.report
-            ).get_shares_workunits(databases)
+            yield from shares_handler.get_shares_workunits(databases)
+        if self.config.auto_discover_inbound_shares:
+            yield from shares_handler.get_auto_share_workunits(databases)
 
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)

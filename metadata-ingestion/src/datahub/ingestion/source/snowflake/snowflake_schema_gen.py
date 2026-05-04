@@ -337,7 +337,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # Merge fields from SHOW DATABASES (origin, kind, etc.) into
             # the information_schema results, which lack these columns.
             # Required for Phase E auto-discovery of inbound shares.
-            if self.config.include_show_databases_metadata:
+            # `getattr` keeps SnowflakeSummaryConfig (which lacks the field) working.
+            if getattr(self.config, "include_show_databases_metadata", True):
                 show_db_lookup = {db.name.upper(): db for db in databases}
                 for db in ischema_databases:
                     show_db = show_db_lookup.get(db.name.upper())

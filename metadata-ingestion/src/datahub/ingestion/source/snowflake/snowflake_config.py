@@ -489,6 +489,23 @@ class SnowflakeV2Config(
         "to information_schema-only metadata.",
     )
 
+    auto_discover_inbound_shares: bool = Field(
+        default=True,
+        description="If enabled, automatically detect inbound Snowflake shares from the "
+        "`origin` field on each database (populated by `SHOW DATABASES`) and emit "
+        "Siblings + COPY lineage to the producer. No elevated privileges required. "
+        "Skipped for databases already covered by manual `shares` config.",
+    )
+
+    share_database_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps Snowflake share names to producer database names, used by "
+        "`auto_discover_inbound_shares` when the producer's database name cannot be "
+        "inferred from the share name alone. Keys are share names "
+        "(e.g., 'ANALYTICS_SHARE'), values are producer database names "
+        "(e.g., 'PROD_ANALYTICS'). Case-insensitive match.",
+    )
+
     def resolve_account_to_platform_instance(
         self, account_identifier: str, account_locator: Optional[str] = None
     ) -> Optional[str]:

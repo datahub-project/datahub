@@ -147,6 +147,11 @@ class SnowflakeV2Report(
     # Siblings emitted by SnowflakeSharesHandler (cross-account share lineage)
     num_siblings_emitted: int = 0
 
+    # Phase E.1: auto-discovered inbound share metrics
+    num_auto_shares_discovered: int = 0
+    num_auto_shares_skipped_unresolved_producer: int = 0
+    num_auto_shares_skipped_unknown_share_db: int = 0
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table or a schema or a database

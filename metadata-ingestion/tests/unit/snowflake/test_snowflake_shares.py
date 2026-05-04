@@ -412,3 +412,192 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share_no_platform_instan
                 assert siblings_aspect.siblings == [
                     wu.get_urn().replace("db2.", "db2_main.")
                 ]
+
+
+# ---------------------------------------------------------------------------
+# Phase E.1: auto-discover inbound shares from `origin` field
+# ---------------------------------------------------------------------------
+
+
+def _shared_db(name: str, origin: str) -> SnowflakeDatabase:
+    return SnowflakeDatabase(
+        name=name,
+        created=None,
+        comment=None,
+        last_altered=None,
+        origin=origin,
+        kind="IMPORTED DATABASE",
+        schemas=[
+            SnowflakeSchema(
+                name="SCHEMA1",
+                created=None,
+                comment=None,
+                last_altered=None,
+                tables=["TABLE1"],
+                views=["VIEW1"],
+            ),
+        ],
+    )
+
+
+def test_auto_share_emits_siblings_and_lineage_when_resolved() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+
+    # 1 table + 1 view × (Siblings + UpstreamLineage) = 4 workunits
+    assert len(wus) == 4
+    assert report.num_auto_shares_discovered == 1
+    assert report.num_auto_shares_skipped_unresolved_producer == 0
+    assert report.num_auto_shares_skipped_unknown_share_db == 0
+
+    siblings_count = sum(1 for wu in wus if isinstance(wu.metadata.aspect, Siblings))
+    lineage_count = sum(
+        1 for wu in wus if isinstance(wu.metadata.aspect, UpstreamLineage)
+    )
+    assert siblings_count == 2
+    assert lineage_count == 2
+
+    for wu in wus:
+        if isinstance(wu.metadata.aspect, Siblings):
+            assert wu.metadata.aspect.primary is False
+            assert len(wu.metadata.aspect.siblings) == 1
+            assert "producer_inst.prod_analytics" in wu.metadata.aspect.siblings[0]
+        elif isinstance(wu.metadata.aspect, UpstreamLineage):
+            assert len(wu.metadata.aspect.upstreams) == 1
+            assert (
+                "producer_inst.prod_analytics"
+                in wu.metadata.aspect.upstreams[0].dataset
+            )
+
+
+def test_auto_share_skips_when_disabled() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        auto_discover_inbound_shares=False,
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    assert list(handler.get_auto_share_workunits([db])) == []
+    assert report.num_auto_shares_discovered == 0
+
+
+def test_auto_share_skips_unresolved_producer() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert wus == []
+    assert report.num_auto_shares_skipped_unresolved_producer == 1
+
+
+def test_auto_share_uses_account_locator_fallback_when_enabled() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_locator_fallback=True,
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert len(wus) == 4  # producer URN built from account_locator
+    assert report.num_auto_shares_discovered == 1
+    for wu in wus:
+        if isinstance(wu.metadata.aspect, Siblings):
+            assert "acct_a.prod_analytics" in wu.metadata.aspect.siblings[0]
+
+
+def test_auto_share_skips_unknown_share_db() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        # No share_database_mapping
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert wus == []
+    assert report.num_auto_shares_skipped_unknown_share_db == 1
+
+
+def test_auto_share_skips_when_manual_config_covers_db() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+        shares={
+            "manual_share": SnowflakeShareConfig(
+                database="shared_db",
+                platform_instance="manual_producer",
+                consumers=[
+                    DatabaseId(database="shared_db", platform_instance="consumer_inst")
+                ],
+            )
+        },
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    assert list(handler.get_auto_share_workunits([db])) == []
+    assert report.num_auto_shares_discovered == 0
+
+
+def test_auto_share_ignores_non_shared_databases(
+    snowflake_databases: List[SnowflakeDatabase],
+) -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    # snowflake_databases fixture has no `origin` set on any DB
+    assert list(handler.get_auto_share_workunits(snowflake_databases)) == []
+    assert report.num_auto_shares_discovered == 0
+
+
+def test_auto_share_locator_only_origin_resolves_via_locator() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"xy12345": "producer_inst"},
+        share_database_mapping={"SHARE_X": "PROD_DB"},
+    )
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    # Origin without org prefix: "ACCOUNT.SHARE"
+    db = _shared_db("SHARED_DB", origin="XY12345.SHARE_X")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert len(wus) == 4
+    assert report.num_auto_shares_discovered == 1
