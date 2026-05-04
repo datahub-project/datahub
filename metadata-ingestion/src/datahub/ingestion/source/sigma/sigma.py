@@ -323,7 +323,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Instance-level cache for /files/{inodeId} responses.
         # Keyed by inodeId (UUID); value is the raw JSON dict or None on failure.
         # Shared across all DMs so inodes that appear in multiple DMs hit the
-        # network only once.
+        # network only once.  The cache is unbounded — each entry is a small
+        # JSON dict and the number of unique warehouse-table inodes per tenant
+        # is expected to be in the hundreds, not millions.  If this assumption
+        # proves wrong, an LRU cap can be added without changing the interface.
         self._files_cache: Dict[str, Optional[Dict[str, Any]]] = {}
         # Inodes whose /files path already produced an unparseable warning;
         # prevents N identical warnings when the same inode spans N DMs (H3).
@@ -706,8 +709,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """Resolve a warehouse-table-backed inode sourceId to a fully-qualified
         warehouse Dataset URN via the connection registry.
 
+        Returns None silently (no counter) when:
+          - url_id_suffix is not in warehouse_map — this inode is a Sigma Dataset,
+            not a warehouse table; not a failure, just not applicable here.
+
         Returns None and bumps the appropriate counter when:
-          - url_id_suffix is not in warehouse_map (not a type=table inode)
           - connection_id is not in the registry or is_mappable=False
             (dm_element_warehouse_unknown_connection)
 
@@ -955,15 +961,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 url_id_suffix = source_id[len("inode-") :]
                 # Check warehouse map (type=table nodes) and the existing SD
                 # resolver (type=dataset nodes) in parallel; both can fire for
-                # the same inode when a file is catalogued as both.
+                # the same inode when a file is catalogued as both a Sigma
+                # Dataset and a warehouse table.  Emitting both as direct
+                # upstreams is intentional: the warehouse edge gives operators
+                # end-to-end lineage to the source table, while the SD edge
+                # preserves the Sigma-Dataset hop.  Downstream lineage queries
+                # may see the warehouse table as a direct upstream of the DM
+                # element — this is correct for the entity-level graph.
                 warehouse_urn = self._resolve_dm_element_warehouse_upstream(
                     url_id_suffix=url_id_suffix,
                     warehouse_map=warehouse_url_id_map,
                 )
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
-                # Warehouse success: deduped via seen; counter bumped post-dedup
-                # so diamond source_ids don't inflate the signal.
+                # Both URN types use the same ``seen`` set so a warehouse URN
+                # and an SD URN that happen to collide are still deduped.
+                # warehouse_urn is appended here (inside the inode- branch) with
+                # its own seen-check; upstream_urn follows the standard gate at
+                # the bottom of the for-loop.
                 if warehouse_urn and warehouse_urn not in seen:
                     upstream_urns.append(warehouse_urn)
                     seen.add(warehouse_urn)

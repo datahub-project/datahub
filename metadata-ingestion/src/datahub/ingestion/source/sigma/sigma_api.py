@@ -15,7 +15,7 @@ from typing import (
     Type,
     TypeVar,
 )
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -1146,7 +1146,7 @@ class SigmaAPI:
         rate-limiting from missing-scope (403/404) from server errors (5xx).
         """
         logger.debug("Fetching file metadata for inode '%s'.", inode_id)
-        url = f"{self.config.api_url}/files/{inode_id}"
+        url = f"{self.config.api_url}/files/{quote(inode_id, safe='')}"
         try:
             response = self._get_api_call(url)
             if response.status_code == 200:
