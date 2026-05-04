@@ -114,4 +114,9 @@ public class ExecutionIngestionAuthTestConfiguration {
 
   @MockBean(name = "searchClientShim")
   private SearchClientShim<?> searchClientShim;
+
+  @Bean(name = "searchEngineType")
+  public SearchClientShim.SearchEngineType searchEngineType() {
+    return SearchClientShim.SearchEngineType.ELASTICSEARCH_8;
+  }
 }

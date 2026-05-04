@@ -548,5 +548,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
         @Qualifier("systemOperationContext") OperationContext operationContext) {
       return operationContext.getObjectMapper();
     }
+
+    @Bean(name = "searchEngineType")
+    public SearchClientShim.SearchEngineType searchEngineType() {
+      return SearchClientShim.SearchEngineType.ELASTICSEARCH_8;
+    }
   }
 }
