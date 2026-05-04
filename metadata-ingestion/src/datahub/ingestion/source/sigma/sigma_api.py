@@ -1047,7 +1047,7 @@ class SigmaAPI:
 
         # Reset before populating so repeated _assemble_data_model calls
         # (e.g. during alias discovery) cannot accumulate stale entries.
-        data_model.consumed_dm_element_names = {}
+        data_model.source_dm_element_names = {}
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -1072,9 +1072,9 @@ class SigmaAPI:
                     and isinstance(src_name, str)
                     and src_name.strip()
                 ):
-                    data_model.consumed_dm_element_names.setdefault(
-                        src_dm_id, []
-                    ).append(src_name.strip())
+                    data_model.source_dm_element_names.setdefault(src_dm_id, []).append(
+                        src_name.strip()
+                    )
             # ``type: dataset`` / ``type: table`` entries are resolved
             # on the fly from their ``inode-<id>`` source_ids; no DM-side
             # stash is needed.
