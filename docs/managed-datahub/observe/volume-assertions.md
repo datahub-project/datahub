@@ -116,6 +116,13 @@ source types vary by the platform, but generally fall into these categories:
   and Tables stored inside the Data Warehouse, including their row count. It is usually efficient to check, but can in some cases be slightly delayed to update
   once a change has been made to a table. This is the optimal balance between cost and accuracy for most Data Platforms.
 
+- **Table Statistics** (Databricks Only): Uses platform-native catalog statistics to retrieve the current row count for a Table. For Databricks,
+  this runs [`ANALYZE TABLE ... COMPUTE STATISTICS`](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) followed by
+  `DESCRIBE TABLE EXTENDED`, which reads the cached `numRows` from the catalog rather than scanning data. On Delta tables this is a metadata-only
+  operation (file-level statistics are pulled from the transaction log), making it significantly cheaper than a `COUNT(*)` query on large tables.
+  This method requires `MODIFY` privilege (or ownership) on the target table so that `ANALYZE TABLE` can refresh the cached statistics,
+  and is the default Volume Source for Databricks. This method is only supported for Tables, not Views.
+
 - **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform).
   This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve
   system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. This issues a query to the table, which can be more expensive than Information Schema.
