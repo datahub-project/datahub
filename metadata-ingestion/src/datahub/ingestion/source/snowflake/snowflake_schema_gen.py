@@ -334,9 +334,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     "No databases found. Please check permissions.",
                 )
 
-            # Merge fields from SHOW DATABASES (origin, kind, etc.) into
-            # the information_schema results, which lack these columns.
-            # Required for Phase E auto-discovery of inbound shares.
+            # Merge SHOW DATABASES fields (origin, kind, etc.) into the
+            # information_schema results, which lack these columns. The `origin`
+            # field drives auto-discovery of inbound shares.
             # `getattr` keeps SnowflakeSummaryConfig (which lacks the field) working.
             if getattr(self.config, "include_show_databases_metadata", True):
                 show_db_lookup = {db.name.upper(): db for db in databases}

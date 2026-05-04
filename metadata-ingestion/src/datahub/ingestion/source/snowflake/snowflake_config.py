@@ -484,9 +484,9 @@ class SnowflakeV2Config(
         default=True,
         description="If enabled, runs `SHOW DATABASES` to capture extra database metadata "
         "(origin, kind, is_transient, retention_time, owner) and merges it into the "
-        "information_schema-based result. Required for Phase E auto-discovery of "
-        "inbound shares (which reads the `origin` field). Set to false to fall back "
-        "to information_schema-only metadata.",
+        "information_schema-based result. Required by `auto_discover_inbound_shares` "
+        "(which reads the `origin` field). Set to false to fall back to "
+        "information_schema-only metadata.",
     )
 
     auto_discover_inbound_shares: bool = Field(

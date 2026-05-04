@@ -40,7 +40,7 @@ SHARE_GRANT_HISTORY_QUERY_LIMIT = 1000
 _MAX_QUERY_TEXT_BYTES = 1_000_000
 
 # Matches `GRANT USAGE ON DATABASE <db> TO SHARE <share>` allowing whitespace
-# variation and quoted identifiers. Used by Phase E.2 producer-side mining.
+# variation and quoted identifiers.
 _IDENT = r'(?:"[^"]+"|[\w$]+)'
 _SHARE_GRANT_RE = re.compile(
     rf"GRANT\s+USAGE\s+ON\s+DATABASE\s+({_IDENT})\s+TO\s+SHARE\s+({_IDENT})",
@@ -138,7 +138,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
     def discover_share_database_mapping(
         self, connection: SnowflakeConnection
     ) -> Dict[str, str]:
-        """Phase E.2: mine producer-side QUERY_HISTORY for share -> database grants.
+        """Mine QUERY_HISTORY for share -> database grants on the producer side.
 
         Returns share_name -> database_name. Empty dict on any failure — callers
         must treat absence as "unknown", not as "no grants exist".
@@ -184,7 +184,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self,
         databases: List[SnowflakeDatabase],
     ) -> Iterable[MetadataWorkUnit]:
-        """Phase E.1: auto-discover inbound shares from each database's `origin` field."""
+        """Auto-discover inbound shares from each database's `origin` field."""
         if not self.config.auto_discover_inbound_shares:
             return
 

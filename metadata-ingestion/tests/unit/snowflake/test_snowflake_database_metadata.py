@@ -44,7 +44,7 @@ def test_is_shared_database_aligns_with_share_origin() -> None:
         assert (db.share_origin is not None) is expected
 
 
-# --- Phase C: account_mapping resolution ---
+# --- account_mapping resolution ---
 
 
 def test_resolve_account_exact_match() -> None:

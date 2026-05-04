@@ -421,7 +421,7 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share_no_platform_instan
 
 
 # ---------------------------------------------------------------------------
-# Phase E.1: auto-discover inbound shares from `origin` field
+# Auto-discover inbound shares from `origin` field
 # ---------------------------------------------------------------------------
 
 
@@ -606,7 +606,7 @@ def test_auto_share_locator_only_origin_resolves_via_locator() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Phase E.2: producer-side QUERY_HISTORY parser
+# Producer-side QUERY_HISTORY parser
 # ---------------------------------------------------------------------------
 
 
@@ -800,7 +800,7 @@ def test_auto_share_handles_corrupt_published_mapping_gracefully() -> None:
 
 
 # ---------------------------------------------------------------------------
-# discover_share_database_mapping (Phase E.2 producer-side wrapper)
+# discover_share_database_mapping (producer-side wrapper)
 # ---------------------------------------------------------------------------
 
 

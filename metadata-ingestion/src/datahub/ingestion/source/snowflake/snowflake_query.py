@@ -205,10 +205,10 @@ class SnowflakeQuery:
     def share_grant_history(lookback_days: int = 365, limit: int = 1000) -> str:
         """Query QUERY_HISTORY for `GRANT USAGE ON DATABASE ... TO SHARE ...` DDL.
 
-        Used by Phase E.2 to build a share -> producer database mapping that
-        consumers can read to construct cross-account producer URNs without
-        elevated privileges. `IMPORTED PRIVILEGES on SNOWFLAKE` (already
-        granted for lineage extraction) is sufficient.
+        Builds a share -> producer database mapping that consumers can read to
+        construct cross-account producer URNs without elevated privileges.
+        `IMPORTED PRIVILEGES on SNOWFLAKE` (already granted for lineage
+        extraction) is sufficient.
 
         ACCOUNT_USAGE.QUERY_HISTORY retains 365 days; older grants need
         manual `share_database_mapping` config. The caller must keep `limit`
