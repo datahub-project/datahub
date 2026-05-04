@@ -1,5 +1,6 @@
 ---
 title: "OSS vs Cloud: Comparison Guide"
+description: "Compare DataHub Open Source and DataHub Cloud, covering enterprise governance, AI automation, SLAs, and managed service capabilities."
 ---
 
 # OSS vs Cloud: Comparison Guide

@@ -1,5 +1,6 @@
 ---
 title: Tableau Configuration
+description: "Configure DataHub UI ingestion to connect to Tableau using the dedicated DataHub user and Site Administrator Explorer access."
 ---
 
 # Configuring Your Tableau Connector to DataHub

@@ -1681,7 +1681,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Apply MCP observers (pre-transaction metrics collection, external actions).
     // Only on sync path — async MCPs come back via MCE consumer with async=false.
     if (!async) {
-      aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+      try {
+        aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+      } catch (VirtualMachineError e) {
+        throw e;
+      } catch (Throwable t) {
+        // Outermost guard around the observer call site. Inner layers in MCPObserver.apply and
+        // AspectsBatch.applyMCPObservers already isolate per-observer failures; anything that
+        // leaks here is a non-observer bug (batch wiring, retriever context) — log it as such
+        // rather than as an observer failure so it doesn't get triaged to the wrong owner.
+        log.warn("MCP observer call site failed; ingest continuing", t);
+      }
     }
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);

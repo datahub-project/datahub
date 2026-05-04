@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /usr/local/lib/datahub/wait_for_deps.sh
+
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then
     NEO4J_HOST="http://$NEO4J_HOST"
@@ -21,23 +23,6 @@ else
   ELASTICSEARCH_PROTOCOL=http
 fi
 
-WAIT_FOR_EBEAN=""
-if [[ $SKIP_EBEAN_CHECK != true ]]; then
-  if [[ $ENTITY_SERVICE_IMPL == ebean ]] || [[ -z $ENTITY_SERVICE_IMPL ]]; then
-    WAIT_FOR_EBEAN=" -wait tcp://$EBEAN_DATASOURCE_HOST "
-  fi
-fi
-
-WAIT_FOR_CASSANDRA=""
-if [[ $ENTITY_SERVICE_IMPL == cassandra ]] && [[ $SKIP_CASSANDRA_CHECK != true ]]; then
-  WAIT_FOR_CASSANDRA=" -wait tcp://$CASSANDRA_DATASOURCE_HOST "
-fi
-
-WAIT_FOR_NEO4J=""
-if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
-  WAIT_FOR_NEO4J=" -wait $NEO4J_HOST "
-fi
-
 OTEL_AGENT=""
 if [[ $ENABLE_OTEL == true ]]; then
   OTEL_AGENT="-javaagent:/datahub/datahub-upgrade/lib/opentelemetry-javaagent.jar "
@@ -56,21 +41,28 @@ fi
 
 export MANAGEMENT_SERVER_PORT="${MANAGEMENT_SERVER_PORT:-4319}"
 
-COMMON="
-    $WAIT_FOR_EBEAN \
-    $WAIT_FOR_CASSANDRA \
-    $WAIT_FOR_NEO4J \
-    -timeout 240s \
-    java $JAVA_OPTS $JMX_OPTS \
-    $OTEL_AGENT \
-    -Dstats=unsecure \
-    -Dloader.path=/datahub/datahub-upgrade/lib \
-    -jar /datahub/datahub-upgrade/bin/datahub-upgrade.jar"
+datahub_wait_begin
 
 if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
-  exec /usr/local/bin/dockerize \
-    -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
-    $COMMON "$@"
-else
-  exec /usr/local/bin/dockerize $COMMON "$@"
+  datahub_wait_http "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT" "$ELASTICSEARCH_AUTH_HEADER"
 fi
+
+if [[ $SKIP_EBEAN_CHECK != true ]]; then
+  if [[ $ENTITY_SERVICE_IMPL == ebean ]] || [[ -z $ENTITY_SERVICE_IMPL ]]; then
+    datahub_wait_tcp "tcp://${EBEAN_DATASOURCE_HOST}"
+  fi
+fi
+
+if [[ $ENTITY_SERVICE_IMPL == cassandra ]] && [[ $SKIP_CASSANDRA_CHECK != true ]]; then
+  datahub_wait_tcp "tcp://${CASSANDRA_DATASOURCE_HOST}"
+fi
+
+if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
+  datahub_wait_endpoint "$NEO4J_HOST"
+fi
+
+exec java $JAVA_OPTS $JMX_OPTS \
+  $OTEL_AGENT \
+  -Dstats=unsecure \
+  -Dloader.path=/datahub/datahub-upgrade/lib \
+  -jar /datahub/datahub-upgrade/bin/datahub-upgrade.jar "$@"

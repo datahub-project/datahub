@@ -295,3 +295,47 @@ def test_query_lineage_prerequisites_failure(create_engine_mock):
             assert source.report.failures
             failure_messages = [f.message for f in source.report.failures]
             assert any("pg_stat_statements" in msg.lower() for msg in failure_messages)
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_procedures_for_schema(create_engine_mock):
+    """Test that get_procedures_for_schema maps DB rows to BaseProcedure correctly.
+
+    Verifies that:
+    - Fields are mapped correctly (name, language, arguments, comment, definition)
+    - Language is normalized to uppercase (postgres returns lowercase "sql")
+    - procedure_definition uses prosrc (body only, no CREATE PROCEDURE wrapper)
+    """
+    from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+
+    config = PostgresConfig.model_validate({**_base_config(), "database": "testdb"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    mock_inspector = MagicMock()
+    mock_conn = MagicMock()
+    mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
+
+    mock_row = MagicMock()
+    mock_row.name = "etl_process_orders"
+    mock_row.language = "sql"  # postgres returns lowercase
+    mock_row.arguments = ""
+    mock_row.definition = (
+        "    INSERT INTO processed_orders (order_id, customer_id, total)\n"
+        "    SELECT id AS order_id, customer_id, amount AS total FROM raw_orders;\n"
+    )
+    mock_row.comment = "ETL procedure to process orders"
+    mock_conn.execute.return_value = [mock_row]
+
+    procedures = source.get_procedures_for_schema(mock_inspector, "public", "testdb")
+
+    assert len(procedures) == 1
+    proc = procedures[0]
+    assert isinstance(proc, BaseProcedure)
+    assert proc.name == "etl_process_orders"
+    assert proc.language == "SQL"  # normalized to uppercase
+    assert proc.argument_signature == ""
+    assert proc.comment == "ETL procedure to process orders"
+    assert proc.procedure_definition is not None
+    assert "INSERT INTO processed_orders" in proc.procedure_definition
+    # prosrc returns body only — no CREATE PROCEDURE wrapper that would break lineage
+    assert not proc.procedure_definition.strip().upper().startswith("CREATE")
