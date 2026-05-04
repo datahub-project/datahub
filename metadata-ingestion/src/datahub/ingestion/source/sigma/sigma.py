@@ -315,6 +315,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Shared across all DMs so inodes that appear in multiple DMs hit the
         # network only once.
         self._files_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+        # Inodes whose /files path already produced an unparseable warning;
+        # prevents N identical warnings when the same inode spans N DMs (H3).
+        self._files_path_unparseable_seen: Set[str] = set()
+        # Once-per-run gate flags so noisy global conditions don't flood logs.
+        self._registry_empty_warned: bool = False
+        self._no_platform_map_warned: bool = False
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
@@ -615,35 +621,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             url_id = str(files_data.get("urlId") or "")
             path = str(files_data.get("path") or "")
             parts = path.split("/")
-            # B2: also reject empty segments (e.g. "Connection Root//PUBLIC"
-            # passes len==3 but parts[1]=="" -> malformed URN).
-            if not url_id or len(parts) != 3 or not all(parts):
-                self.reporter.dm_element_warehouse_path_unparseable += 1
-                self.reporter.warning(
-                    title="Sigma warehouse /files path unparseable",
-                    message=(
-                        "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
-                        "no empty segments and a non-empty urlId. "
-                        "Warehouse upstream skipped."
-                    ),
-                    context=(
-                        f"dm={data_model.dataModelId}, inode={inode_id}, "
-                        f"path={path!r}, url_id={url_id!r}"
-                    ),
-                )
-                continue
-            if parts[0] != _FILES_PATH_ROOT:
-                self.reporter.dm_element_warehouse_path_unparseable += 1
-                self.reporter.warning(
-                    title="Sigma warehouse path has unexpected root segment",
-                    message=(
-                        "Expected the /files path root to be 'Connection Root' "
-                        "but got a different value. Warehouse upstream skipped. "
-                        "This may indicate a Sigma API change or a localised "
-                        "tenant configuration."
-                    ),
-                    context=f"dm={data_model.dataModelId}, inode={inode_id}, path={path!r}",
-                )
+            # Validate: exactly 3 non-empty segments and a non-empty urlId.
+            # Rejects "Acryl Workspace" (CSV uploads), "Connection Root//PUBLIC"
+            # (empty DB segment -> malformed URN), and >3 segments.
+            # H4 TODO: confirm with Sigma whether API path strings are localised;
+            # if so, relax the literal "Connection Root" check.
+            path_invalid = not url_id or len(parts) != 3 or not all(parts)
+            root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
+            if path_invalid or root_unexpected:
+                # Dedup per inode: a single misconfigured inode shared across N
+                # DMs must not flood the report with N identical warnings (H3).
+                if inode_id not in self._files_path_unparseable_seen:
+                    self._files_path_unparseable_seen.add(inode_id)
+                    self.reporter.dm_element_warehouse_path_unparseable += 1
+                    self.reporter.warning(
+                        title=(
+                            "Sigma warehouse path has unexpected root segment"
+                            if root_unexpected
+                            else "Sigma warehouse /files path unparseable"
+                        ),
+                        message=(
+                            "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
+                            "no empty segments and a non-empty urlId. "
+                            "Warehouse upstream skipped for this inode."
+                        ),
+                        context=f"inode={inode_id}, path={path!r}, url_id={url_id!r}",
+                    )
                 continue
             result[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
@@ -671,15 +674,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         caller bumps it post-dedup so diamond source_ids (multiple inode-
         entries resolving to the same URN) don't inflate the counter.
 
-        Note: platform_instance is always None, which emits a base-platform URN
-        (no instance suffix).  This matches the warehouse connector's URN only
-        when no platform_instance is configured there.  For multi-instance
-        deployments (e.g. prod-snowflake / dev-snowflake), the emitted edge
-        will reference a non-existent URN — a known limitation documented in
-        the PR description.  The correct fix is a per-connection override map
-        (TODO: add connection_to_platform_map to SigmaSourceConfig).  Using
-        self.config.platform_instance here would be wrong: that is the Sigma
-        source's own instance identifier, not the warehouse source's.
+        env and platform_instance are resolved from
+        ``config.connection_to_platform_map`` when a matching entry exists,
+        falling back to the Sigma source's own env + platform_instance=None.
+        For multi-env or multi-instance warehouse setups, add entries to
+        ``connection_to_platform_map`` in the recipe so emitted edges point
+        at the URNs the warehouse connector actually produced.
+
+        Note: platform-specific identifier normalization (e.g. BigQuery
+        date-sharded tables, wildcard refs) is not applied — the name
+        emitted is exactly what Sigma's /files path and lineage entry carry.
+        Tables with non-standard identifiers may produce dangling edges.
         """
         ref = warehouse_map.get(url_id_suffix)
         if ref is None:
@@ -698,11 +703,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         fq = ref.fq_name(record.datahub_platform)
+        # Use per-connection overrides when configured so the emitted URN
+        # matches the warehouse connector's env / platform_instance.  Falls
+        # back to the Sigma recipe's own env + platform_instance=None, which
+        # is correct for single-env single-instance deployments.
+        conn_override = self.config.connection_to_platform_map.get(ref.connection_id)
+        target_env = conn_override.env if conn_override else self.config.env
+        target_platform_instance = (
+            conn_override.platform_instance if conn_override else None
+        )
+        # H1: warn once when emitting without a per-connection override so
+        # operators in multi-env / multi-instance setups know to configure
+        # connection_to_platform_map. Single-instance tenants are unaffected.
+        if conn_override is None and not self._no_platform_map_warned:
+            self._no_platform_map_warned = True
+            self.reporter.info(
+                title="Sigma warehouse URNs emitted without connection_to_platform_map",
+                message=(
+                    "Warehouse Dataset URNs are being emitted using the Sigma "
+                    "recipe's env and platform_instance=None. If your warehouse "
+                    "connector is configured with a different env or a "
+                    "platform_instance, configure connection_to_platform_map in "
+                    "the Sigma recipe to match."
+                ),
+            )
         return builder.make_dataset_urn_with_platform_instance(
             platform=record.datahub_platform,
             name=fq,
-            env=self.config.env,
-            platform_instance=None,
+            env=target_env,
+            platform_instance=target_platform_instance,
         )
 
     def _resolve_dm_element_cross_dm_upstream(
@@ -834,6 +863,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element: SigmaDataModelElement,
         data_model: SigmaDataModel,
         element_dataset_urn: str,
+        *,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
@@ -1276,22 +1306,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Resolve all type=table inodes for this DM once before the element loop.
         # One /files call per unique inode (cached across DMs).
         warehouse_url_id_map = self._build_dm_warehouse_url_id_map(data_model)
-        # Warn once if the registry is empty while this DM has warehouse inodes —
-        # a failed registry build silently turns off warehouse upstream emission
-        # for the entire run; making it visible here lets operators triage it.
+        # Warn once per run if the registry is empty while warehouse inodes exist.
         if (
-            data_model.warehouse_inodes_by_inode_id
+            not self._registry_empty_warned
+            and data_model.warehouse_inodes_by_inode_id
             and not self.connection_registry.by_id
         ):
+            self._registry_empty_warned = True
             self.reporter.warning(
                 title="Sigma connection registry is empty — warehouse lineage unavailable",
                 message=(
                     "The connection registry contains no records. All warehouse "
-                    "upstream edges for DM elements will be skipped. Check "
-                    "whether the /v2/connections fetch succeeded and the "
+                    "upstream edges for DM elements will be skipped for this run. "
+                    "Check whether the /v2/connections fetch succeeded and the "
                     "connections_skipped_missing_id counter."
                 ),
-                context=f"dm={data_model.dataModelId}",
             )
         # ``data_model.path`` starts with the workspace name (e.g.
         # "Acryl Data/Marketing"); drop index 0 because the workspace is
@@ -1404,9 +1433,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element,
                 data_model,
                 element_dataset_urn,
-                elementId_to_dataset_urn,
-                element_name_to_eids,
-                warehouse_url_id_map,
+                elementId_to_dataset_urn=elementId_to_dataset_urn,
+                element_name_to_eids=element_name_to_eids,
+                warehouse_url_id_map=warehouse_url_id_map,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(

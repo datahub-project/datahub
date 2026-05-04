@@ -1097,11 +1097,25 @@ class SigmaAPI:
                 name = str(entry.get("name") or "")
                 if not (inode_id and name and conn_id):
                     self.report.dm_element_warehouse_table_entry_incomplete += 1
-                    logger.debug(
-                        "DM %s: type=table entry missing inodeId or name; "
-                        "skipping to avoid malformed URN: %s",
-                        data_model.dataModelId,
-                        entry,
+                    missing = [
+                        f
+                        for f, v in (
+                            ("inodeId", inode_id),
+                            ("name", name),
+                            ("connectionId", conn_id),
+                        )
+                        if not v
+                    ]
+                    self.report.warning(
+                        title="Sigma type=table lineage entry is incomplete",
+                        message=(
+                            "A type=table lineage entry is missing one or more "
+                            "required fields. Warehouse upstream skipped to avoid "
+                            "emitting a malformed URN."
+                        ),
+                        context=(
+                            f"dm={data_model.dataModelId}, missing_fields={missing}"
+                        ),
                     )
                     continue
                 raw: WarehouseInodeRaw = {"connectionId": conn_id, "name": name}
@@ -1142,7 +1156,7 @@ class SigmaAPI:
                 self.report.warning(
                     title="Sigma API rate-limited on /files lookup",
                     message=(
-                        "Retry budget exhausted on 429 for /files/{inodeId}. "
+                        "Retry budget exhausted on a 429 response for a /files inode lookup. "
                         "Warehouse upstream will be missing for this inode. "
                         "Re-run the ingestion to recover."
                     ),
@@ -1152,7 +1166,7 @@ class SigmaAPI:
                 self.report.warning(
                     title="Sigma /files lookup returned non-200",
                     message=(
-                        "Unable to resolve warehouse table metadata for inode. "
+                        "Unable to resolve warehouse table metadata for an inode. "
                         "Warehouse upstream will be missing."
                     ),
                     context=f"inode_id={inode_id}, http_status={status}",
@@ -1161,12 +1175,9 @@ class SigmaAPI:
         except Exception as e:
             self.report.warning(
                 title="Sigma /files lookup failed",
-                message="Exception while fetching /files/{inodeId}; warehouse upstream skipped.",
+                message="Exception while fetching file metadata for an inode; warehouse upstream skipped.",
                 context=f"inode_id={inode_id}",
                 exc=e,
-            )
-            self._log_http_error(
-                message=f"Unable to fetch file metadata for inode '{inode_id}': {e}"
             )
             return None
 

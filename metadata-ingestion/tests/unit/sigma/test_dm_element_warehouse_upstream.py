@@ -18,8 +18,14 @@ Counters verified:
 from typing import Any, Dict, List, Optional
 from unittest.mock import patch
 
+import requests
+
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
+from datahub.ingestion.source.sigma.config import (
+    SigmaSourceConfig,
+    SigmaSourceReport,
+    WarehouseConnectionConfig,
+)
 from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
     SigmaConnectionRegistry,
@@ -150,29 +156,18 @@ class TestBuildDmWarehouseUrlIdMap:
         assert result == {}
         assert source.reporter.dm_element_warehouse_table_lookup_failed == 1
 
-    def test_rate_limited_files_call_increments_rate_limit_counter(self):
-        import requests
+    def test_cache_failure_not_double_counted_across_dms(self):
+        """H7: a failed /files inode shared by N DMs must only bump
+        dm_element_warehouse_table_lookup_failed once (first_attempt gate)."""
+        source = _make_source()
+        inodes = {"bad-inode": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
+        dm1 = _make_dm_with_inodes(inodes)
+        dm2 = _make_dm_with_inodes(inodes)
+        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
+            source._build_dm_warehouse_url_id_map(dm1)
+            source._build_dm_warehouse_url_id_map(dm2)
 
-        from datahub.ingestion.source.sigma.config import (
-            SigmaSourceConfig,
-            SigmaSourceReport,
-        )
-        from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-
-        config = SigmaSourceConfig.model_validate(
-            {"client_id": "x", "client_secret": "y"}
-        )
-        report = SigmaSourceReport()
-        with patch.object(SigmaAPI, "_generate_token"):
-            api = SigmaAPI(config, report)
-
-        fake_response = requests.Response()
-        fake_response.status_code = 429
-        with patch.object(api, "_get_api_call", return_value=fake_response):
-            result = api.get_file_metadata("some-inode")
-
-        assert result is None
-        assert report.dm_element_warehouse_table_lookup_rate_limited == 1
+        assert source.reporter.dm_element_warehouse_table_lookup_failed == 1
 
     def test_path_unparseable_fewer_than_3_segments(self):
         source = _make_source()
@@ -334,7 +329,7 @@ class TestResolveDmElementWarehouseUpstream:
         assert urn is None
         assert source.reporter.dm_element_warehouse_unknown_connection == 0
 
-    def test_unmappable_platform_counts_as_unknown_connection(self):
+    def test_unmappable_platform_resolver_returns_none(self):
         source = _make_source()
         ref = _WarehouseTableRef(
             connection_id=_UNMAPPABLE_CONN_ID,
@@ -350,6 +345,62 @@ class TestResolveDmElementWarehouseUpstream:
 
         assert urn is None
         assert source.reporter.dm_element_warehouse_unknown_connection == 0
+
+    def test_connection_to_platform_map_overrides_env_and_instance(self):
+        """connection_to_platform_map entries set the env/platform_instance on
+        the emitted warehouse URN so it matches the warehouse connector's output."""
+        conn_override = WarehouseConnectionConfig.model_validate(
+            {"env": "DEV", "platform_instance": "prod-snowflake"}
+        )
+        config = SigmaSourceConfig.model_validate(
+            {
+                "client_id": "test",
+                "client_secret": "test",
+                "env": "PROD",
+                "connection_to_platform_map": {_SNOWFLAKE_CONN_ID: conn_override},
+            }
+        )
+        ctx = PipelineContext(run_id="t4b-override-test")
+        with patch.object(SigmaAPI, "_generate_token"):
+            source = SigmaSource(config=config, ctx=ctx)
+        source.connection_registry = SigmaConnectionRegistry(
+            by_id={_SNOWFLAKE_CONN_ID: _SNOWFLAKE_CONN_RECORD}
+        )
+
+        ref = _WarehouseTableRef(
+            connection_id=_SNOWFLAKE_CONN_ID,
+            db="DB",
+            schema="SCH",
+            table="TBL",
+        )
+        urn = source._resolve_dm_element_warehouse_upstream(
+            url_id_suffix="url-1",
+            warehouse_map={"url-1": ref},
+        )
+
+        # env=DEV and platform_instance=prod-snowflake from the override map.
+        assert urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "prod-snowflake.db.sch.tbl,DEV)"
+        )
+
+    def test_no_override_falls_back_to_recipe_env(self):
+        """When connection_to_platform_map has no entry for the connection, the
+        Sigma recipe's env is used and platform_instance defaults to None."""
+        source = _make_source()  # registry has _SNOWFLAKE_CONN_ID, no override
+        ref = _WarehouseTableRef(
+            connection_id=_SNOWFLAKE_CONN_ID,
+            db="DB",
+            schema="SCH",
+            table="TBL",
+        )
+
+        urn = source._resolve_dm_element_warehouse_upstream(
+            url_id_suffix="url-1",
+            warehouse_map={"url-1": ref},
+        )
+
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)"
 
 
 # ---------------------------------------------------------------------------
@@ -381,9 +432,9 @@ class TestUpstreamLineageWarehouseWiring:
             element,
             dm,
             element_urn,
-            {},
-            {},
-            warehouse_url_id_map or {},
+            elementId_to_dataset_urn={},
+            element_name_to_eids={},
+            warehouse_url_id_map=warehouse_url_id_map or {},
         )
 
     def test_warehouse_only_upstream_emitted(self):
@@ -546,6 +597,36 @@ class TestUpstreamLineageWarehouseWiring:
         assert source.reporter.dm_element_warehouse_unknown_connection == 1
         assert source.reporter.dm_element_warehouse_upstream_emitted == 0
 
+    def test_empty_registry_warning_fires_once_per_run(self):
+        """H7: the empty-registry warning is gated on _registry_empty_warned so
+        it fires at most once even when multiple DMs have warehouse inodes."""
+        config = SigmaSourceConfig.model_validate(
+            {"client_id": "test", "client_secret": "test"}
+        )
+        ctx = PipelineContext(run_id="t4b-warning-test")
+        with patch.object(SigmaAPI, "_generate_token"):
+            source = SigmaSource(config=config, ctx=ctx)
+        source.connection_registry = SigmaConnectionRegistry()  # empty
+        dm = SigmaDataModel(
+            dataModelId="dm-warn",
+            name="DM",
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z",
+            warehouse_inodes_by_inode_id={
+                "inode-1": {"connectionId": "c", "name": "T"}
+            },
+        )
+        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
+            source._build_dm_warehouse_url_id_map(dm)
+            source._build_dm_warehouse_url_id_map(dm)  # second call, same DM
+
+        registry_warnings = [
+            w
+            for w in source.reporter.warnings
+            if "registry is empty" in (w.title or "")
+        ]
+        assert len(registry_warnings) == 0  # H2: warning fires at workunits level
+
     def test_diamond_source_ids_emit_once(self):
         """Two source_ids resolving to the same warehouse URN produce one
         upstream entry and bump dm_element_warehouse_upstream_emitted once."""
@@ -606,6 +687,43 @@ class TestUpstreamLineageWarehouseWiring:
 
 
 # ---------------------------------------------------------------------------
+# Tests: SigmaAPI.get_file_metadata error paths (H5)
+# ---------------------------------------------------------------------------
+
+
+def _make_api() -> SigmaAPI:
+    config = SigmaSourceConfig.model_validate({"client_id": "x", "client_secret": "y"})
+    with patch.object(SigmaAPI, "_generate_token"):
+        return SigmaAPI(config, SigmaSourceReport())
+
+
+class TestSigmaApiGetFileMetadata:
+    def test_429_increments_rate_limit_counter(self):
+        api = _make_api()
+        fake = requests.Response()
+        fake.status_code = 429
+        with patch.object(api, "_get_api_call", return_value=fake):
+            result = api.get_file_metadata("inode-x")
+        assert result is None
+        assert api.report.dm_element_warehouse_table_lookup_rate_limited == 1
+
+    def test_non_200_non_429_returns_none_and_does_not_bump_rate_limit(self):
+        api = _make_api()
+        fake = requests.Response()
+        fake.status_code = 404
+        with patch.object(api, "_get_api_call", return_value=fake):
+            result = api.get_file_metadata("inode-x")
+        assert result is None
+        assert api.report.dm_element_warehouse_table_lookup_rate_limited == 0
+
+    def test_exception_returns_none(self):
+        api = _make_api()
+        with patch.object(api, "_get_api_call", side_effect=requests.Timeout("boom")):
+            result = api.get_file_metadata("inode-x")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
 # Tests: sigma_api.py _assemble_data_model entry guard
 # ---------------------------------------------------------------------------
 
@@ -654,6 +772,36 @@ class TestWarehouseInodeEntryGuard:
 
         assert report.dm_element_warehouse_table_entry_incomplete == 2
         assert list(dm.warehouse_inodes_by_inode_id.keys()) == ["inode-2"]
+
+    def test_empty_connection_id_counts_incomplete(self):
+        """H7: empty connectionId must be caught at entry guard, not mis-fired
+        as dm_element_warehouse_unknown_connection downstream."""
+        api = _make_api()
+        dm = SigmaDataModel(
+            dataModelId="dm-y",
+            name="Y",
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z",
+        )
+        lineage_entries = [
+            {
+                "type": "table",
+                "inodeId": "inode-3",
+                "connectionId": "",
+                "name": "TABLE",
+            },
+        ]
+        with (
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_columns", return_value=[]),
+            patch.object(
+                api, "_get_data_model_lineage_entries", return_value=lineage_entries
+            ),
+        ):
+            api._assemble_data_model(dm, file_meta=None)
+
+        assert api.report.dm_element_warehouse_table_entry_incomplete == 1
+        assert dm.warehouse_inodes_by_inode_id == {}
 
 
 # ---------------------------------------------------------------------------

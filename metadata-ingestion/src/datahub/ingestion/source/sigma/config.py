@@ -341,6 +341,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     dm_element_warehouse_table_entry_incomplete: int = 0
 
 
+class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+    """Per-connection env / platform_instance overrides for warehouse URN construction.
+
+    Maps a Sigma connectionId to the env and platform_instance of the
+    corresponding DataHub warehouse connector run.  When a connection is not
+    listed, the Sigma source's own env is used and platform_instance defaults
+    to None — correct for single-env, single-instance deployments but
+    produces dangling lineage for multi-env or multi-instance setups.
+    """
+
+
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(
         description="A chart's data sources platform name.",
@@ -393,6 +404,20 @@ class SigmaSourceConfig(
     chart_sources_platform_mapping: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
+    )
+    connection_to_platform_map: Dict[str, WarehouseConnectionConfig] = pydantic.Field(
+        default_factory=dict,
+        description=(
+            "Per-connection env / platform_instance overrides for warehouse URN "
+            "construction from DM element lineage. Keys are Sigma connectionIds "
+            "(visible in the Sigma admin UI or /v2/connections response). "
+            "When a connection is not listed, the Sigma source's own env is used "
+            "and platform_instance defaults to None, which is correct for "
+            "single-env, single-instance deployments. For multi-env or "
+            "multi-instance warehouse setups, add an entry here so the emitted "
+            "UpstreamLineage edge points at the URN the warehouse connector "
+            "actually produced."
+        ),
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."
