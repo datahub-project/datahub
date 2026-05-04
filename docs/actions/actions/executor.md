@@ -24,6 +24,10 @@ This Action executes ingestion recipes that are configured via the UI.
 
 Specifically, changes to the `dataHubExecutionRequestInput` and `dataHubExecutionRequestSignal` aspects of the `dataHubExecutionRequest` entity are required.
 
+### Bundled ingestion virtual environments (Docker)
+
+The executor runs ingestion in pre-built virtual environments under `DATAHUB_BUNDLED_VENV_PATH` (default `/opt/datahub/venvs`) **when the execution uses the bundled CLI version**—the same `acryl-datahub` version baked into the image at build time (`BUNDLED_CLI_VERSION`). To ship additional connectors or group installs, configure those environments **when building** the container image (for example `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`). See [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
+
 ## Action Quickstart
 
 ### Prerequisites

@@ -1,3 +1,7 @@
+---
+description: "Preview of upcoming DataHub Cloud features and changes planned for the next scheduled release."
+---
+
 # Next
 
 :::info

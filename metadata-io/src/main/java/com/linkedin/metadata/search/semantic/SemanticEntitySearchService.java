@@ -1,7 +1,5 @@
 package com.linkedin.metadata.search.semantic;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -20,7 +18,8 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,44 +33,61 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.util.EntityUtils;
-import org.opensearch.client.Request;
-
-// removed BoolQueryBuilder in favor of Map-based filters
 
 /**
- * Minimal semantic search service using OpenSearch kNN against the POC semantic indices.
+ * Semantic search service that issues approximate nearest-neighbour (kNN) queries against semantic
+ * indices containing nested vector fields.
  *
- * <p>REQUIREMENTS: - OpenSearch 2.17.0 or higher (for pre-filtering support with nested kNN
- * vectors) - k-NN plugin installed and enabled - Semantic indices with nested vector fields at
- * embeddings.{modelEmbeddingKey}.chunks.vector
+ * <p>Engine support is provided through {@link SearchClientShim}: the concrete shim implementation
+ * determines which search engine backs the deployment:
  *
- * <p>Implementation details: - No caching - No hybrid search (semantic only) - Uses Low Level REST
- * Client to support pre-filtering inside kNN block - Oversamples candidates and slices in-memory
- * for stable pagination (skip/take)
+ * <ul>
+ *   <li><b>Elasticsearch 8</b> — uses the native {@code knn} clause inside a {@code nested} query.
+ *       Filters are placed inside the {@code knn} block (pre-filtering). Index mappings use {@code
+ *       dense_vector} with a similarity metric derived from the configured space type.
+ *   <li><b>OpenSearch 2</b> — issues kNN requests via the low-level REST client, which is required
+ *       because the high-level client does not natively support kNN with nested vector fields.
+ *       Index mappings use {@code knn_vector} with the k-NN plugin method block.
+ * </ul>
  *
- * <p>Low Level REST Client rationale: We use the Low Level REST Client instead of the High Level
- * REST Client because: 1. HLRC doesn't natively support kNN queries 2. HLRC makes it difficult to
- * properly serialize filters inside the kNN block 3. Low Level client allows us to send the exact
- * JSON query we want, similar to Python/curl 4. This enables us to use pre-filtering (filters
- * inside kNN) for better performance
+ * <p>REQUIREMENTS:
  *
- * <p>Pre-filtering (OpenSearch 2.17+): Filters are placed inside the kNN block's "filter"
- * parameter, which applies them BEFORE the approximate nearest neighbor traversal. This
- * dramatically improves efficiency when filtering reduces the candidate set significantly. This
- * feature requires OpenSearch 2.17+ for proper support with nested vector fields.
+ * <ul>
+ *   <li>Elasticsearch 8.x, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
+ *       vectors)
+ *   <li>Semantic indices with nested vector fields at {@code
+ *       embeddings.{modelEmbeddingKey}.chunks.vector}
+ * </ul>
  *
- * <p>Stable pagination note: We request k >= ceil((from + pageSize) * oversampleFactor) to ensure
- * that, after pre-filtering and any deduplication, there are at least from + pageSize candidates
- * available to slice [from, from + pageSize) without re-issuing the query. With pre-filtering, a
- * small oversampleFactor (e.g., 1.2) is typically sufficient.
+ * <p>Implementation details:
+ *
+ * <ul>
+ *   <li>No caching
+ *   <li>No hybrid search (semantic only)
+ *   <li>Filter placement is engine-specific (see below)
+ *   <li>Oversamples candidates and slices in-memory for stable pagination (skip/take)
+ * </ul>
+ *
+ * <p>Filter placement varies by engine:
+ *
+ * <ul>
+ *   <li><b>OpenSearch 2</b>: filters are placed inside the kNN clause ({@code filter} parameter),
+ *       applying them <em>before</em> the approximate nearest-neighbour traversal (pre-filtering).
+ *   <li><b>Elasticsearch 8</b>: filters are placed in the outer {@code bool.filter} clause
+ *       (post-filtering), because ES 8's nested kNN context cannot see root-level document fields.
+ *       The 1.2x oversample factor compensates for candidates discarded by post-filtering.
+ * </ul>
+ *
+ * <p>Stable pagination note: We request {@code k >= ceil((from + pageSize) * oversampleFactor)} to
+ * ensure that, after pre-filtering and any deduplication, there are at least {@code from +
+ * pageSize} candidates available to slice {@code [from, from + pageSize)} without re-issuing the
+ * query. With pre-filtering, a small oversampleFactor (e.g., 1.2) is typically sufficient.
  *
  * <p>Result shape parity: We intentionally populate {@link
  * com.linkedin.metadata.search.SearchEntity} fields similarly to the keyword path implemented by
  * {@code com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler#getResult}:
- * - entity (URN) - score (backend score) - features (SEARCH_BACKEND_SCORE and QUERY_COUNT when
- * available), analogous to {@code extractFeatures} - extraFields (stringified copy of _source),
- * analogous to {@code getStringMap}
+ * entity (URN), score (backend score), features (SEARCH_BACKEND_SCORE and QUERY_COUNT when
+ * available), and extraFields (stringified copy of {@code _source}).
  *
  * <p>Matched fields/highlighting are not set in semantic mode v1. The keyword path derives {@code
  * matchedFields} from highlight fragments, but we do not request highlighting for semantic queries
@@ -98,38 +114,44 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final String vectorField;
 
   /**
-   * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
+   * Constructs a semantic entity search service with the default model embedding key.
    *
-   * @param searchClient high-level client used only to obtain the low-level client
+   * <p>The concrete {@link SearchClientShim} implementation determines which search engine is used
+   * (Elasticsearch 8 or OpenSearch 2) and dispatches queries accordingly.
+   *
+   * @param searchClient shim abstraction over the underlying search cluster
    * @param embeddingProvider provider capable of generating query embeddings
-   * @param mappingsBuilder mappings builder for the indices
+   * @param mappingsBuilder mappings builder for the semantic indices
    */
   public SemanticEntitySearchService(
       @Nonnull SearchClientShim<?> searchClient,
       @Nonnull EmbeddingProvider embeddingProvider,
-      MappingsBuilder mappingsBuilder) {
+      @Nonnull MappingsBuilder mappingsBuilder) {
     this(searchClient, embeddingProvider, mappingsBuilder, DEFAULT_MODEL_EMBEDDING_KEY);
   }
 
   /**
-   * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
+   * Constructs a semantic entity search service with a custom model embedding key.
    *
-   * @param searchClient high-level client used only to obtain the low-level client
+   * <p>The concrete {@link SearchClientShim} implementation determines which search engine is used
+   * (Elasticsearch 8 or OpenSearch 2) and dispatches queries accordingly.
+   *
+   * @param searchClient shim abstraction over the underlying search cluster
    * @param embeddingProvider provider capable of generating query embeddings
-   * @param mappingsBuilder mappings builder for the indices
+   * @param mappingsBuilder mappings builder for the semantic indices
    * @param modelEmbeddingKey the model embedding key (e.g., "cohere_embed_v3",
    *     "text_embedding_3_small")
    */
   public SemanticEntitySearchService(
       @Nonnull SearchClientShim<?> searchClient,
       @Nonnull EmbeddingProvider embeddingProvider,
-      MappingsBuilder mappingsBuilder,
+      @Nonnull MappingsBuilder mappingsBuilder,
       @Nonnull String modelEmbeddingKey) {
     this.searchClient = Objects.requireNonNull(searchClient, "searchClientShim");
     this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
     // Initialize with empty chain for POC - in production this would be injected
     this.queryFilterRewriteChain = QueryFilterRewriteChain.EMPTY;
-    this.mappingsBuilder = mappingsBuilder;
+    this.mappingsBuilder = Objects.requireNonNull(mappingsBuilder, "mappingsBuilder");
     this.modelEmbeddingKey = Objects.requireNonNull(modelEmbeddingKey, "modelEmbeddingKey");
     this.nestedPath = EMBEDDINGS_PREFIX + modelEmbeddingKey + CHUNKS_SUFFIX;
     this.vectorField = nestedPath + VECTOR_SUFFIX;
@@ -243,7 +265,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     Set<String> fieldsToFetch =
         new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
 
-    // 8) Execute OpenSearch nested kNN query with pre-filtering inside kNN
+    // 8) Execute kNN query via the engine-specific SearchClientShim path
     List<SearchEntity> hits =
         executeKnn(
             opContext.getObjectMapper(), indices, queryEmbedding, k, finalFilterMap, fieldsToFetch);
@@ -297,15 +319,17 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
 
   @Nonnull
   /**
-   * Executes a nested kNN query against the provided semantic indices with optional pre-filtering.
+   * Executes a kNN query via {@link SearchClientShim#searchKnn} so the correct engine-specific
+   * query format (ES 8 or OpenSearch 2) is used.
    *
-   * @param objectMapper Jackson object mapper for JSON (request/response) handling
-   * @param indices list of semantic index names to search
+   * @param objectMapper the operation context's configured mapper, used to serialize extra fields
+   *     consistently with the rest of the search subsystem (e.g. {@code Include.NON_NULL})
+   * @param indices list of semantic index names to search (comma-joined for multi-index)
    * @param vector query embedding vector
-   * @param k number of nearest neighbors to retrieve from OpenSearch
+   * @param k number of nearest neighbors to retrieve
    * @param docLevelFilterMap optional document-level filter map to apply within the kNN filter
    * @param fieldsToFetch set of fields to fetch in the _source (supports fetchExtraFields)
-   * @return list of {@link SearchEntity} constructed from OpenSearch hits
+   * @return list of {@link SearchEntity} constructed from kNN hits
    */
   private List<SearchEntity> executeKnn(
       @Nonnull ObjectMapper objectMapper,
@@ -314,37 +338,31 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       int k,
       @Nullable Map<String, Object> docLevelFilterMap,
       @Nonnull Set<String> fieldsToFetch) {
+    if (docLevelFilterMap != null && !docLevelFilterMap.isEmpty()) {
+      log.debug("Applied pre-filtering to kNN query: {}", docLevelFilterMap);
+    }
+
+    String commaJoinedIndices = String.join(",", indices);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName(commaJoinedIndices)
+            .vectorField(vectorField)
+            .queryVector(vector)
+            .k(k)
+            .fieldsToFetch(new ArrayList<>(fieldsToFetch))
+            .filter(
+                docLevelFilterMap != null && !docLevelFilterMap.isEmpty()
+                    ? docLevelFilterMap
+                    : null)
+            .build();
+
     try {
-      // Build the complete query JSON with pre-filtering inside kNN
-      Map<String, Object> queryJson =
-          buildSemanticQueryWithPreFiltering(vector, k, docLevelFilterMap, fieldsToFetch);
+      KnnSearchResponse response = searchClient.searchKnn(request);
+      log.info("kNN search returned {} hits", response.hits().size());
 
-      // Prepare the request body
-      String requestBody = objectMapper.writeValueAsString(queryJson);
-      log.info("Semantic search query with pre-filtering (k={}): {}", k, requestBody);
-
-      // Build the endpoint URL
-      String endpoint = "/" + String.join(",", indices) + "/_search";
-
-      // Create the Low Level REST request
-      Request request = new Request("POST", endpoint);
-      request.setJsonEntity(requestBody);
-      request.addParameter("ignore_unavailable", "true");
-      request.addParameter("allow_no_indices", "true");
-
-      // Execute the request
-      RawResponse response = searchClient.performLowLevelRequest(request);
-
-      // Parse the response
-      String responseBody = EntityUtils.toString(response.getEntity());
-      JsonNode responseJson = objectMapper.readTree(responseBody);
-
-      // Extract hits
-      List<SearchEntity> results = new ArrayList<>();
-      JsonNode hits = responseJson.path("hits").path("hits");
-
-      for (JsonNode hit : hits) {
-        String urn = hit.path("_source").path("urn").asText();
+      List<SearchEntity> results = new ArrayList<>(response.hits().size());
+      for (KnnSearchResponse.Hit hit : response.hits()) {
+        String urn = (String) hit.source().get("urn");
         if (urn == null || urn.isEmpty()) {
           continue;
         }
@@ -355,98 +373,14 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
           log.warn("Invalid URN in search result: {}", urn);
           continue;
         }
-        double score = hit.path("_score").asDouble();
-        entity.setScore((float) score);
-
-        // Populate features and extraFields using shared utilities (parity with keyword path)
-        Map<String, Object> sourceAsMap =
-            objectMapper.convertValue(
-                hit.path("_source"), new TypeReference<Map<String, Object>>() {});
-        entity.setFeatures(SearchResultUtils.buildBaseFeatures(score, sourceAsMap));
-        entity.setExtraFields(SearchResultUtils.toExtraFields(objectMapper, sourceAsMap));
+        entity.setScore((float) hit.score());
+        entity.setFeatures(SearchResultUtils.buildBaseFeatures(hit.score(), hit.source()));
+        entity.setExtraFields(SearchResultUtils.toExtraFields(objectMapper, hit.source()));
         results.add(entity);
       }
-
-      // Note: With track_total_hits=false, we don't get exact total counts for performance
-      // This follows keyword search pattern. In k-NN, the returned hits are our best estimate.
-      log.info("kNN search with pre-filtering returned {} hits", results.size());
       return results;
     } catch (IOException e) {
-      throw new RuntimeException("Failed to execute semantic kNN search with pre-filtering", e);
+      throw new RuntimeException("Failed to execute semantic kNN search", e);
     }
-  }
-
-  /**
-   * Build the complete OpenSearch query JSON with pre-filtering inside the kNN block. This produces
-   * a query structure like: { "size": k, "track_total_hits": false, "_source": [fieldsToFetch],
-   * "query": { "nested": { "path": "embeddings.{modelEmbeddingKey}.chunks", "score_mode": "max",
-   * "query": { "knn": { "embeddings.{modelEmbeddingKey}.chunks.vector": { "vector": [...], "k": k,
-   * "filter": { "bool": { "filter": [...] } } } } } } } }
-   *
-   * <p>Note: track_total_hits=false for performance, following keyword search pattern. In k-NN
-   * context, total_hits would represent either k (no filters) or filtered k-NN results count.
-   *
-   * @param vector query embedding vector
-   * @param k number of nearest neighbors to retrieve
-   * @param docLevelFilterMap optional document-level filter map
-   * @param fieldsToFetch set of fields to fetch in _source (follows keyword search pattern)
-   * @return complete query map for OpenSearch
-   */
-  private Map<String, Object> buildSemanticQueryWithPreFiltering(
-      float[] vector,
-      int k,
-      @Nullable Map<String, Object> docLevelFilterMap,
-      @Nonnull Set<String> fieldsToFetch)
-      throws IOException {
-    // Build the kNN parameters map
-    Map<String, Object> knnParams = new HashMap<>();
-    knnParams.put("vector", convertToFloatList(vector));
-    knnParams.put("k", k);
-
-    // Add filters inside kNN for pre-filtering (REQUIRES OpenSearch 2.17.0+)
-    if (docLevelFilterMap != null && !docLevelFilterMap.isEmpty()) {
-      knnParams.put("filter", docLevelFilterMap);
-      log.debug("Applied pre-filtering to kNN query: {}", docLevelFilterMap);
-    }
-
-    // Build the complete query structure using Map.of() for clarity
-    // Use fieldsToFetch (supports DEFAULT_FIELDS_TO_FETCH_ON_SEARCH + fetchExtraFields like keyword
-    // search)
-    // Note: track_total_hits=false for better performance, following keyword search pattern
-    // In k-NN context, total_hits represents either k (no filters) or filtered k-NN results count
-    Map<String, Object> query =
-        Map.of(
-            "size",
-            k,
-            "track_total_hits",
-            false,
-            "_source",
-            fieldsToFetch.toArray(new String[0]),
-            "query",
-            Map.of(
-                "nested",
-                Map.of(
-                    "path",
-                    nestedPath,
-                    "score_mode",
-                    "max",
-                    "query",
-                    Map.of("knn", Map.of(vectorField, knnParams)))));
-
-    return query;
-  }
-
-  /**
-   * Convert float array to List<Float> for serialization.
-   *
-   * @param vector the float array to convert
-   * @return List of Float values
-   */
-  private List<Float> convertToFloatList(float[] vector) {
-    List<Float> vectorList = new ArrayList<>(vector.length);
-    for (float v : vector) {
-      vectorList.add(v);
-    }
-    return vectorList;
   }
 }

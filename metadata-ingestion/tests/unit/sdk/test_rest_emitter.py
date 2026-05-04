@@ -2487,6 +2487,45 @@ class TestRequestsSessionConfig:
         assert type(emitter._session.get_adapter("http://example.com")) is HTTPAdapter
 
 
+class TestDataHubGraphTcpKeepalive:
+    """Regression tests covering tcp_keepalive propagation from a RestEmitter
+    into the DataHubGraph it builds via to_graph() / from_emitter().
+
+    DataHubGraph.from_emitter() and DataHubGraph.__init__() must carry the
+    flag through when reconstructing the underlying session, otherwise
+    ingestion (which goes through the graph, not the original emitter)
+    silently reverts to a session without TCP keepalive enabled.
+    """
+
+    def test_from_emitter_propagates_tcp_keepalive_true(self):
+        """from_emitter() must carry tcp_keepalive=True through to the graph's session."""
+        emitter = DataHubRestEmitter("http://localhost:8080", tcp_keepalive=True)
+        graph = emitter.to_graph()
+        assert graph._session_config.tcp_keepalive is True
+        assert isinstance(
+            graph._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+
+    def test_from_emitter_propagates_tcp_keepalive_false(self):
+        """from_emitter() must also faithfully preserve tcp_keepalive=False."""
+        emitter = DataHubRestEmitter("http://localhost:8080", tcp_keepalive=False)
+        graph = emitter.to_graph()
+        assert graph._session_config.tcp_keepalive is False
+        assert type(graph._session.get_adapter("https://example.com")) is HTTPAdapter
+
+    def test_datahub_graph_constructed_with_tcp_keepalive(self):
+        """Constructing a DataHubGraph with tcp_keepalive=True wires up the keepalive adapter."""
+        from datahub.ingestion.graph.client import DataHubGraph
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        graph = DataHubGraph(
+            DatahubClientConfig(server="http://localhost:8080", tcp_keepalive=True)
+        )
+        assert isinstance(
+            graph._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
+        )
+
+
 class TestWeightedRetry:
     """Tests for the WeightedRetry class that provides weighted retry logic for 429 responses."""
 
