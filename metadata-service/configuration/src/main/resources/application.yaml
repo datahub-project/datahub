@@ -434,9 +434,9 @@ elasticsearch:
           efConstruction: 128
           m: 16
       # Embedding provider configuration for generating query embeddings
-      # Supports four providers: "aws-bedrock", "openai", "cohere", "local"
+      # Supports: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
       embeddingProvider:
-        # Provider type: "aws-bedrock", "openai", "cohere", or "local"
+        # Provider type: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
@@ -468,6 +468,13 @@ elasticsearch:
         local:
           endpoint: ${LOCAL_EMBEDDING_ENDPOINT:http://localhost:11434/v1/embeddings}
           model: ${LOCAL_EMBEDDING_MODEL:nomic-embed-text}
+
+        # Google Vertex AI configuration (used when type is "vertex_ai")
+        vertexai:
+          projectId: ${VERTEX_AI_PROJECT_ID:}
+          location: ${VERTEX_AI_LOCATION:us-east1}
+          model: ${VERTEX_AI_EMBEDDING_MODEL:gemini-embedding-001}
+          outputDimensionality: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:768}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
