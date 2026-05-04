@@ -9,6 +9,7 @@ slack-sdk==3.18.1
 aiohttp
 joblib
 pytest-xdist
+pytest-timeout==2.3.1
 networkx
 # libaries for linting below this
 mypy==1.14.1

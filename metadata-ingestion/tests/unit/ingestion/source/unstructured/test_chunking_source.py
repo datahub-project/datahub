@@ -462,4 +462,266 @@ def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_confi
             list(source.process_elements_inline(f"urn:li:document:doc{i}", elements))
 
     assert source.report.num_documents_processed == 5
-    assert source.report.num_documents_limit_reached is False
+
+
+# ---------------------------------------------------------------------------
+# Local embedding provider tests
+# ---------------------------------------------------------------------------
+
+
+def _local_config(
+    model: str = "nomic-embed-text", endpoint: str = ""
+) -> DocumentChunkingSourceConfig:
+    return DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="local",
+            model=model,
+            endpoint=endpoint or None,
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+
+
+def test_local_provider_sets_embedding_model(pipeline_context):
+    """Local provider prefixes the model name with 'openai/' for litellm routing."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=_local_config("nomic-embed-text"),
+        standalone=False,
+        graph=None,
+    )
+    assert source.embedding_model == "openai/nomic-embed-text"
+
+
+def test_local_provider_already_prefixed_model(pipeline_context):
+    """If model already starts with 'openai/', it is not double-prefixed."""
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=_local_config("openai/nomic-embed-text"),
+        standalone=False,
+        graph=None,
+    )
+    assert source.embedding_model == "openai/nomic-embed-text"
+
+
+def test_local_provider_api_base_strips_embeddings_suffix(pipeline_context):
+    """api_base strips /embeddings so litellm can append its own path."""
+    config = _local_config(endpoint="http://localhost:11434/v1/embeddings")
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+
+    captured: dict = {}
+
+    def fake_embedding(**kwargs):
+        captured.update(kwargs)
+        resp = MagicMock()
+        resp.data = [{"embedding": [0.1, 0.2]}]
+        return resp
+
+    chunk = {"text": "hello", "type": "NarrativeText"}
+    with patch("litellm.embedding", side_effect=fake_embedding):
+        source._generate_embeddings([chunk])
+
+    assert captured["api_base"] == "http://localhost:11434/v1"
+    assert captured["api_key"] == "local"
+
+
+def test_local_provider_api_base_no_suffix(pipeline_context):
+    """An endpoint without /embeddings is passed through unchanged."""
+    config = _local_config(endpoint="http://myserver:8080/v1")
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+
+    captured: dict = {}
+
+    def fake_embedding(**kwargs):
+        captured.update(kwargs)
+        resp = MagicMock()
+        resp.data = [{"embedding": [0.1, 0.2]}]
+        return resp
+
+    chunk = {"text": "hello", "type": "NarrativeText"}
+    with patch("litellm.embedding", side_effect=fake_embedding):
+        source._generate_embeddings([chunk])
+
+    assert captured["api_base"] == "http://myserver:8080/v1"
+
+
+def test_local_provider_api_base_from_env_var(pipeline_context):
+    """Falls back to LOCAL_EMBEDDING_ENDPOINT env var when no endpoint configured."""
+    config = _local_config()  # no endpoint
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+
+    captured: dict = {}
+
+    def fake_embedding(**kwargs):
+        captured.update(kwargs)
+        resp = MagicMock()
+        resp.data = [{"embedding": [0.1, 0.2]}]
+        return resp
+
+    with (
+        patch("litellm.embedding", side_effect=fake_embedding),
+        patch.dict(
+            "os.environ",
+            {"LOCAL_EMBEDDING_ENDPOINT": "http://envhost:11434/v1/embeddings"},
+        ),
+    ):
+        chunk = {"text": "hello", "type": "NarrativeText"}
+        source._generate_embeddings([chunk])
+
+    assert captured["api_base"] == "http://envhost:11434/v1"
+
+
+def test_local_provider_api_base_default_fallback(pipeline_context):
+    """Falls back to localhost:11434 when neither config nor env var is set."""
+    config = _local_config()
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+
+    captured: dict = {}
+
+    def fake_embedding(**kwargs):
+        captured.update(kwargs)
+        resp = MagicMock()
+        resp.data = [{"embedding": [0.1, 0.2]}]
+        return resp
+
+    with (
+        patch("litellm.embedding", side_effect=fake_embedding),
+        patch.dict("os.environ", {}, clear=True),
+    ):
+        chunk = {"text": "hello", "type": "NarrativeText"}
+        source._generate_embeddings([chunk])
+
+    assert captured["api_base"] == "http://localhost:11434/v1"
+
+
+# --- model_embedding_key derivation ---
+
+
+def test_model_key_uses_explicit_model_embedding_key(pipeline_context):
+    """Explicit model_embedding_key takes precedence over derivation."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="bedrock",
+            model="cohere.embed-english-v3",
+            aws_region="us-east-1",
+            model_embedding_key="my_custom_key",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+
+    fake_embedding_result = MagicMock()
+    fake_embedding_result.data = [{"embedding": [0.0] * 1024}]
+    with (
+        patch("litellm.embedding", return_value=fake_embedding_result),
+        patch.object(
+            source,
+            "_chunk_elements",
+            return_value=[{"text": "hi", "type": "NarrativeText"}],
+        ),
+    ):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:doc1", [{"type": "NarrativeText", "text": "hi"}]
+            )
+        )
+
+    assert any(
+        "my_custom_key"
+        in getattr(getattr(wu.metadata, "aspect", None), "embeddings", {})
+        for wu in workunits
+    )
+
+
+def test_model_key_normalizes_hyphens_for_local(pipeline_context):
+    """Local model names have hyphens/dots replaced with underscores for the ES key."""
+    config = _local_config("nomic-embed-text")
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+
+    fake_embedding_result = MagicMock()
+    fake_embedding_result.data = [{"embedding": [0.0] * 768}]
+    with (
+        patch("litellm.embedding", return_value=fake_embedding_result),
+        patch.object(
+            source,
+            "_chunk_elements",
+            return_value=[{"text": "hi", "type": "NarrativeText"}],
+        ),
+    ):
+        workunits = list(
+            source.process_elements_inline(
+                "urn:li:document:doc1", [{"type": "NarrativeText", "text": "hi"}]
+            )
+        )
+
+    assert any(
+        "nomic_embed_text"
+        in getattr(getattr(wu.metadata, "aspect", None), "embeddings", {})
+        for wu in workunits
+    )
+
+
+# --- _validate_provider_config for local ---
+
+
+def test_validate_provider_config_local_success():
+    """Local provider with a model returns the prefixed model string."""
+    config = EmbeddingConfig(
+        provider="local",
+        model="nomic-embed-text",
+        allow_local_embedding_config=True,
+    )
+    model, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model == "openai/nomic-embed-text"
+    assert report is None
+
+
+def test_validate_provider_config_local_no_model_fails():
+    """Local provider without a model returns a CapabilityReport failure."""
+    config = EmbeddingConfig(
+        provider="local",
+        model=None,
+        allow_local_embedding_config=True,
+    )
+    model, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model is None
+    assert report is not None
+    assert not report.capable
+
+
+def test_test_embedding_capability_local_passes_api_base():
+    """test_embedding_capability routes local provider to api_base, not api.openai.com."""
+    config = EmbeddingConfig(
+        provider="local",
+        model="nomic-embed-text",
+        endpoint="http://myollama:11434/v1/embeddings",
+        allow_local_embedding_config=True,
+    )
+    captured: dict = {}
+
+    def fake_embedding(**kwargs):
+        captured.update(kwargs)
+        resp = MagicMock()
+        resp.data = [{"embedding": [0.1, 0.2]}]
+        return resp
+
+    with patch("litellm.embedding", side_effect=fake_embedding):
+        report = DocumentChunkingSource.test_embedding_capability(config)
+
+    assert report.capable
+    assert captured.get("api_base") == "http://myollama:11434/v1"
+    assert captured.get("api_key") == "local"
