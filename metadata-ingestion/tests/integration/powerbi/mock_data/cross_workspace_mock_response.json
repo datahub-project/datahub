@@ -111,36 +111,6 @@
                             ]
                         }
                     ]
-                },
-                {
-                    "id": "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492",
-                    "name": "Global Workspace",
-                    "type": "Workspace",
-                    "state": "Active",
-                    "datasets": [
-                        {
-                            "id": "FE362B98-956E-4394-BA37-6367EE6435E9",
-                            "endorsementDetails": {
-                                "endorsement": "Promoted"
-                            },
-                            "name": "base_records",
-                            "tables": [
-                                {
-                                    "name": "core_sales_set",
-                                    "source": [
-                                        {
-                                            "expression": "dummy"
-                                        }
-                                    ],
-                                    "datasourceUsages": [
-                                        {
-                                            "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3"
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
                 }
             ]
         }
