@@ -27,7 +27,6 @@ jobs:
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
-      small-runner: ${{ steps.runners.outputs.small-runner }}
       default-runner: ${{ steps.runners.outputs.default-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
