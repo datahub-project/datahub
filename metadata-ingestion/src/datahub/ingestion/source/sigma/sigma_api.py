@@ -261,6 +261,17 @@ class SigmaAPI:
             )
             return {}
 
+    def get_connections(self) -> List[Dict[str, Any]]:
+        """Fetch all Sigma Connections (paginated). Returns raw API payloads.
+
+        Mapping to SigmaConnectionRecord happens in
+        connection_registry.SigmaConnectionRegistry.build().
+        """
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/connections",
+            "Unable to fetch Sigma connections.",
+        )
+
     def get_sigma_datasets(self) -> List[SigmaDataset]:
         logger.debug("Fetching all accessible datasets metadata.")
         dataset_url = url = f"{self.config.api_url}/datasets"

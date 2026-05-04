@@ -38,6 +38,10 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
     WorkspaceCounts,
 )
+from datahub.ingestion.source.sigma.connection_registry import (
+    SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
+    SigmaConnectionRegistry,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     DataModelElementUpstream,
     DataModelKey,
@@ -217,6 +221,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     config: SigmaSourceConfig
     reporter: SigmaSourceReport
+    connection_registry: SigmaConnectionRegistry
     platform: str = "sigma"
 
     def __init__(self, config: SigmaSourceConfig, ctx: PipelineContext):
@@ -283,6 +288,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
+
+        self.connection_registry = self._build_connection_registry()
+
+    def _build_connection_registry(self) -> SigmaConnectionRegistry:
+        """Fetch /v2/connections and build the in-memory registry.
+
+        Transport errors are handled inside _paginated_raw_entries (returns
+        partial results, emits a report warning); the try/except here only
+        covers bugs in build() itself.
+        """
+        try:
+            return SigmaConnectionRegistry.build(
+                self.sigma_api.get_connections(),
+                reporter=self.reporter,
+                type_to_platform_map=SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to build Sigma Connection registry; continuing with empty registry."
+            )
+            self.reporter.warning(
+                title="Sigma Connection registry build failed",
+                message="Connection registry is empty; warehouse-URN resolution "
+                "for downstream lineage will be unavailable.",
+                exc=e,
+            )
+            return SigmaConnectionRegistry()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:

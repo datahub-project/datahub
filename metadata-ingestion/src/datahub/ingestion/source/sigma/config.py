@@ -312,6 +312,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
+    # Connection registry counters.
+    # Records whose Sigma type mapped to a known DataHub platform.
+    connections_resolved: int = 0
+    # Records whose Sigma type is not in the platform map -- non-zero is a
+    # signal to extend SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP.
+    connections_unmappable_type: int = 0
+    # Records dropped because they had no connectionId / id field.
+    connections_skipped_missing_id: int = 0
+    # Records whose connectionId collided with one already seen; later
+    # records overwrite earlier ones in by_id.
+    connections_duplicate_id: int = 0
+
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(

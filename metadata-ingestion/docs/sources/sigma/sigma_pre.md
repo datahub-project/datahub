@@ -106,6 +106,14 @@ Before running ingestion, ensure network connectivity to the source, valid authe
 
 1. Refer [doc](https://help.sigmacomputing.com/docs/generate-api-client-credentials) to generate an API client credentials.
 2. Provide the generated Client ID and Secret in Recipe.
+3. The API client must have read access to `/v2/connections` so the connector can
+   build its connection registry at startup. Existing credentials that pre-date
+   this requirement may need to be regenerated or have their scope expanded.
+   If the call fails (e.g. the token lacks the required scope), the ingest
+   continues with an empty registry and a warning is recorded in the run
+   report — typically `Sigma paginated endpoint aborted` for transport or
+   permission failures, or `Sigma Connection registry build failed` for
+   unexpected errors during registry construction.
 
 We have observed issues with the Sigma API, where certain API endpoints do not return the expected results, even when the user is an admin. In those cases, a workaround is to manually add the user associated with the Client ID/Secret to each workspace with missing metadata.
 Empty workspaces are listed in the ingestion report in the logs with the key `empty_workspaces`.
