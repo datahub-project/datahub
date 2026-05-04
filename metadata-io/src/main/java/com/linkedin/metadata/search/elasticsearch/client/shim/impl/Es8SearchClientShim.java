@@ -4,6 +4,7 @@ import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClien
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
 import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
@@ -75,9 +76,8 @@ import co.elastic.clients.json.JsonData;
 import co.elastic.clients.json.JsonpUtils;
 import co.elastic.clients.json.LazyDeserializer;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-import co.elastic.clients.transport.DefaultTransportOptions;
 import co.elastic.clients.transport.TransportOptions;
-import co.elastic.clients.transport.http.HeaderMap;
+import co.elastic.clients.transport.rest_client.RestClientOptions;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -97,6 +97,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
+import java.io.Reader;
 import java.io.StringReader;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -118,7 +119,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
@@ -140,6 +140,7 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.opensearch.action.DocWriteRequest;
@@ -1479,12 +1480,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public RawResponse performLowLevelRequest(Request request) throws IOException {
-    org.elasticsearch.client.Request esRequest =
-        new org.elasticsearch.client.Request(request.getMethod(), request.getEndpoint());
-    esRequest.addParameters(request.getParameters());
-    esRequest.setEntity(request.getEntity());
-    org.elasticsearch.client.Response esResponse =
-        ((RestClientTransport) client._transport()).restClient().performRequest(esRequest);
+    Response esResponse =
+        ElasticsearchRestClientAdapter.performRequest(
+            ((RestClientTransport) client._transport()).restClient(),
+            new OpenSearchRestRequest(request));
 
     return new RawResponse(
         esResponse.getRequestLine(),
@@ -1617,8 +1616,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       int threadCount) {
     Supplier<BulkIngester<?>> processorSupplier =
         () -> {
-          co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
-              new Es8BulkListener(metricUtils);
+          BulkListener<Object> esBulkListener = new Es8BulkListener(metricUtils);
 
           final Refresh refresh;
           switch (writeRequestRefreshPolicy) {
@@ -1775,15 +1773,20 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (RequestOptions.DEFAULT.equals(requestOptions)) {
       return client;
     }
-    HeaderMap headerMap =
-        new HeaderMap(
-            requestOptions.getHeaders().stream()
-                .collect(Collectors.toMap(Header::getName, Header::getValue)));
     TransportOptions transportOptions =
-        new DefaultTransportOptions(headerMap, Collections.emptyMap(), null);
+        new RestClientOptions(
+            ElasticsearchRestClientAdapter.toElasticsearchRequestOptions(
+                new OpenSearchRestRequestOptions(requestOptions)),
+            false);
     return client.withTransportOptions(transportOptions);
   }
 
+  /**
+   * Maps OpenSearch {@link RequestOptions} (shim API) to Elasticsearch {@link
+   * org.elasticsearch.client.RequestOptions} so per-request {@link
+   * org.apache.http.client.config.RequestConfig} (e.g. socket timeout for bulk-by-scroll) is
+   * honored by the ES Java API client.
+   */
   private Query convertQuery(org.opensearch.index.query.QueryBuilder osQuery) {
     if (osQuery == null) {
       return null;
@@ -1968,7 +1971,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     return document;
   }
 
-  private java.io.Reader toJsonReader(Map<String, Object> body) {
+  private Reader toJsonReader(Map<String, Object> body) {
     try {
       return new StringReader(objectMapper.writeValueAsString(body));
     } catch (JsonProcessingException e) {
