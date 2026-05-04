@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
-# Sigma connection `type` → DataHub `dataPlatform` name. Values must match
-# the canonical platform names in
+# Maps Sigma connection `type` to DataHub `dataPlatform` name. Values must
+# match the canonical platform names in
 # metadata-service/configuration/.../data-platforms.yaml; URN construction
 # silently produces non-resolving entities otherwise.
 SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP: Dict[str, str] = {
@@ -40,9 +40,8 @@ class _ConnectionRegistryCounters(Protocol):
 class SigmaConnectionRecord:
     """Resolved Sigma Connection metadata for warehouse-URN construction.
 
-    Built at SigmaSource init from /v2/connections. ``is_mappable`` is False
-    by default so a record constructed outside ``build()`` is treated as
-    untrusted; only records flowing through the build path can claim True.
+    ``is_mappable`` defaults to False so records not produced by ``build()``
+    are not used for URN construction.
     """
 
     connection_id: str
@@ -56,7 +55,6 @@ class SigmaConnectionRecord:
     default_schema: Optional[str] = None
     # Warehouse / cluster name (Snowflake: COMPUTE_WH, Databricks: cluster id).
     instance_hint: Optional[str] = None
-    # True iff sigma_type mapped to a known DataHub platform.
     is_mappable: bool = False
 
 
@@ -80,7 +78,7 @@ class SigmaConnectionRegistry:
         """Build the registry from raw /v2/connections payloads.
 
         Each raw connection is mapped via ``type_to_platform_map`` (Sigma type
-        → DataHub platform). Records with unmappable types are kept with
+        to DataHub platform). Records with unmappable types are kept with
         ``is_mappable=False`` so operators can audit gaps via the
         ``connections_unmappable_type`` counter.
         """
@@ -111,11 +109,8 @@ def _record_from_raw(
     raw: Dict[str, Any],
     type_to_platform_map: Dict[str, str],
 ) -> Optional[SigmaConnectionRecord]:
-    """Parse one /v2/connections payload into a record.
-
-    Returns None when the payload has no usable id; the caller treats that as
-    a skip and bumps the missing-id counter.
-    """
+    """Parse one /v2/connections payload into a record. Returns None if the
+    payload has no usable id."""
     conn_id = raw.get("connectionId") or raw.get("id", "")
     if not conn_id:
         logger.debug("Skipping Sigma connection payload without id: %s", raw)
@@ -148,8 +143,6 @@ def _record_from_raw(
 def _str_or_none(value: Any) -> Optional[str]:
     """Return ``value`` if it is a non-empty string, else None.
 
-    Sigma's API returns ``""`` (not absent fields) for some optional fields;
-    this normalizes both shapes to ``None`` so callers do not have to
-    distinguish.
+    Sigma's API returns ``""`` for missing optional fields; normalize to None.
     """
     return value if isinstance(value, str) and value else None

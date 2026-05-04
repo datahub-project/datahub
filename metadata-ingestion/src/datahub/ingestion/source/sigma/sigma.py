@@ -284,22 +284,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _build_connection_registry(self) -> SigmaConnectionRegistry:
         """Fetch /v2/connections and build the in-memory registry.
 
-        SigmaAPI.get_connections() routes through _paginated_raw_entries, which
-        already surfaces transport failures via report.warning and returns
-        partial results -- so the try/except here is defensive against
-        programming bugs in build() rather than transport errors.
-        logger.exception preserves the traceback so the failure is debuggable;
-        report.warning surfaces it in the run report instead of leaving
-        connection_registry_built=0 as the only programmatic signal.
+        Transport errors are handled inside _paginated_raw_entries (returns
+        partial results, emits a report warning); the try/except here only
+        covers bugs in build() itself.
         """
         try:
-            registry = SigmaConnectionRegistry.build(
+            return SigmaConnectionRegistry.build(
                 self.sigma_api.get_connections(),
                 reporter=self.reporter,
                 type_to_platform_map=SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
             )
-            self.reporter.connection_registry_built = 1
-            return registry
         except Exception as e:
             logger.exception(
                 "Failed to build Sigma Connection registry; continuing with empty registry."

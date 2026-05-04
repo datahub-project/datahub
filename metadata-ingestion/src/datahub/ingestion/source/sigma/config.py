@@ -303,9 +303,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
     # Connection registry counters.
-    # 1 if the registry was built successfully from /v2/connections; 0 if the
-    # API call failed (ingest continues with an empty registry).
-    connection_registry_built: int = 0
     # Records whose Sigma type mapped to a known DataHub platform.
     connections_resolved: int = 0
     # Records whose Sigma type is not in the platform map -- non-zero is a

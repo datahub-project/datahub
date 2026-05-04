@@ -6021,9 +6021,6 @@ def test_sigma_connection_registry(pytestconfig, tmp_path, requests_mock):
 
     report = _sigma_report(pipeline)
 
-    assert report.connection_registry_built == 1, (
-        "connection_registry_built should be 1 after successful registry build"
-    )
     assert report.connections_resolved >= 1, (
         f"connections_resolved should be >= 1; got {report.connections_resolved}"
     )
