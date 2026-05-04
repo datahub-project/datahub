@@ -15,10 +15,9 @@ public class GraphRelationshipMappingsBuilder {
   private GraphRelationshipMappingsBuilder() {}
 
   /**
-   * @param engineType the target search engine. On ES8+, ES returns "type":"object" explicitly when
-   *     reading mappings back, so we must emit it explicitly to avoid a perpetual mapping diff that
-   *     triggers a reindex loop. On ES7/OpenSearch (or null) we keep the legacy implicit form to
-   *     avoid a transitional reindex of existing indexes.
+   * Create mapping based on search engine type.
+   *
+   * @param engineType the target search engine.
    */
   public static Map<String, Object> getMappings(@Nullable SearchEngineType engineType) {
     boolean explicitObjectType = engineType != null && engineType.requiresEs8JavaClient();

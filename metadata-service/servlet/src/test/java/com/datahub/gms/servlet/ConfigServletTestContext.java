@@ -1,6 +1,7 @@
 package com.datahub.gms.servlet;
 
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.Clock;
@@ -37,4 +38,9 @@ public class ConfigServletTestContext {
   }
 
   @MockBean public Clock clock;
+
+  @Bean(name = "searchEngineType")
+  public SearchClientShim.SearchEngineType searchEngineType() {
+    return SearchClientShim.SearchEngineType.ELASTICSEARCH_8;
+  }
 }

@@ -13,9 +13,8 @@ import java.util.Map;
 import org.testng.annotations.Test;
 
 /**
- * Tests for {@link GraphRelationshipMappingsBuilder}'s engine-type-aware emission of explicit
- * {@code type: object} on the {@code source}, {@code destination}, and {@code properties} fields
- * (PFP-3594).
+ * Tests for engine-type-aware emission of explicit {@code type: object} on the {@code source},
+ * {@code destination}, and {@code properties} fields (PFP-3594).
  *
  * <p>ES8+ returns {@code "type": "object"} explicitly when reading mappings back from the index; if
  * DataHub's target mapping omits it, the diff comparator perpetually sees a difference and triggers
@@ -46,10 +45,7 @@ public class GraphRelationshipMappingsBuilderTest {
     return (Map<String, Object>) field;
   }
 
-  // ---------------------------------------------------------------------------
   // Legacy behavior: type=object must NOT be emitted for null / ES7 / OpenSearch.
-  // ---------------------------------------------------------------------------
-
   @Test
   public void testNullEngineTypeOmitsTypeObject() {
     Map<String, Object> mappings = GraphRelationshipMappingsBuilder.getMappings(null);
@@ -94,10 +90,7 @@ public class GraphRelationshipMappingsBuilderTest {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // ES8+ behavior: type=object MUST be emitted for source / destination / properties.
-  // ---------------------------------------------------------------------------
-
   @Test
   public void testElasticsearch8EmitsTypeObject() {
     Map<String, Object> mappings =
@@ -129,11 +122,8 @@ public class GraphRelationshipMappingsBuilderTest {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // Structural invariants: nested fields and other top-level keys must NOT change
   // based on engine type. Only the type=object marker should differ.
-  // ---------------------------------------------------------------------------
-
   @Test
   public void testSourceAndDestinationNestedFieldsUnchanged() {
     // Both source and destination should carry the same nested fields (urn, entityType, removed)

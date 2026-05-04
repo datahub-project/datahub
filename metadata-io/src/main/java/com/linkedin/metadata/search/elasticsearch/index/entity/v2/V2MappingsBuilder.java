@@ -43,11 +43,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class V2MappingsBuilder implements MappingsBuilder {
 
-  // ES7/OpenSearch silently accept doc_values=false on search_as_you_type and persist it,
-  // even though the parameter is not actually applicable to that field type. ES8+ strips it
-  // from stored mappings on round-trip, which causes a perpetual mapping diff and a reindex
-  // loop. So on ES8+ we omit it; on ES7/OpenSearch we keep emitting it to preserve the
-  // existing stored mapping and avoid a transitional reindex.
+  // ES7/OpenSearch silently accept doc_values=false on search_as_you_type and persist it.
+  // ES8+ strips it from stored mappings on round-trip, which causes a perpetual mapping diff and a
+  // reindex loop.
   private static final Map<String, String> PARTIAL_NGRAM_CONFIG_LEGACY =
       ImmutableMap.of(
           TYPE, "search_as_you_type",

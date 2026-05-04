@@ -737,16 +737,9 @@ public class V2MappingsBuilderTest {
             .getResourceAsStream("test-entity-registry.yaml"));
   }
 
-  // -------------------------------------------------------------------------
-  // PFP-3594 — engine-type-gated ngram doc_values behavior.
-  //
-  // ES7 / OpenSearch silently accept and persist doc_values=false on
-  // search_as_you_type ngram subfields, even though the parameter is not
-  // applicable to that field type. ES8+ strips it on round-trip, which causes
-  // a perpetual mapping diff and reindex loop. The fix selects a different
-  // PARTIAL_NGRAM_CONFIG at construction based on engine type.
-  // -------------------------------------------------------------------------
-
+  // ES7 / OpenSearch silently accept and persist doc_values=false on search_as_you_type ngram
+  // subfields,
+  // ES8+ strips it on round-trip, which causes a perpetual mapping diff and reindex loop.
   /** Recursively collects every value found under any "ngram" key in a mappings tree. */
   private List<Map<String, Object>> findAllNgramSubfields(Map<String, Object> root) {
     List<Map<String, Object>> found = new java.util.ArrayList<>();
