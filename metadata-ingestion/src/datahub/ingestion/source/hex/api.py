@@ -325,7 +325,7 @@ class HexApi:
             _limiter.acquire()
             return _orig_request(method, url, **kwargs)
 
-        self.session.request = _rate_limited_request  # type: ignore[method-assign]
+        self.session.request = _rate_limited_request  # type: ignore[assignment]
 
     def _list_projects_url(self):
         return f"{self.base_url}/projects"

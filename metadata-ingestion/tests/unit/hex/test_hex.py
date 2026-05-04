@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.source.hex.hex import HexSource, HexSourceConfig
 from tests.unit.hex.conftest import load_json_data
 
@@ -211,3 +212,77 @@ class TestHexSourceConfig(unittest.TestCase):
 
         # Verify: all components are kept
         assert "4759f33c-1ab9-403d-92e8-9bef48de00cg" in source.component_registry
+
+
+class TestHexTestConnection(unittest.TestCase):
+    """Tests for test_connection() — especially the cells access probe."""
+
+    def _make_response(self, status_code: int, json_data: dict) -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.ok = status_code < 400
+        resp.json.return_value = json_data
+        resp.raise_for_status = MagicMock(
+            side_effect=None if status_code < 400 else Exception(f"HTTP {status_code}")
+        )
+        return resp
+
+    def _run_test_connection(self, cells_status: int) -> "TestConnectionReport":
+        """Run test_connection with a controlled cells endpoint status code."""
+        config = {
+            "workspace_name": "test-ws",
+            "token": "test-token",
+            "base_url": "https://app.hex.tech/api/v1",
+        }
+
+        def mock_get(url, **kwargs):
+            if "users/me" in url:
+                return self._make_response(200, {"email": "test@test.com"})
+            if "projects" in url and "queriedTables" in url:
+                return self._make_response(403, {})
+            if "projects" in url:
+                return self._make_response(
+                    200, {"values": [{"id": "proj-1"}], "pagination": {}}
+                )
+            if "data-connections" in url:
+                return self._make_response(200, {"values": []})
+            if "cells" in url:
+                return self._make_response(cells_status, {"values": []})
+            return self._make_response(404, {})
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as mock_session_factory:
+            mock_session = MagicMock()
+            mock_session.get.side_effect = mock_get
+            mock_session.request.side_effect = lambda method, url, **kw: mock_get(
+                url, **kw
+            )
+            mock_session_factory.return_value = mock_session
+
+            return HexSource.test_connection(config)
+
+    def test_cells_accessible_reports_lineage_capable(self):
+        report = self._run_test_connection(cells_status=200)
+        assert report.capability_report is not None
+        lineage_cap = report.capability_report.get(
+            "Lineage via SQL parsing (all tiers)"
+        )
+        assert lineage_cap is not None
+        assert lineage_cap.capable is True
+
+    def test_cells_403_reports_lineage_not_capable(self):
+        """Metadata-only token (can list projects, cannot read cells) → lineage not capable."""
+        report = self._run_test_connection(cells_status=403)
+        assert report.capability_report is not None
+        lineage_cap = report.capability_report.get(
+            "Lineage via SQL parsing (all tiers)"
+        )
+        assert lineage_cap is not None
+        assert lineage_cap.capable is False
+        assert lineage_cap.failure_reason is not None
+        assert "403" in lineage_cap.failure_reason
+        assert (
+            "metadata-only" in lineage_cap.failure_reason.lower()
+            or "content access" in lineage_cap.failure_reason.lower()
+        )

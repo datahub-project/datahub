@@ -363,7 +363,31 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     )
 
             # Tier 2: cells + SQL parsing (all tiers)
-            cells_accessible = proj_resp.ok and conn_resp.ok
+            # Probe the cells endpoint directly — a token may be able to list
+            # projects yet return 403 on cells (metadata-only / admin tokens).
+            cells_accessible = False
+            cells_failure_reason: Optional[str] = None
+            if proj_resp.ok and conn_resp.ok and first_project_id:
+                cells_probe = api.session.get(
+                    f"{base}/cells",
+                    headers=headers,
+                    params={"projectId": first_project_id, "limit": "1"},
+                    timeout=15,
+                )
+                if cells_probe.ok:
+                    cells_accessible = True
+                else:
+                    cells_failure_reason = (
+                        f"HTTP {cells_probe.status_code} on /v1/cells — token lacks "
+                        "per-project content access. Use a token from a workspace member "
+                        "with at least 'Can view' access on projects, not a "
+                        "metadata-only admin token."
+                    )
+            elif not proj_resp.ok or not conn_resp.ok:
+                cells_failure_reason = (
+                    "Could not access /v1/projects or /v1/data-connections."
+                )
+
             if cells_accessible:
                 report.capability_report["Lineage via SQL parsing (all tiers)"] = (
                     CapabilityReport(
@@ -377,8 +401,10 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 report.capability_report["Lineage via SQL parsing (all tiers)"] = (
                     CapabilityReport(
                         capable=False,
-                        failure_reason="Could not access /v1/projects or /v1/data-connections.",
-                        mitigation_message="Verify the token has at least standard user access.",
+                        failure_reason=cells_failure_reason
+                        or "Could not verify cells access.",
+                        mitigation_message="Verify the token has at least 'Can view' access "
+                        "on projects in the Hex workspace.",
                     )
                 )
 
