@@ -66,7 +66,8 @@ def test_base_model_with_datetime_field():
     srv = SerializedResourceValue.create(m)
     parsed = json.loads(srv.blob)
     assert isinstance(parsed["ts"], str)
-    datetime.fromisoformat(parsed["ts"])
+    # Python 3.10 fromisoformat doesn't accept 'Z'; replace before parsing.
+    datetime.fromisoformat(parsed["ts"].replace("Z", "+00:00"))
 
 
 def test_raw_dictionary():

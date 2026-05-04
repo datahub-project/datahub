@@ -319,9 +319,9 @@ class TestDatasharesHelper:
         helper = RedshiftDatasharesHelper(config, report, graph)
 
         share = PartialInboundDatashare(
-            producer_namespace_prefix="183ee9c2-",
-            share_name="consumer_dows_non_prod",
-            consumer_database="testing_datashare",
+            producer_namespace_prefix="producer-ns-",
+            share_name="my_share",
+            consumer_database="consumer_db",
         )
         tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
             "schema1": [RedshiftTable(name="table1", comment=None, created=None)],
@@ -333,29 +333,29 @@ class TestDatasharesHelper:
                     platform="redshift",
                     platform_instance=None,
                     resource_type="OUTBOUND_DATASHARE",
-                    primary_key="183ee9c2-c552-4f1c-8f36-87f8da6d3eba.consumer_dows_non_prod",
+                    primary_key="producer-ns-1.my_share",
                 ),
                 value=OutboundSharePlatformResource(
-                    namespace="183ee9c2-c552-4f1c-8f36-87f8da6d3eba",
+                    namespace="producer-ns-1",
                     platform_instance=None,
                     env="PROD",
-                    source_database="consumer_zone__non_prod",
-                    share_name="consumer_dows_non_prod",
+                    source_database="producer_db",
+                    share_name="my_share",
                 ),
             )
             current = PlatformResource.create(
                 key=PlatformResourceKey(
                     platform="redshift",
-                    platform_instance="ingestion_cluster_stg",
+                    platform_instance="producer_instance",
                     resource_type="OUTBOUND_DATASHARE",
-                    primary_key="183ee9c2-c552-4f1c-8f36-87f8da6d3eba.consumer_dows_non_prod",
+                    primary_key="producer-ns-1.my_share",
                 ),
                 value=OutboundSharePlatformResource(
-                    namespace="183ee9c2-c552-4f1c-8f36-87f8da6d3eba",
-                    platform_instance="ingestion_cluster_stg",
-                    env="STG",
-                    source_database="consumer_zone__non_prod",
-                    share_name="consumer_dows_non_prod",
+                    namespace="producer-ns-1",
+                    platform_instance="producer_instance",
+                    env="PROD",
+                    source_database="producer_db",
+                    share_name="my_share",
                 ),
             )
             return [stale, current]
@@ -368,11 +368,11 @@ class TestDatasharesHelper:
         assert result[0] == KnownLineageMapping(
             upstream_urn=(
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,"
-                "ingestion_cluster_stg.consumer_zone__non_prod.schema1.table1,STG)"
+                "producer_instance.producer_db.schema1.table1,PROD)"
             ),
             downstream_urn=(
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,"
-                "consumer_instance.testing_datashare.schema1.table1,PROD)"
+                "consumer_instance.consumer_db.schema1.table1,PROD)"
             ),
         )
 
@@ -509,7 +509,8 @@ class TestDatasharesHelper:
         assert blob1["source_database"] == "db1"
         assert blob1["share_name"] == "share1"
         assert "ingested_at" in blob1
-        datetime.fromisoformat(blob1["ingested_at"])
+        # Python 3.10 fromisoformat doesn't accept 'Z'; replace before parsing.
+        datetime.fromisoformat(blob1["ingested_at"].replace("Z", "+00:00"))
 
         fourth_mcp = result[3]
         assert fourth_mcp.entityType == "platformResource", (
@@ -534,7 +535,8 @@ class TestDatasharesHelper:
         assert blob4["source_database"] == "db2"
         assert blob4["share_name"] == "share2"
         assert "ingested_at" in blob4
-        datetime.fromisoformat(blob4["ingested_at"])
+        # Python 3.10 fromisoformat doesn't accept 'Z'; replace before parsing.
+        datetime.fromisoformat(blob4["ingested_at"].replace("Z", "+00:00"))
 
     def test_to_platform_resource_edge_case_single_share(self):
         """
