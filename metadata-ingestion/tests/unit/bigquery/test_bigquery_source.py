@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
@@ -604,7 +604,7 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_datasets_for_project_id_with_timestamps(
@@ -1111,7 +1111,7 @@ def test_get_views_for_dataset(
         dict(
             table_name=bigquery_view_1.name,
             created=bigquery_view_1.created,
-            last_altered=bigquery_view_1.last_altered,
+            last_altered=bigquery_view_1.last_altered.timestamp() * 1000,
             comment=bigquery_view_1.comment,
             view_definition=bigquery_view_1.view_definition,
             table_type="VIEW",
@@ -1220,7 +1220,7 @@ def test_get_snapshots_for_dataset(
         dict(
             table_name=bigquery_snapshot.name,
             created=bigquery_snapshot.created,
-            last_altered=bigquery_snapshot.last_altered,
+            last_altered=bigquery_snapshot.last_altered.timestamp() * 1000,
             comment=bigquery_snapshot.comment,
             ddl=bigquery_snapshot.ddl,
             snapshot_time=bigquery_snapshot.snapshot_time,

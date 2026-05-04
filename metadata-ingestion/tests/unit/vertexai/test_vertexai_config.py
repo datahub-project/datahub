@@ -185,6 +185,32 @@ def test_rate_limit_disabled_by_default() -> None:
     assert not isinstance(source._rate_limiter, RateLimiter)
 
 
+def test_region_validator_accepts_legacy_region() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "test-project", "region": "us-central1"}
+    )
+    assert config.region == "us-central1"
+
+
+def test_region_validator_accepts_regions_list() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "test-project", "regions": ["us-central1", "europe-west1"]}
+    )
+    assert config.regions == ["us-central1", "europe-west1"]
+
+
+def test_region_validator_accepts_discover_regions() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "test-project", "discover_regions": True}
+    )
+    assert config.discover_regions is True
+
+
+def test_region_validator_rejects_no_region_source() -> None:
+    with pytest.raises(Exception, match="region"):
+        VertexAIConfig.model_validate({"project_id": "test-project"})
+
+
 def test_rate_limit_creates_shared_rate_limiter() -> None:
     config = VertexAIConfig.model_validate(
         {

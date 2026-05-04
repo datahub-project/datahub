@@ -20,6 +20,13 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         id: ENTITY_PROFILE_V2_COLUMNS_ID,
         selector: `[id^='rc-tabs'][id$='Columns']`,
         title: 'Columns 🧮',
+        tabName: 'Columns',
+        action: (node) => {
+            // Scroll the tab into view and ensure it's selected
+            if (node) {
+                node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+            }
+        },
         content: (
             <Typography.Paragraph>
                 <p>
@@ -37,6 +44,12 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         id: ENTITY_PROFILE_V2_CONTENTS_ID,
         selector: `[id^='rc-tabs'][id$='Contents']`,
         title: 'Contents 📦',
+        tabName: 'Contents',
+        action: (node) => {
+            if (node) {
+                node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+            }
+        },
         content: (
             <Typography.Paragraph>
                 <p>
@@ -50,6 +63,12 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         id: ENTITY_PROFILE_V2_DOCUMENTATION_ID,
         selector: `[id^='rc-tabs'][id$='Documentation']`,
         title: 'Documentation 📖',
+        tabName: 'Documentation',
+        action: (node) => {
+            if (node) {
+                node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+            }
+        },
         content: (
             <Typography.Paragraph>
                 <p>
@@ -129,6 +148,12 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         id: ENTITY_PROFILE_V2_QUERIES_ID,
         selector: `[id^='rc-tabs'][id$='Queries']`,
         title: 'Queries 🖥️',
+        tabName: 'Queries',
+        action: (node) => {
+            if (node) {
+                node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+            }
+        },
         content: (
             <Typography.Paragraph>
                 <p>
@@ -143,6 +168,12 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         id: ENTITY_PROFILE_V2_VALIDATION_ID,
         selector: `[id^='rc-tabs'][id$='Quality']`,
         title: 'Quality ✔️ ',
+        tabName: 'Quality',
+        action: (node) => {
+            if (node) {
+                node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+            }
+        },
         content: (
             <Typography.Paragraph>
                 <p>
@@ -158,6 +189,12 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         id: ENTITY_PROFILE_V2_INCIDENTS_ID,
         selector: `[id^='rc-tabs'][id$='Incidents']`,
         title: 'Incidents ⚠️',
+        tabName: 'Incidents',
+        action: (node) => {
+            if (node) {
+                node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+            }
+        },
         content: (
             <Typography.Paragraph>
                 <p>

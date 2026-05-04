@@ -1,3 +1,7 @@
+---
+description: "The DataHub project roadmap, with a pointer to the live feature request and prioritization site for upcoming work."
+---
+
 # DataHub Roadmap
 
 ## [The DataHub Roadmap has a new home!](https://feature-requests.datahubproject.io/roadmap)
@@ -14,7 +18,7 @@ _This following represents the progress made on historical roadmap items as of J
 
 #### Data Lake Ecosystem Integration
 
-- [ ] Spark Delta Lake - [View in Feature Reqeust Portal](https://feature-requests.datahubproject.io/b/feedback/p/spark-delta-lake)
+- [ ] Spark Delta Lake - [View in Feature Request Portal](https://feature-requests.datahubproject.io/b/feedback/p/spark-delta-lake)
 - [ ] Apache Iceberg - [Included in Q1 2022 Roadmap - Community-Driven Metadata Ingestion Sources](https://feature-requests.datahubproject.io/roadmap/540)
 - [ ] Apache Hudi - [View in Feature Request Portal](https://feature-requests.datahubproject.io/b/feedback/p/apachi-hudi-ingestion-support)
 
@@ -46,7 +50,7 @@ _This following represents the progress made on historical roadmap items as of J
 
 #### Collaboration
 
-[View in Feature Reqeust Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/collaboration-within-datahub-ui)
+[View in Feature Request Portal](https://feature-requests.datahubproject.io/b/User-Experience/p/collaboration-within-datahub-ui)
 
 - [ ] Conversations on the platform
 - [ ] Knowledge Posts (Gdocs, Gslides, Gsheets)

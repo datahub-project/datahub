@@ -21,6 +21,10 @@ vi.mock('@graphql/user.generated');
 vi.mock('@graphql/settings.generated');
 vi.mock('@app/entity/shared/EntityContext');
 
+vi.mock('@app/homeV3/toast/useShowToast', () => ({
+    default: () => ({ showToast: vi.fn() }),
+}));
+
 const mockUpsertPageTemplateMutation = vi.fn();
 const mockUpdateUserHomePageSettings = vi.fn();
 const mockDeletePageTemplate = vi.fn();

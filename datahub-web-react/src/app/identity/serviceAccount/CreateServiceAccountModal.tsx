@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { addServiceAccountToListCache } from '@app/identity/serviceAccount/cacheUtils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Input, Modal, Text, TextArea } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { useCreateServiceAccountMutation } from '@graphql/auth.generated';
 
@@ -23,11 +22,11 @@ const FormGroup = styled.div`
 `;
 
 const FormLabel = styled(Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const FormDescription = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -158,9 +157,7 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                     <FormLabel size="md" weight="semiBold">
                         Name
                     </FormLabel>
-                    <FormDescription size="sm" color="gray">
-                        A name for the service account
-                    </FormDescription>
+                    <FormDescription size="sm">A name for the service account</FormDescription>
                     <Input
                         value={displayName}
                         setValue={setDisplayName}
@@ -174,9 +171,7 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                     <FormLabel size="md" weight="semiBold">
                         Description
                     </FormLabel>
-                    <FormDescription size="sm" color="gray">
-                        An optional description for the service account
-                    </FormDescription>
+                    <FormDescription size="sm">An optional description for the service account</FormDescription>
                     <TextArea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}

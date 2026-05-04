@@ -27,6 +27,7 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
@@ -112,6 +113,21 @@ class BigqueryTableConstraint:
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
+
+_POLICY_TAG_TAXONOMY_RE: re.Pattern = re.compile(
+    r"(projects/[^/]+/locations/[^/]+/taxonomies/[^/]+)/policyTags/"
+)
+
+
+def _parse_taxonomy_id(policy_tag_resource_name: str) -> Optional[str]:
+    """Extract taxonomy resource name from a policy tag resource name.
+
+    Input:  "projects/123/locations/us/taxonomies/456/policyTags/789"
+    Output: "projects/123/locations/us/taxonomies/456"
+    Returns None for malformed resource names.
+    """
+    match = _POLICY_TAG_TAXONOMY_RE.match(policy_tag_resource_name)
+    return match.group(1) if match else None
 
 
 @dataclass
@@ -245,6 +261,9 @@ class BigQuerySchemaApi:
         self.projects_client = projects_client
         self.report = report
         self.datacatalog_client = datacatalog_client
+        # Cache mapping policy tag resource names to display names, shared across all datasets
+        # in a single ingestion run to avoid redundant API calls per taxonomy.
+        self._policy_tag_mapping_cache: Dict[str, str] = {}
 
     def get_query_result(
         self, query: str, location: Optional[str] = None
@@ -439,13 +458,6 @@ class BigQuerySchemaApi:
             self.report.num_list_tables_api_requests += 1
             self.report.list_tables_sec += current_timer.elapsed_seconds()
 
-    @staticmethod
-    def _bq_location_to_region(location: str) -> str:
-        # BigQuery INFORMATION_SCHEMA.TABLE_STORAGE is scoped to a region, not a dataset.
-        # The region identifier uses the format "region-<location>" (case-insensitive).
-        # E.g. "US" -> "region-us", "us-central1" -> "region-us-central1".
-        return f"region-{location.lower()}"
-
     def get_tables_for_dataset(
         self,
         project_id: str,
@@ -453,34 +465,28 @@ class BigQuerySchemaApi:
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
         with_partitions: bool = False,
-        location: Optional[str] = None,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
-            if with_partitions and location:
+            if with_partitions:
                 query_template = BigqueryQuery.tables_for_dataset
             else:
-                if with_partitions and not location:
-                    logger.warning(
-                        f"Dataset location not available for {project_id}.{dataset_name}, "
-                        "falling back to query without storage statistics."
-                    )
                 query_template = BigqueryQuery.tables_for_dataset_without_partition_data
-
-            query_args: Dict[str, str] = dict(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                table_filter=(
-                    f" and t.table_name in ({filter_clause})" if filter_clause else ""
-                ),
-            )
-            if location:
-                query_args["region"] = self._bq_location_to_region(location)
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
-            cur = self.get_query_result(query_template.format(**query_args))
+            cur = self.get_query_result(
+                query_template.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    table_filter=(
+                        f" and t.table_name in ({filter_clause})"
+                        if filter_clause
+                        else ""
+                    ),
+                ),
+            )
 
             for table in cur:
                 try:
@@ -522,7 +528,7 @@ class BigQuerySchemaApi:
             name=table.table_name,
             created=table.created,
             table_type=table.table_type,
-            last_altered=table.get("last_altered"),
+            last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -551,23 +557,16 @@ class BigQuerySchemaApi:
         dataset_name: str,
         has_data_read: bool,
         report: BigQueryV2Report,
-        location: Optional[str] = None,
     ) -> Iterator[BigqueryView]:
         with PerfTimer() as current_timer:
-            if has_data_read and location:
+            if has_data_read:
+                # If profiling is enabled
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
-                        project_id=project_id,
-                        dataset_name=dataset_name,
-                        region=self._bq_location_to_region(location),
+                        project_id=project_id, dataset_name=dataset_name
                     ),
                 )
             else:
-                if has_data_read and not location:
-                    logger.warning(
-                        f"Dataset location not available for {project_id}.{dataset_name}, "
-                        "falling back to query without storage statistics."
-                    )
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset_without_data_read.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -594,7 +593,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=view.get("last_altered"),
+            last_altered=(parse_ts_millis(view.get("last_altered"))),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -603,55 +602,92 @@ class BigQuerySchemaApi:
             labels=parse_labels(view.labels) if view.get("labels") else None,
         )
 
-    def get_policy_tags_for_column(
+    def build_policy_tag_display_name_mapping(
         self,
-        project_id: str,
-        dataset_name: str,
-        table_name: str,
-        column_name: str,
+        policy_tag_resource_names: Set[str],
         report: BigQueryV2Report,
         rate_limiter: Optional[RateLimiter] = None,
-    ) -> Iterable[str]:
+    ) -> Dict[str, str]:
+        """Build a mapping of policy tag resource names to display names.
+
+        Uses taxonomy-level batch API (list_policy_tags) so that all tags in a
+        taxonomy are resolved with a single API call instead of one call per tag.
+        Results are cached in self._policy_tag_mapping_cache across datasets for
+        the entire ingestion run.
+
+        Returns a dict mapping resource_name -> display_name. For any tag that
+        cannot be resolved (API failure, deleted tag, malformed name) the resource
+        name itself is used as the display name value so callers always get a
+        usable string.
+        """
         assert self.datacatalog_client
 
-        try:
-            # Get the table schema
-            table_ref = f"{project_id}.{dataset_name}.{table_name}"
-            table = self.bq_client.get_table(table_ref)
-            schema = table.schema
+        uncached_names = {
+            name
+            for name in policy_tag_resource_names
+            if name not in self._policy_tag_mapping_cache
+        }
 
-            # Find the specific field in the schema
-            field = next((f for f in schema if f.name == column_name), None)
-            if not field or not field.policy_tags:
-                return
+        if not uncached_names:
+            return {
+                name: self._policy_tag_mapping_cache[name]
+                for name in policy_tag_resource_names
+            }
 
-            # Retrieve policy tag display names
-            for policy_tag_name in field.policy_tags.names:
-                try:
-                    if rate_limiter:
-                        with rate_limiter:
-                            policy_tag = self.datacatalog_client.get_policy_tag(
-                                name=policy_tag_name
-                            )
-                    else:
-                        policy_tag = self.datacatalog_client.get_policy_tag(
-                            name=policy_tag_name
+        # Parse taxonomy IDs from uncached resource names, skipping any that are malformed.
+        taxonomy_ids: Set[str] = set()
+        malformed_names: Set[str] = set()
+        for resource_name in uncached_names:
+            taxonomy_id = _parse_taxonomy_id(resource_name)
+            if taxonomy_id:
+                taxonomy_ids.add(taxonomy_id)
+            else:
+                malformed_names.add(resource_name)
+                report.warning(
+                    title="Malformed policy tag resource name",
+                    message="Could not parse taxonomy ID from policy tag resource name; tag will be skipped",
+                    context=resource_name,
+                )
+
+        # One list_policy_tags() call per unique taxonomy resolves all tags at once.
+        logger.info(
+            f"Resolving policy tag display names from {len(taxonomy_ids)} "
+            f"{'taxonomy' if len(taxonomy_ids) == 1 else 'taxonomies'}: {sorted(taxonomy_ids)}"
+        )
+        for taxonomy_id in taxonomy_ids:
+            try:
+                if rate_limiter:
+                    with rate_limiter:
+                        policy_tags = self.datacatalog_client.list_policy_tags(
+                            parent=taxonomy_id
                         )
-                    yield policy_tag.display_name
-                except Exception as e:
-                    report.warning(
-                        title="Failed to retrieve policy tag",
-                        message="Unexpected error when retrieving policy tag for column",
-                        context=f"policy tag {policy_tag_name} for column {column_name} in table {table_ref}",
-                        exc=e,
+                else:
+                    policy_tags = self.datacatalog_client.list_policy_tags(
+                        parent=taxonomy_id
                     )
-        except Exception as e:
-            report.warning(
-                title="Failed to retrieve policy tag for table",
-                message="Unexpected error retrieving policy tag for table",
-                context=table_ref,
-                exc=e,
-            )
+
+                self.report.num_list_policy_tags_api_requests += 1
+                for policy_tag in policy_tags:
+                    self._policy_tag_mapping_cache[policy_tag.name] = (
+                        policy_tag.display_name
+                    )
+
+            except Exception as e:
+                report.warning(
+                    title="Failed to list policy tags for taxonomy",
+                    message=(
+                        "Data Catalog API call failed; policy tag resource names will be "
+                        "stored instead of display names for this taxonomy"
+                    ),
+                    context=taxonomy_id,
+                    exc=e,
+                )
+
+        return {
+            name: self._policy_tag_mapping_cache.get(name, name)
+            for name in policy_tag_resource_names
+            if name not in malformed_names
+        }
 
     def get_table_constraints_for_dataset(
         self,
@@ -747,47 +783,90 @@ class BigQuerySchemaApi:
                 )
                 return None
 
+            # Collect raw rows first so we can batch-resolve policy tag display names
+            # before constructing BigqueryColumn objects.
+            raw_rows = []
             last_seen_table: str = ""
             for column in cur:
-                with timer.pause():
-                    if (
-                        column_limit
-                        and column.table_name in columns
-                        and len(columns[column.table_name]) >= column_limit
-                    ):
-                        if last_seen_table != column.table_name:
-                            logger.warning(
-                                f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                if (
+                    column_limit
+                    and column.table_name in columns
+                    and len(columns[column.table_name]) >= column_limit
+                ):
+                    if last_seen_table != column.table_name:
+                        logger.warning(
+                            f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                        )
+                        last_seen_table = column.table_name
+                else:
+                    raw_rows.append(column)
+
+            # Batch-resolve policy tag display names for the entire dataset in a
+            # small number of Data Catalog API calls (one per unique taxonomy).
+            policy_tag_display_name_map: Dict[str, str] = {}
+            if extract_policy_tags_from_catalog:
+                all_resource_names: Set[str] = set()
+                for column in raw_rows:
+                    policy_tag_column = getattr(column, "policy_tags", None)
+                    if policy_tag_column:
+                        try:
+                            all_resource_names.update(policy_tag_column)
+                        except Exception as e:
+                            report.warning(
+                                title="Policy tags column not available in INFORMATION_SCHEMA",
+                                message="Requires BigQuery API v2. Skipping policy tag extraction for this dataset.",
+                                context=f"{project_id}.{dataset_name}",
+                                exc=e,
                             )
-                            last_seen_table = column.table_name
-                    else:
-                        columns[column.table_name].append(
-                            BigqueryColumn(
-                                name=column.column_name,
-                                ordinal_position=column.ordinal_position,
-                                field_path=column.field_path,
-                                is_nullable=column.is_nullable == "YES",
-                                data_type=column.data_type,
-                                comment=column.comment,
-                                is_partition_column=column.is_partitioning_column
-                                == "YES",
-                                cluster_column_position=column.clustering_ordinal_position,
-                                policy_tags=(
-                                    list(
-                                        self.get_policy_tags_for_column(
-                                            project_id,
-                                            dataset_name,
-                                            column.table_name,
-                                            column.column_name,
-                                            report,
-                                            rate_limiter,
-                                        )
-                                    )
-                                    if extract_policy_tags_from_catalog
-                                    else []
-                                ),
+                            extract_policy_tags_from_catalog = False
+
+                if extract_policy_tags_from_catalog and all_resource_names:
+                    with PerfTimer() as policy_tag_timer:
+                        policy_tag_display_name_map = (
+                            self.build_policy_tag_display_name_mapping(
+                                all_resource_names,
+                                report,
+                                rate_limiter,
                             )
                         )
+                    elapsed = policy_tag_timer.elapsed_seconds()
+                    logger.info(
+                        f"Resolved policy tags for {project_id}.{dataset_name} "
+                        f"in {elapsed:.2f}s"
+                    )
+                    self.report.list_policy_tags_sec += elapsed
+
+            for column in raw_rows:
+                policy_tags: List[str] = []
+                if extract_policy_tags_from_catalog:
+                    raw_tags = getattr(column, "policy_tags", None)
+                    if raw_tags:
+                        for resource_name in raw_tags:
+                            if resource_name not in policy_tag_display_name_map:
+                                logger.debug(
+                                    f"Policy tag resource name not found in mapping "
+                                    f"(tag may have been deleted): {resource_name}"
+                                )
+                            policy_tags.append(
+                                policy_tag_display_name_map.get(
+                                    resource_name, resource_name
+                                )
+                            )
+
+                columns[column.table_name].append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        field_path=column.field_path,
+                        is_nullable=column.is_nullable == "YES",
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                        cluster_column_position=column.clustering_ordinal_position,
+                        policy_tags=policy_tags,
+                    )
+                )
+
             self.report.num_get_columns_for_dataset_api_requests += 1
             self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
 
@@ -799,23 +878,16 @@ class BigQuerySchemaApi:
         dataset_name: str,
         has_data_read: bool,
         report: BigQueryV2Report,
-        location: Optional[str] = None,
     ) -> Iterator[BigqueryTableSnapshot]:
         with PerfTimer() as current_timer:
-            if has_data_read and location:
+            if has_data_read:
+                # If profiling is enabled
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset.format(
-                        project_id=project_id,
-                        dataset_name=dataset_name,
-                        region=self._bq_location_to_region(location),
+                        project_id=project_id, dataset_name=dataset_name
                     ),
                 )
             else:
-                if has_data_read and not location:
-                    logger.warning(
-                        f"Dataset location not available for {project_id}.{dataset_name}, "
-                        "falling back to query without storage statistics."
-                    )
                 cur = self.get_query_result(
                     BigqueryQuery.snapshots_for_dataset_without_data_read.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -842,7 +914,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=snapshot.get("last_altered"),
+            last_altered=parse_ts_millis(snapshot.get("last_altered")),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

@@ -5,6 +5,7 @@ import functools
 import logging
 import threading
 import uuid
+from datetime import timedelta
 from enum import auto
 from typing import List, Optional, Tuple, Union
 
@@ -81,6 +82,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
+    min_process_interval_seconds: pydantic.PositiveFloat = 30
 
     @field_validator("max_per_batch", mode="before")
     @classmethod
@@ -198,6 +200,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 max_pending=self.config.max_pending_requests,
                 process_batch=self._emit_batch_wrapper,
                 max_per_batch=self.config.max_per_batch,
+                min_process_interval=timedelta(
+                    seconds=self.config.min_process_interval_seconds
+                ),
             )
         else:
             self.executor = PartitionExecutor(
@@ -214,6 +219,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             read_timeout_sec=config.timeout_sec,
             retry_status_codes=config.retry_status_codes,
             retry_max_times=config.retry_max_times,
+            pool_connections=config.pool_connections,
+            pool_maxsize=config.pool_maxsize,
             extra_headers=config.extra_headers,
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
@@ -221,6 +228,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
+            tcp_keepalive=config.tcp_keepalive,
         )
 
     @property

@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from 'reactflow';
@@ -9,7 +8,8 @@ import { LineageDisplayContext, LineageTableEdgeData } from '@app/lineageV3/comm
 export const CUSTOM_SMOOTH_STEP_EDGE_NAME = 'custom-smooth-step';
 
 const StyledPath = styled.path<{ isHighlighted: boolean; isColumnSelected: boolean; isManual?: boolean }>`
-    ${({ isHighlighted }) => (isHighlighted ? `stroke: ${colors.violet[300]}; stroke-width: 2px;` : '')};
+    ${({ isHighlighted, theme }) =>
+        isHighlighted ? `stroke: ${theme.colors.chartsBrandLow}; stroke-width: 2px;` : ''};
     stroke-opacity: ${({ isColumnSelected }) => (isColumnSelected ? 0.5 : 1)};
     stroke-dasharray: ${({ isManual }) => (isManual ? '5,2' : 'none')};
 `;

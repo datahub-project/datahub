@@ -182,7 +182,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    _use_odbc_removed = pydantic_removed_field("use_odbc")
+    _use_odbc_removed = pydantic_removed_field("use_odbc", month="January", year=2026)
     uri_args: Dict[str, str] = Field(
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
@@ -198,6 +198,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Enable to convert the SQL Server assets urns to lowercase",
+    )
+    convert_column_urns_to_lowercase: bool = Field(
+        default=False,
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility.",
     )
     include_lineage: bool = Field(
         default=True,
@@ -410,7 +414,15 @@ class SQLServerSource(SQLAlchemySource):
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
             self.report.warning(
                 title="Potential issue with lineage",
-                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
+                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_urns_to_lowercase' to True.",
+            )
+        if (
+            self.config.include_lineage
+            and not self.config.convert_column_urns_to_lowercase
+        ):
+            self.report.warning(
+                title="Potential issue with column-level lineage",
+                message="Lineage may not resolve accurately because 'convert_column_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_column_urns_to_lowercase' to True.",
             )
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
@@ -562,7 +574,7 @@ class SQLServerSource(SQLAlchemySource):
         schema_fields = super().get_schema_fields(
             dataset_name, columns, inspector, pk_constraints, partition_keys, tags
         )
-        if self.config.convert_urns_to_lowercase:
+        if self.config.convert_column_urns_to_lowercase:
             for field in schema_fields:
                 field.fieldPath = field.fieldPath.lower()
         return schema_fields
@@ -1272,7 +1284,7 @@ class SQLServerSource(SQLAlchemySource):
         fk_dict: Dict[str, Any],
         inspector: Inspector,
     ) -> ForeignKeyConstraintClass:
-        if self.config.convert_urns_to_lowercase:
+        if self.config.convert_column_urns_to_lowercase:
             fk_dict["constrained_columns"] = [
                 f.lower() for f in fk_dict["constrained_columns"]
             ]
@@ -1308,8 +1320,19 @@ class SQLServerSource(SQLAlchemySource):
                     url = self.config.get_sql_alchemy_url(
                         current_db=db["name"], is_odbc=self._is_odbc
                     )
-                    engine = create_engine(url, **self.config.options)
-                    inspector = inspect(engine)
+                    try:
+                        engine = create_engine(url, **self.config.options)
+                        inspector = inspect(engine)
+                    except OperationalError as e:
+                        if re.search(r"(?i)login failed", str(e)):
+                            logger.warning(
+                                f"Error logging in to database {db['name']}: {e}"
+                            )
+                            self.report.report_warning(
+                                "Error logging in to database", db["name"], exc=e
+                            )
+                            continue
+                        raise
                     self.current_database = db["name"]
                     yield inspector
 

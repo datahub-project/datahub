@@ -287,12 +287,12 @@ jobs:
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\"}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
           else
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
           fi
 
           if [ -z "$RESPONSE" ]; then
@@ -498,12 +498,12 @@ jobs:
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\"}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
           else
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
           fi
 
           if [ -z "$RESPONSE" ]; then

@@ -1,3 +1,7 @@
+---
+description: "Define fine-grained access policies in DataHub to control who can view and edit metadata entities, aspects, and platform features."
+---
+
 # Policies Guide
 
 ## Introduction

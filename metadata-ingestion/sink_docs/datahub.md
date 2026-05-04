@@ -1,3 +1,8 @@
+---
+title: DataHub Sink
+description: "Configure the DataHub REST sink to emit metadata events from ingestion pipelines to a DataHub GMS or DataHub Cloud instance."
+---
+
 # DataHub
 
 ## DataHub Rest

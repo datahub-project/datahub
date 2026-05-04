@@ -21,6 +21,7 @@ from datahub.ingestion.source.kafka_connect.common import (
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
+    parse_topic_to_table_map,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
@@ -201,14 +202,7 @@ class SnowflakeSinkConnector(BaseConnector):
                 mappings = parse_comma_separated_list(
                     connector_manifest.config["snowflake.topic2table.map"]
                 )
-                for mapping in mappings:
-                    if ":" not in mapping:
-                        logger.warning(
-                            f"Invalid topic:table mapping format: '{mapping}'. Expected 'topic:table'."
-                        )
-                        continue
-                    topic, table = mapping.split(":", 1)  # Split only on first colon
-                    provided_topics_to_tables[topic.strip()] = table.strip()
+                provided_topics_to_tables = parse_topic_to_table_map(mappings)
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
@@ -220,17 +214,29 @@ class SnowflakeSinkConnector(BaseConnector):
         # Get topics the connector subscribes to from its configuration
         subscribed_topics = set(self.get_topics_from_config())
 
-        # Filter available topics to only those the connector subscribes to
         if subscribed_topics:
-            topic_list = list(available_topics.intersection(subscribed_topics))
-            logger.debug(
-                f"Filtered to {len(topic_list)} subscribed topics for {connector_manifest.name}: {topic_list}"
-            )
+            if available_topics:
+                # Runtime topic data available — intersect to exclude stale topics
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics)} configured topics)"
+                )
+            else:
+                # Runtime /topics API returned nothing (connector hasn't processed
+                # messages yet, or topics were reset) — trust the config directly
+                topic_list = list(subscribed_topics)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
         else:
-            # If no subscription config, use all available topics (OSS behavior)
+            # No subscription config found — use whatever the runtime API returned
             topic_list = list(available_topics)
             logger.debug(
-                f"No subscription filter found, using all {len(topic_list)} available topics"
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
             )
         transform_result = get_transform_pipeline().apply_forward(
             topic_list, connector_manifest.config
@@ -380,12 +386,31 @@ class ClickHouseSinkConnector(BaseConnector):
             self.all_cluster_topics or connector_manifest.topic_names
         )
 
-        # Filter to subscribed topics
         subscribed_topics = set(self.get_topics_from_config())
         if subscribed_topics:
-            topic_list = list(available_topics.intersection(subscribed_topics))
+            if available_topics:
+                # Runtime topic data available — intersect to exclude stale topics
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics)} configured topics)"
+                )
+            else:
+                # Runtime /topics API returned nothing (connector hasn't processed
+                # messages yet, or topics were reset) — trust the config directly
+                topic_list = list(subscribed_topics)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
         else:
+            # No subscription config found — use whatever the runtime API returned
             topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
+            )
 
         # Apply transforms
         transform_result = get_transform_pipeline().apply_forward(
@@ -489,6 +514,7 @@ class BigQuerySinkConnector(BaseConnector):
         sanitizeTopics: bool
         transforms: List[Dict[str, str]]
         topicsToTables: Optional[str] = None
+        topics2TableMap: Optional[Dict[str, str]] = None
         datasets: Optional[str] = None
         defaultDataset: Optional[str] = None
         version: str = "v1"
@@ -499,6 +525,18 @@ class BigQuerySinkConnector(BaseConnector):
     ) -> BQParser:
         project: str = connector_manifest.config["project"]
         sanitizeTopics: str = connector_manifest.config.get("sanitizeTopics") or "false"
+
+        # Support for both topic2Tables (legacy) and topic2table.map (new) for backward compatibility
+        # Legacy property topic2TableMap: https://docs.confluent.io/kafka-connectors/bigquery/current/kafka_connect_bigquery_config.html#csfle-and-cspe-configurations
+        # New version property topic2table.map: https://docs.confluent.io/cloud/current/connectors/cc-gcp-bigquery-storage-sink.html#insertion-and-ddl-support
+        topic2table_map_str: Optional[str] = connector_manifest.config.get(
+            "topic2table.map"
+        ) or connector_manifest.config.get("topic2TableMap")
+
+        topics2TableMap: Optional[Dict[str, str]] = None
+        if topic2table_map_str:
+            mappings = parse_comma_separated_list(topic2table_map_str)
+            topics2TableMap = parse_topic_to_table_map(mappings)
 
         # Parse ALL transforms (original BigQuery logic)
         transform_names: List[str] = (
@@ -535,6 +573,7 @@ class BigQuerySinkConnector(BaseConnector):
                 sanitizeTopics=sanitizeTopics.lower() == "true",
                 version="v2",
                 transforms=transforms,
+                topics2TableMap=topics2TableMap,
             )
         else:
             # v1 configuration: legacy format with regex-based dataset mapping
@@ -594,12 +633,17 @@ class BigQuerySinkConnector(BaseConnector):
     ) -> Optional[str]:
         if parser.version == "v2":
             dataset: Optional[str] = parser.defaultDataset
-            parts: List[str] = topic.split(":")
+            table = topic
+
+            # Parse topic format: "dataset:table" or just "table"
+            parts: List[str] = topic.split(":", 1)
             if len(parts) == 2:
                 dataset = parts[0]
                 table = parts[1]
-            else:
-                table = parts[0]
+
+            # Override table name if explicit mapping exists
+            if parser.topics2TableMap and topic in parser.topics2TableMap:
+                table = parser.topics2TableMap[topic]
         else:
             dataset = self.get_dataset_for_topic_v1(topic, parser)
             if dataset is None:

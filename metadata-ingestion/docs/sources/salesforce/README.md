@@ -2,7 +2,7 @@
 
 Salesforce is a DataHub utility or metadata-focused integration. Learn more in the [official Salesforce documentation](https://www.salesforce.com/).
 
-The DataHub integration for Salesforce covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Salesforce covers metadata entities and operational objects relevant to this connector. It also captures table-level lineage, data profiling, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

@@ -649,7 +649,7 @@ Cypress.on("uncaught:exception", (err) => {
   const resizeObserverLoopErrMessage =
     "ResizeObserver loop completed with undelivered notifications.";
 
-  /* returning false here prevents Cypress from failing the test */
+  /* returning false here prevents Cypress from failing the test. */
   if (
     err.message.includes(resizeObserverLoopLimitErrMessage) ||
     err.message.includes(resizeObserverLoopErrMessage)

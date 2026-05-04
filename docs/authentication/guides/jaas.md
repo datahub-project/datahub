@@ -1,3 +1,7 @@
+---
+description: "Configure JAAS authentication in DataHub to integrate with file-based, LDAP, or custom Java identity providers."
+---
+
 # JaaS Authentication
 
 ## Overview

@@ -446,3 +446,101 @@ def test_mongodb_collection_filtering(mock_mongo_client, pipeline_context):
     filtered_list = list(source.report.filtered)
     assert "test_db.temp_data" in filtered_list
     assert "test_db.cache_entries" in filtered_list
+
+
+def test_mongodb_system_collections_excluded_by_default(
+    mock_mongo_client, pipeline_context
+):
+    """System collections must be excluded when excludeSystemCollections=True (the default)."""
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = [
+        "users",
+        "orders",
+        "system.profile",
+        "system.views",
+        "system.indexes",
+    ]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = []
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=True,
+        # excludeSystemCollections defaults to True
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+
+    workunits = list(source.get_workunits_internal())
+
+    dataset_urns = {
+        wu.metadata.entityUrn
+        for wu in workunits
+        if isinstance(
+            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+        )
+        and wu.metadata.entityUrn
+        and guess_entity_type(wu.metadata.entityUrn) == "dataset"
+    }
+
+    # Only user collections should be ingested
+    assert dataset_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.orders,PROD)",
+    }
+
+    # System collections should appear in the filtered list
+    filtered = list(source.report.filtered)
+    assert "mydb.system.profile" in filtered
+    assert "mydb.system.views" in filtered
+    assert "mydb.system.indexes" in filtered
+
+
+def test_mongodb_system_collections_included_when_opted_in(
+    mock_mongo_client, pipeline_context
+):
+    """When excludeSystemCollections=False, system collections are processed normally."""
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = [
+        "users",
+        "system.views",
+    ]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = []
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=True,
+        excludeSystemCollections=False,
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+
+    workunits = list(source.get_workunits_internal())
+
+    dataset_urns = {
+        wu.metadata.entityUrn
+        for wu in workunits
+        if isinstance(
+            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+        )
+        and wu.metadata.entityUrn
+        and guess_entity_type(wu.metadata.entityUrn) == "dataset"
+    }
+
+    # system.views should be ingested when opt-in
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.system.views,PROD)"
+        in dataset_urns
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)" in dataset_urns
+    )
