@@ -329,8 +329,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     dm_element_warehouse_upstream_emitted: int = 0
     # connectionId not in registry, or registry record has is_mappable=False.
     dm_element_warehouse_unknown_connection: int = 0
-    # /files/{inodeId} returned non-200 or raised an exception.
+    # /files/{inodeId} returned non-200 or raised an exception (first attempt
+    # per inode only; cache hits of a prior failure are not double-counted).
     dm_element_warehouse_table_lookup_failed: int = 0
+    # Sub-bucket of table_lookup_failed: /files returned 429 after retries.
+    dm_element_warehouse_table_lookup_rate_limited: int = 0
     # /files path could not be parsed as Connection Root/<DB>/<SCHEMA>.
     dm_element_warehouse_path_unparseable: int = 0
     # type=table lineage entry missing inodeId or name; skipped to avoid

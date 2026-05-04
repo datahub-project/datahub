@@ -1095,7 +1095,7 @@ class SigmaAPI:
                 inode_id = str(entry.get("inodeId") or "")
                 conn_id = str(entry.get("connectionId") or "")
                 name = str(entry.get("name") or "")
-                if not (inode_id and name):
+                if not (inode_id and name and conn_id):
                     self.report.dm_element_warehouse_table_entry_incomplete += 1
                     logger.debug(
                         "DM %s: type=table entry missing inodeId or name; "
@@ -1124,20 +1124,47 @@ class SigmaAPI:
         Callers are responsible for caching; this method always makes a live
         HTTP call so the instance-level cache on ``SigmaSource`` can be shared
         across multiple callers without duplicating retry/error logic here.
+
+        Error handling mirrors ``get_data_model_by_url_id``: 429 gets a
+        dedicated counter + warning; other non-200 statuses emit a
+        rate-limited structured warning so operators can distinguish
+        rate-limiting from missing-scope (403/404) from server errors (5xx).
         """
         logger.debug("Fetching file metadata for inode '%s'.", inode_id)
         url = f"{self.config.api_url}/files/{inode_id}"
         try:
             response = self._get_api_call(url)
-            if response.status_code != 200:
-                logger.debug(
-                    "GET /files/%s returned HTTP %d; skipping.",
-                    inode_id,
-                    response.status_code,
+            if response.status_code == 200:
+                return response.json()
+            status = response.status_code
+            if status == 429:
+                self.report.dm_element_warehouse_table_lookup_rate_limited += 1
+                self.report.warning(
+                    title="Sigma API rate-limited on /files lookup",
+                    message=(
+                        "Retry budget exhausted on 429 for /files/{inodeId}. "
+                        "Warehouse upstream will be missing for this inode. "
+                        "Re-run the ingestion to recover."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={status}",
                 )
-                return None
-            return response.json()
+            else:
+                self.report.warning(
+                    title="Sigma /files lookup returned non-200",
+                    message=(
+                        "Unable to resolve warehouse table metadata for inode. "
+                        "Warehouse upstream will be missing."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={status}",
+                )
+            return None
         except Exception as e:
+            self.report.warning(
+                title="Sigma /files lookup failed",
+                message="Exception while fetching /files/{inodeId}; warehouse upstream skipped.",
+                context=f"inode_id={inode_id}",
+                exc=e,
+            )
             self._log_http_error(
                 message=f"Unable to fetch file metadata for inode '{inode_id}': {e}"
             )

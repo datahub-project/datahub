@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig
+from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
     SigmaConnectionRegistry,
@@ -190,7 +190,7 @@ class TestBuildDmWarehouseUrlIdMap:
         assert result == {}
         assert source.reporter.dm_element_warehouse_path_unparseable == 1
 
-    def test_missing_url_id_skipped(self):
+    def test_empty_url_id_counts_as_path_unparseable(self):
         source = _make_source()
         dm = _make_dm_with_inodes(
             {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
@@ -203,6 +203,47 @@ class TestBuildDmWarehouseUrlIdMap:
                 "urlId": "",
                 "name": "TABLE",
                 "path": "Connection Root/DB/SCHEMA",
+            },
+        ):
+            result = source._build_dm_warehouse_url_id_map(dm)
+
+        assert result == {}
+        assert source.reporter.dm_element_warehouse_path_unparseable == 1
+
+    def test_path_unparseable_more_than_3_segments(self):
+        source = _make_source()
+        dm = _make_dm_with_inodes(
+            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
+        )
+        with patch.object(
+            source.sigma_api,
+            "get_file_metadata",
+            return_value={
+                "id": "inode-1",
+                "urlId": "url-1",
+                "name": "TABLE",
+                "path": "Connection Root/DB/SCHEMA/SUBPATH",
+            },
+        ):
+            result = source._build_dm_warehouse_url_id_map(dm)
+
+        assert result == {}
+        assert source.reporter.dm_element_warehouse_path_unparseable == 1
+
+    def test_path_unparseable_empty_segment(self):
+        # B2: "Connection Root//PUBLIC" passes len==3 but has an empty DB segment.
+        source = _make_source()
+        dm = _make_dm_with_inodes(
+            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
+        )
+        with patch.object(
+            source.sigma_api,
+            "get_file_metadata",
+            return_value={
+                "id": "inode-1",
+                "urlId": "url-1",
+                "name": "TABLE",
+                "path": "Connection Root//PUBLIC",
             },
         ):
             result = source._build_dm_warehouse_url_id_map(dm)
@@ -251,6 +292,8 @@ class TestResolveDmElementWarehouseUpstream:
         assert urn is None
 
     def test_unknown_connection_id(self):
+        # unknown_connection counter is bumped by the caller (post-dedup);
+        # the resolver itself just returns None.
         source = _make_source()
         ref = _WarehouseTableRef(
             connection_id="conn-unknown",
@@ -265,7 +308,7 @@ class TestResolveDmElementWarehouseUpstream:
         )
 
         assert urn is None
-        assert source.reporter.dm_element_warehouse_unknown_connection == 1
+        assert source.reporter.dm_element_warehouse_unknown_connection == 0
 
     def test_unmappable_platform_counts_as_unknown_connection(self):
         source = _make_source()
@@ -282,7 +325,7 @@ class TestResolveDmElementWarehouseUpstream:
         )
 
         assert urn is None
-        assert source.reporter.dm_element_warehouse_unknown_connection == 1
+        assert source.reporter.dm_element_warehouse_unknown_connection == 0
 
 
 # ---------------------------------------------------------------------------
@@ -314,8 +357,8 @@ class TestUpstreamLineageWarehouseWiring:
             element,
             dm,
             element_urn,
-            {},  # elementId_to_dataset_urn (no intra-DM upstreams)
-            {},  # element_name_to_eids
+            {},
+            {},
             warehouse_url_id_map or {},
         )
 
@@ -478,6 +521,32 @@ class TestUpstreamLineageWarehouseWiring:
         assert source.reporter.dm_element_warehouse_unknown_connection == 1
         assert source.reporter.dm_element_warehouse_upstream_emitted == 0
 
+    def test_diamond_source_ids_emit_once(self):
+        """Two source_ids resolving to the same warehouse URN produce one
+        upstream entry and bump dm_element_warehouse_upstream_emitted once."""
+        source = _make_source()
+        ref = _WarehouseTableRef(
+            connection_id=_SNOWFLAKE_CONN_ID,
+            db="DB",
+            schema="SCH",
+            table="TBL",
+        )
+        # Both url-a and url-b map to the same ref -> same resolved URN.
+        warehouse_map = {"url-a": ref, "url-b": ref}
+        element = _make_minimal_element(source_ids=["inode-url-a", "inode-url-b"])
+        dm = SigmaDataModel(
+            dataModelId="dm-1",
+            name="DM",
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z",
+        )
+
+        lineage = self._run(source, element, dm, warehouse_map)
+
+        assert lineage is not None
+        assert len(lineage.upstreams) == 1
+        assert source.reporter.dm_element_warehouse_upstream_emitted == 1
+
 
 # ---------------------------------------------------------------------------
 # Tests: sigma_api.py _assemble_data_model entry guard (#5)
@@ -486,13 +555,6 @@ class TestUpstreamLineageWarehouseWiring:
 
 class TestWarehouseInodeEntryGuard:
     def test_missing_name_or_inode_counts_incomplete(self):
-        from datahub.ingestion.source.sigma.config import (
-            SigmaSourceConfig,
-            SigmaSourceReport,
-        )
-        from datahub.ingestion.source.sigma.data_classes import SigmaDataModel
-        from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-
         config = SigmaSourceConfig.model_validate(
             {"client_id": "x", "client_secret": "y"}
         )

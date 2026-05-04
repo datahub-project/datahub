@@ -304,12 +304,12 @@
             "customProperties": {
                 "platform": "sigma",
                 "dataModelId": "81e9980c-3ec8-4bbf-a38e-78f9fe472ce0",
-                "dataModelUrlId": "Kyungsoo-Snowflake-DM-3X8LiCwzXUAwO30p1an0Zi",
+                "dataModelUrlId": "Acme-Snowflake-DM-fixture01",
                 "latestVersion": "1",
                 "path": "Acryl Data"
             },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/dm/Kyungsoo-Snowflake-DM-3X8LiCwzXUAwO30p1an0Zi",
-            "name": "Kyungsoo Snowflake DM",
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/dm/Acme-Snowflake-DM-fixture01",
+            "name": "Acme Snowflake DM",
             "description": "Integration fixture for warehouse-backed DM element",
             "created": {
                 "time": 1777852800000
@@ -320,7 +320,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777914345408,
+        "lastObserved": 1777924178163,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -421,18 +421,18 @@
         "json": {
             "customProperties": {
                 "dataModelId": "81e9980c-3ec8-4bbf-a38e-78f9fe472ce0",
-                "dataModelUrlId": "Kyungsoo-Snowflake-DM-3X8LiCwzXUAwO30p1an0Zi",
+                "dataModelUrlId": "Acme-Snowflake-DM-fixture01",
                 "elementId": "byF6DckhFw",
                 "type": "table"
             },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/dm/Kyungsoo-Snowflake-DM-3X8LiCwzXUAwO30p1an0Zi?:nodeId=byF6DckhFw",
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/dm/Acme-Snowflake-DM-fixture01?:nodeId=byF6DckhFw",
             "name": "CUSTOMERS",
-            "qualifiedName": "Kyungsoo Snowflake DM/CUSTOMERS",
+            "qualifiedName": "Acme Snowflake DM/CUSTOMERS",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777913654392,
+        "lastObserved": 1777924178169,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

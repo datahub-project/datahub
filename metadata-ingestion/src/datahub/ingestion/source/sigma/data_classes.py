@@ -293,7 +293,7 @@ class SigmaDataModel(BaseModel):
     # Maps inodeId (UUID) -> WarehouseInodeRaw so the SigmaSource resolver
     # can call /files/{inodeId} for the urlId + path needed to construct a
     # fully-qualified warehouse Dataset URN.
-    warehouse_inodes_by_inode_id: Dict[str, "WarehouseInodeRaw"] = Field(
+    warehouse_inodes_by_inode_id: Dict[str, WarehouseInodeRaw] = Field(
         default_factory=dict
     )
 

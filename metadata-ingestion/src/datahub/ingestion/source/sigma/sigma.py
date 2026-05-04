@@ -194,13 +194,13 @@ CrossDmOutcome = Literal[
 # Other platforms are excluded until their DataHub source's URN convention is
 # explicitly verified — adding an unvalidated platform risks emitting URNs
 # that don't match the warehouse connector's output.
-_WAREHOUSE_LOWERCASE_PLATFORMS: frozenset = frozenset({"snowflake"})
+_WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 
-# Sentinel for a /files path whose root segment is not "Connection Root".
+# Expected root segment of the /files path for warehouse tables.
 _FILES_PATH_ROOT = "Connection Root"
 
 
-@dataclass
+@dataclass(frozen=True)
 class _WarehouseTableRef:
     """Resolved warehouse table coordinates derived from a /files response."""
 
@@ -599,9 +599,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
             conn_id = raw["connectionId"]
             table_name = raw["name"]
+            first_attempt = inode_id not in self._files_cache
             files_data = self._get_file_metadata_cached(inode_id)
             if files_data is None:
-                self.reporter.dm_element_warehouse_table_lookup_failed += 1
+                # Only count on first failure; cache hits of a prior None
+                # (same inode referenced from N DMs) should not inflate.
+                if first_attempt:
+                    self.reporter.dm_element_warehouse_table_lookup_failed += 1
                 logger.debug(
                     "DM %s: /files lookup failed for inode %r; skipping.",
                     data_model.dataModelId,
@@ -611,14 +615,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             url_id = str(files_data.get("urlId") or "")
             path = str(files_data.get("path") or "")
             parts = path.split("/")
-            if not url_id or len(parts) != 3:
+            # B2: also reject empty segments (e.g. "Connection Root//PUBLIC"
+            # passes len==3 but parts[1]=="" -> malformed URN).
+            if not url_id or len(parts) != 3 or not all(parts):
                 self.reporter.dm_element_warehouse_path_unparseable += 1
-                logger.debug(
-                    "DM %s inode %r: cannot parse warehouse path %r "
-                    "(expected exactly 'Connection Root/<DB>/<SCHEMA>').",
-                    data_model.dataModelId,
-                    inode_id,
-                    path,
+                self.reporter.warning(
+                    title="Sigma warehouse /files path unparseable",
+                    message=(
+                        "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
+                        "no empty segments and a non-empty urlId. "
+                        "Warehouse upstream skipped."
+                    ),
+                    context=(
+                        f"dm={data_model.dataModelId}, inode={inode_id}, "
+                        f"path={path!r}, url_id={url_id!r}"
+                    ),
                 )
                 continue
             if parts[0] != _FILES_PATH_ROOT:
@@ -669,7 +680,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         record = self.connection_registry.get(ref.connection_id)
         if record is None or not record.is_mappable:
-            self.reporter.dm_element_warehouse_unknown_connection += 1
+            # Counter is bumped by caller gated on unresolved_seen to avoid
+            # inflating on diamond source_ids.
             logger.debug(
                 "inode-%s: connectionId %r not resolvable to a warehouse platform "
                 "(missing from registry or is_mappable=False).",
@@ -817,7 +829,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
-        warehouse_url_id_map: Optional[Dict[str, _WarehouseTableRef]] = None,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -843,19 +855,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # can fire for the same inode when a file is catalogued as both
                 # a Sigma Dataset and a warehouse table.
                 warehouse_urn: Optional[str] = None
-                if warehouse_url_id_map:
-                    warehouse_urn = self._resolve_dm_element_warehouse_upstream(
-                        url_id_suffix=url_id_suffix,
-                        warehouse_map=warehouse_url_id_map,
-                    )
+                warehouse_urn = self._resolve_dm_element_warehouse_upstream(
+                    url_id_suffix=url_id_suffix,
+                    warehouse_map=warehouse_url_id_map,
+                )
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
-                # warehouse_urn is deduped separately; counter bumped here
-                # (post-dedup) so diamond source_ids don't inflate the signal.
+                # Warehouse URN: deduped separately; emitted counter bumped
+                # post-dedup so diamond source_ids don't inflate the signal.
                 if warehouse_urn and warehouse_urn not in seen:
                     upstream_urns.append(warehouse_urn)
                     seen.add(warehouse_urn)
                     self.reporter.dm_element_warehouse_upstream_emitted += 1
+                # Connection-failure counter: gated on unresolved_seen to
+                # match the cross-DM symmetry (one bump per unique source_id).
+                if (
+                    warehouse_urn is None
+                    and url_id_suffix in warehouse_url_id_map
+                    and source_id not in unresolved_seen
+                ):
+                    self.reporter.dm_element_warehouse_unknown_connection += 1
                 if (
                     upstream_urn is None
                     and warehouse_urn is None
