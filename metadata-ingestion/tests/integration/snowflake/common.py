@@ -240,7 +240,7 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "name": "TEST_DB",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "comment": "Comment for TEST_DB",
             }
         ]
@@ -248,8 +248,8 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "DATABASE_NAME": "TEST_DB",
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "COMMENT": "Comment for TEST_DB",
             }
         ]
@@ -257,14 +257,14 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "SCHEMA_NAME": "TEST_SCHEMA",
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
             },
             {
                 "SCHEMA_NAME": "TEST2_SCHEMA",
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
             },
         ]
@@ -280,8 +280,8 @@ def default_query_results(  # noqa: C901
                 "TABLE_SCHEMA": "TEST_SCHEMA",
                 "TABLE_NAME": f"TABLE_{tbl_idx}",
                 "TABLE_TYPE": "BASE TABLE",
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "BYTES": 1024,
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
@@ -299,7 +299,7 @@ def default_query_results(  # noqa: C901
             {
                 "schema_name": "TEST_SCHEMA",
                 "name": f"VIEW_{view_idx}",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "comment": "Comment for View",
                 "is_secure": "true" if is_secure(view_idx) else "false",
                 "text": (
@@ -409,7 +409,7 @@ def default_query_results(  # noqa: C901
     elif query == SnowflakeQuery.get_access_history_date_range():
         return [
             {
-                "MIN_TIME": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "MIN_TIME": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "MAX_TIME": datetime(2022, 6, 7, 7, 17, 0, 0),
             }
         ]
@@ -816,7 +816,7 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "name": "INT_STAGE",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "owner": "ACCOUNTADMIN",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -830,7 +830,7 @@ def default_query_results(  # noqa: C901
             },
             {
                 "name": "EXT_S3_STAGE",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "owner": "ACCOUNTADMIN",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -849,7 +849,7 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "name": "ROOT_TASK",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "owner": "ACCOUNTADMIN",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -865,7 +865,7 @@ def default_query_results(  # noqa: C901
             },
             {
                 "name": "CHILD_TASK_1",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "owner": "ACCOUNTADMIN",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -881,7 +881,7 @@ def default_query_results(  # noqa: C901
             },
             {
                 "name": "CHILD_TASK_2",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "owner": "ACCOUNTADMIN",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -902,7 +902,7 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "name": "LOAD_PIPE",
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "owner": "ACCOUNTADMIN",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -919,7 +919,7 @@ def default_query_results(  # noqa: C901
         # Return dynamic table definitions for TABLE_2 which should be a dynamic table
         return [
             {
-                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "name": "TABLE_2",
                 "database_name": "TEST_DB",
                 "schema_name": "TEST_SCHEMA",
@@ -930,7 +930,7 @@ def default_query_results(  # noqa: C901
                 "warehouse": "TEST_WAREHOUSE",
                 "refresh_mode": "AUTO",
                 "refresh_mode_reason": "DYNAMIC_TABLE_CONFIG",
-                "data_timestamp": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "data_timestamp": datetime(2021, 6, 8, 0, 0, 0, 0, tzinfo=timezone.utc),
                 "scheduling_state": "RUNNING",
                 "owner_role_type": "ROLE",
             }
