@@ -1,10 +1,15 @@
 from dataclasses import dataclass
 from typing import Optional
+from unittest.mock import patch
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sigma.config import SigmaSourceConfig
 from datahub.ingestion.source.sigma.connection_registry import (
     SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
     SigmaConnectionRegistry,
 )
+from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 
 
 @dataclass
@@ -175,3 +180,24 @@ def test_registry_build_increments_reporter_counters():
     _build(raw, reporter)
     assert reporter.connections_resolved == 2
     assert reporter.connections_unmappable_type == 1
+
+
+def test_build_connection_registry_falls_back_on_exception():
+    # If SigmaConnectionRegistry.build() raises (programming bug), SigmaSource
+    # init must continue with an empty registry and surface a structured warning.
+    config = SigmaSourceConfig(client_id="x", client_secret="y")
+    ctx = PipelineContext(run_id="test")
+
+    with (
+        patch.object(SigmaAPI, "_generate_token"),
+        patch.object(
+            SigmaConnectionRegistry,
+            "build",
+            side_effect=RuntimeError("simulated bug in build()"),
+        ),
+    ):
+        source = SigmaSource(config, ctx)
+
+    assert source.connection_registry.by_id == {}
+    warning_titles = [w.title for w in source.reporter.warnings]
+    assert "Sigma Connection registry build failed" in warning_titles

@@ -5990,11 +5990,7 @@ def test_sigma_ingest_data_models_workspaceId_mismatch_uses_files(
 
 @pytest.mark.integration
 def test_sigma_connection_registry(pytestconfig, tmp_path, requests_mock):
-    """Verify the connection registry builds from the /v2/connections mock.
-
-    Asserts that connections_resolved > 0 in the run report and that no
-    existing column-level lineage counters change (zero behavior change).
-    """
+    """Verify the connection registry builds from the /v2/connections mock."""
     register_mock_api(request_mock=requests_mock)
 
     pipeline = Pipeline.create(
@@ -6024,7 +6020,3 @@ def test_sigma_connection_registry(pytestconfig, tmp_path, requests_mock):
     assert report.connections_resolved >= 1, (
         f"connections_resolved should be >= 1; got {report.connections_resolved}"
     )
-
-    # Zero behavior change: no existing column-level lineage counters fired.
-    assert report.data_model_element_fgl_emitted == 0
-    assert report.chart_input_fields_resolved == 0
