@@ -78,7 +78,13 @@ class HexSourceConfig(
         description="Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>",
     )
     token: SecretStr = Field(
-        description="Hex API token; either PAT or Workflow token - https://learn.hex.tech/docs/api/api-overview#authentication",
+        description=(
+            "Hex Workspace Token with the 'Read projects' scope. "
+            "Create one at Settings → API → Workspace tokens. "
+            "The 'Read projects' scope is required to access project cells for lineage; "
+            "tokens without it can enumerate projects but not read their content. "
+            "See https://learn.hex.tech/docs/api-integrations/api/overview for token types."
+        ),
     )
     base_url: str = Field(
         default=HEX_API_BASE_URL_DEFAULT,
@@ -378,10 +384,12 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     cells_accessible = True
                 else:
                     cells_failure_reason = (
-                        f"HTTP {cells_probe.status_code} on /v1/cells — token lacks "
-                        "per-project content access. Use a token from a workspace member "
-                        "with at least 'Can view' access on projects, not a "
-                        "metadata-only admin token."
+                        f"HTTP {cells_probe.status_code} on /v1/cells — token cannot "
+                        "read project cell content. Create a Workspace Token "
+                        "(Settings → API → Workspace tokens) with the 'Read projects' "
+                        "scope enabled. Personal tokens and workspace tokens without "
+                        "'Read projects' can enumerate projects but not access cells, "
+                        "resulting in zero lineage."
                     )
             elif not proj_resp.ok or not conn_resp.ok:
                 cells_failure_reason = (
