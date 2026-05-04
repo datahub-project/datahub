@@ -70,6 +70,12 @@ public class SearchClientShimFactorySemanticGateTest {
     SearchClientShimFactory.assertCompatModeNotSemanticEnabled(es8Shim, true);
   }
 
+  @Test
+  public void factoryAllowsNonEs7CompatibilityShimWhenSemanticSearchEnabled() {
+    SearchClientShim<?> plainShim = mock(SearchClientShim.class);
+    SearchClientShimFactory.assertCompatModeNotSemanticEnabled(plainShim, true);
+  }
+
   // ---------------------------------------------------------------------------
   // Version-gate tests for Es8SearchClientShim.assertSemanticSearchSupported()
   // ---------------------------------------------------------------------------
