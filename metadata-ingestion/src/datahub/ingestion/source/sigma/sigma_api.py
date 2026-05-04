@@ -39,6 +39,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelColumn,
     SigmaDataModelElement,
     SigmaDataset,
+    WarehouseInodeRaw,
     Workbook,
     Workspace,
 )
@@ -1091,14 +1092,20 @@ class SigmaAPI:
                 # Stash raw warehouse-table nodes keyed by inodeId so
                 # SigmaSource can call /files/{inodeId} for the urlId + path
                 # needed to construct fully-qualified warehouse Dataset URNs.
-                inode_id = entry.get("inodeId", "")
-                conn_id = entry.get("connectionId", "")
-                name = entry.get("name", "")
-                if inode_id:
-                    data_model.warehouse_inodes_by_inode_id[inode_id] = {
-                        "connectionId": conn_id,
-                        "name": name,
-                    }
+                inode_id = str(entry.get("inodeId") or "")
+                conn_id = str(entry.get("connectionId") or "")
+                name = str(entry.get("name") or "")
+                if not (inode_id and name):
+                    self.report.dm_element_warehouse_table_entry_incomplete += 1
+                    logger.debug(
+                        "DM %s: type=table entry missing inodeId or name; "
+                        "skipping to avoid malformed URN: %s",
+                        data_model.dataModelId,
+                        entry,
+                    )
+                    continue
+                raw: WarehouseInodeRaw = {"connectionId": conn_id, "name": name}
+                data_model.warehouse_inodes_by_inode_id[inode_id] = raw
             # ``type: dataset`` entries (CSV uploads) are terminal;
             # warehouse lineage is handled above via type=table.
 

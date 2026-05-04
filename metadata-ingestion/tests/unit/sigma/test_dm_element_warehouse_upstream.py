@@ -1,27 +1,22 @@
 """Unit tests for DM element -> warehouse table UpstreamLineage resolution.
 
 Coverage:
-  - _build_dm_warehouse_url_id_map: happy path, /files failure, path
-    unparseable, unexpected path root, no urlId
+  - _build_dm_warehouse_url_id_map: happy path, /files failure, path unparseable
   - _resolve_dm_element_warehouse_upstream: success (Snowflake), unknown
-    connection, unmappable platform, ref not in map
+    connection (including unmappable platform), ref not in map
   - _gen_data_model_element_upstream_lineage: warehouse-only upstream,
     SD upstream only, co-emit (both SD + warehouse), empty registry,
     unresolved counter not double-bumped when warehouse resolves
 
-Counter taxonomy verified:
+Counters verified:
   dm_element_warehouse_upstream_emitted
   dm_element_warehouse_unknown_connection
-  dm_element_warehouse_unmappable_platform
   dm_element_warehouse_table_lookup_failed
   dm_element_warehouse_path_unparseable
-  dm_element_warehouse_unexpected_path_root
-  dm_element_warehouse_files_cache_hit
-  dm_element_warehouse_files_api_call
 """
 
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
@@ -111,9 +106,6 @@ def _make_dm_with_inodes(inodes: Dict[str, Dict[str, str]]) -> SigmaDataModel:
 class TestBuildDmWarehouseUrlIdMap:
     def test_happy_path_snowflake(self):
         source = _make_source()
-        source.sigma_api.get_file_metadata = MagicMock(
-            return_value=_GOOD_FILES_RESPONSE
-        )
         dm = _make_dm_with_inodes(
             {
                 "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e": {
@@ -122,8 +114,10 @@ class TestBuildDmWarehouseUrlIdMap:
                 }
             }
         )
-
-        result = source._build_dm_warehouse_url_id_map(dm)
+        with patch.object(
+            source.sigma_api, "get_file_metadata", return_value=_GOOD_FILES_RESPONSE
+        ):
+            result = source._build_dm_warehouse_url_id_map(dm)
 
         assert "7k3e6T4RK9oix71Nm2umE6" in result
         ref = result["7k3e6T4RK9oix71Nm2umE6"]
@@ -131,93 +125,87 @@ class TestBuildDmWarehouseUrlIdMap:
         assert ref.db == "WAREHOUSE_COFFEE_COMPANY"
         assert ref.schema == "PUBLIC"
         assert ref.table == "CUSTOMERS"
-        assert source.reporter.dm_element_warehouse_files_api_call == 1
-        assert source.reporter.dm_element_warehouse_files_cache_hit == 0
 
-    def test_cache_hit_on_second_call(self):
+    def test_cache_deduplicates_files_calls(self):
         source = _make_source()
-        source.sigma_api.get_file_metadata = MagicMock(
-            return_value=_GOOD_FILES_RESPONSE
-        )
         inode_id = "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e"
         inodes = {inode_id: {"connectionId": _SNOWFLAKE_CONN_ID, "name": "CUSTOMERS"}}
-
         dm1 = _make_dm_with_inodes(inodes)
         dm2 = _make_dm_with_inodes(inodes)
-        source._build_dm_warehouse_url_id_map(dm1)
-        source._build_dm_warehouse_url_id_map(dm2)
-
-        assert source.reporter.dm_element_warehouse_files_api_call == 1
-        assert source.reporter.dm_element_warehouse_files_cache_hit == 1
-        source.sigma_api.get_file_metadata.assert_called_once()
+        with patch.object(
+            source.sigma_api, "get_file_metadata", return_value=_GOOD_FILES_RESPONSE
+        ) as mock_get:
+            source._build_dm_warehouse_url_id_map(dm1)
+            source._build_dm_warehouse_url_id_map(dm2)
+            mock_get.assert_called_once()
 
     def test_files_lookup_failure_increments_counter(self):
         source = _make_source()
-        source.sigma_api.get_file_metadata = MagicMock(return_value=None)
         dm = _make_dm_with_inodes(
             {"bad-inode": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
         )
-
-        result = source._build_dm_warehouse_url_id_map(dm)
+        with patch.object(source.sigma_api, "get_file_metadata", return_value=None):
+            result = source._build_dm_warehouse_url_id_map(dm)
 
         assert result == {}
         assert source.reporter.dm_element_warehouse_table_lookup_failed == 1
 
     def test_path_unparseable_fewer_than_3_segments(self):
         source = _make_source()
-        source.sigma_api.get_file_metadata = MagicMock(
+        dm = _make_dm_with_inodes(
+            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "data.csv"}}
+        )
+        with patch.object(
+            source.sigma_api,
+            "get_file_metadata",
             return_value={
                 "id": "inode-1",
                 "urlId": "url-1",
                 "name": "data.csv",
-                "path": "Acryl Workspace",  # 1 segment — CSV upload shape
-            }
-        )
-        dm = _make_dm_with_inodes(
-            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "data.csv"}}
-        )
-
-        result = source._build_dm_warehouse_url_id_map(dm)
+                "path": "Acryl Workspace",
+            },
+        ):
+            result = source._build_dm_warehouse_url_id_map(dm)
 
         assert result == {}
         assert source.reporter.dm_element_warehouse_path_unparseable == 1
-        assert source.reporter.dm_element_warehouse_unexpected_path_root == 0
 
-    def test_unexpected_path_root_increments_counter(self):
+    def test_unrecognised_path_root_counts_as_unparseable(self):
         source = _make_source()
-        source.sigma_api.get_file_metadata = MagicMock(
+        dm = _make_dm_with_inodes(
+            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "MY_TABLE"}}
+        )
+        with patch.object(
+            source.sigma_api,
+            "get_file_metadata",
             return_value={
                 "id": "inode-1",
                 "urlId": "url-1",
                 "name": "MY_TABLE",
-                "path": "Connexion racine/DB/SCHEMA",  # i18n variant
-            }
-        )
-        dm = _make_dm_with_inodes(
-            {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "MY_TABLE"}}
-        )
-
-        result = source._build_dm_warehouse_url_id_map(dm)
+                "path": "Connexion racine/DB/SCHEMA",
+            },
+        ):
+            result = source._build_dm_warehouse_url_id_map(dm)
 
         assert result == {}
-        assert source.reporter.dm_element_warehouse_unexpected_path_root == 1
-        assert source.reporter.dm_element_warehouse_path_unparseable == 0
+        assert source.reporter.dm_element_warehouse_path_unparseable == 1
 
     def test_missing_url_id_skipped(self):
         source = _make_source()
-        source.sigma_api.get_file_metadata = MagicMock(
-            return_value={
-                "id": "inode-1",
-                "urlId": "",  # empty urlId
-                "name": "TABLE",
-                "path": "Connection Root/DB/SCHEMA",
-            }
-        )
         dm = _make_dm_with_inodes(
             {"inode-1": {"connectionId": _SNOWFLAKE_CONN_ID, "name": "TABLE"}}
         )
-
-        result = source._build_dm_warehouse_url_id_map(dm)
+        with patch.object(
+            source.sigma_api,
+            "get_file_metadata",
+            return_value={
+                "id": "inode-1",
+                "urlId": "",
+                "name": "TABLE",
+                "path": "Connection Root/DB/SCHEMA",
+            },
+        ):
+            result = source._build_dm_warehouse_url_id_map(dm)
 
         assert result == {}
         assert source.reporter.dm_element_warehouse_path_unparseable == 1
@@ -242,14 +230,14 @@ class TestResolveDmElementWarehouseUpstream:
         urn = source._resolve_dm_element_warehouse_upstream(
             url_id_suffix="7k3e6T4RK9oix71Nm2umE6",
             warehouse_map=warehouse_map,
-            inode_source_id="inode-7k3e6T4RK9oix71Nm2umE6",
         )
 
         assert (
             urn
             == "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse_coffee_company.public.customers,PROD)"
         )
-        assert source.reporter.dm_element_warehouse_upstream_emitted == 1
+        # Counter is bumped by caller post-dedup; resolver itself does not bump.
+        assert source.reporter.dm_element_warehouse_upstream_emitted == 0
         assert source.reporter.dm_element_warehouse_unknown_connection == 0
 
     def test_not_in_warehouse_map_returns_none(self):
@@ -258,11 +246,9 @@ class TestResolveDmElementWarehouseUpstream:
         urn = source._resolve_dm_element_warehouse_upstream(
             url_id_suffix="not-in-map",
             warehouse_map={},
-            inode_source_id="inode-not-in-map",
         )
 
         assert urn is None
-        assert source.reporter.dm_element_warehouse_upstream_emitted == 0
 
     def test_unknown_connection_id(self):
         source = _make_source()
@@ -272,19 +258,16 @@ class TestResolveDmElementWarehouseUpstream:
             schema="SCHEMA",
             table="TABLE",
         )
-        warehouse_map = {"url-1": ref}
 
         urn = source._resolve_dm_element_warehouse_upstream(
             url_id_suffix="url-1",
-            warehouse_map=warehouse_map,
-            inode_source_id="inode-url-1",
+            warehouse_map={"url-1": ref},
         )
 
         assert urn is None
         assert source.reporter.dm_element_warehouse_unknown_connection == 1
-        assert source.reporter.dm_element_warehouse_upstream_emitted == 0
 
-    def test_unmappable_platform(self):
+    def test_unmappable_platform_counts_as_unknown_connection(self):
         source = _make_source()
         ref = _WarehouseTableRef(
             connection_id=_UNMAPPABLE_CONN_ID,
@@ -292,17 +275,14 @@ class TestResolveDmElementWarehouseUpstream:
             schema="SCHEMA",
             table="TABLE",
         )
-        warehouse_map = {"url-1": ref}
 
         urn = source._resolve_dm_element_warehouse_upstream(
             url_id_suffix="url-1",
-            warehouse_map=warehouse_map,
-            inode_source_id="inode-url-1",
+            warehouse_map={"url-1": ref},
         )
 
         assert urn is None
-        assert source.reporter.dm_element_warehouse_unmappable_platform == 1
-        assert source.reporter.dm_element_warehouse_upstream_emitted == 0
+        assert source.reporter.dm_element_warehouse_unknown_connection == 1
 
 
 # ---------------------------------------------------------------------------
@@ -497,6 +477,64 @@ class TestUpstreamLineageWarehouseWiring:
         assert lineage is None
         assert source.reporter.dm_element_warehouse_unknown_connection == 1
         assert source.reporter.dm_element_warehouse_upstream_emitted == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: sigma_api.py _assemble_data_model entry guard (#5)
+# ---------------------------------------------------------------------------
+
+
+class TestWarehouseInodeEntryGuard:
+    def test_missing_name_or_inode_counts_incomplete(self):
+        from datahub.ingestion.source.sigma.config import (
+            SigmaSourceConfig,
+            SigmaSourceReport,
+        )
+        from datahub.ingestion.source.sigma.data_classes import SigmaDataModel
+        from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+
+        config = SigmaSourceConfig.model_validate(
+            {"client_id": "x", "client_secret": "y"}
+        )
+        report = SigmaSourceReport()
+        with patch.object(SigmaAPI, "_generate_token"):
+            api = SigmaAPI(config, report)
+
+        dm = SigmaDataModel(
+            dataModelId="dm-x",
+            name="X",
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z",
+        )
+        lineage_entries = [
+            # empty name — should be rejected, counter bumped
+            {
+                "type": "table",
+                "inodeId": "inode-1",
+                "connectionId": "conn-1",
+                "name": "",
+            },
+            # empty inodeId — should be rejected, counter bumped
+            {"type": "table", "inodeId": "", "connectionId": "conn-1", "name": "TABLE"},
+            # valid
+            {
+                "type": "table",
+                "inodeId": "inode-2",
+                "connectionId": "conn-1",
+                "name": "GOOD",
+            },
+        ]
+        with (
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_columns", return_value=[]),
+            patch.object(
+                api, "_get_data_model_lineage_entries", return_value=lineage_entries
+            ),
+        ):
+            api._assemble_data_model(dm, file_meta=None)
+
+        assert report.dm_element_warehouse_table_entry_incomplete == 2
+        assert list(dm.warehouse_inodes_by_inode_id.keys()) == ["inode-2"]
 
 
 # ---------------------------------------------------------------------------

@@ -325,25 +325,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     connections_duplicate_id: int = 0
 
     # DM element -> warehouse table UpstreamLineage counters.
-    # Success: one UpstreamLineage aspect emitted per DM element backed by a
-    # resolved warehouse table (counts unique upstreams, not elements).
+    # Success: one per unique warehouse upstream URN emitted (post-dedup).
     dm_element_warehouse_upstream_emitted: int = 0
-    # connectionId from the lineage entry was not in the connection registry.
+    # connectionId not in registry, or registry record has is_mappable=False.
     dm_element_warehouse_unknown_connection: int = 0
-    # connection registry record has is_mappable=False (Sigma type unknown
-    # to SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP).
-    dm_element_warehouse_unmappable_platform: int = 0
     # /files/{inodeId} returned non-200 or raised an exception.
     dm_element_warehouse_table_lookup_failed: int = 0
-    # /files path had fewer than 3 segments (Connection Root/DB/SCHEMA expected).
+    # /files path could not be parsed as Connection Root/<DB>/<SCHEMA>.
     dm_element_warehouse_path_unparseable: int = 0
-    # /files path root segment was not "Connection Root" -- forward-compat
-    # guard for non-Snowflake platforms or i18n variants.
-    dm_element_warehouse_unexpected_path_root: int = 0
-    # /files response served from the SigmaSource instance-level cache.
-    dm_element_warehouse_files_cache_hit: int = 0
-    # Live HTTP call made to /files (cache miss).
-    dm_element_warehouse_files_api_call: int = 0
+    # type=table lineage entry missing inodeId or name; skipped to avoid
+    # emitting a malformed URN.
+    dm_element_warehouse_table_entry_incomplete: int = 0
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):

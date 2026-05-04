@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
+from typing_extensions import TypedDict
 
 from datahub.emitter.mcp_builder import ContainerKey
 
@@ -201,6 +202,13 @@ class File(BaseModel):
     workspaceId: Optional[str] = None
 
 
+class WarehouseInodeRaw(TypedDict):
+    """Raw type=table lineage entry stashed for /files lookup."""
+
+    connectionId: str
+    name: str
+
+
 class SigmaDataModelColumn(BaseModel):
     columnId: str
     name: str
@@ -282,10 +290,10 @@ class SigmaDataModel(BaseModel):
     # element name without requiring the consuming element to share that name.
     source_dm_element_names: Dict[str, List[str]] = Field(default_factory=dict)
     # Populated from /lineage ``type=table`` entries during assembly.
-    # Maps inodeId (UUID) → {"connectionId": str, "name": str} so the
-    # SigmaSource resolver can call /files/{inodeId} for the urlId + path
-    # needed to construct a fully-qualified warehouse Dataset URN.
-    warehouse_inodes_by_inode_id: Dict[str, Dict[str, str]] = Field(
+    # Maps inodeId (UUID) -> WarehouseInodeRaw so the SigmaSource resolver
+    # can call /files/{inodeId} for the urlId + path needed to construct a
+    # fully-qualified warehouse Dataset URN.
+    warehouse_inodes_by_inode_id: Dict[str, "WarehouseInodeRaw"] = Field(
         default_factory=dict
     )
 

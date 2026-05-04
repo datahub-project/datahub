@@ -6532,7 +6532,6 @@ def test_sigma_ingest_data_models_warehouse_upstream(
 
     Asserts:
       - dm_element_warehouse_upstream_emitted == 1
-      - dm_element_warehouse_files_api_call == 1 (cache miss on first call)
       - data_model_element_upstreams_unresolved == 0 (fully resolved)
       - golden file contains UpstreamLineage aspect on element byF6DckhFw
     """
@@ -6552,10 +6551,6 @@ def test_sigma_ingest_data_models_warehouse_upstream(
     assert report.dm_element_warehouse_upstream_emitted == 1, (
         f"expected 1 warehouse upstream emitted; got {report.dm_element_warehouse_upstream_emitted}"
     )
-    assert report.dm_element_warehouse_files_api_call == 1, (
-        f"expected 1 /files API call; got {report.dm_element_warehouse_files_api_call}"
-    )
-    assert report.dm_element_warehouse_files_cache_hit == 0
     assert report.data_model_element_upstreams_unresolved == 0, (
         f"unexpected unresolved upstreams: {report.data_model_element_upstreams_unresolved}"
     )
