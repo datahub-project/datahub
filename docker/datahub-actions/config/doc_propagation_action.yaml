@@ -24,6 +24,9 @@ source:
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
+    mcl_early_filter:
+      entityType: "schemaField"
+      aspectName: "documentation"
 action:
   type: doc_propagation
   config:

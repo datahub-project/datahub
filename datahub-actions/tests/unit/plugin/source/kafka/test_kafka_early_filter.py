@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any, Optional
 from unittest.mock import patch
 
 import pytest
@@ -49,9 +50,11 @@ def mock_consumer():
 
 
 def create_event_source(
-    early_filter: dict = None, pipeline_context=None, mock_consumer=None
+    mcl_early_filter: Optional[dict] = None,
+    pipeline_context: Optional[PipelineContext] = None,
+    mock_consumer: Optional[Any] = None,
 ) -> KafkaEventSource:
-    """Helper to create KafkaEventSource with early_filter config."""
+    """Helper to create KafkaEventSource with mcl_early_filter config."""
     if pipeline_context is None:
         pipeline_context = PipelineContext(pipeline_name="test_pipeline", graph=None)
 
@@ -61,8 +64,8 @@ def create_event_source(
             "schema_registry_url": "http://localhost:8081",
         }
     }
-    if early_filter:
-        config_dict["early_filter"] = early_filter
+    if mcl_early_filter:
+        config_dict["mcl_early_filter"] = mcl_early_filter
 
     config = KafkaEventSourceConfig.model_validate(config_dict)
 
@@ -77,10 +80,10 @@ def create_event_source(
         return KafkaEventSource(config, pipeline_context)
 
 
-def test_early_filter_rejects_on_entity_type_mismatch():
+def test_mcl_early_filter_rejects_on_entity_type_mismatch():
     """Test that early filter correctly rejects based on entityType mismatch."""
     source = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataHubExecutionRequest",
             "aspectName": "dataHubExecutionRequestInput",
         }
@@ -99,10 +102,10 @@ def test_early_filter_rejects_on_entity_type_mismatch():
     assert len(result) == 0  # Rejected - no EventEnvelope
 
 
-def test_early_filter_rejects_on_aspect_name_mismatch():
+def test_mcl_early_filter_rejects_on_aspect_name_mismatch():
     """Test that early filter correctly rejects based on aspectName mismatch."""
     source = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataHubExecutionRequest",
             "aspectName": "dataHubExecutionRequestInput",
         }
@@ -121,10 +124,10 @@ def test_early_filter_rejects_on_aspect_name_mismatch():
     assert len(result) == 0  # Rejected - no EventEnvelope
 
 
-def test_early_filter_passes_then_full_deserialization():
+def test_mcl_early_filter_passes_then_full_deserialization():
     """Test that early filter passes simple checks, then full deserialization occurs."""
     source = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataset",
             "aspectName": "dataPlatformInstance",
         }
@@ -174,10 +177,10 @@ def test_early_filter_passes_then_full_deserialization():
     assert result[0].event_type == "MetadataChangeLogEvent_v1"
 
 
-def test_early_filter_list_matching():
+def test_mcl_early_filter_list_matching():
     """Test that early filter supports list matching (any match passes)."""
     source = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataHubExecutionRequest",
             "aspectName": [
                 "dataHubExecutionRequestInput",
@@ -239,9 +242,9 @@ def test_early_filter_list_matching():
     assert len(result3) == 0  # Rejected - doesn't match any item
 
 
-def test_early_filter_not_configured():
-    """Test that events are processed normally when early_filter is not configured."""
-    source = create_event_source()  # No early_filter
+def test_mcl_early_filter_not_configured():
+    """Test that events are processed normally when mcl_early_filter is not configured."""
+    source = create_event_source()  # No mcl_early_filter
 
     msg = TestMessage(
         {
@@ -286,14 +289,14 @@ def test_early_filter_not_configured():
     assert result[0].event_type == "MetadataChangeLogEvent_v1"
 
 
-def test_early_filter_rejects_unsupported_fields():
-    """Test that Pydantic rejects unsupported fields in early_filter config."""
+def test_mcl_early_filter_rejects_unsupported_fields():
+    """Test that Pydantic rejects unsupported fields in mcl_early_filter config."""
     from pydantic import ValidationError
 
     # Try to create config with unsupported field
     with pytest.raises(ValidationError) as exc_info:
         create_event_source(
-            early_filter={
+            mcl_early_filter={
                 "entityType": "dataset",
                 "unsupportedField": "value",  # Not in EarlyFilterConfig
             }
@@ -306,20 +309,20 @@ def test_early_filter_rejects_unsupported_fields():
     )
 
 
-def test_early_filter_error_handling():
+def test_mcl_early_filter_error_handling():
     """Test that early filter gracefully falls back on errors."""
     source = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataset",
         }
     )
 
     # Create a mock dict that raises exception on .get()
-    class ErrorDict:
-        def get(self, key):
+    class ErrorDict(dict):
+        def get(self, key):  # type: ignore[override]
             raise Exception("Test error")
 
-    error_dict = ErrorDict()
+    error_dict: dict = ErrorDict()  # type: ignore[assignment]
 
     # Should gracefully fall back - return True (deserialize anyway)
     result = KafkaEventSource._should_deserialize(
@@ -328,10 +331,10 @@ def test_early_filter_error_handling():
     assert result is True  # Graceful fallback
 
 
-def test_early_filter_missing_field():
+def test_mcl_early_filter_missing_field():
     """Test that early filter rejects when required field is missing."""
     source = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataHubExecutionRequest",
         }
     )
@@ -349,11 +352,11 @@ def test_early_filter_missing_field():
     assert len(result) == 0  # Rejected - missing field doesn't match
 
 
-def test_early_filter_all_fields_optional():
-    """Test that all early_filter fields are optional - can omit any field."""
+def test_mcl_early_filter_all_fields_optional():
+    """Test that all mcl_early_filter fields are optional - can omit any field."""
     # Only entityType configured
     source1 = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataset",
         }
     )
@@ -363,7 +366,7 @@ def test_early_filter_all_fields_optional():
 
     # Only aspectName configured
     source2 = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "aspectName": "schemaMetadata",
         }
     )
@@ -373,7 +376,7 @@ def test_early_filter_all_fields_optional():
 
     # All fields configured
     source3 = create_event_source(
-        early_filter={
+        mcl_early_filter={
             "entityType": "dataset",
             "aspectName": "schemaMetadata",
             "changeType": "UPSERT",

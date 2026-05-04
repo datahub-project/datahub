@@ -71,8 +71,8 @@ MESSAGE_COUNTER_METRIC = Counter(
 )
 
 EARLY_FILTER_METRIC = Counter(
-    name="kafka_early_filter",
-    documentation="Early filter results for MCL events",
+    name="kafka_mcl_early_filter",
+    documentation="MCL early filter results (pre-deserialization filtering for MetadataChangeLog events only)",
     labelnames=["pipeline_name", "result"],  # result: "rejected", "passed", "error"
 )
 
@@ -101,9 +101,20 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
     return EntityChangeEvent.from_json(payload.get("value"))
 
 
-class EarlyFilterConfig(ConfigModel):
+class MclEarlyFilterConfig(ConfigModel):
     """
-    Configuration for pre-deserialization filtering of MCL events.
+    Configuration for pre-deserialization filtering of MetadataChangeLog (MCL) events.
+
+    **IMPORTANT: This only works for MCL events, not EntityChangeEvent (ECE) events.**
+
+    Why MCL-only?
+    - MCL events have entityType, aspectName, changeType as top-level Avro fields
+      in the raw Kafka message, allowing field access via value.get("entityType")
+      before calling the expensive .from_obj() deserialization.
+    - EntityChangeEvent (ECE) events are wrapped in a PlatformEvent envelope with
+      JSON-encoded payload. Accessing category/operation requires deserializing
+      GenericPayloadClass and parsing JSON - by then, the deserialization cost
+      has already been paid, making early filtering pointless.
 
     Enables early rejection before expensive .from_obj() deserialization.
     All fields are optional - only configured fields will be checked.
@@ -131,10 +142,12 @@ class KafkaEventSourceConfig(ConfigModel):
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
-    early_filter: Optional[EarlyFilterConfig] = Field(
+    mcl_early_filter: Optional[MclEarlyFilterConfig] = Field(
         default=None,
-        description="Optional pre-deserialization filter for MCL events. "
-        "Checks simple top-level fields before expensive .from_obj() deserialization.",
+        description="Optional pre-deserialization filter for MetadataChangeLog (MCL) events only. "
+        "Checks simple top-level fields (entityType, aspectName, changeType) before expensive "
+        ".from_obj() deserialization. Does NOT work for EntityChangeEvent (ECE) - those require "
+        "deserialization to access category/operation fields.",
     )
 
 
@@ -223,27 +236,30 @@ class KafkaEventSource(EventSource):
 
     def _extract_early_filter_criteria(self) -> Dict[str, Any]:
         """
-        Extract configured fields from early_filter config for pre-deserialization filtering.
+        Extract configured fields from mcl_early_filter config for pre-deserialization filtering.
+
+        Only works for MetadataChangeLog (MCL) events - EntityChangeEvent (ECE) events cannot
+        benefit from early filtering because their fields are nested in a PlatformEvent envelope.
 
         Returns:
             Dictionary of field_name -> expected_value(s) for early filtering
         """
-        if self.source_config.early_filter is None:
+        if self.source_config.mcl_early_filter is None:
             return {}
 
         criteria = {}
 
         # Extract only non-None configured fields
-        if self.source_config.early_filter.entityType is not None:
-            criteria["entityType"] = self.source_config.early_filter.entityType
-        if self.source_config.early_filter.aspectName is not None:
-            criteria["aspectName"] = self.source_config.early_filter.aspectName
-        if self.source_config.early_filter.changeType is not None:
-            criteria["changeType"] = self.source_config.early_filter.changeType
+        if self.source_config.mcl_early_filter.entityType is not None:
+            criteria["entityType"] = self.source_config.mcl_early_filter.entityType
+        if self.source_config.mcl_early_filter.aspectName is not None:
+            criteria["aspectName"] = self.source_config.mcl_early_filter.aspectName
+        if self.source_config.mcl_early_filter.changeType is not None:
+            criteria["changeType"] = self.source_config.mcl_early_filter.changeType
 
         if criteria:
             logger.info(
-                f"Early filter enabled for pipeline '{self.pipeline_name}' "
+                f"MCL early filter enabled for pipeline '{self.pipeline_name}' "
                 f"with criteria: {criteria}"
             )
 
