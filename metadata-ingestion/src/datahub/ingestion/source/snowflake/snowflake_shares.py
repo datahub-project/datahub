@@ -122,9 +122,8 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
     ) -> Dict[str, str]:
         """Phase E.2: mine producer-side QUERY_HISTORY for share -> database grants.
 
-        Returns share_name -> database_name (both uppercased). Empty dict on
-        any failure (missing privileges, query timeout, etc.) — callers must
-        treat absence as "unknown" and not as "no grants exist".
+        Returns share_name -> database_name. Empty dict on any failure — callers
+        must treat absence as "unknown", not as "no grants exist".
         """
         try:
             rows = connection.query(SnowflakeQuery.share_grant_history())
@@ -154,14 +153,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self,
         databases: List[SnowflakeDatabase],
     ) -> Iterable[MetadataWorkUnit]:
-        """Phase E.1: auto-discover inbound shares from each database's `origin` field.
-
-        For each shared database not already covered by manual `shares` config,
-        parse the producer (org, account, share_name) from `origin`, resolve the
-        producer's platform_instance via `account_mapping` / `account_locator_fallback`,
-        resolve the producer's database name via `share_database_mapping`, and emit
-        Siblings + COPY lineage to the producer URN.
-        """
+        """Phase E.1: auto-discover inbound shares from each database's `origin` field."""
         if not self.config.auto_discover_inbound_shares:
             return
 

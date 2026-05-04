@@ -111,7 +111,6 @@ def test_resolve_account_returns_none_for_empty_mapping() -> None:
 
 
 def test_resolve_account_matches_bare_locator_in_org_qualified_input() -> None:
-    # Mapping keyed by bare locator should match an org-qualified input.
     config = SnowflakeV2Config(
         account_id="abc12345",
         account_mapping={"account2": "instance2"},
@@ -120,7 +119,6 @@ def test_resolve_account_matches_bare_locator_in_org_qualified_input() -> None:
 
 
 def test_resolve_account_matches_via_account_locator_arg() -> None:
-    # When the resolver receives the bare locator separately, it should match.
     config = SnowflakeV2Config(
         account_id="abc12345",
         account_mapping={"account2": "instance2"},
@@ -157,7 +155,6 @@ def test_resolve_account_locator_fallback_when_enabled() -> None:
 
 
 def test_resolve_account_mapping_takes_precedence_over_fallback() -> None:
-    # If the mapping has a hit, use it even when fallback is on.
     config = SnowflakeV2Config(
         account_id="abc12345",
         account_mapping={"myorg.account2": "instance2"},

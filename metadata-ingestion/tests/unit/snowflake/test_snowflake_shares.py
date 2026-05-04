@@ -456,7 +456,6 @@ def test_auto_share_emits_siblings_and_lineage_when_resolved() -> None:
     db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
     wus = list(handler.get_auto_share_workunits([db]))
 
-    # 1 table + 1 view × (Siblings + UpstreamLineage) = 4 workunits
     assert len(wus) == 4
     assert report.num_auto_shares_discovered == 1
     assert report.num_auto_shares_skipped_unresolved_producer == 0
@@ -525,7 +524,7 @@ def test_auto_share_uses_account_locator_fallback_when_enabled() -> None:
 
     db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
     wus = list(handler.get_auto_share_workunits([db]))
-    assert len(wus) == 4  # producer URN built from account_locator
+    assert len(wus) == 4
     assert report.num_auto_shares_discovered == 1
     for wu in wus:
         if isinstance(wu.metadata.aspect, Siblings):
@@ -537,7 +536,6 @@ def test_auto_share_skips_unknown_share_db() -> None:
         account_id="abc12345",
         platform_instance="consumer_inst",
         account_mapping={"myorg.acct_a": "producer_inst"},
-        # No share_database_mapping
     )
     report = SnowflakeV2Report()
     handler = SnowflakeSharesHandler(config, report)
@@ -584,7 +582,6 @@ def test_auto_share_ignores_non_shared_databases(
     report = SnowflakeV2Report()
     handler = SnowflakeSharesHandler(config, report)
 
-    # snowflake_databases fixture has no `origin` set on any DB
     assert list(handler.get_auto_share_workunits(snowflake_databases)) == []
     assert report.num_auto_shares_discovered == 0
 
@@ -599,7 +596,6 @@ def test_auto_share_locator_only_origin_resolves_via_locator() -> None:
     report = SnowflakeV2Report()
     handler = SnowflakeSharesHandler(config, report)
 
-    # Origin without org prefix: "ACCOUNT.SHARE"
     db = _shared_db("SHARED_DB", origin="XY12345.SHARE_X")
     wus = list(handler.get_auto_share_workunits([db]))
     assert len(wus) == 4
@@ -631,8 +627,7 @@ def test_parse_share_grants_extra_whitespace_and_newlines() -> None:
 
 
 def test_parse_share_grants_first_seen_wins() -> None:
-    # Caller is expected to pass queries in reverse-chronological order, so
-    # the FIRST occurrence of a share name wins (most recent grant).
+    # Reverse-chronological input means most-recent grant wins per share.
     queries = [
         "GRANT USAGE ON DATABASE new_db TO SHARE share_x",
         "GRANT USAGE ON DATABASE old_db TO SHARE share_x",
@@ -651,7 +646,7 @@ def test_parse_share_grants_multiple_shares() -> None:
 def test_parse_share_grants_ignores_non_matching_queries() -> None:
     queries = [
         "SELECT 1",
-        "GRANT SELECT ON TABLE foo TO ROLE bar",  # different grant
+        "GRANT SELECT ON TABLE foo TO ROLE bar",
         "GRANT USAGE ON DATABASE prod_db TO SHARE my_share",
     ]
     assert parse_share_grants(queries) == {"MY_SHARE": "PROD_DB"}

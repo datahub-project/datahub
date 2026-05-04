@@ -724,14 +724,12 @@ class SnowflakeV2Source(
             custom_properties["organization_name"] = self.report.organization_name
         if self.report.account_locator:
             custom_properties["account_locator"] = self.report.account_locator
-            # org-qualified account name enables cross-account resolution via graph
+            # Org-qualified identifier enables consumer-side graph lookup of producer.
             if self.report.organization_name:
                 custom_properties["account_identifier"] = (
                     f"{self.report.organization_name}.{self.report.account_locator}"
                 )
 
-        # Phase E.2: publish share->database mapping so consumers can resolve
-        # producer database names without elevated privileges.
         if self.config.publish_share_database_mapping:
             mapping = SnowflakeSharesHandler(
                 self.config, self.report
@@ -856,7 +854,6 @@ class SnowflakeV2Source(
 
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:
         try:
-            # account_locator and region are already captured in inspect_session_metadata()
             account_locator = self.report.account_locator
             region = self.report.region
 
