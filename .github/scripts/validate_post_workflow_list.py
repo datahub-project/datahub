@@ -30,6 +30,15 @@ IGNORED_WORKFLOWS = {
     "Docker Build, Scan, Test",
 }
 
+# Workflows that are intentionally listed in post-workflow-actions.yml but only have
+# schedule or workflow_dispatch triggers (not push/PR), so the validator should not
+# flag them as stale extras.
+ALLOWED_NON_PR_WORKFLOWS = {
+    "Nightly Docker Test",
+    "Release Tests",
+    "Release Validation",
+}
+
 
 def get_on_value(data: dict[Any, Any]) -> Any:
     # PyYAML 5.x parses bare 'on' as the boolean True (YAML 1.1 legacy).
@@ -120,7 +129,7 @@ def main() -> int:
                 print(f"WARNING: {workflow_file.name} has a push/PR trigger but no 'name' field")
 
     missing = expected - listed
-    extra = (listed - expected) - IGNORED_WORKFLOWS
+    extra = (listed - expected) - IGNORED_WORKFLOWS - ALLOWED_NON_PR_WORKFLOWS
 
     if is_ci:
         markdown = _markdown_output(missing, extra, listed)

@@ -241,6 +241,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
+        # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
+        # correlate ``data-model`` lineage entries (keyed by dataModelId) with
+        # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
+        self.data_model_id_by_url_id: Dict[str, str] = {}
+        # Global: element Dataset URN → {lowercased column name: canonical column name}.
+        # Same dedup logic as the per-element urn_to_cols in the FGL builder so
+        # cross-DM column validation uses the winner set rather than raw columns.
+        self.dm_element_urn_to_cols: Dict[
+            str, Dict[str, str]
+        ] = {}  # {lowercase_col: canonical_col}
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -551,6 +561,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None, "dm_unknown"
         name_map = self.dm_element_urn_by_name.get(other_dm_url_id, {})
 
+        # Prefer source element names from /lineage ``data-model`` entries:
+        # these directly name the element consumed from the source DM and
+        # work even when the consuming element has a different display name.
+        other_dm_id = self.data_model_id_by_url_id.get(other_dm_url_id)
+        if other_dm_id:
+            src_names = consuming_data_model.source_dm_element_names.get(
+                other_dm_id, []
+            )
+            if len(src_names) == 1:
+                # Exactly one element consumed from this source DM — unambiguous.
+                candidates = name_map.get(src_names[0].lower())
+                if candidates:
+                    if len(candidates) > 1:
+                        return sorted(candidates)[0], "ambiguous"
+                    return candidates[0], "strict"
+            elif len(src_names) > 1:
+                # Multiple elements consumed from the same source DM; cannot
+                # determine which one maps to this consuming element without
+                # per-element scoping. Fall through to name-based / fallback.
+                logger.debug(
+                    "DM %s element %s: %d consumed names from source DM %s — "
+                    "cannot disambiguate via lineage entries alone; falling "
+                    "back to consuming-element-name lookup.",
+                    consuming_data_model.dataModelId,
+                    consuming_element.elementId,
+                    len(src_names),
+                    other_dm_id,
+                )
+
         candidates = name_map.get(consuming_element.name.lower())
         if not candidates:
             # Single-element fallback: if the producer DM has exactly one
@@ -807,6 +846,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 urn_to_cols[el_urn] = {c.lower(): c for c in el_by_name}
 
         fgls: List[FineGrainedLineageClass] = []
+        cross_dm_fgls: List[FineGrainedLineageClass] = []
         # Track emitted (downstream, upstream) schemaField pairs to deduplicate
         # multiple occurrences of the same bracket ref in one formula
         # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
@@ -836,11 +876,82 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
                         # All candidates were self-references; actual upstream is a
-                        # warehouse table — out of RESOLVE-A scope.
+                        # warehouse table.
                         self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
-                    else:
-                        # Source not in this DM — cross-DM ref handled separately.
+                        continue
+                    # Source not in this DM — search only the DMs this element's
+                    # source_ids explicitly reference. This prevents formula refs
+                    # like [Orders/id] from linking to any ingested element named
+                    # "Orders" regardless of whether Sigma reported a lineage
+                    # relationship to that DM.
+                    # entity_level_upstream_urns is used as a collision tiebreaker
+                    # (not a hard gate) because Sigma's /lineage API does not always
+                    # surface cross-DM formula deps at the entity level.
+                    # Cross-DM source_ids use the shape <dm-url-id>/<suffix>;
+                    # intra-DM source_ids are bare elementIds (no "/").  So
+                    # source_dm_url_ids will never contain the consuming DM's
+                    # own url_id under normal Sigma API behaviour.
+                    source_dm_url_ids = {
+                        sid.partition("/")[0]
+                        for sid in element.source_ids
+                        if "/" in sid and not sid.startswith("inode-")
+                    }
+                    cross_dm_candidate_urns = sorted(
+                        {
+                            urn
+                            for dm_url_id in source_dm_url_ids
+                            for urn in self.dm_element_urn_by_name.get(
+                                dm_url_id, {}
+                            ).get(ref.source.lower(), [])
+                            if urn != element_dataset_urn
+                        }
+                    )
+                    if not cross_dm_candidate_urns:
                         self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+                        continue
+                    if len(cross_dm_candidate_urns) > 1:
+                        # Restrict to entity-level confirmed candidates whenever
+                        # any exist — even a subset of 2+ is better than
+                        # including unconfirmed URNs that sort earlier.
+                        confirmed = [
+                            u
+                            for u in cross_dm_candidate_urns
+                            if u in entity_level_upstream_urns
+                        ]
+                        if confirmed:
+                            cross_dm_candidate_urns = confirmed
+                        if len(cross_dm_candidate_urns) > 1:
+                            # Still ambiguous after filtering; pick sorted-first.
+                            self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
+                    chosen_upstream_urn = cross_dm_candidate_urns[0]
+                    # dm_element_urn_to_cols is populated for every URN in
+                    # dm_element_urn_by_name (same loop in _prepopulate_dm_bridge_maps),
+                    # so this get() will only be None if a URN reaches this point
+                    # without going through prepopulation — defensively handled.
+                    upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
+                    if upstream_cols is None:
+                        self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+                        continue
+                    canonical_col = upstream_cols.get(ref.column.lower())
+                    if canonical_col is None:
+                        self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
+                        continue
+                    upstream_field = builder.make_schema_field_urn(
+                        chosen_upstream_urn, canonical_col
+                    )
+                    pair = (downstream_field, upstream_field)
+                    if pair not in emitted_pairs:
+                        emitted_pairs.add(pair)
+                        cross_dm_fgls.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[downstream_field],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[upstream_field],
+                                confidenceScore=1.0,
+                            )
+                        )
+                        self.reporter.data_model_element_fgl_cross_dm_resolved += 1
                     continue
 
                 # Map surviving elementIds to Dataset URNs and filter against
@@ -912,14 +1023,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         confidenceScore=1.0,
                     )
                 )
+        # fgl_emitted tracks intra-DM FGL only; cross-DM is tracked separately
+        # via fgl_cross_dm_resolved so operators can see both buckets independently.
         self.reporter.data_model_element_fgl_emitted += len(fgls)
-        fgls.sort(
+        all_fgls = fgls + cross_dm_fgls
+        all_fgls.sort(
             key=lambda fgl: (
                 (fgl.downstreams or [""])[0],
                 (fgl.upstreams or [""])[0],
             )
         )
-        return fgls
+        return all_fgls
 
     def _gen_data_model_element_workunits(
         self,
@@ -1078,6 +1192,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.dm_total_element_count_by_url_id[alias] = (
             self.dm_total_element_count_by_url_id.get(canonical_key, 0)
         )
+        if canonical_key in self.data_model_id_by_url_id:
+            self.data_model_id_by_url_id[alias] = self.data_model_id_by_url_id[
+                canonical_key
+            ]
 
     def _prepopulate_dm_bridge_maps(
         self,
@@ -1136,6 +1254,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for element in data_model.elements:
             element_dataset_urn = self._gen_data_model_element_urn(data_model, element)
             elementId_to_dataset_urn[element.elementId] = element_dataset_urn
+            # Build global column index for cross-DM FGL column validation.
+            el_by_name, _ = _dedup_dm_element_columns(element.columns)
+            self.dm_element_urn_to_cols[element_dataset_urn] = {
+                c.lower(): c for c in el_by_name
+            }
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:
@@ -1145,6 +1268,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map
+        self.data_model_id_by_url_id[bridge_key] = data_model.dataModelId
         # Total count (including blank-named elements) used by the
         # cross-DM single-element fallback to verify "DM has exactly one
         # element" before attributing an unmatched-name reference.
