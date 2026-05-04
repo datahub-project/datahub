@@ -797,3 +797,130 @@ def test_auto_share_handles_corrupt_published_mapping_gracefully() -> None:
     wus = list(handler.get_auto_share_workunits([db]))
     # Falls back to local config, which has the mapping
     assert len(wus) == 4
+
+
+# ---------------------------------------------------------------------------
+# discover_share_database_mapping (Phase E.2 producer-side wrapper)
+# ---------------------------------------------------------------------------
+
+
+def test_discover_share_database_mapping_parses_query_history() -> None:
+    config = SnowflakeV2Config(account_id="abc12345")
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    conn = MagicMock()
+    conn.query.return_value = [
+        {"QUERY_TEXT": "GRANT USAGE ON DATABASE prod_db TO SHARE my_share"},
+        {"QUERY_TEXT": "SELECT 1"},
+        {"QUERY_TEXT": None},
+        {"QUERY_TEXT": "GRANT USAGE ON DATABASE other_db TO SHARE other_share"},
+    ]
+    mapping = handler.discover_share_database_mapping(conn)
+    assert mapping == {"MY_SHARE": "PROD_DB", "OTHER_SHARE": "OTHER_DB"}
+
+
+def test_discover_share_database_mapping_query_failure_warns() -> None:
+    config = SnowflakeV2Config(account_id="abc12345")
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    conn = MagicMock()
+    conn.query.side_effect = Exception("permission denied")
+    mapping = handler.discover_share_database_mapping(conn)
+    assert mapping == {}
+    assert any(
+        "Share-to-database mining skipped" in (w.title or "") for w in report.warnings
+    )
+
+
+def test_discover_share_database_mapping_truncation_warns() -> None:
+    from datahub.ingestion.source.snowflake.snowflake_shares import (
+        SHARE_GRANT_HISTORY_QUERY_LIMIT,
+    )
+
+    config = SnowflakeV2Config(account_id="abc12345")
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    conn = MagicMock()
+    conn.query.return_value = [
+        {"QUERY_TEXT": f"GRANT USAGE ON DATABASE db_{i} TO SHARE share_{i}"}
+        for i in range(SHARE_GRANT_HISTORY_QUERY_LIMIT)
+    ]
+    handler.discover_share_database_mapping(conn)
+    assert any(
+        "Share grant history may be incomplete" in (w.title or "")
+        for w in report.warnings
+    )
+
+
+def test_parse_share_grants_with_sql_comments() -> None:
+    queries = [
+        "-- this is a comment\nGRANT USAGE ON DATABASE prod_db TO SHARE my_share",
+        "/* block comment */ GRANT USAGE ON DATABASE other_db TO SHARE other_share",
+    ]
+    assert parse_share_grants(queries) == {
+        "MY_SHARE": "PROD_DB",
+        "OTHER_SHARE": "OTHER_DB",
+    }
+
+
+def test_parse_share_grants_skips_huge_query_text() -> None:
+    huge_text = "x" * 2_000_000 + " GRANT USAGE ON DATABASE big TO SHARE big_share"
+    queries = [
+        huge_text,
+        "GRANT USAGE ON DATABASE small TO SHARE small_share",
+    ]
+    # Huge text is skipped without scanning; only the small one is parsed.
+    assert parse_share_grants(queries) == {"SMALL_SHARE": "SMALL"}
+
+
+# ---------------------------------------------------------------------------
+# customProperties=None edge cases for _fetch_published_share_mapping
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_published_share_mapping_handles_null_custom_properties() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    graph = MagicMock()
+    graph.get_aspect.return_value = DataPlatformInstancePropertiesClass(
+        customProperties=None
+    )
+    graph.exists.return_value = True
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    # Falls back to local config; emission still works
+    assert len(wus) == 4
+
+
+def test_fetch_published_share_mapping_handles_non_dict_json() -> None:
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+    )
+    report = SnowflakeV2Report()
+    graph = MagicMock()
+    graph.get_aspect.return_value = DataPlatformInstancePropertiesClass(
+        customProperties={"share_database_mapping": "[1, 2, 3]"},
+    )
+    graph.exists.return_value = True
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+    assert len(wus) == 4
+    assert any(
+        "Producer published invalid share_database_mapping" in (w.title or "")
+        for w in report.warnings
+    )

@@ -527,27 +527,35 @@ class SnowflakeV2Config(
         "(e.g., 'PROD_ANALYTICS'). Case-insensitive match.",
     )
 
+    @field_validator("account_mapping", "share_database_mapping", mode="before")
+    @classmethod
+    def _uppercase_keys(cls, v):
+        if not isinstance(v, dict):
+            return v
+        return {str(k).upper(): val for k, val in v.items()}
+
     def resolve_account_to_platform_instance(
         self, account_identifier: str, account_locator: Optional[str] = None
     ) -> Optional[str]:
         """Resolve a Snowflake account identifier to a DataHub platform_instance.
 
         Resolution order:
-        1. `account_mapping` config (case-insensitive on both keys: account_identifier
-           and the bare account_locator portion if `MYORG.LOCATOR` form is provided)
-        2. `account_locator_fallback` convention (account_locator as platform_instance)
+        1. `account_mapping` config — keyed by either the org-qualified
+           identifier (`MYORG.ACCT`) or the bare locator (`ACCT`)
+        2. `account_locator_fallback` convention (locator as platform_instance)
         3. None — caller should skip with warning
         """
-        candidates = [account_identifier]
+        candidates = [account_identifier.upper()]
         if "." in account_identifier:
-            candidates.append(account_identifier.split(".", 1)[1])
-        if account_locator and account_locator not in candidates:
-            candidates.append(account_locator)
+            candidates.append(account_identifier.split(".", 1)[1].upper())
+        if account_locator:
+            locator_upper = account_locator.upper()
+            if locator_upper not in candidates:
+                candidates.append(locator_upper)
 
         for candidate in candidates:
-            for key, value in self.account_mapping.items():
-                if key.upper() == candidate.upper():
-                    return value
+            if candidate in self.account_mapping:
+                return self.account_mapping[candidate]
 
         if self.account_locator_fallback:
             return (account_locator or candidates[-1]).lower()

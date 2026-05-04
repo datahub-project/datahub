@@ -17,7 +17,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDatabase
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    ShareOrigin,
+    SnowflakeDatabase,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -28,6 +31,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# Must match the LIMIT in SnowflakeQuery.share_grant_history.
+SHARE_GRANT_HISTORY_QUERY_LIMIT = 1000
+
+# Skip query texts above this size — usually large stored procedure bodies
+# that don't contain GRANT statements. Prevents pathological CPU on huge rows.
+_MAX_QUERY_TEXT_BYTES = 1_000_000
 
 # Matches `GRANT USAGE ON DATABASE <db> TO SHARE <share>` allowing whitespace
 # variation and quoted identifiers. Used by Phase E.2 producer-side mining.
@@ -56,7 +66,7 @@ def parse_share_grants(query_texts: Iterable[str]) -> Dict[str, str]:
     """
     mapping: Dict[str, str] = {}
     for query_text in query_texts:
-        if not query_text:
+        if not query_text or len(query_text) > _MAX_QUERY_TEXT_BYTES:
             continue
         for match in _SHARE_GRANT_RE.finditer(query_text):
             db = _normalize_identifier(match.group(1))
@@ -148,13 +158,26 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             )
             return {}
 
-        query_texts = [row["QUERY_TEXT"] for row in rows if row.get("QUERY_TEXT")]
-        mapping = parse_share_grants(query_texts)
-        if mapping:
-            logger.info(
-                "Discovered share->database mapping for %d shares from QUERY_HISTORY.",
-                len(mapping),
+        # The query has a LIMIT — if we hit it, the mapping may be incomplete.
+        rows_list = list(rows)
+        if len(rows_list) >= SHARE_GRANT_HISTORY_QUERY_LIMIT:
+            self.report.warning(
+                title="Share grant history may be incomplete",
+                message=(
+                    f"`SHOW QUERY_HISTORY` returned the maximum "
+                    f"{SHARE_GRANT_HISTORY_QUERY_LIMIT} rows. Older grants may be "
+                    "missing from the published `share_database_mapping`. "
+                    "Consumers can fall back to manual `share_database_mapping` "
+                    "config for affected shares."
+                ),
             )
+
+        query_texts = [row["QUERY_TEXT"] for row in rows_list if row.get("QUERY_TEXT")]
+        mapping = parse_share_grants(query_texts)
+        logger.info(
+            "Discovered share->database mapping for %d shares from QUERY_HISTORY.",
+            len(mapping),
+        )
         return mapping
 
     def get_auto_share_workunits(
@@ -170,7 +193,8 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         }
 
         for db in databases:
-            if not db.is_shared_database():
+            origin = db.share_origin
+            if origin is None:
                 continue
             if db.name.upper() in manual_dbs_upper:
                 logger.debug(
@@ -178,47 +202,10 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                 )
                 continue
 
-            share_origin = db.get_share_origin()
-            if share_origin is None:
+            resolved = self._resolve_producer(db, origin)
+            if resolved is None:
                 continue
-
-            org, account, share_name = share_origin
-            account_identifier = f"{org}.{account}" if org else account
-
-            producer_platform_instance = (
-                self.config.resolve_account_to_platform_instance(
-                    account_identifier, account_locator=account
-                )
-            )
-            if producer_platform_instance is None:
-                self.report.num_auto_shares_skipped_unresolved_producer += 1
-                self.report.warning(
-                    title="Auto-share lineage skipped — producer unresolved",
-                    message=(
-                        f"Could not resolve account {account_identifier!r} to a "
-                        "platform_instance. Add it to `account_mapping` or enable "
-                        "`account_locator_fallback`."
-                    ),
-                    context=f"db={db.name}, share={share_name}",
-                )
-                continue
-
-            producer_database = self._resolve_share_database(
-                share_name, producer_platform_instance
-            )
-            if producer_database is None:
-                self.report.num_auto_shares_skipped_unknown_share_db += 1
-                self.report.warning(
-                    title="Auto-share lineage skipped — share-to-database mapping unknown",
-                    message=(
-                        f"Could not resolve share {share_name!r} to producer "
-                        "database name. Either ingest the producer first (so its "
-                        "`share_database_mapping` is published to the graph) or add "
-                        "it to the consumer's `share_database_mapping` config."
-                    ),
-                    context=f"db={db.name}, producer_account={account_identifier}",
-                )
-                continue
+            producer_platform_instance, producer_database = resolved
 
             for schema in db.schemas:
                 for table_name in schema.tables + schema.views:
@@ -232,20 +219,66 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
 
             self.report.num_auto_shares_discovered += 1
 
+    def _resolve_producer(
+        self, db: SnowflakeDatabase, origin: ShareOrigin
+    ) -> Optional[tuple]:
+        """Resolve (producer_platform_instance, producer_database) for a shared DB.
+
+        Emits a structured warning and returns None when either side is unresolved.
+        Warnings use static messages with dynamic values in `context` so the report
+        can deduplicate by `title-message`.
+        """
+        producer_platform_instance = self.config.resolve_account_to_platform_instance(
+            origin.account_identifier, account_locator=origin.account_name
+        )
+        if producer_platform_instance is None:
+            self.report.num_auto_shares_skipped_unresolved_producer += 1
+            self.report.warning(
+                title="Auto-share lineage skipped — producer unresolved",
+                message=(
+                    "Could not resolve a Snowflake account to a DataHub "
+                    "platform_instance. Add it to `account_mapping` or enable "
+                    "`account_locator_fallback`."
+                ),
+                context=(
+                    f"db={db.name}, account={origin.account_identifier}, "
+                    f"share={origin.share_name}"
+                ),
+            )
+            return None
+
+        producer_database = self._resolve_share_database(
+            origin.share_name, producer_platform_instance
+        )
+        if producer_database is None:
+            self.report.num_auto_shares_skipped_unknown_share_db += 1
+            self.report.warning(
+                title="Auto-share lineage skipped — share-to-database mapping unknown",
+                message=(
+                    "Could not resolve a Snowflake share to a producer database "
+                    "name. Either ingest the producer first (so its "
+                    "`share_database_mapping` is published to the graph) or set "
+                    "`share_database_mapping` in the consumer recipe."
+                ),
+                context=(
+                    f"db={db.name}, share={origin.share_name}, "
+                    f"account={origin.account_identifier}"
+                ),
+            )
+            return None
+
+        return producer_platform_instance, producer_database
+
     def _resolve_share_database(
         self, share_name: str, producer_platform_instance: str
     ) -> Optional[str]:
-        # Prefer the producer's published mapping in the graph (Phase E.2).
+        # Both the graph mapping (parsed via `parse_share_grants`) and the local
+        # config (normalized by `_uppercase_keys` validator) use upper-case keys.
+        share_upper = share_name.upper()
         graph_mapping = self._fetch_published_share_mapping(producer_platform_instance)
-        for key, value in graph_mapping.items():
-            if key.upper() == share_name.upper():
-                return value
-
-        # Fall back to consumer-side static config.
-        for key, value in self.config.share_database_mapping.items():
-            if key.upper() == share_name.upper():
-                return value
-        return None
+        return graph_mapping.get(share_upper) or self.config.share_database_mapping.get(
+            share_upper
+        )
 
     def _fetch_published_share_mapping(
         self, producer_platform_instance: str
@@ -261,8 +294,16 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                 producer_dpi_urn, DataPlatformInstancePropertiesClass
             )
         except Exception as e:
-            logger.debug(
-                "Graph lookup for %s failed: %s", producer_dpi_urn, e, exc_info=True
+            self.report.warning(
+                title="Producer share mapping graph lookup failed",
+                message=(
+                    "Could not fetch the producer's `DataPlatformInstance` aspect "
+                    "from the graph. Falling back to consumer-side "
+                    "`share_database_mapping` config — share lineage may be "
+                    "incomplete until the graph is reachable again."
+                ),
+                context=f"producer_urn={producer_dpi_urn}",
+                exc=e,
             )
             return {}
 
@@ -273,12 +314,26 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             return {}
         try:
             mapping = json.loads(mapping_json)
-        except json.JSONDecodeError:
-            logger.warning(
-                "Invalid share_database_mapping JSON on %s, ignoring", producer_dpi_urn
+        except json.JSONDecodeError as e:
+            self.report.warning(
+                title="Producer published invalid share_database_mapping",
+                message=(
+                    "The producer's `share_database_mapping` custom property is "
+                    "not valid JSON. Falling back to consumer-side config."
+                ),
+                context=f"producer_urn={producer_dpi_urn}",
+                exc=e,
             )
             return {}
         if not isinstance(mapping, dict):
+            self.report.warning(
+                title="Producer published invalid share_database_mapping",
+                message=(
+                    "The producer's `share_database_mapping` is valid JSON but "
+                    "not a dict. Falling back to consumer-side config."
+                ),
+                context=f"producer_urn={producer_dpi_urn}, type={type(mapping).__name__}",
+            )
             return {}
         return {str(k): str(v) for k, v in mapping.items()}
 

@@ -317,6 +317,38 @@ class SnowflakeSchema:
     tags: Optional[List[SnowflakeTag]] = None
 
 
+@dataclass(frozen=True)
+class ShareOrigin:
+    """Parsed form of `SHOW DATABASES`.origin for a shared database.
+
+    Snowflake formats `origin` as `<org>.<account>.<share>` (org-qualified) or
+    `<account>.<share>` (locator-only). Anything else is malformed.
+    """
+
+    org_name: Optional[str]
+    account_name: str
+    share_name: str
+
+    @property
+    def account_identifier(self) -> str:
+        return (
+            f"{self.org_name}.{self.account_name}"
+            if self.org_name
+            else self.account_name
+        )
+
+    @classmethod
+    def parse(cls, origin: Optional[str]) -> Optional["ShareOrigin"]:
+        if not origin:
+            return None
+        parts = origin.split(".")
+        if len(parts) == 3:
+            return cls(org_name=parts[0], account_name=parts[1], share_name=parts[2])
+        if len(parts) == 2:
+            return cls(org_name=None, account_name=parts[0], share_name=parts[1])
+        return None
+
+
 @dataclass
 class SnowflakeDatabase:
     name: str
@@ -326,26 +358,18 @@ class SnowflakeDatabase:
     schemas: List[SnowflakeSchema] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     # Fields from SHOW DATABASES (not available via information_schema)
-    origin: Optional[str] = None  # e.g. "org.account.share_name" for shared DBs
+    origin: Optional[str] = None  # raw form, retained for emission as customProperty
     kind: Optional[str] = None  # "STANDARD", "IMPORTED DATABASE", etc.
     is_transient: bool = False
     retention_time: Optional[int] = None
     owner: Optional[str] = None
 
-    def is_shared_database(self) -> bool:
-        """True if this database was created from an inbound share."""
-        return bool(self.origin)
+    @property
+    def share_origin(self) -> Optional[ShareOrigin]:
+        return ShareOrigin.parse(self.origin)
 
-    def get_share_origin(self) -> Optional[tuple]:
-        """Parse origin into (org_name_or_none, account_name, share_name)."""
-        if not self.origin:
-            return None
-        parts = self.origin.split(".")
-        if len(parts) == 3:
-            return (parts[0], parts[1], parts[2])
-        if len(parts) == 2:
-            return (None, parts[0], parts[1])
-        return None
+    def is_shared_database(self) -> bool:
+        return self.share_origin is not None
 
 
 @dataclass

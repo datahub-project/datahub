@@ -817,9 +817,17 @@ class SnowflakeV2Source(
             logger.info("Checking current account")
             for db_row in connection.query(SnowflakeQuery.current_account()):
                 self.report.account_locator = db_row["CURRENT_ACCOUNT()"]
-        except Exception:
-            logger.debug(
-                "Could not determine the current Snowflake account", exc_info=True
+        except Exception as e:
+            # account_locator missing breaks the Snowsight URL builder and
+            # cross-account share lineage (account_identifier custom property
+            # is not emitted, so consumers can't resolve this account).
+            self.structured_reporter.warning(
+                title="Could not determine Snowflake account locator",
+                message=(
+                    "Snowsight URLs and cross-account share lineage will be "
+                    "degraded for this ingestion."
+                ),
+                exc=e,
             )
         try:
             logger.info("Checking current region")
