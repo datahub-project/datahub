@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_ts_millis
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -65,6 +66,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
     StatefulIngestionUsecaseHandlerBase,
 )
+from datahub.metadata.schema_classes import StatusClass
 
 logger = logging.getLogger(__name__)
 
@@ -412,6 +414,94 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
     def get_report(self) -> HexReport:
         return self.report
 
+    def _migrate_legacy_component_dashboards(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Detects and soft-deletes Dashboard entities that were emitted for
+        Components by the previous connector version (pre-v1.1).
+
+        In v1.1+ Components are Chart entities; previously they were Dashboard
+        entities with subtype 'Component'. If any such Dashboard entities still
+        exist in DataHub this method:
+          1. Paginates through all of them and emits Status(removed=True) to
+             each — ensuring cleanup regardless of whether the stale-entity
+             removal handler was tracking them.
+          2. Clears _light_project_ids so the current run is forced to fully
+             re-process all projects, populating DashboardInfo.charts with the
+             new Chart URNs.
+
+        Requires ctx.graph. If the graph is unavailable the migration is
+        skipped silently; operators should run once with ignore_old_state=true
+        to force a full re-process manually.
+        """
+        if not self.ctx.graph:
+            return
+
+        QUERY = """
+        query DetectLegacyHexComponents($start: Int!, $count: Int!) {
+            search(input: {
+                type: DASHBOARD
+                query: "*"
+                filters: [
+                    {field: "platform", value: "hex"}
+                    {field: "typeNames", value: "Component"}
+                ]
+                start: $start
+                count: $count
+            }) {
+                total
+                searchResults { entity { urn } }
+            }
+        }
+        """
+        page_size = 200
+        start = 0
+        legacy_urns: List[str] = []
+
+        try:
+            while True:
+                result = self.ctx.graph.execute_graphql(
+                    QUERY, variables={"start": start, "count": page_size}
+                )
+                page = result.get("search", {})
+                total = page.get("total", 0)
+                for item in page.get("searchResults", []):
+                    urn = item.get("entity", {}).get("urn")
+                    if urn:
+                        legacy_urns.append(urn)
+                start += page_size
+                if start >= total:
+                    break
+        except Exception as e:
+            logger.warning(
+                "Failed to query for legacy Dashboard-typed components: %s. "
+                "Skipping migration — run with ignore_old_state=true if needed.",
+                e,
+            )
+            return
+
+        if not legacy_urns:
+            return
+
+        logger.info(
+            "Found %d legacy Dashboard-typed Component entities from a previous "
+            "connector version. Soft-deleting and forcing full re-process.",
+            len(legacy_urns),
+        )
+        for urn in legacy_urns:
+            yield MetadataWorkUnit(
+                id=f"migrate-remove-{urn}",
+                metadata=MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=StatusClass(removed=True),
+                ),
+            )
+
+        # Force all projects to be fully re-processed so DashboardInfo.charts
+        # gets populated with the new Chart URNs for components.
+        self._light_project_ids.clear()
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Read incremental checkpoint — None on first run or when ignore_old_state=true
         run_start_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
@@ -434,6 +524,12 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             )
         else:
             logger.info("No incremental checkpoint found — performing full ingestion.")
+
+        # One-time migration: soft-delete legacy Dashboard-typed Component entities
+        # from the previous connector version and force a full re-process.
+        # No-op after the first successful migration run (search returns 0).
+        with self.report.new_stage("Migrate legacy Component entities"):
+            yield from self._migrate_legacy_component_dashboards()
 
         with self.report.new_stage("Fetch Hex projects and components"):
             self._populate_registries(last_ingested_at_ms=last_ingested_at_ms)
