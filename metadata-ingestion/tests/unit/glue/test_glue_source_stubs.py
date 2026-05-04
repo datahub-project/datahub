@@ -49,6 +49,61 @@ target_database_tables = [
 ]
 get_tables_response_for_target_database = {"TableList": target_database_tables}
 
+# A regular (non-resource-link) database that contains a mix of normal tables and
+# table-level resource links. Lake Formation can share individual tables across
+# accounts at table granularity, so the database itself has no TargetDatabase but
+# some tables expose a TargetTable pointer.
+mixed_database = {
+    "Name": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "CreateTableDefaultPermissions": [],
+    "CatalogId": "123412341234",
+}
+
+normal_table_in_mixed_database = {
+    "Name": "normal-table",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "UpdateTime": datetime.datetime(
+        2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+    ),
+    "Retention": 0,
+    "StorageDescriptor": {
+        "Columns": [{"Name": "id", "Type": "bigint", "Comment": ""}],
+        "Location": "s3://test-db-123412341234/normal-table",
+        "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+        "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+        "Compressed": False,
+        "NumberOfBuckets": 0,
+        "SerdeInfo": {
+            "Parameters": {"serialization.format": "1"},
+            "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+        },
+        "SortColumns": [],
+        "StoredAsSubDirectories": False,
+    },
+    "TableType": "EXTERNAL_TABLE",
+    "Parameters": {"classification": "parquet"},
+    "CatalogId": "123412341234",
+}
+
+resource_link_table_in_mixed_database = {
+    "Name": "shared-transactions",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "TargetTable": {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    },
+    "CatalogId": "123412341234",
+}
+
+get_databases_response_with_mixed_database = {"DatabaseList": [mixed_database]}
+get_tables_response_for_mixed_database = {
+    "TableList": [normal_table_in_mixed_database, resource_link_table_in_mixed_database]
+}
+
 get_databases_response = {
     "DatabaseList": [
         {
