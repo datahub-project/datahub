@@ -968,7 +968,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     self.structured_reporter.warning(
                         "Failed to process downstream object",
                         context=f"query_id={query_id}, "
-                        f"object={obj.get('objectName') or '<missing>'}",
+                        f"object={obj.get('objectName') or '<unknown>'}",
                         exc=e,
                     )
 
