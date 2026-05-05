@@ -1165,8 +1165,11 @@ def _column_level_lineage(
         assert select_statement is not None
         # Collect CTE column alias mappings before optimization eliminates aliased
         # columns that are only referenced via OBJECT_CONSTRUCT(*).
-        object_construct_col_aliases = _collect_object_construct_source_aliases(
-            select_statement
+        # OBJECT_CONSTRUCT is Snowflake-specific syntax.
+        object_construct_col_aliases = (
+            _collect_object_construct_source_aliases(select_statement)
+            if is_dialect_instance(dialect, "snowflake")
+            else None
         )
         (select_statement, column_resolver) = _prepare_query_columns(
             select_statement,
@@ -1250,11 +1253,14 @@ def _extract_json_path_keys(
 ) -> Set[str]:
     """Find all JSON path keys accessed on ref_table.ref_column in an expression.
 
-    Matches patterns produced when Snowflake's col:KEY::TYPE semi-structured access
-    is parsed: JSONExtract(Bracket(Column(table=ref_table, this=ref_column), idx), JSONPath([..., JSONPathKey(KEY)])).
+    Handles two Snowflake semi-structured access forms:
+    - col:KEY::TYPE  → JSONExtract(Bracket(Column(...), idx), JSONPath([JSONPathKey(KEY)]))
+    - GET(col[idx], 'KEY') → GetExtract(Bracket(Column(...), idx), Literal('KEY'))
+
     Returns the set of KEY strings (e.g. {'FIELD_A', 'FIELD_B'}).
     """
     keys: Set[str] = set()
+
     for json_extract in expression.find_all(sqlglot.exp.JSONExtract):
         obj = json_extract.this
         # Unwrap bracket index access: col[0] → col
@@ -1270,6 +1276,21 @@ def _extract_json_path_keys(
                     for part in path.expressions:
                         if isinstance(part, sqlglot.exp.JSONPathKey):
                             keys.add(str(part.this))
+
+    for get_extract in expression.find_all(sqlglot.exp.GetExtract):
+        obj = get_extract.this
+        # Unwrap bracket index access: col[0] → col
+        if isinstance(obj, sqlglot.exp.Bracket):
+            obj = obj.this
+        if isinstance(obj, sqlglot.exp.Column):
+            if (
+                obj.table.upper() == ref_table.upper()
+                and obj.name.upper() == ref_column.upper()
+            ):
+                key_expr = get_extract.expression
+                if isinstance(key_expr, sqlglot.exp.Literal) and key_expr.is_string:
+                    keys.add(str(key_expr.this))
+
     return keys
 
 
@@ -1489,6 +1510,8 @@ def _get_direct_raw_col_upstreams(
                 table_name_schema_mapping
                 and node.expression is not None
                 and node.expression.find(sqlglot.exp.StarMap)
+                # StarMap is only produced by sqlglot for Snowflake-dialect ASTs
+                # (OBJECT_CONSTRUCT(*)), so no explicit dialect guard is needed here.
             ):
                 parent = parents.get(id(node))
                 if parent is not None:

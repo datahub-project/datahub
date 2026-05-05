@@ -2059,6 +2059,49 @@ left join agg on agg.filter_col = t.id
     )
 
 
+def test_snowflake_object_construct_get_lineage() -> None:
+    """Test lineage through OBJECT_CONSTRUCT(*) accessed via GET() instead of :KEY.
+
+    GET(col[idx], 'KEY') is the function form of Snowflake semi-structured access.
+    It produces a GetExtract AST node rather than JSONExtract, so it requires a
+    separate walk in _extract_json_path_keys.
+
+    Expected: output_col traces to val_col (resolved via GET key) and type_col
+    (from the CASE WHEN filter condition).
+    """
+    assert_sql_result(
+        """
+with cte_src as (
+    select val_col, type_col, record_id
+    from mydb.myschema.src_table
+),
+cte_agg as (
+    select record_id,
+           ARRAY_AGG(CASE WHEN type_col = 1 THEN OBJECT_CONSTRUCT(*) END) AS obj_array
+    from cte_src group by record_id
+)
+select GET(cte_agg.obj_array[0], 'VAL_COL')::VARCHAR as output_col
+from mydb.myschema.other_table li
+left join cte_agg on cte_agg.record_id = li.id
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)": {
+                "val_col": "VARCHAR",
+                "type_col": "NUMBER",
+                "record_id": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)": {
+                "id": "VARCHAR",
+                "record_id": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_object_construct_get_lineage.json",
+    )
+
+
 def test_clickhouse_materialized_view_to_table() -> None:
     """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
 
