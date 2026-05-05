@@ -1317,10 +1317,7 @@ def _collect_source_cte_chain(
     )
     if not cte_select:
         return
-    from_clause = cte_select.find(sqlglot.exp.From)
-    if not from_clause:
-        return
-    for src_table in from_clause.find_all(sqlglot.exp.Table):
+    for src_table in cte_select.find_all(sqlglot.exp.Table):
         _collect_source_cte_chain(src_table.name.upper(), cte_map, visited)
 
 
@@ -1348,8 +1345,7 @@ def _collect_object_construct_source_aliases(
     }
 
     # Find CTEs that contain OBJECT_CONSTRUCT(*) and collect their full upstream CTE
-    # chain.  find_all on the FROM clause captures all joined sources, not just the
-    # first table.
+    # chain. find_all on the Select captures all tables including JOINed sources.
     source_cte_names: Set[str] = set()
     for cte in statement.find_all(sqlglot.exp.CTE):
         if not cte.find(sqlglot.exp.StarMap):
@@ -1361,10 +1357,7 @@ def _collect_object_construct_source_aliases(
         )
         if not cte_select:
             continue
-        from_clause = cte_select.find(sqlglot.exp.From)
-        if not from_clause:
-            continue
-        for source_table in from_clause.find_all(sqlglot.exp.Table):
+        for source_table in cte_select.find_all(sqlglot.exp.Table):
             _collect_source_cte_chain(
                 source_table.name.upper(), cte_map, source_cte_names
             )
@@ -1509,8 +1502,14 @@ def _get_direct_raw_col_upstreams(
 
     # Build a child→parent map so we can look up what key is accessed on each column
     # when the column comes from OBJECT_CONSTRUCT(*) / StarMap.
+    # StarMap only appears in Snowflake-dialect ASTs (OBJECT_CONSTRUCT(*)), so skip
+    # this traversal for all other dialects.
     parents: Dict[int, sqlglot.lineage.Node] = {}
-    if table_name_schema_mapping:
+    if (
+        table_name_schema_mapping
+        and dialect is not None
+        and is_dialect_instance(dialect, "snowflake")
+    ):
 
         def _build_parents(root: sqlglot.lineage.Node) -> None:
             stack: List[Tuple[sqlglot.lineage.Node, Optional[sqlglot.lineage.Node]]] = [
