@@ -457,6 +457,8 @@ delta-lake = [
     "wcmatch<11.0.0",
 ]
 
+dlt = []
+
 doris = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -2162,6 +2164,7 @@ unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
+dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
 fivetran = "datahub.ingestion.source.fivetran.fivetran:FivetranSource"
 snaplogic = "datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource"
 qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
