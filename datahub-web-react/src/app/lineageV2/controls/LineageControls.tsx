@@ -44,11 +44,11 @@ const StyledExpandContractButton = styled(Button)`
     align-items: center;
     display: flex;
     background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.icon};
     border-color: ${(props) => props.theme.colors.border};
 
     &:hover {
-        color: ${(props) => props.theme.colors.textHover};
+        color: ${(props) => props.theme.colors.iconHover};
         border-color: ${(props) => props.theme.colors.borderHover};
     }
 `;

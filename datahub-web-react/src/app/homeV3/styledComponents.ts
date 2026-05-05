@@ -35,7 +35,7 @@ export const StyledVectorBackground = styled(VectorBackground)`
     pointer-events: none;
     border-radius: 12px;
     background-color: ${(props) => props.theme.colors.bg};
-    ${(props) => props.theme.id !== 'themeV2Light' && 'opacity: 0;'}
+    ${(props) => props.theme.id === 'themeV2Dark' && 'opacity: 0;'}
 `;
 
 export const contentWidth = (additionalWidth = 0) => `
