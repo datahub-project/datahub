@@ -1027,7 +1027,7 @@ def _select_statement_cll(
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    object_construct_col_aliases: Optional[Dict[str, str]] = None,
+    object_construct_col_aliases: Optional[Dict[str, List[str]]] = None,
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
@@ -1273,10 +1273,40 @@ def _extract_json_path_keys(
     return keys
 
 
+def _collect_source_cte_chain(
+    cte_name: str,
+    cte_map: Dict[str, sqlglot.exp.CTE],
+    visited: Set[str],
+) -> None:
+    """Recursively add cte_name and all its CTE sources to visited.
+
+    Follows the full upstream chain so that aliases defined in CTEs several hops
+    away from an OBJECT_CONSTRUCT(*) CTE are still captured (e.g. cte1 defines the
+    alias, cte2 passes through with SELECT *, cte3 uses OBJECT_CONSTRUCT(*)).
+    Stops at CTEs not in cte_map (i.e. real base tables).
+    """
+    if cte_name in visited or cte_name not in cte_map:
+        return
+    visited.add(cte_name)
+    cte = cte_map[cte_name]
+    cte_select = (
+        cte.this
+        if isinstance(cte.this, sqlglot.exp.Select)
+        else cte.find(sqlglot.exp.Select)
+    )
+    if not cte_select:
+        return
+    from_clause = cte_select.find(sqlglot.exp.From)
+    if not from_clause:
+        return
+    for src_table in from_clause.find_all(sqlglot.exp.Table):
+        _collect_source_cte_chain(src_table.name.upper(), cte_map, visited)
+
+
 def _collect_object_construct_source_aliases(
     statement: sqlglot.exp.Expression,
-) -> Dict[str, str]:
-    """Build alias→original column name map for CTEs that feed OBJECT_CONSTRUCT(*).
+) -> Dict[str, List[str]]:
+    """Build alias→source column names map for CTEs that feed OBJECT_CONSTRUCT(*).
 
     When OBJECT_CONSTRUCT(*) captures all columns in scope, the resulting JSON object
     keys match the CTE column names — which may be aliases of the underlying base table
@@ -1284,10 +1314,21 @@ def _collect_object_construct_source_aliases(
     elsewhere, so the lineage tree loses the alias→original mapping. This function
     extracts that mapping from the pre-optimization AST.
 
-    Returns {alias_name.upper(): original_col_name.upper()} for all aliased columns
-    in CTEs that directly feed a CTE containing OBJECT_CONSTRUCT(*).
+    Returns {alias_name.upper(): [source_col.upper(), ...]} for all aliased columns
+    in the full CTE chain feeding any CTE containing OBJECT_CONSTRUCT(*).
+
+    For simple column renames (col AS alias), the list contains one name.
+    For function-expression aliases (to_date(col) AS alias, CONCAT(a, b) AS alias),
+    the list contains all Column leaf nodes referenced inside the function.
     """
-    # Find CTEs that contain OBJECT_CONSTRUCT(*) and note what they select FROM.
+    # Build a CTE name -> node map for O(1) lookup during chain traversal.
+    cte_map: Dict[str, sqlglot.exp.CTE] = {
+        cte.alias.upper(): cte for cte in statement.find_all(sqlglot.exp.CTE)
+    }
+
+    # Find CTEs that contain OBJECT_CONSTRUCT(*) and collect their full upstream CTE
+    # chain.  find_all on the FROM clause captures all joined sources, not just the
+    # first table.
     source_cte_names: Set[str] = set()
     for cte in statement.find_all(sqlglot.exp.CTE):
         if not cte.find(sqlglot.exp.StarMap):
@@ -1302,15 +1343,18 @@ def _collect_object_construct_source_aliases(
         from_clause = cte_select.find(sqlglot.exp.From)
         if not from_clause:
             continue
-        source_table = from_clause.find(sqlglot.exp.Table)
-        if source_table:
-            source_cte_names.add(source_table.name.upper())
+        for source_table in from_clause.find_all(sqlglot.exp.Table):
+            _collect_source_cte_chain(
+                source_table.name.upper(), cte_map, source_cte_names
+            )
 
     if not source_cte_names:
         return {}
 
-    # For each source CTE, collect columns that are renamed (alias ≠ original name).
-    result: Dict[str, str] = {}
+    # For each CTE in the chain, collect columns that are renamed (alias ≠ original
+    # name).  Simple column renames map to one source; function expressions map to all
+    # Column leaf nodes referenced inside them.
+    result: Dict[str, List[str]] = {}
     for cte in statement.find_all(sqlglot.exp.CTE):
         if cte.alias.upper() not in source_cte_names:
             continue
@@ -1329,7 +1373,16 @@ def _collect_object_construct_source_aliases(
             if isinstance(inner, sqlglot.exp.Column):
                 original_name = inner.name.upper()
                 if alias_name != original_name:
-                    result[alias_name] = original_name
+                    result[alias_name] = [original_name]
+            else:
+                # Function or complex expression: gather every Column leaf referenced.
+                col_names = [
+                    col.name.upper()
+                    for col in inner.find_all(sqlglot.exp.Column)
+                    if col.name
+                ]
+                if col_names:
+                    result[alias_name] = col_names
 
     return result
 
@@ -1339,7 +1392,7 @@ def _get_star_map_col_upstreams(
     parent_node: sqlglot.lineage.Node,
     dialect: Optional[sqlglot.Dialect],
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
-    object_construct_col_aliases: Optional[Dict[str, str]] = None,
+    object_construct_col_aliases: Optional[Dict[str, List[str]]] = None,
 ) -> Set[_ColumnRef]:
     """Resolve column upstreams for a lineage node that contains OBJECT_CONSTRUCT(*).
 
@@ -1376,13 +1429,17 @@ def _get_star_map_col_upstreams(
             )
 
     upstreams: Set[_ColumnRef] = set()
+    # O(keys × leaf_tables × schema_entries × cols): acceptable for typical workloads
+    # where keys is small (one JSON path access per column) and schemas are bounded.
+    # If this becomes a bottleneck, pre-build an inverted col→table index from
+    # table_name_schema_mapping.
     for key in keys:
         # Try the key directly, then fall back to its pre-alias original name if available.
         candidates = [key]
         if object_construct_col_aliases:
-            original = object_construct_col_aliases.get(key.upper())
-            if original:
-                candidates.append(original)
+            originals = object_construct_col_aliases.get(key.upper())
+            if originals:
+                candidates.extend(originals)
         for candidate in candidates:
             for unqualified_ref in leaf_table_refs:
                 for qualified_name, schema in table_name_schema_mapping.items():
@@ -1401,7 +1458,7 @@ def _get_direct_raw_col_upstreams(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     table_name_schema_mapping: Optional[Dict[_TableName, SchemaInfo]] = None,
-    object_construct_col_aliases: Optional[Dict[str, str]] = None,
+    object_construct_col_aliases: Optional[Dict[str, List[str]]] = None,
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
