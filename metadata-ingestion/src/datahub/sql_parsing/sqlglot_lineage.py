@@ -1489,14 +1489,20 @@ def _get_direct_raw_col_upstreams(
     parents: Dict[int, sqlglot.lineage.Node] = {}
     if table_name_schema_mapping:
 
-        def _build_parents(
-            node: sqlglot.lineage.Node,
-            parent: Optional[sqlglot.lineage.Node] = None,
-        ) -> None:
-            if parent is not None:
-                parents[id(node)] = parent
-            for child in node.downstream:
-                _build_parents(child, node)
+        def _build_parents(root: sqlglot.lineage.Node) -> None:
+            stack: List[Tuple[sqlglot.lineage.Node, Optional[sqlglot.lineage.Node]]] = [
+                (root, None)
+            ]
+            visited: Set[int] = set()
+            while stack:
+                node, parent = stack.pop()
+                if id(node) in visited:
+                    continue
+                visited.add(id(node))
+                if parent is not None:
+                    parents[id(node)] = parent
+                for child in node.downstream:
+                    stack.append((child, node))
 
         _build_parents(lineage_node)
 
