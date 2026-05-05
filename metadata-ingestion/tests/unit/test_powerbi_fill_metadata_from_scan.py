@@ -22,6 +22,7 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    PowerBIDataset,
     Workspace,
     new_powerbi_dataset,
     new_powerbi_reports,
@@ -1133,3 +1134,202 @@ def test_new_powerbi_reports_skips_users_when_extract_ownership_false():
 
     with_ownership = new_powerbi_reports(workspace, [raw], extract_ownership=True)
     assert len(with_ownership[0].users) == 1
+
+
+# ---------------------------------------------------------------------------
+# PowerBiAPI.get_reports
+# ---------------------------------------------------------------------------
+
+
+def _make_workspace_with_scan_reports(
+    ws_id: str = "WS-RPT",
+    raw_reports: Optional[List[Dict[str, Any]]] = None,
+    report_endorsements: Optional[Dict[str, List[str]]] = None,
+) -> Workspace:
+    workspace = _make_workspace(ws_id)
+    workspace.scan_result = {Constant.REPORTS: raw_reports or []}
+    if report_endorsements is not None:
+        workspace.report_endorsements = report_endorsements
+    return workspace
+
+
+def _make_dataset(dataset_id: str, name: str = "ds") -> PowerBIDataset:
+    return PowerBIDataset(
+        id=dataset_id,
+        name=name,
+        description="",
+        webUrl=None,
+        workspace_id="WS-RPT",
+        workspace_name="ws",
+        parameters={},
+        tables=[],
+        tags=[],
+    )
+
+
+def test_get_reports_from_scan_result_skips_resolver_get_reports():
+    """When the workspace has a scan result, get_reports must build reports
+    directly from it and never call the resolver's reports/users endpoints."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports") as get_reports_mock,
+        mock.patch.object(api, "get_report_users") as get_users_mock,
+        mock.patch.object(resolver, "get_pages_by_report", return_value=[]),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert set(reports) == {"R-1"}
+    get_reports_mock.assert_not_called()
+    get_users_mock.assert_not_called()
+
+
+def test_get_reports_pages_fetch_failure_warns_and_keeps_report():
+    """A pages-fetch failure for one report must surface a 'Report Pages Not
+    Fetched' warning and still leave the report in the result with pages=[]."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(
+        resolver, "get_pages_by_report", side_effect=RuntimeError("boom")
+    ):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].pages == []
+    warnings = list(api.reporter.warnings)
+    assert any(w.title == "Report Pages Not Fetched" for w in warnings)
+
+
+def test_get_reports_resolves_dataset_via_registry():
+    """When report.dataset_id is present and the registry has the dataset,
+    get_reports must wire up report.dataset (no missing-lineage info)."""
+    api = _make_api()
+    dataset = _make_dataset("DS-1")
+    api.dataset_registry["DS-1"] = dataset
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+                Constant.DATASET_ID: "DS-1",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].dataset is dataset
+    infos = list(api.reporter.infos)
+    assert not any(i.title == "Missing Lineage For Report" for i in infos)
+
+
+def test_get_reports_missing_dataset_in_registry_emits_info():
+    """When report.dataset_id is set but the registry has no entry, get_reports
+    must emit a 'Missing Lineage For Report' info on the reporter."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+                Constant.DATASET_ID: "DS-MISSING",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].dataset is None
+    infos = list(api.reporter.infos)
+    assert any(i.title == "Missing Lineage For Report" for i in infos)
+
+
+def test_get_reports_falls_back_to_resolver_when_no_scan_result():
+    """An empty scan_result forces the fallback path: get_reports must call the
+    resolver's get_reports and populate users via get_report_users per report."""
+    api = _make_api()
+    workspace = _make_workspace("WS-NO-SCAN")  # scan_result={} by default
+
+    resolver_report = new_powerbi_reports(
+        workspace,
+        [
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports", return_value=resolver_report),
+        mock.patch.object(api, "get_report_users", return_value=[]) as users_mock,
+        mock.patch.object(resolver, "get_pages_by_report", return_value=[]),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert set(reports) == {"R-1"}
+    users_mock.assert_called_once_with("WS-NO-SCAN", "R-1")
+
+
+def test_get_reports_logs_http_error_when_resolver_get_reports_raises():
+    """When the fallback (no scan_result) path's resolver.get_reports raises,
+    get_reports must swallow the exception via log_http_error and return an
+    empty dict rather than propagate."""
+    api = _make_api()
+    workspace = _make_workspace("WS-NO-SCAN")
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports", side_effect=RuntimeError("boom")),
+        mock.patch.object(api, "log_http_error") as log_mock,
+    ):
+        reports = api.get_reports(workspace)
+
+    assert reports == {}
+    log_mock.assert_called_once()
+
+
+def test_get_reports_populates_tags_from_workspace_endorsements():
+    """When extract_endorsements_to_tags is on, report.tags must be filled from
+    workspace.report_endorsements; off, they must remain empty."""
+    api_on = _make_api(extract_endorsements_to_tags=True)
+    api_off = _make_api(extract_endorsements_to_tags=False)
+    raw = [
+        {
+            Constant.ID: "R-1",
+            Constant.NAME: "rpt",
+            Constant.REPORT_TYPE: "PowerBIReport",
+        }
+    ]
+    endorsements = {"R-1": ["Certified"]}
+
+    for api, expected in [(api_on, ["Certified"]), (api_off, [])]:
+        workspace = _make_workspace_with_scan_reports(
+            raw_reports=raw,
+            report_endorsements=endorsements,
+        )
+        resolver = api._get_resolver()
+        with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+            reports = api.get_reports(workspace)
+        assert reports["R-1"].tags == expected
