@@ -1093,5 +1093,5 @@ def test_model_key_default_sanitizes_colon_in_titan_model_id(pipeline_context):
     )
     semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
     keys = list(_semantic_embeddings(semantic_wu).keys())
-    assert any(":" not in k for k in keys)
+    assert all(":" not in k for k in keys)
     assert "amazon_titan_embed_text_v2_0" in _semantic_embeddings(semantic_wu)
