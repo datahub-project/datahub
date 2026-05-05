@@ -230,16 +230,24 @@ class DltClient:
             )
         except Exception as e:
             logger.warning(
-                "dlt SDK failed for pipeline '%s', falling back to filesystem: %s",
+                "dlt SDK attach failed for pipeline '%s' (%s); falling back to filesystem: %s",
                 pipeline_name,
+                type(e).__name__,
                 e,
+                exc_info=True,
             )
             if self.report is not None:
                 self.report.warning(
-                    title="dlt SDK unavailable",
-                    message="Failed to attach to pipeline via dlt SDK; using filesystem fallback.",
+                    title="dlt SDK attach failed; using filesystem fallback",
+                    message=(
+                        f"Could not attach to pipeline via dlt SDK ({type(e).__name__}: {e}). "
+                        "Falling back to filesystem schema parsing — destination/dataset_name "
+                        "may be incomplete. Verify dlt version compatibility."
+                    ),
                     context=pipeline_name,
+                    exc=e,
                 )
+                self.report.report_schema_read_error()
             return self._get_pipeline_info_from_filesystem(pipeline_name)
 
     def _schema_obj_to_info(
@@ -265,12 +273,22 @@ class DltClient:
                 tables=tables,
             )
         except Exception as e:
-            logger.warning("Could not convert schema '%s' from SDK: %s", schema_name, e)
+            logger.warning(
+                "Could not convert schema '%s' from SDK (%s): %s",
+                schema_name,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             if self.report is not None:
                 self.report.warning(
                     title="Failed to read schema from dlt SDK",
-                    message="Schema could not be converted from the dlt SDK object. Skipping.",
+                    message=(
+                        f"Schema could not be converted from the dlt SDK object "
+                        f"({type(e).__name__}: {e}). Skipping."
+                    ),
                     context=schema_name,
+                    exc=e,
                 )
                 self.report.report_schema_read_error()
             return None
@@ -303,11 +321,27 @@ class DltClient:
                 destination = raw_dest.rsplit(".", 1)[-1] if raw_dest else ""
                 dataset_name = state.get("dataset_name", "")
             except Exception as e:
+                # state.json parse failure silently breaks outlet lineage (no
+                # destination/dataset_name) — must surface to the report.
                 logger.warning(
-                    "Failed to parse state.json for pipeline '%s': %s",
+                    "Failed to parse state.json for pipeline '%s' (%s): %s",
                     pipeline_name,
+                    type(e).__name__,
                     e,
+                    exc_info=True,
                 )
+                if self.report is not None:
+                    self.report.warning(
+                        title="Failed to parse pipeline state.json",
+                        message=(
+                            f"Could not parse state.json ({type(e).__name__}: {e}). "
+                            "destination and dataset_name will be empty — outlet lineage "
+                            "will not be emitted for this pipeline."
+                        ),
+                        context=str(state_file),
+                        exc=e,
+                    )
+                    self.report.report_state_read_error()
         else:
             # state.json is absent — normal for pipelines that haven't completed a run.
             # destination and dataset_name will be empty; outlet lineage will not be constructed.
@@ -354,40 +388,74 @@ class DltClient:
     # Run history (requires dlt SDK + destination access)
     # ------------------------------------------------------------------
 
-    @staticmethod
     def _parse_load_row(
+        self,
         row: Any,
         start_time: Optional[datetime],
         end_time: Optional[datetime],
+        pipeline_name: str = "",
     ) -> Optional[DltLoadInfo]:
         """Parse a single row from _dlt_loads into a DltLoadInfo.
 
-        Returns None when the row falls outside the requested time window so
-        callers can skip it without constructing an intermediate object.
+        Returns None when the row falls outside the requested time window or
+        when the row is malformed (in which case a warning is surfaced to the
+        report and the caller should skip-and-continue rather than abort the
+        whole run-history pull).
 
         `row` is typed as Any because the underlying DB driver row type varies
         (psycopg2 tuple, BigQuery Row, DuckDB tuple, etc.). The SELECT query in
         get_run_history projects exactly five columns in this order:
         load_id, schema_name, status, inserted_at, schema_version_hash.
         """
-        inserted_at = row[3]
-        if isinstance(inserted_at, str):
-            inserted_at = datetime.fromisoformat(inserted_at)
-        if inserted_at.tzinfo is None:
-            inserted_at = inserted_at.replace(tzinfo=timezone.utc)
-        if start_time and inserted_at < start_time:
+        try:
+            if len(row) < 5:
+                raise ValueError(
+                    f"row has {len(row)} columns, expected 5 "
+                    "(load_id, schema_name, status, inserted_at, schema_version_hash)"
+                )
+            inserted_at = row[3]
+            if isinstance(inserted_at, str):
+                inserted_at = datetime.fromisoformat(inserted_at)
+            if inserted_at is None:
+                raise ValueError("inserted_at is NULL")
+            if inserted_at.tzinfo is None:
+                inserted_at = inserted_at.replace(tzinfo=timezone.utc)
+            if start_time and inserted_at < start_time:
+                return None
+            if end_time and inserted_at > end_time:
+                return None
+            # DltLoadStatus._missing_ boxes any non-LOADED int into UNKNOWN.
+            status = DltLoadStatus(int(row[2]))
+            return DltLoadInfo(
+                load_id=str(row[0]),
+                schema_name=str(row[1]),
+                status=status,
+                inserted_at=inserted_at,
+                schema_version_hash=str(row[4]) if row[4] else "",
+            )
+        except Exception as e:
+            # Surface and skip — do not let one bad row tank the rest of the
+            # history pull. Without this, get_run_history's outer except
+            # would discard all good rows that came after the bad one.
+            logger.warning(
+                "Could not parse _dlt_loads row for pipeline '%s' (%s): %s",
+                pipeline_name,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
+            if self.report is not None:
+                self.report.warning(
+                    title="Malformed _dlt_loads row",
+                    message=(
+                        f"Could not parse a row from _dlt_loads "
+                        f"({type(e).__name__}: {e}); skipping."
+                    ),
+                    context=f"pipeline={pipeline_name}, row={row!r}",
+                    exc=e,
+                )
+                self.report.report_malformed_run_history_row()
             return None
-        if end_time and inserted_at > end_time:
-            return None
-        # DltLoadStatus._missing_ boxes any non-LOADED int into UNKNOWN.
-        status = DltLoadStatus(int(row[2]))
-        return DltLoadInfo(
-            load_id=str(row[0]),
-            schema_name=str(row[1]),
-            status=status,
-            inserted_at=inserted_at,
-            schema_version_hash=str(row[4]) if row[4] else "",
-        )
 
     def get_run_history(
         self,
@@ -426,18 +494,34 @@ class DltClient:
                 query = "SELECT load_id, schema_name, status, inserted_at, schema_version_hash FROM _dlt_loads ORDER BY inserted_at DESC"
                 with client.execute_query(query) as cursor:
                     for row in cursor.fetchall():
-                        load = self._parse_load_row(row, start_time, end_time)
+                        load = self._parse_load_row(
+                            row, start_time, end_time, pipeline_name
+                        )
                         if load is not None:
                             loads.append(load)
             return loads
         except Exception as e:
+            # Broad catch is intentional: dlt destination drivers raise
+            # driver-specific exceptions (psycopg2.OperationalError,
+            # google.cloud.exceptions.NotFound, etc.) we cannot enumerate.
+            # Include the exception type so operators can distinguish auth
+            # vs connectivity vs schema issues without grepping logs.
             logger.warning(
-                "Failed to query _dlt_loads for pipeline '%s': %s", pipeline_name, e
+                "Failed to query _dlt_loads for pipeline '%s' (%s): %s",
+                pipeline_name,
+                type(e).__name__,
+                e,
+                exc_info=True,
             )
             if self.report is not None:
                 self.report.warning(
                     title="Run history query failed",
-                    message="Exception while querying _dlt_loads. Check destination credentials and see logs.",
+                    message=(
+                        f"Exception while querying _dlt_loads "
+                        f"({type(e).__name__}: {e}). "
+                        "Check destination credentials and see logs."
+                    ),
                     context=pipeline_name,
+                    exc=e,
                 )
             return None

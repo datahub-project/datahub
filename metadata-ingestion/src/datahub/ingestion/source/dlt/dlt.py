@@ -412,10 +412,33 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        emitted = 0
         for load in loads:
-            yield from self._emit_dpi_for_load(pipeline_info, load)
+            try:
+                yield from self._emit_dpi_for_load(pipeline_info, load)
+                emitted += 1
+            except Exception as e:
+                # Don't let one bad load drop the rest of the run history.
+                logger.warning(
+                    "Failed to emit DataProcessInstance for pipeline '%s' load '%s' (%s): %s",
+                    pipeline_info.pipeline_name,
+                    load.load_id,
+                    type(e).__name__,
+                    e,
+                    exc_info=True,
+                )
+                self.report.warning(
+                    title="Failed to emit run history record",
+                    message=(
+                        f"Could not emit DataProcessInstance for a run "
+                        f"({type(e).__name__}: {e}). Skipping this load and continuing."
+                    ),
+                    context=f"pipeline={pipeline_info.pipeline_name}, load_id={load.load_id}",
+                    exc=e,
+                )
+                self.report.report_run_history_error()
 
-        self.report.report_run_history_loaded(len(loads))
+        self.report.report_run_history_loaded(emitted)
 
     def _emit_dpi_for_load(
         self, pipeline_info: DltPipelineInfo, load: DltLoadInfo
@@ -522,8 +545,10 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         except Exception as e:
+            logger.debug("test_connection failed", exc_info=True)
             report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
+                capable=False,
+                failure_reason=f"{type(e).__name__}: {e}",
             )
         return report
 
