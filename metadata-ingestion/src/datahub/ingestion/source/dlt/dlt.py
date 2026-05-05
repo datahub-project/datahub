@@ -316,23 +316,17 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
           Use for REST API pipelines where all tasks share the same upstream source.
         - source_table_dataset_urns[pipeline_name][table_name]: per-table inlets for 1:1 lineage.
           Use for sql_database pipelines where each DataJob reads from exactly one source table.
+
+        URN strings are validated at config-load time by DltSourceConfig field validators,
+        so DatasetUrn.from_string() here is guaranteed to succeed.
         """
         pipeline_urns = self.config.source_dataset_urns.get(pipeline_name, [])
         table_urns = self.config.source_table_dataset_urns.get(pipeline_name, {}).get(
             table_name, []
         )
-        inlets = []
-        for urn_str in pipeline_urns + table_urns:
-            try:
-                inlets.append(DatasetUrn.from_string(urn_str))
-            except Exception as e:
-                logger.warning("Could not parse inlet URN '%s': %s", urn_str, e)
-                self.report.warning(
-                    title="Invalid inlet dataset URN",
-                    message="Could not parse source_dataset_urns entry. Skipping.",
-                    context=f"pipeline={pipeline_name}, table={table_name}, urn={urn_str}",
-                )
-        return inlets
+        return [
+            DatasetUrn.from_string(urn_str) for urn_str in pipeline_urns + table_urns
+        ]
 
     def _build_fine_grained_lineages(
         self,

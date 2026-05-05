@@ -19,6 +19,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.metadata.urns import DatasetUrn
 
 
 class DestinationPlatformConfig(ConfigModel):
@@ -201,3 +202,45 @@ class DltSourceConfig(
     def expand_user(cls, v: str) -> str:
         """Expand ~ in pipelines_dir to the user's home directory."""
         return str(Path(v).expanduser())
+
+    @field_validator("source_dataset_urns", mode="after")
+    @classmethod
+    def _validate_source_dataset_urns(
+        cls, v: Dict[str, List[str]]
+    ) -> Dict[str, List[str]]:
+        """Reject malformed Dataset URNs at config-load time.
+
+        Without this, a typo in a YAML config would surface as a per-URN
+        report.warning at workunit emission time and silently produce no
+        upstream lineage. Failing fast here gives operators an immediate
+        actionable signal during 'datahub ingest' startup.
+        """
+        for pipeline_name, urn_list in v.items():
+            for urn_str in urn_list:
+                try:
+                    DatasetUrn.from_string(urn_str)
+                except Exception as e:
+                    raise ValueError(
+                        f"Invalid Dataset URN in source_dataset_urns[{pipeline_name!r}]: "
+                        f"{urn_str!r} ({type(e).__name__}: {e})"
+                    ) from e
+        return v
+
+    @field_validator("source_table_dataset_urns", mode="after")
+    @classmethod
+    def _validate_source_table_dataset_urns(
+        cls, v: Dict[str, Dict[str, List[str]]]
+    ) -> Dict[str, Dict[str, List[str]]]:
+        """Reject malformed Dataset URNs in the per-table inlet config at load time."""
+        for pipeline_name, table_map in v.items():
+            for table_name, urn_list in table_map.items():
+                for urn_str in urn_list:
+                    try:
+                        DatasetUrn.from_string(urn_str)
+                    except Exception as e:
+                        raise ValueError(
+                            f"Invalid Dataset URN in "
+                            f"source_table_dataset_urns[{pipeline_name!r}][{table_name!r}]: "
+                            f"{urn_str!r} ({type(e).__name__}: {e})"
+                        ) from e
+        return v
