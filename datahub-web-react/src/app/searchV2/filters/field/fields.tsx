@@ -50,28 +50,28 @@ import TableIcon from '@src/images/table-icon.svg?react';
 
 import { EntityType } from '@types';
 
-export const ENTITY_SUB_TYPE_FILTER: FilterField = {
+const ENTITY_SUB_TYPE_FILTER: FilterField = {
     field: ENTITY_SUB_TYPE_FILTER_NAME,
     displayName: FIELD_TO_LABEL[ENTITY_SUB_TYPE_FILTER_NAME],
     type: FieldType.NESTED_ENTITY_TYPE,
     icon: <FileOutlined />,
 };
 
-export const ENTITY_TYPE_FILTER: FilterField = {
+const ENTITY_TYPE_FILTER: FilterField = {
     field: ENTITY_FILTER_NAME,
     displayName: FIELD_TO_LABEL[ENTITY_FILTER_NAME],
     type: FieldType.ENTITY_TYPE,
     icon: <FileOutlined />,
 };
 
-export const TYPE_NAMES_FILTER: FilterField = {
+const TYPE_NAMES_FILTER: FilterField = {
     field: TYPE_NAMES_FILTER_NAME,
     displayName: FIELD_TO_LABEL[TYPE_NAMES_FILTER_NAME],
     type: FieldType.ENUM,
     icon: <FileOutlined />,
 };
 
-export const PLATFORM_FILTER: FilterField = {
+const PLATFORM_FILTER: FilterField = {
     field: PLATFORM_FILTER_NAME,
     displayName: FIELD_TO_LABEL[PLATFORM_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -79,7 +79,7 @@ export const PLATFORM_FILTER: FilterField = {
     icon: <DatabaseOutlined />,
 };
 
-export const OWNERS_FILTER: FilterField = {
+const OWNERS_FILTER: FilterField = {
     field: OWNERS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[OWNERS_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -87,7 +87,7 @@ export const OWNERS_FILTER: FilterField = {
     icon: <UserOutlined />,
 };
 
-export const DOMAINS_FILTER: FilterField = {
+const DOMAINS_FILTER: FilterField = {
     field: DOMAINS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[DOMAINS_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -95,7 +95,7 @@ export const DOMAINS_FILTER: FilterField = {
     icon: <Globe />,
 };
 
-export const TAGS_FILTER: FilterField = {
+const TAGS_FILTER: FilterField = {
     field: TAGS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[TAGS_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -103,7 +103,7 @@ export const TAGS_FILTER: FilterField = {
     icon: <TagOutlined />,
 };
 
-export const GLOSSARY_TERMS_FILTER: FilterField = {
+const GLOSSARY_TERMS_FILTER: FilterField = {
     field: GLOSSARY_TERMS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[GLOSSARY_TERMS_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -111,7 +111,7 @@ export const GLOSSARY_TERMS_FILTER: FilterField = {
     icon: <BookmarkSimple />,
 };
 
-export const CONTAINER_FILTER: FilterField = {
+const CONTAINER_FILTER: FilterField = {
     field: CONTAINER_FILTER_NAME,
     displayName: FIELD_TO_LABEL[CONTAINER_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -119,14 +119,14 @@ export const CONTAINER_FILTER: FilterField = {
     icon: <FolderOutlined />,
 };
 
-export const FIELD_PATHS_FILTER: FilterField = {
+const FIELD_PATHS_FILTER: FilterField = {
     field: FIELD_PATHS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[FIELD_PATHS_FILTER_NAME],
     type: FieldType.TEXT,
     icon: <LayoutOutlined />,
 };
 
-export const FIELD_TAGS_FILTER: FilterField = {
+const FIELD_TAGS_FILTER: FilterField = {
     field: FIELD_TAGS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[FIELD_TAGS_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -134,7 +134,7 @@ export const FIELD_TAGS_FILTER: FilterField = {
     icon: <TagOutlined />,
 };
 
-export const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
+const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
     field: FIELD_GLOSSARY_TERMS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[FIELD_GLOSSARY_TERMS_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -142,49 +142,49 @@ export const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
     icon: <BookmarkSimple />,
 };
 
-export const DESCRIPTION_FILTER: FilterField = {
+const DESCRIPTION_FILTER: FilterField = {
     field: DESCRIPTION_FILTER_NAME,
     displayName: FIELD_TO_LABEL[DESCRIPTION_FILTER_NAME],
     type: FieldType.TEXT,
     icon: <FileTextOutlined />,
 };
 
-export const FIELD_DESCRIPTIONS_FILTER: FilterField = {
+const FIELD_DESCRIPTIONS_FILTER: FilterField = {
     field: FIELD_DESCRIPTIONS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[FIELD_DESCRIPTIONS_FILTER_NAME],
     type: FieldType.TEXT,
     icon: <FileTextOutlined />,
 };
 
-export const REMOVED_FILTER: FilterField = {
+const REMOVED_FILTER: FilterField = {
     field: REMOVED_FILTER_NAME,
     displayName: FIELD_TO_LABEL[REMOVED_FILTER_NAME],
     type: FieldType.BOOLEAN,
     icon: <DeleteOutlined />,
 };
 
-export const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
+const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
     field: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[HAS_ACTIVE_INCIDENTS_FILTER_NAME],
     type: FieldType.BOOLEAN,
     icon: <WarningOutlined />,
 };
 
-export const HAS_FAILING_ASSERTIONS_FILTER: FilterField = {
+const HAS_FAILING_ASSERTIONS_FILTER: FilterField = {
     field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[HAS_FAILING_ASSERTIONS_FILTER_NAME],
     type: FieldType.BOOLEAN,
     icon: <CloseCircleOutlined />,
 };
 
-export const ORIGIN_FILTER: FilterField = {
+const ORIGIN_FILTER: FilterField = {
     field: ORIGIN_FILTER_NAME,
     displayName: FIELD_TO_LABEL[ORIGIN_FILTER_NAME],
     type: FieldType.ENUM,
     icon: <EnvironmentOutlined />,
 };
 
-export const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
+const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
     field: DATA_PLATFORM_INSTANCE_FILTER_NAME,
     displayName: FIELD_TO_LABEL[DATA_PLATFORM_INSTANCE_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -192,7 +192,7 @@ export const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
     entityTypes: [EntityType.DataPlatformInstance],
 };
 
-export const DATA_PRODUCT_FILTER: FilterField = {
+const DATA_PRODUCT_FILTER: FilterField = {
     field: DATA_PRODUCT_FILTER_NAME,
     displayName: FIELD_TO_LABEL[DATA_PRODUCT_FILTER_NAME],
     type: FieldType.ENTITY,
@@ -206,7 +206,7 @@ export const STRUCTURED_PROPERTY_FILTER: FilterField = {
     icon: <Icon component={TableIcon} />,
 };
 
-export const HAS_SIBLINGS_FILTER: FilterField = {
+const HAS_SIBLINGS_FILTER: FilterField = {
     field: HAS_SIBLINGS_FILTER_NAME,
     displayName: FIELD_TO_LABEL[HAS_SIBLINGS_FILTER_NAME],
     type: FieldType.BOOLEAN,
@@ -257,7 +257,7 @@ export const LAST_MODIFIED_FILTER: FilterField = {
     ],
 };
 
-export const BROWSE_FILTER: FilterField = {
+const BROWSE_FILTER: FilterField = {
     field: BROWSE_PATH_V2_FILTER_NAME,
     displayName: FIELD_TO_LABEL[BROWSE_PATH_V2_FILTER_NAME],
     type: FieldType.BROWSE_PATH,
@@ -285,29 +285,6 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     ORIGIN_FILTER,
     DATA_PLATFORM_INSTANCE_FILTER,
     HAS_SIBLINGS_FILTER,
-];
-
-export const VIEW_BUILDER_FIELDS: FilterField[] = [
-    ENTITY_TYPE_FILTER,
-    TYPE_NAMES_FILTER,
-    PLATFORM_FILTER,
-    OWNERS_FILTER,
-    DOMAINS_FILTER,
-    DATA_PRODUCT_FILTER,
-    LAST_MODIFIED_FILTER,
-    TAGS_FILTER,
-    GLOSSARY_TERMS_FILTER,
-    CONTAINER_FILTER,
-    FIELD_PATHS_FILTER,
-    FIELD_TAGS_FILTER,
-    FIELD_GLOSSARY_TERMS_FILTER,
-    DESCRIPTION_FILTER,
-    FIELD_DESCRIPTIONS_FILTER,
-    REMOVED_FILTER,
-    HAS_ACTIVE_INCIDENTS_FILTER,
-    HAS_FAILING_ASSERTIONS_FILTER,
-    ORIGIN_FILTER,
-    DATA_PLATFORM_INSTANCE_FILTER,
 ];
 
 export const ALL_FILTER_FIELDS: FilterField[] = [

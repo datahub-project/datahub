@@ -72,7 +72,7 @@ type VolumeTypeField =
     | 'incrementingSegmentRowCountTotal'
     | 'incrementingSegmentRowCountChange';
 
-export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
+const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
     switch (type) {
         case VolumeAssertionType.RowCountTotal:
             return 'rowCountTotal' as VolumeTypeField;

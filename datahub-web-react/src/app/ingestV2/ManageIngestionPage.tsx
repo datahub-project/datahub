@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -27,7 +26,7 @@ import { PageRoutes } from '@conf/Global';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     ${(props) =>
@@ -35,7 +34,7 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         `
  overflow: hidden;
  margin: 5px;
- box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+box-shadow: ${props.theme.colors.shadowSm};
  height: 100%;
  `}
 `;

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.ToString;
 import lombok.Value;
 
@@ -21,4 +22,11 @@ public class SqlSetupArgs {
   String host;
   int port;
   String databaseName;
+
+  @Getter(lombok.AccessLevel.NONE)
+  boolean createSchemaVersionIndex;
+
+  public boolean createSchemaVersionIndex() {
+    return createSchemaVersionIndex;
+  }
 }

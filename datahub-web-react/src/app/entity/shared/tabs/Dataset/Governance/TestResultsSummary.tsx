@@ -31,7 +31,7 @@ const SummaryTitle = styled(Typography.Title)`
     }
 `;
 
-export type TestsSummary = {
+type TestsSummary = {
     failing: number;
     passing: number;
     total: number;

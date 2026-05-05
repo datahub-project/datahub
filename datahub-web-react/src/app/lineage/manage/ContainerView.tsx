@@ -4,7 +4,7 @@ import { StyledRightOutlined } from '@app/entity/shared/containers/profile/heade
 
 import { Container } from '@types';
 
-export interface ContainerViewProps {
+interface ContainerViewProps {
     directContainer: Container | undefined | null;
     remainingContainers: Container[] | undefined | null;
 }

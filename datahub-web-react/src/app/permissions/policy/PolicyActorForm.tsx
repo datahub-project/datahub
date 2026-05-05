@@ -1,10 +1,11 @@
-import { Text } from '@components';
+import { Avatar, Text } from '@components';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { CustomAvatar } from '@app/shared/avatar';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -219,7 +220,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         return (
             <SearchResultContainer>
                 <SearchResultContent>
-                    <CustomAvatar size={20} name={displayName} photoUrl={avatarUrl} hideTooltip />
+                    <Avatar
+                        name={displayName}
+                        imageUrl={avatarUrl}
+                        type={result.entity.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
+                    />
                     <Text color="gray" size="sm">
                         {displayName}
                     </Text>

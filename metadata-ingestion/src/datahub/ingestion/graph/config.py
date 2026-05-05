@@ -24,6 +24,8 @@ class DatahubClientConfig(ConfigModel):
     timeout_sec: Optional[float] = None
     retry_status_codes: Optional[List[int]] = None
     retry_max_times: Optional[int] = None
+    pool_connections: Optional[int] = None
+    pool_maxsize: Optional[int] = None
     extra_headers: Optional[Dict[str, str]] = None
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
@@ -32,5 +34,9 @@ class DatahubClientConfig(ConfigModel):
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None
+    # Enables TCP keepalive on the underlying HTTP session, which prevents idle
+    # connections from being silently dropped by intermediaries (e.g. NAT
+    # gateways) and surfacing as SSLEOFError on reuse.
+    tcp_keepalive: bool = False
 
     model_config = ConfigDict(extra="ignore")

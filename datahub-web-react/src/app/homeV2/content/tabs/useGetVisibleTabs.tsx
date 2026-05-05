@@ -2,7 +2,7 @@ import { Tab } from '@components/components/Tabs/Tabs';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANNOUNCEMENTS_TAB, DISCOVER_TAB, TabType } from '@app/homeV2/content/tabs/tabs';
+import { ANNOUNCEMENTS_TAB, DISCOVER_TAB } from '@app/homeV2/content/tabs/tabs';
 import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLastViewedAnnouncementTime';
 import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
 import { hasViewedAnnouncement } from '@app/homeV2/shared/utils';
@@ -65,12 +65,6 @@ const useGetAnnouncementsExists = (): Tab | null => {
 const useGetActivityExists = (): Tab | null => {
     // TODO: Activity tab
     return null;
-};
-
-export type ActiveTab = {
-    key: TabType;
-    count?: number;
-    onSelectTab?: () => void; // Refetch count, etc
 };
 
 export const useGetActiveTabs = (): Tab[] => {

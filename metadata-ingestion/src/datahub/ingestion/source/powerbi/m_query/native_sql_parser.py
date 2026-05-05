@@ -7,6 +7,7 @@ import sqlparse
 from datahub.ingestion.api.common import PipelineContext
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
+    create_lineage_from_sql_statements,
     create_lineage_sql_parsed_result,
 )
 
@@ -69,33 +70,66 @@ def get_tables(native_query: str) -> List[str]:
     return tables
 
 
-def remove_drop_statement(query: str) -> str:
-    # Certain PowerBI M-Queries contain a combination of DROP and SELECT statements within SQL, causing SQLParser to fail on these queries.
-    # Therefore, these occurrences are being removed.
+def remove_tsql_control_statements(query: str) -> str:
+    # Certain PowerBI M-Queries embed T-SQL control flow statements (USE, SET, GO, DROP)
+    # that are not valid in standard SQL dialects and cause the SQL parser to fail.
+    # Strip them before parsing so we can still extract lineage from the SELECT statements.
 
     patterns = [
-        # Regular expression to match patterns like:
-        #   "DROP TABLE IF EXISTS #<identifier>;"
-        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...;"
-        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...\n"
+        # DROP TABLE IF EXISTS #<temp> — temp table cleanup between statements
         r"DROP\s+TABLE\s+IF\s+EXISTS\s+(?:#?\w+(?:,\s*#?\w+)*)[;\n]",
+        # USE <database> — T-SQL database context switch; \S+ handles both plain
+        # identifiers (USE Reports) and bracketed ones (USE [Reports])
+        r"^\s*USE\s+\S+\s*$",
+        # SET <option> ON|OFF — T-SQL session-level options (NOCOUNT, QUOTED_IDENTIFIER, etc.)
+        r"^\s*SET\s+\w+\s+(?:ON|OFF)\s*;?\s*$",
+        # GO — T-SQL batch separator
+        r"^\s*GO\s*$",
     ]
 
     new_query = query
 
     for pattern in patterns:
-        new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE)
+        new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE | re.MULTILINE)
+
+    # SELECT … INTO #<temp> — strip only the INTO clause so FROM/WHERE lineage remains
+    # parseable. Anchored to SELECT so INSERT INTO and MERGE INTO are never matched.
+    # [^;\n] stops at semicolons and uses \n(?!\s*\n) to not cross blank lines,
+    # preventing a SELECT in one statement from reaching an INSERT INTO in the next.
+    new_query = re.sub(
+        r"(SELECT\b(?:[^;\n]|\n(?!\s*\n))*?)\s+INTO\s+##?\w+",
+        r"\1",
+        new_query,
+        flags=re.IGNORECASE,
+    )
+
+    # Leading semicolon before WITH — T-SQL defensive pattern (;WITH ...) used to ensure
+    # the previous statement is terminated before a CTE. Strip only the semicolon,
+    # preserving the WITH keyword so sqlglot can parse the CTE correctly.
+    before = new_query
+    new_query = re.sub(
+        r"^\s*;(\s*WITH\b)", r"\1", new_query, flags=re.IGNORECASE | re.MULTILINE
+    )
+    if new_query != before:
+        logger.debug("Stripped leading semicolon before WITH (CTE defensive pattern)")
 
     # Only normalize multiple consecutive spaces (but preserve newlines and tabs)
-    # This fixes spacing issues caused by DROP statement removal without
+    # This fixes spacing issues caused by statement removal without
     # collapsing the entire query into a single line
     new_query = re.sub(r"[ \t]+", " ", new_query)
-    # Remove spaces at the start of lines (left by DROP statement removal)
+    # Remove spaces at the start of lines
     new_query = re.sub(r"\n[ \t]+", "\n", new_query)
+    # Collapse 3+ consecutive blank lines down to one
+    new_query = re.sub(r"\n{3,}", "\n\n", new_query)
     # Remove trailing spaces
     new_query = new_query.strip()
 
     return new_query
+
+
+def remove_drop_statement(query: str) -> str:
+    # Kept for backwards compatibility — delegates to the broader T-SQL cleanup function.
+    return remove_tsql_control_statements(query)
 
 
 def parse_custom_sql(
@@ -108,15 +142,32 @@ def parse_custom_sql(
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
     logger.debug("Using sqlglot_lineage to parse custom sql")
-
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
 
-    return create_lineage_sql_parsed_result(
-        query=query,
-        default_schema=schema,
-        default_db=database,
-        platform=platform,
-        platform_instance=platform_instance,
-        env=env,
-        graph=ctx.graph,
-    )
+    # Blank-line-separated SELECTs appear after DROP TABLE stripping removes the DDL
+    # between statements, leaving no semicolons. Insert them so the multi-statement
+    # check below treats them correctly.
+    normalized = re.sub(r"\n{2,}(\s*SELECT\b)", r";\n\n\1", query, flags=re.IGNORECASE)
+
+    if ";" in normalized:
+        result = create_lineage_from_sql_statements(
+            queries=normalized,
+            default_schema=schema,
+            default_db=database,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=ctx.graph,
+        )
+    else:
+        result = create_lineage_sql_parsed_result(
+            query=query,
+            default_schema=schema,
+            default_db=database,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=ctx.graph,
+        )
+
+    return result

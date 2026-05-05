@@ -86,7 +86,7 @@ type Props = {
     selectedVersion: string;
     versionList: Array<SemanticVersionStruct>;
     showSchemaTimeline: boolean;
-    setShowSchemaTimeline: any;
+    setShowSchemaTimeline: (show: boolean) => void;
     filterText: string;
     setFilterText: (text: string) => void;
     numRows: number;

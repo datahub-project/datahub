@@ -10,7 +10,7 @@ interface ShowVerificationPromptProps {
     formVerification?: FormVerificationAssociation;
 }
 
-export function shouldShowVerificationPrompt({
+function shouldShowVerificationPrompt({
     formType,
     numRequiredPromptsRemaining,
     formVerification,

@@ -10,16 +10,8 @@ This guide assumes you have already set up your local development environment pe
 
 ## Installing datahub-skills
 
-**Option 1 — install script (recommended):**
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/acryldata/datahub-skills/main/install.sh | bash
-```
-
-**Option 2 — npx:**
-
-```bash
-npx datahub-skills install
+npx skills add datahub-project/datahub-skills
 ```
 
 After installation, confirm the plugin is registered:

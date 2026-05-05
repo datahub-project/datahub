@@ -12,7 +12,7 @@ import {
 } from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
 import { RESULT_STATUS_ALL_VALUE } from '@app/ingestV2/shared/components/filters/ResultStatusFilter';
 
-export type FacetFilterInput = {
+type FacetFilterInput = {
     field: string;
     negated?: boolean;
     values?: string[];

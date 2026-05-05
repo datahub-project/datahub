@@ -1,12 +1,11 @@
 import datetime
 import json
 import logging
-from collections import defaultdict
+import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
     Any,
-    DefaultDict,
     Dict,
     Iterable,
     Iterator,
@@ -14,9 +13,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
-    Set,
     Tuple,
-    Union,
 )
 from urllib.parse import urlparse
 
@@ -29,7 +26,7 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
@@ -109,22 +106,29 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    DataTransformClass,
+    DataTransformLogicClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
+    OperationClass,
+    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
+    QueryLanguageClass,
+    QueryStatementClass,
     SchemaMetadataClass,
     TagAssociationClass,
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
@@ -136,6 +140,55 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
+JDBC_PLATFORM_MAP: Dict[str, str] = {
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "mariadb": "mysql",
+    "redshift": "redshift",
+    "oracle": "oracle",
+    "sqlserver": "mssql",
+}
+
+JDBC_DEFAULT_SCHEMA: Dict[str, str] = {
+    "postgres": "public",
+    "redshift": "public",
+    "mssql": "dbo",
+}
+
+GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
+    "POSTGRESQL": "postgres",
+    "MYSQL": "mysql",
+    "REDSHIFT": "redshift",
+    "ORACLE": "oracle",
+    "SQLSERVER": "mssql",
+}
+
+JDBC_PREFIX = "jdbc:"
+
+
+def _sanitize_jdbc_url(jdbc_url: str) -> str:
+    """Strip credentials and query parameters from a JDBC URL for safe logging."""
+    inner = (
+        jdbc_url[len(JDBC_PREFIX) :] if jdbc_url.startswith(JDBC_PREFIX) else jdbc_url
+    )
+    parsed = urlparse(inner)
+    safe_netloc = parsed.hostname or ""
+    if parsed.port:
+        safe_netloc = f"{safe_netloc}:{parsed.port}"
+    return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
+
+
+class TargetPlatformConfig(ConfigModel):
+    """Config for aligning dataset URNs with a separately ingested platform."""
+
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance used by the separate ingestion of this platform.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment used by the separate ingestion of this platform. Defaults to the Glue source env.",
+    )
 
 
 class GlueSourceConfig(
@@ -217,6 +270,17 @@ class GlueSourceConfig(
     include_column_lineage: bool = Field(
         default=True,
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+    )
+
+    target_platform_configs: Dict[str, TargetPlatformConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Optional per-platform config for aligning dataset URNs with separately ingested platforms. "
+            "Keys are DataHub platform names (e.g. 'postgres', 'mysql', 'redshift'). "
+            "When provided, the platform_instance and env are applied to dataset URNs so they match "
+            "the URNs produced by the platform's own connector. "
+            "Only needed when the target platform's connector uses a platform_instance or a different env."
+        ),
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -328,6 +392,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self.lf_client = config.lakeformation_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+        self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -467,18 +532,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return jobs
 
-    def get_dataflow_graph(
-        self, script_path: str, flow_urn: str
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Get the DAG of transforms and data sources/sinks for a job.
-
-        Parameters
-        ----------
-            script_path:
-                S3 path to the job's Python script.
-        """
-
+    def get_dataflow_script(self, script_path: str, flow_urn: str) -> Optional[str]:
         # handle a bug in AWS where script path has duplicate prefixes
         if script_path.lower().startswith("s3://s3://"):
             script_path = script_path[5:]
@@ -525,7 +579,19 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.num_job_script_location_invalid += 1
             return None
 
-        script = obj["Body"].read().decode("utf-8")
+        return obj["Body"].read().decode("utf-8")
+
+    def get_dataflow_graph(
+        self, script: str, script_path: str, flow_urn: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the DAG of transforms and data sources/sinks for a job.
+
+        Parameters
+        ----------
+            script_path:
+                S3 path to the job's Python script.
+        """
 
         try:
             # extract the job DAG from the script
@@ -551,6 +617,118 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return s3_uri
 
+    def _parse_jdbc_url(self, jdbc_url: str) -> Tuple[str, str]:
+        """Parse a JDBC URL and return (platform, database).
+
+        Strips the "jdbc:" prefix then uses urlparse to extract the protocol
+        (mapped to a DataHub platform name) and the database from the path.
+        """
+        if not jdbc_url.startswith(JDBC_PREFIX):
+            raise ValueError(f"Not a valid JDBC URL: {_sanitize_jdbc_url(jdbc_url)}")
+        url = urlparse(jdbc_url[len(JDBC_PREFIX) :])
+        protocol = url.scheme.lower()
+        platform = JDBC_PLATFORM_MAP.get(protocol, protocol)
+        database = url.path.lstrip("/").split("?")[0]
+        if not database:
+            props = dict(
+                part.split("=", 1) for part in url.netloc.split(";")[1:] if "=" in part
+            )
+            database = props.get("databaseName", "")
+        return platform, database
+
+    def _extract_urns_from_query(
+        self, query: str, platform: str, database: str, flow_urn: str, node_label: str
+    ) -> Optional[List[str]]:
+        """Parse a SQL query and return DataHub URNs for all referenced input tables.
+
+        Uses dialect-aware parsing via sqlglot_lineage with default schema resolution.
+        Returns None on parse failure or when no tables are found.
+        """
+        result = create_lineage_sql_parsed_result(
+            query=query,
+            default_db=database,
+            platform=platform,
+            platform_instance=None,
+            env=self.env,
+            default_schema=JDBC_DEFAULT_SCHEMA.get(platform),
+            schema_aware=False,
+            generate_column_lineage=False,
+        )
+        if result.debug_info.error:
+            self.report_warning(
+                flow_urn,
+                f"Failed to parse SQL query for node {node_label}: {result.debug_info.error}. Skipping",
+            )
+            return None
+        if not result.in_tables:
+            self.report_warning(
+                flow_urn,
+                f"No tables found in SQL query for node {node_label}. Skipping",
+            )
+            return None
+        return result.in_tables
+
+    def _resolve_glue_connection(
+        self, connection_name: str, flow_urn: str
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a named Glue connection to (platform, database)."""
+        if connection_name in self._glue_connection_cache:
+            return self._glue_connection_cache[connection_name]
+
+        result: Optional[Tuple[str, str]] = None
+        try:
+            kwargs: Dict[str, Any] = {"Name": connection_name, "HidePassword": True}
+            if self.source_config.catalog_id:
+                kwargs["CatalogId"] = self.source_config.catalog_id
+            response = self.glue_client.get_connection(**kwargs)
+            connection = response["Connection"]
+            conn_type = connection.get("ConnectionType", "")
+            props = connection.get("ConnectionProperties", {})
+            spark_props = connection.get("SparkProperties", {})
+
+            if conn_type == "JDBC":
+                jdbc_url = props.get("JDBC_CONNECTION_URL") or spark_props.get(
+                    "JDBC_CONNECTION_URL"
+                )
+                if not jdbc_url:
+                    self.report_warning(
+                        flow_urn,
+                        f"Glue connection {connection_name!r} has no JDBC_CONNECTION_URL. Skipping",
+                    )
+                else:
+                    try:
+                        result = self._parse_jdbc_url(jdbc_url)
+                    except Exception as e:
+                        self.report_warning(
+                            flow_urn,
+                            f"Failed to parse JDBC URL for connection {connection_name!r}: {e}. Skipping",
+                        )
+                        result = None
+            elif conn_type in GLUE_NATIVE_CONNECTION_TYPE_MAP:
+                platform = GLUE_NATIVE_CONNECTION_TYPE_MAP[conn_type]
+                database = props.get("DATABASE")
+                if not database:
+                    self.report_warning(
+                        flow_urn,
+                        f"Glue connection {connection_name!r} has no DATABASE property. Skipping",
+                    )
+                else:
+                    result = (platform, database)
+            else:
+                self.report_warning(
+                    flow_urn,
+                    f"Unsupported Glue connection type {conn_type!r} for connection {connection_name!r}. Skipping",
+                )
+        except Exception as e:
+            self.report_warning(
+                flow_urn,
+                f"Failed to fetch Glue connection {connection_name!r}: {e}. Skipping",
+            )
+            return None
+
+        self._glue_connection_cache[connection_name] = result
+        return result
+
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
     ) -> Iterator[Tuple[str, Optional[str]]]:
@@ -575,15 +753,117 @@ class GlueSource(StatefulIngestionSourceBase):
 
                     yield s3_uri, extension
 
+    def _make_dataset_urn_for_platform(self, platform: str, dataset_name: str) -> str:
+        """Build a dataset URN using target_platform_configs if available.
+
+        If target_platform_configs has an entry for this platform, applies its
+        platform_instance and env so the URN matches what the platform's own
+        connector produces.
+        """
+        target_config = self.source_config.target_platform_configs.get(platform)
+        return make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=dataset_name,
+            env=target_config.env if target_config and target_config.env else self.env,
+            platform_instance=(
+                target_config.platform_instance if target_config else None
+            ),
+        )
+
+    def _build_jdbc_dataset_name(
+        self, platform: str, database: str, dbtable: str
+    ) -> str:
+        if "." in dbtable:
+            schema, table = dbtable.rsplit(".", 1)
+            return f"{database}.{schema}.{table}"
+        default_schema = JDBC_DEFAULT_SCHEMA.get(platform)
+        if default_schema:
+            return f"{database}.{default_schema}.{dbtable}"
+        return f"{database}.{dbtable}"
+
+    def _process_glue_connection_node(
+        self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
+    ) -> Optional[List[str]]:
+        connection_options = node_args.get("connection_options", {})
+        connection_name = connection_options.get("connectionName")
+        if not connection_name:
+            return None
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        resolved = self._resolve_glue_connection(connection_name, flow_urn)
+        if resolved is None:
+            return None
+        platform, database = resolved
+
+        dbtable = connection_options.get("dbtable")
+        if dbtable:
+            return [
+                self._make_dataset_urn_for_platform(
+                    platform,
+                    self._build_jdbc_dataset_name(platform, database, dbtable),
+                )
+            ]
+
+        query = connection_options.get("query")
+        if query:
+            return self._extract_urns_from_query(
+                query, platform, database, flow_urn, node_label
+            )
+
+        self.report_warning(
+            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        )
+        return None
+
+    def _process_jdbc_node(
+        self, node: Dict[str, Any], node_args: Dict[str, Any], flow_urn: str
+    ) -> Optional[List[str]]:
+        connection_options = node_args.get("connection_options", {})
+        jdbc_url = connection_options.get("url")
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        if not jdbc_url:
+            self.report_warning(
+                flow_urn, f"Missing JDBC URL for node {node_label}. Skipping"
+            )
+            return None
+
+        try:
+            platform, database = self._parse_jdbc_url(jdbc_url)
+        except ValueError as e:
+            self.report_warning(
+                flow_urn,
+                f"Failed to parse JDBC URL for node {node_label}: {e}. Skipping",
+            )
+            return None
+
+        dbtable = connection_options.get("dbtable")
+        if dbtable:
+            return [
+                self._make_dataset_urn_for_platform(
+                    platform,
+                    self._build_jdbc_dataset_name(platform, database, dbtable),
+                )
+            ]
+
+        query = connection_options.get("query")
+        if query:
+            return self._extract_urns_from_query(
+                query, platform, database, flow_urn, node_label
+            )
+
+        self.report_warning(
+            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        )
+        return None
+
     def process_dataflow_node(
         self,
         node: Dict[str, Any],
         flow_urn: str,
-        new_dataset_ids: List[str],
-        new_dataset_mces: List[MetadataChangeEvent],
-        s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
         node_type = node["NodeType"]
+        dataset_urns: Optional[List[str]] = None
 
         # for nodes representing datasets, we construct a dataset URN accordingly
         if node_type in ["DataSource", "DataSink"]:
@@ -608,37 +888,29 @@ class GlueSource(StatefulIngestionSourceBase):
                 if s3_uri is None:
                     self.report_warning(
                         flow_urn,
-                        f"Could not find script path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
+                        f"Could not find S3 path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
                     )
                     return None
 
-                # append S3 format if different ones exist
-                if len(s3_formats[s3_uri]) > 1:
-                    node_urn = make_s3_urn(
-                        f"{s3_uri}.{node_args.get('format')}",
-                        self.env,
-                    )
+                node_urn = make_s3_urn(s3_uri, self.env)
 
-                else:
-                    node_urn = make_s3_urn(s3_uri, self.env)
+            # if data object references a named Glue connection (visual editor style)
+            elif (node_args.get("connection_options") or {}).get("connectionName"):
+                _urns = self._process_glue_connection_node(node, node_args, flow_urn)
+                if not _urns:
+                    return None
+                node_urn = _urns[0]
+                if len(_urns) > 1:
+                    dataset_urns = _urns
 
-                dataset_snapshot = DatasetSnapshot(
-                    urn=node_urn,
-                    aspects=[],
-                )
-
-                dataset_snapshot.aspects.append(Status(removed=False))
-                dataset_snapshot.aspects.append(
-                    DatasetPropertiesClass(
-                        customProperties={k: str(v) for k, v in node_args.items()},
-                        tags=[],
-                    )
-                )
-
-                new_dataset_mces.append(
-                    MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                )
-                new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
+            # if data object is a JDBC source (e.g. Postgres, MySQL, Redshift)
+            elif node_args.get("connection_type") in JDBC_PLATFORM_MAP:
+                _urns = self._process_jdbc_node(node, node_args, flow_urn)
+                if not _urns:
+                    return None
+                node_urn = _urns[0]
+                if len(_urns) > 1:
+                    dataset_urns = _urns
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
@@ -656,7 +928,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 flow_urn, job_id=f"{node['NodeType']}-{node['Id']}"
             )
 
-        return {
+        result: Dict[str, Any] = {
             **node,
             "urn": node_urn,
             # to be filled in after traversing edges
@@ -664,13 +936,15 @@ class GlueSource(StatefulIngestionSourceBase):
             "inputDatasets": [],
             "outputDatasets": [],
         }
+        if dataset_urns is not None:
+            result["dataset_urns"] = dataset_urns
+        return result
 
     def process_dataflow_graph(
         self,
         dataflow_graph: Dict[str, Any],
         flow_urn: str,
-        s3_formats: DefaultDict[str, Set[Union[str, None]]],
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Prepare a job's DAG for ingestion.
         Parameters
@@ -679,20 +953,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 Job DAG returned from get_dataflow_graph()
             flow_urn:
                 URN of the flow (i.e. the AWS Glue job itself).
-            s3_formats:
-                Map from s3 URIs to formats used (for deduplication purposes)
         """
-
-        new_dataset_ids: List[str] = []
-        new_dataset_mces: List[MetadataChangeEvent] = []
 
         nodes: dict = {}
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
-            processed_node = self.process_dataflow_node(
-                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
-            )
+            processed_node = self.process_dataflow_node(node, flow_urn)
 
             if processed_node is not None:
                 nodes[node["Id"]] = processed_node
@@ -718,7 +985,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # note that source nodes can't be data sinks
             if source_node_type == "DataSource":
-                target_node["inputDatasets"].append(source_node["urn"])
+                target_node["inputDatasets"].extend(
+                    source_node.get("dataset_urns", [source_node["urn"]])
+                )
             # keep track of input data jobs (as defined in schemas)
             else:
                 target_node["inputDatajobs"].append(source_node["urn"])
@@ -726,7 +995,7 @@ class GlueSource(StatefulIngestionSourceBase):
             if target_node_type == "DataSink":
                 source_node["outputDatasets"].append(target_node["urn"])
 
-        return nodes, new_dataset_ids, new_dataset_mces
+        return nodes
 
     def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]) -> MetadataWorkUnit:
         """
@@ -772,6 +1041,48 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
+
+    def get_datajob_wus_for_dataflow(
+        self, flow_urn: str, job_name: str, script: Optional[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate a DataJob workunit for a Glue job with no nodes.
+        """
+
+        job_urn = mce_builder.make_data_job_urn_with_flow(flow_urn, job_id=job_name)
+
+        region = self.source_config.aws_region
+        yield MetadataChangeProposalWrapper(
+            entityUrn=job_urn,
+            aspect=DataJobInfoClass(
+                name=job_name,
+                type="GLUE",
+                externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
+                customProperties={},
+            ),
+        ).as_workunit()
+
+        if script:
+            redacted_script = _redact_secret_fields_in_dataflow_script(script)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataTransformLogicClass(
+                    transforms=[
+                        DataTransformClass(
+                            queryStatement=QueryStatementClass(
+                                value=redacted_script,
+                                # The language field uses a pretty limited enum.
+                                # The "UNKNOWN" enum value is pretty new, so we don't want to
+                                # emit it until it has broader server-side support. As a
+                                # short-term solution, we map all languages to "SQL".
+                                # TODO: Once we've released server 1.1.0, we should change
+                                # this to be "UNKNOWN" for all languages except "SQL".
+                                language=QueryLanguageClass.SQL,
+                            )
+                        )
+                    ]
+                ),
+            ).as_workunit()
 
     def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
         """
@@ -855,10 +1166,20 @@ class GlueSource(StatefulIngestionSourceBase):
             paginator_response = paginator.paginate(DatabaseName=database_name)
 
         for table in paginator_response.search("TableList"):
-            # if resource links are detected, re-use database names from the current catalog
-            # otherwise, external names are picked up instead of aliased ones when creating full table names later
-            # This will cause an incoherent situation when creating full table names later
-            # Note: use an explicit source_config check but it is useless actually (filtering has already been done)
+            # Lake Formation can share individual tables across accounts as table-level
+            # resource links (table has a TargetTable pointing at the shared table).
+            # Database-level filtering in get_all_databases() does not catch these,
+            # since they live inside non-resource-link databases.
+            if self.source_config.ignore_resource_links and "TargetTable" in table:
+                logger.debug(
+                    f"Skipping resource link table {database_name}.{table.get('Name')} "
+                    f"(TargetTable: {table.get('TargetTable')})"
+                )
+                continue
+
+            # When ingesting resource-link databases (ignore_resource_links=False),
+            # rewrite DatabaseName to the local alias so downstream URN construction
+            # uses the catalog-local name instead of the target catalog's name.
             if (
                 not self.source_config.ignore_resource_links
                 and "TargetDatabase" in database
@@ -1337,8 +1658,6 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
-        dags: Dict[str, Optional[Dict[str, Any]]] = {}
-        flow_names: Dict[str, str] = {}
         for job in self.get_all_jobs():
             flow_urn = mce_builder.make_data_flow_urn(
                 self.platform, job["Name"], self.env
@@ -1348,49 +1667,36 @@ class GlueSource(StatefulIngestionSourceBase):
 
             job_script_location = job.get("Command", {}).get("ScriptLocation")
 
-            dag: Optional[Dict[str, Any]] = None
-
+            job_script: Optional[str] = None
             if job_script_location is not None:
-                dag = self.get_dataflow_graph(job_script_location, flow_urn)
+                job_script = self.get_dataflow_script(job_script_location, flow_urn)
             else:
                 self.report.num_job_script_location_missing += 1
 
-            dags[flow_urn] = dag
-            flow_names[flow_urn] = job["Name"]
-        # run a first pass to pick up s3 bucket names and formats
-        # in Glue, it's possible for two buckets to have files of different extensions
-        # if this happens, we append the extension in the URN so the sources can be distinguished
-        # see process_dataflow_node() for details
-        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(set)
-        for dag in dags.values():
-            if dag is not None:
-                for s3_name, extension in self.get_dataflow_s3_names(dag):
-                    s3_formats[s3_name].add(extension)
-        # run second pass to generate node workunits
-        for flow_urn, dag in dags.items():
-            if dag is None:
-                continue
+            dag: Optional[Dict[str, Any]] = None
+            if job_script:
+                dag = self.get_dataflow_graph(job_script, job_script_location, flow_urn)
 
-            nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
-                dag, flow_urn, s3_formats
-            )
+            nodes: Optional[dict] = None
+            if dag is not None:
+                nodes = self.process_dataflow_graph(dag, flow_urn)
+                if not nodes:
+                    self.report.num_job_without_nodes += 1
 
             if not nodes:
-                self.report.num_job_without_nodes += 1
+                yield from self.get_datajob_wus_for_dataflow(
+                    flow_urn, job["Name"], job_script
+                )
+                continue
 
             for node in nodes.values():
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
-                    yield self.get_datajob_wu(node, flow_names[flow_urn])
+                    yield self.get_datajob_wu(node, job["Name"])
                 elif (node["NodeType"] == "DataSource" and node["outputDatasets"]) or (
                     node["NodeType"] == "DataSink" and node["inputDatasets"]
                 ):
                     # Not common, but capturing counts here for reporting
                     self.report.num_dataset_to_dataset_edges_in_job += 1
-
-            for dataset_id, dataset_mce in zip(
-                new_dataset_ids, new_dataset_mces, strict=False
-            ):
-                yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
 
     def _extract_record(
         self, dataset_urn: str, table: Dict, table_name: str
@@ -1401,13 +1707,37 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         # Create the main dataset snapshot
+        dataset_properties = self._get_dataset_properties(table)
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[
                 Status(removed=False),
-                self._get_dataset_properties(table),
+                dataset_properties,
             ],
         )
+
+        # Add operations if available
+        if dataset_properties.created:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.CREATE,
+                    lastUpdatedTimestamp=dataset_properties.created.time,
+                    timestampMillis=dataset_properties.created.time,
+                ),
+            ).as_workunit()
+        if (
+            dataset_properties.lastModified
+            and dataset_properties.lastModified != dataset_properties.created
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.UPDATE,
+                    lastUpdatedTimestamp=dataset_properties.lastModified.time,
+                    timestampMillis=dataset_properties.lastModified.time,
+                ),
+            ).as_workunit()
 
         # Add schema metadata if available
         schema_metadata = self._get_schema_metadata(table, table_name, dataset_urn)
@@ -1476,6 +1806,14 @@ class GlueSource(StatefulIngestionSourceBase):
             },
         }
 
+        created = None
+        if table.get("CreateTime"):
+            created_ts = make_ts_millis(
+                table["CreateTime"].replace(tzinfo=datetime.timezone.utc)
+            )
+            if created_ts is not None:
+                created = TimeStampClass(created_ts)
+
         last_modified = None
         if table.get("UpdateTime"):
             updated_ts = make_ts_millis(
@@ -1495,6 +1833,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 database=table["DatabaseName"],
                 table=table["Name"],
             ),
+            created=created,
             lastModified=last_modified,
         )
 
@@ -1734,3 +2073,14 @@ class GlueSource(StatefulIngestionSourceBase):
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
         self.report.report_warning(key, reason)
+
+
+def _redact_secret_fields_in_dataflow_script(script: str) -> str:
+    # It's possible for Glue Job nodes to contain sensitive values in their connection_info
+    # arguments. Redact all string values that are preceded by a key containing "password" or
+    # "secret".
+    return re.sub(
+        r'(?i)("(\\"|[^"])*(?:password|secret)(\\"|[^"])*"\s*:\s*)"(\\"|[^"])*"',
+        r'\1"*****"',
+        script,
+    )

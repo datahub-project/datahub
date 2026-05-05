@@ -29,7 +29,7 @@ export function stripSiblingsFromEntity(entity: any) {
     };
 }
 
-export function cleanHelper(obj, visited) {
+function cleanHelper(obj, visited) {
     if (visited.has(obj)) return obj;
     visited.add(obj);
 
@@ -125,7 +125,7 @@ const mergeStructuredProperties = (destinationArray, sourceArray, _options) => {
     return unionBy(sourceArray, destinationArray, 'structuredProperty.urn');
 };
 
-export const mergeOwners = (destinationArray, sourceArray, _options) => {
+const mergeOwners = (destinationArray, sourceArray, _options) => {
     return uniqWith([...destinationArray, ...sourceArray], (ownerA, ownerB) => {
         if (!ownerA.ownershipType?.urn && !ownerB.ownershipType?.urn) {
             return ownerA.owner?.urn === ownerB.owner?.urn && ownerA.type === ownerB.type;
@@ -369,17 +369,6 @@ function customMerge(isPrimary, key) {
     };
 }
 
-export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
-    if (!baseEntity) {
-        return null;
-    }
-    const baseEntityKey = Object.keys(baseEntity)[0];
-    const extractedBaseEntity = baseEntity[baseEntityKey];
-
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    return extractedBaseEntity?.['siblings'];
-};
-
 // should the entity's metadata win out against its siblings?
 export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {
     siblings?: SiblingProperties | null;
@@ -436,16 +425,6 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
     return combinedBaseEntity;
 };
 
-export function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
-    if (!entityValue) return siblingValue;
-    if (!siblingValue) return entityValue;
-
-    return merge(clean(isPrimary ? siblingValue : entityValue), clean(isPrimary ? entityValue : siblingValue), {
-        arrayMerge: combineMerge,
-        customMerge: customMerge.bind({}, isPrimary),
-    });
-}
-
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {
         return baseEntity;
@@ -476,7 +455,7 @@ type CombinedEntityResult =
           combinedEntity: CombinedEntity;
       };
 
-export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
+function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
     if (visitedSiblingUrns.has(entity.urn)) return { skipped: true };
 
     const combinedEntity: CombinedEntity = { entity: combineEntityWithSiblings({ ...entity }) };

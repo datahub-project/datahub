@@ -25,7 +25,7 @@ const AssetsSectionWrapper = styled.div`
     min-width: 100px;
 `;
 
-export const StyledHeaderWrapper = styled(SummaryTabHeaderWrapper)`
+const StyledHeaderWrapper = styled(SummaryTabHeaderWrapper)`
     margin-bottom: 8px;
 `;
 

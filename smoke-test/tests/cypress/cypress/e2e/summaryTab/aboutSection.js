@@ -2,7 +2,7 @@ import * as utils from "./utils";
 
 describe("summary tab - about section", () => {
   beforeEach(() => {
-    utils.setThemeV2AndSummaryTabFlags(true);
+    utils.setSummaryTabFlags(true);
     cy.login();
     cy.goToDataProduct("urn:li:dataProduct:testing");
     utils.goToSummaryTab();

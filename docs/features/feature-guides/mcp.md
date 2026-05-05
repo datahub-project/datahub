@@ -1,3 +1,7 @@
+---
+description: "The DataHub MCP Server lets AI agents query DataHub metadata via the Model Context Protocol to find assets and traverse lineage."
+---
+
 # DataHub MCP Server
 
 The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), giving AI agents direct access to your DataHub metadata. Search for data assets, traverse lineage, inspect schemas, and generate SQL — all through natural language in tools like Cursor, Windsurf, Claude Desktop, and OpenAI.
@@ -193,8 +197,12 @@ Claude Code natively supports streamable HTTP, so no proxy or additional depende
 Run the following command, replacing `<tenant>` and `<token>` with your own values:
 
 ```bash
-claude mcp add --transport http datahub-cloud "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"
+claude mcp add --transport http datahub-cloud \
+  "https://<tenant>.acryl.io/integrations/ai/mcp/" \
+  --header "Authorization: Bearer <token>"
 ```
+
+For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
 
 </details>
 
@@ -203,19 +211,38 @@ claude mcp add --transport http datahub-cloud "https://<tenant>.acryl.io/integra
 
 1. Make sure you're using Cursor v1.1 or newer.
 2. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server.
-3. Enter the following into the file:
+3. Enter the following into the file, replacing `<tenant>` and `<token>` with your own values:
 
 ```json
 {
   "mcpServers": {
     "datahub-cloud": {
-      "url": "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"
+      "url": "https://<tenant>.acryl.io/integrations/ai/mcp/",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
     }
   }
 }
 ```
 
 4. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
+
+For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+
+</details>
+
+<details>
+  <summary>Gemini CLI</summary>
+
+```bash
+gemini mcp add --transport http \
+  --header "Authorization: Bearer <token>" \
+  datahub-cloud \
+  "https://<tenant>.acryl.io/integrations/ai/mcp/"
+```
+
+For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
 
 </details>
 
@@ -236,6 +263,24 @@ For clients that don't yet support remote MCP servers, use `mcp-remote`:
 - Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`
 
 </details>
+
+## Service Accounts for Agentic Workflows
+
+For autonomous or agentic workflows — such as CI/CD pipelines, scheduled scripts, or AI agents that run without human intervention — we recommend using a [Service Account](service-accounts.md) rather than a personal access token.
+
+**Setup:**
+
+1. Create a service account in **Settings > Users & Groups > Service Accounts**
+2. Generate an access token for the service account
+3. Use that token when configuring the MCP server connection
+
+**Scoping search with a Default View** _(DataHub Cloud v1.0.0+ / DataHub Core v1.6.0+)_**:**
+
+Service accounts support a **Default View** that restricts which data assets the MCP server searches across. This is configured directly from the Service Accounts management screen (the "Default View" column). When set, all searches performed by the MCP server using that service account's token will be scoped to the selected view — useful for limiting an agent's visibility to a specific domain, platform, or team's assets.
+
+:::tip
+Combine a service account with a default view to create a tightly-scoped MCP connection — for example, a "Snowflake Production" view for an agent that only needs access to production Snowflake datasets.
+:::
 
 ## Self-Hosted MCP Server Usage
 
@@ -302,13 +347,15 @@ claude mcp add datahub \
   -- uvx mcp-server-datahub@latest
 ```
 
+For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
+
 </details>
 
 <details>
   <summary>Cursor</summary>
 
 1. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server.
-2. Enter the following into the file:
+2. Enter the following into the file, replacing the placeholder values:
 
 ```json
 {
@@ -326,6 +373,23 @@ claude mcp add datahub \
 ```
 
 3. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
+
+For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+
+</details>
+
+<details>
+  <summary>Gemini CLI</summary>
+
+```bash
+gemini mcp add \
+  -e DATAHUB_GMS_URL="<your-datahub-url>" \
+  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
+  datahub \
+  uvx mcp-server-datahub@latest
+```
+
+For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
 
 </details>
 

@@ -1,4 +1,4 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -68,7 +68,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
                 }
                 extra={
                     <SectionActionButton
-                        button={<AddRoundedIcon />}
+                        icon={Plus}
                         onClick={(event) => {
                             setShowAddModal(true);
                             setAddModalType(EntityType.GlossaryTerm);

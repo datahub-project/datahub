@@ -377,6 +377,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             self._mark_processed(envelope.record.entityUrn)
         else:
             self._record_mcp(envelope.record)
+            yield envelope
 
     def _handle_single_aspect_end_of_stream(
         self, envelope: RecordEnvelope

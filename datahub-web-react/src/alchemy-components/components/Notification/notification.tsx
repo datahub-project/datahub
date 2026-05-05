@@ -9,9 +9,15 @@ import { NotificationTitle } from '@components/components/Notification/component
 import { defaults } from '@components/components/Notification/defaults';
 import { NotificationType } from '@components/components/Notification/types';
 
+import CustomThemeProvider from '@src/CustomThemeProvider';
+
 interface PropsWithNotificationType extends ArgsProps {
     notificationType: NotificationType;
     showDefaultIcon?: boolean;
+}
+
+function withTheme(children: React.ReactNode): React.ReactElement {
+    return <CustomThemeProvider>{children}</CustomThemeProvider>;
 }
 
 function getProps({
@@ -22,12 +28,18 @@ function getProps({
     ...props
 }: PropsWithNotificationType): ArgsProps {
     return {
-        message: <NotificationTitle notificationType={notificationType}>{message}</NotificationTitle>,
-        description: description ? (
-            <NotificationDescription notificationType={notificationType}>{description}</NotificationDescription>
-        ) : undefined,
-        ...(showDefaultIcon ? {} : { icon: <NotificationIcon notificationType={notificationType} /> }),
-        closeIcon: <NotificationCloseIcon notificationType={notificationType} />,
+        message: withTheme(<NotificationTitle notificationType={notificationType}>{message}</NotificationTitle>),
+        description: description
+            ? withTheme(
+                  <NotificationDescription notificationType={notificationType}>{description}</NotificationDescription>,
+              )
+            : undefined,
+        ...(showDefaultIcon
+            ? {}
+            : {
+                  icon: withTheme(<NotificationIcon notificationType={notificationType} />),
+              }),
+        closeIcon: withTheme(<NotificationCloseIcon notificationType={notificationType} />),
         ...props,
     };
 }

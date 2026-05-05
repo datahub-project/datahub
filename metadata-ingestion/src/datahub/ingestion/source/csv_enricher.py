@@ -220,6 +220,7 @@ class CSVEnricherSource(Source):
                     if (
                         owner.owner == current_owner.owner
                         and owner.type == current_owner.type
+                        and owner.typeUrn == current_owner.typeUrn
                     ):
                         owner_exists = True
                         break

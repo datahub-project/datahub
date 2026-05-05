@@ -120,7 +120,7 @@ USER 0
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install --no-install-recommends -y -qq \
-    default-jre-headless \
+    openjdk-21-jre-headless \
     build-essential
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
@@ -131,7 +131,7 @@ USER datahub
 
 FROM ingestion-base-${APP_ENV} AS final
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"

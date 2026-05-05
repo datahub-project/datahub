@@ -1,6 +1,6 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Menu } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
@@ -18,7 +18,7 @@ import { message } from 'antd';
 import qs from 'query-string';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -40,6 +40,7 @@ import LinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versionin
 import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/UnlinkAssetVersionModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -87,6 +88,7 @@ interface Props {
 
 const EntityDropdown = (props: Props) => {
     const history = useHistory();
+    const theme = useTheme();
 
     const {
         urn,
@@ -129,6 +131,7 @@ const EntityDropdown = (props: Props) => {
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
     const [isLinkAssetVersionModalVisible, setIsLinkAssetVersionModalVisible] = useState(false);
     const [isUnlinkAssetVersionModalVisible, setIsUnlinkAssetVersionModalVisible] = useState(false);
+    const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         message.loading({ content: 'Updating...' });
@@ -215,7 +218,7 @@ const EntityDropdown = (props: Props) => {
                             style={{
                                 width: '16px',
                                 height: '16px',
-                                color: '#8088A3',
+                                color: theme.colors.icon,
                             }}
                         />
                     </div>
@@ -231,7 +234,7 @@ const EntityDropdown = (props: Props) => {
                             style={{
                                 fontFamily: 'Mulish',
                                 fontWeight: 600,
-                                color: '#374066',
+                                color: theme.colors.text,
                                 fontSize: '14px',
                             }}
                         >
@@ -402,7 +405,7 @@ const EntityDropdown = (props: Props) => {
 
         // Copy Name
         if (navigator.clipboard) {
-            const displayName = entityData?.name || urn;
+            const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
             shareChildren.push({
                 type: 'item' as const,
                 key: 'copy-name',
@@ -426,7 +429,7 @@ const EntityDropdown = (props: Props) => {
             title: 'Email',
             icon: Envelope,
             onClick: () => {
-                const displayName = entityData?.name || urn;
+                const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
                 const displayType =
                     getFirstSubType(entityData) || entityRegistryV2.getEntityName(entityType) || entityType;
                 const linkText = window.location.href;
@@ -447,6 +450,16 @@ const EntityDropdown = (props: Props) => {
             title: 'Share',
             icon: Share,
             children: shareChildren,
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.CHANGE_HISTORY)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'change-history',
+            title: 'Change History',
+            icon: ClockCounterClockwise,
+            onClick: () => setIsChangeHistoryOpen(true),
         });
     }
 
@@ -565,6 +578,16 @@ const EntityDropdown = (props: Props) => {
                     versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
                     closeModal={() => setIsUnlinkAssetVersionModalVisible(false)}
                     refetch={refetchForEntity}
+                />
+            )}
+            {isChangeHistoryOpen && (
+                <HistorySidebar
+                    open
+                    onClose={() => setIsChangeHistoryOpen(false)}
+                    urn={urn}
+                    versionList={[]}
+                    hideSemanticVersions
+                    entityType={entityType}
                 />
             )}
         </>

@@ -1,8 +1,8 @@
 """Unit tests for Fabric OneLake source key hierarchy."""
 
 from datahub.emitter.mce_builder import datahub_guid
-from datahub.ingestion.source.fabric.common.keys import (
-    WORKSPACE_PLATFORM,
+from datahub.ingestion.source.fabric.common.models import (
+    FABRIC_WORKSPACE_PLATFORM,
     WorkspaceKey,
 )
 from datahub.ingestion.source.fabric.onelake.source import (
@@ -25,7 +25,7 @@ def test_lakehouse_parent_workspace_uses_fabric_platform() -> None:
 
     parent = key.parent_key()
     assert isinstance(parent, WorkspaceKey)
-    assert parent.platform == WORKSPACE_PLATFORM
+    assert parent.platform == FABRIC_WORKSPACE_PLATFORM
     assert parent.workspace_id == "ws-123"
 
 
@@ -40,7 +40,7 @@ def test_warehouse_parent_workspace_uses_fabric_platform() -> None:
 
     parent = key.parent_key()
     assert isinstance(parent, WorkspaceKey)
-    assert parent.platform == WORKSPACE_PLATFORM
+    assert parent.platform == FABRIC_WORKSPACE_PLATFORM
     assert parent.workspace_id == "ws-123"
 
 
@@ -60,7 +60,7 @@ def test_schema_parent_chain_keeps_onelake_then_fabric() -> None:
 
     workspace_parent = lakehouse_parent.parent_key()
     assert isinstance(workspace_parent, WorkspaceKey)
-    assert workspace_parent.platform == WORKSPACE_PLATFORM
+    assert workspace_parent.platform == FABRIC_WORKSPACE_PLATFORM
 
 
 def test_warehouse_schema_parent_chain_keeps_onelake_then_fabric() -> None:
@@ -79,7 +79,7 @@ def test_warehouse_schema_parent_chain_keeps_onelake_then_fabric() -> None:
 
     workspace_parent = warehouse_parent.parent_key()
     assert isinstance(workspace_parent, WorkspaceKey)
-    assert workspace_parent.platform == WORKSPACE_PLATFORM
+    assert workspace_parent.platform == FABRIC_WORKSPACE_PLATFORM
 
 
 def test_lakehouse_key_guid_uses_fabric_onelake_platform() -> None:

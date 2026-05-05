@@ -14,7 +14,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_4
 DB2_PORT = 50000
 
 

@@ -2,7 +2,7 @@
 
 Microsoft Fabric OneLake is a storage and lakehouse platform. Learn more in the [official Microsoft Fabric OneLake documentation](https://learn.microsoft.com/fabric/onelake/onelake-overview).
 
-The DataHub integration for Microsoft Fabric OneLake covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Microsoft Fabric OneLake covers file/lakehouse metadata entities such as datasets, paths, and containers. It also captures stateful deletion detection.
 
 ## Concept Mapping
 

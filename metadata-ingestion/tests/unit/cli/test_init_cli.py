@@ -567,6 +567,158 @@ class TestAutoDetectionAndDeprecation:
         )
 
 
+class TestSSOLogin:
+    """Tests for SSO browser login mode."""
+
+    def test_sso_incompatible_with_username(
+        self, temp_config: Path, clean_env: None
+    ) -> None:
+        """Test --sso cannot be used with --username/--password."""
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--sso",
+                "--host",
+                "http://localhost:8080",
+                "--username",
+                "alice",
+                "--password",
+                "secret",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--sso cannot be used with --username/--password" in result.output
+
+    def test_sso_incompatible_with_token(
+        self, temp_config: Path, clean_env: None
+    ) -> None:
+        """Test --sso cannot be used with --token."""
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--sso",
+                "--host",
+                "http://localhost:8080",
+                "--token",
+                "my-token",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--sso cannot be used with --token" in result.output
+
+    def test_sso_calls_browser_login_and_writes_config(
+        self, temp_config: Path, clean_env: None
+    ) -> None:
+        """Test --sso calls browser_sso_login and writes config."""
+        runner = CliRunner()
+        with patch("datahub.cli.sso_cli.browser_sso_login") as mock_browser_login:
+            mock_browser_login.return_value = (
+                "cli token 2026-01-01",
+                "sso-generated-token-abc",
+            )
+            result = runner.invoke(
+                init,
+                [
+                    "--sso",
+                    "--host",
+                    "http://localhost:8080",
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert "Generated token" in result.output
+        assert temp_config.exists()
+        config_content = temp_config.read_text()
+        assert "sso-generated-token-abc" in config_content
+        assert "localhost:8080" in config_content
+
+        # Verify frontend URL derivation: 8080 -> 9002
+        mock_browser_login.assert_called_once_with(
+            "http://localhost:9002", "ONE_MONTH", support=False
+        )
+
+    def test_sso_with_custom_duration(self, temp_config: Path, clean_env: None) -> None:
+        """Test --sso respects --token-duration."""
+        runner = CliRunner()
+        with patch("datahub.cli.sso_cli.browser_sso_login") as mock_browser_login:
+            mock_browser_login.return_value = ("name", "token-value")
+            result = runner.invoke(
+                init,
+                [
+                    "--sso",
+                    "--host",
+                    "http://localhost:8080",
+                    "--token-duration",
+                    "ONE_MONTH",
+                ],
+            )
+
+        assert result.exit_code == 0
+        mock_browser_login.assert_called_once_with(
+            "http://localhost:9002", "ONE_MONTH", support=False
+        )
+
+    def test_sso_with_acryl_cloud_url(self, temp_config: Path, clean_env: None) -> None:
+        """Test --sso with DataHub Cloud URL derives correct frontend URL."""
+        runner = CliRunner()
+        with patch("datahub.cli.sso_cli.browser_sso_login") as mock_browser_login:
+            mock_browser_login.return_value = ("name", "token-value")
+            result = runner.invoke(
+                init,
+                [
+                    "--sso",
+                    "--host",
+                    "https://my-instance.acryl.io/gms",
+                ],
+            )
+
+        assert result.exit_code == 0
+        # For acryl.io, frontend URL is the base without /gms
+        mock_browser_login.assert_called_once_with(
+            "https://my-instance.acryl.io", "ONE_HOUR", support=False
+        )
+
+    def test_sso_support_flag(self, temp_config: Path, clean_env: None) -> None:
+        """Test --sso --support passes support=True to browser_sso_login."""
+        runner = CliRunner()
+        with patch("datahub.cli.sso_cli.browser_sso_login") as mock_browser_login:
+            mock_browser_login.return_value = ("name", "token-value")
+            result = runner.invoke(
+                init,
+                [
+                    "--sso",
+                    "--support",
+                    "--host",
+                    "https://customer.acryl.io/gms",
+                ],
+            )
+
+        assert result.exit_code == 0
+        mock_browser_login.assert_called_once_with(
+            "https://customer.acryl.io", "ONE_HOUR", support=True
+        )
+
+    def test_support_without_sso_errors(
+        self, temp_config: Path, clean_env: None
+    ) -> None:
+        """Test --support without --sso raises an error."""
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--support",
+                "--host",
+                "http://localhost:8080",
+                "--token",
+                "my-token",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--support requires --sso" in result.output
+
+
 class TestTokenDuration:
     """Tests for configurable token duration."""
 

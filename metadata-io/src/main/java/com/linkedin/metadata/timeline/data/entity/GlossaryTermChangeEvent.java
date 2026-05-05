@@ -1,12 +1,11 @@
 package com.linkedin.metadata.timeline.data.entity;
 
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import java.util.Map;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -24,16 +23,16 @@ public class GlossaryTermChangeEvent extends ChangeEvent {
       ChangeCategory category,
       ChangeOperation operation,
       String modifier,
+      Map<String, Object> parameters,
       AuditStamp auditStamp,
       SemanticChangeType semVerChange,
-      String description,
-      Urn termUrn) {
+      String description) {
     super(
         entityUrn,
         category,
         operation,
         modifier,
-        ImmutableMap.of("termUrn", termUrn.toString()),
+        parameters,
         auditStamp,
         semVerChange,
         description);

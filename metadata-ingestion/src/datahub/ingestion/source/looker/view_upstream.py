@@ -147,7 +147,7 @@ def fix_derived_view_urn(
 
 
 def _platform_names_have_2_parts(platform: str) -> bool:
-    return platform in {"hive", "mysql", "athena"}
+    return platform in {"hive", "mysql", "athena", "glue"}
 
 
 def _drop_hive_dot(urn: str) -> str:
@@ -185,7 +185,7 @@ def _generate_fully_qualified_name(
 
     # Bigquery has "project.db.table" which can be mapped to db.schema.table form
     # All other relational db's follow "db.schema.table"
-    # With the exception of mysql, hive, athena which are "db.table"
+    # With the exception of mysql, hive, athena, glue which are "db.table"
 
     # first detect which one we have
     parts = len(sql_table_name.split("."))

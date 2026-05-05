@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: BigQuery Setup
 ---
 
 # BigQuery Ingestion Guide: Setup & Prerequisites

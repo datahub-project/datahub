@@ -4,7 +4,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
@@ -208,9 +208,14 @@ def test_quoted_query_transpilation(schema):
     fivetran_log_query = FivetranLogQuery()
     fivetran_log_query.use_database("test_database")
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.fetchone.side_effect = ["test-project-id"]
 
@@ -348,9 +353,14 @@ def test_quoted_database_identifiers(db_name):
     # Test without platform (default behavior - always quote)
     fivetran_log_query = FivetranLogQuery()
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.fetchone.side_effect = ["test-project-id"]
 
@@ -525,7 +535,7 @@ def test_snowflake_unquoted_identifier_uppercase_conversion():
             )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
@@ -534,9 +544,14 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     output_file = tmp_path / "fivetran_test_events.json"
     golden_file = test_resources_dir / "fivetran_snowflake_golden.json"
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.side_effect = default_query_results
 
@@ -608,7 +623,7 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
@@ -619,9 +634,14 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
         test_resources_dir / "fivetran_snowflake_empty_connection_user_golden.json"
     )
 
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+        ),
+    ):
         connection_magic_mock = MagicMock()
 
         connector_query_results = [
@@ -718,7 +738,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fivetran_bigquery_config():
     with mock.patch("datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"):
@@ -743,7 +763,7 @@ def test_fivetran_bigquery_config():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_fivetran_snowflake_destination_config():
     snowflake_dest = SnowflakeDestinationConfig(
         account_id="TESTID",
@@ -760,7 +780,7 @@ def test_fivetran_snowflake_destination_config():
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_fivetran_bigquery_destination_config():
     bigquery_dest = BigQueryDestinationConfig(
         credential=GCPCredential(
@@ -775,7 +795,7 @@ def test_fivetran_bigquery_destination_config():
     assert bigquery_dest.get_sql_alchemy_url() == "bigquery://"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_rename_destination_config():
     config_dict = {
         "fivetran_log_config": {

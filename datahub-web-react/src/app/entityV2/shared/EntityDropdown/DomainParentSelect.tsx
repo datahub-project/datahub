@@ -1,11 +1,11 @@
 import { CloseCircleFilled } from '@ant-design/icons';
 import { Empty, Select } from 'antd';
 import React, { MouseEvent } from 'react';
+import { useTheme } from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -14,7 +14,7 @@ import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 import { Domain, EntityType } from '@types';
 
 // filter out entity itself and its children
-export function filterResultsForMove(entity: Domain, entityUrn: string) {
+function filterResultsForMove(entity: Domain, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'Domain' &&
@@ -29,6 +29,7 @@ interface Props {
 }
 
 export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
     const domainUrn = entityData?.urn;
@@ -89,7 +90,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                     <Empty
                         description="No Domains Found"
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ color: ANTD_GRAY[7] }}
+                        style={{ color: theme.colors.textTertiary }}
                     />
                 }
                 options={domainAutocompleteOptions(
