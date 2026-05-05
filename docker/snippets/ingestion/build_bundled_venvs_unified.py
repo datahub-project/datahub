@@ -4,7 +4,11 @@ Self-contained script to create bundled venvs for DataHub ingestion sources.
 
 Groups come from env vars ``BUNDLED_VENV_PLUGINS_<group_id>`` (suffix lowercased for the
 group label, e.g. ``BUNDLED_VENV_PLUGINS_COMMON`` -> ``common-venv``). One
-``BUNDLED_CLI_VERSION`` installs ``acryl-datahub[...]==`` that version for each group.
+``BUNDLED_CLI_VERSION`` installs ``acryl-datahub[...]==`` that version for each group (or
+editable ``/metadata-ingestion`` when present). After a **PyPI** install, the venv is
+checked that ``importlib.metadata`` matches that pin. Editable local installs skip this
+pin check by default (source ``setup.py`` version often differs from the label in
+``BUNDLED_CLI_VERSION``); set ``BUNDLED_CLI_VERSION_ENFORCE=true`` to require a match.
 
 When ``BUNDLED_VENV_SLIM_MODE`` is true, eligible extras use ``-slim`` variants and each
 slim venv is verified to not import PySpark.
@@ -21,6 +25,68 @@ from bundled_venv_config import (
     extras_to_install_string,
     groups_config_from_plugin_group_env,
 )
+
+
+def _env_truthy(key: str) -> bool:
+    return os.environ.get(key, "").lower() in ("true", "1", "yes")
+
+
+def _print_subprocess_failure(proc: subprocess.CompletedProcess[str]) -> None:
+    if proc.stdout:
+        print(f"     stdout: {proc.stdout}")
+    if proc.stderr:
+        print(f"     stderr: {proc.stderr}")
+
+
+def _verify_installed_acryl_datahub_version(
+    venv_path: str, bundled_cli_version: str
+) -> tuple[bool, str]:
+    """
+    Ensure the venv has acryl-datahub installed at BUNDLED_CLI_VERSION.
+    Catches PyPI resolution/install failures already surfaced by pip, and editable
+    installs where local metadata does not match the requested release pin.
+    """
+    python_exe = os.path.join(venv_path, "bin", "python")
+    script = f"""
+import importlib.metadata as m
+import sys
+
+def norm(v):
+    v = v.strip()
+    if v.startswith(("v", "V")):
+        v = v[1:]
+    return v
+
+exp = norm({bundled_cli_version!r})
+try:
+    got = m.version("acryl-datahub")
+except m.PackageNotFoundError:
+    print("ERROR: acryl-datahub is not installed after pip install", file=sys.stderr)
+    sys.exit(2)
+try:
+    from packaging.version import Version
+
+    match = Version(got) == Version(exp)
+except Exception:
+    match = got == exp
+if not match:
+    print(
+        f"ERROR: Installed acryl-datahub version {{got!r}} does not match "
+        f"required BUNDLED_CLI_VERSION {{exp!r}}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+"""
+    proc = subprocess.run(
+        [python_exe, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode == 0:
+        return True, ""
+    detail = (proc.stderr or proc.stdout or "").strip()
+    return False, detail
 
 
 def create_bundled_venv(
@@ -45,12 +111,17 @@ def create_bundled_venv(
     try:
         print("  → Creating venv...")
         subprocess.run(
-            ["uv", "venv", "--clear", venv_path], check=True, capture_output=True
+            ["uv", "venv", "--clear", venv_path],
+            check=True,
+            capture_output=True,
+            text=True,
         )
 
         print("  → Installing base packages...")
         base_cmd = f"source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools --constraint {constraints_path}"
-        subprocess.run(["bash", "-c", base_cmd], check=True, capture_output=True)
+        subprocess.run(
+            ["bash", "-c", base_cmd], check=True, capture_output=True, text=True
+        )
 
         print(f"  → Installing datahub with [{extras_str}]...")
         if os.path.exists("/metadata-ingestion/setup.py"):
@@ -63,13 +134,34 @@ def create_bundled_venv(
                 f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" '
                 f"--constraint {constraints_path}"
             )
-        subprocess.run(["bash", "-c", install_cmd], check=True, capture_output=True)
+        subprocess.run(
+            ["bash", "-c", install_cmd], check=True, capture_output=True, text=True
+        )
+
+        install_from_local = os.path.exists("/metadata-ingestion/setup.py")
+        enforce_cli_pin = _env_truthy("BUNDLED_CLI_VERSION_ENFORCE")
+        if not install_from_local or enforce_cli_pin:
+            print("  → Verifying installed acryl-datahub matches BUNDLED_CLI_VERSION...")
+            ok, verify_detail = _verify_installed_acryl_datahub_version(
+                venv_path, bundled_cli_version
+            )
+            if not ok:
+                print(f"  ❌ Version verification failed for {venv_name}")
+                if verify_detail:
+                    print(f"     {verify_detail}")
+                return False
+        else:
+            print(
+                "  → Skipping BUNDLED_CLI_VERSION pin check (editable /metadata-ingestion; "
+                "set BUNDLED_CLI_VERSION_ENFORCE=true to require installed version to match)"
+            )
 
         if slim_mode:
             python_exe = os.path.join(venv_path, "bin", "python")
             result = subprocess.run(
                 [python_exe, "-c", "import pyspark"],
                 capture_output=True,
+                text=True,
             )
             if result.returncode == 0:
                 print(
@@ -83,8 +175,11 @@ def create_bundled_venv(
 
     except subprocess.CalledProcessError as e:
         print(f"  ❌ Failed to create {venv_name}: {e}")
-        if e.stderr:
-            print(f"     Error output: {e.stderr.decode()}")
+        if e.stdout is not None or e.stderr is not None:
+            proc = subprocess.CompletedProcess(
+                e.cmd, e.returncode, e.stdout, e.stderr
+            )
+            _print_subprocess_failure(proc)
         return False
 
 
@@ -143,6 +238,17 @@ def main() -> int:
     print(f"Plugins: {', '.join(plugins)}")
     print(f"Venv Base Path: {venv_base_path}")
     print(f"Slim Mode: {slim_mode}")
+    local_setup = os.path.exists("/metadata-ingestion/setup.py")
+    enforce_cli_pin = _env_truthy("BUNDLED_CLI_VERSION_ENFORCE")
+    if local_setup:
+        print(
+            "Bundled CLI pin check: "
+            + (
+                "enforced (BUNDLED_CLI_VERSION_ENFORCE)"
+                if enforce_cli_pin
+                else "skipped for editable /metadata-ingestion"
+            )
+        )
     print(f"Total Plugins: {len(plugins)}")
     print()
 

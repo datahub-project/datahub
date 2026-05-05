@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
@@ -81,7 +82,8 @@ public class SemanticEntitySearchServiceTest {
 
     // Setup basic mock behavior
     when(mockIndexConvention.getEntityIndexName(TEST_ENTITY_NAME)).thenReturn(TEST_BASE_INDEX);
-    when(mockEmbeddingProvider.embed(anyString(), any())).thenReturn(TEST_EMBEDDING);
+    when(mockEmbeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
+        .thenReturn(TEST_EMBEDDING);
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
     when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockOpContext.getObjectMapper()).thenReturn(objectMapper);
@@ -162,8 +164,8 @@ public class SemanticEntitySearchServiceTest {
       assertEquals(score.floatValue(), 0.95f, 0.001f);
     }
 
-    // Verify embedding provider was called
-    verify(mockEmbeddingProvider).embed(TEST_QUERY, null);
+    // Verify embedding provider was called with QUERY task type
+    verify(mockEmbeddingProvider).embed(TEST_QUERY, null, EmbeddingTaskType.QUERY);
 
     // Verify searchKnn was called with the correct index name
     ArgumentCaptor<KnnSearchRequest> requestCaptor =
@@ -266,7 +268,7 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testSearchEmbeddingProviderException() {
-    when(mockEmbeddingProvider.embed(anyString(), any()))
+    when(mockEmbeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
         .thenThrow(new RuntimeException("Embedding service unavailable"));
 
     assertThrows(

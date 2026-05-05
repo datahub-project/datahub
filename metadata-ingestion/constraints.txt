@@ -360,6 +360,7 @@ deepmerge==2.0
     # via acryl-datahub
 defusedxml==0.7.1
     # via
+    #   acryl-datahub
     #   nbconvert
     #   python3-openid
     #   tableauserverclient
