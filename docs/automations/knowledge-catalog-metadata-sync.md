@@ -17,7 +17,7 @@ Google Cloud Knowledge Catalog. This enables you to manage metadata centrally in
 
 ## Use Cases
 
-- Maintain consistent metadata across DataHub and Google Cloud Knowledge d
+- Maintain consistent metadata across DataHub and Google Cloud Knowledge Catalog
 - Improve data discovery by making DataHub governance metadata visible in the Google Cloud console
 - Enhance data governance by syncing DataHub Glossary Terms to Knowledge Catalog Business Glossary terms with full category hierarchies
 - Streamline data classification by syncing DataHub Tags to Knowledge Catalog custom aspects
@@ -83,7 +83,7 @@ Ensure your service account has the following permissions:
 | Entry Link Management        | `dataplex.entryLinks.create`<br/>`dataplex.entryLinks.delete`                                                                                                                          | Knowledge Catalog Editor |
 | Project Number Resolution    | `resourcemanager.projects.get`                                                                                                                                                         | Browser                  |
 
-**Note**: Permissions must be granted in every GCP project where metadata sync is needed. The Data Catalog Viewer role is required because the automation uses Data Catalog to discover the GCP region of BigQuery assets (BigQuery URNs don't contain region info).
+**Note**: Permissions must be granted in every GCP project where metadata sync is needed. The Data Catalog Viewer role is required because the automation uses Data Catalog to discover the GCP region of BigQuery assets (BigQuery URNs don't contain region information).
 
 ### Connection Requirements
 
@@ -147,7 +147,7 @@ Click **Save and Run** to activate the automation. The automation will:
 
 ## Propagating for Existing Assets
 
-To ensure that all existing Tags, Glossary Terms, and Structured Properties are propagated to Knowledge Catalog, you can back-fill historical data. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
+To ensure that all existing Tags, Glossary Terms, and Structured Properties are propagated to Knowledge Catalog, you can backfill historical data. Note that the initial backfilling process may take some time, depending on the number of BigQuery assets you have.
 
 1. Navigate to the Automation you created above
 2. Click the three-dot **More** menu
@@ -162,7 +162,7 @@ To ensure that all existing Tags, Glossary Terms, and Structured Properties are 
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This one-time step will kick off the back-filling process. If you only want to begin propagating metadata going forward, you can skip this step.
+This one-time step will trigger the backfilling process. If you only want to begin propagating metadata going forward, you can skip this step.
 
 ## Viewing Synced Metadata
 
@@ -190,7 +190,7 @@ A: BigQuery URNs in DataHub don't include GCP region information (e.g., `us-east
 
 ### Q: What happens if a Glossary Term hierarchy is deeper than 3 levels?
 
-A: Knowledge Catalog Business Glossary supports a maximum of 3 nested category levels. If a DataHub Glossary Term has a hierarchy deeper than 3 levels, the term sync is skipped for that term and a warning is logged.
+A: Knowledge Catalog Business Glossary supports a maximum of 3 nested category levels. If a DataHub Glossary Term has a hierarchy deeper than 3 levels, the sync is skipped for that term and a warning is logged.
 
 ### Q: Where should I manage my Business Glossary?
 
