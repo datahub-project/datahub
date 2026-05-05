@@ -124,11 +124,21 @@ class GCPWIFConfig(ConfigModel):
         Raises ValueError if no option is set.
         """
         if self.gcp_wif_configuration:
-            with open(self.gcp_wif_configuration) as f:
-                loaded = json.load(f)
+            try:
+                with open(self.gcp_wif_configuration) as f:
+                    loaded = json.load(f)
+            except FileNotFoundError:
+                raise ValueError(
+                    f"WIF configuration file not found: {self.gcp_wif_configuration}"
+                ) from None
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"WIF configuration file is not valid JSON "
+                    f"(path={self.gcp_wif_configuration}): {e}"
+                ) from e
         elif self.gcp_wif_configuration_json is not None:
             if isinstance(self.gcp_wif_configuration_json, dict):
-                return self.gcp_wif_configuration_json
+                return dict(self.gcp_wif_configuration_json)
             loaded = json.loads(self.gcp_wif_configuration_json)
         elif self.gcp_wif_configuration_json_string:
             loaded = json.loads(self.gcp_wif_configuration_json_string)
@@ -142,11 +152,39 @@ class GCPWIFConfig(ConfigModel):
         return loaded
 
 
+def _build_credentials_from_wif_dict(
+    wif_dict: Dict[str, Any],
+    source_label: Optional[str],
+) -> Tuple[Credentials, Optional[str]]:
+    """Build GCP credentials from an already-resolved WIF configuration dict.
+
+    Separated from load_wif_credentials so callers that have already resolved
+    the dict (e.g. to reuse it for writing a temp file) don't need to read it
+    twice.
+    """
+    try:
+        logger.info(
+            "Loading Workload Identity Federation credentials (source=%s)",
+            source_label,
+        )
+        credentials, project_id = load_credentials_from_dict(wif_dict)
+        # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
+        credentials = credentials.with_scopes(
+            ["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        logger.info("Successfully loaded Workload Identity Federation credentials")
+        return credentials, project_id
+    except Exception as e:
+        raise ValueError(
+            f"Failed to load Workload Identity Federation credentials "
+            f"(source={source_label}, error_type={type(e).__name__}): {e}"
+        ) from e
+
+
 def load_wif_credentials(
     wif_config: GCPWIFConfig,
 ) -> Tuple[Credentials, Optional[str]]:
-    """
-    Load GCP Workload Identity Federation credentials from a GCPWIFConfig.
+    """Load GCP Workload Identity Federation credentials from a GCPWIFConfig.
 
     Resolves whichever config option is set to a dict, then calls
     `google.auth.load_credentials_from_dict`. Applies the cloud-platform scope
@@ -160,23 +198,5 @@ def load_wif_credentials(
     Raises:
         ValueError: If no WIF configuration is provided or if credential loading fails.
     """
-    try:
-        wif_config_dict = wif_config.to_wif_dict()
-        logger.info(
-            "Loading Workload Identity Federation credentials (source=%s)",
-            wif_config.wif_config_source(),
-        )
-
-        credentials, project_id = load_credentials_from_dict(wif_config_dict)
-        # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
-        credentials = credentials.with_scopes(
-            ["https://www.googleapis.com/auth/cloud-platform"]
-        )
-
-        logger.info("Successfully loaded Workload Identity Federation credentials")
-        return credentials, project_id
-
-    except Exception as e:
-        raise ValueError(
-            f"Failed to load Workload Identity Federation credentials: {e}"
-        ) from e
+    wif_dict = wif_config.to_wif_dict()
+    return _build_credentials_from_wif_dict(wif_dict, wif_config.wif_config_source())

@@ -60,7 +60,7 @@ class TestBigQueryConnectionConfigValidation:
 
 class TestBigQueryWIFCredentialSetup:
     @patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_connection.load_wif_credentials"
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
     )
     def test_wif_loads_credentials_and_writes_temp_file(
         self,
@@ -86,7 +86,7 @@ class TestBigQueryWIFCredentialSetup:
         assert os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == config._credentials_path
 
     @patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_connection.load_wif_credentials"
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
     )
     def test_wif_clients_use_explicit_credentials(self, mock_load: MagicMock) -> None:
         fake_creds = MagicMock()
@@ -129,7 +129,7 @@ class TestBigQueryWIFCredentialSetup:
             assert mock_log_client.call_args.kwargs["project"] == "my-project"
 
     @patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_connection.load_wif_credentials"
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
     )
     def test_wif_loader_failure_propagates(self, mock_load: MagicMock) -> None:
         mock_load.side_effect = ValueError("boom")
@@ -140,7 +140,7 @@ class TestBigQueryWIFCredentialSetup:
             )
 
     @patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_connection.load_wif_credentials"
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
     )
     def test_wif_sql_alchemy_url(self, mock_load: MagicMock) -> None:
         mock_load.return_value = (MagicMock(), None)
@@ -160,6 +160,50 @@ class TestBigQueryWIFCredentialSetup:
             project_on_behalf="my-project",
         )
         assert config_with_project.get_sql_alchemy_url() == "bigquery://my-project"
+
+
+class TestBigQueryWIFValidatorReentrance:
+    """Document the re-validation behaviour of the mode='after' validator."""
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_model_copy_does_not_reinitialize_credentials(
+        self, mock_load: MagicMock
+    ) -> None:
+        """model_copy() does not re-run Pydantic validators — load is called once."""
+        mock_load.return_value = (MagicMock(), None)
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json=_wif_dict(),
+        )
+        original_creds = config._credentials
+
+        _ = config.model_copy()
+
+        assert mock_load.call_count == 1
+        assert config._credentials is original_creds
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_model_validate_reinitializes_credentials(
+        self, mock_load: MagicMock
+    ) -> None:
+        """model_validate(dump) re-runs the validator because PrivateAttrs are not
+        serialized, so _credentials is None on re-entry.  A second set of credentials
+        is built.  Avoid round-tripping live configs through model_validate()."""
+        mock_load.return_value = (MagicMock(), None)
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json=_wif_dict(),
+        )
+        assert mock_load.call_count == 1
+
+        config2 = BigQueryConnectionConfig.model_validate(config.model_dump())
+
+        assert mock_load.call_count == 2
+        assert config2._credentials is not None
 
 
 class TestBigQueryServiceAccountCredentialSetup:
@@ -223,3 +267,124 @@ class TestBigQueryServiceAccountCredentialSetup:
         assert config._credentials is None
         assert config._credentials_path is None
         assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+
+
+class TestBigQueryWIFFilePathSetup:
+    """Verify the gcp_wif_configuration (file path) variant works end-to-end
+    through BigQueryConnectionConfig, not just through GCPWIFConfig.to_wif_dict."""
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_wif_file_path_writes_temp_file_from_file_contents(
+        self,
+        mock_build: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        fake_creds = MagicMock()
+        mock_build.return_value = (fake_creds, None)
+
+        wif_file = tmp_path / "wif.json"
+        wif_file.write_text(__import__("json").dumps(_wif_dict()))
+
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration=str(wif_file),
+        )
+
+        assert config._credentials is fake_creds
+        assert config._credentials_path is not None
+        # The temp file written to disk must contain the WIF JSON read from the
+        # source file, proving only a single read occurred.
+        import json as _json
+
+        with open(config._credentials_path) as f:
+            assert _json.load(f) == _wif_dict()
+
+        mock_build.assert_called_once()
+        passed_dict = mock_build.call_args.args[0]
+        assert passed_dict == _wif_dict()
+
+
+class TestBigQueryExtraClientOptions:
+    """Verify extra_client_options and the _use_grpc override invariant."""
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_extra_client_options_passed_to_bigquery_client(
+        self, mock_build: MagicMock
+    ) -> None:
+        mock_build.return_value = (MagicMock(), None)
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json=_wif_dict(),
+            extra_client_options={"timeout": 30},
+        )
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.bigquery.Client"
+        ) as mock_client:
+            config.get_bigquery_client()
+            assert mock_client.call_args.kwargs.get("timeout") == 30
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_logging_client_always_disables_grpc(self, mock_build: MagicMock) -> None:
+        """_use_grpc=False must always be set on the logging client, even when a
+        caller passes _use_grpc=True via extra_client_options."""
+        mock_build.return_value = (MagicMock(), None)
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json=_wif_dict(),
+            extra_client_options={"_use_grpc": True},
+        )
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.GCPLoggingClient"
+        ) as mock_log:
+            config.make_gcp_logging_client()
+            assert mock_log.call_args.kwargs["_use_grpc"] is False
+
+
+class TestFivetranBigQueryDestinationConfig:
+    """Regression coverage: BigQueryDestinationConfig inherits BigQueryConnectionConfig,
+    so it also gains WIF support.  Verify the inherited validator fires correctly."""
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_fivetran_bigquery_destination_supports_wif(
+        self, mock_build: MagicMock
+    ) -> None:
+        from datahub.ingestion.source.fivetran.config import BigQueryDestinationConfig
+
+        fake_creds = MagicMock()
+        mock_build.return_value = (fake_creds, None)
+
+        config = BigQueryDestinationConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json=_wif_dict(),
+            dataset="my_log_dataset",
+        )
+
+        assert config._credentials is fake_creds
+        mock_build.assert_called_once()
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_fivetran_bigquery_destination_service_account_still_works(
+        self, mock_build: MagicMock
+    ) -> None:
+        from datahub.ingestion.source.fivetran.config import BigQueryDestinationConfig
+
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+        ) as mock_sa:
+            mock_sa.return_value = MagicMock()
+            config = BigQueryDestinationConfig(
+                credential=_service_account_dict(),
+                dataset="my_log_dataset",
+            )
+            assert config._credentials is not None
+            mock_build.assert_not_called()  # SA path does not use _build_credentials_from_wif_dict

@@ -15,7 +15,7 @@ from datahub._version import __version__
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
-    load_wif_credentials,
+    _build_credentials_from_wif_dict,
 )
 from datahub.utilities.str_enum import StrEnum
 
@@ -37,6 +37,17 @@ class BigQueryAuthType(StrEnum):
 
 
 class BigQueryConnectionConfig(GCPWIFConfig):
+    """Connection configuration for BigQuery.
+
+    Supports three authentication modes:
+    - **Application Default Credentials (ADC)**: No credential fields needed; GCP client
+      libraries pick up credentials from the environment (e.g. GCE/GKE metadata server).
+    - **Service account** (``auth_type: service_account``): Supply ``credential`` with the
+      service account JSON key, or set ``GOOGLE_APPLICATION_CREDENTIALS`` in the environment.
+    - **Workload Identity Federation** (``auth_type: workload_identity_federation``): Supply
+      one of the ``gcp_wif_configuration*`` fields; no long-lived key required.
+    """
+
     auth_type: BigQueryAuthType = Field(
         default=BigQueryAuthType.SERVICE_ACCOUNT,
         description=(
@@ -60,7 +71,7 @@ class BigQueryConnectionConfig(GCPWIFConfig):
     _credentials: Optional[Credentials] = PrivateAttr(None)
 
     extra_client_options: Dict[str, Any] = Field(
-        default={},
+        default_factory=dict,
         description="Additional keyword arguments passed to GCP client constructors (bigquery.Client, GCPLoggingClient, etc.).",
     )
 
@@ -71,10 +82,12 @@ class BigQueryConnectionConfig(GCPWIFConfig):
 
     @model_validator(mode="after")
     def _validate_and_setup_auth(self) -> "BigQueryConnectionConfig":
-        # Pydantic re-runs mode="after" validators on model_copy/model_validate.
-        # Without this guard, each rerun would write a new temp file (leaking
-        # the previous one), re-stomp GOOGLE_APPLICATION_CREDENTIALS, and call
-        # credentials.refresh() again (network round-trip).
+        # model_copy() does not re-run validators in Pydantic v2, so this guard
+        # is a no-op for that case.  However, model_validate(config.model_dump())
+        # DOES re-run validators; since PrivateAttrs are not included in
+        # model_dump(), _credentials is None on re-entry and the guard cannot
+        # fire — credentials would be re-initialized in that path.  Avoid
+        # round-tripping this config through model_validate() while live.
         if self._credentials is not None:
             return self
 
@@ -104,10 +117,10 @@ class BigQueryConnectionConfig(GCPWIFConfig):
     def _setup_service_account_credentials(self) -> None:
         assert self.credential is not None
         self._credentials_path = self.credential.create_credential_temp_file()
-        logger.debug(f"Creating temporary credential file at {self._credentials_path}")
-        # Keep env var for backward compatibility (e.g. SQLAlchemy BigQuery dialect).
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-        # Build explicit credentials for thread-safe client creation.
+        logger.debug(f"Created temporary credential file at {self._credentials_path}")
+        # Build explicit credentials for thread-safe client creation BEFORE
+        # setting the env var.  If from_service_account_info raises (e.g. malformed
+        # key), the env var must not be left pointing at a leaked temp file.
         # In Observe/assertions, multiple BigQuery connections with different
         # service accounts run concurrently in the same process. Without
         # explicit credentials, concurrent configs overwrite the shared env
@@ -115,11 +128,18 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         self._credentials = service_account.Credentials.from_service_account_info(
             self.credential.to_dict()
         )
+        # Keep env var for backward compatibility (e.g. SQLAlchemy BigQuery dialect).
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def _setup_wif_credentials(self) -> None:
+        # Resolve the WIF config dict once.  We reuse it for both credential
+        # loading and the temp-file write below, avoiding a second file read.
         # project_id from the WIF config is intentionally ignored — users must
         # set project_on_behalf explicitly when targeting a specific project.
-        self._credentials, _ = load_wif_credentials(self)
+        wif_dict = self.to_wif_dict()
+        self._credentials, _ = _build_credentials_from_wif_dict(
+            wif_dict, self.wif_config_source()
+        )
 
         # Persist the WIF JSON to a temp file so callers that rely on the
         # GOOGLE_APPLICATION_CREDENTIALS env var (e.g. the SQLAlchemy BigQuery
@@ -132,7 +152,6 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         # object handles this for direct GCP client calls). This temp file is also
         # never explicitly deleted (same issue as the SA path). Track at:
         # https://linear.app/acryl-data/issue/ING-2376
-        wif_dict = self.to_wif_dict()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(wif_dict, fp)
             self._credentials_path = fp.name

@@ -26,13 +26,6 @@ class TestGCPWIFConfigValidation:
         with pytest.raises(ValueError, match="must be valid JSON"):
             GCPWIFConfig(gcp_wif_configuration_json_string="not-json")
 
-    def test_all_none_is_valid(self):
-        # GCPWIFConfig itself does not enforce that one option must be set
-        config = GCPWIFConfig()
-        assert config.gcp_wif_configuration is None
-        assert config.gcp_wif_configuration_json is None
-        assert config.gcp_wif_configuration_json_string is None
-
     def test_two_wif_options_raises(self) -> None:
         with pytest.raises(
             ValueError, match="Cannot specify multiple WIF configuration options"
@@ -100,9 +93,7 @@ class TestLoadWIFCredentials:
 
     def test_load_from_file_not_found(self) -> None:
         config = GCPWIFConfig(gcp_wif_configuration="/nonexistent/path.json")
-        with pytest.raises(
-            ValueError, match="Failed to load Workload Identity Federation"
-        ):
+        with pytest.raises(ValueError, match="WIF configuration file not found"):
             load_wif_credentials(config)
 
     @patch("datahub.ingestion.source.common.gcp_wif_config.load_credentials_from_dict")
@@ -148,6 +139,15 @@ class TestToWifDict:
         config = GCPWIFConfig(gcp_wif_configuration_json=payload)
         assert config.to_wif_dict() == payload
 
+    def test_from_dict_returns_copy_not_alias(self) -> None:
+        # to_wif_dict() must return a copy so callers cannot mutate the model's
+        # internal state.
+        payload = {"type": "external_account"}
+        config = GCPWIFConfig(gcp_wif_configuration_json=payload)
+        result = config.to_wif_dict()
+        result["injected"] = "value"
+        assert "injected" not in config.to_wif_dict()
+
     def test_from_json_string_field(self) -> None:
         payload = {"type": "external_account"}
         config = GCPWIFConfig(gcp_wif_configuration_json_string=json.dumps(payload))
@@ -163,6 +163,18 @@ class TestToWifDict:
         # checks parseability) but must be rejected at resolution time.
         config = GCPWIFConfig(gcp_wif_configuration_json_string="[1, 2, 3]")
         with pytest.raises(ValueError, match="must be a JSON object"):
+            config.to_wif_dict()
+
+    def test_file_not_found_raises_clear_message(self) -> None:
+        config = GCPWIFConfig(gcp_wif_configuration="/nonexistent/wif.json")
+        with pytest.raises(ValueError, match="WIF configuration file not found"):
+            config.to_wif_dict()
+
+    def test_file_invalid_json_raises_clear_message(self, tmp_path: Path) -> None:
+        bad_file = tmp_path / "wif.json"
+        bad_file.write_text("not json")
+        config = GCPWIFConfig(gcp_wif_configuration=str(bad_file))
+        with pytest.raises(ValueError, match="is not valid JSON"):
             config.to_wif_dict()
 
 
