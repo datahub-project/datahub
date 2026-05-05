@@ -24,11 +24,12 @@ class DltSourceReport(StaleEntityRemovalSourceReport):
     pipelines_filtered: LossyList[str] = dataclasses.field(default_factory=LossyList)
     resources_filtered: LossyList[str] = dataclasses.field(default_factory=LossyList)
 
-    # Error tracking
+    # Error tracking. Inlet URN typos are now rejected at config-load time
+    # by DltSourceConfig field validators, so no runtime counter is needed
+    # for that case — a bad URN raises ValidationError before ingestion runs.
     schema_read_errors: int = 0
     run_history_errors: int = 0
     state_read_errors: int = 0
-    invalid_inlet_urns: int = 0
     malformed_run_history_rows: int = 0
 
     def report_pipeline_scanned(self) -> None:
@@ -62,10 +63,6 @@ class DltSourceReport(StaleEntityRemovalSourceReport):
     def report_state_read_error(self) -> None:
         """Increment count of state.json parse failures."""
         self.state_read_errors += 1
-
-    def report_invalid_inlet_urn(self) -> None:
-        """Increment count of malformed inlet Dataset URNs from config."""
-        self.invalid_inlet_urns += 1
 
     def report_malformed_run_history_row(self) -> None:
         """Increment count of _dlt_loads rows that could not be parsed."""

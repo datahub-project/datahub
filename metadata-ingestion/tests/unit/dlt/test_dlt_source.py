@@ -19,10 +19,13 @@ from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock, patch
 
+import pytest
 import time_machine
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SourceCapability
+from datahub.ingestion.source.dlt.config import DltSourceConfig
 from datahub.ingestion.source.dlt.data_classes import (
     DltColumnInfo,
     DltLoadInfo,
@@ -895,3 +898,110 @@ def test_parse_load_row_unknown_status_boxed_into_unknown_enum(tmp_path: Path) -
     load = client._parse_load_row(row, start_time=None, end_time=None)
     assert load is not None
     assert load.status == DltLoadStatus.UNKNOWN
+
+
+# ---------------------------------------------------------------------------
+# Test 17: URN field_validators reject malformed URNs at config-load time
+# ---------------------------------------------------------------------------
+
+
+def test_source_dataset_urns_validator_rejects_bad_urn() -> None:
+    """A typo in source_dataset_urns must raise ValidationError before ingestion.
+
+    Without this validator the bad URN would surface as a per-URN warning at
+    workunit emission time and silently produce no upstream lineage.
+    """
+    with pytest.raises(ValidationError) as exc_info:
+        DltSourceConfig.model_validate(
+            {
+                "pipelines_dir": "/tmp",
+                "env": "DEV",
+                "source_dataset_urns": {
+                    "chess_pipeline": ["not-a-valid-urn"],
+                },
+            }
+        )
+    msg = str(exc_info.value)
+    # Error must point the operator at the offending pipeline AND URN.
+    assert "chess_pipeline" in msg
+    assert "not-a-valid-urn" in msg
+
+
+def test_source_table_dataset_urns_validator_rejects_bad_urn() -> None:
+    """A typo nested in source_table_dataset_urns must include both pipeline and table names."""
+    with pytest.raises(ValidationError) as exc_info:
+        DltSourceConfig.model_validate(
+            {
+                "pipelines_dir": "/tmp",
+                "env": "DEV",
+                "source_table_dataset_urns": {
+                    "chess_pipeline": {
+                        "players_games": ["bogus-urn"],
+                    }
+                },
+            }
+        )
+    msg = str(exc_info.value)
+    assert "chess_pipeline" in msg
+    assert "players_games" in msg
+    assert "bogus-urn" in msg
+
+
+def test_urn_validators_accept_valid_urns() -> None:
+    """Well-formed Dataset URNs in both maps load successfully."""
+    config = DltSourceConfig.model_validate(
+        {
+            "pipelines_dir": "/tmp",
+            "env": "DEV",
+            "source_dataset_urns": {
+                "chess_pipeline": [
+                    "urn:li:dataset:(urn:li:dataPlatform:chess_api,players_games,DEV)"
+                ],
+            },
+            "source_table_dataset_urns": {
+                "chess_pipeline": {
+                    "players_games": [
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod_db.public.players_games,PROD)"
+                    ]
+                }
+            },
+        }
+    )
+    # Round-tripped, both maps preserved.
+    assert "chess_pipeline" in config.source_dataset_urns
+    assert "players_games" in config.source_table_dataset_urns["chess_pipeline"]
+
+
+# ---------------------------------------------------------------------------
+# Test 18: DestinationPlatformConfig env validator rejects typos
+# ---------------------------------------------------------------------------
+
+
+def test_destination_platform_env_typo_rejected() -> None:
+    """A typo'd env (e.g. 'PORD') must raise ValidationError so lineage URNs cannot silently mismatch."""
+    with pytest.raises(ValidationError) as exc_info:
+        DltSourceConfig.model_validate(
+            {
+                "pipelines_dir": "/tmp",
+                "env": "DEV",
+                "destination_platform_map": {
+                    "postgres": {"env": "PORD"},  # typo
+                },
+            }
+        )
+    assert "PORD" in str(exc_info.value)
+
+
+def test_destination_platform_env_lowercased_input_is_normalized() -> None:
+    """A correctly-named but lower-case env value is accepted and uppercased,
+    mirroring the validator on EnvConfigMixin."""
+    config = DltSourceConfig.model_validate(
+        {
+            "pipelines_dir": "/tmp",
+            "env": "DEV",
+            "destination_platform_map": {
+                "postgres": {"env": "dev"},
+            },
+        }
+    )
+    assert config.destination_platform_map["postgres"].env == "DEV"

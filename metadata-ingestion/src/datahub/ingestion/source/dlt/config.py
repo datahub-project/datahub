@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -62,12 +63,27 @@ class DestinationPlatformConfig(ConfigModel):
         ),
     )
     env: str = Field(
-        default="PROD",
+        default=DEFAULT_ENV,
         description=(
             "DataHub environment for this destination (PROD, DEV, STAGING, etc.). "
-            "Must match the env used by the destination platform's own connector."
+            "Must match the env used by the destination platform's own connector. "
+            f"One of {sorted(ALL_ENV_TYPES)}."
         ),
     )
+
+    @field_validator("env", mode="after")
+    @classmethod
+    def _env_must_be_valid(cls, v: str) -> str:
+        """Reject typos like 'PORD' / 'prd' at config-load time.
+
+        A bad env value silently produces unstitched lineage URNs (the dlt
+        outlet URN won't match the destination connector's URN), so failing
+        fast here prevents a confusing-to-debug ingestion result. Mirrors the
+        validator on EnvConfigMixin.env in datahub.configuration.source_common.
+        """
+        if v.upper() not in ALL_ENV_TYPES:
+            raise ValueError(f"env must be one of {sorted(ALL_ENV_TYPES)}, got {v!r}")
+        return v.upper()
 
 
 class DltRunHistoryConfig(BaseTimeWindowConfig):

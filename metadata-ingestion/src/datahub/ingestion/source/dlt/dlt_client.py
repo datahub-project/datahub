@@ -11,7 +11,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, get_args
 
 import yaml
 
@@ -69,7 +69,10 @@ def _parse_columns(columns_dict: Optional[Dict[str, Any]]) -> List[DltColumnInfo
     return result
 
 
-_KNOWN_WRITE_DISPOSITIONS = {"append", "replace", "merge"}
+# Derive the runtime membership set from the Literal so the source of truth
+# stays in DltWriteDisposition. Adding a new value to the Literal automatically
+# makes _coerce_write_disposition accept it without a separate edit here.
+_KNOWN_WRITE_DISPOSITIONS: FrozenSet[str] = frozenset(get_args(DltWriteDisposition))
 
 
 def _coerce_write_disposition(raw: Any) -> DltWriteDisposition:
