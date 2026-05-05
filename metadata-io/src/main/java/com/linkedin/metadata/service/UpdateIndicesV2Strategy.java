@@ -244,14 +244,22 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
 
     MCLItem survivor = aspectEvents.get(aspectEvents.size() - 1);
-    if (structuredPropertiesHookEnabled) {
-      updateIndexMappings(opContext, survivor);
-    }
     // Use the oldest predecessor's previousRecordTemplate as the diff baseline, since that is
     // what ES actually had before the batch began. Otherwise the diff would compare against the
     // intermediate in-batch state and incorrectly skip the upsert when a no-op tail follows real
-    // changes earlier in the group.
+    // changes earlier in the group. This baseline is also the right one for the structured-
+    // property mapping diff: any entityType added by an earlier MCL in the group must still be
+    // applied to ES even though the survivor's own previousRecordTemplate already contains it.
     RecordTemplate baseline = aspectEvents.get(0).getPreviousRecordTemplate();
+    if (structuredPropertiesHookEnabled) {
+      updateIndexMappings(
+          opContext,
+          survivor.getUrn(),
+          survivor.getEntitySpec(),
+          survivor.getAspectSpec(),
+          survivor.getRecordTemplate(),
+          baseline);
+    }
     updateSearchIndicesForEvent(opContext, survivor, baseline);
     updateTimeseriesFieldsForEvent(opContext, survivor);
     appendCoalescedRunIds(opContext, survivor, aspectEvents);
