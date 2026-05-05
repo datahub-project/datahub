@@ -11,8 +11,10 @@ from __future__ import annotations
 from typing import Optional
 
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
+    DEFAULT_HTTP_TIMEOUT_SECONDS,
     EmbeddingProvider,
     EmbeddingResult,
+    attach_retries,
     post_json,
 )
 
@@ -27,6 +29,7 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
         model: str,
         project_id: str,
         location: Optional[str],
+        timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     ):
         try:
             import google.auth
@@ -44,14 +47,16 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
         self.model_id = f"vertex_ai/{model}"
         self._location = location or self._DEFAULT_LOCATION
         self._project_id = project_id
+        self._timeout = timeout
 
         credentials, _ = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
-        # Refresh once eagerly so misconfigured ADC fails fast at provider
-        # construction rather than on the first embed call.
+        # Eager refresh so misconfigured ADC fails fast at provider construction
+        # (which is itself lazy — only happens on first embed call) rather than
+        # mid-pipeline on the first batch.
         credentials.refresh(GoogleAuthRequest())
-        self._session = AuthorizedSession(credentials)
+        self._session = attach_retries(AuthorizedSession(credentials))
         self._url = (
             f"https://{self._location}-aiplatform.googleapis.com/v1/"
             f"projects/{self._project_id}/locations/{self._location}/"
@@ -66,7 +71,9 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
                 {"task_type": "RETRIEVAL_DOCUMENT", "content": text} for text in texts
             ]
         }
-        payload = post_json(self._url, body=body, session=self._session)
+        payload = post_json(
+            self._url, body=body, session=self._session, timeout=self._timeout
+        )
         predictions = payload.get("predictions")
         if not isinstance(predictions, list):
             raise RuntimeError(

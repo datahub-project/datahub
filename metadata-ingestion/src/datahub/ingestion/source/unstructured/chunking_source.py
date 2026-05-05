@@ -35,8 +35,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DocumentChunkingSourceConfig,
     get_semantic_search_config,
 )
-from datahub.ingestion.source.unstructured.embedding_providers import (
+from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
+)
+from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     create_embedding_provider,
     derive_model_id,
 )
@@ -187,40 +189,40 @@ class DocumentChunkingSource(Source):
     ) -> None:
         """Fail fast on misconfiguration before any chunks are processed.
 
-        Validates *config-level* requirements only (presence of API keys, project
-        ids, etc.). SDK availability is validated lazily when the provider is
-        instantiated.
+        Read-only presence check for config that the provider constructor would
+        otherwise complain about lazily on the first embed call. SDK availability
+        and env-var resolution happen inside the factory / provider constructors.
         """
         provider = embedding_config.provider
+        has_key = bool(embedding_config.api_key)
 
-        if provider == "cohere":
-            if not embedding_config.api_key and not os.environ.get("COHERE_API_KEY"):
-                raise ValueError(
-                    "Cohere API key is required when using cohere provider. "
-                    "Set cohere.api_key in your recipe or the COHERE_API_KEY environment variable."
-                )
-        elif provider == "openai":
-            if not embedding_config.api_key and not os.environ.get("OPENAI_API_KEY"):
-                raise ValueError(
-                    "OpenAI API key is required when using openai provider. "
-                    "Set openai.api_key in your recipe or the OPENAI_API_KEY environment variable."
-                )
-        elif provider == "vertex_ai":
-            if not embedding_config.vertex_project_id:
-                env_project = os.environ.get("VERTEX_AI_PROJECT_ID")
-                if not env_project:
-                    raise ValueError(
-                        "vertex_project_id is required when using vertex_ai provider. "
-                        "Set embedding.vertex_project_id in your recipe or the VERTEX_AI_PROJECT_ID environment variable."
-                    )
-                embedding_config.vertex_project_id = env_project
-                logger.debug(
-                    "Resolved vertex_project_id from VERTEX_AI_PROJECT_ID env var"
-                )
-        elif provider in ("bedrock", "local"):
-            pass
-        else:
-            raise ValueError(f"Unsupported embedding provider: {provider}")
+        if (
+            provider == "cohere"
+            and not has_key
+            and not os.environ.get("COHERE_API_KEY")
+        ):
+            raise ValueError(
+                "Cohere API key is required when using cohere provider. "
+                "Set embedding.api_key in your recipe or the COHERE_API_KEY environment variable."
+            )
+        if (
+            provider == "openai"
+            and not has_key
+            and not os.environ.get("OPENAI_API_KEY")
+        ):
+            raise ValueError(
+                "OpenAI API key is required when using openai provider. "
+                "Set embedding.api_key in your recipe or the OPENAI_API_KEY environment variable."
+            )
+        if (
+            provider == "vertex_ai"
+            and not embedding_config.vertex_project_id
+            and not os.environ.get("VERTEX_AI_PROJECT_ID")
+        ):
+            raise ValueError(
+                "vertex_project_id is required when using vertex_ai provider. "
+                "Set embedding.vertex_project_id in your recipe or the VERTEX_AI_PROJECT_ID environment variable."
+            )
 
     def _get_provider(self) -> EmbeddingProvider:
         """Lazily instantiate and cache the embedding provider."""
@@ -774,10 +776,13 @@ class DocumentChunkingSource(Source):
             SemanticContentClass,
         )
 
-        # Build model version string (e.g., "bedrock/cohere.embed-english-v3")
-        model_version = (
-            f"{self.config.embedding.provider}/{self.config.embedding.model}"
+        # Use the provider's canonical model_id (e.g. "bedrock/cohere.embed-english-v3").
+        # Going through derive_model_id keeps the "local" → "openai/..." mapping
+        # consistent with self.embedding_model and the provider instance.
+        model_version = derive_model_id(
+            self.config.embedding.provider, self.config.embedding.model
         )
+        assert model_version is not None
 
         # Build embedding chunks
         embedding_chunks = []

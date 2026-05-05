@@ -94,6 +94,11 @@ class EmbeddingConfig(ConfigModel):
     batch_size: int = Field(
         default=25, description="Batch size for embedding API calls"
     )
+    request_timeout: float = Field(
+        default=60.0,
+        gt=0,
+        description="Per-call HTTP timeout in seconds for embedding providers.",
+    )
     input_type: Optional[str] = Field(
         default="search_document",
         description="Input type for Cohere embeddings",

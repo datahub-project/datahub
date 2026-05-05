@@ -14,6 +14,11 @@ from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
 )
 
+# Bedrock model IDs are namespaced by the upstream provider, e.g.
+# "cohere.embed-english-v3" or "amazon.titan-embed-text-v2:0".
+_COHERE_PREFIX = "cohere."
+_TITAN_PREFIX = "amazon.titan-embed"
+
 
 class BedrockEmbeddingProvider(EmbeddingProvider):
     """Embedding via AWS Bedrock Runtime (boto3)."""
@@ -32,11 +37,10 @@ class BedrockEmbeddingProvider(EmbeddingProvider):
         self._client = boto3.client("bedrock-runtime", region_name=aws_region)
 
     def embed(self, texts: list[str]) -> EmbeddingResult:
-        # Different Bedrock-hosted models have different request/response shapes.
-        # We support the two families we ship defaults for: Cohere and Amazon Titan.
-        model_lower = self._model.lower()
-
-        if "cohere" in model_lower:
+        # Different Bedrock-hosted model families use different request/response
+        # shapes. Match by the official Bedrock model-id prefix rather than a
+        # substring search so unrelated models don't get mis-formatted.
+        if self._model.startswith(_COHERE_PREFIX):
             body = {"texts": texts, "input_type": "search_document"}
             response = self._client.invoke_model(
                 modelId=self._model,
@@ -47,15 +51,21 @@ class BedrockEmbeddingProvider(EmbeddingProvider):
             payload = json.loads(response["body"].read())
             return EmbeddingResult(embeddings=payload["embeddings"])
 
-        # Titan (and any other single-input-per-call models): one request per text.
-        embeddings: list[list[float]] = []
-        for text in texts:
-            response = self._client.invoke_model(
-                modelId=self._model,
-                body=json.dumps({"inputText": text}),
-                accept="application/json",
-                contentType="application/json",
-            )
-            payload = json.loads(response["body"].read())
-            embeddings.append(payload["embedding"])
-        return EmbeddingResult(embeddings=embeddings)
+        if self._model.startswith(_TITAN_PREFIX):
+            # Titan embedding models accept a single input per call.
+            embeddings: list[list[float]] = []
+            for text in texts:
+                response = self._client.invoke_model(
+                    modelId=self._model,
+                    body=json.dumps({"inputText": text}),
+                    accept="application/json",
+                    contentType="application/json",
+                )
+                payload = json.loads(response["body"].read())
+                embeddings.append(payload["embedding"])
+            return EmbeddingResult(embeddings=embeddings)
+
+        raise ValueError(
+            f"Unsupported Bedrock embedding model family: {self._model!r}. "
+            f"Supported prefixes: {_COHERE_PREFIX!r}, {_TITAN_PREFIX!r}."
+        )

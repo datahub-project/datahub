@@ -13,7 +13,9 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
 )
-from datahub.ingestion.source.unstructured.embedding_providers import EmbeddingResult
+from datahub.ingestion.source.unstructured.embedding_providers.base import (
+    EmbeddingResult,
+)
 
 
 def _mock_provider(embeddings_per_call: list[list[float]]) -> MagicMock:
@@ -442,8 +444,12 @@ def test_vertex_ai_missing_project_id_raises(pipeline_context):
 
 def test_vertex_ai_project_id_resolved_from_env_var(pipeline_context):
     """When vertex_project_id is omitted but VERTEX_AI_PROJECT_ID is set in env,
-    construction should succeed and the env value should be written back to the config
-    so downstream embedding calls have a single source of truth."""
+    source construction must succeed (validator passes) and the factory must
+    resolve the env value lazily when building the provider."""
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+        create_embedding_provider,
+    )
+
     config = DocumentChunkingSourceConfig(
         embedding=EmbeddingConfig(
             provider="vertex_ai",
@@ -459,8 +465,20 @@ def test_vertex_ai_project_id_resolved_from_env_var(pipeline_context):
         source = DocumentChunkingSource(
             ctx=pipeline_context, config=config, standalone=False, graph=None
         )
-    assert source.config.embedding.vertex_project_id == "env-project"
-    assert source.embedding_model == "vertex_ai/gemini-embedding-001"
+        assert source.embedding_model == "vertex_ai/gemini-embedding-001"
+
+        # Factory resolves the env var when actually instantiating the provider —
+        # config itself stays unmodified.
+        with patch(
+            "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai."
+            "VertexAIEmbeddingProvider.__init__",
+            return_value=None,
+        ) as mock_init:
+            create_embedding_provider(source.config.embedding)
+
+    assert mock_init.call_args.kwargs["project_id"] == "env-project"
+    # The validator must NOT mutate the config.
+    assert source.config.embedding.vertex_project_id is None
 
 
 def test_bedrock_requires_no_api_key(pipeline_context):
@@ -688,7 +706,7 @@ def test_local_provider_sets_embedding_model(pipeline_context):
 
 def test_local_provider_api_base_strips_embeddings_suffix():
     """_resolve_local_base_url strips a /embeddings suffix."""
-    from datahub.ingestion.source.unstructured.embedding_providers import (
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
         resolve_local_base_url as _resolve_local_base_url,
     )
 
@@ -700,7 +718,7 @@ def test_local_provider_api_base_strips_embeddings_suffix():
 
 def test_local_provider_api_base_no_suffix():
     """An endpoint without /embeddings is passed through unchanged."""
-    from datahub.ingestion.source.unstructured.embedding_providers import (
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
         resolve_local_base_url as _resolve_local_base_url,
     )
 
@@ -711,7 +729,7 @@ def test_local_provider_api_base_no_suffix():
 
 def test_local_provider_api_base_from_env_var():
     """Falls back to LOCAL_EMBEDDING_ENDPOINT env var when no endpoint configured."""
-    from datahub.ingestion.source.unstructured.embedding_providers import (
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
         resolve_local_base_url as _resolve_local_base_url,
     )
 
@@ -725,7 +743,7 @@ def test_local_provider_api_base_from_env_var():
 
 def test_local_provider_api_base_default_fallback():
     """Falls back to localhost:11434 when neither config nor env var is set."""
-    from datahub.ingestion.source.unstructured.embedding_providers import (
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
         resolve_local_base_url as _resolve_local_base_url,
     )
 

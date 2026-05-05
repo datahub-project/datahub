@@ -5,11 +5,11 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-import requests
-
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
+    DEFAULT_HTTP_TIMEOUT_SECONDS,
     EmbeddingProvider,
     EmbeddingResult,
+    build_retrying_session,
     post_json,
 )
 
@@ -19,7 +19,12 @@ COHERE_API_URL = "https://api.cohere.com/v1/embed"
 class CohereEmbeddingProvider(EmbeddingProvider):
     """Embedding via the Cohere v1 ``/embed`` HTTP endpoint."""
 
-    def __init__(self, model: str, api_key: Optional[str]):
+    def __init__(
+        self,
+        model: str,
+        api_key: Optional[str],
+        timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
+    ):
         resolved_key = api_key or os.environ.get("COHERE_API_KEY")
         if not resolved_key:
             raise ValueError(
@@ -28,7 +33,8 @@ class CohereEmbeddingProvider(EmbeddingProvider):
 
         self._model = model
         self.model_id = f"cohere/{model}"
-        self._session = requests.Session()
+        self._timeout = timeout
+        self._session = build_retrying_session()
         self._session.headers.update(
             {
                 "Authorization": f"Bearer {resolved_key}",
@@ -45,6 +51,7 @@ class CohereEmbeddingProvider(EmbeddingProvider):
                 "input_type": "search_document",
             },
             session=self._session,
+            timeout=self._timeout,
         )
         embeddings = payload.get("embeddings")
         if embeddings is None:

@@ -51,7 +51,12 @@ def resolve_local_base_url(endpoint: Optional[str]) -> str:
 
 
 def derive_model_id(provider: Optional[str], model: Optional[str]) -> Optional[str]:
-    """Return the human-readable ``provider/model`` id, or None if not configured."""
+    """Return the human-readable ``provider/model`` id, or None if not configured.
+
+    The ``local`` provider serves OpenAI-compatible models, so we tag it
+    ``openai/<model>`` for parity with the canonical id used by
+    :class:`OpenAIEmbeddingProvider`.
+    """
     if not provider or not model:
         return None
     if provider == "local":
@@ -70,6 +75,7 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
     api_key: Optional[str] = (
         config.api_key.get_secret_value() if config.api_key else None
     )
+    timeout = config.request_timeout
 
     if provider is None or model is None:
         raise ValueError("EmbeddingConfig.provider and .model must be set")
@@ -78,17 +84,20 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
         return BedrockEmbeddingProvider(model=model, aws_region=config.aws_region)
 
     if provider == "cohere":
-        return CohereEmbeddingProvider(model=model, api_key=api_key)
+        return CohereEmbeddingProvider(model=model, api_key=api_key, timeout=timeout)
 
     if provider == "openai":
-        return OpenAIEmbeddingProvider(model=model, api_key=api_key)
+        return OpenAIEmbeddingProvider(model=model, api_key=api_key, timeout=timeout)
 
     if provider == "local":
+        # Local OpenAI-compatible servers (Ollama, etc.) accept any token; the
+        # placeholder key is plumbed through so the constructor's "no key"
+        # guard only fires when targeting api.openai.com.
         return OpenAIEmbeddingProvider(
             model=model,
             api_key="local",
             base_url=resolve_local_base_url(config.endpoint),
-            provider_label="openai",
+            timeout=timeout,
         )
 
     if provider == "vertex_ai":
@@ -102,6 +111,7 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
             model=model,
             project_id=project_id,
             location=config.vertex_location,
+            timeout=timeout,
         )
 
     raise ValueError(f"Unsupported embedding provider: {provider}")
