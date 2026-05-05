@@ -108,7 +108,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     const start = (page - 1) * pageSize;
 
     const [editSecret, setEditSecret] = useState<SecretBuilderState | undefined>(undefined);
-    const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
+    const [deletingSecretUrn, setDeletingSecretUrn] = useState<string | null>(null);
 
     const [deleteSecretMutation] = useDeleteSecretMutation();
     const [createSecretMutation] = useCreateSecretMutation();
@@ -141,7 +141,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     message.error({ content: `Failed to remove secret: \n ${e.message || ''}`, duration: 3 });
                 }
             });
-        setShowConfirmDelete(false);
+        setDeletingSecretUrn(null);
         refetch();
     };
 
@@ -233,7 +233,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     };
 
     const handleDeleteClose = () => {
-        setShowConfirmDelete(false);
+        setDeletingSecretUrn(null);
     };
 
     const onEditSecret = (urnData: any) => {
@@ -289,30 +289,21 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             title: '',
             key: 'actions',
             render: (record: TableDataType) => (
-                <>
-                    <ButtonsContainer>
-                        <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
-                            <Icon icon={PencilSimpleLine} />
-                        </button>
-                        <button
-                            type="button"
-                            className="delete-action"
-                            onClick={() => setShowConfirmDelete(true)}
-                            aria-label="Delete secret"
-                            data-test-id="delete-secret-action"
-                            data-icon="delete"
-                        >
-                            <Icon icon={Trash} color="red" />
-                        </button>
-                    </ButtonsContainer>
-                    <ConfirmationModal
-                        isOpen={showConfirmDelete}
-                        modalTitle="Confirm Secret Removal"
-                        modalText="Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
-                        handleConfirm={() => deleteSecret(record.urn)}
-                        handleClose={handleDeleteClose}
-                    />
-                </>
+                <ButtonsContainer>
+                    <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
+                        <Icon icon={PencilSimpleLine} />
+                    </button>
+                    <button
+                        type="button"
+                        className="delete-action"
+                        onClick={() => setDeletingSecretUrn(record.urn)}
+                        aria-label="Delete secret"
+                        data-test-id="delete-secret-action"
+                        data-icon="delete"
+                    >
+                        <Icon icon={Trash} color="red" />
+                    </button>
+                </ButtonsContainer>
             ),
             width: '100px',
         },
@@ -370,6 +361,13 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 onUpdate={onUpdate}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
+            />
+            <ConfirmationModal
+                isOpen={deletingSecretUrn !== null}
+                modalTitle="Confirm Secret Removal"
+                modalText="Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
+                handleConfirm={() => deletingSecretUrn && deleteSecret(deletingSecretUrn)}
+                handleClose={handleDeleteClose}
             />
         </>
     );
