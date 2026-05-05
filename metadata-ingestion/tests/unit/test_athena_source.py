@@ -142,7 +142,7 @@ def test_athena_get_table_properties():
         mock_result,
     ]
     mock_cursor.fetchall.side_effect = [OperationalError("First call fails")]
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
     ]
 
@@ -223,7 +223,7 @@ def test_athena_get_table_properties_iceberg_location():
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {
             "DataCatalogsSummary": [
                 {"CatalogName": "my-hive-catalog", "Type": "HIVE"},
@@ -293,7 +293,7 @@ def test_athena_get_table_properties_non_glue_non_iceberg_location(
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]}
     ]
 
@@ -321,7 +321,7 @@ def test_get_catalog_type_returns_glue():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {
             "DataCatalogsSummary": [
                 {"CatalogName": "AwsDataCatalog", "Type": "GLUE"},
@@ -349,7 +349,7 @@ def test_get_catalog_type_case_insensitive_match():
 
     mock_cursor = mock.MagicMock()
     # API returns uppercase name, config has lowercase
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
     ]
     source.cursor = mock_cursor
@@ -371,7 +371,7 @@ def test_get_catalog_type_returns_none_when_not_found():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
     ]
     source.cursor = mock_cursor
@@ -392,7 +392,7 @@ def test_get_catalog_type_returns_none_on_api_exception():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.side_effect = (
+    mock_cursor.connection.client.get_paginator.return_value.paginate.side_effect = (
         Exception("Network error")
     )
     source.cursor = mock_cursor
@@ -414,7 +414,7 @@ def test_is_glue_catalog_caches_result():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
     ]
     source.cursor = mock_cursor
@@ -424,7 +424,7 @@ def test_is_glue_catalog_caches_result():
     assert source.is_glue_catalog is True
 
     # API should have been called exactly once due to caching
-    mock_cursor._connection.client.get_paginator.assert_called_once()
+    mock_cursor.connection.client.get_paginator.assert_called_once()
 
 
 def test_is_glue_catalog_defaults_false_for_non_default_catalog_when_not_found():
@@ -446,7 +446,7 @@ def test_is_glue_catalog_defaults_false_for_non_default_catalog_when_not_found()
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
     ]
     source.cursor = mock_cursor
@@ -469,7 +469,7 @@ def test_is_glue_catalog_defaults_true_for_awsdatacatalog_when_not_found():
 
     mock_cursor = mock.MagicMock()
     # API response doesn't include AwsDataCatalog; fallback should still assume Glue.
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "other-catalog", "Type": "HIVE"}]}
     ]
     source.cursor = mock_cursor
@@ -491,7 +491,7 @@ def test_is_glue_catalog_false_for_hive_catalog():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "my-hive-catalog", "Type": "HIVE"}]}
     ]
     source.cursor = mock_cursor
@@ -530,7 +530,7 @@ def test_athena_get_table_properties_glue_iceberg_returns_glue_urn():
     mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
-    mock_cursor._connection.client.get_paginator.return_value.paginate.return_value = [
+    mock_cursor.connection.client.get_paginator.return_value.paginate.return_value = [
         {"DataCatalogsSummary": [{"CatalogName": "AwsDataCatalog", "Type": "GLUE"}]}
     ]
 
@@ -559,7 +559,7 @@ def test_is_glue_catalog_defaults_true_on_api_exception_for_awsdatacatalog():
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.side_effect = (
+    mock_cursor.connection.client.get_paginator.return_value.paginate.side_effect = (
         Exception("Network error")
     )
     source.cursor = mock_cursor
@@ -582,7 +582,7 @@ def test_is_glue_catalog_defaults_false_on_api_exception_for_non_default_catalog
     source = AthenaSource(config=config, ctx=ctx)
 
     mock_cursor = mock.MagicMock()
-    mock_cursor._connection.client.get_paginator.return_value.paginate.side_effect = (
+    mock_cursor.connection.client.get_paginator.return_value.paginate.side_effect = (
         Exception("Network error")
     )
     source.cursor = mock_cursor
