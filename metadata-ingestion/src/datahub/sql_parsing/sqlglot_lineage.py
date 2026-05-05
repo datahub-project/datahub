@@ -1408,6 +1408,29 @@ def _collect_object_construct_source_aliases(
     return result
 
 
+def _table_name_matches(
+    qualified_name: _TableName, unqualified_ref: _TableName
+) -> bool:
+    """Match a possibly-unqualified leaf ref against a qualified schema-mapping key.
+
+    Leaf nodes from sqlglot lineage may not carry db/schema (both None). When a
+    component IS present in unqualified_ref it must agree with qualified_name
+    (case-insensitive). This avoids false-positive matches when two tables share
+    the same name across different databases or schemas.
+    """
+    if qualified_name.table.lower() != unqualified_ref.table.lower():
+        return False
+    if unqualified_ref.db_schema is not None:
+        if (
+            qualified_name.db_schema or ""
+        ).lower() != unqualified_ref.db_schema.lower():
+            return False
+    if unqualified_ref.database is not None:
+        if (qualified_name.database or "").lower() != unqualified_ref.database.lower():
+            return False
+    return True
+
+
 def _get_star_map_col_upstreams(
     star_map_node: sqlglot.lineage.Node,
     parent_node: sqlglot.lineage.Node,
@@ -1464,7 +1487,7 @@ def _get_star_map_col_upstreams(
         for candidate in candidates:
             for unqualified_ref in leaf_table_refs:
                 for qualified_name, schema in table_name_schema_mapping.items():
-                    if qualified_name.table.lower() == unqualified_ref.table.lower():
+                    if _table_name_matches(qualified_name, unqualified_ref):
                         for col_name in schema:
                             if col_name.lower() == candidate.lower():
                                 upstreams.add(

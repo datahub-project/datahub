@@ -2,8 +2,9 @@ import pathlib
 
 import pytest
 
+from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import _table_name_matches, sqlglot_lineage
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -2141,6 +2142,33 @@ left join cte_agg on cte_agg.record_id = li.id
             },
         },
         expected_file=RESOURCE_DIR / "test_snowflake_object_construct_get_lineage.json",
+    )
+
+
+def test_table_name_matches_respects_db_and_schema() -> None:
+    """_table_name_matches must not conflate same-named tables across databases/schemas."""
+    prod_orders = _TableName(database="prod", db_schema="billing", table="orders")
+    staging_orders = _TableName(database="staging", db_schema="billing", table="orders")
+    unqualified = _TableName(table="orders")
+
+    # Fully-qualified refs must distinguish databases
+    assert _table_name_matches(prod_orders, prod_orders)
+    assert not _table_name_matches(prod_orders, staging_orders)
+
+    # Unqualified refs (None db/schema) act as wildcards — matches any same-named table
+    assert _table_name_matches(prod_orders, unqualified)
+    assert _table_name_matches(staging_orders, unqualified)
+
+    # Schema-scoped ref matches only the right schema
+    billing_ref = _TableName(db_schema="billing", table="orders")
+    payments_ref = _TableName(db_schema="payments", table="orders")
+    assert _table_name_matches(prod_orders, billing_ref)
+    assert not _table_name_matches(prod_orders, payments_ref)
+
+    # Different table names never match regardless of db/schema
+    assert not _table_name_matches(
+        _TableName(database="prod", db_schema="billing", table="orders"),
+        _TableName(database="prod", db_schema="billing", table="invoices"),
     )
 
 
