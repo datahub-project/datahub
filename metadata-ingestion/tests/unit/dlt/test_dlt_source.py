@@ -504,6 +504,25 @@ def test_merge_write_disposition_emitted_as_custom_property() -> None:
     )
 
 
+def test_coerce_write_disposition_known_values_pass_through() -> None:
+    """Guards against typing.get_args(DltWriteDisposition) returning an empty
+    tuple — which would silently coerce every input (including legitimate
+    values) to 'append' via the unknown-value fallback. The test_dlt golden
+    flow uses _parse_table directly, bypassing _coerce_write_disposition, so
+    this is the only direct test of the coercion contract.
+    """
+    from datahub.ingestion.source.dlt.dlt_client import _coerce_write_disposition
+
+    # Known values must round-trip unchanged.
+    assert _coerce_write_disposition("append") == "append"
+    assert _coerce_write_disposition("replace") == "replace"
+    assert _coerce_write_disposition("merge") == "merge"
+    # Unknown / missing values fall back to the dlt default.
+    assert _coerce_write_disposition("garbage") == "append"
+    assert _coerce_write_disposition(None) == "append"
+    assert _coerce_write_disposition(42) == "append"
+
+
 # ---------------------------------------------------------------------------
 # Test 10: Column-level lineage for 1:1 sql_database pipelines
 # ---------------------------------------------------------------------------
@@ -989,7 +1008,11 @@ def test_destination_platform_env_typo_rejected() -> None:
                 },
             }
         )
-    assert "PORD" in str(exc_info.value)
+    msg = str(exc_info.value)
+    assert "PORD" in msg
+    # Pydantic's location path must point the operator at the offending entry
+    # so they don't have to grep through their config to find the broken key.
+    assert "destination_platform_map" in msg or "postgres" in msg
 
 
 def test_destination_platform_env_lowercased_input_is_normalized() -> None:
