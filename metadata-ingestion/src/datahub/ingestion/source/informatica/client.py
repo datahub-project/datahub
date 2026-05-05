@@ -70,6 +70,9 @@ _MAX_INNER_ZIP_BYTES = 100 * 1024 * 1024
 # that could exhaust pod disk space.
 _MAX_OUTER_ZIP_BYTES = 500 * 1024 * 1024
 
+# Cap for the taskflow export package — same rationale as above.
+_MAX_TASKFLOW_ZIP_BYTES = 500 * 1024 * 1024
+
 # backoff_factor=1.0 → delays of 1s, 2s, 4s.
 _RETRY_POLICY = Retry(
     total=3,
@@ -1222,7 +1225,16 @@ def _parse_taskflow_export_package(
     """
     definitions: Dict[str, TaskflowDefinition] = {}
     with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
+        total_bytes = 0
         for chunk in iter_content(chunk_size=8192):
+            total_bytes += len(chunk)
+            if total_bytes > _MAX_TASKFLOW_ZIP_BYTES:
+                if report is not None:
+                    report.warning(
+                        title="IDMC Taskflow export package exceeds size limit",
+                        message=f"Download aborted after {_MAX_TASKFLOW_ZIP_BYTES} bytes. Taskflow step DAGs in this batch will be missing.",
+                    )
+                return definitions
             tmp.write(chunk)
         tmp.flush()
         tmp.seek(0)
