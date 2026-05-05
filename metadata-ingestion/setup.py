@@ -794,8 +794,11 @@ plugins: Dict[str, Set[str]] = {
     | databricks_common
     | sqlalchemy_lib
     | sqlglot_lib,
-    # dlt reads from local filesystem only; dlt package itself is optional
-    "dlt": set(),
+    # dlt is the backing client lib used to read pipeline state. The connector
+    # falls back to direct YAML parsing when dlt is not importable, but in
+    # normal use we expect users opting into the dlt extra to want the SDK
+    # path (richer metadata, run history support).
+    "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
     "sigma": sqlglot_lib | {"requests<3.0.0"},
@@ -933,6 +936,7 @@ base_dev_requirements = {
             "datahub-documents",
             "dataplex",
             "delta-lake",
+            "dlt",
             "dremio",
             "druid",
             "elasticsearch",

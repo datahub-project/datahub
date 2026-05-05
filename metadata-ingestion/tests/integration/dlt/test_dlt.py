@@ -368,20 +368,9 @@ def test_dlt_run_history_emits_dataprocess_instances(tmp_path: pathlib.Path) -> 
 
     output_file = str(tmp_path / "dlt_dpi_output.json")
 
-    # _check_dlt is patched at the class level because Pipeline.create()
-    # constructs a fresh DltClient internally; the patch must be in effect
-    # at __init__ time so _dlt_available becomes True. Without this, the
-    # early-return guard in _emit_run_history short-circuits before
-    # get_run_history is called in CI environments where dlt isn't installed.
-    with (
-        patch(
-            "datahub.ingestion.source.dlt.dlt_client.DltClient._check_dlt",
-            return_value=True,
-        ),
-        patch(
-            "datahub.ingestion.source.dlt.dlt_client.DltClient.get_run_history",
-            return_value=fake_loads,
-        ),
+    with patch(
+        "datahub.ingestion.source.dlt.dlt_client.DltClient.get_run_history",
+        return_value=fake_loads,
     ):
         _run_dlt_pipeline(
             pipelines_dir=str(TESTDATA_DIR),
