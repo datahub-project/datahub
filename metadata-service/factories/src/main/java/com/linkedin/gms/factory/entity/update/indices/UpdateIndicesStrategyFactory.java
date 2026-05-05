@@ -36,7 +36,9 @@ public class UpdateIndicesStrategyFactory {
       ConfigurationProvider configProvider,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
-      @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup) {
+      @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
+      @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:true}")
+          boolean coalesceBatchUpdates) {
 
     EntityIndexVersionConfiguration v2Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v2Cleanup).build();
@@ -70,7 +72,8 @@ public class UpdateIndicesStrategyFactory {
         timeseriesAspectService,
         idHashAlgo,
         semanticSearchConfig,
-        indexConvention);
+        indexConvention,
+        coalesceBatchUpdates);
   }
 
   @Bean("updateIndicesV3Strategy")
