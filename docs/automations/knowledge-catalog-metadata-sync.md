@@ -13,11 +13,11 @@ This feature is currently in **Public Beta** in DataHub Cloud. Reach out to your
 ## Introduction
 
 Knowledge Catalog Metadata Sync is an automation that synchronizes DataHub Tags, Glossary Terms, and Structured Properties with
-Google Cloud Knowledge Catalog. This enables you to manage metadata centrally in DataHub and automatically propagate it to Dataplex, where it appears as custom aspects, native Business Glossary terms, and entry links on your BigQuery assets. This automation is exclusively available in DataHub Cloud.
+Google Cloud Knowledge Catalog. This enables you to manage metadata centrally in DataHub and automatically propagate it to Knowledge Catalog, where it appears as custom aspects, native Business Glossary terms, and entry links on your BigQuery assets. This automation is exclusively available in DataHub Cloud.
 
 ## Use Cases
 
-- Maintain consistent metadata across DataHub and Google Cloud Dataplex
+- Maintain consistent metadata across DataHub and Google Cloud Knowledge d
 - Improve data discovery by making DataHub governance metadata visible in the Google Cloud console
 - Enhance data governance by syncing DataHub Glossary Terms to Knowledge Catalog Business Glossary terms with full category hierarchies
 - Streamline data classification by syncing DataHub Tags to Knowledge Catalog custom aspects
@@ -59,7 +59,7 @@ When a Glossary Term is applied to a BigQuery table or column in DataHub, the au
 2. Recreates the DataHub glossary node hierarchy as Knowledge Catalog categories (up to 3 levels)
 3. Creates a native Knowledge Catalog glossary term under the appropriate category
 4. Creates an entry link between the glossary term and the BigQuery data asset (with column path for column-level terms)
-5. When a term is removed in DataHub, the corresponding entry link is deleted from Dataplex
+5. When a term is removed in DataHub, the corresponding entry link is deleted from Knowledge Catalog
 
 ### Structured Properties
 
@@ -147,7 +147,7 @@ Click **Save and Run** to activate the automation. The automation will:
 
 ## Propagating for Existing Assets
 
-To ensure that all existing Tags, Glossary Terms, and Structured Properties are propagated to Dataplex, you can back-fill historical data. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
+To ensure that all existing Tags, Glossary Terms, and Structured Properties are propagated to Knowledge Catalog, you can back-fill historical data. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
 
 1. Navigate to the Automation you created above
 2. Click the three-dot **More** menu
