@@ -1,7 +1,7 @@
 import contextlib
 import json
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -2286,10 +2286,16 @@ class TestStreamUpstreamMultiTableInsert:
         assert len(results) == 1
         assert isinstance(results[0], ObservedQuery)
         assert extractor.report.num_stream_queries_observed == 1
-        assert extractor.report.num_audit_rows_unknown_dollar_prefix >= 1
+        assert extractor.report.num_audit_rows_unknown_dollar_prefix == 1
 
     def test_audit_row_missing_object_name_increments_counter(self):
-        """Missing/None objectName -> drift counter increments, no crash."""
+        """None objectName in objects_modified -> missing-name counter increments, no crash.
+
+        stream_clean_multi_target fires (None doesn't trigger has_corrupt_object_names
+        or has_unknown_dollar_prefix).  _build_downstream_targets drops the None-name
+        target via its per-object exception handler (logged as a structured warning),
+        so only the one clean target emits a PreparsedQuery with intact column lineage.
+        """
         extractor = self._create_mock_extractor()
         targets = self._two_clean_targets()
         targets[1]["objectName"] = None
@@ -2305,9 +2311,197 @@ class TestStreamUpstreamMultiTableInsert:
             objects_modified=targets,
         )
 
-        list(extractor._parse_audit_log_row(row, {}))
+        results = list(extractor._parse_audit_log_row(row, {}))
 
-        assert extractor.report.num_audit_rows_missing_object_name >= 1
+        # Exactly one missing name (the None target); use == to catch double-counting.
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        # Only the clean target produces a PreparsedQuery; the None-name target is dropped.
+        assert len(results) == 1
+        assert isinstance(results[0], PreparsedQuery)
+        assert results[0].downstream == self.DOWNSTREAM_PROFILE_URN
+        # Column lineage to the stream upstream must survive on the clean target.
+        assert results[0].column_lineage and len(results[0].column_lineage) == 1
+        assert (
+            results[0].column_lineage[0].upstreams[0].table == self.UPSTREAM_STREAM_URN
+        )
+
+    def test_audit_row_none_direct_object_falls_back_to_sql(self):
+        """None objectName in direct_objects_accessed → fall back to sqlglot.
+
+        Emitting a PreparsedQuery with upstreams=[] at confidence 1.0 would
+        overwrite previously-correct lineage; ObservedQuery defers to sqlglot.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {"objectName": None, "objectDomain": "Table", "columns": []},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        # Sqlglot needs the original SQL + DB/schema context to resolve unqualified names.
+        assert results[0].query == row["QUERY_TEXT"]
+        assert results[0].default_db == "PROD"
+        assert results[0].default_schema == "STAGE_DWH"
+        assert results[0].usage_multiplier == 1
+        # Counter must reflect exactly one missing-name entry from this row.
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        warning_messages = [w.message for w in extractor.structured_reporter.warnings]
+        assert any("falling back to SQL-based lineage" in m for m in warning_messages)
+
+    def test_audit_row_whitespace_direct_object_falls_back_to_sql(self):
+        """Whitespace-only objectName in direct_objects_accessed → fall back to sqlglot.
+
+        The `.strip()` guard closes the gap that `not obj_name` alone misses.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {"objectName": "   ", "objectDomain": "Table", "columns": []},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert results[0].query == row["QUERY_TEXT"]
+        assert results[0].default_db == "PROD"
+        assert results[0].default_schema == "STAGE_DWH"
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        warning_messages = [w.message for w in extractor.structured_reporter.warnings]
+        assert any("falling back to SQL-based lineage" in m for m in warning_messages)
+
+    def test_direct_object_with_missing_columns_key_does_not_crash(self):
+        """Direct object with no 'columns' key is treated as having no columns.
+
+        Validates the `obj.get("columns") or []` guard against future Snowflake
+        schema changes that might omit the 'columns' key entirely.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                # Valid objectName but 'columns' key entirely absent.
+                {"objectName": "PROD.RAW_BETLER.SOME_TABLE", "objectDomain": "Table"},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], PreparsedQuery)
+        assert results[0].downstream == self.DOWNSTREAM_PROFILE_URN
+        assert len(results[0].upstreams) == 1
+
+
+class TestClassifyAuditLogObjects:
+    """Unit tests for SnowflakeQueriesExtractor._classify_audit_log_objects."""
+
+    def _obj(self, name: Optional[str], domain: str = "Table") -> Dict[str, Any]:
+        return {"objectName": name, "objectDomain": domain}
+
+    def test_empty_list(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects([])
+        assert not result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_clean_object(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("DB.SCHEMA.TABLE")]
+        )
+        assert not result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+        assert not result.has_unknown_dollar_prefix
+
+    def test_sys_view_placeholder_detected(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$SYS_VIEW_42")]
+        )
+        assert result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_sys_view_without_trailing_underscore_is_not_placeholder(self):
+        # "$SYS_VIEW" (no trailing underscore) must NOT match $SYS_VIEW_* prefix.
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$SYS_VIEW")]
+        )
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 1
+
+    def test_unknown_dollar_prefix_counted_separately(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$FUTURE_PLACEHOLDER_99")]
+        )
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 1
+        assert result.has_unknown_dollar_prefix
+
+    def test_none_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj(None)]
+        )
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_empty_string_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects([self._obj("")])
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_whitespace_only_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("   ")]
+        )
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_name_with_no_dot_still_classified(self):
+        # objectName without any dot: unqualified == name itself.
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("$SYS_VIEW_7")]
+        )
+        assert result.has_placeholder
+
+    def test_mixed_objects_only_one_corrupt(self):
+        # Multiple objects where only one has a $SYS_VIEW_ placeholder.
+        objects = [
+            self._obj("PROD.SCHEMA.CLEAN_TABLE"),
+            self._obj("PROD.SCHEMA.$SYS_VIEW_99"),
+            self._obj("PROD.SCHEMA.ANOTHER_CLEAN"),
+        ]
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(objects)
+        assert result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_mixed_missing_and_unknown_dollar(self):
+        objects = [
+            self._obj(None),
+            self._obj("DB.SCHEMA.$WEIRD_123"),
+            self._obj("DB.SCHEMA.NORMAL"),
+        ]
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(objects)
+        assert not result.has_placeholder
+        assert result.n_missing_name == 1
+        assert result.n_unknown_dollar == 1
 
 
 class TestBuildPatternFilter:
