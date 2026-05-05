@@ -6,6 +6,8 @@ against a golden file. Regenerate goldens with `pytest --update-golden-files`.
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Dict, cast
 from unittest import mock
 
 import pytest
@@ -13,6 +15,9 @@ import pytest
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+from datahub.ingestion.source.snowflake.snowflake_queries import (
+    SnowflakeQueriesSourceReport,
+)
 from datahub.testing import mce_helpers
 from tests.integration.snowflake.common import RowCountList
 
@@ -57,10 +62,12 @@ def _build_audit_row(
     }
 
 
-def _make_query_results_handler(audit_row: dict):
+def _make_query_results_handler(
+    audit_row: Dict[str, Any],
+) -> Callable[[str], RowCountList]:
     """Return audit_row only for the access_history query; empty for everything else."""
 
-    def _handler(query: str):
+    def _handler(query: str) -> RowCountList:
         if "snowflake.account_usage.access_history" in query:
             return RowCountList([audit_row])
         return RowCountList([])
@@ -69,9 +76,9 @@ def _make_query_results_handler(audit_row: dict):
 
 
 def _run_pipeline(
-    audit_row: dict,
-    output_file,
-):
+    audit_row: Dict[str, Any],
+    output_file: Path,
+) -> Pipeline:
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -182,7 +189,8 @@ def test_snowflake_queries_stream_upstream_multi_target_lineage(pytestconfig, tm
         ],
     )
 
-    report = pipeline.source.get_report()
+    report = cast(SnowflakeQueriesSourceReport, pipeline.source.get_report())
+    assert report.queries_extractor is not None
     assert report.queries_extractor.num_stream_queries_clean_fast_path == 1
     assert report.queries_extractor.num_stream_queries_observed == 0
 
@@ -286,6 +294,7 @@ def test_snowflake_queries_multi_target_insert_all_table_upstream_lineage(
         ],
     )
 
-    report = pipeline.source.get_report()
+    report = cast(SnowflakeQueriesSourceReport, pipeline.source.get_report())
+    assert report.queries_extractor is not None
     assert report.queries_extractor.num_stream_queries_clean_fast_path == 0
     assert report.queries_extractor.num_stream_queries_observed == 0
