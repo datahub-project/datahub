@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, patch
 import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import SourceCapability
 from datahub.ingestion.source.dlt.data_classes import (
     DltColumnInfo,
     DltLoadInfo,
@@ -33,6 +34,7 @@ from datahub.ingestion.source.dlt.data_classes import (
 from datahub.ingestion.source.dlt.dlt import DltSource
 from datahub.ingestion.source.dlt.dlt_client import DltClient
 from datahub.ingestion.source.dlt.dlt_report import DltSourceReport
+from datahub.metadata.urns import DataFlowUrn
 
 # Frozen timestamp used by run history unit tests to ensure deterministic DPI timestamps.
 FROZEN_TIME = "2026-02-24 12:00:00+00:00"
@@ -591,6 +593,12 @@ def test_emit_dpi_for_load_status_mapping() -> None:
 
     pipeline_info = _make_pipeline_info()
     source = _make_source()
+    flow_urn = DataFlowUrn.create_from_ids(
+        orchestrator=source.platform,
+        flow_id=pipeline_info.pipeline_name,
+        env=source.config.env,
+        platform_instance=source.config.platform_instance,
+    )
 
     def _get_result_from_load(status: DltLoadStatus) -> str:
         """Run _emit_dpi_for_load and extract the run result string from the end event MCP."""
@@ -601,7 +609,7 @@ def test_emit_dpi_for_load_status_mapping() -> None:
             inserted_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=timezone.utc),
             schema_version_hash="abc",
         )
-        workunits = list(source._emit_dpi_for_load(pipeline_info, load))
+        workunits = list(source._emit_dpi_for_load(pipeline_info, load, flow_urn))
         # The end_event_mcp produces a dataProcessRunEvent with a result field
         for wu in workunits:
             if not (hasattr(wu, "metadata") and wu.metadata is not None):
@@ -642,3 +650,247 @@ def test_empty_pipeline_dir_emits_no_workunits() -> None:
         wu for wu in workunits if wu.id and ("dataFlow" in wu.id or "dataJob" in wu.id)
     ]
     assert len(pipeline_workunits) == 0
+
+
+# ---------------------------------------------------------------------------
+# Test 14: test_connection — pipelines_dir validation (H6)
+# ---------------------------------------------------------------------------
+
+
+def test_test_connection_missing_pipelines_dir(tmp_path: Path) -> None:
+    """test_connection fails when pipelines_dir does not exist."""
+    nonexistent = tmp_path / "does-not-exist"
+    report = DltSource.test_connection(
+        {"pipelines_dir": str(nonexistent), "env": "DEV"}
+    )
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    # Failure reason should mention the missing path so the operator can fix it
+    assert "does not exist" in (report.basic_connectivity.failure_reason or "")
+
+
+def test_test_connection_pipelines_dir_is_a_file(tmp_path: Path) -> None:
+    """test_connection fails when pipelines_dir points to a file, not a directory."""
+    file_path = tmp_path / "not_a_dir"
+    file_path.write_text("oops")
+    report = DltSource.test_connection({"pipelines_dir": str(file_path), "env": "DEV"})
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert "not a directory" in (report.basic_connectivity.failure_reason or "")
+
+
+def test_test_connection_valid_dir_dlt_installed(tmp_path: Path) -> None:
+    """Valid pipelines_dir + dlt installed → capable=True with no mitigation_message."""
+    # Simulate dlt being importable (treat it as if installed even if it isn't).
+    # Patch builtins.__import__ to return a stub for 'dlt'.
+    real_import = __import__
+
+    def fake_import(name: str, *args: object, **kwargs: object) -> object:
+        if name == "dlt":
+            return MagicMock(name="dlt-stub")
+        return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
+
+    with patch("builtins.__import__", side_effect=fake_import):
+        report = DltSource.test_connection(
+            {"pipelines_dir": str(tmp_path), "env": "DEV"}
+        )
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is not None
+    lineage_cap = report.capability_report.get(SourceCapability.LINEAGE_COARSE)
+    assert lineage_cap is not None and lineage_cap.capable
+    assert not lineage_cap.mitigation_message
+
+
+def test_test_connection_valid_dir_dlt_missing(tmp_path: Path) -> None:
+    """Valid pipelines_dir but dlt not installed → capable=True with mitigation_message."""
+    real_import = __import__
+
+    def fake_import(name: str, *args: object, **kwargs: object) -> object:
+        if name == "dlt":
+            raise ImportError("No module named 'dlt'")
+        return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
+
+    with patch("builtins.__import__", side_effect=fake_import):
+        report = DltSource.test_connection(
+            {"pipelines_dir": str(tmp_path), "env": "DEV"}
+        )
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is not None
+    lineage_cap = report.capability_report.get(SourceCapability.LINEAGE_COARSE)
+    assert lineage_cap is not None
+    assert lineage_cap.capable  # filesystem fallback still works
+    # mitigation_message should hint at installing dlt
+    assert lineage_cap.mitigation_message is not None
+    assert "dlt" in lineage_cap.mitigation_message.lower()
+
+
+def test_test_connection_invalid_config_returns_failure() -> None:
+    """A malformed config dict produces a non-capable basic_connectivity with the error type."""
+    # Pass a wrong type for pipelines_dir to trigger pydantic validation
+    report = DltSource.test_connection({"pipelines_dir": 123, "env": "DEV"})
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    # Error message should include exception type so operator can distinguish
+    # config error from filesystem issues.
+    assert report.basic_connectivity.failure_reason is not None
+
+
+# ---------------------------------------------------------------------------
+# Test 15: SDK code path — _get_pipeline_info_via_sdk (H7)
+# ---------------------------------------------------------------------------
+
+
+def test_sdk_path_reads_pipeline_info_via_dlt_sdk(tmp_path: Path) -> None:
+    """When dlt is available, get_pipeline_info uses the SDK and returns SDK-derived metadata."""
+    pipeline_name = "chess_pipeline"
+
+    # Build a fake dlt.Schema-like object whose .tables exposes a dict
+    fake_schema = MagicMock()
+    fake_schema.tables = {
+        "users": {
+            "write_disposition": "append",
+            "columns": {
+                "id": {"data_type": "bigint", "nullable": False, "primary_key": True},
+                "name": {"data_type": "text", "nullable": True},
+            },
+        }
+    }
+    fake_schema.version = 3
+    fake_schema.version_hash = "deadbeef"
+
+    fake_pipeline = MagicMock()
+    fake_pipeline.destination = MagicMock(destination_name="postgres")
+    fake_pipeline.dataset_name = "public"
+    fake_pipeline.working_dir = f"/tmp/wd/{pipeline_name}"
+    fake_pipeline.schemas = {pipeline_name: fake_schema}
+
+    fake_dlt = MagicMock()
+    fake_dlt.pipeline.return_value = fake_pipeline
+
+    report = DltSourceReport()
+    client = DltClient(pipelines_dir=str(tmp_path), report=report)
+    with (
+        patch.object(client, "_dlt_available", True),
+        patch.dict("sys.modules", {"dlt": fake_dlt}),
+    ):
+        info = client.get_pipeline_info(pipeline_name)
+
+    assert info is not None
+    assert info.destination == "postgres"
+    assert info.dataset_name == "public"
+    assert len(info.schemas) == 1
+    assert info.schemas[0].schema_name == pipeline_name
+    assert info.schemas[0].version == 3
+    assert info.schemas[0].version_hash == "deadbeef"
+    assert {t.table_name for t in info.schemas[0].tables} == {"users"}
+    # No errors should be reported for the success path
+    assert report.schema_read_errors == 0
+
+
+def test_sdk_path_falls_back_to_filesystem_on_exception(tmp_path: Path) -> None:
+    """SDK exception → falls back to filesystem AND emits report.warning + counter."""
+    pipeline_name = "chess_pipeline"
+
+    # Pre-populate a filesystem schema so the fallback has something to read
+    schemas_dir = tmp_path / pipeline_name / "schemas"
+    schemas_dir.mkdir(parents=True)
+    (schemas_dir / f"{pipeline_name}.schema.yaml").write_text(
+        "name: chess_pipeline\nversion: 1\nversion_hash: hash\ntables:\n"
+        "  users:\n    write_disposition: append\n    columns:\n"
+        "      id:\n        data_type: bigint\n        nullable: false\n"
+    )
+
+    # Make dlt.pipeline raise to trigger the except branch
+    fake_dlt = MagicMock()
+    fake_dlt.pipeline.side_effect = RuntimeError("simulated dlt SDK breakage")
+
+    report = DltSourceReport()
+    client = DltClient(pipelines_dir=str(tmp_path), report=report)
+    with (
+        patch.object(client, "_dlt_available", True),
+        patch.dict("sys.modules", {"dlt": fake_dlt}),
+    ):
+        info = client.get_pipeline_info(pipeline_name)
+
+    # Filesystem fallback succeeded
+    assert info is not None
+    assert len(info.schemas) == 1
+    assert info.schemas[0].tables[0].table_name == "users"
+
+    # Failure must be surfaced as a warning, not silently swallowed
+    assert report.schema_read_errors == 1
+    titles = [w.title for w in report.warnings]  # type: ignore[union-attr]
+    assert any("dlt SDK attach failed" in (t or "") for t in titles), (
+        f"Expected 'dlt SDK attach failed' warning, got titles: {titles}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 16: _parse_load_row time-window filtering and protection (H8 + H2)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_load_row_iso_string_inserted_at(tmp_path: Path) -> None:
+    """ISO-string inserted_at values are parsed into tz-aware datetimes."""
+    client = DltClient(pipelines_dir=str(tmp_path), report=DltSourceReport())
+    row = ("load_42", "schema_a", 0, "2026-02-01T10:00:00+00:00", "vh")
+    load = client._parse_load_row(row, start_time=None, end_time=None)
+    assert load is not None
+    assert load.inserted_at == datetime(2026, 2, 1, 10, 0, tzinfo=timezone.utc)
+
+
+def test_parse_load_row_naive_datetime_coerced_to_utc(tmp_path: Path) -> None:
+    """Naive datetimes are coerced to UTC so downstream comparisons don't fail."""
+    client = DltClient(pipelines_dir=str(tmp_path), report=DltSourceReport())
+    naive_ts = datetime(2026, 2, 1, 10, 0, 0)  # tzinfo is None
+    row = ("load_42", "schema_a", 0, naive_ts, "vh")
+    load = client._parse_load_row(row, start_time=None, end_time=None)
+    assert load is not None
+    assert load.inserted_at.tzinfo is not None
+
+
+def test_parse_load_row_filters_outside_time_window(tmp_path: Path) -> None:
+    """Rows older than start_time or newer than end_time are skipped (return None)."""
+    client = DltClient(pipelines_dir=str(tmp_path), report=DltSourceReport())
+    in_window = datetime(2026, 2, 1, 10, 0, tzinfo=timezone.utc)
+    too_old = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    too_new = datetime(2027, 1, 1, tzinfo=timezone.utc)
+
+    row_in = ("a", "s", 0, in_window, "vh")
+    row_old = ("b", "s", 0, too_old, "vh")
+    row_new = ("c", "s", 0, too_new, "vh")
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 12, 31, tzinfo=timezone.utc)
+
+    assert client._parse_load_row(row_in, start_time=start, end_time=end) is not None
+    assert client._parse_load_row(row_old, start_time=start, end_time=end) is None
+    assert client._parse_load_row(row_new, start_time=start, end_time=end) is None
+
+
+def test_parse_load_row_malformed_row_surfaces_warning(tmp_path: Path) -> None:
+    """A short or unparseable row returns None and surfaces a warning to the report."""
+    report = DltSourceReport()
+    client = DltClient(pipelines_dir=str(tmp_path), report=report)
+    short_row = ("only_two", "columns")  # 2 cols, expected 5
+
+    load = client._parse_load_row(
+        short_row, start_time=None, end_time=None, pipeline_name="chess_pipeline"
+    )
+    assert load is None
+    assert report.malformed_run_history_rows == 1
+    titles = [w.title for w in report.warnings]  # type: ignore[union-attr]
+    assert any("Malformed _dlt_loads row" in (t or "") for t in titles), (
+        f"Expected 'Malformed _dlt_loads row' warning, got titles: {titles}"
+    )
+
+
+def test_parse_load_row_unknown_status_boxed_into_unknown_enum(tmp_path: Path) -> None:
+    """An int status that is not a known DltLoadStatus member is boxed into UNKNOWN."""
+    client = DltClient(pipelines_dir=str(tmp_path), report=DltSourceReport())
+    in_window = datetime(2026, 2, 1, 10, 0, tzinfo=timezone.utc)
+    row = ("load", "schema", 99, in_window, "vh")  # status=99 is unknown
+    load = client._parse_load_row(row, start_time=None, end_time=None)
+    assert load is not None
+    assert load.status == DltLoadStatus.UNKNOWN
