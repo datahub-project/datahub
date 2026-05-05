@@ -858,7 +858,6 @@
     "img_path": "img/logos/platforms/cognos.svg"
   },
   "informatica": {
-    "api_connector": true,
     "platform_type": "ETL/ELT",
     "title": "Informatica",
     "description": "Enterprise data integration and management platform for ETL, data quality, and master data management.",
