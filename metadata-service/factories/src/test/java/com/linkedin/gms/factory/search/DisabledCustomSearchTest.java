@@ -14,15 +14,17 @@ import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -36,16 +38,26 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   static class TestConfig {
-    @MockBean public MetricUtils metricUtils;
+    @MockitoBean public MetricUtils metricUtils;
 
-    @MockBean(name = "settingsBuilder")
-    public SettingsBuilder settingsBuilder;
+    @Bean(name = "settingsBuilder")
+    @Primary
+    public SettingsBuilder settingsBuilder() {
+      return Mockito.mock(SettingsBuilder.class);
+    }
 
-    @MockBean(name = "baseElasticSearchComponents")
+    @Bean(name = "baseElasticSearchComponents")
+    @Primary
     public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
-        baseElasticSearchComponents;
+        baseElasticSearchComponents() {
+      return Mockito.mock(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class);
+    }
 
-    @MockBean public QueryFilterRewriteChain queryFilterRewriteChain;
+    @Bean
+    @Primary
+    public QueryFilterRewriteChain queryFilterRewriteChain() {
+      return Mockito.mock(QueryFilterRewriteChain.class);
+    }
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext() {

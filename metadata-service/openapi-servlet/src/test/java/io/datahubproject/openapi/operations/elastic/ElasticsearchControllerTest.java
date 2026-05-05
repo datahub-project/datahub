@@ -73,16 +73,16 @@ import org.opensearch.tasks.TaskInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -104,21 +104,18 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
   private static final Urn TEST_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)");
 
+  @MockitoBean private SystemMetadataService mockSystemMetadataService;
+  @MockitoBean private TimeseriesAspectService mockTimeseriesAspectService;
+  @MockitoBean private EntitySearchService mockSearchService;
+  @MockitoBean private EntityService<?> mockEntityService;
+  @MockitoBean private GraphService graphService;
+  @MockitoBean private ESSearchDAO mockESSearchDAO;
+
   @Autowired private ElasticsearchController elasticsearchController;
 
   @Autowired private MockMvc mockMvc;
 
-  @Autowired private SystemMetadataService mockSystemMetadataService;
-
-  @Autowired private TimeseriesAspectService mockTimeseriesAspectService;
-
-  @Autowired private EntitySearchService mockSearchService;
-
-  @Autowired private EntityService<?> mockEntityService;
-
   @Autowired private AuthorizerChain authorizerChain;
-
-  @Autowired private ESSearchDAO mockESSearchDAO;
 
   @BeforeMethod
   public void setupMocks() {
@@ -852,12 +849,6 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
   @TestConfiguration
   public static class ElasticsearchControllerTestConfig {
-    @MockBean public SystemMetadataService systemMetadataService;
-    @MockBean public TimeseriesAspectService timeseriesAspectService;
-    @MockBean public EntitySearchService searchService;
-    @MockBean public EntityService<?> entityService;
-    @MockBean public GraphService graphService;
-    @MockBean public ESSearchDAO mockESSearchDAO;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -920,7 +911,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     @Bean
     @Primary
     public GraphService graphService() {
-      return graphService;
+      return mock(GraphService.class);
     }
   }
 }
