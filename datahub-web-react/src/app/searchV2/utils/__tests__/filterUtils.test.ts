@@ -6,7 +6,6 @@ import {
     mergeEnvIntoOriginFacets,
 } from '@app/searchV2/utils/filterUtils';
 
-
 describe('getAutoCompleteInputFromQuickFilter', () => {
     it('should create a platform filter if the selected quick filter is a platform', () => {
         const selectedQuickFilter = { field: QuickFilterField.Platform, value: 'urn:li:dataPlatform:dbt' };
