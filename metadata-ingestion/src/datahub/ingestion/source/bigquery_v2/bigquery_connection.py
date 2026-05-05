@@ -12,7 +12,6 @@ from google.oauth2 import service_account
 from pydantic import Field, PrivateAttr, model_validator
 
 from datahub._version import __version__
-from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
@@ -37,7 +36,7 @@ class BigQueryAuthType(StrEnum):
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
 
 
-class BigQueryConnectionConfig(GCPWIFConfig, ConfigModel):
+class BigQueryConnectionConfig(GCPWIFConfig):
     auth_type: BigQueryAuthType = Field(
         default=BigQueryAuthType.SERVICE_ACCOUNT,
         description=(
@@ -62,7 +61,7 @@ class BigQueryConnectionConfig(GCPWIFConfig, ConfigModel):
 
     extra_client_options: Dict[str, Any] = Field(
         default={},
-        description="Additional options to pass to google.cloud.logging_v2.client.Client.",
+        description="Additional keyword arguments passed to GCP client constructors (bigquery.Client, GCPLoggingClient, etc.).",
     )
 
     project_on_behalf: Optional[str] = Field(
@@ -80,13 +79,7 @@ class BigQueryConnectionConfig(GCPWIFConfig, ConfigModel):
             return self
 
         if self.auth_type == BigQueryAuthType.WORKLOAD_IDENTITY_FEDERATION:
-            if not any(
-                [
-                    self.gcp_wif_configuration,
-                    self.gcp_wif_configuration_json,
-                    self.gcp_wif_configuration_json_string,
-                ]
-            ):
+            if self.wif_config_source() is None:
                 raise ValueError(
                     "One of gcp_wif_configuration (file path), "
                     "gcp_wif_configuration_json (JSON content), or "
@@ -124,6 +117,8 @@ class BigQueryConnectionConfig(GCPWIFConfig, ConfigModel):
         )
 
     def _setup_wif_credentials(self) -> None:
+        # project_id from the WIF config is intentionally ignored — users must
+        # set project_on_behalf explicitly when targeting a specific project.
         self._credentials, _ = load_wif_credentials(self)
 
         # Persist the WIF JSON to a temp file so callers that rely on the
@@ -134,7 +129,8 @@ class BigQueryConnectionConfig(GCPWIFConfig, ConfigModel):
         # Caveat: like the service-account path, this env var is process-wide.
         # Concurrent BigQuery configs with different WIF identities will
         # trample each other for SQLAlchemy callers (the explicit `_credentials`
-        # object handles this for direct GCP client calls). Track at:
+        # object handles this for direct GCP client calls). This temp file is also
+        # never explicitly deleted (same issue as the SA path). Track at:
         # https://linear.app/acryl-data/issue/ING-2376
         wif_dict = self.to_wif_dict()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
@@ -165,21 +161,14 @@ class BigQueryConnectionConfig(GCPWIFConfig, ConfigModel):
     ) -> GCPLoggingClient:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
-        client_options = self.extra_client_options.copy()
-        client_options["_use_grpc"] = False
+        client_options = {**self.extra_client_options, "_use_grpc": False}
         if project_id is not None:
-            return GCPLoggingClient(
-                **client_options,
-                project=project_id,
-                credentials=self._credentials,
-                client_info=_get_bigquery_client_info(),
-            )
-        else:
-            return GCPLoggingClient(
-                **client_options,
-                credentials=self._credentials,
-                client_info=_get_bigquery_client_info(),
-            )
+            client_options["project"] = project_id
+        return GCPLoggingClient(
+            **client_options,
+            credentials=self._credentials,
+            client_info=_get_bigquery_client_info(),
+        )
 
     def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:

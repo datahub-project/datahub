@@ -109,6 +109,25 @@ class TestBigQueryWIFCredentialSetup:
             config.get_projects_client()
             assert mock_proj_client.call_args.kwargs["credentials"] is fake_creds
 
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.datacatalog_v1.PolicyTagManagerClient"
+        ) as mock_ptm_client:
+            config.get_policy_tag_manager_client()
+            assert mock_ptm_client.call_args.kwargs["credentials"] is fake_creds
+
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.GCPLoggingClient"
+        ) as mock_log_client:
+            config.make_gcp_logging_client()
+            assert mock_log_client.call_args.kwargs["credentials"] is fake_creds
+
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.GCPLoggingClient"
+        ) as mock_log_client:
+            config.make_gcp_logging_client(project_id="my-project")
+            assert mock_log_client.call_args.kwargs["credentials"] is fake_creds
+            assert mock_log_client.call_args.kwargs["project"] == "my-project"
+
     @patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_connection.load_wif_credentials"
     )

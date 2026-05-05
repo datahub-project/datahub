@@ -11,24 +11,6 @@ from datahub.ingestion.source.common.gcp_wif_config import (
 
 
 class TestGCPWIFConfigValidation:
-    def test_file_path_option(self):
-        config = GCPWIFConfig(gcp_wif_configuration="/path/to/wif.json")
-        assert config.gcp_wif_configuration == "/path/to/wif.json"
-
-    def test_dict_option(self):
-        config = GCPWIFConfig(
-            gcp_wif_configuration_json={"type": "external_account", "audience": "//iam"}
-        )
-        assert config.gcp_wif_configuration_json == {
-            "type": "external_account",
-            "audience": "//iam",
-        }
-
-    def test_json_string_option(self):
-        payload = json.dumps({"type": "external_account"})
-        config = GCPWIFConfig(gcp_wif_configuration_json_string=payload)
-        assert config.gcp_wif_configuration_json_string == payload
-
     def test_json_string_invalid_raises(self):
         with pytest.raises(ValueError, match="must be valid JSON"):
             GCPWIFConfig(gcp_wif_configuration_json="not-json")
@@ -50,6 +32,25 @@ class TestGCPWIFConfigValidation:
         assert config.gcp_wif_configuration is None
         assert config.gcp_wif_configuration_json is None
         assert config.gcp_wif_configuration_json_string is None
+
+    def test_two_wif_options_raises(self) -> None:
+        with pytest.raises(
+            ValueError, match="Cannot specify multiple WIF configuration options"
+        ):
+            GCPWIFConfig(
+                gcp_wif_configuration="/path/to/wif.json",
+                gcp_wif_configuration_json={"type": "external_account"},
+            )
+
+    def test_all_three_wif_options_raises(self) -> None:
+        with pytest.raises(
+            ValueError, match="Cannot specify multiple WIF configuration options"
+        ):
+            GCPWIFConfig(
+                gcp_wif_configuration="/path/to/wif.json",
+                gcp_wif_configuration_json={"type": "external_account"},
+                gcp_wif_configuration_json_string='{"type": "external_account"}',
+            )
 
 
 class TestLoadWIFCredentials:
@@ -119,18 +120,17 @@ class TestLoadWIFCredentials:
             load_wif_credentials(config)
 
     @patch("datahub.ingestion.source.common.gcp_wif_config.load_credentials_from_dict")
-    def test_refresh_failure_still_returns_credentials(
-        self, mock_load: MagicMock
-    ) -> None:
+    def test_cloud_platform_scope_applied(self, mock_load: MagicMock) -> None:
         mock_creds = self._make_mock_credentials()
         scoped = mock_creds.with_scopes.return_value
-        scoped.refresh.side_effect = Exception("token endpoint unavailable")
         mock_load.return_value = (mock_creds, "proj")
 
         config = GCPWIFConfig(gcp_wif_configuration_json={"type": "external_account"})
         creds, project_id = load_wif_credentials(config)
 
-        # Credentials are still returned despite refresh failure
+        mock_creds.with_scopes.assert_called_once_with(
+            ["https://www.googleapis.com/auth/cloud-platform"]
+        )
         assert creds is scoped
         assert project_id == "proj"
 
@@ -162,7 +162,7 @@ class TestToWifDict:
         # JSON arrays / scalars pass the mode="before" validator (which only
         # checks parseability) but must be rejected at resolution time.
         config = GCPWIFConfig(gcp_wif_configuration_json_string="[1, 2, 3]")
-        with pytest.raises(AssertionError, match="must be a JSON object"):
+        with pytest.raises(ValueError, match="must be a JSON object"):
             config.to_wif_dict()
 
 

@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 from google.auth import load_credentials_from_dict
 from google.auth.credentials import Credentials
-from google.auth.transport.requests import Request
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel
@@ -48,7 +47,10 @@ class GCPWIFConfig(ConfigModel):
             "GCP Workload Identity Federation configuration as a JSON string "
             "(contents of the configuration file). Useful for injecting configuration "
             "from secrets managers. Mutually exclusive with gcp_wif_configuration and "
-            "gcp_wif_configuration_json."
+            "gcp_wif_configuration_json. "
+            "Note: WIF configuration typically contains public endpoint URLs rather "
+            "than private keys, so SecretStr masking is not applied. If your WIF "
+            "config contains sensitive material, ensure it is not logged at DEBUG level."
         ),
     )
 
@@ -64,7 +66,7 @@ class GCPWIFConfig(ConfigModel):
             "gcp_wif_configuration_json_string"
         )
 
-        if gcp_wif_configuration_json:
+        if gcp_wif_configuration_json is not None:
             if isinstance(gcp_wif_configuration_json, str):
                 try:
                     json.loads(gcp_wif_configuration_json)
@@ -133,9 +135,10 @@ class GCPWIFConfig(ConfigModel):
         else:
             raise ValueError("No valid WIF configuration provided")
 
-        assert isinstance(loaded, dict), (
-            f"WIF configuration must be a JSON object, not a {type(loaded).__name__}"
-        )
+        if not isinstance(loaded, dict):
+            raise ValueError(
+                f"WIF configuration must be a JSON object, not a {type(loaded).__name__}"
+            )
         return loaded
 
 
@@ -147,8 +150,8 @@ def load_wif_credentials(
 
     Resolves whichever config option is set to a dict, then calls
     `google.auth.load_credentials_from_dict`. Applies the cloud-platform scope
-    (required for service account impersonation via WIF) and attempts an initial
-    token refresh to validate the credentials.
+    (required for service account impersonation via WIF). Token refresh happens
+    lazily on the first API call.
 
     Returns:
         A tuple of (credentials, project_id). project_id may be None if the WIF
@@ -169,18 +172,6 @@ def load_wif_credentials(
         credentials = credentials.with_scopes(
             ["https://www.googleapis.com/auth/cloud-platform"]
         )
-
-        # Try to refresh credentials to validate they work.
-        # If refresh fails, log a warning but continue — the caller will refresh
-        # automatically on the first actual API call.
-        try:
-            credentials.refresh(Request())
-            logger.debug("Successfully refreshed WIF credentials")
-        except Exception as refresh_error:
-            logger.warning(
-                "Failed to refresh WIF credentials during setup (this may be expected): %s",
-                refresh_error,
-            )
 
         logger.info("Successfully loaded Workload Identity Federation credentials")
         return credentials, project_id
