@@ -598,6 +598,87 @@ if doc:
 </TabItem>
 </Tabs>
 
+## End-to-End: Push, Index, and Verify
+
+This workflow covers pushing pre-refined documents, triggering semantic indexing, and confirming
+retrieval. By default, DataHub includes a built-in scheduled embedding job that runs every 15
+minutes to index new and updated documents. If you don't want to wait for the next scheduled run,
+you can trigger it on demand as shown below.
+
+### Step 1: Push Your Documents
+
+Push one or more documents using the Python SDK:
+
+```python
+from datahub.sdk import DataHubClient, Document
+
+client = DataHubClient.from_env()
+
+docs = [
+    Document.create_document(
+        id="orders-dataset-context",
+        title="Orders Dataset Context",
+        text="# Orders Dataset\n\nThe orders table contains daily order summaries...",
+        related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"],
+        show_in_global_context=False,  # AI agent context doc
+    ),
+    Document.create_document(
+        id="payments-dataset-context",
+        title="Payments Dataset Context",
+        text="# Payments Dataset\n\nThe payments table tracks transaction records...",
+        related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,payments,PROD)"],
+        show_in_global_context=False,
+    ),
+]
+
+for doc in docs:
+    client.entities.upsert(doc)
+    print(f"Pushed: {doc.urn}")
+```
+
+### Step 2: Trigger Semantic Indexing
+
+To trigger the built-in embedding job immediately:
+
+```bash
+datahub graphql --query 'mutation {
+  createIngestionExecutionRequest(input: {
+    ingestionSourceUrn: "urn:li:dataHubIngestionSource:datahub-documents"
+  })
+}'
+```
+
+This kicks off the embedding pipeline, which fetches the new documents, chunks the text, generates
+embeddings via your configured provider, and writes `SemanticContent` aspects back to DataHub.
+
+:::note
+The `datahub-documents` source uses incremental processing — it tracks content hashes and only
+re-embeds documents whose text has changed since the last run.
+:::
+
+### Step 3: Verify Semantic Retrieval
+
+Confirm that your documents are indexed and retrievable with a semantic query:
+
+```bash
+# Search documents semantically
+datahub search --semantic "what questions can the orders dataset answer?" \
+  --filter entity_type=document \
+  --table
+
+# Narrow to a specific domain once domains are configured
+datahub search --semantic "daily transaction summaries" \
+  --filter entity_type=document \
+  --filter domain=urn:li:domain:commerce \
+  --table
+```
+
+If semantic search is not yet configured, check the status first:
+
+```bash
+datahub search diagnose
+```
+
 ## Python SDK Reference
 
 The Document SDK provides the following methods:
