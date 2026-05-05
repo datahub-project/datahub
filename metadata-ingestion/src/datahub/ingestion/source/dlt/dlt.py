@@ -13,7 +13,7 @@ Reference: https://dlthub.com/docs/general-usage/pipeline
 from __future__ import annotations
 
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob as DataJobV1
@@ -108,11 +108,15 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
     See: https://dlthub.com/docs/general-usage/pipeline
     """
 
-    platform = "dlt"
+    # Class-level annotations narrow the parent's `config`/`report` types so
+    # mypy resolves attribute access on DltSourceReport.report_* helpers.
+    config: DltSourceConfig
+    report: DltSourceReport
+    platform: str = "dlt"
 
     def __init__(self, config: DltSourceConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)
-        self.config: DltSourceConfig = config
+        self.config = config
         self.report = DltSourceReport()
         self.client = DltClient(pipelines_dir=config.pipelines_dir, report=self.report)
 
@@ -239,12 +243,12 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         table: DltTableInfo,
         schema_name: str,
         dataflow: DataFlow,
-        inlets: List[DatasetUrn],
-        outlets: List[DatasetUrn],
+        inlets: Sequence[DatasetUrn],
+        outlets: Sequence[DatasetUrn],
         fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
     ) -> DataJob:
         """Build a DataJob entity for a single dlt table/resource."""
-        custom_props: dict[str, str] = {
+        custom_props: Dict[str, str] = {
             "write_disposition": table.write_disposition,
             "schema_name": schema_name,
         }
@@ -253,17 +257,21 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         if table.resource_name:
             custom_props["resource_name"] = table.resource_name
 
-        datajob = DataJob(
+        # DataJob's inlets/outlets are List[Union[str, DatasetUrn]], a wider
+        # type than our List[DatasetUrn]. List is invariant, so we widen
+        # explicitly to satisfy mypy.
+        wide_inlets: List[Union[str, DatasetUrn]] = list(inlets)
+        wide_outlets: List[Union[str, DatasetUrn]] = list(outlets)
+        return DataJob(
             name=table.table_name,
             flow=dataflow,
             platform_instance=self.config.platform_instance,
             display_name=table.table_name,
             custom_properties=custom_props,
-            inlets=inlets,
-            outlets=outlets,
+            inlets=wide_inlets,
+            outlets=wide_outlets,
             fine_grained_lineages=fine_grained_lineages or [],
         )
-        return datajob
 
     # ------------------------------------------------------------------
     # URN construction

@@ -562,6 +562,7 @@ def test_column_level_lineage_emitted_for_single_inlet_outlet() -> None:
     col_names = set()
     for entry in fgl:
         assert isinstance(entry, FineGrainedLineageClass)
+        assert entry.upstreams is not None and entry.downstreams is not None
         assert len(entry.upstreams) == 1
         assert len(entry.downstreams) == 1
         upstream_field = _extract_field_name(entry.upstreams[0])
