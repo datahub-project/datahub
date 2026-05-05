@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.ingestion.source.unstructured.embedding_provider import (
+from datahub.ingestion.source.unstructured.embedding_providers import (
     CohereEmbeddingProvider,
     OpenAIEmbeddingProvider,
 )

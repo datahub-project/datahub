@@ -35,7 +35,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DocumentChunkingSourceConfig,
     get_semantic_search_config,
 )
-from datahub.ingestion.source.unstructured.embedding_provider import (
+from datahub.ingestion.source.unstructured.embedding_providers import (
     EmbeddingProvider,
     create_embedding_provider,
     derive_model_id,

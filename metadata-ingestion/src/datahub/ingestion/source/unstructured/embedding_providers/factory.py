@@ -1,0 +1,107 @@
+"""Factory and helpers for building :class:`EmbeddingProvider` instances."""
+
+from __future__ import annotations
+
+import os
+from typing import TYPE_CHECKING, Optional
+
+from datahub.ingestion.source.unstructured.embedding_providers.base import (
+    EmbeddingProvider,
+)
+from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
+    BedrockEmbeddingProvider,
+)
+from datahub.ingestion.source.unstructured.embedding_providers.cohere import (
+    CohereEmbeddingProvider,
+)
+from datahub.ingestion.source.unstructured.embedding_providers.openai import (
+    OpenAIEmbeddingProvider,
+)
+from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
+    VertexAIEmbeddingProvider,
+)
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+
+
+SUPPORTED_PROVIDERS: tuple[str, ...] = (
+    "bedrock",
+    "cohere",
+    "openai",
+    "local",
+    "vertex_ai",
+)
+
+
+def resolve_local_base_url(endpoint: Optional[str]) -> str:
+    """Return the OpenAI-compatible base URL for the local provider.
+
+    Strips a trailing ``/embeddings`` so the OpenAI provider can append its own
+    path.
+    """
+    raw = (
+        endpoint
+        or os.environ.get("LOCAL_EMBEDDING_ENDPOINT")
+        or "http://localhost:11434/v1/embeddings"
+    )
+    if raw.endswith("/embeddings"):
+        return raw[: -len("/embeddings")]
+    return raw
+
+
+def derive_model_id(provider: Optional[str], model: Optional[str]) -> Optional[str]:
+    """Return the human-readable ``provider/model`` id, or None if not configured."""
+    if not provider or not model:
+        return None
+    if provider == "local":
+        return f"openai/{model}"
+    return f"{provider}/{model}"
+
+
+def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
+    """Build a provider instance from an :class:`EmbeddingConfig`.
+
+    Validation of presence of provider/model/required fields is the caller's
+    responsibility — this function assumes a fully resolved config.
+    """
+    provider = config.provider
+    model = config.model
+    api_key: Optional[str] = (
+        config.api_key.get_secret_value() if config.api_key else None
+    )
+
+    if provider is None or model is None:
+        raise ValueError("EmbeddingConfig.provider and .model must be set")
+
+    if provider == "bedrock":
+        return BedrockEmbeddingProvider(model=model, aws_region=config.aws_region)
+
+    if provider == "cohere":
+        return CohereEmbeddingProvider(model=model, api_key=api_key)
+
+    if provider == "openai":
+        return OpenAIEmbeddingProvider(model=model, api_key=api_key)
+
+    if provider == "local":
+        return OpenAIEmbeddingProvider(
+            model=model,
+            api_key="local",
+            base_url=resolve_local_base_url(config.endpoint),
+            provider_label="openai",
+        )
+
+    if provider == "vertex_ai":
+        project_id = config.vertex_project_id or os.environ.get("VERTEX_AI_PROJECT_ID")
+        if not project_id:
+            raise ValueError(
+                "vertex_project_id is required for the vertex_ai provider "
+                "(or set VERTEX_AI_PROJECT_ID env var)."
+            )
+        return VertexAIEmbeddingProvider(
+            model=model,
+            project_id=project_id,
+            location=config.vertex_location,
+        )
+
+    raise ValueError(f"Unsupported embedding provider: {provider}")

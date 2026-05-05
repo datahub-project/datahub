@@ -13,7 +13,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
 )
-from datahub.ingestion.source.unstructured.embedding_provider import EmbeddingResult
+from datahub.ingestion.source.unstructured.embedding_providers import EmbeddingResult
 
 
 def _mock_provider(embeddings_per_call: list[list[float]]) -> MagicMock:
@@ -688,8 +688,8 @@ def test_local_provider_sets_embedding_model(pipeline_context):
 
 def test_local_provider_api_base_strips_embeddings_suffix():
     """_resolve_local_base_url strips a /embeddings suffix."""
-    from datahub.ingestion.source.unstructured.embedding_provider import (
-        _resolve_local_base_url,
+    from datahub.ingestion.source.unstructured.embedding_providers import (
+        resolve_local_base_url as _resolve_local_base_url,
     )
 
     assert (
@@ -700,8 +700,8 @@ def test_local_provider_api_base_strips_embeddings_suffix():
 
 def test_local_provider_api_base_no_suffix():
     """An endpoint without /embeddings is passed through unchanged."""
-    from datahub.ingestion.source.unstructured.embedding_provider import (
-        _resolve_local_base_url,
+    from datahub.ingestion.source.unstructured.embedding_providers import (
+        resolve_local_base_url as _resolve_local_base_url,
     )
 
     assert (
@@ -711,8 +711,8 @@ def test_local_provider_api_base_no_suffix():
 
 def test_local_provider_api_base_from_env_var():
     """Falls back to LOCAL_EMBEDDING_ENDPOINT env var when no endpoint configured."""
-    from datahub.ingestion.source.unstructured.embedding_provider import (
-        _resolve_local_base_url,
+    from datahub.ingestion.source.unstructured.embedding_providers import (
+        resolve_local_base_url as _resolve_local_base_url,
     )
 
     with patch.dict(
@@ -725,8 +725,8 @@ def test_local_provider_api_base_from_env_var():
 
 def test_local_provider_api_base_default_fallback():
     """Falls back to localhost:11434 when neither config nor env var is set."""
-    from datahub.ingestion.source.unstructured.embedding_provider import (
-        _resolve_local_base_url,
+    from datahub.ingestion.source.unstructured.embedding_providers import (
+        resolve_local_base_url as _resolve_local_base_url,
     )
 
     with patch.dict("os.environ", {}, clear=True):
