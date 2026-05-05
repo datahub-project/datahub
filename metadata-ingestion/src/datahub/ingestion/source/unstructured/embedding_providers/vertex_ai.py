@@ -27,7 +27,7 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
     def __init__(
         self,
         model: str,
-        project_id: str,
+        project_id: Optional[str],
         location: Optional[str],
         timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     ):
@@ -46,12 +46,18 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
         self._model = model
         self.model_id = f"vertex_ai/{model}"
         self._location = location or self._DEFAULT_LOCATION
-        self._project_id = project_id
         self._timeout = timeout
 
-        credentials, _ = google.auth.default(
+        credentials, adc_project = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
+        self._project_id = project_id or adc_project
+        if not self._project_id:
+            raise ValueError(
+                "Could not determine GCP project for vertex_ai embedding provider. "
+                "Set vertex_project_id, the VERTEX_AI_PROJECT_ID env var, or "
+                "configure a project on your Application Default Credentials."
+            )
         # Eager refresh so misconfigured ADC fails fast at provider construction
         # (which is itself lazy — only happens on first embed call) rather than
         # mid-pipeline on the first batch.

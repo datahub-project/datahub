@@ -446,7 +446,7 @@ def test_create_embedding_provider_vertex_ai_falls_back_to_env_var():
     assert kwargs["project_id"] == "env-proj"
 
 
-def test_create_embedding_provider_vertex_ai_raises_without_project():
+def test_create_embedding_provider_vertex_ai_falls_back_to_adc_project():
     from datahub.ingestion.source.unstructured.embedding_providers.factory import (
         create_embedding_provider,
     )
@@ -458,11 +458,36 @@ def test_create_embedding_provider_vertex_ai_raises_without_project():
         api_key=None,
     )
 
+    fake_creds = MagicMock()
     with (
         patch.dict("os.environ", {}, clear=True),
-        pytest.raises(ValueError, match="vertex_project_id is required"),
+        patch(
+            "google.auth.default", return_value=(fake_creds, "adc-proj")
+        ) as mock_default,
+        patch("google.auth.transport.requests.AuthorizedSession"),
+        patch("google.auth.transport.requests.Request"),
     ):
-        create_embedding_provider(cfg)
+        provider = create_embedding_provider(cfg)
+
+    mock_default.assert_called_once()
+    assert provider._project_id == "adc-proj"
+
+
+def test_vertex_ai_provider_raises_when_no_project_anywhere():
+    from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
+        VertexAIEmbeddingProvider,
+    )
+
+    fake_creds = MagicMock()
+    with (
+        patch("google.auth.default", return_value=(fake_creds, None)),
+        patch("google.auth.transport.requests.AuthorizedSession"),
+        patch("google.auth.transport.requests.Request"),
+        pytest.raises(ValueError, match="Could not determine GCP project"),
+    ):
+        VertexAIEmbeddingProvider(
+            model="gemini-embed-001", project_id=None, location=None
+        )
 
 
 def test_create_embedding_provider_requires_provider_and_model():

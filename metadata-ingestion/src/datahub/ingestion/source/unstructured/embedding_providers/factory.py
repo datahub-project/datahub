@@ -101,12 +101,9 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
         )
 
     if provider == "vertex_ai":
+        # If neither config nor env var is set, the provider falls back to the
+        # project on Application Default Credentials.
         project_id = config.vertex_project_id or os.environ.get("VERTEX_AI_PROJECT_ID")
-        if not project_id:
-            raise ValueError(
-                "vertex_project_id is required for the vertex_ai provider "
-                "(or set VERTEX_AI_PROJECT_ID env var)."
-            )
         return VertexAIEmbeddingProvider(
             model=model,
             project_id=project_id,
