@@ -992,6 +992,20 @@ class TestParseTaskflowExportPackage:
         assert w.title == "IDMC Taskflow XML parse failed for some entries"
         assert "parse_failures=2" in "".join(w.context or [])
 
+    def test_oversized_download_emits_warning_and_returns_empty(self):
+        report = InformaticaSourceReport()
+        zip_bytes = _zip_with({"Explore/Default/TF1.TASKFLOW.xml": _VALID_TASKFLOW_XML})
+        with patch(
+            "datahub.ingestion.source.informatica.client._MAX_TASKFLOW_ZIP_BYTES", 1
+        ):
+            defs = _parse_taskflow_export_package(_iter_bytes(zip_bytes), report=report)
+        assert defs == {}
+        assert len(report.warnings) == 1
+        assert (
+            report.warnings[0].title
+            == "IDMC Taskflow export package exceeds size limit"
+        )
+
     def test_no_report_argument_is_silent(self):
         zip_bytes = _zip_with({"x.TASKFLOW.xml": b"not-xml"})
         defs = _parse_taskflow_export_package(_iter_bytes(zip_bytes))
