@@ -10,6 +10,7 @@ To regenerate golden files after intentional changes:
 
 from __future__ import annotations
 
+import json
 import pathlib
 from datetime import datetime, timezone
 from typing import Any, Dict
@@ -20,6 +21,7 @@ import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.dlt.data_classes import DltLoadInfo, DltLoadStatus
+from datahub.ingestion.source.dlt.dlt import DLT_SYSTEM_TABLES
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2026-01-15 10:00:00+00:00"
@@ -129,7 +131,6 @@ def test_dlt_system_tables_excluded(tmp_path: pathlib.Path) -> None:
     dlt system tables (_dlt_loads, _dlt_version, _dlt_pipeline_state) are
     never emitted as DataJob entities.
     """
-    import json
 
     output_file = str(tmp_path / "dlt_output.json")
     _run_dlt_pipeline(
@@ -145,8 +146,7 @@ def test_dlt_system_tables_excluded(tmp_path: pathlib.Path) -> None:
         r.get("entityUrn", "") for r in records if r.get("entityType") == "dataJob"
     ]
 
-    system_tables = {"_dlt_loads", "_dlt_version", "_dlt_pipeline_state"}
-    for system_table in system_tables:
+    for system_table in DLT_SYSTEM_TABLES:
         matching = [u for u in datajob_urns if system_table in u]
         assert not matching, (
             f"System table '{system_table}' should not be emitted as a DataJob, "
@@ -161,7 +161,6 @@ def test_dlt_outlet_urns_match_postgres_format(tmp_path: pathlib.Path) -> None:
     that the DataHub postgres connector produces: chess.chess_data.<table>.
     This validates lineage stitching will work when both connectors run.
     """
-    import json
 
     output_file = str(tmp_path / "dlt_output.json")
     _run_dlt_pipeline(
@@ -212,7 +211,6 @@ def test_dlt_nested_table_has_parent_property(tmp_path: pathlib.Path) -> None:
     players_games__opening is a dlt nested child table.
     Its DataJob must carry parent_table='players_games' in customProperties.
     """
-    import json
 
     output_file = str(tmp_path / "dlt_output.json")
     _run_dlt_pipeline(
@@ -252,7 +250,6 @@ def test_dlt_outlet_urns_fallback_when_destination_not_in_map(
     than database.dataset_name.table_name (3-part), falling back to the
     connector's global env setting.
     """
-    import json
 
     output_file = str(tmp_path / "dlt_output.json")
     _run_dlt_pipeline(
@@ -290,7 +287,6 @@ def test_dlt_include_lineage_false(tmp_path: pathlib.Path) -> None:
     When include_lineage=False, all dataJobInputOutput aspects must have
     empty outputDatasets — no outlet URNs should be constructed.
     """
-    import json
 
     output_file = str(tmp_path / "dlt_output.json")
     _run_dlt_pipeline(
@@ -321,7 +317,6 @@ def test_dlt_pipeline_pattern_filter(tmp_path: pathlib.Path) -> None:
     """
     When pipeline_pattern denies chess_pipeline, no DataFlow or DataJob is emitted.
     """
-    import json
 
     output_file = str(tmp_path / "dlt_output.json")
     _run_dlt_pipeline(
@@ -353,7 +348,6 @@ def test_dlt_run_history_emits_dataprocess_instances(tmp_path: pathlib.Path) -> 
     are required. This tests the DPI serialization path, not the SQL query path
     (which is covered by DltClient.get_run_history's own error handling).
     """
-    import json
 
     fake_loads = [
         DltLoadInfo(

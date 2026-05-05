@@ -13,7 +13,6 @@ Reference: https://dlthub.com/docs/general-usage/pipeline
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
@@ -406,10 +405,19 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        # flow_urn is pipeline-level — constant across every load row, so
+        # build it once here rather than on every iteration of _emit_dpi_for_load.
+        flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=self.platform,
+            flow_id=pipeline_info.pipeline_name,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+
         emitted = 0
         for load in loads:
             try:
-                yield from self._emit_dpi_for_load(pipeline_info, load)
+                yield from self._emit_dpi_for_load(pipeline_info, load, flow_urn)
                 emitted += 1
             except Exception as e:
                 # Don't let one bad load drop the rest of the run history.
@@ -435,7 +443,10 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_run_history_loaded(emitted)
 
     def _emit_dpi_for_load(
-        self, pipeline_info: DltPipelineInfo, load: DltLoadInfo
+        self,
+        pipeline_info: DltPipelineInfo,
+        load: DltLoadInfo,
+        flow_urn: DataFlowUrn,
     ) -> Iterable[MetadataWorkUnit]:
         """Construct and emit a DataProcessInstance for a single _dlt_loads row."""
         result = _DLT_LOAD_STATUS_MAP.get(load.status, InstanceRunResult.FAILURE)
@@ -443,17 +454,12 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
 
         # DataProcessInstance.from_datajob requires the V1 DataJob type.
         # This is a known platform constraint — the same pattern is used in fivetran.
-        flow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=self.platform,
-            flow_id=pipeline_info.pipeline_name,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
+        datajob_id = load.schema_name or pipeline_info.pipeline_name
         datajob_v1 = DataJobV1(
-            id=load.schema_name or pipeline_info.pipeline_name,
+            id=datajob_id,
             flow_urn=flow_urn,
             platform_instance=self.config.platform_instance,
-            name=load.schema_name or pipeline_info.pipeline_name,
+            name=datajob_id,
         )
 
         dpi = DataProcessInstance.from_datajob(
@@ -483,37 +489,17 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _check_pipelines_dir(pipelines_dir: str) -> Optional[CapabilityReport]:
-        """Validate that pipelines_dir exists and is a directory.
-
-        Returns a CapabilityReport with capable=False if invalid, or None if valid.
-        """
-        pipelines_path = Path(pipelines_dir)
-        if not pipelines_path.exists():
-            return CapabilityReport(
-                capable=False,
-                failure_reason=(
-                    f"pipelines_dir '{pipelines_dir}' does not exist. "
-                    "Run a dlt pipeline first to create it."
-                ),
-            )
-        if not pipelines_path.is_dir():
-            return CapabilityReport(
-                capable=False,
-                failure_reason=f"pipelines_dir '{pipelines_dir}' is not a directory.",
-            )
-        return None
-
-    @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         """Verify pipelines_dir is accessible and optionally that dlt is installed."""
         report = TestConnectionReport()
         try:
             config = DltSourceConfig.model_validate(config_dict)
 
-            dir_error = DltSource._check_pipelines_dir(config.pipelines_dir)
+            dir_error = DltClient.validate_pipelines_dir(config.pipelines_dir)
             if dir_error is not None:
-                report.basic_connectivity = dir_error
+                report.basic_connectivity = CapabilityReport(
+                    capable=False, failure_reason=dir_error
+                )
                 return report
 
             report.basic_connectivity = CapabilityReport(capable=True)

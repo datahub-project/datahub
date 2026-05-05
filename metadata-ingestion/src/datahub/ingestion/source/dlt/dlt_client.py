@@ -161,6 +161,24 @@ class DltClient:
     # Pipeline discovery
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def validate_pipelines_dir(pipelines_dir: str) -> Optional[str]:
+        """Validate that pipelines_dir exists and is a directory.
+
+        Returns an error message string if invalid, or None if valid.
+        Used by the source's test_connection to construct a CapabilityReport
+        without coupling DltClient to the source-API types.
+        """
+        pipelines_path = Path(pipelines_dir)
+        if not pipelines_path.exists():
+            return (
+                f"pipelines_dir '{pipelines_dir}' does not exist. "
+                "Run a dlt pipeline first to create it."
+            )
+        if not pipelines_path.is_dir():
+            return f"pipelines_dir '{pipelines_dir}' is not a directory."
+        return None
+
     def list_pipeline_names(self) -> List[str]:
         """Return all pipeline names found in pipelines_dir."""
         if not self.pipelines_dir.exists():
