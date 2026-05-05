@@ -136,4 +136,17 @@ public class CacheConfig {
 
     return mapConfig;
   }
+
+  @Bean
+  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  public MapConfig latestTimeseriesCacheConfig() {
+    MapConfig mapConfig = new MapConfig().setName("latestTimeseriesAspect");
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(cacheMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
+    mapConfig.setEvictionConfig(evictionConfig);
+    return mapConfig;
+  }
 }
