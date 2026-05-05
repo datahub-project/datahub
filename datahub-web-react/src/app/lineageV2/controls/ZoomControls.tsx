@@ -20,8 +20,8 @@ const StyledZoomButton = styled(Button)`
     align-items: center;
     display: flex;
     &:hover {
-        color: ${(props) => props.theme.colors.textBrand};
-        border-color: ${(props) => props.theme.colors.borderBrand};
+        color: ${(props) => props.theme.colors.textHover};
+        border-color: ${(props) => props.theme.colors.borderHover};
     }
     &:focus {
         color: unset;

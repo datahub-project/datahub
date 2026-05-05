@@ -25,7 +25,7 @@ const Section = styled.div`
 `;
 
 const BorderedSection = styled(Section)`
-    border: solid ${(props) => props.theme.colors.bgSurface} 0.5px;
+    border: solid ${(props) => props.theme.colors.border} 0.5px;
 `;
 
 const SelectTemplateHeader = styled(Typography.Title)`
