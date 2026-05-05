@@ -13,6 +13,14 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
 )
+from datahub.ingestion.source.unstructured.embedding_provider import EmbeddingResult
+
+
+def _mock_provider(embeddings_per_call: list[list[float]]) -> MagicMock:
+    """Build a MagicMock provider whose ``embed`` returns the given embeddings."""
+    provider = MagicMock()
+    provider.embed.return_value = EmbeddingResult(embeddings=embeddings_per_call)
+    return provider
 
 
 @pytest.fixture
@@ -435,7 +443,7 @@ def test_vertex_ai_missing_project_id_raises(pipeline_context):
 def test_vertex_ai_project_id_resolved_from_env_var(pipeline_context):
     """When vertex_project_id is omitted but VERTEX_AI_PROJECT_ID is set in env,
     construction should succeed and the env value should be written back to the config
-    so downstream litellm calls have a single source of truth."""
+    so downstream embedding calls have a single source of truth."""
     config = DocumentChunkingSourceConfig(
         embedding=EmbeddingConfig(
             provider="vertex_ai",
@@ -575,8 +583,8 @@ def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_confi
     assert source.report.num_documents_limit_reached is False
 
 
-def test_generate_embeddings_vertex_ai_passes_task_type(pipeline_context):
-    """For vertex_ai provider, _generate_embeddings must pass task_type=RETRIEVAL_DOCUMENT and vertex auth."""
+def test_generate_embeddings_invokes_provider_with_text(pipeline_context):
+    """_generate_embeddings forwards chunk text to the provider and returns its embeddings."""
     config = DocumentChunkingSourceConfig(
         embedding=EmbeddingConfig(
             provider="vertex_ai",
@@ -591,21 +599,16 @@ def test_generate_embeddings_vertex_ai_passes_task_type(pipeline_context):
     source = DocumentChunkingSource(
         ctx=pipeline_context, config=config, standalone=False, graph=None
     )
-    chunks = [{"text": "hello world"}]
-    fake_response = MagicMock()
-    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
-    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
-        embeddings = source._generate_embeddings(chunks)
+    provider = _mock_provider([[0.1, 0.2, 0.3]])
+    source._provider = provider
+
+    embeddings = source._generate_embeddings([{"text": "hello world"}])
     assert embeddings == [[0.1, 0.2, 0.3]]
-    call_kwargs = mock_embed.call_args.kwargs
-    assert call_kwargs["model"] == "vertex_ai/gemini-embedding-001"
-    assert call_kwargs["task_type"] == "RETRIEVAL_DOCUMENT"
-    assert call_kwargs["vertex_project"] == "my-project"
-    assert call_kwargs["vertex_location"] == "us-east1"
+    provider.embed.assert_called_once_with(["hello world"])
 
 
-def test_generate_embeddings_cohere_passes_api_key(pipeline_context):
-    """For non-vertex providers, _generate_embeddings must forward api_key from config."""
+def test_generate_embeddings_creates_provider_from_config(pipeline_context):
+    """First call to _generate_embeddings should build the provider from the config."""
     config = DocumentChunkingSourceConfig(
         embedding=EmbeddingConfig(
             provider="cohere",
@@ -618,48 +621,21 @@ def test_generate_embeddings_cohere_passes_api_key(pipeline_context):
     source = DocumentChunkingSource(
         ctx=pipeline_context, config=config, standalone=False, graph=None
     )
-    chunks = [{"text": "hello world"}]
-    fake_response = MagicMock()
-    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
-    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
-        embeddings = source._generate_embeddings(chunks)
+
+    fake_provider = _mock_provider([[0.1, 0.2, 0.3]])
+    with patch(
+        "datahub.ingestion.source.unstructured.chunking_source.create_embedding_provider",
+        return_value=fake_provider,
+    ) as mock_factory:
+        embeddings = source._generate_embeddings([{"text": "hello world"}])
+
     assert embeddings == [[0.1, 0.2, 0.3]]
-    call_kwargs = mock_embed.call_args.kwargs
-    assert call_kwargs["model"] == "cohere/embed-english-v3.0"
-    assert call_kwargs["api_key"] == "test-cohere-key"
-    # vertex-only kwargs must not leak into non-vertex calls
-    assert "task_type" not in call_kwargs
-    assert "vertex_project" not in call_kwargs
+    mock_factory.assert_called_once_with(source.config.embedding)
+    fake_provider.embed.assert_called_once_with(["hello world"])
 
 
-def test_generate_embeddings_bedrock_passes_aws_region(pipeline_context):
-    """For bedrock provider, _generate_embeddings must forward aws_region as aws_region_name."""
-    config = DocumentChunkingSourceConfig(
-        embedding=EmbeddingConfig(
-            provider="bedrock",
-            model="cohere.embed-english-v3",
-            aws_region="us-west-2",
-            allow_local_embedding_config=True,
-        ),
-        chunking=ChunkingConfig(strategy="basic"),
-    )
-    source = DocumentChunkingSource(
-        ctx=pipeline_context, config=config, standalone=False, graph=None
-    )
-    chunks = [{"text": "hello world"}]
-    fake_response = MagicMock()
-    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
-    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
-        embeddings = source._generate_embeddings(chunks)
-    assert embeddings == [[0.1, 0.2, 0.3]]
-    call_kwargs = mock_embed.call_args.kwargs
-    assert call_kwargs["model"] == "bedrock/cohere.embed-english-v3"
-    assert call_kwargs["aws_region_name"] == "us-west-2"
-    assert "task_type" not in call_kwargs
-
-
-def test_embedding_capability_vertex_ai_passes_task_type():
-    """test_embedding_capability for vertex_ai must pass task_type=RETRIEVAL_DOCUMENT to litellm."""
+def test_test_embedding_capability_uses_factory_and_returns_dimension():
+    """test_embedding_capability builds a provider and reports embedding dimension."""
     config = EmbeddingConfig(
         provider="vertex_ai",
         model="gemini-embedding-001",
@@ -668,16 +644,16 @@ def test_embedding_capability_vertex_ai_passes_task_type():
         vertex_location="us-east1",
         allow_local_embedding_config=True,
     )
-    fake_response = MagicMock()
-    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
-    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
+    fake_provider = _mock_provider([[0.1, 0.2, 0.3]])
+    with patch(
+        "datahub.ingestion.source.unstructured.chunking_source.create_embedding_provider",
+        return_value=fake_provider,
+    ) as mock_factory:
         report = DocumentChunkingSource.test_embedding_capability(config)
+
     assert report.capable
-    call_kwargs = mock_embed.call_args.kwargs
-    assert call_kwargs["model"] == "vertex_ai/gemini-embedding-001"
-    assert call_kwargs["task_type"] == "RETRIEVAL_DOCUMENT"
-    assert call_kwargs["vertex_project"] == "my-project"
-    assert call_kwargs["vertex_location"] == "us-east1"
+    assert "dimension: 3" in (report.mitigation_message or "")
+    mock_factory.assert_called_once_with(config)
 
 
 # ---------------------------------------------------------------------------
@@ -700,7 +676,7 @@ def _local_config(
 
 
 def test_local_provider_sets_embedding_model(pipeline_context):
-    """Local provider prefixes the model name with 'openai/' for litellm routing."""
+    """Local provider sets embedding_model to 'openai/<model>' (mirrors prior behaviour)."""
     source = DocumentChunkingSource(
         ctx=pipeline_context,
         config=_local_config("nomic-embed-text"),
@@ -710,113 +686,51 @@ def test_local_provider_sets_embedding_model(pipeline_context):
     assert source.embedding_model == "openai/nomic-embed-text"
 
 
-def test_local_provider_already_prefixed_model(pipeline_context):
-    """If model already starts with 'openai/', it is not double-prefixed."""
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=_local_config("openai/nomic-embed-text"),
-        standalone=False,
-        graph=None,
-    )
-    assert source.embedding_model == "openai/nomic-embed-text"
-
-
-def test_local_provider_api_base_strips_embeddings_suffix(pipeline_context):
-    """api_base strips /embeddings so litellm can append its own path."""
-    config = _local_config(endpoint="http://localhost:11434/v1/embeddings")
-    source = DocumentChunkingSource(
-        ctx=pipeline_context, config=config, standalone=False, graph=None
+def test_local_provider_api_base_strips_embeddings_suffix():
+    """_resolve_local_base_url strips a /embeddings suffix."""
+    from datahub.ingestion.source.unstructured.embedding_provider import (
+        _resolve_local_base_url,
     )
 
-    captured: dict = {}
-
-    def fake_embedding(**kwargs):
-        captured.update(kwargs)
-        resp = MagicMock()
-        resp.data = [{"embedding": [0.1, 0.2]}]
-        return resp
-
-    chunk = {"text": "hello", "type": "NarrativeText"}
-    with patch("litellm.embedding", side_effect=fake_embedding):
-        source._generate_embeddings([chunk])
-
-    assert captured["api_base"] == "http://localhost:11434/v1"
-    assert captured["api_key"] == "local"
+    assert (
+        _resolve_local_base_url("http://localhost:11434/v1/embeddings")
+        == "http://localhost:11434/v1"
+    )
 
 
-def test_local_provider_api_base_no_suffix(pipeline_context):
+def test_local_provider_api_base_no_suffix():
     """An endpoint without /embeddings is passed through unchanged."""
-    config = _local_config(endpoint="http://myserver:8080/v1")
-    source = DocumentChunkingSource(
-        ctx=pipeline_context, config=config, standalone=False, graph=None
+    from datahub.ingestion.source.unstructured.embedding_provider import (
+        _resolve_local_base_url,
     )
 
-    captured: dict = {}
-
-    def fake_embedding(**kwargs):
-        captured.update(kwargs)
-        resp = MagicMock()
-        resp.data = [{"embedding": [0.1, 0.2]}]
-        return resp
-
-    chunk = {"text": "hello", "type": "NarrativeText"}
-    with patch("litellm.embedding", side_effect=fake_embedding):
-        source._generate_embeddings([chunk])
-
-    assert captured["api_base"] == "http://myserver:8080/v1"
+    assert (
+        _resolve_local_base_url("http://myserver:8080/v1") == "http://myserver:8080/v1"
+    )
 
 
-def test_local_provider_api_base_from_env_var(pipeline_context):
+def test_local_provider_api_base_from_env_var():
     """Falls back to LOCAL_EMBEDDING_ENDPOINT env var when no endpoint configured."""
-    config = _local_config()  # no endpoint
-    source = DocumentChunkingSource(
-        ctx=pipeline_context, config=config, standalone=False, graph=None
+    from datahub.ingestion.source.unstructured.embedding_provider import (
+        _resolve_local_base_url,
     )
 
-    captured: dict = {}
-
-    def fake_embedding(**kwargs):
-        captured.update(kwargs)
-        resp = MagicMock()
-        resp.data = [{"embedding": [0.1, 0.2]}]
-        return resp
-
-    with (
-        patch("litellm.embedding", side_effect=fake_embedding),
-        patch.dict(
-            "os.environ",
-            {"LOCAL_EMBEDDING_ENDPOINT": "http://envhost:11434/v1/embeddings"},
-        ),
+    with patch.dict(
+        "os.environ",
+        {"LOCAL_EMBEDDING_ENDPOINT": "http://envhost:11434/v1/embeddings"},
+        clear=True,
     ):
-        chunk = {"text": "hello", "type": "NarrativeText"}
-        source._generate_embeddings([chunk])
-
-    assert captured["api_base"] == "http://envhost:11434/v1"
+        assert _resolve_local_base_url(None) == "http://envhost:11434/v1"
 
 
-def test_local_provider_api_base_default_fallback(pipeline_context):
+def test_local_provider_api_base_default_fallback():
     """Falls back to localhost:11434 when neither config nor env var is set."""
-    config = _local_config()
-    source = DocumentChunkingSource(
-        ctx=pipeline_context, config=config, standalone=False, graph=None
+    from datahub.ingestion.source.unstructured.embedding_provider import (
+        _resolve_local_base_url,
     )
 
-    captured: dict = {}
-
-    def fake_embedding(**kwargs):
-        captured.update(kwargs)
-        resp = MagicMock()
-        resp.data = [{"embedding": [0.1, 0.2]}]
-        return resp
-
-    with (
-        patch("litellm.embedding", side_effect=fake_embedding),
-        patch.dict("os.environ", {}, clear=True),
-    ):
-        chunk = {"text": "hello", "type": "NarrativeText"}
-        source._generate_embeddings([chunk])
-
-    assert captured["api_base"] == "http://localhost:11434/v1"
+    with patch.dict("os.environ", {}, clear=True):
+        assert _resolve_local_base_url(None) == "http://localhost:11434/v1"
 
 
 # --- model_embedding_key derivation ---
@@ -837,16 +751,12 @@ def test_model_key_uses_explicit_model_embedding_key(pipeline_context):
     source = DocumentChunkingSource(
         ctx=pipeline_context, config=config, standalone=False, graph=None
     )
+    source._provider = _mock_provider([[0.0] * 1024])
 
-    fake_embedding_result = MagicMock()
-    fake_embedding_result.data = [{"embedding": [0.0] * 1024}]
-    with (
-        patch("litellm.embedding", return_value=fake_embedding_result),
-        patch.object(
-            source,
-            "_chunk_elements",
-            return_value=[{"text": "hi", "type": "NarrativeText"}],
-        ),
+    with patch.object(
+        source,
+        "_chunk_elements",
+        return_value=[{"text": "hi", "type": "NarrativeText"}],
     ):
         workunits = list(
             source.process_elements_inline(
@@ -867,16 +777,12 @@ def test_model_key_normalizes_hyphens_for_local(pipeline_context):
     source = DocumentChunkingSource(
         ctx=pipeline_context, config=config, standalone=False, graph=None
     )
+    source._provider = _mock_provider([[0.0] * 768])
 
-    fake_embedding_result = MagicMock()
-    fake_embedding_result.data = [{"embedding": [0.0] * 768}]
-    with (
-        patch("litellm.embedding", return_value=fake_embedding_result),
-        patch.object(
-            source,
-            "_chunk_elements",
-            return_value=[{"text": "hi", "type": "NarrativeText"}],
-        ),
+    with patch.object(
+        source,
+        "_chunk_elements",
+        return_value=[{"text": "hi", "type": "NarrativeText"}],
     ):
         workunits = list(
             source.process_elements_inline(
@@ -917,27 +823,3 @@ def test_validate_provider_config_local_no_model_fails():
     assert model is None
     assert report is not None
     assert not report.capable
-
-
-def test_test_embedding_capability_local_passes_api_base():
-    """test_embedding_capability routes local provider to api_base, not api.openai.com."""
-    config = EmbeddingConfig(
-        provider="local",
-        model="nomic-embed-text",
-        endpoint="http://myollama:11434/v1/embeddings",
-        allow_local_embedding_config=True,
-    )
-    captured: dict = {}
-
-    def fake_embedding(**kwargs):
-        captured.update(kwargs)
-        resp = MagicMock()
-        resp.data = [{"embedding": [0.1, 0.2]}]
-        return resp
-
-    with patch("litellm.embedding", side_effect=fake_embedding):
-        report = DocumentChunkingSource.test_embedding_capability(config)
-
-    assert report.capable
-    assert captured.get("api_base") == "http://myollama:11434/v1"
-    assert captured.get("api_key") == "local"

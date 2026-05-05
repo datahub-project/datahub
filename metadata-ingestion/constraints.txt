@@ -25,7 +25,6 @@ aiohttp==3.13.5
     #   acryl-datahub
     #   aiobotocore
     #   azure-core
-    #   litellm
     #   okta
     #   s3fs
 aioitertools==0.13.0
@@ -247,7 +246,6 @@ click==8.3.1
     #   feast
     #   flask
     #   geomet
-    #   litellm
     #   mlflow-skinny
     #   nltk
     #   pyiceberg
@@ -271,6 +269,8 @@ cloudpickle==3.1.2
     # via
     #   dask
     #   mlflow-skinny
+cohere==5.21.1
+    # via acryl-datahub
 colorama==0.4.6
     # via
     #   acryl-great-expectations
@@ -416,11 +416,10 @@ fastapi==0.128.8
 fastavro==1.12.1
     # via
     #   acryl-datahub
+    #   cohere
     #   confluent-kafka
 fastjsonschema==2.21.2
     # via nbformat
-fastuuid==0.14.0
-    # via litellm
 feast==0.47.0
     # via acryl-datahub
 filelock==3.25.0
@@ -610,11 +609,11 @@ httptools==0.7.1
     # via uvicorn
 httpx==0.28.1
     # via
+    #   cohere
     #   confluent-kafka
     #   google-genai
     #   huggingface-hub
     #   jupyterlab
-    #   litellm
     #   mixpanel
     #   notion-client
     #   openai
@@ -648,7 +647,6 @@ importlib-metadata==8.7.1
     #   build
     #   dask
     #   keyring
-    #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
 importlib-resources==6.5.2 ; python_full_version < '3.12'
@@ -702,7 +700,6 @@ jinja2==3.1.6
     #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
-    #   litellm
     #   memray
     #   moto
     #   nbconvert
@@ -745,7 +742,6 @@ jsonschema==4.24.1
     #   feast
     #   jupyter-events
     #   jupyterlab-server
-    #   litellm
     #   nbformat
     #   tableschema
 jsonschema-specifications==2025.9.1
@@ -806,8 +802,6 @@ linear-tsv==1.1.0
     # via dataflows-tabulator
 linkify-it-py==2.1.0
     # via markdown-it-py
-litellm==1.83.0
-    # via acryl-datahub
 lkml==1.3.7
     # via acryl-datahub
 locket==1.0.0
@@ -976,8 +970,8 @@ okta==1.7.0
     # via acryl-datahub
 olefile==0.47
     # via python-oxmsg
-openai==2.26.0
-    # via litellm
+openai==1.109.1
+    # via acryl-datahub
 openpyxl==3.1.5
     # via
     #   acryl-datahub
@@ -1192,12 +1186,12 @@ pydantic==2.11.10
     # via
     #   acryl-datahub
     #   acryl-great-expectations
+    #   cohere
     #   confection
     #   fastapi
     #   feast
     #   google-cloud-aiplatform
     #   google-genai
-    #   litellm
     #   mixpanel
     #   mlflow-skinny
     #   openai
@@ -1208,7 +1202,9 @@ pydantic==2.11.10
     #   unstructured-ingest
     #   weasel
 pydantic-core==2.33.2
-    # via pydantic
+    # via
+    #   cohere
+    #   pydantic
 pydash==8.0.6
     # via okta
 pydeequ==1.5.0
@@ -1312,9 +1308,7 @@ python-dateutil==2.9.0.post0
     #   unstructured-ingest
     #   vertica-python
 python-dotenv==1.2.2
-    # via
-    #   litellm
-    #   uvicorn
+    # via uvicorn
 python-iso639==2026.1.31
     # via unstructured
 python-jose==3.5.0
@@ -1400,9 +1394,7 @@ referencing==0.37.0
     #   jsonschema-specifications
     #   jupyter-events
 regex==2026.2.28
-    # via
-    #   nltk
-    #   tiktoken
+    # via nltk
 requests==2.32.5
     # via
     #   acryl-datahub
@@ -1411,6 +1403,7 @@ requests==2.32.5
     #   azure-core
     #   azure-datalake-store
     #   clickhouse-sqlalchemy
+    #   cohere
     #   confluent-kafka
     #   databricks-sdk
     #   databricks-sql-connector
@@ -1446,7 +1439,6 @@ requests==2.32.5
     #   spacy
     #   tableauserverclient
     #   tableschema
-    #   tiktoken
     #   trino
     #   twine
     #   unstructured
@@ -1690,14 +1682,12 @@ thrift==0.16.0
     #   thrift-sasl
 thrift-sasl==0.4.3
     # via acryl-pyhive
-tiktoken==0.12.0
-    # via litellm
 time-machine==3.2.0
     # via acryl-datahub
 tinycss2==1.4.0
     # via bleach
 tokenizers==0.22.2
-    # via litellm
+    # via cohere
 toml==0.10.2
     # via
     #   acryl-datahub
@@ -1793,7 +1783,9 @@ types-pytz==2025.2.0.20251108
 types-pyyaml==6.0.12.20250915
     # via acryl-datahub
 types-requests==2.31.0.3
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   cohere
 types-s3transfer==0.16.0
     # via boto3-stubs
 types-setuptools==82.0.0.20260210
@@ -1828,6 +1820,7 @@ typing-extensions==4.15.0
     #   boto3-stubs
     #   cattrs
     #   cloudpathlib
+    #   cohere
     #   cryptography
     #   exceptiongroup
     #   fastapi

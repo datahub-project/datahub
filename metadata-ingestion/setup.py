@@ -491,10 +491,14 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.0 for CVE-2026-35030
-    "litellm==1.83.0",
     # AWS SDK for Bedrock embedding support
     *aws_common,
+    # OpenAI SDK (also used for OpenAI-compatible local servers e.g. Ollama)
+    "openai>=1.40.0,<2.0.0",
+    # Cohere SDK for hosted Cohere embedding endpoints
+    "cohere>=5.0.0,<6.0.0",
+    # Vertex AI SDK for Google Cloud embedding models
+    "google-cloud-aiplatform>=1.80.0,<2.0.0",
 }
 
 unstructured_lib = {
