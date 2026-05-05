@@ -304,8 +304,7 @@ public class KubernetesApiAccessor {
               // shifted EnvVar. By keeping existing entries at their original positions and
               // editing only the targeted keys, fabric8 emits a minimal diff that touches only
               // the keys we intend to change.
-              Container container =
-                  dep.getSpec().getTemplate().getSpec().getContainers().get(0);
+              Container container = dep.getSpec().getTemplate().getSpec().getContainers().get(0);
               List<EnvVar> env = container.getEnv();
               if (env == null) {
                 env = new ArrayList<>();

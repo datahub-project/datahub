@@ -36,13 +36,15 @@ import org.testng.annotations.Test;
  * non-deterministically (HashMap iteration order). fabric8's JSON Patch generator is index-based,
  * so a reordered array becomes a series of in-place field rewrites — including {@code remove
  * /env/N/valueFrom} — that the API server applies, destroying the secret binding at every shifted
- * position. With small env lists the diff happens to use {@code add}+{@code remove} (non-destructive);
- * with realistic GMS shape (~30 vars) the destructive pattern dominates.
+ * position. With small env lists the diff happens to use {@code add}+{@code remove}
+ * (non-destructive); with realistic GMS shape (~30 vars) the destructive pattern dominates.
  *
  * <p>Tests are layered so a regression points at the responsible stage:
+ *
  * <ol>
  *   <li>{@link #cloneRoundTripPreservesValueFrom()} — fabric8's deep-clone (Jackson round-trip).
- *   <li>{@link #operatorPreservesValueFromOnUnrelatedKeys()} — the UnaryOperator's in-memory effect.
+ *   <li>{@link #operatorPreservesValueFromOnUnrelatedKeys()} — the UnaryOperator's in-memory
+ *       effect.
  *   <li>{@link #jsonPatchDiffDoesNotTouchUnrelatedValueFromEnv()} — small-list diff.
  *   <li>{@link #jsonPatchDiffWithRealisticGmsEnv()} — the realistic shape that exposes the bug.
  * </ol>
@@ -69,7 +71,8 @@ public class KubernetesApiAccessorValueFromTest {
   }
 
   private static Deployment buildGmsDeployment() {
-    EnvVar sslKeystorePassword = valueFromSecret(SSL_PASSWORD_ENV, "ssl-config", "keystore_password");
+    EnvVar sslKeystorePassword =
+        valueFromSecret(SSL_PASSWORD_ENV, "ssl-config", "keystore_password");
     EnvVar uiHooks = new EnvVar(UI_HOOKS_ENV, "true", null);
     return new DeploymentBuilder()
         .withNewMetadata()
@@ -98,8 +101,8 @@ public class KubernetesApiAccessorValueFromTest {
   }
 
   /**
-   * Captures the UnaryOperator that setDeploymentEnv installs via .edit(), so we can apply it to
-   * a clone of the deployment ourselves and observe its effect on env vars.
+   * Captures the UnaryOperator that setDeploymentEnv installs via .edit(), so we can apply it to a
+   * clone of the deployment ourselves and observe its effect on env vars.
    */
   private static UnaryOperator<Deployment> captureOperator(Deployment original) {
     AtomicReference<UnaryOperator<Deployment>> captured = new AtomicReference<>();
@@ -182,8 +185,8 @@ public class KubernetesApiAccessorValueFromTest {
   }
 
   /**
-   * Mirrors the realistic GMS env list that helm renders in AWS (cloud-aws.yaml) — many literal
-   * env vars plus several valueFrom-sourced ones (SPRING_KAFKA_PROPERTIES_SSL_*_PASSWORD,
+   * Mirrors the realistic GMS env list that helm renders in AWS (cloud-aws.yaml) — many literal env
+   * vars plus several valueFrom-sourced ones (SPRING_KAFKA_PROPERTIES_SSL_*_PASSWORD,
    * DATAHUB_TOKEN_SERVICE_*, DATAHUB_SYSTEM_CLIENT_SECRET, SECRET_SERVICE_ENCRYPTION_KEY,
    * SENTRY_DSN). The deploymentEnvUpdates flow targets only the 5 *_CONSUMER_ENABLED /
    * PRE_PROCESS_HOOKS_UI_ENABLED keys.
@@ -218,8 +221,11 @@ public class KubernetesApiAccessorValueFromTest {
             new EnvVar("SENTRY_ENVIRONMENT", "prod", null),
             valueFromSecret("SENTRY_DSN", "sentry-secret", "gms_dsn"),
             valueFromSecret(
-                "DATAHUB_TOKEN_SERVICE_SIGNING_KEY", "datahub-auth-secrets", "token_service_signing_key"),
-            valueFromSecret("DATAHUB_TOKEN_SERVICE_SALT", "datahub-auth-secrets", "token_service_salt"),
+                "DATAHUB_TOKEN_SERVICE_SIGNING_KEY",
+                "datahub-auth-secrets",
+                "token_service_signing_key"),
+            valueFromSecret(
+                "DATAHUB_TOKEN_SERVICE_SALT", "datahub-auth-secrets", "token_service_salt"),
             valueFromSecret(
                 "DATAHUB_SYSTEM_CLIENT_SECRET", "datahub-auth-secrets", "system_client_secret"),
             valueFromSecret(
@@ -228,7 +234,9 @@ public class KubernetesApiAccessorValueFromTest {
             valueFromSecret(
                 "SPRING_KAFKA_PROPERTIES_SSL_KEY_PASSWORD", "ssl-config", "keystore_password"),
             valueFromSecret(
-                "SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD", "ssl-config", "truststore_password"),
+                "SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD",
+                "ssl-config",
+                "truststore_password"),
             b.withName("POD_NAME")
                 .withNewValueFrom()
                 .withNewFieldRef()
@@ -305,7 +313,8 @@ public class KubernetesApiAccessorValueFromTest {
 
     String diff = PatchUtils.jsonDiff(original, modified, false, serialization);
 
-    System.out.println("[hypothesis-check] Realistic GMS JSON Patch diff (length " + diff.length() + "):");
+    System.out.println(
+        "[hypothesis-check] Realistic GMS JSON Patch diff (length " + diff.length() + "):");
     System.out.println(diff);
 
     // Sanity-check that valueFrom env vars survive in the modified object itself.
@@ -337,11 +346,11 @@ public class KubernetesApiAccessorValueFromTest {
   }
 
   /**
-   * STAGE 3 (decisive): fabric8 computes a JSON Patch (RFC 6902) between the original (server)
-   * and the modified resource using PatchUtils.jsonDiff, then submits that patch. If this diff
-   * contains any operation against the unrelated SSL EnvVar — replace, remove, or add for its
-   * valueFrom or value — the API server will mutate it. That is the failure mode we expect on
-   * AWS deployments where SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD is sourced from a Secret.
+   * STAGE 3 (decisive): fabric8 computes a JSON Patch (RFC 6902) between the original (server) and
+   * the modified resource using PatchUtils.jsonDiff, then submits that patch. If this diff contains
+   * any operation against the unrelated SSL EnvVar — replace, remove, or add for its valueFrom or
+   * value — the API server will mutate it. That is the failure mode we expect on AWS deployments
+   * where SPRING_KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD is sourced from a Secret.
    */
   @Test
   public void jsonPatchDiffDoesNotTouchUnrelatedValueFromEnv() {
@@ -373,8 +382,7 @@ public class KubernetesApiAccessorValueFromTest {
             + diff);
     assertFalse(
         diffMentionsValueFrom,
-        "JSON Patch operates on a valueFrom field — secret references will be lost. Diff: "
-            + diff);
+        "JSON Patch operates on a valueFrom field — secret references will be lost. Diff: " + diff);
     assertFalse(
         diffMentionsSecretKeyRef,
         "JSON Patch operates on a secretKeyRef — secret references will be lost. Diff: " + diff);
