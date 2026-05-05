@@ -207,7 +207,7 @@ pip install 'acryl-datahub[fabric-onelake]'
 
 #### View Extraction
 
-View extraction reuses the SQL Analytics Endpoint connection from [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup) — the same ODBC driver applies, and views are skipped unless both `extract_schema.enabled` and `sql_endpoint.enabled` are `true`.
+View extraction reuses the SQL Analytics Endpoint connection from [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup) — the same ODBC driver applies, and views are skipped unless `sql_endpoint.enabled` is `true`.
 
 Reading view definitions (needed for view-to-table lineage) requires `VIEW DEFINITION` permission on the SQL Analytics Endpoint. The workspace **Viewer** role used for table ingestion is _not_ sufficient — it grants `db_datareader` only, which causes `INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION` to return `NULL`. There is no workspace-level toggle for this permission; you must choose one of:
 

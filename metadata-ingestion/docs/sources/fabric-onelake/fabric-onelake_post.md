@@ -107,7 +107,7 @@ source:
     extract_lakehouses: true
     extract_warehouses: true
     extract_schemas: true # Set to false to skip schema containers
-    extract_views: true # Requires extract_schema.enabled and sql_endpoint.enabled
+    extract_views: true # Requires sql_endpoint.enabled
 
     # API timeout (seconds)
     api_timeout: 30
@@ -254,9 +254,7 @@ source:
       deny:
         - ".*_internal"
 
-    # View extraction depends on these — both default to enabled.
-    extract_schema:
-      enabled: true
+    # View extraction requires the SQL Analytics Endpoint (enabled by default).
     sql_endpoint:
       enabled: true
 ```
@@ -305,7 +303,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
   - Permission issues
   - Table count limits in very large databases
 - **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
-- **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `extract_schema.enabled` or `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
+- **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
 
 ### Troubleshooting
 

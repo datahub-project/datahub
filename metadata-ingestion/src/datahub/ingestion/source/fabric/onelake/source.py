@@ -259,14 +259,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Emit lineage / view-parsing workunits accumulated by the
         # aggregator across all workspaces. Deferred to the end so the
         # aggregator can resolve cross-item view→table references.
+        emitted = 0
         try:
             for mcp in self.aggregator.gen_metadata():
                 yield mcp.as_workunit()
+                emitted += 1
         except Exception as e:
             self.report.report_warning(
                 title="Failed to Generate View Lineage",
                 message="Error draining SQL aggregator for view lineage.",
-                context="",
+                context=f"mcps_emitted_before_failure={emitted}",
                 exc=e,
             )
 
@@ -757,68 +759,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 workspace_id=workspace.id,
                 item_id=item_id,
             )
-
-            if not views:
-                logger.debug(f"No views found in {item_type} {item_id}")
-                return
-
-            # Group views by schema
-            views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
-            for view in views:
-                normalized_schema = (
-                    view.schema_name
-                    if view.schema_name
-                    else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
-                )
-
-                view_full_name = f"{normalized_schema}.{view.name}"
-                if not self.config.view_pattern.allowed(view_full_name):
-                    self.report.report_view_filtered(view_full_name)
-                    continue
-
-                self.report.report_view_scanned()
-                views_by_schema[normalized_schema].append(view)
-
-            # Process each schema
-            for schema_name, schema_views in views_by_schema.items():
-                schema_urn_name = self._norm(schema_name)
-                parent_container_key: ContainerKey
-                if self.config.extract_schemas:
-                    schema_key = self._make_schema_key(
-                        workspace.id, item_id, item_type, schema_urn_name
-                    )
-                    if schema_urn_name not in emitted_schemas:
-                        yield Container(
-                            container_key=schema_key,
-                            display_name=schema_name,
-                            subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
-                            parent_container=schema_key.parent_key(),
-                            qualified_name=make_schema_name(
-                                workspace.id, item_id, schema_urn_name
-                            ),
-                        )
-                        emitted_schemas.add(schema_urn_name)
-                        self.report.report_schema_scanned()
-                    parent_container_key = schema_key
-                else:
-                    parent_container_key = item_container_key
-
-                # Create view datasets
-                for view in schema_views:
-                    columns = self._get_columns(schema_map, schema_name, view.name)
-                    yield from self._create_view_dataset(
-                        workspace,
-                        item_id,
-                        schema_name,
-                        view,
-                        parent_container_key,
-                        columns,
-                    )
-
         except Exception as e:
-            error_msg = str(e)
             logger.warning(
-                f"Failed to discover views for item {item_id}: {error_msg}. "
+                f"Failed to discover views for item {item_id}: {e}. "
                 "Views will be missing for this item.",
                 exc_info=True,
             )
@@ -827,9 +770,64 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 message=(
                     "Failed to query INFORMATION_SCHEMA.VIEWS. Views will be missing for this item."
                 ),
-                context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
+                context=f"item_id={item_id}, item_type={item_type}",
                 exc=e,
             )
+            return
+
+        if not views:
+            logger.debug(f"No views found in {item_type} {item_id}")
+            return
+
+        views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
+        for view in views:
+            normalized_schema = (
+                view.schema_name
+                if view.schema_name
+                else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
+            )
+
+            view_full_name = f"{normalized_schema}.{view.name}"
+            if not self.config.view_pattern.allowed(view_full_name):
+                self.report.report_view_filtered(view_full_name)
+                continue
+
+            self.report.report_view_scanned()
+            views_by_schema[normalized_schema].append(view)
+
+        for schema_name, schema_views in views_by_schema.items():
+            schema_urn_name = self._norm(schema_name)
+            parent_container_key: ContainerKey
+            if self.config.extract_schemas:
+                schema_key = self._make_schema_key(
+                    workspace.id, item_id, item_type, schema_urn_name
+                )
+                if schema_urn_name not in emitted_schemas:
+                    yield Container(
+                        container_key=schema_key,
+                        display_name=schema_name,
+                        subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
+                        parent_container=schema_key.parent_key(),
+                        qualified_name=make_schema_name(
+                            workspace.id, item_id, schema_urn_name
+                        ),
+                    )
+                    emitted_schemas.add(schema_urn_name)
+                    self.report.report_schema_scanned()
+                parent_container_key = schema_key
+            else:
+                parent_container_key = item_container_key
+
+            for view in schema_views:
+                columns = self._get_columns(schema_map, schema_name, view.name)
+                yield from self._create_view_dataset(
+                    workspace,
+                    item_id,
+                    schema_name,
+                    view,
+                    parent_container_key,
+                    columns,
+                )
 
     def _create_view_dataset(
         self,
