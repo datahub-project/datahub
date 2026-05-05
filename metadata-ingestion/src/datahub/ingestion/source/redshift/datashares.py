@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from datahub.api.entities.platformresource.platform_resource import (
     ElasticPlatformResourceQuery,
@@ -37,11 +37,21 @@ class OutboundSharePlatformResource(BaseModel):
     # Optional for backward-compat with resources written before this field was added.
     ingested_at: Optional[datetime] = None
 
+    @field_validator("ingested_at")
+    @classmethod
+    def _ensure_aware(cls, v: Optional[datetime]) -> Optional[datetime]:
+        # Coerce naive datetimes to UTC; legacy resources may lack tzinfo.
+        if v is None or v.tzinfo is not None:
+            return v
+        return v.replace(tzinfo=timezone.utc)
+
     def get_key(self) -> str:
         return f"{self.namespace}.{self.share_name}"
 
 
 PLATFORM_RESOURCE_TYPE = "OUTBOUND_DATASHARE"
+
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 
 class RedshiftDatasharesHelper:
@@ -204,59 +214,34 @@ class RedshiftDatasharesHelper:
                     )
                     return None
 
-                _epoch = datetime.min.replace(tzinfo=timezone.utc)
-
                 def _aware(ts: Optional[datetime]) -> datetime:
-                    # Treat naive datetimes as UTC to avoid TypeError in sort.
-                    if ts is None:
-                        return _epoch
-                    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+                    return ts if ts is not None else _EPOCH
 
-                by_recency = sorted(
-                    parsed, key=lambda p: _aware(p.ingested_at), reverse=True
-                )
-
-                if by_recency[0].ingested_at is not None:
-                    candidates = by_recency
-                else:
-                    # No timestamps: prefer resources with platform_instance, as those come from newer ingestion runs.
-                    with_pi = [p for p in by_recency if p.platform_instance]
-                    without_pi = [p for p in by_recency if not p.platform_instance]
-                    if with_pi and without_pi:
-                        logger.warning(
-                            f"find_upstream_share: {len(with_pi)} resource(s) have "
-                            f"platform_instance and {len(without_pi)} do not (none "
-                            f"have ingested_at — legacy resources). Preferring "
-                            f"resource(s) with platform_instance set. Stale "
-                            f"resource(s) without platform_instance should be "
-                            f"cleaned up: "
-                            f"{[(p.namespace, p.share_name, p.env) for p in without_pi]}"
-                        )
-                    candidates = with_pi or without_pi
-
-                if len(candidates) > 1:
-                    chosen = candidates[0]
-                    logger.warning(
-                        f"find_upstream_share: {len(candidates)} candidate "
-                        f"resources remain; picking the most recently ingested. "
-                        f"Chosen: namespace={chosen.namespace!r} "
-                        f"share_name={chosen.share_name!r} "
-                        f"platform_instance={chosen.platform_instance!r} "
-                        f"env={chosen.env!r} "
-                        f"ingested_at={chosen.ingested_at!r}. "
-                        f"Consider cleaning up stale duplicates."
+                def _priority(
+                    p: OutboundSharePlatformResource,
+                ) -> tuple:
+                    return (
+                        p.ingested_at is not None,  # timestamped > legacy
+                        _aware(p.ingested_at),  # newer > older
+                        p.platform_instance is not None,  # has platform_instance > not
+                        p.namespace,  # stable tiebreaker
                     )
+
+                best = max(parsed, key=_priority)
+
+                if len(parsed) > 1:
                     self.report.warning(
                         title="Multiple matching outbound datashare PlatformResources",
                         message=(
-                            "Found more than one OUTBOUND_DATASHARE PlatformResource "
-                            "matching this inbound share. Picking the most recently "
-                            "ingested; consider cleaning up duplicates."
+                            f"Found {len(parsed)} matching resources; picked "
+                            f"ingested_at={best.ingested_at!r}, "
+                            f"platform_instance={best.platform_instance!r}. "
+                            f"Clean up duplicates."
                         ),
                         context=share.get_description(),
                     )
 
-                return candidates[0]
+                return best
 
         return None
 

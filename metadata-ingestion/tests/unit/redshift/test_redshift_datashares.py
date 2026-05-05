@@ -771,3 +771,16 @@ class TestDatasharesHelper:
         )
 
         assert db.get_inbound_share() is None
+
+    def test_outbound_share_naive_ingested_at_coerced_to_utc(self):
+        naive_dt = datetime(2026, 1, 1, 12, 0, 0)
+        resource = OutboundSharePlatformResource(
+            namespace="ns",
+            env="PROD",
+            source_database="db",
+            share_name="share",
+            ingested_at=naive_dt,
+        )
+        assert resource.ingested_at is not None
+        assert resource.ingested_at.tzinfo is not None
+        assert resource.ingested_at == naive_dt.replace(tzinfo=timezone.utc)
