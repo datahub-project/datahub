@@ -1,10 +1,14 @@
 """Unit tests for DocumentChunkingSource embedding failure reporting."""
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unstructured.chunking_config import (
     ChunkingConfig,
     DocumentChunkingSourceConfig,
@@ -16,6 +20,14 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
 )
+from datahub.metadata.schema_classes import SemanticContentClass
+
+
+def _semantic_embeddings(workunit: "MetadataWorkUnit") -> dict:
+    """Extract the embeddings map from a SemanticContent workunit."""
+    aspect = workunit.metadata.aspect  # type: ignore[union-attr]
+    assert isinstance(aspect, SemanticContentClass)
+    return aspect.embeddings
 
 
 def _mock_provider(embeddings_per_call: list[list[float]]) -> MagicMock:
@@ -841,3 +853,202 @@ def test_validate_provider_config_local_no_model_fails():
     assert model is None
     assert report is not None
     assert not report.capable
+
+
+# ---------------------------------------------------------------------------
+# _validate_provider_init_requirements — fail-fast presence checks
+# ---------------------------------------------------------------------------
+
+
+def test_validate_init_requirements_cohere_requires_key():
+    cfg = EmbeddingConfig(
+        provider="cohere",
+        model="embed-english-v3.0",
+        api_key=None,
+        allow_local_embedding_config=True,
+    )
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        pytest.raises(ValueError, match="Cohere API key is required"),
+    ):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)
+
+
+def test_validate_init_requirements_cohere_accepts_env_var():
+    cfg = EmbeddingConfig(
+        provider="cohere",
+        model="embed-english-v3.0",
+        api_key=None,
+        allow_local_embedding_config=True,
+    )
+    with patch.dict("os.environ", {"COHERE_API_KEY": "env-k"}, clear=True):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)  # no raise
+
+
+def test_validate_init_requirements_openai_requires_key():
+    cfg = EmbeddingConfig(
+        provider="openai",
+        model="text-embedding-3-small",
+        api_key=None,
+        allow_local_embedding_config=True,
+    )
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        pytest.raises(ValueError, match="OpenAI API key is required"),
+    ):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)
+
+
+def test_validate_init_requirements_vertex_ai_requires_project():
+    cfg = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        vertex_project_id=None,
+        allow_local_embedding_config=True,
+    )
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        pytest.raises(ValueError, match="vertex_project_id is required"),
+    ):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)
+
+
+def test_validate_init_requirements_vertex_ai_accepts_env_var():
+    cfg = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        vertex_project_id=None,
+        allow_local_embedding_config=True,
+    )
+    with patch.dict("os.environ", {"VERTEX_AI_PROJECT_ID": "env-proj"}, clear=True):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)  # no raise
+
+
+def test_validate_init_requirements_bedrock_no_key_check():
+    """Bedrock auth comes from the AWS credential chain — no init-time key check."""
+    cfg = EmbeddingConfig(
+        provider="bedrock",
+        model="cohere.embed-english-v3",
+        api_key=None,
+        aws_region="us-east-1",
+        allow_local_embedding_config=True,
+    )
+    DocumentChunkingSource._validate_provider_init_requirements(cfg)  # no raise
+
+
+# ---------------------------------------------------------------------------
+# _get_provider — caching behavior
+# ---------------------------------------------------------------------------
+
+
+def test_get_provider_caches_instance(pipeline_context):
+    """_get_provider should call the factory once and reuse the instance."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="cohere",
+            model="embed-english-v3.0",
+            api_key="k",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    fake_provider = _mock_provider([[0.1]])
+    with patch(
+        "datahub.ingestion.source.unstructured.chunking_source.create_embedding_provider",
+        return_value=fake_provider,
+    ) as mock_factory:
+        first = source._get_provider()
+        second = source._get_provider()
+
+    assert first is second is fake_provider
+    mock_factory.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# model_key derivation in semantic content workunit
+# ---------------------------------------------------------------------------
+
+
+def test_model_key_prefers_server_sourced_embedding_key(pipeline_context):
+    """When model_embedding_key is set on the config, use it verbatim."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="vertex_ai",
+            model="gemini-embedding-001",
+            model_embedding_key="server_provided_key",
+            vertex_project_id="my-project",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    fake_provider = _mock_provider([[0.1, 0.2]])
+    source._provider = fake_provider
+
+    workunits = list(
+        source.process_elements_inline(
+            "urn:li:document:(test,doc1,PROD)",
+            [{"type": "NarrativeText", "text": "hello"}],
+        )
+    )
+    semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
+    assert "server_provided_key" in _semantic_embeddings(semantic_wu)
+
+
+def test_model_key_falls_back_to_cohere_v3_alias(pipeline_context):
+    """Without model_embedding_key, the legacy cohere-v3 substring rule still applies."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="cohere",
+            model="embed-english-v3.0",
+            api_key="k",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    fake_provider = _mock_provider([[0.1, 0.2]])
+    source._provider = fake_provider
+
+    workunits = list(
+        source.process_elements_inline(
+            "urn:li:document:(test,doc1,PROD)",
+            [{"type": "NarrativeText", "text": "hello"}],
+        )
+    )
+    semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
+    assert "cohere_embed_v3" in _semantic_embeddings(semantic_wu)
+
+
+def test_model_key_default_normalizes_dashes_and_dots(pipeline_context):
+    """Generic model id without server key or v3 alias gets `-`/`.` → `_` normalization."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="openai",
+            model="text-embedding-3-small",
+            api_key="sk-x",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    fake_provider = _mock_provider([[0.1, 0.2]])
+    source._provider = fake_provider
+
+    workunits = list(
+        source.process_elements_inline(
+            "urn:li:document:(test,doc1,PROD)",
+            [{"type": "NarrativeText", "text": "hello"}],
+        )
+    )
+    semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
+    assert "text_embedding_3_small" in _semantic_embeddings(semantic_wu)

@@ -469,7 +469,12 @@ def test_create_embedding_provider_vertex_ai_falls_back_to_adc_project():
     ):
         provider = create_embedding_provider(cfg)
 
+    from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
+        VertexAIEmbeddingProvider,
+    )
+
     mock_default.assert_called_once()
+    assert isinstance(provider, VertexAIEmbeddingProvider)
     assert provider._project_id == "adc-proj"
 
 
@@ -510,3 +515,185 @@ def test_create_embedding_provider_plumbs_request_timeout():
     )
     assert isinstance(provider, OpenAIEmbeddingProvider)
     assert provider._timeout == 7.5
+
+
+def test_create_embedding_provider_bedrock_passes_region():
+    from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
+        BedrockEmbeddingProvider,
+    )
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+        create_embedding_provider,
+    )
+
+    cfg = _make_config(
+        provider="bedrock",
+        model="cohere.embed-english-v3",
+        aws_region="us-west-2",
+        api_key=None,
+    )
+    with patch("boto3.client") as mock_boto:
+        provider = create_embedding_provider(cfg)
+
+    assert isinstance(provider, BedrockEmbeddingProvider)
+    assert mock_boto.call_args.kwargs["region_name"] == "us-west-2"
+    assert provider.model_id == "bedrock/cohere.embed-english-v3"
+
+
+def test_resolve_local_base_url_falls_back_to_env_var():
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+        resolve_local_base_url,
+    )
+
+    with patch.dict(
+        "os.environ",
+        {"LOCAL_EMBEDDING_ENDPOINT": "http://other.example/v1/embeddings"},
+        clear=True,
+    ):
+        assert (
+            resolve_local_base_url(None) == "http://other.example/v1"
+        )  # /embeddings stripped
+
+
+def test_resolve_local_base_url_default_when_unset():
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+        resolve_local_base_url,
+    )
+
+    with patch.dict("os.environ", {}, clear=True):
+        assert resolve_local_base_url(None) == "http://localhost:11434/v1"
+
+
+def test_resolve_local_base_url_passes_through_when_no_embeddings_suffix():
+    """A bare base URL (without /embeddings) is returned as-is — OpenAI provider appends it."""
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+        resolve_local_base_url,
+    )
+
+    assert resolve_local_base_url("http://x.example/v1") == "http://x.example/v1"
+
+
+def test_create_embedding_provider_unsupported_provider_raises():
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+        create_embedding_provider,
+    )
+
+    # Bypass EmbeddingConfig's _normalize_provider validation by mocking a config
+    # that reports an unsupported provider name.
+    cfg = MagicMock()
+    cfg.provider = "huggingface"
+    cfg.model = "bge-large"
+    cfg.api_key = None
+    cfg.request_timeout = 60
+
+    with pytest.raises(ValueError, match="Unsupported embedding provider"):
+        create_embedding_provider(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Vertex AI provider — wire format and URL construction
+# ---------------------------------------------------------------------------
+
+
+def _make_vertex_provider(project_id="proj", location=None):
+    from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
+        VertexAIEmbeddingProvider,
+    )
+
+    fake_creds = MagicMock()
+    with (
+        patch("google.auth.default", return_value=(fake_creds, None)),
+        patch("google.auth.transport.requests.AuthorizedSession"),
+        patch("google.auth.transport.requests.Request"),
+    ):
+        return VertexAIEmbeddingProvider(
+            model="gemini-embedding-001", project_id=project_id, location=location
+        )
+
+
+def test_vertex_ai_provider_builds_predict_url_with_default_location():
+    provider = _make_vertex_provider(project_id="my-proj", location=None)
+    assert provider._location == "us-central1"
+    assert provider._url == (
+        "https://us-central1-aiplatform.googleapis.com/v1/"
+        "projects/my-proj/locations/us-central1/"
+        "publishers/google/models/gemini-embedding-001:predict"
+    )
+
+
+def test_vertex_ai_provider_honours_custom_location():
+    provider = _make_vertex_provider(project_id="my-proj", location="europe-west4")
+    assert provider._location == "europe-west4"
+    assert "europe-west4-aiplatform.googleapis.com" in provider._url
+    assert "/locations/europe-west4/" in provider._url
+
+
+def test_vertex_ai_provider_embed_sends_retrieval_document_task_type():
+    provider = _make_vertex_provider(project_id="my-proj")
+    payload = {
+        "predictions": [
+            {"embeddings": {"values": [0.1, 0.2]}},
+            {"embeddings": {"values": [0.3, 0.4]}},
+        ]
+    }
+    with patch.object(
+        provider._session, "post", return_value=_ok_response(payload)
+    ) as mock_post:
+        result = provider.embed(["a", "b"])
+
+    assert result.embeddings == [[0.1, 0.2], [0.3, 0.4]]
+    body = mock_post.call_args.kwargs["json"]
+    assert body == {
+        "instances": [
+            {"task_type": "RETRIEVAL_DOCUMENT", "content": "a"},
+            {"task_type": "RETRIEVAL_DOCUMENT", "content": "b"},
+        ]
+    }
+
+
+def test_vertex_ai_provider_raises_when_predictions_missing():
+    provider = _make_vertex_provider(project_id="my-proj")
+    with (
+        patch.object(
+            provider._session,
+            "post",
+            return_value=_ok_response({"unexpected": "shape"}),
+        ),
+        pytest.raises(RuntimeError, match="missing 'predictions' list"),
+    ):
+        provider.embed(["x"])
+
+
+def test_vertex_ai_provider_model_id_is_namespaced():
+    provider = _make_vertex_provider(project_id="my-proj")
+    assert provider.model_id == "vertex_ai/gemini-embedding-001"
+
+
+# ---------------------------------------------------------------------------
+# Cohere / OpenAI — malformed payloads
+# ---------------------------------------------------------------------------
+
+
+def test_cohere_provider_raises_when_embeddings_field_missing():
+    provider = CohereEmbeddingProvider(model="embed-english-v3.0", api_key="k")
+    with (
+        patch.object(
+            provider._session,
+            "post",
+            return_value=_ok_response({"id": "x"}),
+        ),
+        pytest.raises(RuntimeError, match="missing 'embeddings' field"),
+    ):
+        provider.embed(["x"])
+
+
+def test_openai_provider_raises_when_data_field_missing_or_wrong_type():
+    provider = OpenAIEmbeddingProvider(model="m", api_key="k")
+    with (
+        patch.object(
+            provider._session,
+            "post",
+            return_value=_ok_response({"object": "list"}),
+        ),
+        pytest.raises(RuntimeError, match="missing 'data' list"),
+    ):
+        provider.embed(["x"])
