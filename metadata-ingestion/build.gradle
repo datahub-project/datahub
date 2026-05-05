@@ -145,6 +145,7 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
   inputs.files(
     file('scripts/modeldocgen.py'),
     project.fileTree(dir: "../metadata-models/docs/entities/", include: "**/*.md"),
+    file("../metadata-models/docs/entity_descriptions.yaml"),
     project.fileTree(dir: "examples/", include: "**/*.py"),
     project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
   )
