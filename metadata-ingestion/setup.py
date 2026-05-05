@@ -491,14 +491,13 @@ superset_common = {
 }
 
 embedding_common = {
-    # AWS SDK for Bedrock embedding support
+    # AWS SDK for Bedrock embedding support (SigV4 + AWS credential chain).
+    # OpenAI, Cohere, and the local provider all hit raw HTTP endpoints via
+    # `requests` (already required by acryl-datahub) — no SDKs needed.
     *aws_common,
-    # OpenAI SDK (also used for OpenAI-compatible local servers e.g. Ollama)
-    "openai>=1.40.0,<2.0.0",
-    # Cohere SDK for hosted Cohere embedding endpoints
-    "cohere>=5.0.0,<6.0.0",
-    # Vertex AI SDK for Google Cloud embedding models
-    "google-cloud-aiplatform>=1.80.0,<2.0.0",
+    # google-auth handles ADC / OAuth refresh for Vertex AI; the Vertex
+    # :predict call itself goes over plain HTTP.
+    "google-auth>=2.0.0,<3.0.0",
 }
 
 unstructured_lib = {

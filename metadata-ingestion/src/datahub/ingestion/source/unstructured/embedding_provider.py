@@ -1,12 +1,13 @@
 """Embedding provider wrappers.
 
-Provides a small abstraction over provider-specific SDKs so the chunking
+Provides a small abstraction over provider-specific transports so the chunking
 source can call a single ``embed(texts)`` method regardless of provider.
 
-Each concrete provider is responsible for:
-  * lazy-importing its SDK (so unrelated installs don't pull in everything)
-  * normalising the response to a list[list[float]]
-  * not leaking credentials into ``os.environ``
+Most providers use raw HTTP via ``requests`` to keep the dependency footprint
+small and to mirror the wire-level contract used by the Java GMS embedding
+providers. Bedrock is the exception: it uses ``boto3`` because SigV4 signing
+plus the AWS credential chain (IRSA, AssumeRole, IMDS) are not worth
+reimplementing.
 """
 
 from __future__ import annotations
@@ -16,12 +17,21 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+import requests
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
+
+# Per-call timeout for HTTP-based providers. Embedding requests are typically
+# quick; a long timeout exists only so we don't hang forever on a stuck server.
+_HTTP_TIMEOUT_SECONDS = 60
+
+_COHERE_API_URL = "https://api.cohere.com/v1/embed"
+_OPENAI_API_BASE = "https://api.openai.com/v1"
 
 
 @dataclass
@@ -43,8 +53,37 @@ class EmbeddingProvider(ABC):
         """Generate embeddings for the given input texts."""
 
 
+def _post_json(
+    url: str,
+    *,
+    headers: dict[str, str],
+    body: dict[str, Any],
+    session: Optional[requests.Session] = None,
+) -> dict[str, Any]:
+    """POST a JSON body and return the parsed JSON response.
+
+    Raises an informative ``RuntimeError`` if the server returns a non-2xx
+    status, including the response body so callers (and the
+    ``_get_embedding_error_mitigation`` helper) can pattern-match on it.
+    """
+    sender = session or requests
+    response = sender.post(
+        url, headers=headers, json=body, timeout=_HTTP_TIMEOUT_SECONDS
+    )
+    if not response.ok:
+        raise RuntimeError(
+            f"Embedding API call failed: {response.status_code} {response.reason}: "
+            f"{response.text[:500]}"
+        )
+    return response.json()
+
+
 class BedrockEmbeddingProvider(EmbeddingProvider):
-    """Embedding via AWS Bedrock Runtime (boto3)."""
+    """Embedding via AWS Bedrock Runtime (boto3).
+
+    Uses boto3 because SigV4 + the AWS credential chain (IRSA, AssumeRole,
+    IMDSv2) is the part where rolling our own would actually hurt.
+    """
 
     def __init__(self, model: str, aws_region: Optional[str]):
         try:
@@ -93,17 +132,9 @@ class BedrockEmbeddingProvider(EmbeddingProvider):
 
 
 class CohereEmbeddingProvider(EmbeddingProvider):
-    """Embedding via the Cohere REST SDK."""
+    """Embedding via the Cohere v1 ``/embed`` HTTP endpoint."""
 
     def __init__(self, model: str, api_key: Optional[str]):
-        try:
-            import cohere
-        except ImportError as e:
-            raise ImportError(
-                "The 'cohere' package is required for the cohere embedding provider. "
-                "Install with: pip install 'acryl-datahub[unstructured]'"
-            ) from e
-
         resolved_key = api_key or os.environ.get("COHERE_API_KEY")
         if not resolved_key:
             raise ValueError(
@@ -112,35 +143,36 @@ class CohereEmbeddingProvider(EmbeddingProvider):
 
         self._model = model
         self.model_id = f"cohere/{model}"
-        # The Cohere SDK accepts an api_key argument directly so we never need
-        # to write the secret into os.environ.
-        self._client = cohere.Client(api_key=resolved_key)
+        self._session = requests.Session()
+        self._session.headers.update(
+            {
+                "Authorization": f"Bearer {resolved_key}",
+                "Content-Type": "application/json",
+            }
+        )
 
     def embed(self, texts: list[str]) -> EmbeddingResult:
-        response = self._client.embed(
-            texts=texts,
-            model=self._model,
-            input_type="search_document",
+        payload = _post_json(
+            _COHERE_API_URL,
+            headers={},
+            body={
+                "texts": texts,
+                "model": self._model,
+                "input_type": "search_document",
+            },
+            session=self._session,
         )
-        # Modern SDK returns an object with .embeddings; older versions return
-        # a dict-like. Handle both defensively.
-        embeddings = getattr(response, "embeddings", None)
-        if embeddings is None and isinstance(response, dict):
-            embeddings = response["embeddings"]
+        embeddings = payload.get("embeddings")
         if embeddings is None:
-            raise ValueError("Cohere SDK returned no embeddings")
-        # Some SDK versions wrap embeddings in a typed object (.float_, .int8, ...).
-        float_attr = getattr(embeddings, "float_", None)
-        if float_attr is not None:
-            embeddings = float_attr
-        return EmbeddingResult(embeddings=list(embeddings))
+            raise RuntimeError(f"Cohere response missing 'embeddings' field: {payload}")
+        return EmbeddingResult(embeddings=embeddings)
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
-    """Embedding via the OpenAI Python SDK.
+    """Embedding via the OpenAI ``/v1/embeddings`` HTTP endpoint.
 
-    Also used for OpenAI-compatible local servers (e.g. Ollama) by passing a
-    custom ``base_url``.
+    Also handles OpenAI-compatible local servers (e.g. Ollama) when
+    ``base_url`` is overridden.
     """
 
     def __init__(
@@ -150,26 +182,46 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         base_url: Optional[str] = None,
         provider_label: str = "openai",
     ):
-        try:
-            from openai import OpenAI
-        except ImportError as e:
-            raise ImportError(
-                "The 'openai' package is required for the openai embedding provider. "
-                "Install with: pip install 'acryl-datahub[unstructured]'"
-            ) from e
-
+        # OpenAI proper requires a real key; OpenAI-compatible local servers
+        # (Ollama, etc.) accept any token so we fall back to "local".
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY") or "local"
+
         self._model = model
         self.model_id = f"{provider_label}/{model}"
-        self._client = OpenAI(api_key=resolved_key, base_url=base_url)
+        self._url = f"{(base_url or _OPENAI_API_BASE).rstrip('/')}/embeddings"
+        self._session = requests.Session()
+        self._session.headers.update(
+            {
+                "Authorization": f"Bearer {resolved_key}",
+                "Content-Type": "application/json",
+            }
+        )
 
     def embed(self, texts: list[str]) -> EmbeddingResult:
-        response = self._client.embeddings.create(model=self._model, input=texts)
-        return EmbeddingResult(embeddings=[item.embedding for item in response.data])
+        payload = _post_json(
+            self._url,
+            headers={},
+            body={"model": self._model, "input": texts},
+            session=self._session,
+        )
+        data = payload.get("data")
+        if not isinstance(data, list):
+            raise RuntimeError(
+                f"OpenAI-compatible response missing 'data' list: {payload}"
+            )
+        return EmbeddingResult(embeddings=[item["embedding"] for item in data])
 
 
 class VertexAIEmbeddingProvider(EmbeddingProvider):
-    """Embedding via Google Vertex AI."""
+    """Embedding via the Vertex AI ``:predict`` REST endpoint.
+
+    Authenticates with Application Default Credentials via ``google-auth``
+    (handles GCE/GKE workload identity, ADC files, service-account
+    impersonation, OAuth refresh), but does the call itself over plain HTTP.
+    Mirrors the Java ``VertexAiEmbeddingProvider`` wire format.
+    """
+
+    _DEFAULT_LOCATION = "us-central1"
 
     def __init__(
         self,
@@ -178,35 +230,64 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
         location: Optional[str],
     ):
         try:
-            import vertexai
-            from vertexai.language_models import TextEmbeddingModel
+            import google.auth
+            from google.auth.transport.requests import (
+                AuthorizedSession,
+                Request as GoogleAuthRequest,
+            )
         except ImportError as e:
             raise ImportError(
-                "google-cloud-aiplatform is required for the vertex_ai embedding provider. "
-                "Install with: pip install 'acryl-datahub[vertexai]'"
+                "google-auth is required for the vertex_ai embedding provider. "
+                "Install with: pip install 'acryl-datahub[unstructured]'"
             ) from e
 
-        self._model_name = model
+        self._model = model
         self.model_id = f"vertex_ai/{model}"
-        vertexai.init(project=project_id, location=location)
-        self._model = TextEmbeddingModel.from_pretrained(model)
+        self._location = location or self._DEFAULT_LOCATION
+        self._project_id = project_id
+
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        # Refresh once eagerly so that misconfigured ADC fails fast at provider
+        # construction rather than on the first embed call.
+        credentials.refresh(GoogleAuthRequest())
+        self._session = AuthorizedSession(credentials)
+        self._url = (
+            f"https://{self._location}-aiplatform.googleapis.com/v1/"
+            f"projects/{self._project_id}/locations/{self._location}/"
+            f"publishers/google/models/{self._model}:predict"
+        )
 
     def embed(self, texts: list[str]) -> EmbeddingResult:
-        from vertexai.language_models import TextEmbeddingInput
-
         # Asymmetric Gemini embedding models require a task_type. Mirrors the
         # search-side RETRIEVAL_QUERY in VertexAiEmbeddingProvider.java.
-        inputs = [
-            TextEmbeddingInput(text=t, task_type="RETRIEVAL_DOCUMENT") for t in texts
-        ]
-        results = self._model.get_embeddings(inputs)
-        return EmbeddingResult(embeddings=[r.values for r in results])
+        body = {
+            "instances": [
+                {"task_type": "RETRIEVAL_DOCUMENT", "content": text} for text in texts
+            ]
+        }
+        payload = _post_json(
+            self._url,
+            headers={"Content-Type": "application/json"},
+            body=body,
+            session=self._session,
+        )
+        predictions = payload.get("predictions")
+        if not isinstance(predictions, list):
+            raise RuntimeError(
+                f"Vertex AI response missing 'predictions' list: {payload}"
+            )
+        return EmbeddingResult(
+            embeddings=[p["embeddings"]["values"] for p in predictions]
+        )
 
 
 def _resolve_local_base_url(endpoint: Optional[str]) -> str:
     """Return the OpenAI-compatible base URL for the local provider.
 
-    Strips a trailing ``/embeddings`` so the OpenAI SDK can append its own path.
+    Strips a trailing ``/embeddings`` so the OpenAI provider can append its own
+    path.
     """
     raw = (
         endpoint
@@ -277,8 +358,6 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
 )
 
 
-# Helpers used by the chunking source to derive the model id without
-# instantiating a provider (used by capability checks).
 def derive_model_id(provider: Optional[str], model: Optional[str]) -> Optional[str]:
     """Return the human-readable ``provider/model`` id, or None if not configured."""
     if not provider or not model:
