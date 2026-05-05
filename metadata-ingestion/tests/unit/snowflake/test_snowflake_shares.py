@@ -11,6 +11,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeShareConfig,
     SnowflakeV2Config,
 )
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
@@ -610,6 +611,57 @@ def test_auto_share_locator_only_origin_resolves_via_locator() -> None:
 
 # ---------------------------------------------------------------------------
 # Producer-side QUERY_HISTORY parser
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# share_grant_history SQL builder — input validation
+# ---------------------------------------------------------------------------
+
+
+def test_share_grant_history_rejects_non_int_lookback_days() -> None:
+    # `int(...)` coerces a numeric string like "30" but raises ValueError on
+    # any non-numeric input — including SQL-injection payloads — before the
+    # string is ever interpolated into the query.
+    with pytest.raises(ValueError):
+        SnowflakeQuery.share_grant_history(lookback_days="365; DROP TABLE x")  # type: ignore[arg-type]
+
+
+def test_share_grant_history_rejects_non_int_limit() -> None:
+    with pytest.raises(ValueError):
+        SnowflakeQuery.share_grant_history(limit="1000) UNION SELECT 1 --")  # type: ignore[arg-type]
+
+
+def test_share_grant_history_rejects_out_of_range_lookback_days() -> None:
+    with pytest.raises(ValueError, match="lookback_days"):
+        SnowflakeQuery.share_grant_history(lookback_days=0)
+    with pytest.raises(ValueError, match="lookback_days"):
+        SnowflakeQuery.share_grant_history(lookback_days=366)
+    with pytest.raises(ValueError, match="lookback_days"):
+        SnowflakeQuery.share_grant_history(lookback_days=-1)
+
+
+def test_share_grant_history_rejects_out_of_range_limit() -> None:
+    with pytest.raises(ValueError, match="limit"):
+        SnowflakeQuery.share_grant_history(limit=0)
+    with pytest.raises(ValueError, match="limit"):
+        SnowflakeQuery.share_grant_history(limit=100_001)
+
+
+def test_share_grant_history_accepts_valid_bounds() -> None:
+    # Default arguments and explicit valid bounds produce SQL containing only
+    # the numeric values, never any caller-supplied string.
+    sql = SnowflakeQuery.share_grant_history()
+    assert "DATEADD(day, -365" in sql
+    assert "LIMIT 1000" in sql
+
+    sql = SnowflakeQuery.share_grant_history(lookback_days=1, limit=1)
+    assert "DATEADD(day, -1" in sql
+    assert "LIMIT 1" in sql
+
+
+# ---------------------------------------------------------------------------
+# parse_share_grants
 # ---------------------------------------------------------------------------
 
 
