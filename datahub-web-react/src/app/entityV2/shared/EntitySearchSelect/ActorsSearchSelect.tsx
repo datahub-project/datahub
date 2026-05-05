@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components';
 
 import { OptionType } from '@components/components/AutoComplete/types';
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import {
     ActorEntity,
@@ -42,14 +43,17 @@ const TitleContainer = styled.div`
     flex-direction: column;
 `;
 
-export interface ActorsSearchSelectProps {
+interface ActorsSearchSelectProps {
     selectedActorUrns: string[];
     onUpdate: (selectedActors: ActorEntity[]) => void;
     placeholder?: string;
+    label?: string;
     defaultActors?: ActorEntity[];
     isDisabled?: boolean;
     width?: number | 'full' | 'fit-content';
     showSearch?: boolean;
+    entityTypes?: EntityType[];
+    dataTestId?: string;
 }
 
 /**
@@ -59,14 +63,19 @@ export interface ActorsSearchSelectProps {
  *
  * TODO: Support resolving selected entities from selectedActorUrns on initial render.
  */
+const DEFAULT_ACTOR_TYPES = [EntityType.CorpUser, EntityType.CorpGroup];
+
 export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     selectedActorUrns,
     onUpdate,
     placeholder = 'Search for users or groups',
+    label,
     defaultActors: placeholderActors,
     isDisabled = false,
     width = 'full',
     showSearch = true,
+    entityTypes = DEFAULT_ACTOR_TYPES,
+    dataTestId,
 }) => {
     const entityRegistry = useEntityRegistryV2();
     const [selectedActorEntities, setSelectedActorEntities] = useState<ActorEntity[]>([]);
@@ -91,10 +100,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             fetchPolicy: 'no-cache',
         });
 
-    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([
-        EntityType.CorpGroup,
-        EntityType.CorpUser,
-    ]);
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations(entityTypes);
 
     // Get results from the recommendations or autocomplete
     const searchResults: Array<Entity> = useMemo(() => {
@@ -151,7 +157,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
                 autoCompleteQuery({
                     variables: {
                         input: {
-                            types: [EntityType.CorpUser, EntityType.CorpGroup],
+                            types: entityTypes,
                             query: query.trim(),
                             limit: 10,
                         },
@@ -159,7 +165,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
                 });
             }
         },
-        [autoCompleteQuery],
+        [autoCompleteQuery, entityTypes],
     );
 
     // Render actor entity in dropdown
@@ -194,8 +200,9 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 
             const displayName = entityRegistry.getDisplayName(entity.type, entity);
             const imageUrl = getActorPictureLink(entity);
+            const avatarType = entity.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
-            return <Avatar name={displayName || ''} imageUrl={imageUrl} showInPill />;
+            return <Avatar name={displayName || ''} imageUrl={imageUrl} type={avatarType} showInPill />;
         },
         [allActorEntities, entityRegistry],
     );
@@ -222,6 +229,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             selectLabelProps={{
                 variant: 'custom',
             }}
+            label={label}
             options={selectOptions}
             isLoading={isSelectLoading}
             values={selectedActorUrns}
@@ -232,6 +240,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             placeholder={placeholder}
             isDisabled={isDisabled}
             width={width}
+            dataTestId={dataTestId}
             renderCustomSelectedValue={renderSelectedActorLabel}
             renderCustomOptionText={(option) => {
                 const entity = allActorEntities.find((e) => e.urn === option.value);

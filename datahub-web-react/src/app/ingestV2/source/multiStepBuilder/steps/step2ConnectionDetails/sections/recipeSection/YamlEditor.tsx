@@ -1,22 +1,19 @@
-import { Button, Icon, Text, borders, colors, radius, spacing, typography } from '@components';
-import Editor, { loader } from '@monaco-editor/react';
+import { Button, Icon, Text, borders, radius, spacing, typography } from '@components';
+import Editor from '@monaco-editor/react';
+import { ArrowsInLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsInLineVertical';
+import { ArrowsOutLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsOutLineVertical';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
-
-loader.config({
-    paths: {
-        vs: resolveRuntimePath('/node_modules/monaco-editor/min/vs'),
-    },
-});
+import '@conf/monaco';
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: ${radius.lg};
-    border: ${borders['1px']} ${colors.gray[100]};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     height: 100%;
 `;
 
@@ -24,10 +21,10 @@ const Header = styled.div`
     display: flex;
     flex-direction: row;
     gap: ${spacing.md};
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     padding: ${spacing.xsm} ${spacing.md};
     border-radius: ${radius.lg} ${radius.lg} 0 0;
-    border-bottom: ${borders['1px']} ${colors.gray[100]};
+    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.border};
 `;
 
 const Spacer = styled.div`
@@ -122,13 +119,13 @@ export function YamlEditor({ value, onChange }: Props) {
                 </Text>
                 <Spacer />
                 <NoPaddingButton variant="text" size="md" color="gray" onClick={onCopy}>
-                    <Icon source="phosphor" size="md" icon="Copy" /> Copy
+                    <Icon size="md" icon={Copy} /> Copy
                 </NoPaddingButton>
                 <NoPaddingButton variant="text" size="md" color="gray" onClick={toggleExpanded}>
                     {isExpanded ? (
-                        <Icon source="phosphor" size="lg" icon="ArrowsInLineVertical" />
+                        <Icon size="lg" icon={ArrowsInLineVertical} />
                     ) : (
-                        <Icon source="phosphor" size="lg" icon="ArrowsOutLineVertical" />
+                        <Icon size="lg" icon={ArrowsOutLineVertical} />
                     )}
                 </NoPaddingButton>
             </Header>

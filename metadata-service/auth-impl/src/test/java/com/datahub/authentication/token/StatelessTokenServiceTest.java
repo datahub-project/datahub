@@ -221,7 +221,7 @@ public class StatelessTokenServiceTest {
   }
 
   @Test
-  public void testValidateAccessTokenFailsDueToHardDeletedUser() throws Exception {
+  public void testValidateAccessTokenFailsWhenCorpUserKeyMissing() throws Exception {
     AspectRetriever mockAspectRetriever = Mockito.mock(AspectRetriever.class);
     OperationContext mockContext =
         TestOperationContexts.systemContextNoSearchAuthorization(mockAspectRetriever);
@@ -235,7 +235,7 @@ public class StatelessTokenServiceTest {
             TokenType.PERSONAL, new Actor(ActorType.USER, "deleteduser"));
     assertNotNull(token);
 
-    // Mock to return empty aspect map - user has no CorpUserKey aspect (hard deleted)
+    // No CorpUserKey aspect in the retriever response (metadata absent for that URN)
     Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
         .thenReturn(Map.of(UrnUtils.getUrn("urn:li:corpuser:deleteduser"), Collections.emptyMap()));
 

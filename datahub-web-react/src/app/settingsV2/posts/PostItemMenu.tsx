@@ -1,10 +1,11 @@
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message } from 'antd';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
 
-import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Button, Menu, toast } from '@src/alchemy-components';
 
 import { useDeletePostMutation } from '@graphql/post.generated';
 
@@ -27,7 +28,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success('Deleted Post!');
+                    toast.success('Deleted Post!');
                     onDelete?.();
                 }
             })
@@ -42,21 +43,33 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
 
     return (
         <>
-            <Dropdown
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        <Menu.Item onClick={() => setShowConfirmDelete(true)} key="delete">
-                            <DeleteOutlined /> &nbsp;Delete
-                        </Menu.Item>
-                        <Menu.Item onClick={onEdit} key="edit">
-                            <EditOutlined /> &nbsp;Edit
-                        </Menu.Item>
-                    </Menu>
-                }
+            <Menu
+                items={[
+                    {
+                        type: 'item',
+                        key: 'edit',
+                        title: 'Edit',
+                        icon: PencilSimple,
+                        onClick: () => onEdit?.(),
+                    },
+                    {
+                        type: 'item',
+                        key: 'delete',
+                        title: 'Delete',
+                        icon: Trash,
+                        danger: true,
+                        onClick: () => setShowConfirmDelete(true),
+                    },
+                ]}
             >
-                <MenuIcon data-testid="dropdown-menu-item" fontSize={20} />
-            </Dropdown>
+                <Button
+                    variant="text"
+                    isCircle
+                    size="lg"
+                    icon={{ icon: DotsThreeVertical, size: 'xl', weight: 'bold' }}
+                    data-testid="dropdown-menu-item"
+                />
+            </Menu>
             <ConfirmationModal
                 isOpen={showConfirmDelete}
                 handleClose={() => setShowConfirmDelete(false)}

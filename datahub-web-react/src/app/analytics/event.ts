@@ -34,7 +34,6 @@ export enum EventType {
     HomePageSearchEvent,
     SearchResultsViewEvent,
     SearchResultClickEvent,
-    EntitySearchResultClickEvent,
     SearchFiltersClearAllEvent,
     SearchFiltersShowMoreEvent,
     BrowseResultClickEvent,
@@ -904,7 +903,6 @@ export interface CreateBusinessAttributeEvent extends BaseEvent {
 }
 
 export enum DocRequestCTASource {
-    TaskCenter = 'TaskCenter',
     AssetPage = 'AssetPage',
 }
 
@@ -1060,7 +1058,6 @@ export enum HomePageModule {
     Discover = 'Discover',
     Announcements = 'Announcements',
     PersonalSidebar = 'PersonalSidebar',
-    SidebarAnnouncements = 'SidebarAnnouncements',
 }
 
 export interface HomePageClickEvent extends BaseEvent {
@@ -1085,6 +1082,7 @@ export interface NavBarExpandCollapseEvent extends BaseEvent {
 export interface NavBarItemClickEvent extends BaseEvent {
     type: EventType.NavBarItemClick;
     label: string; // the label of the item that is clicks from the nav sidebar
+    subLabel?: string;
 }
 
 export interface FilterStatsPageEvent extends BaseEvent {

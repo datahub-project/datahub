@@ -308,6 +308,7 @@
                   "actor":"urn:li:corpuser:datahub"
                 },
                 "version":"1",
+                "schemaVersion": 1,
                 "properties": {
                   "eventSource":"OPENAPI"
                 }

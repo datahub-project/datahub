@@ -55,7 +55,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     { delay: 0 },
   );
   cy.get("[data-testid='sign-in']").click();
-  cy.get(".ant-avatar-circle").should("be.visible");
+  cy.get("[data-testid='search-input']").should("be.visible");
   notFirstTimeVisit();
 });
 
@@ -536,7 +536,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
 
 Cypress.Commands.add("createGroup", (name, description, group_id) => {
   cy.visit("/settings/identities/groups");
-  cy.clickOptionWithText("Create group");
+  cy.clickOptionWithText("Create Group");
   cy.waitTextVisible("Create new group");
   cy.get("#name").type(name);
   cy.get("#description").type(description);
@@ -554,11 +554,18 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.contains(group_name).should("be.visible");
   cy.get('[role="tab"]').contains("Members").click();
   cy.clickOptionWithText("Add Member");
-  cy.contains("Search for users...").click({ force: true });
-  cy.focused().type(member_name);
-  cy.contains(member_name).click();
-  cy.focused().blur();
-  cy.contains(member_name).should("have.length", 1);
+  cy.get('[data-testid="add-members-select"]', { timeout: 10000 }).should(
+    "be.visible",
+  );
+  cy.get('[data-testid="add-members-select-base"]', { timeout: 10000 })
+    .should("exist")
+    .click({ force: true });
+  cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
+    .should("be.visible")
+    .type(member_name);
+  cy.get('[data-testid="add-members-select-dropdown"]', { timeout: 10000 })
+    .contains(member_name)
+    .click({ force: true });
   cy.get('[role="dialog"] button').contains("Add").click({ force: true });
   cy.waitTextVisible("Group members added!");
   cy.contains(member_name, { timeout: 10000 }).should("be.visible");
@@ -611,52 +618,17 @@ Cypress.Commands.add("deleteStructuredProperty", (prop) => {
   cy.get('[data-testid="modal-confirm-button"').click();
 });
 
-Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
-  // set the theme V2 enabled flag on/off to show the V2 UI or not
+Cypress.Commands.add("setFeatureFlags", (updateFeatureFlags) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.alias = "gqlappConfigQuery";
 
       req.on("response", (res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
-        res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
-        res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
-      });
-    } else if (hasOperationName(req, "getMe")) {
-      req.alias = "gqlgetMeQuery";
-      req.on("response", (res) => {
-        res.body.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
+        updateFeatureFlags(res);
       });
     }
   });
 });
-
-Cypress.Commands.add(
-  "setFeatureFlags",
-  (itThemeV2Enabled, updateFeatureFlags) => {
-    cy.intercept("POST", "/api/v2/graphql", (req) => {
-      if (hasOperationName(req, "appConfig")) {
-        req.alias = "gqlappConfigQuery";
-
-        req.on("response", (res) => {
-          res.body.data.appConfig.featureFlags.themeV2Enabled =
-            itThemeV2Enabled;
-          res.body.data.appConfig.featureFlags.themeV2Default =
-            itThemeV2Enabled;
-          res.body.data.appConfig.featureFlags.showNavBarRedesign =
-            itThemeV2Enabled;
-          updateFeatureFlags(res);
-        });
-      } else if (hasOperationName(req, "getMe")) {
-        req.alias = "gqlgetMeQuery";
-        req.on("response", (res) => {
-          res.body.data.me.corpUser.settings.appearance.showThemeV2 =
-            itThemeV2Enabled;
-        });
-      }
-    });
-  },
-);
 
 Cypress.Commands.add("interceptGraphQLOperation", (operationName) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
@@ -677,7 +649,7 @@ Cypress.on("uncaught:exception", (err) => {
   const resizeObserverLoopErrMessage =
     "ResizeObserver loop completed with undelivered notifications.";
 
-  /* returning false here prevents Cypress from failing the test */
+  /* returning false here prevents Cypress from failing the test. */
   if (
     err.message.includes(resizeObserverLoopLimitErrMessage) ||
     err.message.includes(resizeObserverLoopErrMessage)

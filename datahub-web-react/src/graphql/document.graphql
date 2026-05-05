@@ -79,6 +79,9 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         tags {
             ...globalTagsFields
         }
+        globalTags {
+            ...globalTagsFields
+        }
         glossaryTerms {
             ...glossaryTerms
         }
@@ -88,6 +91,7 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         structuredProperties {
             properties {
                 ...structuredPropertiesFields

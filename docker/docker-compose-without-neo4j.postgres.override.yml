@@ -27,26 +27,15 @@ services:
     env_file:
       - datahub-upgrade/env/docker-without-neo4j.env
       - datahub-upgrade/env/docker.postgres.env
-    depends_on:
-      postgres-setup:
-        condition: service_completed_successfully
-      elasticsearch-setup:
-        condition: service_completed_successfully
-      kafka-setup:
-        condition: service_completed_successfully
-
-  postgres-setup:
-    hostname: postgres-setup
-    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-acryldata/datahub-postgres-setup}:${DATAHUB_VERSION:-head}
-    build:
-      context: ../
-      dockerfile: docker/postgres-setup/Dockerfile
-    env_file: postgres-setup/env/docker.env
+    environment:
+      - DATAHUB_SQL_SETUP_ENABLED=true
     depends_on:
       postgres:
         condition: service_healthy
-    labels:
-      datahub_setup_job: true
+      elasticsearch:
+        condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
 
   postgres:
     hostname: postgres

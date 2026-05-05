@@ -43,6 +43,10 @@ dependencies {
   api externalDependency.springWeb
   api externalDependency.httpClient
   implementation externalDependency.springActuator
+  implementation externalDependency.javaxInject  // jakarta.inject-api (renamed in build.gradle)
+  // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+  implementation externalDependency.springBootKafka
+  implementation externalDependency.springBootMicrometerMetrics
   implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
@@ -54,6 +58,8 @@ dependencies {
   implementation 'software.amazon.awssdk:s3'
   // AWS SDK for Bedrock (semantic search embeddings)
   implementation 'software.amazon.awssdk:bedrockruntime'
+  // Google Auth library for Vertex AI embedding provider
+  implementation 'com.google.auth:google-auth-library-oauth2-http:1.30.0'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }

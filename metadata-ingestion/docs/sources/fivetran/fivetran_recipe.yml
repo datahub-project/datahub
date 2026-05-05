@@ -29,14 +29,13 @@ source:
       # Optional - If destination platform is 'databricks', provide databricks configuration.
       databricks_destination_config:
         # Credentials
-        credential:
-          token: "token"
-          workspace_url: "workspace_url"
-          warehouse_id: "warehouse_id"
+        token: "token"
+        workspace_url: "workspace_url"
+        warehouse_id: "warehouse_id"
 
-           # Coordinates
-          catalog: "fivetran_catalog"
-          log_schema: "fivetran_log"
+        # Coordinates
+        catalog: "fivetran_catalog"
+        log_schema: "fivetran_log"
      
     # Optional - filter for certain connector names instead of ingesting everything.
     # connector_patterns:

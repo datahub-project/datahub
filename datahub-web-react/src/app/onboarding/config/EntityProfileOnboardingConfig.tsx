@@ -4,11 +4,11 @@ import React from 'react';
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 // Entity profile tabs. Note that the 'rc-tab' prefix for the ID is added by the antd library and may change in the future.
-export const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
+const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
 export const ENTITY_PROFILE_PROPERTIES_ID = 'entity-profile-properties';
-export const ENTITY_PROFILE_DOCUMENTATION_ID = 'entity-profile-documentation';
+const ENTITY_PROFILE_DOCUMENTATION_ID = 'entity-profile-documentation';
 export const ENTITY_PROFILE_LINEAGE_ID = 'entity-profile-lineage';
-export const ENTITY_PROFILE_SCHEMA_ID = 'entity-profile-schema';
+const ENTITY_PROFILE_SCHEMA_ID = 'entity-profile-schema';
 
 // Entity profile sidebar
 export const ENTITY_PROFILE_OWNERS_ID = 'entity-profile-owners';

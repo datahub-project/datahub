@@ -115,7 +115,7 @@ public class RequestContext implements ContextInterface {
     this.traceId = traceId;
 
     // Uniform common logging of requests across APIs
-    log.info(toString());
+    log.debug("{}", this);
 
     // API metrics
     if (metricUtils != null) {

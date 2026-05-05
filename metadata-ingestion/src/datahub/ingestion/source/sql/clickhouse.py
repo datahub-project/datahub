@@ -534,33 +534,13 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 )
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
-    This plugin extracts the following:
+    Source that extracts tables, views, and dictionaries from ClickHouse via SQLAlchemy.
 
-    - Metadata for tables, views, materialized views and dictionaries
-    - Column types associated with each table(except *AggregateFunction and DateTime with timezone)
-    - Table, row, and column statistics via optional SQL profiling.
-    - Table, view, materialized view and dictionary(with CLICKHOUSE source_type) lineage
-
-    ### Query Log Extraction
-
-    Enable `include_query_log_lineage` and/or `include_usage_statistics` to extract
-    additional metadata from ClickHouse's `system.query_log`:
-
-    - **Query-based lineage**: Table and column-level lineage from INSERT/CREATE queries
-    - **Usage statistics**: Dataset usage from SELECT queries
-    - **Operations**: Operation aspects (INSERT, UPDATE, etc.)
-
-    ```yaml
-    source:
-      type: clickhouse
-      config:
-        host_port: "localhost:8123"
-        include_query_log_lineage: true
-        include_usage_statistics: true
-        start_time: "2024-01-01T00:00:00Z"
-        end_time: "2024-01-08T00:00:00Z"
-    ```
-
+    Implementation notes:
+    - Extends TwoTierSQLAlchemySource (database.table hierarchy)
+    - Optionally parses system.query_log for usage and lineage
+    - Supports ClickHouse-specific objects (dictionaries, materialized views)
+    - Some column types not fully supported (*AggregateFunction, DateTime with timezone)
     """
 
     config: ClickHouseConfig

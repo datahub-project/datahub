@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,7 +7,7 @@ const EmptyStateContainer = styled.div`
     align-items: start;
     justify-content: start;
     text-align: center;
-    colors: ${colors.gray[1700]};
+    colors: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const DocumentTreeEmptyState: React.FC = () => {

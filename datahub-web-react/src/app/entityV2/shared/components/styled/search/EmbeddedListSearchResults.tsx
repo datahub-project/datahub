@@ -10,7 +10,6 @@ import {
     EntitySearchResults,
 } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entityV2/shared/components/styled/search/MatchingViewsLabel';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { UnionType } from '@app/search/utils/constants';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
@@ -22,7 +21,7 @@ import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchRe
 const SearchBody = styled.div<{ showFilters?: boolean }>`
     height: 100%;
     overflow: hidden;
-    background-color: ${REDESIGN_COLORS.BACKGROUND};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
     grid-template-columns: ${(p) => (p.showFilters ? '0.2fr auto' : '1fr')};
@@ -44,13 +43,13 @@ const PaginationInfo = styled(Typography.Text)`
 
 const FiltersContainer = styled.div`
     grid-area: filters;
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     max-width: 260px;
     min-width: 260px;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultContainer = styled.div`
@@ -68,8 +67,8 @@ const PaginationInfoContainer = styled.div`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-    background-color: ${REDESIGN_COLORS.WHITE};
+    border-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -103,12 +102,12 @@ const LoadingContainer = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-bottom: 18px;
 `;
 
 const ViewsContainer = styled.div`
-    background-color: ${REDESIGN_COLORS.BORDER_2};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
     width: 100%;
     display: flex;
@@ -117,21 +116,22 @@ const ViewsContainer = styled.div`
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
-    border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : `#797F98`)};
+    border: 1px solid ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
     white-space: nowrap;
     border-radius: 20px;
     padding: 5px 16px;
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
     cursor: pointer;
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    background: ${(props) => (props.selected ? '#E5E2F8' : 'none')};
+    background: ${(props) => (props.selected ? props.theme.colors.bgSurfaceBrand : 'none')};
 `;
 
 const Count = styled.div<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#A3A7B9')};
-    color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) =>
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.textTertiary};
+    color: ${(props) => props.theme.colors.bg};
     border-radius: 20px;
     min-width: 25px;
     padding: 2px 4px;
@@ -145,12 +145,12 @@ const Count = styled.div<{ selected: boolean }>`
 
 const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
     font-size: 18px !important;
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.colors.iconBrand : props.theme.colors.textTertiary)};
 `;
 
 const ViewLabel = styled.span`
     font-weight: 700;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     margin-right: 8px;
 `;

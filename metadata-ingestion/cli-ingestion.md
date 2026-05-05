@@ -1,3 +1,7 @@
+---
+description: "Run scheduled batch metadata ingestion from the CLI using DataHub recipes to extract metadata from source systems in bulk."
+---
+
 # CLI Ingestion
 
 Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion](../docs/components.md#ingestion-framework) framework.
@@ -33,6 +37,14 @@ pip install --upgrade 'acryl-datahub[mysql]'
 ```
 
 Check out the [alternative installation options](../docs/cli.md#alternate-installation-options) for more reference.
+
+:::tip Building a new connector?
+
+If you need a connector that doesn't exist yet, [datahub-skills](./datahub-skills.md) is a
+Claude Code plugin that accelerates connector development — from planning and scaffolding to
+standards review and community testing.
+
+:::
 
 ## Configuring a Recipe
 

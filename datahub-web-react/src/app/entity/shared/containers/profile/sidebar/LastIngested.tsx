@@ -1,19 +1,18 @@
 import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Image, Popover } from 'antd';
-import moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 const StyledDot = styled.div<{ color: string }>`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 50%;
     background-color: ${(props) => props.color};
     width: 10px;
@@ -39,7 +38,7 @@ const PopoverContentWrapper = styled.div``;
 const MainContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const RelativeDescription = styled.div`
@@ -49,13 +48,13 @@ const RelativeDescription = styled.div`
 `;
 
 const SubText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 10px;
     font-style: italic;
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-left: 7px;
     font-size: 10px;
 `;
@@ -101,11 +100,11 @@ function TooltipContent() {
 }
 
 export function getLastIngestedColor(lastIngested: number) {
-    const lastIngestedDate = moment(lastIngested);
-    if (lastIngestedDate.isAfter(moment().subtract(1, 'week'))) {
+    const lastIngestedDate = dayjs(lastIngested);
+    if (lastIngestedDate.isAfter(dayjs().subtract(1, 'week'))) {
         return green[5];
     }
-    if (lastIngestedDate.isAfter(moment().subtract(1, 'month'))) {
+    if (lastIngestedDate.isAfter(dayjs().subtract(1, 'month'))) {
         return orange[5];
     }
     return red[5];

@@ -10,9 +10,11 @@ import MenuNoResultsFound from '@app/entityV2/summary/properties/menuAddProperty
 import MenuSearchBar from '@app/entityV2/summary/properties/menuAddProperty/components/MenuSearchBar';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { assetPropertyToMenuItem } from '@app/entityV2/summary/properties/utils';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 
 export default function useStructuredPropertiesMenuItems(onClick: (property: AssetProperty) => void) {
+    const { summaryElements } = usePageTemplateContext();
     const [query, setQuery] = useState<string>('');
     const [debouncedQuery, setDebouncedQuery] = useState<string>('');
     // The flag used to return empty menu if an asset have no any structured properties
@@ -30,11 +32,40 @@ export default function useStructuredPropertiesMenuItems(onClick: (property: Ass
         [onClick],
     );
 
+    const visibleStructuredPropertyUrns = useMemo(
+        () =>
+            new Set(
+                summaryElements
+                    ?.filter((el) => el.structuredProperty)
+                    .map((el) => el.structuredProperty?.urn)
+                    .filter((urn): urn is string => urn !== undefined) ?? [],
+            ),
+        [summaryElements],
+    );
+
+    const filteredProperties = useMemo(
+        () =>
+            structuredProperties.filter((assetProperty) => {
+                if (assetProperty.structuredProperty) {
+                    return !visibleStructuredPropertyUrns.has(assetProperty.structuredProperty.urn);
+                }
+                return true;
+            }),
+        [structuredProperties, visibleStructuredPropertyUrns],
+    );
+
+    // Reset `hasAnyStructuredProperties` and `query` to recompute `hasAnyStructuredProperties`
+    // after updating of structured properties
     useEffect(() => {
-        if (!hasAnyStructuredProperties && structuredProperties.length > 0) {
+        setHasAnyStructuredProperties(false);
+        setQuery('');
+    }, [visibleStructuredPropertyUrns]);
+
+    useEffect(() => {
+        if (!hasAnyStructuredProperties && filteredProperties.length > 0) {
             setHasAnyStructuredProperties(true);
         }
-    }, [structuredProperties, hasAnyStructuredProperties]);
+    }, [filteredProperties, hasAnyStructuredProperties]);
 
     const noResultsFoundItem: ItemType = useMemo(
         () => ({
@@ -48,8 +79,8 @@ export default function useStructuredPropertiesMenuItems(onClick: (property: Ass
     );
 
     const shouldShowNoResultsFound = useMemo(
-        () => !!query && structuredProperties.length === 0,
-        [query, structuredProperties],
+        () => !!query && filteredProperties.length === 0,
+        [query, filteredProperties],
     );
 
     const searchBarItem: ItemType = useMemo(
@@ -79,11 +110,13 @@ export default function useStructuredPropertiesMenuItems(onClick: (property: Ass
         [],
     );
 
-    const structuredPropertyMenuItems = useMemo(() => {
-        return sortMenuItems(
-            structuredProperties.map((assetProperty) => assetPropertyToMenuItem(assetProperty, onMenuItemClick)),
-        );
-    }, [structuredProperties, onMenuItemClick]);
+    const structuredPropertyMenuItems = useMemo(
+        () =>
+            sortMenuItems(
+                filteredProperties.map((assetProperty) => assetPropertyToMenuItem(assetProperty, onMenuItemClick)),
+            ),
+        [filteredProperties, onMenuItemClick],
+    );
 
     const shouldShowLoading = useMemo(
         () => loading && structuredProperties.length === 0,

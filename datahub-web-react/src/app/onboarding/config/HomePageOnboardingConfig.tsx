@@ -1,20 +1,29 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
 
-export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
+const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
 export const HOME_PAGE_DOMAINS_ID = 'home-page-domains';
 export const HOME_PAGE_DATA_PRODUCTS_ID = 'home-page-data-products';
 export const HOME_PAGE_INSIGHTS_ID = 'home-page-insights';
 export const HOME_PAGE_PLATFORMS_ID = 'home-page-platforms';
-export const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
-export const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
+const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
+const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
 export const HOME_PAGE_ONBOARDING_CARDS_ID = 'home-page-onboarding-cards';
+
+const InfoBox = styled.div`
+    background-color: ${({ theme }) => theme.colors.bgSurfaceDarker};
+    opacity: 0.7;
+    border-radius: 4px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+`;
 
 export const HomePageOnboardingConfig: OnboardingStep[] = [
     {
@@ -50,21 +59,12 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                         </li>
                     </ul>
                     <p>Let&apos;s get started! 🚀</p>
-                    <div
-                        style={{
-                            backgroundColor: ANTD_GRAY[4],
-                            opacity: '0.7',
-                            borderRadius: '4px',
-                            height: '40px',
-                            display: 'flex',
-                            alignItems: 'center',
-                        }}
-                    >
+                    <InfoBox>
                         <span style={{ paddingLeft: '5px' }}>💡</span>
                         <span style={{ paddingLeft: '10px' }}>
                             Press <strong> Cmd + Ctrl + T</strong> to open up this tutorial at any time.
                         </span>
-                    </div>
+                    </InfoBox>
                 </Typography.Paragraph>
             </div>
         ),

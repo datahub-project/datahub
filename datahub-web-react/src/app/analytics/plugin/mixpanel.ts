@@ -6,7 +6,7 @@ const mixpanelConfigs = analyticsConfig.mixpanel;
 const isEnabled: boolean = mixpanelConfigs || false;
 const token = isEnabled ? mixpanelConfigs.token : undefined;
 
-export const getMixpanelPlugin = (t: string) => {
+const getMixpanelPlugin = (t: string) => {
     // Mixpanel does not really have a page view event.
     // (Technically they have $mp_web_page_view as per
     // https://github.com/mixpanel/mixpanel-js/blob/41e7958af75263a1dc00e960952c27ca655579b2/src/mixpanel-core.js#L1269

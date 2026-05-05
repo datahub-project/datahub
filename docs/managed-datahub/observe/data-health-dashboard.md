@@ -1,5 +1,5 @@
 ---
-description: This page provides an overview of the Data Health Dashboard
+description: "Use the Data Health Dashboard in DataHub Cloud Observe to monitor assertion status, freshness, and data quality across assets."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -67,8 +67,70 @@ In addition, both the `By Tables` tab and the `Incidents` tab will apply your gl
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/view-applied.png"/>
 </p>
 
-## Bulk Create Smart Assertions
+## Data Observability Agent (Private Beta)
 
-[Smart Assertions](./smart-assertions.md) are AI Anomaly Checks that can be used to quickly 'strap a seatbelt' across your data landscape. You can hit the 'Bulk Create' button in the top right corner of the data health dashboard to quickly set up anomaly detection across your most important assets:
+The Data Observability Agent is an AI assistant embedded directly in the Data Health Dashboard. It helps you go from "I have a lot of tables and not enough monitors" to "the right checks are in place, and I know where to focus first" — without leaving the dashboard.
 
-<div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/agent.png"/>
+</p>
+
+### What it can help with
+
+**1. Setting up anomaly detection and data quality checks**
+
+Tell the agent what slice of your data landscape you care most about — or let it figure out what's most important for you — and it will recommend and create the right assertions:
+
+- **Freshness** — for tables on a regular refresh cadence
+- **Volume** — for tables with expected row counts or growth rates
+- **Field** — column-level quality (null checks, format validation, statistical monitoring)
+- ...and more
+
+The agent picks an appropriate source type automatically based on whether the dataset has an active platform connection or only DataHub metadata, and creates assertions in active mode so they start running immediately.
+
+**2. Identifying where to focus**
+
+The agent can scan your assertion landscape to surface what matters most — recent assertion failures that are most concerning, tables that lack monitoring coverage, flaky checks worth investigating, and broader trends across your domain or team's tables. Use it to triage Data Health at the start of the day or after an incident.
+
+### Example questions to ask
+
+- _"Set up anomaly detection for my datasets"_
+- _"What critical tables am I missing monitoring for?"_
+- _"Give me a health report across my datasets"_
+- _"Which assertions failed in the last 7 days?"_
+- _"Add a freshness check on `prod.analytics.orders` — it should land daily by 6am UTC"_
+
+### Access
+
+The Data Observability Agent is currently in **private beta**. Reach out to your DataHub representative to enable it for your instance.
+
+## Monitoring Rules
+
+Monitoring Rules let you automatically apply [Smart Assertions](./smart-assertions.md) (AI anomaly monitors) across your data landscape using search-based predicates. Instead of manually creating assertions on individual tables, you define a rule that describes _which_ datasets should be monitored and _what_ to monitor, and DataHub takes care of the rest.
+
+### Prerequisites
+
+To create and manage Monitoring Rules, you must have the **`Manage Tests`** platform privilege. Contact your DataHub admin if you do not have this privilege.
+
+### How It Works
+
+1. **Define a search predicate** — specify the datasets you want to monitor using filters such as DataHub Domain, data platform, schema, tags, or any combination of search criteria.
+2. **Choose assertion types** — enable one or more of Freshness, Volume, and Schema anomaly monitoring for matching datasets.
+3. **Configure subscriptions** — set up alert subscriptions so you or your team are notified when anomalies are detected.
+4. **Save the rule** — DataHub will automatically create Smart Assertions on all datasets that currently match the predicate.
+
+You can create and manage Monitoring Rules from the **Data Health Dashboard** by clicking the **Monitoring Rules** button.
+
+<div align="center"><iframe width="561" height="409" src="https://www.loom.com/embed/6b372ee252e840dbb504cc2561e88712" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+
+### Automatic Lifecycle Management
+
+Monitoring Rules are continuously evaluated as your data landscape evolves:
+
+- **New datasets that match** the predicate will automatically have Smart Assertions created for them.
+- **Datasets that no longer match** the predicate will have their Smart Assertions stopped and removed by the rule.
+- **Stopping a rule** will stop all Smart Assertions that were created by that rule.
+
+:::note Subscription behavior
+Subscriptions created by a Monitoring Rule are **not** removed when a dataset stops matching the predicate or when the rule is stopped. This ensures you retain visibility into any in-flight alerts or ongoing incidents even after the monitoring scope changes. You can manage subscriptions independently if needed.
+:::

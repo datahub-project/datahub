@@ -1,4 +1,6 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -16,7 +18,7 @@ const LinkContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
 `;
@@ -89,8 +91,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                     {hasLinkPermissions && (
                         <>
                             <StyledIcon
-                                icon="PencilSimpleLine"
-                                source="phosphor"
+                                icon={PencilSimpleLine}
                                 color="gray"
                                 colorLevel={600}
                                 size="md"
@@ -102,8 +103,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                                 data-testid="edit-link-button"
                             />
                             <StyledIcon
-                                icon="Trash"
-                                source="phosphor"
+                                icon={Trash}
                                 color="red"
                                 colorLevel={500}
                                 size="md"

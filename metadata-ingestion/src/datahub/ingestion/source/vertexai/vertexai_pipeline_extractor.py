@@ -1,8 +1,8 @@
 import logging
+import types
 from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
 from typing import (
-    Any,
     Callable,
     Dict,
     Iterable,
@@ -58,6 +58,7 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     log_checkpoint_time,
     log_progress,
+    rate_limited_gapic_list,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -90,7 +91,7 @@ class VertexAIPipelineExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,  # aiplatform module
+        client: types.ModuleType,
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
@@ -166,12 +167,13 @@ class VertexAIPipelineExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "PipelineJob")
 
-        with self.rate_limiter:
-            pipeline_jobs_pager = self.client.PipelineJob.list(
-                order_by=ORDER_BY_UPDATE_TIME_DESC
-            )
+        pipeline_jobs = rate_limited_gapic_list(
+            self.client.PipelineJob,
+            self.rate_limiter,
+            order_by=ORDER_BY_UPDATE_TIME_DESC,
+        )
 
-        for job_count, pipeline in enumerate(pipeline_jobs_pager, start=1):
+        for job_count, pipeline in enumerate(pipeline_jobs, start=1):
             if last_checkpoint_millis:
                 job_update_millis = int(pipeline.update_time.timestamp() * 1000)
                 if job_update_millis <= last_checkpoint_millis:
@@ -187,9 +189,7 @@ class VertexAIPipelineExtractor:
             log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
 
             logger.debug(f"Fetching pipeline ({pipeline.name})")
-            with self.rate_limiter:
-                pipeline_meta = self._get_pipeline_metadata(pipeline)
-
+            pipeline_meta = self._get_pipeline_metadata(pipeline)
             yield from self._get_pipeline_workunits(pipeline, pipeline_meta)
 
     def _get_pipeline_workunits(

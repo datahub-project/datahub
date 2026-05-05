@@ -5,13 +5,38 @@ run-name: Post Workflow Actions for ${{ github.event_name == 'workflow_dispatch'
 # NOTE: workflow_run.workflows does not support wildcards —
 # workflow names must be listed explicitly here.
 # This workflow is NOT listed, so it will not trigger itself (no recursion).
+# Listing workflows that run in PR and Post Commit to the list
 on:
   workflow_run:
     workflows:
-      # List to be updated after testing
-      - "Lint actions"
+      - "AI Smoke Tests (Local Embeddings)"
+      - "DataHub Actions"
+      - "DataHub Agent Context"
+      - "Airflow Plugin"
+      - "build & test"
+      - "Check Datahub Jars"
+      - "check python dependencies"
+      - "Dagster Plugin"
       - "Docker Build, Scan, Test"
+      - "ingestion smoke"
+      - "documentation"
+      - "GX Plugin"
+      - "lint"
       - "Metadata Ingestion"
+      - "metadata-io"
+      - "metadata model generate"
+      - "Metadata Models Custom CI"
+      - "Prefect Plugin"
+      - "PR Title Check"
+      - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
+      - "Python Build"
+      - "Quickstart Test"
+      - "Frontend Preview"
+      - "spark smoke test"
+      - "Verify Quickstart Compose"
+      - "Nightly Docker Test"
+      - "Release Tests"
+      - "Release Validation"
     types:
       - completed
 
@@ -50,18 +75,18 @@ jobs:
         (github.event.workflow_run.head_branch == github.event.repository.default_branch ||
          startsWith(github.event.workflow_run.head_branch, 'release/') ||
          startsWith(github.event.workflow_run.head_branch, 'hotfix/')))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
 
@@ -98,7 +123,7 @@ jobs:
           ' "${ARTIFACT_NAME}.json" | tee -a "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload metrics artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ steps.collect-metrics.outputs.artifact_name }}
           path: .github/scripts/${{ steps.collect-metrics.outputs.artifact_name }}.json
@@ -113,3 +138,33 @@ jobs:
           python publish_to_posthog.py \
             --input "${{ steps.collect-metrics.outputs.artifact_name }}.json"
       # TODO(devashish.chandra): Save to S3?
+
+  retry-on-failure:
+    name: Retry on First Failure
+    runs-on: ubuntu-22.04
+    # Only retrigger workflows known to have flaky tests, on first failure only,
+    # and only when triggered by workflow_run (not workflow_dispatch).
+    if: >-
+      github.event_name == 'workflow_run' &&
+      (
+        github.event.workflow_run.name == 'Docker Build, Scan, Test' ||
+        github.event.workflow_run.name == 'metadata-io' ||
+        github.event.workflow_run.name == 'Nightly Docker Test'
+      ) &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1
+    permissions:
+      actions: write
+    steps:
+      - name: Rerun failed jobs
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${REPOSITORY}/actions/runs/${RUN_ID}/rerun-failed-jobs"

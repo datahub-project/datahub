@@ -85,7 +85,7 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
 
     URI uri = new URI(pathInfo + queryString);
 
-    log.info("Received request for path {} and query string {}", uri, queryString);
+    log.debug("Received request for path {} and query string {}", uri, queryString);
 
     RestRequestBuilder builder = new RestRequestBuilder(uri).setMethod(req.getMethod());
 
@@ -164,7 +164,7 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
 
     String basePathGMS = basePath + "/gms";
 
-    log.info(
+    log.debug(
         "extractPathInfo: requestUri='{}', contextPath='{}', servletPath='{}', prefix='{}', basePath='{}', basePathGMS='{}'",
         requestUri,
         contextPath,
@@ -183,7 +183,7 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
       pathInfo = requestUri.substring(basePath.length());
     }
 
-    log.info("extractPathInfo result: pathInfo='{}'", pathInfo);
+    log.debug("extractPathInfo result: pathInfo='{}'", pathInfo);
 
     if (pathInfo == null || pathInfo.isEmpty()) {
       log.debug(
@@ -213,7 +213,7 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
       pathInfo = requestUri;
     }
 
-    log.info("extractPathInfo result: pathInfo='{}'", pathInfo);
+    log.debug("extractPathInfo result: pathInfo='{}'", pathInfo);
     return pathInfo;
   }
 }

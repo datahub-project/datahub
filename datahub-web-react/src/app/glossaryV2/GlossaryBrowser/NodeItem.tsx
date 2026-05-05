@@ -1,5 +1,4 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -7,6 +6,7 @@ import styled from 'styled-components/macro';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -47,7 +47,7 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
         ${NameWrapper} {
             color: ${(props) => props.theme.colors.textBrand};
         }
@@ -95,8 +95,8 @@ const ChildrenCount = styled.div`
     align-items: center;
     justify-content: center;
     border-radius: 20px;
-    background-color: ${colors.gray[100]};
-    color: ${colors.gray[1700]};
+    background-color: ${(props) => props.theme.colors.bgHover};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     height: 22px;
     min-width: 28px;
@@ -121,6 +121,7 @@ interface Props {
     selectNode?: (urn: string, displayName: string) => void;
     isChildNode?: boolean;
     depth: number;
+    selectedUrns?: string[];
 }
 
 function NodeItem(props: Props) {
@@ -135,6 +136,7 @@ function NodeItem(props: Props) {
         selectNode,
         isChildNode,
         depth,
+        selectedUrns,
     } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
@@ -177,6 +179,8 @@ function NodeItem(props: Props) {
         ?.filter((child) => child?.type === EntityType.GlossaryTerm)
         .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
 
+    const isSelected = isSelecting && selectedUrns?.includes(node.urn);
+
     if (shouldHideNode) return null;
 
     const glossaryColor = node.displayProperties?.colorHex || generateColor(node.urn);
@@ -216,6 +220,7 @@ function NodeItem(props: Props) {
                         {entityRegistry.getDisplayName(node.type, node)}
                     </NameWrapper>
                 )}
+                {isSelected && <SelectedMark />}
                 {!!noOfChildren && <ChildrenCount>{noOfChildren}</ChildrenCount>}
             </NodeWrapper>
             <StyledDivider depth={depth} />
@@ -240,6 +245,7 @@ function NodeItem(props: Props) {
                                     isChildNode
                                     key={child.urn}
                                     depth={depth + 1}
+                                    selectedUrns={selectedUrns}
                                 />
                             ))}
                             {!hideTerms &&
@@ -251,6 +257,7 @@ function NodeItem(props: Props) {
                                             selectTerm={selectTerm}
                                             includeActiveTabPath
                                             depth={depth + 1}
+                                            selectedUrns={selectedUrns}
                                         />
                                         <StyledDivider depth={depth + 1} />
                                     </span>

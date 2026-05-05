@@ -165,6 +165,11 @@ type PlatformPrivileges {
   manageGlobalViews: Boolean!
 
   """
+  Whether the user should be able to view and change platform-level settings (e.g. integrations).
+  """
+  manageGlobalSettings: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!

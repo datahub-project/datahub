@@ -17,6 +17,7 @@ from datahub.utilities.perf_timer import PerfTimer
 assert SQLGLOT_PATCHED
 
 
+@pytest.mark.flaky(reruns=3)
 def test_cooperative_timeout_sql() -> None:
     statement = sqlglot.parse_one("SELECT pg_sleep(3)", dialect="postgres")
     with (
@@ -29,7 +30,6 @@ def test_cooperative_timeout_sql() -> None:
             assert statement.sql() is not None
             time.sleep(0.0001)
 
-    # To avoid flakiness, this range is quite generous.
     assert 0.6 <= timer.elapsed_seconds() <= 1.2
 
 

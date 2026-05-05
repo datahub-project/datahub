@@ -1,8 +1,6 @@
 import { DropdownProps } from 'antd';
 import React from 'react';
 
-import { IconNames } from '@components/components/Icon';
-
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 export interface SelectOption {
     value: string;
@@ -21,6 +19,11 @@ type OptionPosition = 'start' | 'end' | 'center';
 
 export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
 
+export interface RenderSelectBaseProps {
+    isOpened: boolean;
+    onClick: () => void;
+}
+
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     options: OptionType[];
     label?: string;
@@ -30,7 +33,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     onClear?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;
-    icon?: IconNames;
+    icon?: React.ComponentType<any>;
     showSearch?: boolean;
     isDisabled?: boolean;
     isReadOnly?: boolean;
@@ -63,6 +66,8 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     dataTestId?: string;
     visibilityDeps?: React.DependencyList;
     placement?: DropdownProps['placement'];
+    renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
+    renderOptionsFooter?: () => React.ReactNode;
 }
 
 export interface SelectStyleProps {

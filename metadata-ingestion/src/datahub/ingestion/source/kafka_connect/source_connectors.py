@@ -9,6 +9,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
     DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER,
+    JDBC_PREFIX,
     KAFKA,
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
     MYSQL_CDC_SOURCE_V2_CLOUD,
@@ -37,9 +38,6 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Constants for JDBC URL parsing
-JDBC_PREFIX_LENGTH: Final[int] = 5  # Length of "jdbc:" prefix
 
 
 @dataclass(frozen=True)
@@ -93,7 +91,7 @@ class JdbcParserFactory:
         """Create parser for traditional JDBC connector using connection.url."""
         # Reference: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#connection-url
         url = remove_prefix(
-            str(connector_manifest.config.get("connection.url")), "jdbc:"
+            str(connector_manifest.config.get("connection.url")), JDBC_PREFIX
         )
         url_instance = make_url(url)
         source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
@@ -1460,8 +1458,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             return "unknown"
 
         try:
-            # Remove jdbc: prefix and extract protocol
-            remaining_url = jdbc_url[JDBC_PREFIX_LENGTH:]  # Remove "jdbc:" prefix
+            remaining_url = remove_prefix(jdbc_url, JDBC_PREFIX)
             protocol_end = remaining_url.find(":")
             if protocol_end == -1:
                 return "unknown"

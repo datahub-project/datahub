@@ -879,7 +879,9 @@ class BigQuerySchemaGenerator:
         )
         for key, group in groupby_unsorted(
             foreign_keys,
-            lambda x: f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}",
+            lambda x: (
+                f"{x.referenced_project_id}.{x.referenced_dataset}.{x.referenced_table_name}"
+            ),
         ):
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform="bigquery",
@@ -963,6 +965,20 @@ class BigQuerySchemaGenerator:
             sub_types = [DatasetSubTypes.SHARDED_TABLE] + sub_types
         if table.external:
             sub_types = [DatasetSubTypes.EXTERNAL_TABLE] + sub_types
+            if table.external_source_format:
+                custom_properties["external_source_format"] = (
+                    table.external_source_format
+                )
+            if table.external_source_uris:
+                custom_properties["external_source_uris"] = ", ".join(
+                    table.external_source_uris
+                )
+            if table.external_compression:
+                custom_properties["external_compression"] = table.external_compression
+            if table.external_max_bad_records is not None:
+                custom_properties["external_max_bad_records"] = str(
+                    table.external_max_bad_records
+                )
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:

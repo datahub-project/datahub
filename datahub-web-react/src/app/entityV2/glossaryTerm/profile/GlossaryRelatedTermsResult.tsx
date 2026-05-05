@@ -19,7 +19,7 @@ export enum RelatedTermTypes {
     isAChildren = 'Inherited by',
 }
 
-export type Props = {
+type Props = {
     glossaryRelatedTermType: string;
     glossaryRelatedTermResult: Array<any>;
 };

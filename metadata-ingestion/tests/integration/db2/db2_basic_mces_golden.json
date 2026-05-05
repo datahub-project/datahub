@@ -500,7 +500,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:db2,TESTDB.BASIC.RAW_CUSTOMERS,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29"
+                    "query": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333"
                 }
             ],
             "fineGrainedLineages": [
@@ -515,7 +515,7 @@
                     ],
                     "transformOperation": "COPY: \"RAW_CUSTOMERS\".\"ID\" AS \"ID\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29"
+                    "query": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -528,7 +528,7 @@
                     ],
                     "transformOperation": "COPY: \"RAW_CUSTOMERS\".\"NAME\" AS \"NAME\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29"
+                    "query": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -541,7 +541,7 @@
                     ],
                     "transformOperation": "COPY: \"RAW_CUSTOMERS\".\"CREATED_AT\" AS \"CREATED_AT\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29"
+                    "query": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333"
                 }
             ]
         }
@@ -579,7 +579,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -608,7 +608,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -649,7 +649,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -665,7 +665,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CTESTDB.BASIC.CUSTOMERS%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a39eebe74f75f1070b5ce87cec5ae806fe5c8a117a552103b38083b17e4de333",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

@@ -171,6 +171,7 @@ class TestPowerBiConfig:
         config_dict = {
             **self.base_config,
             "extract_dataset_schema": False,
+            "extract_column_level_lineage": False,
         }
         config = PowerBiDashboardSourceConfig.model_validate(config_dict)
         assert config.extract_dataset_schema is False

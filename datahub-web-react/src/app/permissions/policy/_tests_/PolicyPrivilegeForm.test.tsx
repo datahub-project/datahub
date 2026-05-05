@@ -1,9 +1,11 @@
 import { fireEvent, screen } from '@testing-library/react';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
 
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
 import * as policyUtils from '@app/permissions/policy/policyUtils';
+import themeV2 from '@conf/theme/themeV2';
 import { render } from '@utils/test-utils/customRender';
 
 import { EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
@@ -119,9 +121,11 @@ describe('PolicyPrivilegeForm', () => {
 
     it('renders form with container section for metadata policy type', () => {
         render(
-            <BrowserRouter>
-                <PolicyPrivilegeForm {...defaultProps} />
-            </BrowserRouter>,
+            <ThemeProvider theme={themeV2}>
+                <BrowserRouter>
+                    <PolicyPrivilegeForm {...defaultProps} />
+                </BrowserRouter>
+            </ThemeProvider>,
         );
 
         // Check basic sections are rendered
@@ -165,9 +169,11 @@ describe('PolicyPrivilegeForm', () => {
         };
 
         render(
-            <BrowserRouter>
-                <PolicyPrivilegeForm {...defaultProps} resources={resourcesWithContainer} />
-            </BrowserRouter>,
+            <ThemeProvider theme={themeV2}>
+                <BrowserRouter>
+                    <PolicyPrivilegeForm {...defaultProps} resources={resourcesWithContainer} />
+                </BrowserRouter>
+            </ThemeProvider>,
         );
 
         // Verify getDisplayName was called for the container entity
@@ -182,9 +188,11 @@ describe('PolicyPrivilegeForm', () => {
 
     it('renders container selection UI correctly', () => {
         render(
-            <BrowserRouter>
-                <PolicyPrivilegeForm {...defaultProps} />
-            </BrowserRouter>,
+            <ThemeProvider theme={themeV2}>
+                <BrowserRouter>
+                    <PolicyPrivilegeForm {...defaultProps} />
+                </BrowserRouter>
+            </ThemeProvider>,
         );
 
         // Check that the container selection UI is rendered
@@ -203,9 +211,11 @@ describe('PolicyPrivilegeForm', () => {
         const createCriterionValueWithEntitySpy = vi.spyOn(policyUtils, 'createCriterionValueWithEntity');
 
         render(
-            <BrowserRouter>
-                <PolicyPrivilegeForm {...defaultProps} setResources={testSetResources} />
-            </BrowserRouter>,
+            <ThemeProvider theme={themeV2}>
+                <BrowserRouter>
+                    <PolicyPrivilegeForm {...defaultProps} setResources={testSetResources} />
+                </BrowserRouter>
+            </ThemeProvider>,
         );
 
         // Find and interact with the container select
@@ -274,13 +284,16 @@ describe('PolicyPrivilegeForm', () => {
         const testSetResources = vi.fn();
 
         render(
-            <BrowserRouter>
-                <PolicyPrivilegeForm
-                    {...defaultProps}
-                    resources={resourcesWithContainer}
-                    setResources={testSetResources}
-                />
-            </BrowserRouter>,
+            <ThemeProvider theme={themeV2}>
+                <BrowserRouter>
+                    <PolicyPrivilegeForm
+                        {...defaultProps}
+                        resources={resourcesWithContainer}
+                        setResources={testSetResources}
+                    />
+                </BrowserRouter>
+                ,
+            </ThemeProvider>,
         );
 
         // Manually call the onDeselect function to simulate deselection

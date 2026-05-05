@@ -7,7 +7,9 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { ChartBar, ListBullets, TreeStructure } from '@phosphor-icons/react';
+import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

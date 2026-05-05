@@ -1,0 +1,23 @@
+namespace com.linkedin.lifecycle
+
+import com.linkedin.common.Urn
+
+/**
+ * Defines which prior stages (or no stage) are allowed to transition INTO this stage.
+ * Enforced server-side via a MutationHook on the Status aspect.
+ *
+ * Modeled as entry constraints rather than exit constraints so that adding a new
+ * stage is self-contained — you declare its own entry policy without editing
+ * every existing stage.
+ */
+record LifecycleStageTransitionPolicy {
+  /**
+   * Lifecycle stage type URNs that an entity must currently be in to transition
+   * INTO this stage. Use the sentinel value "urn:li:lifecycleStageType:__NONE__"
+   * to allow entry from the default active state (no stage set).
+   *
+   * null/absent: any prior stage (or no stage) can transition to this one.
+   * empty list: nothing can transition to this stage (unreachable).
+   */
+  allowedPreviousStages: optional array[Urn]
+}

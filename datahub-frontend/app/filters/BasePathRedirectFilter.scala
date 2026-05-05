@@ -1,6 +1,6 @@
 package filters
 
-import akka.stream.Materializer
+import org.apache.pekko.stream.Materializer
 import javax.inject.{Inject, Singleton}
 import play.api.mvc._
 import play.api.Logger

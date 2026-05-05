@@ -13,7 +13,6 @@ const openStatsTabOfSampleEntity = () => {
 
 describe("Highlights", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

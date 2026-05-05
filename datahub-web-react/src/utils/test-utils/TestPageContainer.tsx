@@ -4,30 +4,9 @@ import { HelmetProvider } from 'react-helmet-async';
 import { MemoryRouter } from 'react-router';
 import { ItalicExtension, UnderlineExtension } from 'remirror/extensions';
 
+import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
 import UserContextProvider from '@app/context/UserContextProvider';
-import EntityRegistry from '@app/entity/EntityRegistry';
-import { BusinessAttributeEntity } from '@app/entity/businessAttribute/BusinessAttributeEntity';
-import { ChartEntity } from '@app/entity/chart/ChartEntity';
-import { ContainerEntity } from '@app/entity/container/ContainerEntity';
-import { DashboardEntity } from '@app/entity/dashboard/DashboardEntity';
-import { DataFlowEntity } from '@app/entity/dataFlow/DataFlowEntity';
-import { DataJobEntity } from '@app/entity/dataJob/DataJobEntity';
-import { DataPlatformEntity } from '@app/entity/dataPlatform/DataPlatformEntity';
-import { DataPlatformInstanceEntity } from '@app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
-import { DataProductEntity } from '@app/entity/dataProduct/DataProductEntity';
-import { DatasetEntity } from '@app/entity/dataset/DatasetEntity';
-import { DomainEntity } from '@app/entity/domain/DomainEntity';
-import GlossaryNodeEntity from '@app/entity/glossaryNode/GlossaryNodeEntity';
-import { GlossaryTermEntity } from '@app/entity/glossaryTerm/GlossaryTermEntity';
-import { GroupEntity } from '@app/entity/group/Group';
-import { MLFeatureTableEntity } from '@app/entity/mlFeatureTable/MLFeatureTableEntity';
-import { MLModelEntity } from '@app/entity/mlModel/MLModelEntity';
-import { MLModelGroupEntity } from '@app/entity/mlModelGroup/MLModelGroupEntity';
-import { QueryEntity } from '@app/entity/query/QueryEntity';
-import { SchemaFieldPropertiesEntity } from '@app/entity/schemaField/SchemaFieldPropertiesEntity';
-import { StructuredPropertyEntity } from '@app/entity/structuredProperty/StructuredPropertyEntity';
-import { TagEntity } from '@app/entity/tag/Tag';
-import { UserEntity } from '@app/entity/user/User';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
 import { CLIENT_AUTH_COOKIE } from '@conf/Global';
 import AppConfigProvider from '@src/AppConfigProvider';
@@ -39,32 +18,8 @@ type Props = {
     initialEntries?: string[];
 };
 
-export function getTestEntityRegistry() {
-    const entityRegistry = new EntityRegistry();
-    entityRegistry.register(new DatasetEntity());
-    entityRegistry.register(new ChartEntity());
-    entityRegistry.register(new DashboardEntity());
-    entityRegistry.register(new UserEntity());
-    entityRegistry.register(new GroupEntity());
-    entityRegistry.register(new TagEntity());
-    entityRegistry.register(new DataFlowEntity());
-    entityRegistry.register(new DataJobEntity());
-    entityRegistry.register(new GlossaryNodeEntity());
-    entityRegistry.register(new GlossaryTermEntity());
-    entityRegistry.register(new MLFeatureTableEntity());
-    entityRegistry.register(new MLModelEntity());
-    entityRegistry.register(new MLModelGroupEntity());
-    entityRegistry.register(new DataPlatformEntity());
-    entityRegistry.register(new ContainerEntity());
-    entityRegistry.register(new BusinessAttributeEntity());
-    entityRegistry.register(new SchemaFieldPropertiesEntity());
-    entityRegistry.register(new DomainEntity());
-    entityRegistry.register(new DataProductEntity());
-    entityRegistry.register(new DataPlatformInstanceEntity());
-    entityRegistry.register(new QueryEntity());
-    entityRegistry.register(new SchemaFieldPropertiesEntity());
-    entityRegistry.register(new StructuredPropertyEntity());
-    return entityRegistry;
+export function getTestEntityRegistry(): EntityRegistry {
+    return buildEntityRegistryV2();
 }
 
 export default ({ children, initialEntries }: Props) => {

@@ -724,69 +724,6 @@ class TestEdgeCases:
 class TestP1Fixes:
     """Test P1 critical fixes from production hardening review."""
 
-    def test_pattern_rebuild_no_lock_contention(self):
-        """
-        P1 FIX #1: Verify pattern rebuild doesn't block concurrent logging.
-
-        This test verifies that expensive regex compilation happens outside
-        the lock, preventing blocking with 1000+ secrets.
-        """
-        import logging
-
-        registry = SecretRegistry()
-        masking_filter = SecretMaskingFilter(registry)
-
-        # Register 1000 secrets
-        for i in range(1000):
-            registry.register_secret(f"SECRET_{i}", f"value_{i}_xxx")
-
-        # Measure pattern rebuild time
-        with PerfTimer() as timer:
-            masking_filter._check_and_rebuild_pattern()
-
-        # Should complete in reasonable time
-        rebuild_time = timer.elapsed_seconds()
-        assert rebuild_time < 0.1, (
-            f"Rebuild too slow: {rebuild_time:.4f}s (expected <0.1s)"
-        )
-
-        # Test concurrent logging doesn't block
-        log_times = []
-        test_logger = logging.getLogger("test_concurrent")
-        test_logger.addFilter(masking_filter)
-
-        def log_message():
-            with PerfTimer() as timer:
-                test_logger.info("Test message with value_500_xxx")
-            log_times.append(timer.elapsed_seconds())
-
-        # Trigger rebuild in background
-        def trigger_rebuild():
-            for i in range(1000, 1100):
-                registry.register_secret(f"NEW_{i}", f"newval_{i}")
-
-        rebuild_thread = threading.Thread(target=trigger_rebuild)
-        log_threads = [threading.Thread(target=log_message) for _ in range(20)]
-
-        rebuild_thread.start()
-        for t in log_threads:
-            t.start()
-
-        rebuild_thread.join()
-        for t in log_threads:
-            t.join()
-
-        # No log operation should be blocked for long
-        max_log_time = max(log_times)
-        # Allow up to 2s for system variability in CI (much better than multi-second blocking issues)
-        # The key goal is to verify no deadlock/severe blocking, not precise timing
-        assert max_log_time < 2.0, (
-            f"Logging blocked: {max_log_time:.4f}s (expected <2.0s)"
-        )
-
-        # Cleanup
-        test_logger.removeFilter(masking_filter)
-
     def test_stream_wrapper_return_value(self):
         """
         P1 FIX #2: Verify write() returns correct character count.

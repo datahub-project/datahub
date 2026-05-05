@@ -1,5 +1,6 @@
 import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { Cube, TreeStructure } from '@phosphor-icons/react';
+import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

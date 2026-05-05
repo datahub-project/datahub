@@ -26,6 +26,7 @@
         "MANAGE_USER_CREDENTIALS",
         "MANAGE_TAGS",
         "MANAGE_GLOBAL_VIEWS",
+        "MANAGE_GLOBAL_SETTINGS",
         "RESTORE_INDICES_PRIVILEGE",
         "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
         "TRUNCATE_TIMESERIES_INDEX_PRIVILEGE",
@@ -44,7 +45,8 @@
         "GET_PLATFORM_EVENTS",
         "MANAGE_HOME_PAGE_TEMPLATES",
         "GET_METADATA_CHANGE_LOG_EVENTS",
-        "MANAGE_DOCUMENTS"
+        "MANAGE_DOCUMENTS",
+        "GET_TOPIC_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -187,6 +189,7 @@
         "MANAGE_USER_CREDENTIALS",
         "MANAGE_TAGS",
         "MANAGE_GLOBAL_VIEWS",
+        "MANAGE_GLOBAL_SETTINGS",
         "RESTORE_INDICES_PRIVILEGE",
         "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
         "TRUNCATE_TIMESERIES_INDEX_PRIVILEGE",
@@ -205,7 +208,8 @@
         "GET_PLATFORM_EVENTS",
         "MANAGE_HOME_PAGE_TEMPLATES",
         "GET_METADATA_CHANGE_LOG_EVENTS",
-        "MANAGE_DOCUMENTS"
+        "MANAGE_DOCUMENTS",
+        "GET_TOPIC_EVENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -266,7 +270,6 @@
         "EDIT_ENTITY_PROPERTIES",
         "EXECUTE_ENTITY",
         "MANAGE_ASSET_SUMMARY"
-
       ],
       "displayName": "Admins - Metadata Policy",
       "description": "Admins have all metadata privileges.",

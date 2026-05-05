@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import config.GracefulShutdownModule;
 import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -44,7 +45,8 @@ public class ApplicationControllerTest {
 
     mockHttpClient = mock(HttpClient.class);
     Environment mockEnvironment = mock(Environment.class);
-    application = new Application(mockHttpClient, mockEnvironment, config);
+    GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
+    application = new Application(mockHttpClient, mockEnvironment, config, mockShutdownModule);
   }
 
   @Test
@@ -234,7 +236,10 @@ public class ApplicationControllerTest {
     Config verboseConfig = ConfigFactory.parseMap(verboseConfigMap);
     Application appWithVerboseLogging =
         new Application(
-            mock(java.net.http.HttpClient.class), mock(Environment.class), verboseConfig);
+            mock(java.net.http.HttpClient.class),
+            mock(Environment.class),
+            verboseConfig,
+            mock(GracefulShutdownModule.class));
 
     Http.Request request = mock(Http.Request.class);
     HttpResponse<?> apiResponse = mock(HttpResponse.class);
@@ -364,7 +369,11 @@ public class ApplicationControllerTest {
     configMap.put("proxy.streamingPathPrefixes", "");
     Config configWithBasePath = ConfigFactory.parseMap(configMap);
     Application appWithBasePath =
-        new Application(mock(HttpClient.class), mock(Environment.class), configWithBasePath);
+        new Application(
+            mock(HttpClient.class),
+            mock(Environment.class),
+            configWithBasePath,
+            mock(GracefulShutdownModule.class));
     String result = invokeMapPath(appWithBasePath, "/datahub/openapi/swagger-ui");
     assertEquals("/datahub/openapi/swagger-ui", result);
   }
@@ -376,7 +385,11 @@ public class ApplicationControllerTest {
     configMap.put("proxy.streamingPathPrefixes", "");
     Config configWithBasePath = ConfigFactory.parseMap(configMap);
     Application appWithBasePath =
-        new Application(mock(HttpClient.class), mock(Environment.class), configWithBasePath);
+        new Application(
+            mock(HttpClient.class),
+            mock(Environment.class),
+            configWithBasePath,
+            mock(GracefulShutdownModule.class));
     assertEquals("/api/graphql", invokeMapPath(appWithBasePath, "/datahub/api/graphql"));
   }
 

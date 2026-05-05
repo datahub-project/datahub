@@ -2,12 +2,10 @@ import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 import { DataHubView } from '@types';
 
 const StyledMatchingViewsLabel = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

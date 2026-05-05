@@ -1012,3 +1012,148 @@ class TestJavaRegexPatternMatching:
         assert "testdb.public.user_abcd" in result
         assert "testdb.public.user_" not in result
         assert "testdb.public.user_123" not in result
+
+
+class TestFineGrainedLineagePlatformInstance:
+    """
+    Tests for _extract_fine_grained_lineage() platform instance resolution.
+    Need to check both platform_instance_map connect_to_platform_map
+    """
+
+    def _make_connector(self, config, schema=None):
+        manifest = ConnectorManifest(
+            name="mssql-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector"
+            },
+            tasks=[],
+        )
+        report = KafkaConnectSourceReport()
+        mock_resolver = MockSchemaResolver(platform="mssql")
+        if schema:
+            mock_resolver.add_schema("dev.dbo.users", schema)
+        connector = DebeziumSourceConnector(
+            connector_manifest=manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+        return connector
+
+    def test_kafka_instance_from_connect_to_platform_map(self):
+        """
+        connect_to_platform_map should be used to build the Kafka platform instance
+        in downstream fine-grained lineage URNs.
+        """
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+            connect_to_platform_map={
+                "mssql-source": {
+                    "mssql": "dev",
+                    "kafka": "DEV",
+                }
+            },
+        )
+        connector = self._make_connector(
+            config, schema={"id": "INT", "name": "VARCHAR"}
+        )
+
+        result = connector._extract_fine_grained_lineage(
+            source_dataset="dev.dbo.users",
+            source_platform="mssql",
+            target_dataset="dev.mssql-source.dbo.users",
+            target_platform="kafka",
+        )
+
+        assert result is not None
+        assert len(result) == 2
+        for lineage in result:
+            downstream_urn = lineage["downstreams"][0]
+            assert "DEV.dev.mssql-source.dbo.users" in downstream_urn, (
+                f"Expected platform instance 'DEV.' prefix in downstream URN, got: {downstream_urn}"
+            )
+
+    def test_kafka_instance_from_platform_instance_map(self):
+        """
+        platform_instance_map should still work when connect_to_platform_map is absent.
+        """
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+            platform_instance_map={"kafka": "DEV"},
+        )
+        connector = self._make_connector(
+            config, schema={"id": "INT", "name": "VARCHAR"}
+        )
+
+        result = connector._extract_fine_grained_lineage(
+            source_dataset="dev.dbo.users",
+            source_platform="mssql",
+            target_dataset="dev.mssql-source.dbo.users",
+            target_platform="kafka",
+        )
+
+        assert result is not None
+        for lineage in result:
+            downstream_urn = lineage["downstreams"][0]
+            assert "DEV.dev.mssql-source.dbo.users" in downstream_urn, (
+                f"Expected platform instance 'DEV.' prefix in downstream URN, got: {downstream_urn}"
+            )
+
+    def test_connect_to_platform_map_wins_over_platform_instance_map(self):
+        """
+        connect_to_platform_map takes precedence over platform_instance_map,
+        consistent with get_platform_instance() behavior.
+        """
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+            connect_to_platform_map={"mssql-source": {"kafka": "CONNECTOR_INSTANCE"}},
+            platform_instance_map={"kafka": "GLOBAL_INSTANCE"},
+        )
+        connector = self._make_connector(config, schema={"id": "INT"})
+
+        result = connector._extract_fine_grained_lineage(
+            source_dataset="dev.dbo.users",
+            source_platform="mssql",
+            target_dataset="dev.mssql-source.dbo.users",
+            target_platform="kafka",
+        )
+
+        assert result is not None
+        downstream_urn = result[0]["downstreams"][0]
+        assert "CONNECTOR_INSTANCE." in downstream_urn, (
+            f"Expected connect_to_platform_map instance to win, got: {downstream_urn}"
+        )
+        assert "GLOBAL_INSTANCE" not in downstream_urn
+
+    def test_no_platform_instance_configured(self):
+        """
+        When neither map is configured, URNs should be well-formed with no instance prefix.
+        """
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        connector = self._make_connector(config, schema={"id": "INT"})
+
+        result = connector._extract_fine_grained_lineage(
+            source_dataset="dev.dbo.users",
+            source_platform="mssql",
+            target_dataset="dev.mssql-source.dbo.users",
+            target_platform="kafka",
+        )
+
+        assert result is not None
+        downstream_urn = result[0]["downstreams"][0]
+        assert "dev.mssql-source.dbo.users" in downstream_urn

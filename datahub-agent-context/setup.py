@@ -45,7 +45,7 @@ lint_requirements = {
 }
 
 base_requirements = {
-    f"acryl-datahub{_self_pin}",
+    f"acryl-datahub[datahub-rest]{_self_pin}",
     # Core dependencies for MCP tools
     "pydantic>=2.0.0,<3.0.0",
     "json-repair>=0.25.0,<1.0.0",
@@ -66,7 +66,13 @@ mypy_stubs = {
 }
 
 langchain_requirements = {
-    "langchain-core>=1.2.7,<2.0.0",
+    "langchain>=1.0.0,<2.0.0",
+    "langchain-core>=1.0.0,<2.0.0",
+    "langchain-mcp-adapters>=0.1.0,<1.0.0",
+}
+
+google_adk_requirements = {
+    "google-adk>=1.0.0,<2.0.0",
 }
 
 snowflake_requirements = {
@@ -79,6 +85,7 @@ dev_requirements = {
     *mypy_stubs,
     *snowflake_requirements,
     *langchain_requirements,
+    *google_adk_requirements,
     "pytest>=8.3.4,<9.0.0",
     "pytest-cov>=2.8.0,<7.0.0",
     "tox>=4.0.0,<5.0.0",
@@ -130,6 +137,7 @@ setuptools.setup(
     extras_require={
         "dev": list(dev_requirements),
         "langchain": list(langchain_requirements),
+        "google-adk": list(google_adk_requirements),
         "snowflake": list(snowflake_requirements),
     },
 )

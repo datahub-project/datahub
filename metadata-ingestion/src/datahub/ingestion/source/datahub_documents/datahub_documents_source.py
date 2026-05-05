@@ -346,9 +346,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             )
             return
 
-        # Extract text from documentInfo
-        contents = aspect_dict.get("contents", {})
-        text = contents.get("text", "")
+        # Extract text from documentInfo (contents may be null for partial entities)
+        contents = aspect_dict.get("contents") or {}
+        text = contents.get("text") or ""
 
         if not text:
             logger.debug(f"No text content in document {entity_urn}")
@@ -496,8 +496,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         self, aspect_dict: dict[str, Any]
     ) -> Optional[str]:
         """Extract platform name from documentInfo aspect."""
-        # Try to get from dataPlatformInstance
-        platform_instance = aspect_dict.get("dataPlatformInstance", {})
+        # Try to get from dataPlatformInstance (may be null for partial entities)
+        platform_instance = aspect_dict.get("dataPlatformInstance") or {}
         platform_urn = platform_instance.get("platform")
         if platform_urn and isinstance(platform_urn, str):
             # Extract platform name from URN (e.g., "urn:li:dataPlatform:notion" → "notion")
@@ -567,9 +567,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             }
             """
             response = self.graph.execute_graphql(query, {"urn": entity_urn})
-            entity = response.get("entity", {})
-            platform_instance = entity.get("dataPlatformInstance", {})
-            platform = platform_instance.get("platform", {})
+            entity = response.get("entity") or {}
+            platform_instance = entity.get("dataPlatformInstance") or {}
+            platform = platform_instance.get("platform") or {}
             platform_urn = platform.get("urn")
 
             if platform_urn and isinstance(platform_urn, str):
@@ -665,8 +665,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         ):
             return True
 
-        # Extract source type from info
-        source = info.get("source", {})
+        # Extract source type from info (source may be null for partial entities)
+        source = info.get("source") or {}
         source_type = source.get("sourceType")
         # Default to NATIVE if sourceType is not set (backward compatibility with old documents)
         if source_type is None:
@@ -712,9 +712,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _extract_platform_from_entity(self, entity: dict[str, Any]) -> Optional[str]:
         """Extract platform name from GraphQL entity response."""
-        # Try to get from dataPlatformInstance
-        platform_instance = entity.get("dataPlatformInstance", {})
-        platform = platform_instance.get("platform", {})
+        # Try to get from dataPlatformInstance (fields may be null for partial entities)
+        platform_instance = entity.get("dataPlatformInstance") or {}
+        platform = platform_instance.get("platform") or {}
         platform_urn = platform.get("urn")
         if platform_urn and isinstance(platform_urn, str):
             # Extract platform name from URN (e.g., "urn:li:dataPlatform:notion" → "notion")
@@ -789,11 +789,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         try:
             response = self.graph.execute_graphql(query, variables)
-            search_results = response.get("search", {}).get("searchResults", [])
+            search_data = response.get("search") or {}
+            search_results = search_data.get("searchResults") or []
 
             documents = []
             for result in search_results:
-                entity = result.get("entity", {})
+                entity = result.get("entity") or {}
                 urn = entity.get("urn")
 
                 if not urn:
@@ -803,10 +804,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 if self.config.document_urns and urn not in self.config.document_urns:
                     continue
 
-                # Extract text content
-                info = entity.get("info", {})
-                contents = info.get("contents", {})
-                text = contents.get("text", "")
+                # Extract text content (GraphQL returns null for missing aspects)
+                info = entity.get("info") or {}
+                contents = info.get("contents") or {}
+                text = contents.get("text") or ""
 
                 # Filter by source type (NATIVE vs EXTERNAL) for batch mode
                 should_process = self._should_process_by_source_type(entity, info)

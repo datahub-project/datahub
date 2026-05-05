@@ -43,21 +43,20 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 - [acryldata/datahub-frontend-react](https://hub.docker.com/repository/docker/acryldata/datahub-frontend-react/)
 - [acryldata/datahub-mae-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mae-consumer/)
 - [acryldata/datahub-mce-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mce-consumer/)
-- [acryldata/datahub-upgrade](https://hub.docker.com/r/acryldata/datahub-upgrade/)
-- [acryldata/datahub-elasticsearch-setup](https://hub.docker.com/r/acryldata/datahub-elasticsearch-setup/)
-- [acryldata/datahub-mysql-setup](https://hub.docker.com/r/acryldata/datahub-mysql-setup/)
-- [acryldata/datahub-postgres-setup](https://hub.docker.com/r/acryldata/datahub-postgres-setup/)
+- [acryldata/datahub-upgrade](https://hub.docker.com/r/acryldata/datahub-upgrade/) (runs SystemUpdate; performs SQL and search index setup when `DATAHUB_SQL_SETUP_ENABLED=true`)
 - [acryldata/datahub-actions](https://hub.docker.com/r/acryldata/datahub-actions). Do not use `acryldata/acryl-datahub-actions` as that is deprecated and no longer used.
 
 ## Image Variants
 
-Both `datahub-ingestion` and `datahub-actions` are available only as **full**, **slim**, and **locked** (Ubuntu-based; no Alpine variants).
+`datahub-ingestion` and `datahub-actions` are available as **full**, **slim**, and **locked**. **`datahub-ingestion`** is Ubuntu 24.04–based. **`datahub-actions`** uses the **default base image** set in its Dockerfile; override with Docker build arg **`BASE_IMAGE`** when needed.
 
-| Variant          | Base OS      | Image Size | Use Case                                |
-| ---------------- | ------------ | ---------- | --------------------------------------- |
-| `full` (default) | Ubuntu 24.04 | Largest    | All connectors, maximum compatibility   |
-| `slim`           | Ubuntu 24.04 | Medium     | Common connectors, good balance         |
-| `locked`         | Ubuntu 24.04 | Medium     | Air-gapped environments (pypi disabled) |
+Java runtime images (**`datahub-gms`**, **`datahub-mce-consumer`**, **`datahub-mae-consumer`**, **`datahub-upgrade`**, **`datahub-frontend-react`**) follow the same pattern: each Dockerfile declares a default **base image**; override with **`BASE_IMAGE`**. Optional **`APK_REPOSITORY_URL`** overrides the apk repository line used at image build time (see each Dockerfile for the default). When building with Gradle, use **`-PdockerBaseImage=...`** and **`-PapkRepositoryUrl=...`** instead of any legacy mirror property you may have used for older image builds. Those five images share **`docker/snippets/setup_java_runtime.sh`**, which ensures **`java`** is on **`PATH`** for entrypoints (apk OpenJDK JRE packages here do not add **`/usr/bin/java`** by default). The script’s **`JAVA_MAJOR=…`** assignment is the single bump point for the apk JRE major; **`datahub-actions`** reads that line when installing OpenJDK for the full variant.
+
+| Variant          | Image size | Use case                                |
+| ---------------- | ---------- | --------------------------------------- |
+| `full` (default) | Largest    | All connectors, maximum compatibility   |
+| `slim`           | Medium     | Common connectors, good balance         |
+| `locked`         | Medium     | Air-gapped environments (pypi disabled) |
 
 ### Variant Tag Format
 
@@ -115,13 +114,15 @@ acryldata/datahub-ingestion:v0.x.y-locked   # locked
 
 Dependencies:
 
-- [Elasticsearch](elasticsearch-setup)
-- [MySQL](mysql)
+- [Elasticsearch](elasticsearch) (or OpenSearch)
+- [MySQL](mysql) (or PostgreSQL)
 - [(Optional) Neo4j](neo4j)
+
+SQL and search index setup are performed by the system update job (datahub-upgrade with `-u SystemUpdate`) when backing services are healthy; no separate setup containers are required.
 
 ### Ingesting demo data.
 
-If you want to test ingesting some data once DataHub is up, use the `./docker/ingestion/ingestion.sh` script or `datahub docker ingest-sample-data`. See the [quickstart guide](../docs/quickstart.md) for more details.
+If you want to test ingesting some data once DataHub is up, run `datahub init` then `datahub datapack load showcase-ecommerce`. See the [quickstart guide](../docs/quickstart.md) for more details.
 
 ## Using Docker Images During Development
 

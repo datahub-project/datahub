@@ -15,8 +15,27 @@
     }
 }
 
-.ant-dropdown-menu-submenu-popup ul {
-    max-height: 80vh;
-    overflow-y: auto;
-    background: white;
+// Submenu popups render in a portal — strip the outer wrapper bg/shadow
+// and only keep styling on the inner ul.ant-dropdown-menu
+.ant-dropdown-menu-submenu-popup {
+    background: transparent !important;
+    box-shadow: none !important;
+
+    ul {
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    > .ant-dropdown-menu {
+        border-radius: 12px;
+        padding: 8px;
+    }
+}
+
+// When the submenu popup also has the reset class, remove the margin
+// that's only needed for the root dropdown overlay
+.datahub-reset-dropdown-menu-styles.ant-dropdown-menu-submenu-popup {
+    & .ant-dropdown-menu {
+        margin: 0;
+    }
 }

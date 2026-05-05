@@ -1,4 +1,5 @@
 import { Icon, Switch, Text } from '@components';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import cronstrue from 'cronstrue';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -83,7 +84,7 @@ export function ScheduleSection() {
         } else {
             const newState: SourceBuilderState = {
                 ...state,
-                schedule: undefined,
+                schedule: null,
             };
             updateState(newState);
         }
@@ -119,10 +120,11 @@ export function ScheduleSection() {
                 checked={scheduleEnabled}
                 onChange={(e) => setScheduleEnabled(e.target.checked)}
                 labelPosition="right"
+                data-testid="schedule-enabled-switch"
             />
             {!scheduleEnabled && (
                 <WarningContainer>
-                    <Icon icon="Warning" source="phosphor" color="yellow" colorLevel={1000} size="md" />
+                    <Icon icon={Warning} color="yellow" colorLevel={1000} size="md" />
                     <Text color="yellow" colorLevel={1000} size="sm">
                         Running ingestion without a schedule may result in out-of-date information.
                     </Text>

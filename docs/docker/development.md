@@ -33,8 +33,6 @@ Once the `debug` docker images are constructed you'll see images similar to the 
 acryldata/datahub-frontend-react                 debug              e52fef698025   28 minutes ago   763MB
 acryldata/datahub-gms                            debug              ea2b0a8ea115   56 minutes ago   408MB
 acryldata/datahub-upgrade                       debug              322377a7a21d   56 minutes ago   463MB
-acryldata/datahub-mysql-setup                   debug              17768edcc3e5   2 hours ago      58.2MB
-acryldata/datahub-elasticsearch-setup            debug              4d935be7c62c   2 hours ago      26.1MB
 ```
 
 At this point it is possible to view the DataHub UI at `http://localhost:9002` as you normally would with quickstart.

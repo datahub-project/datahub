@@ -1,6 +1,5 @@
 describe("tags - title, search, and results", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

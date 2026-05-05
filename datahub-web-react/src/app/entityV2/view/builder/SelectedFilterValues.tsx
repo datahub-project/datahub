@@ -1,4 +1,5 @@
 import { Icon, Text } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -71,8 +72,7 @@ export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
         (entity: Entity) => {
             return (
                 <StyledIcon
-                    icon="X"
-                    source="phosphor"
+                    icon={X}
                     color="gray"
                     size="md"
                     onClick={(e) => {

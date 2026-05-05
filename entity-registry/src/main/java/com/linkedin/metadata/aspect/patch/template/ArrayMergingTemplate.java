@@ -103,6 +103,11 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
       return transformedNode;
     }
     ObjectNode rebasedNode = transformedNode.deepCopy();
+    // fieldNode is null when the entire array field was removed by the patch.
+    // Return an empty array rather than NPE.
+    if (fieldNode == null || fieldNode.isNull()) {
+      return rebasedNode.set(arrayFieldName, instance.arrayNode());
+    }
     ObjectNode mapNode = (ObjectNode) fieldNode;
     ArrayNode arrayNode;
 
@@ -118,6 +123,11 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
 
   default ArrayNode mergeToArray(JsonNode mapNode, List<String> keyFields) {
     if (keyFields.isEmpty()) {
+      // When a plain add sets an array at an entity-key level (e.g. /tags/<urn> with
+      // value [{...}]), the leaf ArrayNode's elements must be expanded into the result.
+      if (mapNode instanceof ArrayNode) {
+        return instance.arrayNode().addAll((ArrayNode) mapNode);
+      }
       return instance.arrayNode().add(mapNode);
     } else {
       ArrayNode mergingArray = instance.arrayNode();

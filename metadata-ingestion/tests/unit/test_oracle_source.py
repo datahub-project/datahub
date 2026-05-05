@@ -1,5 +1,7 @@
+import os
 import unittest.mock
 from datetime import datetime
+from typing import List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -9,7 +11,7 @@ from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine import Inspector
 from sqlalchemy.sql import sqltypes
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.oracle import (
     VSQL_USAGE_QUERY,
@@ -19,6 +21,7 @@ from datahub.ingestion.source.sql.oracle import (
     OracleSource,
     ProcedureDependencies,
     VSqlPrerequisiteCheckResult,
+    _preload_oracle_client_libs,
     extra_oracle_types,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -1423,3 +1426,128 @@ def test_extra_oracle_types_registered_during_workunits_iteration():
             list(source.get_workunits())
 
     assert all(registered_during_iteration)
+
+
+def _make_thick_mode_config(thick_mode_lib_dir: Optional[str] = None) -> OracleConfig:
+    return OracleConfig(
+        username="user",
+        password="password",
+        host_port="host:1521",
+        service_name="svc01",
+        enable_thick_mode=True,
+        thick_mode_lib_dir=thick_mode_lib_dir,
+    )
+
+
+def test_preload_oracle_client_libs_loads_in_dependency_order(tmp_path):
+    """Deps must be opened before libclntsh; missing optional libs are skipped silently."""
+    # Create stub files for some but not all of the patterns the helper looks for.
+    # libipc1 / libmql1 / libociei are intentionally absent — they are optional in
+    # newer Instant Client releases and the helper must tolerate that.
+    files = [
+        "libnnz12.so",
+        "libclntshcore.so.21.1",
+        "libons.so",
+        "libclntsh.so.21.1",
+    ]
+    for name in files:
+        (tmp_path / name).write_bytes(b"")
+
+    loaded: List[str] = []
+
+    class _FakeCDLL:
+        def __init__(self, path: str, mode: int) -> None:
+            loaded.append(os.path.basename(path))
+
+    with patch("datahub.ingestion.source.sql.oracle.ctypes.CDLL", _FakeCDLL):
+        _preload_oracle_client_libs(str(tmp_path))
+
+    # Dependencies before libclntsh — that's the whole point of the helper.
+    assert loaded[-1] == "libclntsh.so.21.1"
+    assert "libnnz12.so" in loaded
+    assert "libclntshcore.so.21.1" in loaded
+    assert "libons.so" in loaded
+    # nnz must precede libclntsh; libclntshcore likewise.
+    assert loaded.index("libnnz12.so") < loaded.index("libclntsh.so.21.1")
+    assert loaded.index("libclntshcore.so.21.1") < loaded.index("libclntsh.so.21.1")
+
+
+def test_preload_oracle_client_libs_raises_when_dir_missing(tmp_path):
+    bogus = tmp_path / "does-not-exist"
+
+    with pytest.raises(ConfigurationError, match="does not exist"):
+        _preload_oracle_client_libs(str(bogus))
+
+
+def test_preload_oracle_client_libs_raises_when_dir_empty(tmp_path):
+    # Directory exists but contains no Oracle libs — surfaces a clearer error
+    # than the cryptic DPI-1047 we'd otherwise get downstream.
+    with pytest.raises(ConfigurationError, match="No Oracle Instant Client libraries"):
+        _preload_oracle_client_libs(str(tmp_path))
+
+
+def test_preload_oracle_client_libs_skips_individual_load_failures(tmp_path):
+    """One bad .so should not abort the whole preload — log and continue."""
+    for name in ["libnnz12.so", "libclntsh.so.21.1"]:
+        (tmp_path / name).write_bytes(b"")
+
+    attempts: List[str] = []
+
+    class _FlakyCDLL:
+        def __init__(self, path: str, mode: int) -> None:
+            attempts.append(os.path.basename(path))
+            if path.endswith("libnnz12.so"):
+                raise OSError("synthetic load failure")
+
+    with patch("datahub.ingestion.source.sql.oracle.ctypes.CDLL", _FlakyCDLL):
+        _preload_oracle_client_libs(str(tmp_path))
+
+    assert "libnnz12.so" in attempts
+    assert "libclntsh.so.21.1" in attempts
+
+
+@patch("datahub.ingestion.source.sql.oracle.platform.system", return_value="Linux")
+@patch("datahub.ingestion.source.sql.oracle._preload_oracle_client_libs")
+@patch("datahub.ingestion.source.sql.oracle.oracledb")
+def test_oracle_source_linux_preloads_when_lib_dir_set(
+    mock_oracledb, mock_preload, _mock_platform, tmp_path
+):
+    config = _make_thick_mode_config(thick_mode_lib_dir=str(tmp_path))
+
+    OracleSource(config, PipelineContext("test-thick-linux-preload"))
+
+    mock_preload.assert_called_once_with(str(tmp_path))
+    # On Linux we must NOT pass lib_dir to init_oracle_client(): the preload
+    # already put the libs in the process namespace, and passing lib_dir is
+    # what triggers the DT_NEEDED resolution failure described in oracle/python-oracledb#578.
+    mock_oracledb.init_oracle_client.assert_called_once_with()
+
+
+@patch("datahub.ingestion.source.sql.oracle.platform.system", return_value="Linux")
+@patch("datahub.ingestion.source.sql.oracle._preload_oracle_client_libs")
+@patch("datahub.ingestion.source.sql.oracle.oracledb")
+def test_oracle_source_linux_skips_preload_when_lib_dir_unset(
+    mock_oracledb, mock_preload, _mock_platform
+):
+    config = _make_thick_mode_config(thick_mode_lib_dir=None)
+
+    OracleSource(config, PipelineContext("test-thick-linux-no-preload"))
+
+    mock_preload.assert_not_called()
+    mock_oracledb.init_oracle_client.assert_called_once_with()
+
+
+@patch("datahub.ingestion.source.sql.oracle.platform.system", return_value="Darwin")
+@patch("datahub.ingestion.source.sql.oracle._preload_oracle_client_libs")
+@patch("datahub.ingestion.source.sql.oracle.oracledb")
+def test_oracle_source_mac_passes_lib_dir_without_preload(
+    mock_oracledb, mock_preload, _mock_platform, tmp_path
+):
+    config = _make_thick_mode_config(thick_mode_lib_dir=str(tmp_path))
+
+    OracleSource(config, PipelineContext("test-thick-mac"))
+
+    # macOS uses dyld, not glibc's loader, so no preload trick is needed —
+    # init_oracle_client(lib_dir=...) is sufficient.
+    mock_preload.assert_not_called()
+    mock_oracledb.init_oracle_client.assert_called_once_with(lib_dir=str(tmp_path))

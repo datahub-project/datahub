@@ -1,4 +1,5 @@
 import React from "react";
+import Head from "@docusaurus/Head";
 import Layout from "@theme/Layout";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
@@ -17,6 +18,7 @@ export function FilterPage(
   const [isExclusive, setIsExclusive] = React.useState(false);
 
   let filterOptions = {};
+  const categoryCounts = {};
   metadata.forEach((data) => {
     const filters = data["tags"];
     Object.keys(filters).map((key) => {
@@ -25,21 +27,18 @@ export function FilterPage(
       }
       filters[key].split(",").forEach((tag) => {
         if (tag === " " || tag === "") return;
-        filterOptions[key].add(tag.trim());
+        const trimmed = tag.trim();
+        filterOptions[key].add(trimmed);
+        if (key === "Platform Type") {
+          categoryCounts[trimmed] = (categoryCounts[trimmed] || 0) + 1;
+        }
       });
     });
   });
   const filterKeys = Object.keys(filterOptions);
-  function getTags(path) {
-    if (path === undefined || path === null) return;
-    const data = metadata.find((data) => {
-      if (data.Path === path) {
-        return data;
-      }
-    });
-    const recordTags = data["tags"];
+  function getTagsFromRecord(recordTags) {
+    if (!recordTags) return [];
     let tags = [];
-    if (recordTags === undefined) return tags;
     filterKeys.map((key) => {
       if (recordTags[key] === undefined || recordTags[key] === null) return;
       recordTags[key].split(",").forEach((feature) => {
@@ -55,12 +54,14 @@ export function FilterPage(
       title: source.Title,
       image: source.imgPath,
       description: source.Description,
-      tags: getTags(source.Path),
+      tags: getTagsFromRecord(source.tags),
       filters: source.tags,
       to: source.Path,
       useFilters: useFilters,
       useTags: useTags,
       filterState: filterState,
+      isApiConnector: source.isApiConnector || false,
+      requestNativeUrl: source.requestNativeUrl || null,
     };
   });
   const filteredIngestionSourceContent = ingestionSourceContent.filter(
@@ -82,11 +83,63 @@ export function FilterPage(
     }
   );
 
+  const collectionPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: title,
+    description: subtitle,
+    url: "https://docs.datahub.com/integrations",
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: metadata.length,
+      itemListElement: metadata.map((source, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        item: {
+          "@type": "SoftwareApplication",
+          name: source.Title,
+          description: source.Description,
+          applicationCategory: source.tags?.["Platform Type"] || undefined,
+          url: source.Path
+            ? `https://docs.datahub.com/${source.Path}`
+            : undefined,
+        },
+      })),
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Docs",
+        item: "https://docs.datahub.com/docs",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Integrations",
+        item: "https://docs.datahub.com/integrations",
+      },
+    ],
+  };
+
   return (
     <Layout
       title={siteConfig.tagline}
       description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
     >
+      <Head>
+        <script type="application/ld+json">
+          {JSON.stringify(collectionPageJsonLd)}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify(breadcrumbJsonLd)}
+        </script>
+      </Head>
       <header className={"hero"}>
         <div className="container">
           <div className="hero__content">
@@ -102,6 +155,7 @@ export function FilterPage(
                 filterOptions={filterOptions}
                 allowExclusivity={allowExclusivity}
                 setIsExclusive={setIsExclusive}
+                categoryCounts={categoryCounts}
               />
             </div>
           </div>
@@ -112,8 +166,22 @@ export function FilterPage(
         content={filteredIngestionSourceContent}
         filterBar={<FilterBar />}
       />
-      <br />
-      <br />
+
+      <div
+        style={{
+          textAlign: "center",
+          padding: "2rem 1rem",
+          fontSize: "1rem",
+          color: "var(--ifm-color-emphasis-700)",
+        }}
+      >
+        Don&apos;t see your data source?{" "}
+        <a href="docs/metadata-ingestion/request-connector">
+          Request a Connector
+        </a>
+        {" | "}
+        <a href="docs/metadata-ingestion/datahub-skills">Build Your Own</a>
+      </div>
     </Layout>
   );
 }

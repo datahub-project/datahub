@@ -126,7 +126,7 @@ export const FileUploadContent = ({ hideDropdown }: Props) => {
                 Choose File
             </StyledButton>
             <FileInput ref={fileInputRef} type="file" onChange={handleFileChange} data-testid="file-upload-input" />
-            <StyledText color="gray" size="sm" lineHeight="normal">
+            <StyledText size="sm" lineHeight="normal">
                 Max size: 2GB
             </StyledText>
         </ContentWrapper>
