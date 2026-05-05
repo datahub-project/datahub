@@ -261,6 +261,17 @@ class SigmaAPI:
             )
             return {}
 
+    def get_connections(self) -> List[Dict[str, Any]]:
+        """Fetch all Sigma Connections (paginated). Returns raw API payloads.
+
+        Mapping to SigmaConnectionRecord happens in
+        connection_registry.SigmaConnectionRegistry.build().
+        """
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/connections",
+            "Unable to fetch Sigma connections.",
+        )
+
     def get_sigma_datasets(self) -> List[SigmaDataset]:
         logger.debug("Fetching all accessible datasets metadata.")
         dataset_url = url = f"{self.config.api_url}/datasets"
@@ -1045,6 +1056,9 @@ class SigmaAPI:
                 continue
             columns_by_element.setdefault(column.elementId, []).append(column)
 
+        # Reset before populating so repeated _assemble_data_model calls
+        # (e.g. during alias discovery) cannot accumulate stale entries.
+        data_model.source_dm_element_names = {}
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -1055,6 +1069,23 @@ class SigmaAPI:
                     source_ids_by_element[element_id] = [
                         s for s in source_ids if isinstance(s, str)
                     ]
+            elif entry_type == "data-model":
+                # Each ``data-model`` entry names the specific element consumed
+                # from a source DM.  Stash by source dataModelId so
+                # ``_resolve_dm_element_cross_dm_upstream`` can look up the
+                # correct source element name without relying on the consuming
+                # element sharing that name.
+                src_dm_id = entry.get("dataModelId")
+                src_name = entry.get("name")
+                if (
+                    isinstance(src_dm_id, str)
+                    and src_dm_id
+                    and isinstance(src_name, str)
+                    and src_name.strip()
+                ):
+                    data_model.source_dm_element_names.setdefault(src_dm_id, []).append(
+                        src_name.strip()
+                    )
             # ``type: dataset`` / ``type: table`` entries are resolved
             # on the fly from their ``inode-<id>`` source_ids; no DM-side
             # stash is needed.

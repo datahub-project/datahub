@@ -14,6 +14,8 @@ from datahub.ingestion.source.sigma.sigma import SigmaSource
 def _source() -> SigmaSource:
     source = SigmaSource.__new__(SigmaSource)
     source.reporter = SigmaSourceReport()
+    source.dm_element_urn_by_name = {}
+    source.dm_element_urn_to_cols = {}
     return source
 
 
@@ -487,3 +489,212 @@ def test_name_collision_picks_first_sorted_urn() -> None:
     assert lineages[0].upstreams == [builder.make_schema_field_urn(urn_aaa, "team1")]
     assert source.reporter.data_model_element_fgl_collision_pick_first == 1
     assert source.reporter.data_model_element_fgl_emitted == 1
+
+
+def test_cross_dm_ref_resolves_via_source_scoped_index() -> None:
+    """Bracket ref to an element absent from the current DM resolves when the
+    element's source_ids point to the DM that owns the named element."""
+    source = _source()
+    dm_url_id = "other-dm"
+    other_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[other_dm_element/city]")],
+        source_ids=[f"{dm_url_id}/some-suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [other_urn]}}
+    source.dm_element_urn_to_cols = {other_urn: {"city": "city", "date": "date"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={other_urn},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(other_urn, "city")]
+    assert lineages[0].downstreams == [
+        builder.make_schema_field_urn(downstream_urn, "city")
+    ]
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    # Cross-DM FGL does not tick the intra-DM emit counter.
+    assert source.reporter.data_model_element_fgl_emitted == 0
+
+
+def test_cross_dm_ref_not_in_source_dm_increments_deferred() -> None:
+    """Bracket ref to a name absent from the source DMs in element.source_ids
+    increments cross_dm_deferred — even if that name exists in an unrelated DM."""
+    source = _source()
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[unknown_thing/city]")],
+        source_ids=["some-dm/suffix"],
+    )
+    # "unknown_thing" not in "some-dm"; exists only in "unrelated-dm" which
+    # is not in source_ids — must not be linked.
+    source.dm_element_urn_by_name = {
+        "some-dm": {"some_dm_element": [_urn("some-dm-element")]},
+        "unrelated-dm": {"unknown_thing": [_urn("unrelated-element")]},
+    }
+    source.dm_element_urn_to_cols = {_urn("some-dm-element"): {"col": "col"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={_urn("some-other-element")},
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+def test_cross_dm_collision_picks_first_sorted_urn() -> None:
+    """Two source DMs share an element name; resolver picks sorted[0]."""
+    source = _source()
+    urn_aaa = _urn("aaa-dm-element")
+    urn_zzz = _urn("zzz-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "col", "[shared_name/col]")],
+        source_ids=["dm-zzz/s1", "dm-aaa/s2"],
+    )
+    source.dm_element_urn_by_name = {
+        "dm-aaa": {"shared_name": [urn_aaa]},
+        "dm-zzz": {"shared_name": [urn_zzz]},
+    }
+    source.dm_element_urn_to_cols = {urn_aaa: {"col": "col"}, urn_zzz: {"col": "col"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={urn_aaa, urn_zzz},
+    )
+
+    assert len(lineages) == 1
+    # sorted([urn_aaa, urn_zzz])[0] == urn_aaa since "aaa" < "zzz"
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(urn_aaa, "col")]
+    assert source.reporter.data_model_element_fgl_cross_dm_collision_pick_first == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+
+
+def test_cross_dm_collision_entity_level_breaks_tie() -> None:
+    """When exactly one collision candidate is a confirmed entity-level upstream,
+    it wins without incrementing the collision counter."""
+    source = _source()
+    urn_correct = _urn("correct-dm-element")
+    urn_other = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "col", "[shared_name/col]")],
+        source_ids=["dm-correct/s1", "dm-other/s2"],
+    )
+    source.dm_element_urn_by_name = {
+        "dm-correct": {"shared_name": [urn_correct]},
+        "dm-other": {"shared_name": [urn_other]},
+    }
+    source.dm_element_urn_to_cols = {
+        urn_correct: {"col": "col"},
+        urn_other: {"col": "col"},
+    }
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={urn_correct},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(urn_correct, "col")]
+    assert source.reporter.data_model_element_fgl_cross_dm_collision_pick_first == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+
+
+def test_cross_dm_singleton_not_in_entity_level_upstreams_still_emits() -> None:
+    """A singleton cross-DM candidate not in entity_level_upstream_urns still
+    emits FGL — Sigma's /lineage API does not always surface cross-DM formula
+    dependencies at the entity level."""
+    source = _source()
+    dm_url_id = "other-dm"
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[other_dm_element/city]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [upstream_urn]}}
+    source.dm_element_urn_to_cols = {upstream_urn: {"city": "city"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={_urn("some-warehouse-table")},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [
+        builder.make_schema_field_urn(upstream_urn, "city")
+    ]
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_cross_dm_unknown_upstream_column_is_dropped() -> None:
+    """Formula ref column absent from the resolved upstream element's schema
+    increments cross_dm_dropped_unknown_upstream_column and emits no FGL."""
+    source = _source()
+    dm_url_id = "other-dm"
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "missing_col", "[other_dm_element/missing_col]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [upstream_urn]}}
+    # Upstream schema has "city" and "date" but NOT "missing_col".
+    source.dm_element_urn_to_cols = {upstream_urn: {"city": "city", "date": "date"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+    )
+
+    assert lineages == []
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column
+        == 1
+    )
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
