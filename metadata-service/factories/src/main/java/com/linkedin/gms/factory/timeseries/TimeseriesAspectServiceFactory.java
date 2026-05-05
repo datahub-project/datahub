@@ -54,7 +54,8 @@ public class TimeseriesAspectServiceFactory {
     }
 
     if (cacheConfig.isEnabled() && cachedAspects.isEmpty()) {
-      log.info("Timeseries cache enabled but no aspects configured via TIMESERIES_LATEST_CACHED_ASPECTS");
+      log.info(
+          "Timeseries cache enabled but no aspects configured via TIMESERIES_LATEST_CACHED_ASPECTS");
     }
 
     return _elasticSearchTimeseriesAspectService;

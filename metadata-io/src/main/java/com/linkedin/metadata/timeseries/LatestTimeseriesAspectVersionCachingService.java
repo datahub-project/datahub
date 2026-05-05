@@ -245,15 +245,17 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull JsonNode document) {
     delegate.upsertDocument(opContext, entityName, aspectName, docId, document);
     if (cachedAspectNames.contains(aspectName)) {
+      String urn = null;
       try {
-        String urn = document.has("urn") ? document.get("urn").asText() : null;
+        urn = document.has("urn") ? document.get("urn").asText() : null;
         if (urn != null && cache != null) {
+          EnvelopedAspect aspect =
+              objectMapper.readValue(document.toString(), EnvelopedAspect.class);
           String cacheKey = buildCacheKey(entityName, aspectName, urn);
-          cache.evict(cacheKey);
-          log.debug("Evicted cache for {}", cacheKey);
+          putCachedValue(cacheKey, aspect);
         }
       } catch (Exception e) {
-        log.warn("Failed to evict cache for upsert", e);
+        log.warn("Failed to cache upserted aspect for {}", urn, e);
       }
     }
   }
@@ -335,7 +337,7 @@ public class LatestTimeseriesAspectVersionCachingService
   }
 
   private String buildCacheKey(String entityName, String aspectName, String urn) {
-    return entityName + ":" + aspectName + ":" + urn;
+    return "latest:" + entityName + ":" + aspectName + ":" + urn;
   }
 
   private void evictCacheForAspect() {
