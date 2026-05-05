@@ -253,7 +253,11 @@ def dataplatform2instance_func(
                 relationshipType, entity_type
             )
             aspect_map = cli_utils.get_aspects_for_entity(
-                graph._session, graph.config.server, target_urn, aspects=[aspect_name]
+                graph._session,
+                graph.config.server,
+                target_urn,
+                aspects=[aspect_name],
+                typed=True,
             )
             if aspect_name in aspect_map:
                 aspect = aspect_map[aspect_name]

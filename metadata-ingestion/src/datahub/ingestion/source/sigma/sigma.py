@@ -38,6 +38,10 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
     WorkspaceCounts,
 )
+from datahub.ingestion.source.sigma.connection_registry import (
+    SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
+    SigmaConnectionRegistry,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     DataModelElementUpstream,
     DataModelKey,
@@ -54,6 +58,10 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.sigma.formula_parser import (
+    BracketRef,
+    extract_bracket_refs,
+)
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -69,6 +77,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     DatasetProperties,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     Upstream,
     UpstreamLineage,
 )
@@ -98,6 +109,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -110,6 +122,59 @@ logger = logging.getLogger(__name__)
 # rather than trusting a lie. When the API starts returning a typed
 # column field (or we add SQL-based inference), swap this out here.
 SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
+
+
+def _dm_column_ranks_above(
+    candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
+) -> bool:
+    """Tie-breaking order for duplicate-fieldPath columns within a DM element.
+
+    Prefers the row with a non-empty formula (the user-authored calculated
+    field Sigma surfaces in the UI). Tie-break: lexicographically smaller
+    columnId so the choice is stable across runs even if /columns ordering
+    shifts.
+    """
+    if bool(candidate.formula) != bool(incumbent.formula):
+        return bool(candidate.formula)
+    return candidate.columnId < incumbent.columnId
+
+
+def _dedup_dm_element_columns(
+    columns: List[SigmaDataModelColumn],
+) -> Tuple[
+    Dict[str, SigmaDataModelColumn],
+    List[Tuple[SigmaDataModelColumn, SigmaDataModelColumn]],
+]:
+    """Return (winners_by_name, displaced_pairs) for an element's column list.
+
+    ``winners_by_name`` maps each unique column name to the winning column
+    when duplicates exist (per _dm_column_ranks_above).  ``displaced_pairs``
+    is a list of (winner, loser) tuples — each caller uses this to update its
+    own counters and logs.
+
+    Called by both _gen_data_model_element_schema_metadata and
+    _build_dm_element_fine_grained_lineages so the two sites share a single
+    source of truth for which fieldPaths are "live".  Any future change to the
+    tie-break logic only needs to be made here.
+    """
+    by_name: Dict[str, SigmaDataModelColumn] = {}
+    displaced: List[Tuple[SigmaDataModelColumn, SigmaDataModelColumn]] = []
+    for column in columns:
+        if not column.name:
+            continue
+        existing = by_name.get(column.name)
+        if existing is None:
+            by_name[column.name] = column
+            continue
+        winner, loser = (
+            (column, existing)
+            if _dm_column_ranks_above(column, existing)
+            else (existing, column)
+        )
+        by_name[column.name] = winner
+        displaced.append((winner, loser))
+    return by_name, displaced
+
 
 CrossDmOutcome = Literal[
     "strict",
@@ -136,6 +201,7 @@ CrossDmOutcome = Literal[
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default.")
+@capability(SourceCapability.LINEAGE_FINE, "Enabled by default.")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TAGS, "Enabled by default")
@@ -155,6 +221,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     config: SigmaSourceConfig
     reporter: SigmaSourceReport
+    connection_registry: SigmaConnectionRegistry
     platform: str = "sigma"
 
     def __init__(self, config: SigmaSourceConfig, ctx: PipelineContext):
@@ -179,6 +246,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
+        # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
+        # correlate ``data-model`` lineage entries (keyed by dataModelId) with
+        # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
+        self.data_model_id_by_url_id: Dict[str, str] = {}
+        # Global: element Dataset URN → {lowercased column name: canonical column name}.
+        # Same dedup logic as the per-element urn_to_cols in the FGL builder so
+        # cross-DM column validation uses the winner set rather than raw columns.
+        self.dm_element_urn_to_cols: Dict[
+            str, Dict[str, str]
+        ] = {}  # {lowercase_col: canonical_col}
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -211,6 +288,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
+
+        self.connection_registry = self._build_connection_registry()
+
+    def _build_connection_registry(self) -> SigmaConnectionRegistry:
+        """Fetch /v2/connections and build the in-memory registry.
+
+        Transport errors are handled inside _paginated_raw_entries (returns
+        partial results, emits a report warning); the try/except here only
+        covers bugs in build() itself.
+        """
+        try:
+            return SigmaConnectionRegistry.build(
+                self.sigma_api.get_connections(),
+                reporter=self.reporter,
+                type_to_platform_map=SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to build Sigma Connection registry; continuing with empty registry."
+            )
+            self.reporter.warning(
+                title="Sigma Connection registry build failed",
+                message="Connection registry is empty; warehouse-URN resolution "
+                "for downstream lineage will be unavailable.",
+                exc=e,
+            )
+            return SigmaConnectionRegistry()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -489,6 +593,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None, "dm_unknown"
         name_map = self.dm_element_urn_by_name.get(other_dm_url_id, {})
 
+        # Prefer source element names from /lineage ``data-model`` entries:
+        # these directly name the element consumed from the source DM and
+        # work even when the consuming element has a different display name.
+        other_dm_id = self.data_model_id_by_url_id.get(other_dm_url_id)
+        if other_dm_id:
+            src_names = consuming_data_model.source_dm_element_names.get(
+                other_dm_id, []
+            )
+            if len(src_names) == 1:
+                # Exactly one element consumed from this source DM — unambiguous.
+                candidates = name_map.get(src_names[0].lower())
+                if candidates:
+                    if len(candidates) > 1:
+                        return sorted(candidates)[0], "ambiguous"
+                    return candidates[0], "strict"
+            elif len(src_names) > 1:
+                # Multiple elements consumed from the same source DM; cannot
+                # determine which one maps to this consuming element without
+                # per-element scoping. Fall through to name-based / fallback.
+                logger.debug(
+                    "DM %s element %s: %d consumed names from source DM %s — "
+                    "cannot disambiguate via lineage entries alone; falling "
+                    "back to consuming-element-name lookup.",
+                    consuming_data_model.dataModelId,
+                    consuming_element.elementId,
+                    len(src_names),
+                    other_dm_id,
+                )
+
         candidates = name_map.get(consuming_element.name.lower())
         if not candidates:
             # Single-element fallback: if the producer DM has exactly one
@@ -537,7 +670,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self,
         element: SigmaDataModelElement,
         data_model: SigmaDataModel,
+        element_dataset_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
+        element_name_to_eids: Dict[str, List[str]],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -629,16 +764,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             upstream_urn,
                         )
 
-        if not upstream_urns:
-            return None
         # Sort for deterministic emission order: Sigma's /lineage API does
         # not document ordering, and Upstream entries have no semantic order.
         upstream_urns.sort()
+        if not upstream_urns:
+            return None
+        fine_grained = self._build_dm_element_fine_grained_lineages(
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            element_name_to_eids=element_name_to_eids,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            entity_level_upstream_urns=set(upstream_urns),
+            data_model=data_model,
+        )
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
                 for urn in upstream_urns
-            ]
+            ],
+            fineGrainedLineages=fine_grained or None,
         )
 
     def _gen_data_model_element_schema_metadata(
@@ -647,43 +791,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Dedup by ``fieldPath`` within the element: Sigma can return two
         # columns with the same name (e.g. a calculated field shadowing a
         # native column), and GMS rejects / non-deterministically dedupes
-        # duplicate ``fieldPath``s.
-        #
-        # Tie-break is deterministic across runs:
-        # 1. Prefer the row with a non-empty ``formula`` -- that's the
-        #    user-authored calculated field and the one Sigma surfaces
-        #    in the UI when both exist with the same name.
-        # 2. Fall back to the row with the lexicographically smallest
-        #    ``columnId`` so the choice is stable even without
-        #    ``/columns`` ordering guarantees.
-        # Dropped ``columnId``s are emitted to debug logs so operators
-        # can reconcile against Sigma.
-        def _ranks_above(
-            candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
-        ) -> bool:
-            # Prefer row with formula set (user-authored calc field).
-            # Tie-break: smaller columnId wins so the choice is stable
-            # across runs even if ``/columns`` ordering shifts.
-            if bool(candidate.formula) != bool(incumbent.formula):
-                return bool(candidate.formula)
-            return candidate.columnId < incumbent.columnId
-
-        by_name: Dict[str, SigmaDataModelColumn] = {}
+        # duplicate ``fieldPath``s. Tie-break logic lives in _dedup_dm_element_columns
+        # so it stays in sync with the FGL builder's winner set.
+        by_name, displaced = _dedup_dm_element_columns(element.columns)
         dropped_column_ids_by_name: Dict[str, List[str]] = {}
-        for column in element.columns:
-            if not column.name:
-                continue
-            existing = by_name.get(column.name)
-            if existing is None:
-                by_name[column.name] = column
-                continue
+        for winner, loser in displaced:
             self.reporter.data_model_element_columns_duplicate_fieldpath_dropped += 1
-            if _ranks_above(column, existing):
-                winner, loser = column, existing
-            else:
-                winner, loser = existing, column
-            by_name[column.name] = winner
-            dropped_column_ids_by_name.setdefault(column.name, []).append(
+            dropped_column_ids_by_name.setdefault(winner.name, []).append(
                 loser.columnId
             )
         if dropped_column_ids_by_name:
@@ -729,12 +843,237 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
+    def _build_dm_element_fine_grained_lineages(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        element_name_to_eids: Dict[str, List[str]],
+        elementId_to_dataset_urn: Dict[str, str],
+        entity_level_upstream_urns: Set[str],
+        data_model: SigmaDataModel,
+    ) -> List[FineGrainedLineageClass]:
+        """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
+
+        element_name_to_eids maps lowercased element name → list of elementIds.
+        Self-references are stripped before resolution: when a DM element is named
+        after its warehouse source (e.g., element "data.csv" with formula
+        "[data.csv/col]"), the formula ref matches the element's own name and must
+        be filtered out to avoid self-referential FGL.  These are counted under
+        fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
+
+        When multiple sibling elements share a name and both pass the /lineage filter,
+        the lexicographically-first URN is chosen (matching T2 PR1's collision policy
+        and Sigma's server-side coalescing behaviour).
+        """
+        by_name, _ = _dedup_dm_element_columns(element.columns)
+
+        # Build URN → winner-column map directly from elementId_to_dataset_urn,
+        # which gives an unambiguous elementId→URN mapping for every DM element.
+        urn_to_cols: Dict[str, Dict[str, str]] = {}
+        for dm_el in data_model.elements:
+            el_urn = elementId_to_dataset_urn.get(dm_el.elementId)
+            if el_urn:
+                el_by_name, _ = _dedup_dm_element_columns(dm_el.columns)
+                urn_to_cols[el_urn] = {c.lower(): c for c in el_by_name}
+
+        fgls: List[FineGrainedLineageClass] = []
+        cross_dm_fgls: List[FineGrainedLineageClass] = []
+        # Track emitted (downstream, upstream) schemaField pairs to deduplicate
+        # multiple occurrences of the same bracket ref in one formula
+        # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
+        emitted_pairs: Set[Tuple[str, str]] = set()
+        for column in sorted(by_name.values(), key=lambda c: c.name):
+            if not column.formula:
+                continue
+            downstream_field = builder.make_schema_field_urn(
+                element_dataset_urn, column.name
+            )
+            for ref in extract_bracket_refs(column.formula):
+                if ref.is_parameter or ref.column is None:
+                    # [P_*] parameter refs and bare [col] intra-element refs
+                    # are not cross-Dataset lineage; skip.
+                    continue
+
+                candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
+
+                # Strip self-references: element-name == warehouse-table name is a
+                # common Sigma authoring pattern.  The formula ref resolves to the
+                # element itself, which is not a valid FGL upstream (the real upstream
+                # is the warehouse inode reported by /lineage).
+                candidate_eids_after_self_strip = [
+                    eid for eid in candidate_eids if eid != element.elementId
+                ]
+
+                if not candidate_eids_after_self_strip:
+                    if candidate_eids:
+                        # All candidates were self-references; actual upstream is a
+                        # warehouse table.
+                        self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                        continue
+                    # Source not in this DM — search only the DMs this element's
+                    # source_ids explicitly reference. This prevents formula refs
+                    # like [Orders/id] from linking to any ingested element named
+                    # "Orders" regardless of whether Sigma reported a lineage
+                    # relationship to that DM.
+                    # entity_level_upstream_urns is used as a collision tiebreaker
+                    # (not a hard gate) because Sigma's /lineage API does not always
+                    # surface cross-DM formula deps at the entity level.
+                    # Cross-DM source_ids use the shape <dm-url-id>/<suffix>;
+                    # intra-DM source_ids are bare elementIds (no "/").  So
+                    # source_dm_url_ids will never contain the consuming DM's
+                    # own url_id under normal Sigma API behaviour.
+                    source_dm_url_ids = {
+                        sid.partition("/")[0]
+                        for sid in element.source_ids
+                        if "/" in sid and not sid.startswith("inode-")
+                    }
+                    cross_dm_candidate_urns = sorted(
+                        {
+                            urn
+                            for dm_url_id in source_dm_url_ids
+                            for urn in self.dm_element_urn_by_name.get(
+                                dm_url_id, {}
+                            ).get(ref.source.lower(), [])
+                            if urn != element_dataset_urn
+                        }
+                    )
+                    if not cross_dm_candidate_urns:
+                        self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+                        continue
+                    if len(cross_dm_candidate_urns) > 1:
+                        # Restrict to entity-level confirmed candidates whenever
+                        # any exist — even a subset of 2+ is better than
+                        # including unconfirmed URNs that sort earlier.
+                        confirmed = [
+                            u
+                            for u in cross_dm_candidate_urns
+                            if u in entity_level_upstream_urns
+                        ]
+                        if confirmed:
+                            cross_dm_candidate_urns = confirmed
+                        if len(cross_dm_candidate_urns) > 1:
+                            # Still ambiguous after filtering; pick sorted-first.
+                            self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
+                    chosen_upstream_urn = cross_dm_candidate_urns[0]
+                    # dm_element_urn_to_cols is populated for every URN in
+                    # dm_element_urn_by_name (same loop in _prepopulate_dm_bridge_maps),
+                    # so this get() will only be None if a URN reaches this point
+                    # without going through prepopulation — defensively handled.
+                    upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
+                    if upstream_cols is None:
+                        self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+                        continue
+                    canonical_col = upstream_cols.get(ref.column.lower())
+                    if canonical_col is None:
+                        self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
+                        continue
+                    upstream_field = builder.make_schema_field_urn(
+                        chosen_upstream_urn, canonical_col
+                    )
+                    pair = (downstream_field, upstream_field)
+                    if pair not in emitted_pairs:
+                        emitted_pairs.add(pair)
+                        cross_dm_fgls.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[downstream_field],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[upstream_field],
+                                confidenceScore=1.0,
+                            )
+                        )
+                        self.reporter.data_model_element_fgl_cross_dm_resolved += 1
+                    continue
+
+                # Map surviving elementIds to Dataset URNs and filter against
+                # /lineage's reported entity-level upstreams.
+                candidate_urns = sorted(
+                    elementId_to_dataset_urn[eid]
+                    for eid in candidate_eids_after_self_strip
+                    if eid in elementId_to_dataset_urn
+                )
+                surviving_urns = sorted(
+                    u for u in candidate_urns if u in entity_level_upstream_urns
+                )
+
+                if not surviving_urns:
+                    # Intra-DM candidate(s) exist but none appear in /lineage.
+                    # Rare on tenants where /lineage correctly reports intra-DM edges;
+                    # keep counter for observability on future tenants.
+                    self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+                    continue
+
+                # Collision handling: multiple siblings passed /lineage filter.
+                # Pick sorted-first to match T2 PR1's _resolve_external_upstream
+                # policy and Sigma's server-side coalescing.
+                if len(surviving_urns) > 1:
+                    self.reporter.data_model_element_fgl_collision_pick_first += 1
+                    self.reporter.warning(
+                        title="Ambiguous DM element name in formula ref",
+                        message=(
+                            f"Formula ref {ref.raw!r} in element {element.elementId} "
+                            f"resolves to {len(surviving_urns)} elements with the same "
+                            f"display name — picking the lexicographically-first URN "
+                            f"({surviving_urns[0]!r}). Rename duplicate elements in "
+                            f"Data Model {data_model.dataModelId} to remove ambiguity."
+                        ),
+                        context=f"ref={ref.raw!r}, candidates={surviving_urns}",
+                    )
+                chosen_upstream_urn = surviving_urns[0]
+
+                # Validate and normalise ref.column against the chosen upstream
+                # element's schema winners to avoid a dangling schemaField URN.
+                source_cols = urn_to_cols.get(chosen_upstream_urn, {})
+                canonical_col = source_cols.get(ref.column.lower())
+                if canonical_col is None:
+                    self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
+                    logger.debug(
+                        "DM %s element %s: ref %r column %r not found in upstream "
+                        "element %s schema winners; dropping FGL entry",
+                        data_model.dataModelId,
+                        element.elementId,
+                        ref.raw,
+                        ref.column,
+                        chosen_upstream_urn,
+                    )
+                    continue
+
+                upstream_field = builder.make_schema_field_urn(
+                    chosen_upstream_urn, canonical_col
+                )
+                pair = (downstream_field, upstream_field)
+                if pair in emitted_pairs:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[upstream_field],
+                        confidenceScore=1.0,
+                    )
+                )
+        # fgl_emitted tracks intra-DM FGL only; cross-DM is tracked separately
+        # via fgl_cross_dm_resolved so operators can see both buckets independently.
+        self.reporter.data_model_element_fgl_emitted += len(fgls)
+        all_fgls = fgls + cross_dm_fgls
+        all_fgls.sort(
+            key=lambda fgl: (
+                (fgl.downstreams or [""])[0],
+                (fgl.upstreams or [""])[0],
+            )
+        )
+        return all_fgls
+
     def _gen_data_model_element_workunits(
         self,
         data_model: SigmaDataModel,
         data_model_key: DataModelKey,
         data_model_container_urn: str,
         elementId_to_dataset_urn: Dict[str, str],
+        element_name_to_eids: Dict[str, List[str]],
         owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
@@ -846,7 +1185,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
             upstream_lineage = self._gen_data_model_element_upstream_lineage(
-                element, data_model, elementId_to_dataset_urn
+                element,
+                data_model,
+                element_dataset_urn,
+                elementId_to_dataset_urn,
+                element_name_to_eids,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(
@@ -881,6 +1224,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.dm_total_element_count_by_url_id[alias] = (
             self.dm_total_element_count_by_url_id.get(canonical_key, 0)
         )
+        if canonical_key in self.data_model_id_by_url_id:
+            self.data_model_id_by_url_id[alias] = self.data_model_id_by_url_id[
+                canonical_key
+            ]
 
     def _prepopulate_dm_bridge_maps(
         self,
@@ -939,6 +1286,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for element in data_model.elements:
             element_dataset_urn = self._gen_data_model_element_urn(data_model, element)
             elementId_to_dataset_urn[element.elementId] = element_dataset_urn
+            # Build global column index for cross-DM FGL column validation.
+            el_by_name, _ = _dedup_dm_element_columns(element.columns)
+            self.dm_element_urn_to_cols[element_dataset_urn] = {
+                c.lower(): c for c in el_by_name
+            }
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:
@@ -948,6 +1300,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map
+        self.data_model_id_by_url_id[bridge_key] = data_model.dataModelId
         # Total count (including blank-named elements) used by the
         # cross-DM single-element fallback to verify "DM has exactly one
         # element" before attributing an unmatched-name reference.
@@ -1049,11 +1402,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if data_model.workspaceId:
             self.reporter.workspaces.increment_data_models_count(data_model.workspaceId)
 
+        # Keys are lowercased so formula refs — which users type and Sigma
+        # autocompletes from canonical names — match even when case differs.
+        # Values are elementIds (not URNs) so the FGL builder can strip self-references
+        # by elementId before mapping to URNs via elementId_to_dataset_urn.
+        element_name_to_eids: Dict[str, List[str]] = {}
+        for element in data_model.elements:
+            if element.name:
+                element_name_to_eids.setdefault(element.name.lower(), []).append(
+                    element.elementId
+                )
+
         yield from self._gen_data_model_element_workunits(
             data_model,
             data_model_key,
             data_model_container_urn,
             elementId_to_dataset_urn,
+            element_name_to_eids,
             owner_username=owner_username,
         )
 
@@ -1166,6 +1531,178 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.element_dm_edge.unresolved += 1
         return None, []
 
+    @staticmethod
+    def _build_workbook_element_index(
+        workbook: Workbook,
+    ) -> Dict[str, List[Element]]:
+        """Map element name -> list of elements with that name across all workbook pages.
+
+        Multiple entries for the same name indicate a name collision; callers must
+        disambiguate via lineage sourceIds.  Verified live: at least one workbook in
+        the test tenant has 3 elements named 'random data model'.
+        """
+        index: Dict[str, List[Element]] = {}
+        for page in workbook.pages:
+            for element in page.elements:
+                index.setdefault(element.name, []).append(element)
+        return index
+
+    @staticmethod
+    def _build_element_warehouse_table_index(
+        dataset_inputs: Dict[str, List[str]],
+    ) -> Dict[str, List[str]]:
+        """Map uppercase short table name -> list of warehouse Dataset URNs.
+
+        Sigma chart formulas reference warehouse tables by their short identifier
+        (e.g. 'FIVETRAN_LOG__CONNECTOR_STATUS'), not by the full 3-part name.
+        This index is built from the SQL-parsed dataset_inputs for the current element:
+          - Sigma Dataset entries (value=[warehouse_urn, …]) contribute warehouse URNs.
+          - Direct unmatched warehouse entries (value=[]) contribute the key URN itself.
+
+        Multiple URNs under the same short name indicate a schema-level collision.
+        Callers must resolve only when exactly one candidate is present.
+        """
+        index: Dict[str, List[str]] = {}
+        for dataset_urn, warehouse_urns in dataset_inputs.items():
+            candidates: List[str] = warehouse_urns
+            if not candidates:
+                try:
+                    parsed_dataset_urn = DatasetUrn.from_string(dataset_urn)
+                    if (
+                        parsed_dataset_urn.get_data_platform_urn().platform_name
+                        == "sigma"
+                    ):
+                        # Sigma-platform entries with no bridged warehouse URNs
+                        # are Data Model element datasets, not warehouse tables.
+                        continue
+                    candidates = [dataset_urn]
+                except InvalidUrnError as e:
+                    logger.debug("Skipping invalid dataset URN %r: %s", dataset_urn, e)
+                    continue
+            for urn in candidates:
+                try:
+                    short = DatasetUrn.from_string(urn).name.split(".")[-1].upper()
+                    index.setdefault(short, []).append(urn)
+                except InvalidUrnError as e:
+                    logger.debug("Skipping invalid dataset URN %r: %s", urn, e)
+        return index
+
+    def _resolve_chart_formula_upstream(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a single bracket ref to (entity_urn, field_path), or None.
+
+        This method is a pure predicate: it never increments any reporter counter.
+        All column-level counting (resolved / self_ref_fallback / skipped_parameter
+        / skipped_sibling) happens in the caller (_build_element_input_fields) so
+        every chart column lands in exactly one counter bucket regardless of how
+        many refs its formula contains.
+
+        Returns None for parameter and bare-sibling refs (caller handles those
+        at the column level).  Returns (upstream_urn, ref.column) on success.
+
+        Resolution order:
+          1. is_parameter -> None.
+          2. column is None (bare [col]) -> None (sibling ref).
+          3. wb_element_index match, filtered first by chart_upstream_element_ids
+             (SheetUpstream element_ids) then by dm_upstream_urn_by_element_name
+             (DataModelElementUpstream, keyed by DM element name):
+             - SheetUpstream: -> sibling chart URN + ref.column.
+             - DM element: -> DM element Dataset URN + ref.column.
+             - Ambiguous (>1 sheet match, none passing the filters) -> None.
+          4. element_warehouse_table_index match with exactly one candidate
+             -> warehouse Dataset URN + ref.column.
+             NOTE: this index is built from the current element's dataset_inputs
+             only. A formula that references a warehouse table whose SQL query
+             is parsed on a different sibling element will not resolve here.
+          5. else -> None.
+        """
+        if ref.is_parameter:
+            return None
+
+        if ref.column is None:
+            # Bare refs are same-element sibling references.
+            return None
+
+        candidates = wb_element_index.get(ref.source, [])
+        if not candidates:
+            case_mismatched_names = [
+                name for name in wb_element_index if name.lower() == ref.source.lower()
+            ]
+            if case_mismatched_names:
+                self.reporter.chart_input_fields_case_mismatch += 1
+                logger.debug(
+                    "No exact-case workbook element match for formula ref source %r; "
+                    "case-insensitive workbook element candidates were %s. "
+                    "Treating as unresolved rather than falling back to warehouse "
+                    "resolution.",
+                    ref.source,
+                    case_mismatched_names,
+                )
+                return None
+            else:
+                logger.debug(
+                    "No exact-case workbook element match for formula ref source %r; "
+                    "falling back to warehouse-table resolution.",
+                    ref.source,
+                )
+
+        if candidates:
+            # Step 3a: SheetUpstream match (intra-workbook chart→chart lineage).
+            sheet_matches = [
+                elem
+                for elem in candidates
+                if elem.elementId in chart_upstream_element_ids
+                and elem.elementId != chart_element_id
+            ]
+            if len(sheet_matches) == 1:
+                elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
+                if elem_urn:
+                    return (elem_urn, ref.column)
+                # Element exists in the workbook but was filtered from chart emission
+                # (e.g. pivot-table or control). Fall through to DM check.
+            elif len(sheet_matches) > 1:
+                # Ambiguous name collision not resolved by lineage filter.
+                return None
+
+            # Step 3b: DataModelElementUpstream match — ref.source is the DM
+            # element's workbook-page name; resolve to its Dataset URN.
+            dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
+            if dm_urn:
+                return (dm_urn, ref.column)
+
+            logger.debug(
+                "Formula ref source %r matched workbook element names but none were "
+                "lineage upstreams for chart element %s; treating as unresolved.",
+                ref.source,
+                chart_element_id,
+            )
+            return None
+
+        # Step 4: warehouse-table short-name fallback.
+        wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
+        if len(wh_candidates) == 1:
+            return (wh_candidates[0], ref.column)
+        elif len(wh_candidates) > 1:
+            logger.debug(
+                "Ambiguous warehouse table formula ref source %r for field %r; "
+                "candidate URNs were %s.",
+                ref.source,
+                ref.column,
+                wh_candidates,
+            )
+            return None
+
+        return None
+
     def _get_element_input_details(
         self,
         element: Element,
@@ -1236,6 +1773,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 upstream_name_lower = upstream.name.lower()
                 for in_table_urn in list(sql_parser_in_tables):
+                    # Chart-level SQL lineage uses substring matching because
+                    # Sigma dataset upstream names often include the warehouse
+                    # table leaf plus extra display context. Formula refs below
+                    # use exact short-name matching because formulas reference a
+                    # concrete table identifier such as [ORDERS/id].
                     if (
                         DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
                         in upstream_name_lower
@@ -1291,6 +1833,92 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return dataset_inputs, sorted(chart_input_urns)
 
+    def _build_element_input_fields(
+        self,
+        *,
+        element: Element,
+        chart_urn: str,
+        chart_upstream_eids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> List[InputFieldClass]:
+        """Emit exactly one InputField per chart column.
+
+        schemaFieldUrn points to the resolved upstream when a formula ref can be
+        matched; otherwise falls back to a self-referential URN so the column
+        always appears in the V2 column list regardless of formula parseability.
+
+        Counter invariant per element:
+          resolved + self_ref_fallback + skipped_parameter + skipped_sibling
+          == len(element.columns)
+        """
+        fields: List[InputFieldClass] = []
+        for column in element.columns:
+            formula = element.column_formulas.get(column)
+            resolved: Optional[Tuple[str, str]] = None
+            all_param = False
+            all_sibling = False
+
+            if formula is not None:
+                refs = list(extract_bracket_refs(formula))
+                if refs:
+                    param_count = 0
+                    sibling_count = 0
+                    for ref in refs:
+                        if ref.is_parameter:
+                            param_count += 1
+                            continue
+                        if ref.column is None:
+                            sibling_count += 1
+                            continue
+                        resolved = self._resolve_chart_formula_upstream(
+                            ref,
+                            chart_element_id=element.elementId,
+                            chart_upstream_element_ids=chart_upstream_eids,
+                            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                            wb_element_index=wb_element_index,
+                            element_warehouse_table_index=element_warehouse_table_index,
+                            elementId_to_chart_urn=elementId_to_chart_urn,
+                        )
+                        if resolved is not None:
+                            break
+                    if resolved is None and refs:
+                        total = len(refs)
+                        if param_count == total:
+                            all_param = True
+                        elif sibling_count == total:
+                            all_sibling = True
+
+            if resolved is not None:
+                upstream_urn, upstream_field = resolved
+                schema_field_urn = builder.make_schema_field_urn(
+                    upstream_urn, upstream_field
+                )
+                self.reporter.chart_input_fields_resolved += 1
+            elif all_param:
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self.reporter.chart_input_fields_skipped_parameter += 1
+            elif all_sibling:
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self.reporter.chart_input_fields_skipped_sibling += 1
+            else:
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self.reporter.chart_input_fields_self_ref_fallback += 1
+
+            fields.append(
+                InputFieldClass(
+                    schemaFieldUrn=schema_field_urn,
+                    schemaField=SchemaFieldClass(
+                        fieldPath=column,
+                        type=SchemaFieldDataTypeClass(StringTypeClass()),
+                        nativeDataType="String",
+                    ),
+                )
+            )
+        return fields
+
     def _gen_elements_workunit(
         self,
         elements: List[Element],
@@ -1298,6 +1926,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         all_input_fields: List[InputFieldClass],
         paths: List[str],
         elementId_to_chart_urn: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -1360,17 +1989,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     self.dataset_upstream_urn_mapping[dataset_urn] = warehouse_urns
 
-            element_input_fields = [
-                InputFieldClass(
-                    schemaFieldUrn=builder.make_schema_field_urn(chart_urn, column),
-                    schemaField=SchemaFieldClass(
-                        fieldPath=column,
-                        type=SchemaFieldDataTypeClass(StringTypeClass()),
-                        nativeDataType="String",  # Make type default as Sting
-                    ),
-                )
-                for column in element.columns
-            ]
+            # Build per-element context for formula-based InputFields resolution.
+            # chart_upstream_eids contains element_ids of SheetUpstream neighbors
+            # only. SheetUpstream is the only upstream variant that carries an
+            # element_id matching another workbook page element — it represents
+            # intra-workbook chart→chart lineage (same workbook, different element).
+            # DatasetUpstream (warehouse table) and DataModelElementUpstream (DM
+            # element loaded into the workbook) are handled separately below.
+            chart_upstream_eids: Set[str] = {
+                upstream.element_id
+                for upstream in element.upstream_sources.values()
+                if isinstance(upstream, SheetUpstream)
+            }
+            # DataModelElementUpstream: map DM element workbook-page name -> Dataset URN.
+            # Look up directly from the name maps without re-incrementing element_dm_edge
+            # counters (those were already bumped inside _get_element_input_details).
+            dm_upstream_urn_by_element_name: Dict[str, str] = {}
+            for upstream in element.upstream_sources.values():
+                if isinstance(upstream, DataModelElementUpstream) and upstream.name:
+                    name_map = self.dm_element_urn_by_name.get(
+                        upstream.data_model_url_id, {}
+                    )
+                    candidates = name_map.get(upstream.name.lower(), [])
+                    if candidates:
+                        dm_upstream_urn_by_element_name[upstream.name] = sorted(
+                            candidates
+                        )[0]
+
+            element_warehouse_table_index = self._build_element_warehouse_table_index(
+                dataset_inputs
+            )
+
+            element_input_fields = self._build_element_input_fields(
+                element=element,
+                chart_urn=chart_urn,
+                chart_upstream_eids=chart_upstream_eids,
+                dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                wb_element_index=wb_element_index,
+                element_warehouse_table_index=element_warehouse_table_index,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+            )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -1385,9 +2043,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma workbook page to Datahub dashboard
         """
-        # Built once at workbook scope since intra-workbook lineage can
-        # cross pages. Keys mirror the chart-emission allowlist in
-        # get_page_elements (type in {"table","visualization"}).
+        # Both maps are built once at workbook scope — intra-workbook lineage can
+        # cross pages, so all elements must be indexed before processing any page.
+        # Keys mirror the chart-emission allow-list in get_page_elements
+        # (type in {"table","visualization"}); filtered types are absent from both.
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,
@@ -1397,6 +2056,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for page in workbook.pages
             for element in page.elements
         }
+        wb_element_index = self._build_workbook_element_index(workbook)
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
@@ -1422,12 +2082,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields, paths, elementId_to_chart_urn
+                page.elements,
+                workbook,
+                all_input_fields,
+                paths,
+                elementId_to_chart_urn,
+                wb_element_index,
             )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=dashboard_urn,
-                aspect=InputFieldsClass(fields=all_input_fields),
+                aspect=InputFieldsClass(
+                    fields=list(
+                        {
+                            (field.schemaFieldUrn, field.schemaField.fieldPath): field
+                            for field in all_input_fields
+                            if field.schemaField is not None
+                        }.values()
+                    )
+                ),
             ).as_workunit()
 
     def _gen_workbook_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:

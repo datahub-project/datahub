@@ -86,6 +86,16 @@ def test_parameter_ref() -> None:
     assert ref.is_parameter is True
 
 
+def test_p_prefixed_sibling_ref_is_classified_as_parameter() -> None:
+    """The P_ heuristic assumes bare P_* refs are Sigma parameters, not sibling columns."""
+    result = extract_bracket_refs("[P_revenue] * 2")
+    assert len(result) == 1
+    ref = result[0]
+    assert ref.source == "P_revenue"
+    assert ref.column is None
+    assert ref.is_parameter is True
+
+
 def test_parameter_with_slash_is_not_parameter() -> None:
     """A `P_*` ref with a column part is NOT treated as a parameter per our defensive rule."""
     result = extract_bracket_refs("[P_X/col]")
@@ -123,6 +133,12 @@ def test_multiline_formula() -> None:
 def test_empty_bracket_skipped() -> None:
     """Empty brackets `[]` are silently skipped — source is empty after strip."""
     assert extract_bracket_refs("[]") == []
+
+
+def test_empty_source_or_column_refs_skipped() -> None:
+    assert extract_bracket_refs("[a/]") == []
+    assert extract_bracket_refs("[/b]") == []
+    assert extract_bracket_refs("[   ]") == []
 
 
 def test_brackets_inside_string_literal_ignored() -> None:
@@ -339,3 +355,10 @@ def test_unterminated_string_continues_scanning() -> None:
     as an intentional behavior change.
     """
     assert extract_bracket_refs('foo "still in string [not_a_ref]') == []
+
+
+def test_balanced_quote_inside_bracket_body_preserves_later_refs() -> None:
+    result = extract_bracket_refs('[col"name] + If([ok] = "yes", 1, 0)')
+    assert len(result) == 2
+    assert result[0].source == 'col"name'
+    assert result[1].source == "ok"
