@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig.CacheConfig;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.mxe.GenericAspect;
 import io.datahubproject.metadata.context.OperationContext;
 import java.nio.charset.StandardCharsets;
@@ -47,13 +48,13 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
 
     cachingService =
         new LatestTimeseriesAspectVersionCachingService(
-            mockDelegate, cacheManager, cacheConfig, objectMapper, cachedAspects);
+            mockDelegate, cacheManager, cacheConfig, cachedAspects);
 
     when(opContext.getObjectMapper()).thenReturn(objectMapper);
   }
 
   @Test
-  public void testGetAspectValuessCacheHit() throws Exception {
+  public void testGetAspectValuesCacheHit() throws Exception {
     Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:mysql,test,PROD)");
     String entityName = urn.getEntityType();
     String aspectName = "datasetProfile";
@@ -153,7 +154,8 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
 
     assertNotNull(cache.get(cacheKey));
 
-    cachingService.deleteAspectValues(opContext, entityName, aspectName, null);
+    Filter filter = new Filter();
+    cachingService.deleteAspectValues(opContext, entityName, aspectName, filter);
 
     assertNull(cache.get(cacheKey));
   }
@@ -169,6 +171,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
   }
 
   private JsonNode createTestDocument(String urn, String eventData) {
-    return objectMapper.createObjectNode().put("urn", urn).put("event", eventData);
+    JsonNode eventNode = objectMapper.createObjectNode().put("data", eventData);
+    return objectMapper.createObjectNode().put("urn", urn).set("event", eventNode);
   }
 }

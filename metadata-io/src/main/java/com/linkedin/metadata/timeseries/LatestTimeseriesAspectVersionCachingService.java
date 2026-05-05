@@ -255,7 +255,7 @@ public class LatestTimeseriesAspectVersionCachingService
     DeleteAspectValuesResult result =
         delegate.deleteAspectValues(opContext, entityName, aspectName, filter);
     if (cachedAspectNames.contains(aspectName)) {
-      evictCacheForAspect();
+      evictAspectIndex(entityName, aspectName);
     }
     return result;
   }
@@ -267,12 +267,7 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull String aspectName,
       @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
-    String result =
-        delegate.deleteAspectValuesAsync(opContext, entityName, aspectName, filter, options);
-    if (cachedAspectNames.contains(aspectName)) {
-      evictCacheForAspect();
-    }
-    return result;
+    return delegate.deleteAspectValuesAsync(opContext, entityName, aspectName, filter, options);
   }
 
   @Override
@@ -282,11 +277,7 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull String aspectName,
       @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
-    String result = delegate.reindexAsync(opContext, entityName, aspectName, filter, options);
-    if (cachedAspectNames.contains(aspectName)) {
-      evictCacheForAspect();
-    }
-    return result;
+    return delegate.reindexAsync(opContext, entityName, aspectName, filter, options);
   }
 
   @Override
@@ -294,7 +285,7 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull OperationContext opContext, @Nonnull final String runId) {
     DeleteAspectValuesResult result = delegate.rollbackTimeseriesAspects(opContext, runId);
     if (cache != null) {
-      cache.clear();
+      evictCacheForAllAspects();
     }
     return result;
   }
@@ -315,6 +306,7 @@ public class LatestTimeseriesAspectVersionCachingService
           EnvelopedAspect aspect = parseDocumentToEnvelopedAspect(opContext, document);
           String cacheKey = buildCacheKey(entityName, aspectName, urn);
           putCachedValue(cacheKey, aspect);
+          evictAspectIndex(entityName, aspectName);
         }
       } catch (Exception e) {
         log.warn("Failed to cache upserted aspect for {}", urn, e);
@@ -403,13 +395,25 @@ public class LatestTimeseriesAspectVersionCachingService
     return "latest:" + entityName + ":" + aspectName + ":" + urn;
   }
 
-  private void evictCacheForAspect() {
+  private void evictCacheForAspect(String aspectName) {
     if (cache == null) {
       return;
     }
     try {
       cache.clear();
-      log.debug("Cleared cache for aspect");
+      log.debug("Evicted cache for aspect {}", aspectName);
+    } catch (Exception e) {
+      log.warn("Failed to evict cache for aspect {}", aspectName, e);
+    }
+  }
+
+  private void evictCacheForAllAspects() {
+    if (cache == null) {
+      return;
+    }
+    try {
+      cache.clear();
+      log.debug("Cleared entire cache");
     } catch (Exception e) {
       log.warn("Failed to clear cache", e);
     }
@@ -498,5 +502,47 @@ public class LatestTimeseriesAspectVersionCachingService
   private List<EnvelopedAspect> deserializeCachedAspect(String cached) throws Exception {
     EnvelopedAspect aspect = RecordUtils.toRecordTemplate(EnvelopedAspect.class, cached);
     return List.of(aspect);
+  }
+
+  private void addUrnToAspectIndex(String aspectName, String urn) {
+    if (cache == null) {
+      return;
+    }
+    try {
+      String indexKey = "aspect-index:" + aspectName;
+      String cached = cache.get(indexKey, String.class);
+      Set<String> urns =
+          cached != null
+              ? objectMapper.readValue(
+                  cached, new com.fasterxml.jackson.core.type.TypeReference<Set<String>>() {})
+              : new HashSet<>();
+      urns.add(urn);
+      cache.put(indexKey, objectMapper.writeValueAsString(urns));
+    } catch (Exception e) {
+      log.warn("Failed to update aspect index for {}", aspectName, e);
+    }
+  }
+
+  private void evictAspectIndex(String entityName, String aspectName) {
+    if (cache == null) {
+      return;
+    }
+    try {
+      String indexKey = "aspect-index:" + aspectName;
+      String cached = cache.get(indexKey, String.class);
+      if (cached != null) {
+        Set<String> urns =
+            objectMapper.readValue(
+                cached, new com.fasterxml.jackson.core.type.TypeReference<Set<String>>() {});
+        for (String urn : urns) {
+          String cacheKey = buildCacheKey(entityName, aspectName, urn);
+          cache.evict(cacheKey);
+        }
+        cache.evict(indexKey);
+        log.debug("Evicted {} cached entries for aspect {}", urns.size(), aspectName);
+      }
+    } catch (Exception e) {
+      log.warn("Failed to evict aspect index for {}", aspectName, e);
+    }
   }
 }
