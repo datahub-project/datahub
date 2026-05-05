@@ -1247,6 +1247,8 @@ def test_independent_datasets_extraction(
                             "datasets": [
                                 {
                                     "id": "91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
+                                    "name": "employee-dataset",
+                                    "description": "Employee Management",
                                     "tables": [
                                         {
                                             "name": "employee_ctc",
@@ -1665,7 +1667,7 @@ def test_powerbi_gcc_environment(
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_ingest.json"
+    golden_file = "golden_test_ingest_gcc.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,

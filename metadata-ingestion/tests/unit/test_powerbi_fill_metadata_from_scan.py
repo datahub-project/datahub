@@ -21,7 +21,10 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Workspace
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Workspace,
+    new_powerbi_dataset,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 
 
@@ -723,3 +726,209 @@ def test_get_workspaces_omits_url_for_personal_workspace():
     assert by_id["P-1"].webUrl is None, (
         "Legacy Personal workspaces are not directly addressable; URL must be None"
     )
+
+
+def test_new_powerbi_dataset_uses_raw_web_url_when_present():
+    """Regular API responses include `webUrl` directly; we just append /details."""
+    workspace = _make_workspace("WS-1")
+    raw_instance = {
+        "id": "DS-1",
+        "name": "ds",
+        "webUrl": "https://app.powerbi.com/groups/WS-1/datasets/DS-1",
+    }
+
+    dataset = new_powerbi_dataset(workspace, raw_instance)
+
+    assert dataset.webUrl == "https://app.powerbi.com/groups/WS-1/datasets/DS-1/details"
+
+
+def test_new_powerbi_dataset_imputes_web_url_from_workspace_when_missing():
+    """Scan-result payloads omit `webUrl`; impute it from the parent workspace
+    so dataset entities still link back to the PowerBI UI."""
+    workspace = _make_workspace("WS-2")  # webUrl=https://app.powerbi.com/groups/WS-2
+    raw_instance = {"id": "DS-2", "name": "ds"}  # no webUrl
+
+    dataset = new_powerbi_dataset(workspace, raw_instance)
+
+    assert dataset.webUrl == "https://app.powerbi.com/groups/WS-2/datasets/DS-2/details"
+
+
+def test_new_powerbi_dataset_returns_none_when_workspace_url_missing():
+    """Personal/legacy workspaces have webUrl=None; with no raw webUrl either
+    we must surface None rather than a string like 'None/details'."""
+    workspace = Workspace(
+        id="PG-1",
+        name="mine",
+        type="PersonalGroup",
+        webUrl=None,  # personal workspaces aren't UI-addressable
+        datasets={},
+        dashboards={},
+        reports={},
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+        independent_datasets={},
+        app=None,
+    )
+    raw_instance = {"id": "DS-3", "name": "ds"}
+
+    dataset = new_powerbi_dataset(workspace, raw_instance)
+
+    assert dataset.webUrl is None
+
+
+def test_new_powerbi_dataset_default_for_missing_fields_matches_dataclass_contract():
+    """Pin the asymmetric default policy in ``new_powerbi_dataset``:
+
+    - ``description`` is a required ``str`` on ``PowerBIDataset``, so a
+      missing field must default to ``""`` (not ``None``, which would
+      silently violate the type contract).
+    - ``configuredBy`` and ``name`` are ``Optional[str]``, so missing must
+      surface as ``None`` -- the owner-emit branch in
+      ``powerbi.py`` short-circuits on ``if dataset.configuredBy:``.
+
+    Catches regressions where someone collapses these to a uniform
+    ``dict.get`` default pattern and breaks the contract.
+    """
+    workspace = _make_workspace("WS-4")
+
+    populated = new_powerbi_dataset(
+        workspace,
+        {
+            "id": "DS-4a",
+            "name": "ds",
+            "description": "library dataset",
+            "configuredBy": "user@example.com",
+        },
+    )
+    assert populated.description == "library dataset"
+    assert populated.configuredBy == "user@example.com"
+    assert populated.name == "ds"
+
+    missing = new_powerbi_dataset(workspace, {"id": "DS-4b"})
+    assert missing.description == "", (
+        "missing description must default to empty string to satisfy "
+        "PowerBIDataset.description: str (not Optional[str])"
+    )
+    assert missing.configuredBy is None, (
+        "missing configuredBy must surface as None so the owner-emit "
+        "branch in powerbi.py can short-circuit on `if dataset.configuredBy:`"
+    )
+    assert missing.name is None, (
+        "missing name must surface as None to match PowerBIDataset.name: Optional[str]"
+    )
+
+    explicit_null = new_powerbi_dataset(
+        workspace, {"id": "DS-4c", "name": "ds", "description": None}
+    )
+    assert explicit_null.description == "", (
+        "explicit description=null must coerce to empty string; dict.get "
+        "with a default does not apply when the key is present with None"
+    )
+
+
+def test_new_powerbi_dataset_extracts_dependent_artifact_id_from_relations():
+    """``new_powerbi_dataset`` is the sole site that parses scan-result
+    relations into ``dependent_on_artifact_id``. Pin the contract: first
+    matching relation wins, missing relations leave the field None,
+    relations without dependentOnArtifactId are skipped.
+    """
+    workspace = _make_workspace("WS-DL")
+
+    no_relations = new_powerbi_dataset(workspace, {"id": "DS-DL-a", "name": "n"})
+    assert no_relations.dependent_on_artifact_id is None
+
+    empty_relations = new_powerbi_dataset(
+        workspace, {"id": "DS-DL-b", "name": "n", Constant.RELATIONS: []}
+    )
+    assert empty_relations.dependent_on_artifact_id is None
+
+    with_match = new_powerbi_dataset(
+        workspace,
+        {
+            "id": "DS-DL-c",
+            "name": "n",
+            Constant.RELATIONS: [
+                {"name": "noise"},  # no dependentOnArtifactId; skipped
+                {Constant.DEPENDENT_ON_ARTIFACT_ID: "ART-1"},
+                {Constant.DEPENDENT_ON_ARTIFACT_ID: "ART-2"},  # later match ignored
+            ],
+        },
+    )
+    assert with_match.dependent_on_artifact_id == "ART-1"
+
+
+def test_regular_resolver_get_dataset_parameters_hits_parameters_endpoint():
+    api = _make_api()  # admin_apis_only defaults to False -> RegularAPIResolver
+    resolver = api._get_resolver()
+
+    fake_response = mock.MagicMock()
+    fake_response.json.return_value = {
+        "value": [
+            {"name": "Server", "currentValue": "host.example.com"},
+            {"name": "Database", "currentValue": "library"},
+        ]
+    }
+    fake_response.raise_for_status.return_value = None
+
+    with mock.patch.object(
+        resolver._request_session, "get", return_value=fake_response
+    ) as mocked_get:
+        params = resolver.get_dataset_parameters(workspace_id="WS-1", dataset_id="DS-1")
+
+    assert params == {"Server": "host.example.com", "Database": "library"}
+    called_url = mocked_get.call_args[0][0]
+    assert called_url.endswith("/groups/WS-1/datasets/DS-1/parameters"), (
+        f"expected /parameters endpoint, got: {called_url}"
+    )
+
+
+def test_regular_resolver_get_dataset_parameters_handles_empty_response():
+    """Datasets with no parameters return an empty list under `value`."""
+    api = _make_api()
+    resolver = api._get_resolver()
+
+    fake_response = mock.MagicMock()
+    fake_response.json.return_value = {}  # no `value` key at all
+    fake_response.raise_for_status.return_value = None
+
+    with mock.patch.object(
+        resolver._request_session, "get", return_value=fake_response
+    ):
+        params = resolver.get_dataset_parameters(workspace_id="WS-1", dataset_id="DS-1")
+
+    assert params == {}
+
+
+def test_get_workspace_datasets_builds_from_scan_result_without_extra_http():
+    api = _make_api()
+    workspace = _make_workspace("WS-5", name="ws-five")
+    workspace.scan_result = {
+        Constant.ID: "WS-5",
+        Constant.NAME: "ws-five",
+        "datasets": [
+            {
+                "id": "DS-5",
+                "name": "scan-only-dataset",
+                "description": "from scan",
+                "configuredBy": "owner@example.com",
+                "tables": [],
+            }
+        ],
+    }
+
+    # No HTTP for parameters either (kept isolated; the parameters fetch is
+    # already wrapped in try/except in _get_workspace_datasets).
+    with mock.patch.object(
+        api._get_resolver(), "get_dataset_parameters", return_value={}
+    ) as mocked_params:
+        dataset_map = api._get_workspace_datasets(workspace)
+
+    assert set(dataset_map.keys()) == {"DS-5"}
+    dataset = dataset_map["DS-5"]
+    assert dataset.name == "scan-only-dataset"
+    assert dataset.description == "from scan"
+    assert dataset.configuredBy == "owner@example.com"
+    # webUrl is imputed from workspace.webUrl since scan results omit it
+    assert dataset.webUrl == "https://app.powerbi.com/groups/WS-5/datasets/DS-5/details"
+    mocked_params.assert_called_once_with(workspace_id="WS-5", dataset_id="DS-5")

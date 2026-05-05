@@ -359,8 +359,8 @@ ebean:
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
-
-# Only required if entityService.impl is cassandra
+  queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  # Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
   datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}

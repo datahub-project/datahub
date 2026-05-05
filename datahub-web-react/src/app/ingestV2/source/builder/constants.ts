@@ -27,6 +27,7 @@ import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
 import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
+import informaticaLogo from '@images/informaticalogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
@@ -189,6 +190,8 @@ export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
+export const INFORMATICA = 'informatica';
+export const INFORMATICA_URN = `urn:li:dataPlatform:${INFORMATICA}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 export const SNOWPLOW = 'snowplow';
@@ -261,6 +264,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
+    [INFORMATICA_URN]: informaticaLogo,
     [SNAPLOGIC_URN]: snaplogicLogo,
     [FABRIC_URN]: fabricLogo,
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,

@@ -25,6 +25,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     User,
     Workspace,
+    new_powerbi_dataset,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -466,21 +467,7 @@ class PowerBiAPI:
 
         for dataset_dict in datasets:
             dataset_id = dataset_dict[Constant.ID]
-            try:
-                dataset_instance = self._get_resolver().get_dataset(
-                    workspace=workspace,
-                    dataset_id=dataset_id,
-                )
-                if dataset_instance is None:
-                    continue
-            except Exception as e:
-                self.reporter.warning(
-                    title="Unable to fetch dataset details",
-                    message="Skipping this dataset due to the error. Metadata will be incomplete.",
-                    context=f"workspace={workspace.name}, dataset-id={dataset_id}",
-                    exc=e,
-                )
-                continue
+            dataset_instance = new_powerbi_dataset(workspace, dataset_dict)
 
             # fetch + set dataset parameters
             try:
@@ -496,19 +483,6 @@ class PowerBiAPI:
                 dataset_instance.tags = self._parse_endorsement(
                     dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
-
-            # Extract dependent artifact ID from scan result relations (for DirectLake lineage)
-            # The individual dataset API doesn't return relations, but the scan result does
-            relations = dataset_dict.get(Constant.RELATIONS, [])
-            for relation in relations:
-                if relation.get(Constant.DEPENDENT_ON_ARTIFACT_ID):
-                    dataset_instance.dependent_on_artifact_id = relation[
-                        Constant.DEPENDENT_ON_ARTIFACT_ID
-                    ]
-                    logger.debug(
-                        f"Dataset {dataset_id} depends on artifact: {dataset_instance.dependent_on_artifact_id}"
-                    )
-                    break
 
             dataset_map[dataset_instance.id] = dataset_instance
             # set dataset-name

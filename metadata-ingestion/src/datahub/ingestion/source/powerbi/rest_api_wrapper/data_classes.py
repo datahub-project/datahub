@@ -392,15 +392,22 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
             dependent_on_artifact_id = relation[Constant.DEPENDENT_ON_ARTIFACT_ID]
             break
 
+    # Prefer the dataset-level webUrl from the scan result; fall back to a
+    # workspace-rooted URL when the scan omits it. workspace.webUrl is None
+    # for non-addressable workspaces (personal / legacy personal), so the
+    # final branch leaves webUrl unset rather than emit a dead UI link.
+    if raw_instance.get("webUrl") is not None:
+        web_url = f"{raw_instance.get('webUrl')}/details"
+    elif workspace.webUrl:
+        web_url = f"{workspace.webUrl}/datasets/{raw_instance['id']}/details"
+    else:
+        web_url = None
+
     return PowerBIDataset(
         id=raw_instance["id"],
         name=raw_instance.get("name"),
-        description=raw_instance.get("description", ""),
-        webUrl=(
-            "{}/details".format(raw_instance.get("webUrl"))
-            if raw_instance.get("webUrl") is not None
-            else None
-        ),
+        description=raw_instance.get("description") or "",
+        webUrl=web_url,
         workspace_id=workspace.id,
         workspace_name=workspace.name,
         parameters={},
