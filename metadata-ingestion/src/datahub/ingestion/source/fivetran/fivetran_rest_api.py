@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterator, Optional, Union
+from typing import Any, Dict, Iterator, Optional, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -29,6 +29,26 @@ RETRY_MAX_TIMES = 3
 RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
 RETRY_BACKOFF_FACTOR = 1
 RETRY_ALLOWED_METHODS = ["GET"]
+
+
+def _extract_data(payload: Dict[str, Any], *, context: str) -> Any:
+    """Validate a Fivetran REST envelope and return its `data` field.
+
+    Fivetran wraps every response as `{"code": "...", "message": "...", "data": ...}`.
+    Direct `payload["data"]` access raises KeyError on a malformed-but-200
+    response; using this helper turns that into a clear ValueError that
+    surfaces in the ingest report.
+    """
+    code = payload.get("code")
+    if code != "Success":
+        raise ValueError(
+            f"Fivetran API returned non-success code {code!r} for {context}: "
+            f"{payload.get('message')}"
+        )
+    data = payload.get("data")
+    if data is None:
+        raise ValueError(f"Fivetran API response missing 'data' field for {context}")
+    return data
 
 
 class FivetranAPIClient:
@@ -140,14 +160,8 @@ class FivetranAPIClient:
         response.raise_for_status()
         payload = response.json()
 
-        code = payload.get("code")
-        if code != "Success":
-            raise ValueError(
-                f"Fivetran API returned non-success code {code!r} for "
-                f"destination {destination_id!r}: {payload.get('message')}"
-            )
-
-        details = FivetranDestinationDetails.model_validate(payload["data"])
+        data = _extract_data(payload, context=f"destination {destination_id!r}")
+        details = FivetranDestinationDetails.model_validate(data)
         self._destination_cache[destination_id] = details
         return details
 
@@ -170,12 +184,9 @@ class FivetranAPIClient:
             )
             resp.raise_for_status()
             payload = resp.json()
-            if payload.get("code") != "Success":
-                raise ValueError(
-                    f"Fivetran API returned non-success code "
-                    f"{payload.get('code')!r} for list_groups"
-                )
-            page = FivetranListGroupsResponse.model_validate(payload["data"])
+            page = FivetranListGroupsResponse.model_validate(
+                _extract_data(payload, context="list_groups")
+            )
             yield from page.items
             cursor = page.next_cursor
             if cursor is None:
@@ -201,13 +212,11 @@ class FivetranAPIClient:
             )
             resp.raise_for_status()
             payload = resp.json()
-            if payload.get("code") != "Success":
-                raise ValueError(
-                    f"Fivetran API returned non-success code "
-                    f"{payload.get('code')!r} for list_connections "
-                    f"(group_id={group_id})"
+            page = FivetranListConnectionsResponse.model_validate(
+                _extract_data(
+                    payload, context=f"list_connections (group_id={group_id})"
                 )
-            page = FivetranListConnectionsResponse.model_validate(payload["data"])
+            )
             yield from page.items
             cursor = page.next_cursor
             if cursor is None:
@@ -220,13 +229,12 @@ class FivetranAPIClient:
         )
         resp.raise_for_status()
         payload = resp.json()
-        if payload.get("code") != "Success":
-            raise ValueError(
-                f"Fivetran API returned non-success code "
-                f"{payload.get('code')!r} for get_connection_schemas "
-                f"(connection_id={connection_id})"
+        return FivetranConnectionSchemas.model_validate(
+            _extract_data(
+                payload,
+                context=f"get_connection_schemas (connection_id={connection_id})",
             )
-        return FivetranConnectionSchemas.model_validate(payload["data"])
+        )
 
     def get_table_columns(
         self,
@@ -252,13 +260,14 @@ class FivetranAPIClient:
         )
         resp.raise_for_status()
         payload = resp.json()
-        if payload.get("code") != "Success":
-            raise ValueError(
-                f"Fivetran API returned non-success code "
-                f"{payload.get('code')!r} for get_table_columns "
-                f"(connection_id={connection_id}, schema={schema}, table={table})"
-            )
-        columns_data = payload.get("data", {}).get("columns", {}) or {}
+        data = _extract_data(
+            payload,
+            context=(
+                f"get_table_columns (connection_id={connection_id}, "
+                f"schema={schema}, table={table})"
+            ),
+        )
+        columns_data = data.get("columns", {}) or {}
         return {
             name: FivetranColumn.model_validate(col_data)
             for name, col_data in columns_data.items()
@@ -279,9 +288,9 @@ class FivetranAPIClient:
             )
             resp.raise_for_status()
             payload = resp.json()
-            if payload.get("code") != "Success":
-                raise ValueError(f"Fivetran API non-success: {payload.get('code')!r}")
-            page = FivetranListUsersResponse.model_validate(payload["data"])
+            page = FivetranListUsersResponse.model_validate(
+                _extract_data(payload, context=f"list_users (group_id={group_id})")
+            )
             yield from page.items
             cursor = page.next_cursor
             if cursor is None:

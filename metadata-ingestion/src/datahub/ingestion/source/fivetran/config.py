@@ -247,6 +247,35 @@ class PlatformDetail(ConfigModel):
         default=True,
         description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
     )
+    database_lowercase: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Lowercase the `database` segment when constructing the dataset "
+            "URN. Defaults to True to match DataHub's standard lowercase URN "
+            "convention (and to preserve the long-standing Fivetran connector "
+            "behaviour). Set False to keep the case Fivetran reports — useful "
+            "when aligning with another DataHub source whose URN preserves "
+            "the database casing (e.g. some Glue or Iceberg setups). "
+            "Schema and table segments are always passed through unchanged."
+        ),
+    )
+
+    @property
+    def database_for_urn(self) -> Optional[str]:
+        """The `database` value formatted for inclusion in a dataset URN.
+
+        Centralises the case rule so both URN-construction sites
+        (`_extend_lineage` for source URNs, `build_destination_urn` for
+        destination URNs) lower-case identically — and so the per-record
+        opt-out via `database_lowercase=False` only has to be wired in
+        one place. Exposed as a `@property` (not a Pydantic field /
+        `@computed_field`) so it doesn't leak into `model_dump()` and
+        thus into `_compose_custom_properties` — the customProperties
+        aspect intentionally surfaces the user-typed `database` verbatim.
+        """
+        if self.database is None:
+            return None
+        return self.database.lower() if self.database_lowercase else self.database
 
 
 class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):

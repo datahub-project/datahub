@@ -232,6 +232,23 @@ class TestApplyDiscoveredDestination:
         assert result.platform == "snowflake"
         assert result.database == "WH"
 
+    def test_unknown_service_without_override_leaves_platform_none(self):
+        # Regression: previously this synthesized the URN platform from the
+        # raw `discovered.service` string, producing junk like
+        # `urn:li:dataPlatform:aurora_postgres_warehouse_v2`. The helper
+        # now leaves `platform=None` so `build_destination_urn` raises and
+        # the caller surfaces a once-per-destination warning telling the
+        # user to set `destination_to_platform_instance.<id>.platform`.
+        base = PlatformDetail()
+        result = FivetranSource.apply_discovered_destination(
+            base,
+            _details("aurora_postgres_warehouse_v2", database="some_db"),
+        )
+        assert result.platform is None
+        # Discovered database is still mirrored so the user only has to
+        # supply `platform` (not both) to fix the recipe.
+        assert result.database == "some_db"
+
     def test_managed_data_lake_defaults_to_iceberg(self):
         # No platform override → modern Polaris / Iceberg-REST default.
         base = PlatformDetail()
@@ -669,6 +686,62 @@ class TestBuildDestinationUrnGlueMdl:
             str(urn)
             == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_datalake.public.employee,PROD)"
         )
+
+    def test_glue_database_case_preserved_when_opted_out(self):
+        # `database_lowercase=False` is the per-destination opt-out for
+        # users whose paired DataHub Glue source URN preserves database
+        # casing. Default (True) keeps the long-standing behaviour
+        # exercised by `test_glue_database_is_lowercased`.
+        urn = FivetranSource.build_destination_urn(
+            destination_table="public.employee",
+            destination_details=PlatformDetail(
+                platform="glue",
+                database="Fivetran_DataLake",
+                database_lowercase=False,
+            ),
+        )
+        assert (
+            str(urn)
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,Fivetran_DataLake.public.employee,PROD)"
+        )
+
+
+class TestDatabaseForUrn:
+    """`PlatformDetail.database_for_urn` centralises the `database` case
+    rule for URN construction. Default lowercases (matches DataHub's
+    standard URN convention and the long-standing Fivetran behaviour);
+    `database_lowercase=False` on the matching `PlatformDetail` is the
+    per-destination opt-out. Exposed as a `@property` (not a Pydantic
+    `@computed_field`) so it stays out of `model_dump()` and doesn't
+    leak into `_compose_custom_properties` — the customProperties
+    aspect intentionally surfaces the user-typed `database` verbatim."""
+
+    def test_returns_none_when_database_unset(self):
+        assert PlatformDetail().database_for_urn is None
+
+    def test_default_lowercases(self):
+        assert (
+            PlatformDetail(database="ANALYTICS_DB").database_for_urn == "analytics_db"
+        )
+
+    def test_opted_out_preserves_case(self):
+        assert (
+            PlatformDetail(
+                database="ANALYTICS_DB", database_lowercase=False
+            ).database_for_urn
+            == "ANALYTICS_DB"
+        )
+
+    def test_property_does_not_appear_in_model_dump(self):
+        # Regression: derive-on-read must NOT show up as a serialized field
+        # — `_compose_custom_properties` in `fivetran.py` calls
+        # `model_dump()` to build the `destination.*` customProperties
+        # aspect, and we don't want a derived `database_for_urn: ...`
+        # entry there alongside the user's `database` field.
+        details = PlatformDetail(database="ANALYTICS_DB")
+        dumped = details.model_dump()
+        assert "database" in dumped
+        assert "database_for_urn" not in dumped
 
 
 class TestBuildDestinationUrnS3Mdl:

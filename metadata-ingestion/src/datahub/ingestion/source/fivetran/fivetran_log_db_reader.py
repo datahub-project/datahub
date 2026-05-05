@@ -466,16 +466,15 @@ class FivetranLogDbReader:
             for connector in connector_list:
                 connector_id = connector[Constant.CONNECTOR_ID]
                 connector_name = connector[Constant.CONNECTOR_NAME]
-                # Match either `connector_name` (the long-standing DB-mode
-                # behaviour) or `connector_id` (matches REST mode and the
-                # recipe documentation: "Fivetran connector IDs are visible
-                # in the UI under Connectors → Setup"). Allowing either
-                # avoids breaking existing recipes while letting users
-                # write portable patterns that work in both modes.
-                if not (
-                    connector_patterns.allowed(connector_name)
-                    or connector_patterns.allowed(connector_id)
-                ):
+                # DB mode has always matched `connector_patterns` against
+                # `connector_name` only. Keep that contract — adding
+                # connector_id matching would silently change which
+                # connectors a `deny` pattern catches for existing recipes
+                # (e.g. `deny: ["abc123"]` would now also drop a connector
+                # whose ID happened to contain "abc123"). REST mode is new
+                # and uses connector_id directly since that's the stable
+                # identifier the REST API exposes.
+                if not connector_patterns.allowed(connector_name):
                     self._report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )

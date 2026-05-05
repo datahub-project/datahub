@@ -131,7 +131,11 @@ class FivetranLogRestReader:
         return self._group_ids
 
     def get_user_email(self, user_id: Optional[str]) -> Optional[str]:
-        if user_id is None:
+        # Empty string is the "no connecting user" sentinel set by
+        # `_build_connector` (`listed.connected_by or ""`); falsy-check
+        # mirrors the DB reader so we don't pay an N-group `list_users`
+        # walk for every connector that lacks a user.
+        if not user_id:
             return None
         if user_id in self._user_email_cache:
             return self._user_email_cache[user_id]
@@ -195,11 +199,15 @@ class FivetranLogRestReader:
                 )
                 continue
             for listed in listed_connections:
-                # Match either `connector_id` (`listed.id`) or `connector_name`
-                # (`listed.schema_` — the destination schema, which is what
-                # the DB-mode reader stores in its `connector_name` field).
-                # Mirrors DB-mode filtering so the same recipe patterns
-                # work in both modes.
+                # REST mode is new — no backwards-compat baseline to
+                # preserve — so we match either `connector_id` (`listed.id`,
+                # the stable identifier the Fivetran UI shows) or
+                # `connector_name` (`listed.schema_`, the destination schema
+                # name; the same string DB mode treats as `connector_name`).
+                # Allowing both lets a recipe written against DB-mode names
+                # keep working unchanged when the user switches to REST.
+                # DB mode itself remains name-only — see
+                # `fivetran_log_db_reader.py` for why we don't OR there.
                 if not (
                     connector_patterns.allowed(listed.id)
                     or connector_patterns.allowed(listed.schema_)
@@ -259,8 +267,9 @@ class FivetranLogRestReader:
                         )
                     continue
                 connectors.append(connector)
-                with self._report_lock:
-                    self._report.report_connectors_scanned()
+                # `report_connectors_scanned()` is incremented downstream
+                # in `_get_connector_workunits` — the canonical site shared
+                # with DB mode. Counting here too would double the metric.
         finally:
             # `wait=False` returns immediately; `cancel_futures=True`
             # (Python 3.9+) cancels any tasks not yet started. In-flight

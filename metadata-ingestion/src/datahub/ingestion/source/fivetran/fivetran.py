@@ -288,11 +288,12 @@ class FivetranSource(StatefulIngestionSourceBase):
                     connector, source_details.env
                 )
             else:
+                source_database_for_urn = source_details.database_for_urn
                 input_dataset_urn = DatasetUrn.create_from_ids(
                     platform_id=source_details.platform,
                     table_name=(
-                        f"{source_details.database.lower()}.{source_table}"
-                        if source_details.database
+                        f"{source_database_for_urn}.{source_table}"
+                        if source_database_for_urn
                         else source_table
                     ),
                     env=source_details.env,
@@ -472,14 +473,15 @@ class FivetranSource(StatefulIngestionSourceBase):
         # `<schema>.<table>` matches the Glue table name verbatim. If the
         # customer's Glue catalog uses a different table-name convention,
         # the URN won't align — they must override per-destination.
-        if destination_details.database is None:
+        destination_database_for_urn = destination_details.database_for_urn
+        if destination_database_for_urn is None:
             raise ValueError(
                 "destination_details.database must be set before constructing "
                 "the destination URN."
             )
         return DatasetUrn.create_from_ids(
             platform_id=destination_details.platform,
-            table_name=f"{destination_details.database.lower()}.{table_name}",
+            table_name=f"{destination_database_for_urn}.{table_name}",
             env=destination_details.env,
             platform_instance=destination_details.platform_instance,
         )
@@ -637,14 +639,17 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         mapping = FivetranSource._RELATIONAL_SERVICE_MAP.get(discovered.service)
         if mapping is None:
-            # Best-effort fallback: use the service name verbatim as the
-            # URN platform and the `database` field if present. Better than
-            # crashing for an unknown service; the user can override via
-            # `destination_to_platform_instance` if the platform name needs
-            # correction (e.g., to align with another DataHub source).
+            # Unknown service: don't synthesize a URN platform from the raw
+            # service string — that would emit junk like
+            # `urn:li:dataPlatform:aurora_postgres_warehouse_v2`. Leave
+            # `base.platform` untouched (None unless the user overrode it);
+            # `build_destination_urn` will raise and the caller logs a
+            # once-per-destination warning telling the user to set
+            # `destination_to_platform_instance.<id>.platform` explicitly.
+            # We still mirror `discovered.config.database` because the user
+            # may want it once they pin a platform.
             return base.model_copy(
                 update={
-                    "platform": base.platform or discovered.service,
                     "database": base.database or discovered.config.database,
                 }
             )

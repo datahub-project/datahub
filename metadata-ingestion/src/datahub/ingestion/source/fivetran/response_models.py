@@ -232,20 +232,3 @@ class FivetranListUsersResponse(BaseModel):
 
     items: List[FivetranListedUser]
     next_cursor: Optional[str] = None
-
-
-class FivetranSyncHistoryItem(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    sync_id: str
-    started_at: datetime.datetime
-    completed_at: Optional[datetime.datetime] = None
-    status: str
-    message: Optional[str] = None
-
-
-class FivetranSyncHistoryResponse(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    items: List[FivetranSyncHistoryItem]
-    next_cursor: Optional[str] = None
