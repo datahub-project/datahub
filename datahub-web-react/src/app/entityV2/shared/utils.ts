@@ -104,6 +104,7 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
     const GITLAB_LINK = 'gitlab.';
     const GITLAB_NAME = 'GitLab';
     const SNOWFLAKE_LINK = 'snowflake.com';
+    const SNOWFLAKE_CN_LINK = 'snowflake.cn';
     const SNOWFLAKE_NAME = 'Snowflake';
 
     const externalUrl = entity?.properties?.externalUrl;
@@ -115,7 +116,7 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
         if (lowerUrl.includes(GITLAB_LINK)) {
             return GITLAB_NAME;
         }
-        if (lowerUrl.includes(SNOWFLAKE_LINK)) {
+        if (lowerUrl.includes(SNOWFLAKE_LINK) || lowerUrl.includes(SNOWFLAKE_CN_LINK)) {
             return SNOWFLAKE_NAME;
         }
     }

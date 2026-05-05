@@ -248,18 +248,21 @@ class SnowflakeV2Source(
                 )
             )
 
+        # Constructed up front so consumers other than ``usage_extractor``
+        # (e.g. the marketplace handler) can also use the stateful window.
+        self.redundant_usage_run_skip_handler: Optional[
+            RedundantUsageRunSkipHandler
+        ] = None
+        if self.config.enable_stateful_usage_ingestion:
+            self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
-                None
-            )
-            if self.config.enable_stateful_usage_ingestion:
-                redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-                    source=self,
-                    config=self.config,
-                    pipeline_name=self.ctx.pipeline_name,
-                    run_id=self.ctx.run_id,
-                )
             self.usage_extractor = self._exit_stack.enter_context(
                 SnowflakeUsageExtractor(
                     config,
@@ -267,7 +270,7 @@ class SnowflakeV2Source(
                     connection=self.connection,
                     filter=self.filters,
                     identifiers=self.identifiers,
-                    redundant_run_skip_handler=redundant_usage_run_skip_handler,
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
                 )
             )
 
@@ -582,13 +585,8 @@ class SnowflakeV2Source(
                     report=self.report,
                     connection=self.connection,
                     identifiers=self.identifiers,
-                    domain_registry=self.domain_registry,
                     snowsight_url_builder=snowsight_url_builder,
-                    redundant_run_skip_handler=(
-                        self.usage_extractor.redundant_run_skip_handler
-                        if self.usage_extractor is not None
-                        else None
-                    ),
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
                 )
                 yield from marketplace_handler.get_marketplace_workunits()
 

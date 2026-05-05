@@ -17,6 +17,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    SnowsightUrlBuilder,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import (
     DataProductProperties,
@@ -137,11 +138,17 @@ def create_handler(
 
     connection = SnowflakeConnection(fake_native)  # type: ignore[arg-type]
 
+    snowsight_url_builder = SnowsightUrlBuilder(
+        account_locator="test-account",
+        region="aws_us_west_2",
+    )
+
     return SnowflakeMarketplaceHandler(
         config=config,
         report=report,
         connection=connection,
         identifiers=identifiers,
+        snowsight_url_builder=snowsight_url_builder,
     )
 
 
@@ -260,10 +267,11 @@ class TestMarketplaceBasicFunctionality:
 
         assert len(dp_props) == 1
         props = dp_props[0]
-        # No SnowsightUrlBuilder is plumbed through in unit tests, so we expect
-        # the cross-account fallback form.
+        # `create_handler` plumbs in a test SnowsightUrlBuilder pointing at
+        # aws_us_west_2 / test-account.
         assert props.externalUrl == (
-            "https://app.snowflake.com/#/data-products/marketplace/internal/listing/ACME.DATA.LISTING"
+            "https://app.snowflake.com/us-west-2/test-account/"
+            "#/data-products/marketplace/internal/listing/ACME.DATA.LISTING"
         )
         # Mapped properties should be present
         assert (
@@ -321,13 +329,14 @@ class TestListingPurchaseMatching:
         handler = create_handler(config_with_shares, mock_listings, [])
         handler._load_marketplace_data()
 
-        # Create test purchase for imported database
+        # Seed a fake purchase since mock_purchases is empty in this test.
         purchase = SnowflakeMarketplacePurchase(
             database_name="IMPORTED_ACME_DB",
             purchase_date=datetime(2024, 7, 1, tzinfo=timezone.utc),
             owner="ACCOUNTADMIN",
             comment=None,
         )
+        handler._marketplace_purchases[purchase.database_name] = purchase
 
         found_listing = handler._find_listing_for_purchase(purchase)
         # Should match because "ACME_DATA" appears in "ACME.DATA.LISTING"
@@ -415,22 +424,28 @@ class TestMarketplaceUsageStatistics:
         mock_usage_events: List[Dict[str, Any]],
     ) -> None:
         """Each row produces one usage workunit on the real table Dataset URN,
-        with ``userCounts`` omitted (consumer accounts aren't users)."""
+        with ``userCounts`` omitted (consumer accounts aren't users).
+        ``auto_empty_dataset_usage_statistics`` may also emit zero-bucket
+        workunits for window continuity; we assert the non-zero one here."""
         handler = create_handler(
             base_config, mock_listings, mock_purchases, mock_usage_events
         )
         wus = list(handler.get_marketplace_workunits())
 
-        usage_wus = [
+        non_empty_usage_wus = [
             wu
             for wu in wus
             if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
+            and cast(
+                DatasetUsageStatisticsClass,
+                wu.metadata.aspect,  # type: ignore[union-attr]
+            ).totalSqlQueries
         ]
 
-        assert len(usage_wus) == 1
-        usage_wu = usage_wus[0]
+        assert len(non_empty_usage_wus) == 1
+        usage_wu = non_empty_usage_wus[0]
 
         entity_urn = cast(str, getattr(usage_wu.metadata, "entityUrn", ""))
         assert entity_urn.startswith("urn:li:dataset:")
@@ -475,15 +490,19 @@ class TestMarketplaceUsageStatistics:
         handler = create_handler(base_config, mock_listings, mock_purchases, usage_rows)
         wus = list(handler.get_marketplace_workunits())
 
-        usage_wus = [
+        non_empty_usage_wus = [
             wu
             for wu in wus
             if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
+            and cast(
+                DatasetUsageStatisticsClass,
+                wu.metadata.aspect,  # type: ignore[union-attr]
+            ).totalSqlQueries
         ]
 
-        assert len(usage_wus) == 2
+        assert len(non_empty_usage_wus) == 2
 
     def test_usage_statistics_skips_unknown_listings(
         self,
@@ -625,16 +644,23 @@ class TestMarketplaceConfiguration:
         handler = create_handler(config_dict, mock_listings, mock_purchases, usage_rows)
         wus = list(handler.get_marketplace_workunits())
 
-        usage_wus = [
+        non_empty_usage_wus = [
             wu
             for wu in wus
             if isinstance(
                 getattr(wu.metadata, "aspect", None), DatasetUsageStatisticsClass
             )
+            and cast(
+                DatasetUsageStatisticsClass,
+                wu.metadata.aspect,  # type: ignore[union-attr]
+            ).totalSqlQueries
         ]
 
-        assert len(usage_wus) == 1
-        usage_stats = cast(DatasetUsageStatisticsClass, usage_wus[0].metadata.aspect)  # type: ignore[union-attr]
+        assert len(non_empty_usage_wus) == 1
+        usage_stats = cast(
+            DatasetUsageStatisticsClass,
+            non_empty_usage_wus[0].metadata.aspect,  # type: ignore[union-attr]
+        )
 
         assert usage_stats.timestampMillis == int(bucket_time.timestamp() * 1000)
         assert usage_stats.eventGranularity is not None
@@ -650,30 +676,37 @@ class TestMarketplaceEdgeCases:
     def test_listing_purchase_matching_logic(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
     ) -> None:
-        """Test the business logic of linking purchases to listings via shares config."""
+        """Test the business logic of linking purchases to listings via the
+        ``marketplace.listing_to_share_overrides`` map."""
         config_with_shares = base_config.copy()
         config_with_shares["shares"] = {
             "ACME_SHARE": {
                 "database": "ACME_DATA",
                 "platform_instance": None,
-                "listing_global_name": "ACME.DATA.LISTING",
                 "consumers": [{"database": "IMPORTED_DB", "platform_instance": None}],
             }
+        }
+        config_with_shares["marketplace"] = {
+            **config_with_shares["marketplace"],
+            "listing_to_share_overrides": {"ACME.DATA.LISTING": "ACME_SHARE"},
         }
 
         handler = create_handler(config_with_shares, mock_listings, [])
         handler._load_marketplace_data()
-
-        purchase = SnowflakeMarketplacePurchase(
+        # Seed the precomputed map with a single fake purchase. Done manually
+        # because mock_purchases is empty in this test.
+        handler._marketplace_purchases["IMPORTED_DB"] = SnowflakeMarketplacePurchase(
             database_name="IMPORTED_DB",
             purchase_date=datetime(2024, 7, 1, tzinfo=timezone.utc),
             owner="ACCOUNTADMIN",
             comment=None,
         )
 
-        found_listing = handler._find_listing_for_purchase(purchase)
+        found_listing = handler._find_listing_for_purchase(
+            handler._marketplace_purchases["IMPORTED_DB"]
+        )
         assert found_listing == "ACME.DATA.LISTING", (
-            "Should use explicit listing_global_name from shares config"
+            "Should use explicit listing_to_share_overrides mapping"
         )
 
     def test_marketplace_owner_patterns_apply_correctly(

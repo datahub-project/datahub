@@ -18,6 +18,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    SnowsightUrlBuilder,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
@@ -57,6 +58,10 @@ def mock_listings() -> List[Dict[str, Any]]:
     ]
 
 
+def _test_snowsight_url_builder() -> SnowsightUrlBuilder:
+    return SnowsightUrlBuilder(account_locator="test-account", region="aws_us_west_2")
+
+
 def create_handler(
     config_dict: Dict[str, Any],
     mock_listings: List[Dict[str, Any]],
@@ -76,6 +81,7 @@ def create_handler(
         report=report,
         connection=connection,
         identifiers=identifiers,
+        snowsight_url_builder=_test_snowsight_url_builder(),
     )
 
 
@@ -124,6 +130,7 @@ class TestMarketplaceBusinessLogic:
             report=report,
             connection=connection,
             identifiers=identifiers,
+            snowsight_url_builder=_test_snowsight_url_builder(),
         )
         handler._load_marketplace_data()
 
@@ -135,30 +142,35 @@ class TestMarketplaceBusinessLogic:
     def test_listing_purchase_explicit_mapping_takes_precedence(
         self, base_config: Dict[str, Any], mock_listings: List[Dict[str, Any]]
     ) -> None:
-        """Test that explicit listing_global_name in shares config takes precedence over name matching."""
+        """Test that ``marketplace.listing_to_share_overrides`` takes
+        precedence over name matching."""
         config_with_shares = base_config.copy()
         config_with_shares["shares"] = {
             "ACME_SHARE": {
                 "database": "DIFFERENT_NAME",
                 "platform_instance": None,
-                "listing_global_name": "ACME.DATA.LISTING",
                 "consumers": [{"database": "IMPORTED_DB", "platform_instance": None}],
             }
+        }
+        config_with_shares["marketplace"] = {
+            **config_with_shares["marketplace"],
+            "listing_to_share_overrides": {"ACME.DATA.LISTING": "ACME_SHARE"},
         }
 
         handler = create_handler(config_with_shares, mock_listings)
         handler._load_marketplace_data()
-
-        purchase = SnowflakeMarketplacePurchase(
+        handler._marketplace_purchases["IMPORTED_DB"] = SnowflakeMarketplacePurchase(
             database_name="IMPORTED_DB",
             purchase_date=datetime(2024, 7, 1, tzinfo=timezone.utc),
             owner="ACCOUNTADMIN",
             comment=None,
         )
 
-        found_listing = handler._find_listing_for_purchase(purchase)
+        found_listing = handler._find_listing_for_purchase(
+            handler._marketplace_purchases["IMPORTED_DB"]
+        )
         assert found_listing == "ACME.DATA.LISTING", (
-            "Should use explicit listing_global_name even when database name doesn't match"
+            "Should use explicit listing_to_share_overrides even when database name doesn't match"
         )
 
     def test_owner_pattern_regex_matching(
@@ -281,6 +293,7 @@ class TestMarketplaceBusinessLogic:
                 report=report,
                 connection=connection_wrapper,
                 identifiers=identifiers,
+                snowsight_url_builder=_test_snowsight_url_builder(),
             )
 
             workunits = list(handler.get_marketplace_workunits())
@@ -325,6 +338,7 @@ class TestMarketplaceBusinessLogic:
             report=report,
             connection=connection_wrapper,
             identifiers=identifiers,
+            snowsight_url_builder=_test_snowsight_url_builder(),
         )
 
         workunits = list(handler.get_marketplace_workunits())
@@ -376,6 +390,7 @@ class TestMarketplaceBusinessLogic:
             report=report,
             connection=connection_wrapper,
             identifiers=identifiers,
+            snowsight_url_builder=_test_snowsight_url_builder(),
         )
 
         workunits = list(handler.get_marketplace_workunits())
@@ -421,6 +436,7 @@ class TestMarketplaceBusinessLogic:
             report=report,
             connection=connection_wrapper,
             identifiers=identifiers,
+            snowsight_url_builder=_test_snowsight_url_builder(),
         )
 
         list(handler.get_marketplace_workunits())

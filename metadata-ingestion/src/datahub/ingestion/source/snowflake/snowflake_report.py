@@ -203,3 +203,9 @@ class SnowflakeV2Report(
 
     def report_marketplace_dataset_enhanced(self) -> None:
         self.marketplace_enhanced_datasets += 1
+
+    def report_marketplace_domain_created(self) -> None:
+        self.marketplace_domains_created += 1
+
+    def report_marketplace_usage_events_processed(self, count: int) -> None:
+        self.marketplace_usage_events_processed += count

@@ -15,8 +15,9 @@ logger = logging.getLogger(__name__)
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
-# Snowflake unquoted-identifier triplets: ``ORG.PROVIDER.LISTING``.
-_SNOWFLAKE_LISTING_NAME_RE = re.compile(
+# Snowflake unquoted-identifier names — single segments (``DB``, ``MY_SHARE``)
+# or dot-qualified (``ORG.PROVIDER.LISTING``).
+SNOWFLAKE_OBJECT_NAME_RE = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$"
 )
 
@@ -1430,14 +1431,10 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def marketplace_listings() -> str:
-        """Get internal marketplace listings (private data sharing) - Note: requires SHOW LISTINGS command"""
-        # This is a placeholder - actual implementation uses SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE
-        # which returns: name, created_on, listing_global_name, title, description, provider, category
         return "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE"
 
     @staticmethod
     def marketplace_purchases() -> str:
-        """Get databases created from internal marketplace listings"""
         return """
             SELECT
                 DATABASE_NAME AS "DATABASE_NAME",
@@ -1452,7 +1449,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def marketplace_shares() -> str:
-        """Get information about available shares (to map imported databases to sources)"""
         return "SHOW SHARES"
 
     @staticmethod
@@ -1462,23 +1458,21 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         time_bucket_size: BucketDuration = BucketDuration.DAY,
         listing_global_names: Optional[List[str]] = None,
     ) -> str:
-        """Internal marketplace listing access history, bucketed and flattened.
+        """Bucketed listing access history, flattened so each row is one
+        ``(bucket, table)`` tuple. Listing names are filtered in ``WHERE``
+        (not ``GROUP BY``) so a table exposed via N listings still produces
+        a single row — ``COUNT(DISTINCT CONSUMER_ACCOUNT_NAME)`` can't be
+        reconstructed by summing in Python.
 
-        Buckets via ``DATE_TRUNC`` and flattens ``SHARE_OBJECTS_ACCESSED`` so
-        each row is one (bucket, table) tuple ready to attach to a real
-        ``urn:li:dataset:`` URN. Listing filtering is in WHERE (not GROUP BY)
-        so a table exposed via N listings still produces a single row —
-        ``COUNT(DISTINCT CONSUMER_ACCOUNT_NAME)`` can't be reconstructed by
-        summing in Python.
-
-        Interpolated values are type-constrained (``int``, ``BucketDuration``)
-        or shape-validated against ``_SNOWFLAKE_LISTING_NAME_RE`` before
-        reaching SQL.
+        ``listing_global_names`` are filtered through
+        ``SNOWFLAKE_OBJECT_NAME_RE`` before interpolation so non-conforming
+        names cannot reach SQL; ``time_bucket_size`` and the millis
+        timestamps are type-constrained at the parameter level.
         """
         listing_filter = ""
         if listing_global_names:
             safe = [
-                n for n in listing_global_names if _SNOWFLAKE_LISTING_NAME_RE.match(n)
+                n for n in listing_global_names if SNOWFLAKE_OBJECT_NAME_RE.match(n)
             ]
             rejected = sorted(set(listing_global_names) - set(safe))
             if rejected:
@@ -1510,8 +1504,32 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             """
 
     @staticmethod
+    def marketplace_describe_available_listing(listing_global_name: str) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(listing_global_name):
+            raise ValueError(
+                f"Refusing to build DESCRIBE AVAILABLE LISTING SQL for "
+                f"name {listing_global_name!r}: outside the expected "
+                "Snowflake identifier shape."
+            )
+        return f"DESCRIBE AVAILABLE LISTING {listing_global_name}"
+
+    @staticmethod
+    def marketplace_describe_share(share_name: str) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(share_name):
+            raise ValueError(
+                f"Refusing to build DESC SHARE SQL for name {share_name!r}: "
+                "outside the expected Snowflake identifier shape."
+            )
+        return f"DESC SHARE {share_name}"
+
+    @staticmethod
     def marketplace_imported_database_tables(db_name: str) -> str:
-        """Get tables from an imported marketplace database"""
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(db_name):
+            raise ValueError(
+                f"Refusing to build INFORMATION_SCHEMA query for database "
+                f"name {db_name!r}: outside the expected Snowflake "
+                "identifier shape."
+            )
         return f"""
             SELECT 
                 TABLE_SCHEMA AS "SCHEMA_NAME",

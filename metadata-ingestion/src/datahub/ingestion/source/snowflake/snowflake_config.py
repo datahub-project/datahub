@@ -68,6 +68,12 @@ class TagOption(StrEnum):
     skip = "skip"
 
 
+class MarketplaceMode(StrEnum):
+    consumer = "consumer"
+    provider = "provider"
+    both = "both"
+
+
 @dataclass(frozen=True)
 class DatabaseId:
     # Database created from share in consumer account
@@ -85,12 +91,6 @@ class SnowflakeShareConfig(ConfigModel):
 
     consumers: Set[DatabaseId] = Field(
         description="List of databases created in consumer accounts."
-    )
-
-    listing_global_name: Optional[str] = Field(
-        default=None,
-        description="Marketplace listing global name (e.g., GZSTZGQTPEW) to explicitly link this share to a marketplace listing. "
-        "This is useful when SHOW SHARES doesn't return listing_global_name or when automatic matching fails.",
     )
 
     @property
@@ -286,31 +286,6 @@ class SnowflakeUsageConfig(BaseUsageConfig):
     )
 
 
-# TODO: SnowflakeConfig is unused except for this inheritance. We should collapse the config inheritance hierarchy.
-class SnowflakeConfig(
-    SnowflakeIdentifierConfig,
-    SnowflakeFilterConfig,
-    # SnowflakeFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
-    SnowflakeConnectionConfig,
-    BaseTimeWindowConfig,
-    SQLCommonConfig,
-):
-    include_table_lineage: bool = pydantic.Field(
-        default=True,
-        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
-    )
-
-    _include_view_lineage = pydantic_removed_field(
-        "include_view_lineage", month="December", year=2024
-    )
-    _include_view_column_lineage = pydantic_removed_field(
-        "include_view_column_lineage", month="December", year=2024
-    )
-
-    ignore_start_time_lineage: bool = False
-    upstream_lineage_in_report: bool = False
-
-
 class SnowflakeMarketplaceConfig(ConfigModel):
     """
     Configuration for Snowflake Internal Marketplace (Private Data Sharing).
@@ -341,8 +316,8 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         ),
     )
 
-    marketplace_mode: str = Field(
-        default="consumer",
+    marketplace_mode: MarketplaceMode = Field(
+        default=MarketplaceMode.consumer,
         description=(
             "Mode for marketplace ingestion: "
             "'consumer' (default) - Track purchased/imported databases (IMPORTED DATABASE type), "
@@ -352,6 +327,16 @@ class SnowflakeMarketplaceConfig(ConfigModel):
             "Provider mode works with OUTBOUND shares without requiring imported databases. "
             "IMPORTANT: For 'provider' or 'both' modes, you MUST grant 'imported privileges on database snowflake' "
             "to the USER (not just the role), as share access is granted at the user level in Snowflake."
+        ),
+    )
+
+    listing_to_share_overrides: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> share name (top-level key in `shares`) "
+            "to explicitly link a marketplace listing to a share. Useful when "
+            "`SHOW SHARES` doesn't return `listing_global_name` or when "
+            "automatic name-based matching fails."
         ),
     )
 
@@ -386,16 +371,30 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         ),
     )
 
-    @field_validator("marketplace_mode")
-    @classmethod
-    def validate_marketplace_mode(cls, v: str) -> str:
-        """Validate that marketplace_mode is one of the allowed values."""
-        allowed_modes = ["consumer", "provider", "both"]
-        if v not in allowed_modes:
-            raise ValueError(
-                f"marketplace_mode must be one of {allowed_modes}, got '{v}'"
-            )
-        return v
+
+# TODO: SnowflakeConfig is unused except for this inheritance. We should collapse the config inheritance hierarchy.
+class SnowflakeConfig(
+    SnowflakeIdentifierConfig,
+    SnowflakeFilterConfig,
+    # SnowflakeFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
+    SnowflakeConnectionConfig,
+    BaseTimeWindowConfig,
+    SQLCommonConfig,
+):
+    include_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
+    )
+
+    _include_view_lineage = pydantic_removed_field(
+        "include_view_lineage", month="December", year=2024
+    )
+    _include_view_column_lineage = pydantic_removed_field(
+        "include_view_column_lineage", month="December", year=2024
+    )
+
+    ignore_start_time_lineage: bool = False
+    upstream_lineage_in_report: bool = False
 
 
 class SnowflakeV2Config(

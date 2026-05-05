@@ -25,7 +25,6 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
     ContainerClass,
     DataProductAssociationClass,
-    DomainPropertiesClass,
     DomainsClass,
     EmbedClass,
     GlobalTagsClass,
@@ -501,34 +500,6 @@ def mcps_from_mce(
             auditHeader=mce.auditHeader,
             aspect=aspect,
             systemMetadata=mce.systemMetadata,
-        )
-
-
-def gen_domain(
-    domain_key: DomainKey,
-    name: str,
-    description: Optional[str] = None,
-    parent_domain_urn: Optional[str] = None,
-    owner_urns: Optional[List[str]] = None,
-    ownership_type: str = OwnershipTypeClass.DATAOWNER,
-) -> Iterable[MetadataWorkUnit]:
-    domain_urn = domain_key.as_urn()
-
-    yield MetadataChangeProposalWrapper(
-        entityUrn=domain_urn,
-        aspect=DomainPropertiesClass(
-            name=name,
-            description=description,
-            parentDomain=parent_domain_urn,
-        ),
-    ).as_workunit()
-
-    for owner in owner_urns or []:
-        yield from add_owner_to_entity_wu(
-            entity_type="domain",
-            entity_urn=domain_urn,
-            owner_urn=owner,
-            ownership_type=ownership_type,
         )
 
 
