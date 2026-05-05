@@ -1,0 +1,72 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "fb4013cabd320a94e507338e3e6c8bf46c4be2b2d6003b5bbcb561f4d0e42934",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_records,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "output_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)",
+                    "column": "field_a"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)",
+                    "column": "field_b"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)",
+                    "column": "grp_col"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)",
+                    "column": "type_col"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN CAST(GET_PATH(\"CTE_AGG\".\"OBJ_ARRAY\"[0], 'FIELD_A') AS VARCHAR) = 'val1' AND LOWER(CAST(GET_PATH(\"CTE_AGG\".\"OBJ_ARRAY\"[0], 'FIELD_B') AS VARCHAR)) = 'type_x' THEN 'X' WHEN CAST(GET_PATH(\"CTE_AGG\".\"OBJ_ARRAY\"[0], 'FIELD_A') AS VARCHAR) = 'val1' AND LOWER(CAST(GET_PATH(\"CTE_AGG\".\"OBJ_ARRAY\"[0], 'FIELD_B') AS VARCHAR)) = 'type_y' THEN 'Y' ELSE NULL END AS \"OUTPUT_COL\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "LEFT JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_records,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)"
+            ],
+            "on_clause": "\"CTE_AGG\".\"RECORD_ID\" = \"LI\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)",
+                    "column": "RECORD_ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_records,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH cte_src AS (SELECT field_a, field_b, type_col, grp_col, record_id FROM mydb.myschema.src_attributes), cte_agg AS (SELECT record_id, ARRAY_AGG(CASE WHEN type_col = ? AND grp_col = ? THEN OBJECT_CONSTRUCT(*) END) AS obj_array FROM cte_src GROUP BY record_id) SELECT CASE WHEN CAST(GET_PATH(cte_agg.obj_array[?], 'FIELD_A') AS VARCHAR) = ? AND LOWER(CAST(GET_PATH(cte_agg.obj_array[?], 'FIELD_B') AS VARCHAR)) = ? THEN ? WHEN CAST(GET_PATH(cte_agg.obj_array[?], 'FIELD_A') AS VARCHAR) = ? AND LOWER(CAST(GET_PATH(cte_agg.obj_array[?], 'FIELD_B') AS VARCHAR)) = ? THEN ? ELSE NULL END AS output_col FROM mydb.myschema.src_records AS li LEFT JOIN cte_agg ON cte_agg.record_id = li.id"
+    }
+}

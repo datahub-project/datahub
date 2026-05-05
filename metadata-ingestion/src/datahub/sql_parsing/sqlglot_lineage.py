@@ -1027,6 +1027,7 @@ def _select_statement_cll(
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
+    object_construct_col_aliases: Optional[Dict[str, str]] = None,
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
@@ -1076,6 +1077,8 @@ def _select_statement_cll(
                     dialect,
                     default_db,
                     default_schema,
+                    table_name_schema_mapping=table_name_schema_mapping,
+                    object_construct_col_aliases=object_construct_col_aliases,
                 )
             except Exception as e:
                 logger.warning(
@@ -1160,6 +1163,11 @@ def _column_level_lineage(
 
     try:
         assert select_statement is not None
+        # Collect CTE column alias mappings before optimization eliminates aliased
+        # columns that are only referenced via OBJECT_CONSTRUCT(*).
+        object_construct_col_aliases = _collect_object_construct_source_aliases(
+            select_statement
+        )
         (select_statement, column_resolver) = _prepare_query_columns(
             select_statement,
             dialect=dialect,
@@ -1215,6 +1223,7 @@ def _column_level_lineage(
         table_name_schema_mapping=table_name_schema_mapping,
         default_db=default_db,
         default_schema=default_schema,
+        object_construct_col_aliases=object_construct_col_aliases,
     )
 
     joins: Optional[List[_JoinInfo]] = None
@@ -1234,20 +1243,206 @@ def _column_level_lineage(
     )
 
 
+def _extract_json_path_keys(
+    expression: sqlglot.exp.Expr,
+    ref_table: str,
+    ref_column: str,
+) -> Set[str]:
+    """Find all JSON path keys accessed on ref_table.ref_column in an expression.
+
+    Matches patterns produced when Snowflake's col:KEY::TYPE semi-structured access
+    is parsed: JSONExtract(Bracket(Column(table=ref_table, this=ref_column), idx), JSONPath([..., JSONPathKey(KEY)])).
+    Returns the set of KEY strings (e.g. {'FIELD_A', 'FIELD_B'}).
+    """
+    keys: Set[str] = set()
+    for json_extract in expression.find_all(sqlglot.exp.JSONExtract):
+        obj = json_extract.this
+        # Unwrap bracket index access: col[0] → col
+        if isinstance(obj, sqlglot.exp.Bracket):
+            obj = obj.this
+        if isinstance(obj, sqlglot.exp.Column):
+            if (
+                obj.table.upper() == ref_table.upper()
+                and obj.name.upper() == ref_column.upper()
+            ):
+                path = json_extract.args.get("expression")
+                if isinstance(path, sqlglot.exp.JSONPath):
+                    for part in path.expressions:
+                        if isinstance(part, sqlglot.exp.JSONPathKey):
+                            keys.add(str(part.this))
+    return keys
+
+
+def _collect_object_construct_source_aliases(
+    statement: sqlglot.exp.Expression,
+) -> Dict[str, str]:
+    """Build alias→original column name map for CTEs that feed OBJECT_CONSTRUCT(*).
+
+    When OBJECT_CONSTRUCT(*) captures all columns in scope, the resulting JSON object
+    keys match the CTE column names — which may be aliases of the underlying base table
+    columns. pushdown_projections eliminates aliased columns that are not referenced
+    elsewhere, so the lineage tree loses the alias→original mapping. This function
+    extracts that mapping from the pre-optimization AST.
+
+    Returns {alias_name.upper(): original_col_name.upper()} for all aliased columns
+    in CTEs that directly feed a CTE containing OBJECT_CONSTRUCT(*).
+    """
+    # Find CTEs that contain OBJECT_CONSTRUCT(*) and note what they select FROM.
+    source_cte_names: Set[str] = set()
+    for cte in statement.find_all(sqlglot.exp.CTE):
+        if not cte.find(sqlglot.exp.StarMap):
+            continue
+        cte_select = (
+            cte.this
+            if isinstance(cte.this, sqlglot.exp.Select)
+            else cte.find(sqlglot.exp.Select)
+        )
+        if not cte_select:
+            continue
+        from_clause = cte_select.find(sqlglot.exp.From)
+        if not from_clause:
+            continue
+        source_table = from_clause.find(sqlglot.exp.Table)
+        if source_table:
+            source_cte_names.add(source_table.name.upper())
+
+    if not source_cte_names:
+        return {}
+
+    # For each source CTE, collect columns that are renamed (alias ≠ original name).
+    result: Dict[str, str] = {}
+    for cte in statement.find_all(sqlglot.exp.CTE):
+        if cte.alias.upper() not in source_cte_names:
+            continue
+        cte_select = (
+            cte.this
+            if isinstance(cte.this, sqlglot.exp.Select)
+            else cte.find(sqlglot.exp.Select)
+        )
+        if not cte_select:
+            continue
+        for sel_expr in cte_select.expressions:
+            if not isinstance(sel_expr, sqlglot.exp.Alias):
+                continue
+            alias_name = sel_expr.alias.upper()
+            inner = sel_expr.this
+            if isinstance(inner, sqlglot.exp.Column):
+                original_name = inner.name.upper()
+                if alias_name != original_name:
+                    result[alias_name] = original_name
+
+    return result
+
+
+def _get_star_map_col_upstreams(
+    star_map_node: sqlglot.lineage.Node,
+    parent_node: sqlglot.lineage.Node,
+    dialect: Optional[sqlglot.Dialect],
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
+    object_construct_col_aliases: Optional[Dict[str, str]] = None,
+) -> Set[_ColumnRef]:
+    """Resolve column upstreams for a lineage node that contains OBJECT_CONSTRUCT(*).
+
+    When OBJECT_CONSTRUCT(*) feeds a JSON path access (e.g. col:KEY::TYPE, translated
+    to JSONExtract(col, '$.KEY')), the specific key maps deterministically to a column
+    of the same name in the source tables. This function:
+      1. Extracts which key(s) the parent accesses on this column.
+      2. Collects the real (non-CTE) Table leaf nodes already in the lineage subtree —
+         these already represent fully-traced source tables.
+      3. For each (key, table) pair, checks whether table_name_schema_mapping has a
+         matching column. If the key is a CTE alias (e.g. cost_structure aliasing
+         cost_structure_type), object_construct_col_aliases provides the original name.
+    """
+    if parent_node.expression is None:
+        return set()
+
+    parts = star_map_node.name.split(".")
+    if len(parts) < 2:
+        return set()
+    ref_table = parts[-2].strip('"')
+    ref_column = parts[-1].strip('"')
+
+    keys = _extract_json_path_keys(parent_node.expression, ref_table, ref_column)
+    if not keys:
+        return set()
+
+    # Gather Table leaf nodes already resolved in this subtree — they represent
+    # real base tables that CTEs in the StarMap source trace back to.
+    leaf_table_refs: Set[_TableName] = set()
+    for desc in star_map_node.walk():
+        if not desc.downstream and isinstance(desc.expression, sqlglot.exp.Table):
+            leaf_table_refs.add(
+                _table_name_from_sqlglot_table(desc.expression, dialect)
+            )
+
+    upstreams: Set[_ColumnRef] = set()
+    for key in keys:
+        # Try the key directly, then fall back to its pre-alias original name if available.
+        candidates = [key]
+        if object_construct_col_aliases:
+            original = object_construct_col_aliases.get(key.upper())
+            if original:
+                candidates.append(original)
+        for candidate in candidates:
+            for unqualified_ref in leaf_table_refs:
+                for qualified_name, schema in table_name_schema_mapping.items():
+                    if qualified_name.table.lower() == unqualified_ref.table.lower():
+                        for col_name in schema:
+                            if col_name.lower() == candidate.lower():
+                                upstreams.add(
+                                    _ColumnRef(table=unqualified_ref, column=col_name)
+                                )
+    return upstreams
+
+
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
     dialect: Optional[sqlglot.Dialect] = None,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
+    table_name_schema_mapping: Optional[Dict[_TableName, SchemaInfo]] = None,
+    object_construct_col_aliases: Optional[Dict[str, str]] = None,
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
 
+    # Build a child→parent map so we can look up what key is accessed on each column
+    # when the column comes from OBJECT_CONSTRUCT(*) / StarMap.
+    parents: Dict[int, sqlglot.lineage.Node] = {}
+    if table_name_schema_mapping:
+
+        def _build_parents(
+            node: sqlglot.lineage.Node,
+            parent: Optional[sqlglot.lineage.Node] = None,
+        ) -> None:
+            if parent is not None:
+                parents[id(node)] = parent
+            for child in node.downstream:
+                _build_parents(child, node)
+
+        _build_parents(lineage_node)
+
     for node in lineage_node.walk():
         cooperate()
         if node.downstream:
-            # We only want the leaf nodes.
-            pass
+            # Non-leaf: check whether the expression contains OBJECT_CONSTRUCT(*).
+            # When OBJECT_CONSTRUCT(*) is combined with a parent JSON path access
+            # (e.g. col:KEY) we can resolve the key as a concrete column upstream.
+            if (
+                table_name_schema_mapping
+                and node.expression is not None
+                and node.expression.find(sqlglot.exp.StarMap)
+            ):
+                parent = parents.get(id(node))
+                if parent is not None:
+                    star_map_upstreams = _get_star_map_col_upstreams(
+                        node,
+                        parent,
+                        dialect,
+                        table_name_schema_mapping,
+                        object_construct_col_aliases=object_construct_col_aliases,
+                    )
+                    direct_raw_col_upstreams.update(star_map_upstreams)
 
         elif isinstance(node.expression, sqlglot.exp.Table):
             table_ref = _table_name_from_sqlglot_table(node.expression, dialect)

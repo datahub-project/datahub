@@ -1954,6 +1954,111 @@ FROM db1.raw_events
     )
 
 
+def test_snowflake_object_construct_star_lineage() -> None:
+    """Test lineage through OBJECT_CONSTRUCT(*) with semi-structured key access.
+
+    OBJECT_CONSTRUCT(*) creates a JSON object from ALL columns in scope, using
+    column names as keys. When specific keys are then accessed via :KEY notation
+    (translated to JSONExtract), DataHub should resolve each key to the column
+    of the same name in the source table.
+
+    This pattern appears in Snowpark-generated SQL where rows are aggregated into
+    semi-structured arrays and then filtered/accessed by field name:
+        obj_array = ARRAY_AGG(CASE WHEN type_col=1 AND grp_col=0 THEN OBJECT_CONSTRUCT(*))
+        output_col = CASE WHEN obj_array[0]:FIELD_A = '...'
+                              AND obj_array[0]:FIELD_B = '...' THEN 'X' ...
+
+    Expected: output_col traces to:
+      - field_a and field_b   (from :FIELD_A and :FIELD_B key accesses)
+      - type_col and grp_col  (from CASE WHEN filter conditions)
+    """
+    assert_sql_result(
+        """
+with cte_src as (
+    select field_a, field_b, type_col, grp_col, record_id
+    from mydb.myschema.src_attributes
+),
+cte_agg as (
+    select record_id,
+           ARRAY_AGG(CASE WHEN type_col = 1 AND grp_col = 0 THEN OBJECT_CONSTRUCT(*) END) AS obj_array
+    from cte_src group by record_id
+)
+select
+    CASE
+        WHEN cte_agg.obj_array[0]:FIELD_A::VARCHAR = 'val1'
+             AND lower(cte_agg.obj_array[0]:FIELD_B::varchar) = 'type_x' THEN 'X'
+        WHEN cte_agg.obj_array[0]:FIELD_A::VARCHAR = 'val1'
+             AND lower(cte_agg.obj_array[0]:FIELD_B::varchar) = 'type_y' THEN 'Y'
+        ELSE NULL
+    END AS output_col
+from mydb.myschema.src_records li
+left join cte_agg on cte_agg.record_id = li.id
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_attributes,PROD)": {
+                "field_a": "VARCHAR",
+                "field_b": "VARCHAR",
+                "type_col": "NUMBER",
+                "grp_col": "NUMBER",
+                "record_id": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_records,PROD)": {
+                "id": "VARCHAR",
+                "record_id": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_star_lineage.json",
+    )
+
+
+def test_snowflake_object_construct_star_alias_lineage() -> None:
+    """Test lineage through OBJECT_CONSTRUCT(*) when the source CTE renames a column.
+
+    When an intermediate CTE aliases a column (e.g. real_col AS alias_col) before it
+    is consumed by OBJECT_CONSTRUCT(*), the JSON object key is the alias name. After
+    pushdown_projections optimization, the aliased column is eliminated from the CTE
+    (since the optimizer treats the star access as opaque), so the alias→original
+    mapping must be extracted from the pre-optimization AST.
+
+    Expected: output_col traces to both:
+      - real_col   (resolved via alias mapping: ALIAS_COL → real_col)
+      - filter_col (from the CASE WHEN condition, resolved via normal Table leaf path)
+    """
+    assert_sql_result(
+        """
+with src as (
+    select real_col as alias_col, filter_col
+    from mydb.myschema.base_table
+),
+agg as (
+    select ARRAY_AGG(CASE WHEN filter_col = 1 THEN OBJECT_CONSTRUCT(*) END) AS obj
+    from src
+)
+select agg.obj[0]:ALIAS_COL::VARCHAR as output_col
+from mydb.myschema.other_table t
+left join agg on agg.filter_col = t.id
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)": {
+                "real_col": "VARCHAR",
+                "filter_col": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)": {
+                "id": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_star_alias_lineage.json",
+    )
+
+
 def test_clickhouse_materialized_view_to_table() -> None:
     """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
 
