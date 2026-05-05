@@ -1028,7 +1028,7 @@ def test_new_powerbi_reports_description_null_coerces_to_empty_string():
     with value None; the `or ''` form is required to handle both cases."""
     workspace = _make_workspace("WS-R5")
     raw_instances = [
-        _raw_report("R-null-desc", **{Constant.DESCRIPTION: None}),
+        {**_raw_report("R-null-desc"), Constant.DESCRIPTION: None},
         _raw_report("R-miss-desc"),
     ]
 
@@ -1126,7 +1126,7 @@ def test_new_powerbi_reports_skips_users_when_extract_ownership_false():
         Constant.GRAPH_ID: "G-1",
         Constant.PRINCIPAL_TYPE: "User",
     }
-    raw = _raw_report("R-1", **{Constant.USERS: [raw_user]})
+    raw = {**_raw_report("R-1"), Constant.USERS: [raw_user]}
 
     no_ownership = new_powerbi_reports(workspace, [raw], extract_ownership=False)
     assert no_ownership[0].users == []
