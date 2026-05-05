@@ -131,7 +131,7 @@ USER datahub
 
 FROM ingestion-base-${APP_ENV} AS final
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"

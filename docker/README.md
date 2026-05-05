@@ -48,7 +48,9 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 
 ## Image Variants
 
-`datahub-ingestion` and `datahub-actions` are available as **full**, **slim**, and **locked** (no Alpine variants). **`datahub-ingestion`** is Ubuntu 24.04–based. **`datahub-actions`** is built on **Wolfi** ([`cgr.dev/chainguard/wolfi-base`](https://cgr.dev/chainguard/wolfi-base); override the base with Docker build arg `WOLFI_BASE_IMAGE` if needed).
+`datahub-ingestion` and `datahub-actions` are available as **full**, **slim**, and **locked**. **`datahub-ingestion`** is Ubuntu 24.04–based. **`datahub-actions`** uses the **default base image** set in its Dockerfile; override with Docker build arg **`BASE_IMAGE`** when needed.
+
+Java runtime images (**`datahub-gms`**, **`datahub-mce-consumer`**, **`datahub-mae-consumer`**, **`datahub-upgrade`**, **`datahub-frontend-react`**) follow the same pattern: each Dockerfile declares a default **base image**; override with **`BASE_IMAGE`**. Optional **`APK_REPOSITORY_URL`** overrides the apk repository line used at image build time (see each Dockerfile for the default). When building with Gradle, use **`-PdockerBaseImage=...`** and **`-PapkRepositoryUrl=...`** instead of any legacy mirror property you may have used for older image builds. Those five images share **`docker/snippets/setup_java_runtime.sh`**, which ensures **`java`** is on **`PATH`** for entrypoints (apk OpenJDK JRE packages here do not add **`/usr/bin/java`** by default). The script’s **`JAVA_MAJOR=…`** assignment is the single bump point for the apk JRE major; **`datahub-actions`** reads that line when installing OpenJDK for the full variant.
 
 | Variant          | Image size | Use case                                |
 | ---------------- | ---------- | --------------------------------------- |

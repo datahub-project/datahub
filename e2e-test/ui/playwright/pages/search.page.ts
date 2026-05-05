@@ -101,7 +101,7 @@ export class SearchPage extends BasePage {
   }
 
   async expectHasResults(): Promise<void> {
-    await expect(this.page.getByText('of 0 results')).not.toBeVisible();
+    await expect(this.page.getByText('of 0 results')).toBeHidden();
     await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
   }
 
@@ -276,19 +276,19 @@ export class SearchPage extends BasePage {
   private getFilterFieldMapping(filterLabel: string): { field: string; value?: string } | null {
     // Type filters - map to _entityType␞typeNames field
     const typeMapping: Record<string, string> = {
-      'Datasets': 'DATASET',
-      'Dataset': 'DATASET',
-      'DATASET': 'DATASET',  // Support the actual value too
-      'Dashboards': 'DASHBOARD',
-      'Dashboard': 'DASHBOARD',
-      'DASHBOARD': 'DASHBOARD',
-      'Charts': 'CHART',
-      'Chart': 'CHART',
-      'CHART': 'CHART',
+      Datasets: 'DATASET',
+      Dataset: 'DATASET',
+      DATASET: 'DATASET', // Support the actual value too
+      Dashboards: 'DASHBOARD',
+      Dashboard: 'DASHBOARD',
+      DASHBOARD: 'DASHBOARD',
+      Charts: 'CHART',
+      Chart: 'CHART',
+      CHART: 'CHART',
       'Data Jobs': 'DATA_JOB',
-      'DATA_JOB': 'DATA_JOB',
+      DATA_JOB: 'DATA_JOB',
       'Glossary Terms': 'GLOSSARY_TERM',
-      'GLOSSARY_TERM': 'GLOSSARY_TERM',
+      GLOSSARY_TERM: 'GLOSSARY_TERM',
     };
 
     if (typeMapping[filterLabel]) {
@@ -338,20 +338,20 @@ export class SearchPage extends BasePage {
       if (mapping.value) {
         // Specific field + value selector
         const selector = `[data-testid="active-filter-value-${mapping.field}-${mapping.value}"]`;
-        await expect(this.page.locator(selector)).not.toBeVisible();
+        await expect(this.page.locator(selector)).toBeHidden();
       } else {
         // Field container - check if it's not visible or doesn't contain the text
         const container = this.page.locator(`[data-testid="active-filter-${mapping.field}"]`);
         const count = await container.count();
         if (count > 0) {
           // Container exists but should not contain this label
-          await expect(container.getByText(filterLabel)).not.toBeVisible();
+          await expect(container.getByText(filterLabel)).toBeHidden();
         }
       }
     } else {
       // Fallback: search by text content
       const filterByText = this.page.locator('[data-testid*="active-filter"]').filter({ hasText: filterLabel });
-      await expect(filterByText).not.toBeVisible();
+      await expect(filterByText).toBeHidden();
     }
   }
 
@@ -365,7 +365,10 @@ export class SearchPage extends BasePage {
     } else {
       // Fallback: find the filter by text and click its remove button
       // First find the active filter container with this text
-      const filterContainer = this.page.locator('[data-testid*="active-filter"]').filter({ hasText: filterLabel }).first();
+      const filterContainer = this.page
+        .locator('[data-testid*="active-filter"]')
+        .filter({ hasText: filterLabel })
+        .first();
       // Then find the remove button within it
       const removeButton = filterContainer.locator('button').first();
       await removeButton.click({ force: true });
@@ -394,7 +397,7 @@ export class SearchPage extends BasePage {
   }
 
   async expectFiltersV1NotVisible(): Promise<void> {
-    await expect(this.filtersV1).not.toBeVisible();
+    await expect(this.filtersV1).toBeHidden();
   }
 
   async expectFiltersV2Visible(): Promise<void> {
@@ -402,7 +405,7 @@ export class SearchPage extends BasePage {
   }
 
   async expectFiltersV2NotVisible(): Promise<void> {
-    await expect(this.filtersV2).not.toBeVisible();
+    await expect(this.filtersV2).toBeHidden();
   }
 
   async searchInModal(searchTerm: string): Promise<void> {

@@ -59,7 +59,9 @@ dependencies {
   implementation externalDependency.azureIdentity
 
   implementation externalDependency.commonsText
-  implementation externalDependency.hibernateValidator
+  implementation(externalDependency.hibernateValidator) {
+    because("CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (Hibernate Validator EL interpolation)")
+  }
   implementation externalDependency.snappy
   implementation(externalDependency.nettyReactor) {}
   implementation(externalDependency.nettyCore) {
@@ -71,6 +73,9 @@ dependencies {
     implementation("com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion")
     testImplementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
     implementation("io.netty:netty-all:${rootProject.ext.nettyVersion}")
+    implementation(externalDependency.hibernateValidator) {
+      because("CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (Hibernate Validator EL interpolation)")
+    }
   }
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'

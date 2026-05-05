@@ -111,7 +111,9 @@ public class RelationshipsController {
         count);
   }
 
-  @GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(
+      value = {"", "/"},
+      produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       responses = {
         @ApiResponse(

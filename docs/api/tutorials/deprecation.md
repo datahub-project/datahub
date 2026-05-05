@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for marking DataHub Datasets as deprecated and managing deprecation metadata via the API."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

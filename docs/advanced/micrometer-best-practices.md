@@ -1,3 +1,7 @@
+---
+description: "Practical guidance for using Micrometer with Prometheus in DataHub production deployments, covering common pitfalls and configuration tips."
+---
+
 # Micrometer Best Practices Guide
 
 This guide provides practical recommendations for using the Micrometer library with Prometheus in production environments, addressing common pitfalls and unclear documentation areas.

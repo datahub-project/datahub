@@ -46,6 +46,15 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Long retryInterval = 1L;
   @Builder.Default private Integer threadCount = 1; // Default to single processor
   @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
+
+  /**
+   * HTTP {@link RequestOptions} for by-query operations (delete/update-by-query, async submit,
+   * etc.). Same tuning for GMS and MAE ({@code
+   * elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds}); MAE-specific RestClient
+   * settings are configured separately on {@link SearchClientShim}.
+   */
+  @Builder.Default @Nonnull private RequestOptions byQueryRequestOptions = RequestOptions.DEFAULT;
+
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
   private final MetricUtils metricUtils;
@@ -60,6 +69,7 @@ public class ESBulkProcessor implements Closeable {
       Long retryInterval,
       Integer threadCount,
       TimeValue defaultTimeout,
+      @Nonnull RequestOptions byQueryRequestOptions,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
     this.searchClient = searchClient;
@@ -71,6 +81,7 @@ public class ESBulkProcessor implements Closeable {
     this.retryInterval = retryInterval;
     this.threadCount = threadCount;
     this.defaultTimeout = defaultTimeout;
+    this.byQueryRequestOptions = byQueryRequestOptions;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     if (async) {
       searchClient.generateAsyncBulkProcessor(
@@ -127,14 +138,13 @@ public class ESBulkProcessor implements Closeable {
 
   public Optional<BulkByScrollResponse> updateByQuery(
       Script script, QueryBuilder queryBuilder, String... indices) {
-    // Create an UpdateByQueryRequest
     UpdateByQueryRequest updateByQuery = new UpdateByQueryRequest(indices);
     updateByQuery.setQuery(queryBuilder);
     updateByQuery.setScript(script);
 
     try {
       final BulkByScrollResponse updateResponse =
-          searchClient.updateByQuery(updateByQuery, RequestOptions.DEFAULT);
+          searchClient.updateByQuery(updateByQuery, byQueryRequestOptions);
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), ES_WRITES_METRIC, updateResponse.getTotal());
       return Optional.of(updateResponse);
@@ -161,12 +171,10 @@ public class ESBulkProcessor implements Closeable {
 
     try {
       if (!batchDelete) {
-        // flush pending writes
         searchClient.flushBulkProcessor();
       }
-      // perform delete after local flush
       final BulkByScrollResponse deleteResponse =
-          searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
+          searchClient.deleteByQuery(deleteByQueryRequest, byQueryRequestOptions);
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), ES_WRITES_METRIC, deleteResponse.getTotal());
       return Optional.of(deleteResponse);
@@ -195,14 +203,12 @@ public class ESBulkProcessor implements Closeable {
     if (timeout != null) {
       deleteByQueryRequest.setTimeout(timeout);
     }
-    // count the number of conflicts, but do not abort the operation
     deleteByQueryRequest.setConflicts("proceed");
     deleteByQueryRequest.indices(indices);
     try {
-      // flush pending writes
       searchClient.flushBulkProcessor();
       String resp =
-          searchClient.submitDeleteByQueryTask(deleteByQueryRequest, RequestOptions.DEFAULT);
+          searchClient.submitDeleteByQueryTask(deleteByQueryRequest, byQueryRequestOptions);
       if (metricUtils != null) metricUtils.increment(this.getClass(), ES_BATCHES_METRIC, 1);
       return Optional.of(resp);
     } catch (Exception e) {
@@ -217,7 +223,7 @@ public class ESBulkProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
-    flush(); // Make sure pending operations are flushed
+    flush();
     searchClient.closeBulkProcessor();
   }
 

@@ -1,5 +1,6 @@
 ---
 title: Business Glossary Guide
+description: "Build a Business Glossary in DataHub to define a shared vocabulary of business terms and link them to physical data assets."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';

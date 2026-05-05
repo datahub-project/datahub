@@ -1032,7 +1032,7 @@ ORDER by DataBaseName, TableName;
                 except Exception as e:
                     self.report.report_warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
-                        "Lineage resolution will proceed with an empty schema resolver.",
+                        "Lineage resolution will fall back to lazy on-demand schema fetching.",
                         context=str(e),
                         exc=e,
                     )
@@ -1040,10 +1040,12 @@ ORDER by DataBaseName, TableName;
                 logger.warning(
                     "Failed to load schema info from DataHub as DataHubGraph is missing.",
                 )
+        # Pass graph for lazy on-demand resolution of cross-recipe upstream tables.
         return SchemaResolver(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            graph=self.ctx.graph,
         )
 
     def get_inspectors(self):
@@ -1983,6 +1985,7 @@ ORDER by DataBaseName, TableName;
         """Clean up resources when source is closed."""
         logger.info("Closing SqlParsingAggregator")
         self.aggregator.close()
+        self.schema_resolver.close()
 
         # Clean up pooled engine
         with self._pooled_engine_lock:
@@ -1990,6 +1993,22 @@ ORDER by DataBaseName, TableName;
                 logger.info("Disposing pooled engine")
                 self._pooled_engine.dispose()
                 self._pooled_engine = None
+
+        try:
+            # Clear class-level caches so memory is released between recipe runs in the
+            # same process. Without this, sequential recipes accumulate all TeradataTable
+            # objects (including view request_text) and creator metadata indefinitely.
+            with self._tables_cache_lock:
+                self._tables_cache.clear()
+                self._table_creator_cache.clear()
+
+            # Clear module-level LRU caches for the same reason — schema column/PK/FK
+            # data is per-connection and must not carry over to the next recipe run.
+            get_schema_columns.cache_clear()
+            get_schema_pk_constraints.cache_clear()
+            get_schema_foreign_keys.cache_clear()
+        except Exception as e:
+            logger.warning(f"Failed to clear caches during close: {e}")
 
         # Report failed views summary
         super().close()
