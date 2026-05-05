@@ -217,7 +217,7 @@ Reading view definitions (needed for view-to-table lineage) requires `VIEW DEFIN
   GRANT VIEW DEFINITION ON DATABASE::<lakehouse_or_warehouse_name> TO [<service_principal_name>];
   ```
 
-- **Assign a higher workspace role** (Contributor, Member, or Admin) on the workspaces you ingest. Simpler for small deployments, but grants write access — avoid for read-only ingestion principals in production.
+- **Assign a higher workspace role** (Contributor, Member, or Admin) on the workspaces you ingest.
 
 If neither is acceptable for your environment, set `extract_views: false` to skip view ingestion. Views will still appear without definitions if you ingest them at Viewer level, but lineage will be missing.
 
