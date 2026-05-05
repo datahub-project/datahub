@@ -1,8 +1,10 @@
 package com.linkedin.metadata.timeseries;
 
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig.CacheConfig;
 import com.linkedin.metadata.query.filter.Filter;
@@ -10,6 +12,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
@@ -20,6 +24,8 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -168,7 +174,64 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames,
       @Nullable Map<String, Long> endTimeMillis) {
-    return delegate.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, endTimeMillis);
+    if (cache == null || endTimeMillis != null) {
+      return delegate.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, endTimeMillis);
+    }
+
+    Map<Urn, Map<String, EnvelopedAspect>> cached = new HashMap<>();
+    Set<Urn> uncachedUrns = new HashSet<>();
+
+    for (Urn urn : urns) {
+      Map<String, EnvelopedAspect> urnAspects = new HashMap<>();
+      for (String aspectName : aspectNames) {
+        if (!cachedAspectNames.contains(aspectName)) {
+          uncachedUrns.add(urn);
+          break;
+        }
+        String cacheKey = buildCacheKey(urn.getEntityType(), aspectName, urn.toString());
+        String cachedValue = getCachedValue(cacheKey);
+        if (cachedValue != null) {
+          try {
+            urnAspects.put(aspectName, deserializeCachedAspect(cachedValue).get(0));
+          } catch (Exception e) {
+            log.warn("Cache deserialization failed for {}, fetching from ES", cacheKey, e);
+            uncachedUrns.add(urn);
+            break;
+          }
+        } else {
+          uncachedUrns.add(urn);
+          break;
+        }
+      }
+      if (!urnAspects.isEmpty()) {
+        cached.put(urn, urnAspects);
+      }
+    }
+
+    if (uncachedUrns.isEmpty()) {
+      return cached;
+    }
+
+    Map<Urn, Map<String, EnvelopedAspect>> dbResults =
+        delegate.getLatestTimeseriesAspectValues(
+            opContext, uncachedUrns, aspectNames, endTimeMillis);
+    dbResults.forEach(
+        (urn, aspectMap) ->
+            aspectMap.forEach(
+                (aspectName, aspect) -> {
+                  if (cachedAspectNames.contains(aspectName)) {
+                    String cacheKey =
+                        buildCacheKey(urn.getEntityType(), aspectName, urn.toString());
+                    try {
+                      putCachedValue(cacheKey, aspect);
+                    } catch (Exception e) {
+                      log.warn("Failed to cache aspect {}", cacheKey, e);
+                    }
+                  }
+                }));
+
+    cached.putAll(dbResults);
+    return cached;
   }
 
   @Override
@@ -249,8 +312,7 @@ public class LatestTimeseriesAspectVersionCachingService
       try {
         urn = document.has("urn") ? document.get("urn").asText() : null;
         if (urn != null && cache != null) {
-          EnvelopedAspect aspect =
-              objectMapper.readValue(document.toString(), EnvelopedAspect.class);
+          EnvelopedAspect aspect = parseDocumentToEnvelopedAspect(opContext, document);
           String cacheKey = buildCacheKey(entityName, aspectName, urn);
           putCachedValue(cacheKey, aspect);
         }
@@ -329,7 +391,8 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nullable Long endTimeMillis,
       @Nullable Filter filter,
       @Nullable SortCriterion sort) {
-    return (limit == null || limit == 1)
+    return limit != null
+        && limit == 1
         && startTimeMillis == null
         && endTimeMillis == null
         && (filter == null || (filter.getCriteria() != null && filter.getCriteria().isEmpty()))
@@ -346,7 +409,7 @@ public class LatestTimeseriesAspectVersionCachingService
     }
     try {
       cache.clear();
-      log.debug("Cleared latest aspect version cache");
+      log.debug("Cleared cache for aspect");
     } catch (Exception e) {
       log.warn("Failed to clear cache", e);
     }
@@ -399,12 +462,41 @@ public class LatestTimeseriesAspectVersionCachingService
     }
   }
 
+  private EnvelopedAspect parseDocumentToEnvelopedAspect(
+      @Nonnull OperationContext opContext, @Nonnull JsonNode document) throws Exception {
+    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    JsonNode eventNode = document.get("event");
+    if (eventNode != null) {
+      GenericAspect genericAspect =
+          new GenericAspect()
+              .setValue(
+                  ByteString.unsafeWrap(
+                      opContext.getObjectMapper().writeValueAsString(eventNode).getBytes()));
+      genericAspect.setContentType("application/json");
+      envelopedAspect.setAspect(genericAspect);
+    }
+
+    JsonNode systemMetadataNode = document.get("systemMetadata");
+    if (systemMetadataNode != null && !systemMetadataNode.isNull()) {
+      try {
+        envelopedAspect.setSystemMetadata(
+            RecordUtils.toRecordTemplate(
+                SystemMetadata.class,
+                opContext.getObjectMapper().writeValueAsString(systemMetadataNode)));
+      } catch (Exception e) {
+        log.warn("Failed to deserialize system metadata during document parsing", e);
+      }
+    }
+
+    return envelopedAspect;
+  }
+
   private String serializeAspect(EnvelopedAspect aspect) throws Exception {
-    return objectMapper.writeValueAsString(aspect);
+    return RecordUtils.toJsonString(aspect);
   }
 
   private List<EnvelopedAspect> deserializeCachedAspect(String cached) throws Exception {
-    EnvelopedAspect aspect = objectMapper.readValue(cached, EnvelopedAspect.class);
+    EnvelopedAspect aspect = RecordUtils.toRecordTemplate(EnvelopedAspect.class, cached);
     return List.of(aspect);
   }
 }
