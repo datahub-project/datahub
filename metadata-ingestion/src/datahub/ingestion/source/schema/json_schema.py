@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import auto
 from os.path import basename, dirname
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urlparse
 
 import jsonref
@@ -115,6 +115,12 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         default=None,
         description="Apply a string match-replace on the computed display name. "
         "Runs after dataset_name_strategy is applied.",
+    )
+    http_headers: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="HTTP headers to include when fetching remote schemas "
+        "(e.g. for authentication). Applied to $ref resolution and "
+        "remote URL downloads.",
     )
 
     @field_validator("path", mode="after")
@@ -265,7 +271,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
             return (resolved_dict, json.dumps(schema_dict))
 
     @staticmethod
-    def stringreplaceloader(match_string, replace_string, uri, **kwargs):
+    def stringreplaceloader(
+        match_string: str,
+        replace_string: str,
+        uri: str,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Provides a callable which takes a URI, and returns the loaded JSON referred
         to by that URI. Uses :mod:`requests` if available for HTTP URIs, and falls
@@ -273,7 +285,27 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         """
         uri = uri.replace(match_string, replace_string)
         logger.debug(f"Resolving ref to file {uri}")
-        return jsonref.jsonloader(uri, **kwargs)
+        return JsonSchemaSource._jsonloader_with_headers(uri, headers=headers, **kwargs)
+
+    @staticmethod
+    def _jsonloader_with_headers(
+        uri: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any
+    ) -> Any:
+        """Like jsonref.jsonloader but supports custom HTTP headers."""
+        from urllib.parse import urlsplit
+        from urllib.request import urlopen
+
+        scheme = urlsplit(uri).scheme
+        if scheme in ("http", "https"):
+            resp = requests.get(uri, headers=headers or {})
+            resp.raise_for_status()
+            try:
+                return resp.json(**kwargs)
+            except TypeError:
+                return resp.json()
+        else:
+            with urlopen(uri) as content:
+                return json.loads(content.read().decode("utf-8"), **kwargs)
 
     def __init__(self, ctx: PipelineContext, config: JsonSchemaSourceConfig):
         super().__init__(ctx=ctx, config=config)
@@ -422,9 +454,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 self.stringreplaceloader,
                 self.config.uri_replace_pattern.match,
                 self.config.uri_replace_pattern.replace,
+                headers=self.config.http_headers,
             )
         else:
-            ref_loader = jsonref.jsonloader
+            ref_loader = functools.partial(
+                self._jsonloader_with_headers,
+                headers=self.config.http_headers,
+            )
         browse_prefix = f"/{self.config.env.lower()}/{self.config.platform}"
         if self.config.platform_instance:
             browse_prefix = f"/{self.config.env.lower()}/{self.config.platform}/{self.config.platform_instance}"
