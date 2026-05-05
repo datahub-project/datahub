@@ -153,6 +153,7 @@ class SnowflakeV2Report(
     num_auto_shares_skipped_unknown_share_db: int = 0
     num_auto_shares_skipped_producer_urn_missing: int = 0
     num_share_database_mappings_published: int = 0
+    num_share_grant_queries_skipped_oversized: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

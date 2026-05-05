@@ -748,6 +748,24 @@ class SnowflakeV2Source(
                 )
 
         if self.config.publish_share_database_mapping:
+            # Without an org-qualified `account_identifier`, cross-account
+            # consumers cannot graph-lookup this producer by org+account, so
+            # the published mapping is unreachable for them. Surface this so
+            # the user knows why auto-share lineage is degraded.
+            if self.report.account_locator and not self.report.organization_name:
+                self.structured_reporter.warning(
+                    title="Cross-account share lineage may be unreachable",
+                    message=(
+                        "Publishing share-to-database mapping but the "
+                        "Snowflake organization name is unknown, so the "
+                        "org-qualified `account_identifier` is not emitted. "
+                        "Cross-account consumers cannot resolve this producer "
+                        "via graph lookup; they must use `account_mapping` "
+                        "with the bare account locator instead."
+                    ),
+                    context=f"account_locator={self.report.account_locator}",
+                )
+
             mapping = SnowflakeSharesHandler(
                 self.config, self.report, graph=self.ctx.graph
             ).discover_share_database_mapping(self.connection)
@@ -904,10 +922,24 @@ class SnowflakeV2Source(
             logger.info("Checking current region")
             for db_row in connection.query(SnowflakeQuery.current_region()):
                 self.report.region = db_row["CURRENT_REGION()"]
-        except Exception:
-            logger.debug(
-                "Could not determine the current Snowflake region", exc_info=True
-            )
+        except Exception as e:
+            # Region drives Snowsight URL building. If the user opted into
+            # external URLs (the default), surface the failure so they know
+            # why URLs are missing instead of silently dropping them.
+            if self.config.include_external_url:
+                self.structured_reporter.warning(
+                    title="Could not determine Snowflake region",
+                    message=(
+                        "Snowsight external URLs will be omitted from emitted "
+                        "datasets for this ingestion."
+                    ),
+                    exc=e,
+                )
+            else:
+                logger.debug(
+                    "Could not determine the current Snowflake region",
+                    exc_info=True,
+                )
 
         try:
             logger.info("Checking current edition")

@@ -531,7 +531,7 @@ class SnowflakeV2Config(
         "(origin, kind, is_transient, retention_time, owner) and merges it into the "
         "information_schema-based result. Required by `auto_discover_inbound_shares` "
         "(which reads the `origin` field). Set to false to fall back to "
-        "information_schema-only metadata.",
+        "information_schema-only metadata for gradual rollout.",
     )
 
     auto_discover_inbound_shares: bool = Field(
@@ -575,9 +575,28 @@ class SnowflakeV2Config(
     @field_validator("account_mapping", "share_database_mapping", mode="before")
     @classmethod
     def _uppercase_keys(cls, v):
+        """Normalize keys to upper case so callers can do case-insensitive lookups
+        with a plain `dict.get`. If two keys collide after upper-casing
+        (e.g. `{"foo": ..., "FOO": ...}`) the last one wins and a warning is
+        logged — the alternative would be to silently keep one over the other.
+        """
         if not isinstance(v, dict):
             return v
-        return {str(k).upper(): val for k, val in v.items()}
+        normalized: Dict[str, str] = {}
+        for raw_key, val in v.items():
+            key_upper = str(raw_key).upper()
+            if key_upper in normalized and normalized[key_upper] != val:
+                logger.warning(
+                    "Duplicate keys after upper-casing in Snowflake config "
+                    "(`account_mapping` / `share_database_mapping`): %r and %r "
+                    "both map to %r. Last value (%r) wins.",
+                    raw_key,
+                    key_upper,
+                    key_upper,
+                    val,
+                )
+            normalized[key_upper] = val
+        return normalized
 
     def resolve_account_to_platform_instance(
         self, account_identifier: str, account_locator: Optional[str] = None
@@ -800,6 +819,23 @@ class SnowflakeV2Config(
         return self
 
     @model_validator(mode="after")
+    def validate_share_discovery_requires_show_databases(self) -> "SnowflakeV2Config":
+        # Auto-discovery reads the `origin` field that only the SHOW DATABASES
+        # merge populates. Without the merge it would silently no-op for every
+        # shared database. Auto-disable rather than confusing the user.
+        if (
+            self.auto_discover_inbound_shares
+            and not self.include_show_databases_metadata
+        ):
+            logger.warning(
+                "auto_discover_inbound_shares is True but include_show_databases_metadata is False. "
+                "Auto-discovery requires the SHOW DATABASES merge to populate the database `origin` "
+                "field; disabling auto_discover_inbound_shares to avoid silent no-op behavior."
+            )
+            self.auto_discover_inbound_shares = False
+        return self
+
+    @model_validator(mode="after")
     def validate_semantic_views_edition(self) -> "SnowflakeV2Config":
         if self.semantic_views.enabled:
             if (
@@ -818,7 +854,10 @@ class SnowflakeV2Config(
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:
         """
         Returns mapping of
-            database included in current account's outbound share -> all databases created from this share in other accounts
+            database included in current account's outbound share -> all databases created from this share in other accounts.
+
+        Keys are upper-cased so callers can do case-insensitive lookups against
+        Snowflake's uppercase identifiers via plain `dict.get`.
         """
         outbounds: Dict[str, Set[DatabaseId]] = defaultdict(set)
         if self.shares:
@@ -827,13 +866,18 @@ class SnowflakeV2Config(
                     logger.debug(
                         f"database {share_details.database} is included in outbound share(s) {share_name}."
                     )
-                    outbounds[share_details.database].update(share_details.consumers)
+                    outbounds[share_details.database.upper()].update(
+                        share_details.consumers
+                    )
         return outbounds
 
     def inbounds(self) -> Dict[str, DatabaseId]:
         """
         Returns mapping of
-            database created from an current account's inbound share -> other-account database from which this share was created
+            database created from an current account's inbound share -> other-account database from which this share was created.
+
+        Keys are upper-cased so callers can do case-insensitive lookups against
+        Snowflake's uppercase identifiers via plain `dict.get`.
         """
         inbounds: Dict[str, DatabaseId] = {}
         if self.shares:
@@ -843,7 +887,9 @@ class SnowflakeV2Config(
                         logger.debug(
                             f"database {consumer.database} is created from inbound share {share_name}."
                         )
-                        inbounds[consumer.database] = share_details.source_database
+                        inbounds[consumer.database.upper()] = (
+                            share_details.source_database
+                        )
                         if self.platform_instance:
                             break
                         # If not using platform_instance, any one of consumer databases

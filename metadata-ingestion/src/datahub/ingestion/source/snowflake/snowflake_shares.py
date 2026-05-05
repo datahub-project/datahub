@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -32,7 +33,9 @@ from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Must match the LIMIT in SnowflakeQuery.share_grant_history.
+# Cap on the number of share-grant rows we consume from QUERY_HISTORY. The
+# SQL fetches one extra row (limit+1) so we can detect truncation deterministically:
+# exactly LIMIT rows means "complete", more than LIMIT means "truncated".
 SHARE_GRANT_HISTORY_QUERY_LIMIT = 1000
 
 # Skip query texts above this size — usually large stored procedure bodies
@@ -48,6 +51,26 @@ _SHARE_GRANT_RE = re.compile(
 )
 
 
+@dataclass(frozen=True)
+class ResolvedProducer:
+    platform_instance: str
+    database: str
+
+
+@dataclass(frozen=True)
+class ShareGrantDiscovery:
+    """Result of mining QUERY_HISTORY for `GRANT USAGE ON DATABASE ... TO SHARE ...` DDL.
+
+    Distinguishes "no grants found" (empty `mapping`, zero skipped) from
+    "we skipped some queries that might have contained grants" (non-zero
+    `skipped_oversized_queries`). Callers can use `skipped_oversized_queries`
+    to report observability about partial coverage.
+    """
+
+    mapping: Dict[str, str] = field(default_factory=dict)
+    skipped_oversized_queries: int = 0
+
+
 def _normalize_identifier(identifier: str) -> str:
     """Match Snowflake's storage rules: unquoted -> uppercase, quoted -> preserved."""
     if len(identifier) >= 2 and identifier.startswith('"') and identifier.endswith('"'):
@@ -55,24 +78,30 @@ def _normalize_identifier(identifier: str) -> str:
     return identifier.upper()
 
 
-def parse_share_grants(query_texts: Iterable[str]) -> Dict[str, str]:
+def parse_share_grants(query_texts: Iterable[str]) -> ShareGrantDiscovery:
     """Parse `GRANT USAGE ON DATABASE ... TO SHARE ...` DDL.
 
-    Returns share_name -> database_name. Identifiers are normalized to match
-    Snowflake's storage (unquoted -> uppercase, quoted -> preserved). The
-    first occurrence of a given share name wins; callers should pass query
-    texts in reverse-chronological order so that the most recent grant
-    determines the mapping.
+    Returns a `ShareGrantDiscovery` with `mapping` (share_name -> database_name)
+    and `skipped_oversized_queries` (count of queries skipped for being above
+    `_MAX_QUERY_TEXT_BYTES`). Identifiers are normalized to match Snowflake's
+    storage (unquoted -> uppercase, quoted -> preserved). The first occurrence
+    of a given share name wins; callers should pass query texts in
+    reverse-chronological order so that the most recent grant determines the
+    mapping.
     """
     mapping: Dict[str, str] = {}
+    skipped = 0
     for query_text in query_texts:
-        if not query_text or len(query_text) > _MAX_QUERY_TEXT_BYTES:
+        if not query_text:
+            continue
+        if len(query_text) > _MAX_QUERY_TEXT_BYTES:
+            skipped += 1
             continue
         for match in _SHARE_GRANT_RE.finditer(query_text):
             db = _normalize_identifier(match.group(1))
             share = _normalize_identifier(match.group(2))
             mapping.setdefault(share, db)
-    return mapping
+    return ShareGrantDiscovery(mapping=mapping, skipped_oversized_queries=skipped)
 
 
 class SnowflakeSharesHandler(SnowflakeCommonMixin):
@@ -90,29 +119,25 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self,
         databases: List[SnowflakeDatabase],
     ) -> Iterable[MetadataWorkUnit]:
+        # Both dicts are upper-cased by config; Snowflake also returns
+        # identifiers in upper-case, so direct lookup is correct.
         inbounds = self.config.inbounds()
         outbounds = self.config.outbounds()
         if not (inbounds or outbounds):
             return
 
-        # Snowflake returns identifiers in uppercase; config values may use any case.
-        inbounds_upper: Dict[str, str] = {k.upper(): k for k in inbounds}
-        outbounds_upper: Dict[str, str] = {k.upper(): k for k in outbounds}
-
         logger.debug("Checking databases for inbound or outbound shares.")
         for db in databases:
             db_upper = db.name.upper()
-            is_inbound = db_upper in inbounds_upper
-            is_outbound = db_upper in outbounds_upper
+            outbound_consumers = outbounds.get(db_upper)
+            inbound_source = inbounds.get(db_upper)
 
-            if not (is_inbound or is_outbound):
+            if not (outbound_consumers or inbound_source):
                 logger.debug(f"database {db.name} is not shared.")
                 continue
 
             sibling_dbs = (
-                list(outbounds[outbounds_upper[db_upper]])
-                if is_outbound
-                else [inbounds[inbounds_upper[db_upper]]]
+                list(outbound_consumers) if outbound_consumers else [inbound_source]  # type: ignore[list-item]
             )
 
             for schema in db.schemas:
@@ -121,14 +146,13 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                         db.name,
                         schema.name,
                         table_name,
-                        is_outbound,
-                        sibling_dbs,
+                        primary=bool(outbound_consumers),
+                        sibling_databases=sibling_dbs,
                     )
 
-                    if is_inbound:
-                        assert len(sibling_dbs) == 1
+                    if inbound_source is not None:
                         yield self.get_upstream_lineage_with_primary_sibling(
-                            db.name, schema.name, table_name, sibling_dbs[0]
+                            db.name, schema.name, table_name, inbound_source
                         )
 
         self.report_missing_databases(
@@ -144,41 +168,55 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         must treat absence as "unknown", not as "no grants exist".
         """
         try:
-            rows = connection.query(SnowflakeQuery.share_grant_history())
+            rows = connection.query(
+                SnowflakeQuery.share_grant_history(
+                    limit=SHARE_GRANT_HISTORY_QUERY_LIMIT + 1
+                )
+            )
         except Exception as e:
             self.report.warning(
                 title="Share-to-database mining skipped",
                 message=(
                     "Could not query SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY for "
-                    "share grants. Consumers will need explicit "
-                    "`share_database_mapping` config to resolve producer "
-                    "database names."
+                    "share grants. Cross-account consumers ingesting shares "
+                    "from this account will need explicit "
+                    "`share_database_mapping` config in their consumer recipe "
+                    "to resolve producer database names."
                 ),
                 exc=e,
             )
             return {}
 
-        # The query has a LIMIT — if we hit it, the mapping may be incomplete.
+        # We over-fetch by 1 — receiving more than LIMIT rows means there are
+        # older grants we couldn't see, so the mapping is incomplete.
         rows_list = list(rows)
-        if len(rows_list) >= SHARE_GRANT_HISTORY_QUERY_LIMIT:
+        if len(rows_list) > SHARE_GRANT_HISTORY_QUERY_LIMIT:
             self.report.warning(
                 title="Share grant history may be incomplete",
                 message=(
-                    f"`SHOW QUERY_HISTORY` returned the maximum "
-                    f"{SHARE_GRANT_HISTORY_QUERY_LIMIT} rows. Older grants may be "
-                    "missing from the published `share_database_mapping`. "
-                    "Consumers can fall back to manual `share_database_mapping` "
-                    "config for affected shares."
+                    "ACCOUNT_USAGE.QUERY_HISTORY returned more rows than the "
+                    "configured cap. Older grants may be missing from the "
+                    "published `share_database_mapping`. Consumers can fall back "
+                    "to manual `share_database_mapping` config for affected shares."
                 ),
+                context=f"cap={SHARE_GRANT_HISTORY_QUERY_LIMIT}",
             )
+            rows_list = rows_list[:SHARE_GRANT_HISTORY_QUERY_LIMIT]
 
         query_texts = [row["QUERY_TEXT"] for row in rows_list if row.get("QUERY_TEXT")]
-        mapping = parse_share_grants(query_texts)
+        result = parse_share_grants(query_texts)
+        if result.skipped_oversized_queries:
+            # Stored procedure bodies and similar mega-queries are skipped to
+            # bound CPU. Surface the count so users can tell whether a missing
+            # mapping is "no grant exists" vs "grant text was too large to scan".
+            self.report.num_share_grant_queries_skipped_oversized = (
+                result.skipped_oversized_queries
+            )
         logger.info(
             "Discovered share->database mapping for %d shares from QUERY_HISTORY.",
-            len(mapping),
+            len(result.mapping),
         )
-        return mapping
+        return result.mapping
 
     def get_auto_share_workunits(
         self,
@@ -188,9 +226,8 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         if not self.config.auto_discover_inbound_shares:
             return
 
-        manual_dbs_upper = {db.upper() for db in self.config.inbounds()} | {
-            db.upper() for db in self.config.outbounds()
-        }
+        # Keys from inbounds()/outbounds() are already upper-cased.
+        manual_dbs_upper = set(self.config.inbounds()) | set(self.config.outbounds())
 
         for db in databases:
             origin = db.share_origin
@@ -205,7 +242,6 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             resolved = self._resolve_producer(db, origin)
             if resolved is None:
                 continue
-            producer_platform_instance, producer_database = resolved
 
             for schema in db.schemas:
                 for table_name in schema.tables + schema.views:
@@ -213,16 +249,16 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                         consumer_db=db.name,
                         schema_name=schema.name,
                         table_name=table_name,
-                        producer_platform_instance=producer_platform_instance,
-                        producer_database=producer_database,
+                        producer_platform_instance=resolved.platform_instance,
+                        producer_database=resolved.database,
                     )
 
             self.report.num_auto_shares_discovered += 1
 
     def _resolve_producer(
         self, db: SnowflakeDatabase, origin: ShareOrigin
-    ) -> Optional[tuple]:
-        """Resolve (producer_platform_instance, producer_database) for a shared DB.
+    ) -> Optional[ResolvedProducer]:
+        """Resolve the producer platform_instance and database for a shared DB.
 
         Emits a structured warning and returns None when either side is unresolved.
         Warnings use static messages with dynamic values in `context` so the report
@@ -267,7 +303,10 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             )
             return None
 
-        return producer_platform_instance, producer_database
+        return ResolvedProducer(
+            platform_instance=producer_platform_instance,
+            database=producer_database,
+        )
 
     def _resolve_share_database(
         self, share_name: str, producer_platform_instance: str
@@ -345,42 +384,55 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         producer_platform_instance: str,
         producer_database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        consumer_identifier = self.identifiers.get_dataset_identifier(
-            table_name, schema_name, consumer_db
-        )
-        consumer_urn = self.identifiers.gen_dataset_urn(consumer_identifier)
-
-        producer_urn = make_dataset_urn_with_platform_instance(
-            self.identifiers.platform,
-            self.identifiers.get_dataset_identifier(
-                table_name, schema_name, producer_database
-            ),
-            producer_platform_instance,
+        producer = DatabaseId(
+            database=producer_database, platform_instance=producer_platform_instance
         )
 
         # Opt-in: skip if the producer URN doesn't exist in the graph yet.
         # Off by default so that consumers ingested before producers still
         # establish lineage that activates when the producer ingests.
-        if (
-            self.config.validate_producer_urns_in_graph
-            and self.graph is not None
-            and not self.graph.exists(producer_urn)
-        ):
-            self.report.num_auto_shares_skipped_producer_urn_missing += 1
-            return
+        if self.config.validate_producer_urns_in_graph and self.graph is not None:
+            producer_urn = make_dataset_urn_with_platform_instance(
+                self.identifiers.platform,
+                self.identifiers.get_dataset_identifier(
+                    table_name, schema_name, producer_database
+                ),
+                producer_platform_instance,
+            )
+            try:
+                exists = self.graph.exists(producer_urn)
+            except Exception as e:
+                # Fail open: a transient graph error shouldn't strip lineage
+                # for the rest of the ingestion. Surface a warning so the user
+                # knows validation was skipped.
+                self.report.warning(
+                    title="Producer URN existence check failed",
+                    message=(
+                        "Could not verify the producer URN in the graph. "
+                        "Emitting share lineage anyway; the link will resolve "
+                        "once the producer is ingested."
+                    ),
+                    context=f"producer_urn={producer_urn}",
+                    exc=e,
+                )
+            else:
+                if not exists:
+                    self.report.num_auto_shares_skipped_producer_urn_missing += 1
+                    return
 
-        self.report.num_siblings_emitted += 1
-        yield MetadataChangeProposalWrapper(
-            entityUrn=consumer_urn,
-            aspect=Siblings(primary=False, siblings=[producer_urn]),
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=consumer_urn,
-            aspect=UpstreamLineage(
-                upstreams=[Upstream(dataset=producer_urn, type=DatasetLineageType.COPY)]
-            ),
-        ).as_workunit()
+        # Reuse the manual-shares emission helpers — same Siblings(primary=False)
+        # + UpstreamLineage(COPY) shape the manual `shares` config produces, so
+        # both code paths emit identical aspect content for the same producer.
+        yield from self.gen_siblings(
+            consumer_db,
+            schema_name,
+            table_name,
+            primary=False,
+            sibling_databases=[producer],
+        )
+        yield self.get_upstream_lineage_with_primary_sibling(
+            consumer_db, schema_name, table_name, producer
+        )
 
     def report_missing_databases(
         self,

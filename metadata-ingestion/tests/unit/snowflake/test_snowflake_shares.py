@@ -17,6 +17,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeSchema,
 )
 from datahub.ingestion.source.snowflake.snowflake_shares import (
+    SHARE_GRANT_HISTORY_QUERY_LIMIT,
     SnowflakeSharesHandler,
     parse_share_grants,
 )
@@ -378,12 +379,14 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share_no_platform_instan
     report = SnowflakeV2Report()
     handler = SnowflakeSharesHandler(config, report)
 
-    assert sorted(config.outbounds().keys()) == ["db1", "db2_main"]
+    # outbounds()/inbounds() upper-case keys so callers can match Snowflake's
+    # uppercase identifiers without per-call `.upper()` plumbing.
+    assert sorted(config.outbounds().keys()) == ["DB1", "DB2_MAIN"]
     assert sorted(config.inbounds().keys()) == [
-        "db1_from_share",
-        "db1_other",
-        "db2",
-        "db2_other",
+        "DB1_FROM_SHARE",
+        "DB1_OTHER",
+        "DB2",
+        "DB2_OTHER",
     ]
     wus = list(handler.get_shares_workunits(snowflake_databases))
 
@@ -612,21 +615,23 @@ def test_auto_share_locator_only_origin_resolves_via_locator() -> None:
 
 def test_parse_share_grants_basic() -> None:
     queries = ["GRANT USAGE ON DATABASE prod_analytics TO SHARE analytics_share"]
-    assert parse_share_grants(queries) == {"ANALYTICS_SHARE": "PROD_ANALYTICS"}
+    result = parse_share_grants(queries)
+    assert result.mapping == {"ANALYTICS_SHARE": "PROD_ANALYTICS"}
+    assert result.skipped_oversized_queries == 0
 
 
 def test_parse_share_grants_quoted_identifiers() -> None:
     queries = [
         'GRANT USAGE ON DATABASE "My Prod DB" TO SHARE "My Share"',
     ]
-    assert parse_share_grants(queries) == {"My Share": "My Prod DB"}
+    assert parse_share_grants(queries).mapping == {"My Share": "My Prod DB"}
 
 
 def test_parse_share_grants_extra_whitespace_and_newlines() -> None:
     queries = [
         "GRANT  USAGE\n  ON\tDATABASE   prod_db\n  TO   SHARE   my_share",
     ]
-    assert parse_share_grants(queries) == {"MY_SHARE": "PROD_DB"}
+    assert parse_share_grants(queries).mapping == {"MY_SHARE": "PROD_DB"}
 
 
 def test_parse_share_grants_first_seen_wins() -> None:
@@ -635,7 +640,7 @@ def test_parse_share_grants_first_seen_wins() -> None:
         "GRANT USAGE ON DATABASE new_db TO SHARE share_x",
         "GRANT USAGE ON DATABASE old_db TO SHARE share_x",
     ]
-    assert parse_share_grants(queries) == {"SHARE_X": "NEW_DB"}
+    assert parse_share_grants(queries).mapping == {"SHARE_X": "NEW_DB"}
 
 
 def test_parse_share_grants_multiple_shares() -> None:
@@ -643,7 +648,7 @@ def test_parse_share_grants_multiple_shares() -> None:
         "GRANT USAGE ON DATABASE db1 TO SHARE share1",
         "GRANT USAGE ON DATABASE db2 TO SHARE share2",
     ]
-    assert parse_share_grants(queries) == {"SHARE1": "DB1", "SHARE2": "DB2"}
+    assert parse_share_grants(queries).mapping == {"SHARE1": "DB1", "SHARE2": "DB2"}
 
 
 def test_parse_share_grants_ignores_non_matching_queries() -> None:
@@ -652,17 +657,20 @@ def test_parse_share_grants_ignores_non_matching_queries() -> None:
         "GRANT SELECT ON TABLE foo TO ROLE bar",
         "GRANT USAGE ON DATABASE prod_db TO SHARE my_share",
     ]
-    assert parse_share_grants(queries) == {"MY_SHARE": "PROD_DB"}
+    assert parse_share_grants(queries).mapping == {"MY_SHARE": "PROD_DB"}
 
 
 def test_parse_share_grants_empty_input() -> None:
-    assert parse_share_grants([]) == {}
-    assert parse_share_grants([""]) == {}
-    assert parse_share_grants([None]) == {}  # type: ignore[list-item]
+    # Empty input is "nothing to scan", not "we skipped oversized things".
+    assert parse_share_grants([]).mapping == {}
+    assert parse_share_grants([]).skipped_oversized_queries == 0
+    assert parse_share_grants([""]).mapping == {}
+    assert parse_share_grants([""]).skipped_oversized_queries == 0
+    assert parse_share_grants([None]).mapping == {}  # type: ignore[list-item]
 
 
 # ---------------------------------------------------------------------------
-# M5: graph-backed share->DB resolution and producer URN validation
+# Graph-backed share->DB resolution and producer URN validation
 # ---------------------------------------------------------------------------
 
 
@@ -761,6 +769,33 @@ def test_auto_share_skipped_when_validate_urns_and_producer_missing() -> None:
     assert report.num_auto_shares_skipped_producer_urn_missing == 2  # table + view
 
 
+def test_auto_share_fails_open_when_graph_exists_raises() -> None:
+    # A transient graph error during validation must not crash the ingestion
+    # nor strip lineage for the rest of the run. Emit a warning, fail open.
+    config = SnowflakeV2Config(
+        account_id="abc12345",
+        platform_instance="consumer_inst",
+        account_mapping={"myorg.acct_a": "producer_inst"},
+        share_database_mapping={"ANALYTICS_SHARE": "PROD_ANALYTICS"},
+        validate_producer_urns_in_graph=True,
+    )
+    report = SnowflakeV2Report()
+    graph = MagicMock()
+    graph.get_aspect.return_value = None
+    graph.exists.side_effect = Exception("graph unreachable")
+    handler = SnowflakeSharesHandler(config, report, graph=graph)
+
+    db = _shared_db("SHARED_DB", origin="MYORG.ACCT_A.ANALYTICS_SHARE")
+    wus = list(handler.get_auto_share_workunits([db]))
+
+    assert len(wus) == 4
+    assert report.num_auto_shares_skipped_producer_urn_missing == 0
+    assert any(
+        "Producer URN existence check failed" in (w.title or "")
+        for w in report.warnings
+    )
+
+
 def test_auto_share_emits_when_validate_urns_off_and_producer_missing() -> None:
     config = SnowflakeV2Config(
         account_id="abc12345",
@@ -838,10 +873,26 @@ def test_discover_share_database_mapping_query_failure_warns() -> None:
 
 
 def test_discover_share_database_mapping_truncation_warns() -> None:
-    from datahub.ingestion.source.snowflake.snowflake_shares import (
-        SHARE_GRANT_HISTORY_QUERY_LIMIT,
+    # Receiving more than the cap means QUERY_HISTORY had additional grants we
+    # couldn't see — the SQL over-fetches by one, so cap+1 rows is the trigger.
+    config = SnowflakeV2Config(account_id="abc12345")
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    conn = MagicMock()
+    conn.query.return_value = [
+        {"QUERY_TEXT": f"GRANT USAGE ON DATABASE db_{i} TO SHARE share_{i}"}
+        for i in range(SHARE_GRANT_HISTORY_QUERY_LIMIT + 1)
+    ]
+    handler.discover_share_database_mapping(conn)
+    assert any(
+        "Share grant history may be incomplete" in (w.title or "")
+        for w in report.warnings
     )
 
+
+def test_discover_share_database_mapping_at_cap_does_not_warn() -> None:
+    # Receiving exactly the cap means we got every grant — no truncation.
     config = SnowflakeV2Config(account_id="abc12345")
     report = SnowflakeV2Report()
     handler = SnowflakeSharesHandler(config, report)
@@ -852,7 +903,7 @@ def test_discover_share_database_mapping_truncation_warns() -> None:
         for i in range(SHARE_GRANT_HISTORY_QUERY_LIMIT)
     ]
     handler.discover_share_database_mapping(conn)
-    assert any(
+    assert not any(
         "Share grant history may be incomplete" in (w.title or "")
         for w in report.warnings
     )
@@ -863,7 +914,7 @@ def test_parse_share_grants_with_sql_comments() -> None:
         "-- this is a comment\nGRANT USAGE ON DATABASE prod_db TO SHARE my_share",
         "/* block comment */ GRANT USAGE ON DATABASE other_db TO SHARE other_share",
     ]
-    assert parse_share_grants(queries) == {
+    assert parse_share_grants(queries).mapping == {
         "MY_SHARE": "PROD_DB",
         "OTHER_SHARE": "OTHER_DB",
     }
@@ -876,7 +927,27 @@ def test_parse_share_grants_skips_huge_query_text() -> None:
         "GRANT USAGE ON DATABASE small TO SHARE small_share",
     ]
     # Huge text is skipped without scanning; only the small one is parsed.
-    assert parse_share_grants(queries) == {"SMALL_SHARE": "SMALL"}
+    # The skip is counted so callers can surface it as an observability signal.
+    result = parse_share_grants(queries)
+    assert result.mapping == {"SMALL_SHARE": "SMALL"}
+    assert result.skipped_oversized_queries == 1
+
+
+def test_discover_share_database_mapping_counts_oversized_skips() -> None:
+    config = SnowflakeV2Config(account_id="abc12345")
+    report = SnowflakeV2Report()
+    handler = SnowflakeSharesHandler(config, report)
+
+    huge = "x" * 2_000_000 + " GRANT USAGE ON DATABASE big TO SHARE big_share"
+    conn = MagicMock()
+    conn.query.return_value = [
+        {"QUERY_TEXT": huge},
+        {"QUERY_TEXT": "GRANT USAGE ON DATABASE small TO SHARE small_share"},
+    ]
+    mapping = handler.discover_share_database_mapping(conn)
+
+    assert mapping == {"SMALL_SHARE": "SMALL"}
+    assert report.num_share_grant_queries_skipped_oversized == 1
 
 
 # ---------------------------------------------------------------------------
