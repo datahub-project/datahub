@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob as DataJobV1
@@ -41,6 +41,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dlt.config import DltSourceConfig
 from datahub.ingestion.source.dlt.data_classes import (
     DltLoadInfo,
+    DltLoadStatus,
     DltPipelineInfo,
     DltTableInfo,
 )
@@ -68,10 +69,13 @@ logger = logging.getLogger(__name__)
 # not meaningful as lineage targets in DataHub.
 DLT_SYSTEM_TABLES = frozenset({"_dlt_loads", "_dlt_version", "_dlt_pipeline_state"})
 
-# dlt load status codes: 0 = complete (success); all other values indicate
-# in-progress or failed loads.
-_DLT_LOAD_STATUS_MAP: dict[int, InstanceRunResult] = {
-    0: InstanceRunResult.SUCCESS,
+# Map dlt _dlt_loads status codes onto DataHub run results. Only DltLoadStatus.LOADED
+# (status=0, the documented success state) maps to SUCCESS; any other status code is
+# boxed as DltLoadStatus.UNKNOWN by DltLoadStatus._missing_ and reported as FAILURE.
+# dlt's _dlt_loads table only records committed loads, so non-zero status values are
+# rare and version-dependent — treating them as failures preserves the audit signal.
+_DLT_LOAD_STATUS_MAP: Dict[DltLoadStatus, InstanceRunResult] = {
+    DltLoadStatus.LOADED: InstanceRunResult.SUCCESS,
 }
 
 

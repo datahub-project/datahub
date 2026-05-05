@@ -25,6 +25,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dlt.data_classes import (
     DltColumnInfo,
     DltLoadInfo,
+    DltLoadStatus,
     DltPipelineInfo,
     DltSchemaInfo,
     DltTableInfo,
@@ -309,14 +310,14 @@ def test_run_history_emits_dataprocess_instance() -> None:
     load_success = DltLoadInfo(
         load_id="1234567890.0",
         schema_name="chess_pipeline",
-        status=0,
+        status=DltLoadStatus.LOADED,
         inserted_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
         schema_version_hash="abc",
     )
     load_failure = DltLoadInfo(
         load_id="1234567891.0",
         schema_name="chess_pipeline",
-        status=1,
+        status=DltLoadStatus.UNKNOWN,
         inserted_at=datetime(2026, 1, 1, 13, 0, 0, tzinfo=timezone.utc),
         schema_version_hash="def",
     )
@@ -591,10 +592,10 @@ def test_emit_dpi_for_load_status_mapping() -> None:
     pipeline_info = _make_pipeline_info()
     source = _make_source()
 
-    def _get_result_from_load(status: int) -> str:
+    def _get_result_from_load(status: DltLoadStatus) -> str:
         """Run _emit_dpi_for_load and extract the run result string from the end event MCP."""
         load = DltLoadInfo(
-            load_id=f"load_{status}",
+            load_id=f"load_{int(status)}",
             schema_name="chess_pipeline",
             status=status,
             inserted_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=timezone.utc),
@@ -613,15 +614,15 @@ def test_emit_dpi_for_load_status_mapping() -> None:
                 return str(result)
         return ""
 
-    success_result = _get_result_from_load(0)
-    failure_result = _get_result_from_load(1)
+    success_result = _get_result_from_load(DltLoadStatus.LOADED)
+    failure_result = _get_result_from_load(DltLoadStatus.UNKNOWN)
 
     assert "SUCCESS" in success_result.upper() or success_result == str(
         InstanceRunResult.SUCCESS
-    ), f"Expected SUCCESS for status=0, got: {success_result}"
+    ), f"Expected SUCCESS for status=LOADED, got: {success_result}"
     assert "FAILURE" in failure_result.upper() or failure_result == str(
         InstanceRunResult.FAILURE
-    ), f"Expected FAILURE for status=1, got: {failure_result}"
+    ), f"Expected FAILURE for status=UNKNOWN, got: {failure_result}"
 
 
 # ---------------------------------------------------------------------------

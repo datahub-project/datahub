@@ -19,7 +19,7 @@ import pytest
 import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.dlt.data_classes import DltLoadInfo
+from datahub.ingestion.source.dlt.data_classes import DltLoadInfo, DltLoadStatus
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2026-01-15 10:00:00+00:00"
@@ -359,14 +359,14 @@ def test_dlt_run_history_emits_dataprocess_instances(tmp_path: pathlib.Path) -> 
         DltLoadInfo(
             load_id="1000000001.0",
             schema_name="chess_pipeline",
-            status=0,  # success
+            status=DltLoadStatus.LOADED,  # success
             inserted_at=datetime(2026, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
             schema_version_hash="abc",
         ),
         DltLoadInfo(
             load_id="1000000002.0",
             schema_name="chess_pipeline",
-            status=1,  # failure/in-progress
+            status=DltLoadStatus.UNKNOWN,  # failure/in-progress
             inserted_at=datetime(2026, 1, 14, 11, 0, 0, tzinfo=timezone.utc),
             schema_version_hash="def",
         ),

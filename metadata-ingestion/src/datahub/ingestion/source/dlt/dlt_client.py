@@ -19,9 +19,11 @@ from datahub.ingestion.source.dlt.data_classes import (
     DLT_SYSTEM_COLUMNS,
     DltColumnInfo,
     DltLoadInfo,
+    DltLoadStatus,
     DltPipelineInfo,
     DltSchemaInfo,
     DltTableInfo,
+    DltWriteDisposition,
 )
 
 if TYPE_CHECKING:
@@ -67,11 +69,31 @@ def _parse_columns(columns_dict: Optional[Dict[str, Any]]) -> List[DltColumnInfo
     return result
 
 
+_KNOWN_WRITE_DISPOSITIONS = {"append", "replace", "merge"}
+
+
+def _coerce_write_disposition(raw: Any) -> DltWriteDisposition:
+    """Validate a dlt write_disposition value, falling back to 'append' if unrecognized.
+
+    dlt's resource API documents only these three values; anything else likely
+    indicates a future dlt feature or a corrupt schema. Falling back to 'append'
+    matches dlt's own default and avoids raising during ingestion.
+    """
+    if isinstance(raw, str) and raw in _KNOWN_WRITE_DISPOSITIONS:
+        # Cast is safe — Literal narrowing requires the explicit branch.
+        return raw  # type: ignore[return-value]
+    if raw is not None:
+        logger.debug(
+            "Unrecognized dlt write_disposition %r; defaulting to 'append'.", raw
+        )
+    return "append"
+
+
 def _parse_table(table_name: str, table_def: Dict[str, Any]) -> DltTableInfo:
     """Parse a single table dict entry into a DltTableInfo."""
     return DltTableInfo(
         table_name=table_name,
-        write_disposition=table_def.get("write_disposition", "append"),
+        write_disposition=_coerce_write_disposition(table_def.get("write_disposition")),
         parent_table=table_def.get("parent"),
         columns=_parse_columns(table_def.get("columns")),
         resource_name=table_def.get("resource"),
@@ -342,6 +364,11 @@ class DltClient:
 
         Returns None when the row falls outside the requested time window so
         callers can skip it without constructing an intermediate object.
+
+        `row` is typed as Any because the underlying DB driver row type varies
+        (psycopg2 tuple, BigQuery Row, DuckDB tuple, etc.). The SELECT query in
+        get_run_history projects exactly five columns in this order:
+        load_id, schema_name, status, inserted_at, schema_version_hash.
         """
         inserted_at = row[3]
         if isinstance(inserted_at, str):
@@ -352,10 +379,12 @@ class DltClient:
             return None
         if end_time and inserted_at > end_time:
             return None
+        # DltLoadStatus._missing_ boxes any non-LOADED int into UNKNOWN.
+        status = DltLoadStatus(int(row[2]))
         return DltLoadInfo(
             load_id=str(row[0]),
             schema_name=str(row[1]),
-            status=int(row[2]),
+            status=status,
             inserted_at=inserted_at,
             schema_version_hash=str(row[4]) if row[4] else "",
         )
