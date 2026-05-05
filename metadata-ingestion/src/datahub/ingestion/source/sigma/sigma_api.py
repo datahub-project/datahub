@@ -1132,17 +1132,18 @@ class SigmaAPI:
 
     def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
         """Fetch /files/{inodeId} and return the raw JSON dict, or None on
-        non-200.  Resolves a warehouse-table lineage ``inodeId`` (UUID) to its
-        ``urlId`` (alphanumeric slug) and file-system ``path``
-        (``Connection Root/<DB>/<SCHEMA>``).
+        non-200 or exception.  Resolves a warehouse-table lineage ``inodeId``
+        (UUID) to its ``urlId`` (alphanumeric slug) and file-system ``path``
+        (``Connection Root/<DB>/<SCHEMA>`` for Snowflake; shape for other
+        platforms is unverified — see TODO in _build_dm_warehouse_url_id_map).
 
         Callers are responsible for caching; this method always makes a live
         HTTP call so the instance-level cache on ``SigmaSource`` can be shared
         across multiple callers without duplicating retry/error logic here.
 
         Error handling mirrors ``get_data_model_by_url_id``: 429 gets a
-        dedicated counter + warning; other non-200 statuses emit a
-        rate-limited structured warning so operators can distinguish
+        dedicated counter + warning; other non-200 statuses and exceptions
+        emit a rate-limited structured warning so operators can distinguish
         rate-limiting from missing-scope (403/404) from server errors (5xx).
         """
         logger.debug("Fetching file metadata for inode '%s'.", inode_id)

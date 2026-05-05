@@ -219,7 +219,7 @@ class _WarehouseTableRef:
 
     def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
         name = f"{self.db}.{self.schema}.{self.table}"
-        if platform in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+        if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
             return name.lower()
         return name
 
@@ -630,8 +630,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Dict[str, _WarehouseTableRef]:
         """For each type=table lineage inode on this DM, call /files/{inodeId}
         (cached) to get the ``urlId`` and ``path``.  Returns a map of
-        ``urlId → _WarehouseTableRef`` so ``_gen_data_model_element_upstream_lineage``
+        urlId -> _WarehouseTableRef so _gen_data_model_element_upstream_lineage
         can look up by the suffix that element ``sourceIds`` use.
+
+        Path shape assumption: ``Connection Root/<DB>/<SCHEMA>`` (3 segments).
+        This is empirically confirmed for Snowflake.  For other platforms the
+        shape is unverified — MySQL (DB == schema, possibly 2 segments),
+        BigQuery (project/dataset — also 2 without a DB layer), and
+        platforms with deeper catalog hierarchies may produce a different
+        segment count and land in dm_element_warehouse_path_unparseable.
+        TODO: validate /files path shapes for non-Snowflake platforms and
+        adjust the segment parser accordingly.
 
         Counters bumped here:
           - dm_element_warehouse_table_lookup_failed
@@ -692,6 +701,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         ),
                     )
                 continue
+            if url_id in result:
+                logger.warning(
+                    "DM %s: two inodes share the same urlId %r; "
+                    "the earlier entry will be overwritten. "
+                    "This is unexpected — please report to DataHub.",
+                    data_model.dataModelId,
+                    url_id,
+                )
             result[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
                 db=parts[1],
@@ -782,19 +799,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Once per unique connectionId without an override, list the IDs in the
         # info message so operators know which connections to add to
         # connection_to_platform_map if env / platform_instance mismatches appear.
-        if conn_override is None:
+        # Fire once per unique connectionId that has no override — gated on
+        # "not already seen" so repeated emissions from the same connection
+        # don't re-fire the message.
+        if (
+            conn_override is None
+            and ref.connection_id not in self._no_platform_map_conn_ids
+        ):
             self._no_platform_map_conn_ids.add(ref.connection_id)
-            if len(self._no_platform_map_conn_ids) == 1:
-                self.reporter.info(
-                    title="Sigma warehouse URNs emitted without connection_to_platform_map",
-                    message=(
-                        "Warehouse Dataset URNs are being emitted using the Sigma "
-                        "recipe's env and platform_instance=None. If your warehouse "
-                        "connector uses a different env or platform_instance, configure "
-                        "connection_to_platform_map in the Sigma recipe to match."
-                    ),
-                    context=f"connection_ids_without_override={sorted(self._no_platform_map_conn_ids)}",
-                )
+            self.reporter.info(
+                title="Sigma warehouse URNs emitted without connection_to_platform_map",
+                message=(
+                    "Warehouse Dataset URNs are being emitted using the Sigma "
+                    "recipe's env and platform_instance=None. If your warehouse "
+                    "connector uses a different env or platform_instance, configure "
+                    "connection_to_platform_map in the Sigma recipe to match."
+                ),
+                context=f"connection_ids_without_override={sorted(self._no_platform_map_conn_ids)}",
+            )
         return builder.make_dataset_urn_with_platform_instance(
             platform=record.datahub_platform,
             name=fq,
