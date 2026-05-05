@@ -37,6 +37,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    DataFlowSubTypes,
+    DataJobSubTypes,
+)
 from datahub.ingestion.source.dlt.config import DltSourceConfig
 from datahub.ingestion.source.dlt.data_classes import (
     DltLoadInfo,
@@ -235,6 +239,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
             display_name=pipeline_info.pipeline_name,
             platform_instance=self.config.platform_instance,
             custom_properties=custom_props,
+            subtype=DataFlowSubTypes.DLT_PIPELINE,
         )
 
     def _build_datajob(
@@ -271,6 +276,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
             inlets=wide_inlets,
             outlets=wide_outlets,
             fine_grained_lineages=fine_grained_lineages or [],
+            subtype=DataJobSubTypes.DLT_RESOURCE,
         )
 
     # ------------------------------------------------------------------

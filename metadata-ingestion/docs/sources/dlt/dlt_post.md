@@ -10,6 +10,21 @@
 | Deletion detection                | ✅ Via stateful ingestion                | Removes DataFlow/DataJob when pipeline is deleted from `pipelines_dir`         |
 | Ownership                         | ❌ Not supported                         | dlt state does not contain owner information                                   |
 
+#### Modeling Notes — Why one DataJob per destination table?
+
+A single `@dlt.resource` can produce more than one destination table when it returns nested data. dlt unnests JSON arrays into child tables using a double-underscore convention (for example `orders` plus `orders__items`). The connector emits **one DataJob per destination table** rather than one DataJob per `@dlt.resource`, so:
+
+- Each destination table has a clean 1:1 outlet lineage entry (DataJob → Dataset URN on the destination).
+- Column-level lineage stays at table granularity, which downstream lineage queries already expect.
+- Browsing the dlt pipeline in DataHub shows every loaded table, not just the parent resource.
+
+The trade-off is that the "this resource produced these tables" abstraction is not directly visible. To preserve that link:
+
+- Each child-table DataJob carries a `parent_table` custom property pointing to its parent (for example, `parent_table: orders` on `orders__items`).
+- All tables produced by the same resource share the same `resource_name` custom property.
+
+The two are siblings in DataHub's lineage graph (both come from the same source rows at load time, not parent → child), so no synthetic upstream/downstream lineage is added between them — that would misrepresent the actual data flow.
+
 #### Lineage Stitching
 
 For outlet lineage to connect to your destination's Dataset URNs, `destination_platform_map` must match the environment and platform instance used by your destination connector.

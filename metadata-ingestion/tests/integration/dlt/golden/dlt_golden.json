@@ -42,6 +42,24 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(dlt,chess_pipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "dlt Pipeline"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768471202849,
+        "runId": "dlt-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_games)",
     "changeType": "UPSERT",
@@ -228,6 +246,24 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_games)",
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "dlt Resource"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768471202850,
+        "runId": "dlt-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_games)",
+    "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
@@ -326,6 +362,24 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_games__opening)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "dlt Resource"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768471202851,
+        "runId": "dlt-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_online_status)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
@@ -406,6 +460,24 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_profiles)",
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "dlt Resource"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768471202852,
+        "runId": "dlt-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_profiles)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
@@ -454,6 +526,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1768471201812,
+        "runId": "dlt-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_archives)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "dlt Resource"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768471202853,
         "runId": "dlt-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -585,6 +675,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1768471201812,
+        "runId": "dlt-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(dlt,chess_pipeline,DEV),players_online_status)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "dlt Resource"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1768471202854,
         "runId": "dlt-integration-test",
         "lastRunId": "no-run-id-provided"
     }
