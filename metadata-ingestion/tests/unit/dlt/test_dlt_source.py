@@ -327,8 +327,15 @@ def test_run_history_emits_dataprocess_instance() -> None:
         schema_version_hash="def",
     )
 
-    with patch.object(
-        source.client, "get_run_history", return_value=[load_success, load_failure]
+    # Patch _dlt_available=True so _emit_run_history doesn't bail out in the
+    # CI environment where the optional dlt package isn't installed. Without
+    # this, the early-return at dlt.py would skip the mocked get_run_history
+    # entirely.
+    with (
+        patch.object(source.client, "_dlt_available", True),
+        patch.object(
+            source.client, "get_run_history", return_value=[load_success, load_failure]
+        ),
     ):
         workunits = list(source._emit_run_history(pipeline_info))
 
@@ -368,7 +375,13 @@ def test_emit_run_history_with_query_failure_increments_error_count() -> None:
     pipeline_info = _make_pipeline_info()
     source = _make_source(extra_config={"include_run_history": True})
 
-    with patch.object(source.client, "get_run_history", return_value=None):
+    # Patch _dlt_available=True so the early-return guard for the
+    # dlt-not-installed case doesn't fire — otherwise this test would pass
+    # for the wrong reason (also produces 0 workunits + error_count==1).
+    with (
+        patch.object(source.client, "_dlt_available", True),
+        patch.object(source.client, "get_run_history", return_value=None),
+    ):
         workunits = list(source._emit_run_history(pipeline_info))
 
     assert len(workunits) == 0, "Expected no workunits on hard failure"
