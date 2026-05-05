@@ -102,6 +102,7 @@ export const DEFAULT_APP_CONFIG = {
         glossaryBasedPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showColumnJsonProperties: false,
+        hideNullableColumnJsonProperties: false,
     },
     chromeExtensionConfig: {
         enabled: false,

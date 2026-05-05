@@ -17,7 +17,7 @@ import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHy
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { parseJsonPropsToRows } from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
-import { useShowColumnJsonProperties } from '@app/useAppConfig';
+import { useHideNullableColumnJsonProperties, useShowColumnJsonProperties } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { Maybe, StructuredProperties } from '@src/types.generated';
@@ -60,6 +60,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
     const showColumnJsonProperties = useShowColumnJsonProperties();
+    const hideNullableColumnJsonProperties = useHideNullableColumnJsonProperties();
 
     const { structuredPropertyRows, expandedRowsFromFilter, structuredPropertyRowsRaw } = useStructuredProperties(
         entityRegistry,
@@ -72,10 +73,11 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
 
-    const jsonPropsRows = useMemo(
-        () => (showColumnJsonProperties ? parseJsonPropsToRows(properties?.jsonProps, filterText) : []),
-        [showColumnJsonProperties, properties?.jsonProps, filterText],
-    );
+    const jsonPropsRows = useMemo(() => {
+        if (!showColumnJsonProperties) return [];
+        const rows = parseJsonPropsToRows(properties?.jsonProps, filterText);
+        return hideNullableColumnJsonProperties ? rows.filter((row) => row.displayName !== 'nullAllowed') : rows;
+    }, [showColumnJsonProperties, hideNullableColumnJsonProperties, properties?.jsonProps, filterText]);
 
     const dataSource: PropertyRow[] = structuredPropertyRows
         .concat(customPropertyRows)

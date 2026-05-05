@@ -288,6 +288,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
             .setShowColumnJsonProperties(_featureFlags.isShowColumnJsonProperties())
+            .setHideNullableColumnJsonProperties(_featureFlags.isHideNullableColumnJsonProperties())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

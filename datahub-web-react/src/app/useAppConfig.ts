@@ -56,6 +56,11 @@ export function useShowColumnJsonProperties(): boolean {
     return appConfig.config.featureFlags.showColumnJsonProperties;
 }
 
+export function useHideNullableColumnJsonProperties(): boolean {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.hideNullableColumnJsonProperties;
+}
+
 function useFlagWithLocalStorageSync(key: string, f: (appConfig: AppConfig) => boolean) {
     const { config, loaded } = useAppConfig();
     const flagValue = f(config);

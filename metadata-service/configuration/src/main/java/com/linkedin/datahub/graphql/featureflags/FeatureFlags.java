@@ -60,6 +60,7 @@ public class FeatureFlags {
   private boolean contextDocumentsEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
   private boolean showColumnJsonProperties = false;
+  private boolean hideNullableColumnJsonProperties = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
 }

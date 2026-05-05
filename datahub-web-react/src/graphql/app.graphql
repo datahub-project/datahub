@@ -125,6 +125,7 @@ query appConfig {
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
             showColumnJsonProperties
+            hideNullableColumnJsonProperties
         }
         chromeExtensionConfig {
             enabled

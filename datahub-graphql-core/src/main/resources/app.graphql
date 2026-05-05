@@ -878,6 +878,11 @@ type FeatureFlagsConfig {
   If enabled, shows jsonProps values for schema fields in the Properties tab.
   """
   showColumnJsonProperties: Boolean!
+
+  """
+  If enabled, hides the nullAllowed jsonProp from the Properties tab (Glue marks all columns nullable by default, making this property noisy).
+  """
+  hideNullableColumnJsonProperties: Boolean!
 }
 
 """
