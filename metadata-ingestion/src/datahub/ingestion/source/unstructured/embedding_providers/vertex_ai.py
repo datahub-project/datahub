@@ -6,9 +6,13 @@ impersonation, OAuth refresh), but does the call itself over plain HTTP.
 Mirrors the Java ``VertexAiEmbeddingProvider`` wire format.
 """
 
-from __future__ import annotations
-
 from typing import Optional
+
+import google.auth
+from google.auth.transport.requests import (
+    AuthorizedSession,
+    Request as GoogleAuthRequest,
+)
 
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
@@ -31,18 +35,6 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
         location: Optional[str],
         timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     ):
-        try:
-            import google.auth
-            from google.auth.transport.requests import (
-                AuthorizedSession,
-                Request as GoogleAuthRequest,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "google-auth is required for the vertex_ai embedding provider. "
-                "Install with: pip install 'acryl-datahub[unstructured]'"
-            ) from e
-
         self._model = model
         self.model_id = f"vertex_ai/{model}"
         self._location = location or self._DEFAULT_LOCATION

@@ -1,7 +1,5 @@
 """OpenAI (and OpenAI-compatible) embedding provider (raw HTTP)."""
 
-from __future__ import annotations
-
 from typing import Optional
 
 from datahub.ingestion.source.unstructured.embedding_providers.base import (

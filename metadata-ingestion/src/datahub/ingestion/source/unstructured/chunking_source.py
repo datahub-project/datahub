@@ -14,6 +14,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -195,6 +196,12 @@ class DocumentChunkingSource(Source):
         """
         provider = embedding_config.provider
         has_key = bool(embedding_config.api_key)
+
+        if provider and not embedding_config.model:
+            raise ValueError(
+                f"embedding.model is required when using the {provider} provider. "
+                "Set embedding.model in your recipe."
+            )
 
         if (
             provider == "cohere"
@@ -797,20 +804,23 @@ class DocumentChunkingSource(Source):
                 vector=embedding,
                 characterOffset=current_offset,
                 characterLength=chunk_length,
-                tokenCount=None,  # Optional field - not calculated since it's unused
+                tokenCount=None,
                 text=chunk_text,
             )
             embedding_chunks.append(embedding_chunk)
 
             current_offset += chunk_length
 
-        # Build embedding model data
+        # totalTokens is intentionally omitted: provider responses report token
+        # usage at the batch level (OpenAI usage.prompt_tokens,
+        # Cohere meta.billed_units.input_tokens), not per-chunk, and we don't
+        # currently plumb that aggregate through EmbeddingResult. Emitting 0
+        # would be misleading; the field is optional in the schema.
         embedding_model_data = EmbeddingModelDataClass(
             modelVersion=model_version,
-            generatedAt=int(datetime.utcnow().timestamp() * 1000),  # milliseconds
+            generatedAt=int(datetime.utcnow().timestamp() * 1000),
             chunkingStrategy=self.config.chunking.strategy,
             totalChunks=len(chunks),
-            totalTokens=sum(c.tokenCount or 0 for c in embedding_chunks),
             chunks=embedding_chunks,
         )
 
@@ -822,7 +832,10 @@ class DocumentChunkingSource(Source):
         elif "embed-english-v3" in self.config.embedding.model:
             model_key = "cohere_embed_v3"
         else:
-            model_key = self.config.embedding.model.replace("-", "_").replace(".", "_")
+            # Map any non-alphanumeric character (incl. ':' in Bedrock Titan
+            # IDs like "amazon.titan-embed-text-v2:0") to '_' so the result is
+            # a legal Elasticsearch field name.
+            model_key = re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
 
         semantic_content = SemanticContentClass(
             embeddings={model_key: embedding_model_data}

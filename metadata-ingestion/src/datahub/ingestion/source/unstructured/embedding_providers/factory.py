@@ -1,7 +1,5 @@
 """Factory and helpers for building :class:`EmbeddingProvider` instances."""
 
-from __future__ import annotations
-
 import os
 from typing import TYPE_CHECKING, Optional
 
@@ -87,7 +85,13 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
         return CohereEmbeddingProvider(model=model, api_key=api_key, timeout=timeout)
 
     if provider == "openai":
-        return OpenAIEmbeddingProvider(model=model, api_key=api_key, timeout=timeout)
+        # Mirror the Vertex/Cohere pattern: resolve env var here so the constructor's
+        # "no key" guard sees the same value the recipe-level validator did.
+        return OpenAIEmbeddingProvider(
+            model=model,
+            api_key=api_key or os.environ.get("OPENAI_API_KEY"),
+            timeout=timeout,
+        )
 
     if provider == "local":
         # Local OpenAI-compatible servers (Ollama, etc.) accept any token; the

@@ -6,15 +6,16 @@ chain) or hit raw HTTP endpoints with ``requests`` — the latter mirrors the
 wire-level contract used by the Java GMS embedding providers.
 """
 
-from __future__ import annotations
-
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+logger = logging.getLogger(__name__)
 
 # Default per-call timeout for HTTP-based providers. Embedding requests are
 # typically quick; the long timeout exists only so we don't hang forever on a
@@ -76,27 +77,32 @@ def post_json(
     url: str,
     *,
     body: dict[str, Any],
-    session: Optional[requests.Session] = None,
+    session: requests.Session,
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """POST a JSON body and return the parsed JSON response.
 
-    Raises an informative ``RuntimeError`` if the server returns a non-2xx
-    status or a non-JSON body, including the response text so callers (and
-    the embedding error mitigation helper) can pattern-match on it.
+    The session is required so all callers go through the retry adapter
+    mounted by ``build_retrying_session`` / ``attach_retries`` — bypassing it
+    with bare ``requests.post`` would silently drop the 429/5xx backoff that
+    every provider expects.
+
+    Body snippets are logged at debug level only; the user-visible exception
+    message is intentionally limited to status + reason because some upstream
+    services echo request input in their error bodies, which would otherwise
+    end up in pipeline reports.
     """
-    sender = session or requests
-    response = sender.post(url, json=body, timeout=timeout)
+    response = session.post(url, json=body, timeout=timeout)
     if not response.ok:
+        logger.debug("Embedding API error body (truncated): %s", response.text[:500])
         raise RuntimeError(
-            f"Embedding API call failed: {response.status_code} {response.reason}: "
-            f"{response.text[:500]}"
+            f"Embedding API call failed: {response.status_code} {response.reason}"
         )
     try:
         return response.json()
     except ValueError as e:
+        logger.debug("Embedding API non-JSON body (truncated): %s", response.text[:500])
         # 200 OK with HTML/plain-text body — usually a misconfigured proxy or
-        # captive portal. Surface enough of the body to debug it.
-        raise RuntimeError(
-            f"Embedding API returned non-JSON body: {response.text[:500]}"
-        ) from e
+        # captive portal. Body is in the debug log; keep the user-visible
+        # message free of potentially-sensitive content.
+        raise RuntimeError("Embedding API returned non-JSON body") from e

@@ -202,8 +202,25 @@ def test_post_json_includes_status_in_error_message():
     session = MagicMock()
     session.post.return_value = _err_response(503, "service unavailable")
 
-    with pytest.raises(RuntimeError, match="503.*service unavailable"):
+    # Status + reason only — body is logged at debug level so we don't
+    # accidentally surface request input echoed back by upstream services
+    # into pipeline reports.
+    with pytest.raises(RuntimeError, match="503"):
         post_json("https://example.com", body={}, session=session)
+
+
+def test_post_json_does_not_include_response_body_in_exception():
+    """Defense-in-depth: response body must not appear in the user-visible message."""
+    from datahub.ingestion.source.unstructured.embedding_providers.base import (
+        post_json,
+    )
+
+    session = MagicMock()
+    session.post.return_value = _err_response(401, "user-supplied secret echoed back")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        post_json("https://example.com", body={}, session=session)
+    assert "user-supplied secret" not in str(exc_info.value)
 
 
 def test_post_json_default_timeout_is_60_seconds():
@@ -420,6 +437,23 @@ def test_create_embedding_provider_cohere():
     assert provider.model_id == "cohere/embed-english-v3.0"
 
 
+def test_create_embedding_provider_openai_falls_back_to_env_var():
+    """Factory must resolve OPENAI_API_KEY itself; the provider constructor
+    only sees the value the factory passes in, so reading the env var lazily
+    inside __init__ would never run."""
+    from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+        create_embedding_provider,
+    )
+
+    cfg = _make_config(provider="openai", api_key=None)
+
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-from-env"}, clear=True):
+        provider = create_embedding_provider(cfg)
+
+    assert isinstance(provider, OpenAIEmbeddingProvider)
+    assert provider._session.headers["Authorization"] == "Bearer sk-from-env"
+
+
 def test_create_embedding_provider_vertex_ai_falls_back_to_env_var():
     from datahub.ingestion.source.unstructured.embedding_providers.factory import (
         create_embedding_provider,
@@ -462,10 +496,15 @@ def test_create_embedding_provider_vertex_ai_falls_back_to_adc_project():
     with (
         patch.dict("os.environ", {}, clear=True),
         patch(
-            "google.auth.default", return_value=(fake_creds, "adc-proj")
+            "google.auth.default",
+            return_value=(fake_creds, "adc-proj"),
         ) as mock_default,
-        patch("google.auth.transport.requests.AuthorizedSession"),
-        patch("google.auth.transport.requests.Request"),
+        patch(
+            "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai.AuthorizedSession"
+        ),
+        patch(
+            "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai.GoogleAuthRequest"
+        ),
     ):
         provider = create_embedding_provider(cfg)
 
@@ -486,8 +525,12 @@ def test_vertex_ai_provider_raises_when_no_project_anywhere():
     fake_creds = MagicMock()
     with (
         patch("google.auth.default", return_value=(fake_creds, None)),
-        patch("google.auth.transport.requests.AuthorizedSession"),
-        patch("google.auth.transport.requests.Request"),
+        patch(
+            "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai.AuthorizedSession"
+        ),
+        patch(
+            "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai.GoogleAuthRequest"
+        ),
         pytest.raises(ValueError, match="Could not determine GCP project"),
     ):
         VertexAIEmbeddingProvider(
@@ -602,8 +645,12 @@ def _make_vertex_provider(project_id="proj", location=None):
     fake_creds = MagicMock()
     with (
         patch("google.auth.default", return_value=(fake_creds, None)),
-        patch("google.auth.transport.requests.AuthorizedSession"),
-        patch("google.auth.transport.requests.Request"),
+        patch(
+            "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai.AuthorizedSession"
+        ),
+        patch(
+            "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai.GoogleAuthRequest"
+        ),
     ):
         return VertexAIEmbeddingProvider(
             model="gemini-embedding-001", project_id=project_id, location=location

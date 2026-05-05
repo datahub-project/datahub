@@ -4,10 +4,10 @@ Uses boto3 because SigV4 + the AWS credential chain (IRSA, AssumeRole, IMDSv2)
 is the part where rolling our own would actually hurt.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Optional
+
+import boto3
 
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
@@ -24,14 +24,6 @@ class BedrockEmbeddingProvider(EmbeddingProvider):
     """Embedding via AWS Bedrock Runtime (boto3)."""
 
     def __init__(self, model: str, aws_region: Optional[str]):
-        try:
-            import boto3
-        except ImportError as e:
-            raise ImportError(
-                "boto3 is required for the bedrock embedding provider. "
-                "Install with: pip install 'acryl-datahub[unstructured]'"
-            ) from e
-
         self._model = model
         self.model_id = f"bedrock/{model}"
         self._client = boto3.client("bedrock-runtime", region_name=aws_region)

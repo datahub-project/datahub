@@ -936,6 +936,19 @@ def test_validate_init_requirements_bedrock_no_key_check():
     DocumentChunkingSource._validate_provider_init_requirements(cfg)  # no raise
 
 
+def test_validate_init_requirements_rejects_provider_without_model():
+    """Without a model, derive_model_id returns None and embedding generation
+    silently no-ops. Catch this at init time instead."""
+    cfg = EmbeddingConfig(
+        provider="bedrock",
+        model=None,
+        aws_region="us-east-1",
+        allow_local_embedding_config=True,
+    )
+    with pytest.raises(ValueError, match="embedding.model is required"):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)
+
+
 # ---------------------------------------------------------------------------
 # _get_provider — caching behavior
 # ---------------------------------------------------------------------------
@@ -1052,3 +1065,33 @@ def test_model_key_default_normalizes_dashes_and_dots(pipeline_context):
     )
     semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
     assert "text_embedding_3_small" in _semantic_embeddings(semantic_wu)
+
+
+def test_model_key_default_sanitizes_colon_in_titan_model_id(pipeline_context):
+    """Bedrock Titan IDs like ``amazon.titan-embed-text-v2:0`` contain ':',
+    which Elasticsearch rejects in field names. Auto-derived keys must replace it."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="bedrock",
+            model="amazon.titan-embed-text-v2:0",
+            aws_region="us-east-1",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    fake_provider = _mock_provider([[0.1, 0.2]])
+    source._provider = fake_provider
+
+    workunits = list(
+        source.process_elements_inline(
+            "urn:li:document:(test,doc1,PROD)",
+            [{"type": "NarrativeText", "text": "hello"}],
+        )
+    )
+    semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
+    keys = list(_semantic_embeddings(semantic_wu).keys())
+    assert any(":" not in k for k in keys)
+    assert "amazon_titan_embed_text_v2_0" in _semantic_embeddings(semantic_wu)
