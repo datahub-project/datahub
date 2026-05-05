@@ -893,6 +893,38 @@
       "platform_name": "Demo Data",
       "support_status": null
     },
+    "dlt": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Emitted when dlt pipeline state contains owner information",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Emits outlet lineage from dlt DataJobs to destination Dataset URNs. Configure destination_platform_map to match your destination connector's env/instance.",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dlt.dlt.DltSource",
+      "platform_id": "dlt",
+      "platform_name": "dlt",
+      "support_status": "INCUBATING"
+    },
     "doris": {
       "capabilities": [
         {
