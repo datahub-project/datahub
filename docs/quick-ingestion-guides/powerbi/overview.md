@@ -1,5 +1,6 @@
 ---
 title: Power BI Overview
+description: "Quick start guide for ingesting Power BI dashboards, reports, datasets, and lineage into DataHub via UI ingestion."
 ---
 
 # Power BI Ingestion Guide: Overview

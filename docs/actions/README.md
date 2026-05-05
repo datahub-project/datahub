@@ -1,5 +1,6 @@
 ---
 title: DataHub Actions Framework
+description: "The DataHub Actions Framework lets you respond to real-time metadata changes and integrate DataHub into event-driven architectures."
 ---
 
 # ⚡ DataHub Actions Framework

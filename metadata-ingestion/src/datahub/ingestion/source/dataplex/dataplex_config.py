@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -11,6 +11,11 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_project_filter import (
+    GcpProjectFilterConfig,
+    GCPValidationError,
+    validate_project_label_list,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -104,22 +109,23 @@ class DataplexFilterConfig(ConfigModel):
 
 
 class DataplexConfig(
+    GcpProjectFilterConfig,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
     StatefulIngestionConfigBase,
     StatefulLineageConfigMixin,
 ):
-    """Configuration for Google Dataplex source."""
+    """Configuration for Google Dataplex source.
+
+    Project selection (`project_ids`, `project_labels`, `project_id_pattern`) is
+    inherited from `GcpProjectFilterConfig` and consumed by the shared
+    `resolve_gcp_projects` helper. Auto-discovery (when `project_ids` is empty)
+    requires `roles/resourcemanager.folderViewer` on the parent folder/organization.
+    """
 
     credential: Optional[GCPCredential] = Field(
         default=None,
         description="GCP credential information. If not specified, uses Application Default Credentials.",
-    )
-
-    project_ids: List[str] = Field(
-        default_factory=list,
-        description="List of Google Cloud Project IDs to ingest Dataplex resources from. "
-        "If not specified, uses project_id or attempts to detect from credentials.",
     )
 
     entries_locations: List[str] = Field(
@@ -274,13 +280,30 @@ class DataplexConfig(
 
         return values
 
+    @field_validator("project_labels")
+    @classmethod
+    def _validate_project_labels_format(cls, v: List[str]) -> List[str]:
+        try:
+            validate_project_label_list(v)
+        except GCPValidationError as e:
+            raise ValueError(str(e)) from e
+        return v
+
     @model_validator(mode="after")
     def validate_project_ids(self) -> "DataplexConfig":
-        """Ensure at least one project is configured."""
-        if not self.project_ids:
+        """Ensure at least one means of selecting projects is configured."""
+        has_non_default_pattern = (
+            self.project_id_pattern != AllowDenyPattern.allow_all()
+        )
+        if (
+            not self.project_ids
+            and not self.project_labels
+            and not has_non_default_pattern
+        ):
             raise ValueError(
-                "At least one project must be specified. "
-                "Please set project_ids or project_id in your configuration."
+                "At least one project selector must be specified. Set project_ids "
+                "explicitly, or use project_id_pattern / project_labels to "
+                "auto-discover projects."
             )
         return self
 

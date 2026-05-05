@@ -1,5 +1,6 @@
 ---
 title: Search Overview
+description: "Use the DataHub search bar to find datasets, columns, dashboards, charts, and pipelines across your data ecosystem."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';

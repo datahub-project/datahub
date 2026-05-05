@@ -1,5 +1,6 @@
 ---
 title: Snowflake Overview
+description: "Quick start guide for ingesting Snowflake databases, tables, lineage, and usage statistics into DataHub via UI ingestion."
 ---
 
 # Snowflake Ingestion Guide: Overview

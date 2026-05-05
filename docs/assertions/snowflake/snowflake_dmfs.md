@@ -1,3 +1,7 @@
+---
+description: "Define Data Quality assertions in YAML and compile them into Snowflake Data Metric Functions using the DataHub Open Assertion Compiler."
+---
+
 # Snowflake DMF Assertions [BETA]
 
 The DataHub Open Assertion Compiler allows you to define your Data Quality assertions in a simple YAML format, and then compile them to be executed by Snowflake Data Metric Functions.

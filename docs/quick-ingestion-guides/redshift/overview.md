@@ -1,5 +1,6 @@
 ---
 title: Redshift Overview
+description: "Quick start guide for ingesting Redshift schemas, tables, lineage, and usage statistics into DataHub via UI ingestion."
 ---
 
 # Redshift Ingestion Guide: Overview

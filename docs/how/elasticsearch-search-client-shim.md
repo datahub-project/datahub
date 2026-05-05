@@ -1,3 +1,7 @@
+---
+description: "Configure DataHub's multi-client search shim to support different versions of Elasticsearch and OpenSearch through a unified interface."
+---
+
 # Elasticsearch & OpenSearch Multi-Client Shim
 
 This guide explains how to use DataHub's multi-client search engine shim to support different versions of Elasticsearch and OpenSearch through a unified interface.

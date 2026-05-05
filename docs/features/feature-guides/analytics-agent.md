@@ -6,7 +6,9 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability />
 
-An open-source agent that lets you ask data questions in plain English and get SQL, results, and charts back — grounded in your DataHub catalog. Apache 2.0, bring your own LLM.
+:::info OPEN SOURCE ANALYTICS AGENT — APRIL 30, 2026
+An open-source agent that lets you ask data questions in plain English and get SQL, results, and charts back — grounded in your DataHub catalog. Apache 2.0, bring your own LLM. Read the [announcement blog post](https://datahub.com/blog/datahub-analytics-agent/).
+:::
 
 <p align="center">
   <img width="85%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/analytics-agent/screenshot-chat.png" alt="Analytics Agent answering a data question with a chart"/>

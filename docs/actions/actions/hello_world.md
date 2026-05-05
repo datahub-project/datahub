@@ -1,3 +1,7 @@
+---
+description: "The Hello World Action is a reference DataHub Action that prints incoming events to the console for learning and testing."
+---
+
 # Hello World
 
 <!-- Set Support Status -->
