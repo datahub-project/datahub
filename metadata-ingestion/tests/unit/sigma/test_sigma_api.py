@@ -811,6 +811,61 @@ class TestAssembleDataModelFileMetaFallback:
         assert dm.badge is None
 
 
+class TestSourceDmElementNamesEdgeCases:
+    """Guards the guards: the ``elif entry_type == "data-model"`` branch in
+    ``_assemble_data_model`` rejects entries with a non-string dataModelId or
+    a whitespace-only name.  Without these checks, a malformed API response
+    could silently produce empty-string keys or blank element names in
+    ``source_dm_element_names``.
+    """
+
+    def _dm(self) -> SigmaDataModel:
+        return SigmaDataModel.model_validate(
+            {
+                "dataModelId": "dm-uuid-1",
+                "name": "My DM",
+                "createdAt": _dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+                "updatedAt": _dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+            }
+        )
+
+    def _assemble_with_entries(
+        self, lineage_entries: List[Dict[str, Any]]
+    ) -> SigmaDataModel:
+        api = _create_sigma_api()
+        dm = self._dm()
+        with (
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_columns", return_value=[]),
+            patch.object(
+                api, "_get_data_model_lineage_entries", return_value=lineage_entries
+            ),
+        ):
+            api._assemble_data_model(dm, None)
+        return dm
+
+    def test_non_string_src_dm_id_is_ignored(self) -> None:
+        # dataModelId is an int (malformed API response) — must not be stored.
+        dm = self._assemble_with_entries(
+            [{"type": "data-model", "dataModelId": 42, "name": "Sales"}]
+        )
+        assert dm.source_dm_element_names == {}
+
+    def test_whitespace_only_name_is_ignored(self) -> None:
+        # name is all whitespace — strip() would produce "", must not be stored.
+        dm = self._assemble_with_entries(
+            [{"type": "data-model", "dataModelId": "src-dm-id", "name": "   "}]
+        )
+        assert dm.source_dm_element_names == {}
+
+    def test_valid_entry_is_stored(self) -> None:
+        # Positive control: a well-formed entry must be stored normally.
+        dm = self._assemble_with_entries(
+            [{"type": "data-model", "dataModelId": "src-dm-id", "name": "  Revenue  "}]
+        )
+        assert dm.source_dm_element_names == {"src-dm-id": ["Revenue"]}
+
+
 def _paginated_response(
     entries: List[Dict[str, Any]],
     *,

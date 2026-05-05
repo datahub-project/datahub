@@ -1,4 +1,6 @@
+import ctypes
 import datetime
+import glob
 import logging
 import os
 import platform
@@ -29,7 +31,7 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_data_job_urn,
@@ -378,6 +380,70 @@ DB_NAME_QUERY = """
 """
 
 
+# Oracle Instant Client shared libs in the order they should be preloaded.
+# libclntsh is last because it has DT_NEEDED entries on the others; loading
+# the deps first by absolute path puts them in the process namespace by SONAME
+# so the linker reuses them when libclntsh is opened.
+_ORACLE_PRELOAD_PATTERNS = (
+    "libnnz*.so*",
+    "libclntshcore.so*",
+    "libons.so*",
+    "libipc1.so*",
+    "libmql1.so*",
+    "libociei.so*",
+    "libclntsh.so*",
+)
+
+
+def _preload_oracle_client_libs(lib_dir: str) -> None:
+    """Preload Oracle Instant Client libs from ``lib_dir`` so that
+    ``oracledb.init_oracle_client()`` succeeds on Linux without needing
+    ``LD_LIBRARY_PATH`` or ``ldconfig`` to be configured.
+
+    Background: on Linux, Oracle ships ``libclntsh.so`` without
+    ``RUNPATH=$ORIGIN``. Even when python-oracledb / ODPI-C dlopens
+    ``libclntsh.so`` via an absolute path (which is what ``lib_dir`` does),
+    the dynamic linker still has to resolve its DT_NEEDED dependencies
+    (``libnnz*.so``, ``libclntshcore.so``, ``libons.so``, ...) through the
+    normal ``LD_LIBRARY_PATH`` / ``ld.so.cache`` rules. With neither
+    configured, the load fails with DPI-1047.
+
+    Setting ``LD_LIBRARY_PATH`` from Python doesn't help: glibc's loader
+    reads it once at process startup. Loading each ``.so`` by absolute path
+    with ``RTLD_GLOBAL`` does work — once an object is mapped, the linker
+    looks it up by SONAME for subsequent ``dlopen()`` calls and finds it.
+
+    See https://github.com/oracle/python-oracledb/issues/578 for the upstream
+    discussion confirming this can only be fixed by preloading from the client
+    side or by patching ``RUNPATH=$ORIGIN`` into ``libclntsh.so`` itself.
+    """
+    if not os.path.isdir(lib_dir):
+        raise ConfigurationError(
+            f"thick_mode_lib_dir={lib_dir!r} does not exist or is not a directory"
+        )
+
+    loaded_any = False
+    for pattern in _ORACLE_PRELOAD_PATTERNS:
+        for path in sorted(glob.glob(os.path.join(lib_dir, pattern))):
+            try:
+                ctypes.CDLL(path, mode=ctypes.RTLD_GLOBAL)
+                loaded_any = True
+                logger.debug("Preloaded Oracle client lib: %s", path)
+            except OSError as e:
+                # Non-fatal: a missing satellite lib (e.g. libipc1 in older
+                # client releases) is fine as long as libclntsh and its actual
+                # deps load. Keep going so we surface a useful error from
+                # init_oracle_client() if anything critical is missing.
+                logger.debug("Skipping %s while preloading: %s", path, e)
+
+    if not loaded_any:
+        raise ConfigurationError(
+            f"No Oracle Instant Client libraries found in {lib_dir!r}. "
+            "Verify the path points to an unpacked Instant Client (it should "
+            "contain libclntsh.so* and libnnz*.so*)."
+        )
+
+
 def _setup_oracle_compatibility() -> None:
     """
     Set up Oracle compatibility for SQLAlchemy.
@@ -466,8 +532,13 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     thick_mode_lib_dir: Optional[str] = Field(
         default=None,
-        description="If using thick mode on Windows or Mac, set thick_mode_lib_dir to the oracle client libraries path. "
-        "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
+        description="Path to the directory containing the Oracle Instant Client libraries. "
+        "Required on Windows and Mac when enable_thick_mode is true. "
+        "Optional on Linux: when set, the connector preloads the client libraries "
+        "from this directory before initializing python-oracledb, which makes "
+        "thick mode work without needing ldconfig or LD_LIBRARY_PATH to be set "
+        "(see https://github.com/oracle/python-oracledb/issues/578). When unset "
+        "on Linux, the standard ldconfig / LD_LIBRARY_PATH search is used.",
     )
     # Stored procedures configuration
     include_stored_procedures: bool = Field(
@@ -1297,11 +1368,21 @@ class OracleSource(SQLAlchemySource):
         # create_engine, which is called in get_inspectors()
         # https://python-oracledb.readthedocs.io/en/latest/user_guide/initialization.html#enabling-python-oracledb-thick-mode
         if self.config.enable_thick_mode:
-            if platform.system() == "Darwin" or platform.system() == "Windows":
-                # windows and mac os require lib_dir to be set explicitly
+            if platform.system() in ("Darwin", "Windows"):
+                # Mac/Windows: lib_dir is required and is enough; the platform's
+                # loader handles the dependent libs.
                 oracledb.init_oracle_client(lib_dir=self.config.thick_mode_lib_dir)
+            elif self.config.thick_mode_lib_dir:
+                # Linux: passing lib_dir to init_oracle_client() locates
+                # libclntsh.so itself but the loader still falls back to
+                # LD_LIBRARY_PATH / ld.so.cache for its DT_NEEDED deps, which
+                # fails on hosts that don't have ldconfig set up. Preload every
+                # .so in lib_dir by absolute path with RTLD_GLOBAL so the deps
+                # are resolved by SONAME from the process namespace.
+                _preload_oracle_client_libs(self.config.thick_mode_lib_dir)
+                oracledb.init_oracle_client()
             else:
-                # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
+                # Linux without thick_mode_lib_dir: rely on ldconfig / LD_LIBRARY_PATH.
                 oracledb.init_oracle_client()
 
         # Pre-fetch schemas from DataHub when not ingesting all tables/views so that
