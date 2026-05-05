@@ -1066,6 +1066,51 @@ class TestChartsFallback:
         assert source.report.num_dashboards_with_no_charts == 0
         self._assert_chart_urns(work_units, {"100"})
 
+    def test_fallback_recovers_preset_v2_layout_without_chart_entries(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # Preset v2 layouts can have only structural keys with no CHART-* entries even when charts are attached.
+        position_json = json.dumps(
+            {
+                "DASHBOARD_VERSION_KEY": "v2",
+                "GRID_ID": {
+                    "children": [],
+                    "id": "GRID_ID",
+                    "parents": ["ROOT_ID"],
+                    "type": "GRID",
+                },
+                "HEADER_ID": {
+                    "id": "HEADER_ID",
+                    "meta": {"text": "Emulator detection improvements"},
+                    "type": "HEADER",
+                },
+                "ROOT_ID": {
+                    "children": ["GRID_ID"],
+                    "id": "ROOT_ID",
+                    "type": "ROOT",
+                },
+            }
+        )
+        source = _build_source(requests_mock)
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/108",
+            json={"id": 108, "result": {"id": 108, "position_json": position_json}},
+            status_code=200,
+        )
+        requests_mock.get(
+            "http://localhost:8088/api/v1/dashboard/108/charts",
+            json={"result": [{"id": 957}, {"id": 958}, {"id": 959}]},
+            status_code=200,
+        )
+
+        work_units = list(source._process_dashboard(_list_api_dashboard(108)))
+
+        assert source.report.num_dashboards_recovered_via_charts_endpoint == 1
+        assert source.report.num_dashboards_with_no_charts == 0
+        assert source.report.num_dashboards_invalid_position_json == 0
+        assert source.report.num_dashboards_missing_position_json == 0
+        self._assert_chart_urns(work_units, {"957", "958", "959"})
+
     def test_fallback_does_not_fire_when_position_json_has_charts(
         self, requests_mock: rm.Mocker
     ) -> None:
