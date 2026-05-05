@@ -2059,6 +2059,48 @@ left join agg on agg.filter_col = t.id
     )
 
 
+def test_snowflake_object_construct_function_alias_lineage() -> None:
+    """Test lineage through OBJECT_CONSTRUCT(*) when the source CTE uses a function alias.
+
+    When a source CTE aliases a function expression (e.g. to_date(raw_col) AS date_col),
+    _collect_object_construct_source_aliases must walk the function's Column leaf nodes
+    to build the alias→source mapping. Without this, accessing obj[0]:DATE_COL would
+    fail to resolve because DATE_COL is not a real column name in the base table schema.
+
+    Expected: output_col traces to raw_col (via function alias: DATE_COL → raw_col)
+    and filter_col (from the CASE WHEN condition).
+    """
+    assert_sql_result(
+        """
+with src as (
+    select to_date(raw_col) as date_col, filter_col
+    from mydb.myschema.base_table
+),
+agg as (
+    select ARRAY_AGG(CASE WHEN filter_col = 1 THEN OBJECT_CONSTRUCT(*) END) AS obj
+    from src
+)
+select agg.obj[0]:DATE_COL::VARCHAR as output_col
+from mydb.myschema.other_table t
+left join agg on agg.filter_col = t.id
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)": {
+                "raw_col": "VARCHAR",
+                "filter_col": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)": {
+                "id": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_function_alias_lineage.json",
+    )
+
+
 def test_snowflake_object_construct_get_lineage() -> None:
     """Test lineage through OBJECT_CONSTRUCT(*) accessed via GET() instead of :KEY.
 

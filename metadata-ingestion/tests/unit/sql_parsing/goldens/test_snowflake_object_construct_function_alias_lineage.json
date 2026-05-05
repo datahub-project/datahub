@@ -1,0 +1,64 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "6f2cd466b65c5fc8beee55ca74e2bdfcef63f755755257905396551551e8f596",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "output_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
+                    "column": "filter_col"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
+                    "column": "raw_col"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(GET_PATH(\"AGG\".\"OBJ\"[0], 'DATE_COL') AS VARCHAR) AS \"OUTPUT_COL\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "LEFT JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)"
+            ],
+            "on_clause": "\"AGG\".\"FILTER_COL\" = \"T\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
+                    "column": "FILTER_COL"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH src AS (SELECT TO_DATE(raw_col) AS date_col, filter_col FROM mydb.myschema.base_table), agg AS (SELECT ARRAY_AGG(CASE WHEN filter_col = ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM src) SELECT CAST(GET_PATH(agg.obj[?], 'DATE_COL') AS VARCHAR) AS output_col FROM mydb.myschema.other_table AS t LEFT JOIN agg ON agg.filter_col = t.id"
+    }
+}
