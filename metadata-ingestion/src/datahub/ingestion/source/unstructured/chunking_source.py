@@ -200,6 +200,26 @@ class DocumentChunkingSource(Source):
                 if not model_name.startswith("openai/"):
                     model_name = f"openai/{model_name}"
                 self.embedding_model = model_name
+            elif self.config.embedding.provider == "vertex_ai":
+                # Prefix with vertex_ai/ for litellm
+                model_name = self.config.embedding.model
+                assert model_name is not None
+                if not model_name.startswith("vertex_ai/"):
+                    model_name = f"vertex_ai/{model_name}"
+                self.embedding_model = model_name
+                # Resolve project_id from env var if not set in config, so downstream
+                # litellm calls have a single source of truth.
+                if not self.config.embedding.vertex_project_id:
+                    env_project = os.environ.get("VERTEX_AI_PROJECT_ID")
+                    if not env_project:
+                        raise ValueError(
+                            "vertex_project_id is required when using vertex_ai provider. "
+                            "Set embedding.vertex_project_id in your recipe or the VERTEX_AI_PROJECT_ID environment variable."
+                        )
+                    self.config.embedding.vertex_project_id = env_project
+                    logger.debug(
+                        "Resolved vertex_project_id from VERTEX_AI_PROJECT_ID env var"
+                    )
             else:
                 raise ValueError(
                     f"Unsupported embedding provider: {self.config.embedding.provider}"
@@ -735,7 +755,7 @@ class DocumentChunkingSource(Source):
             return []
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
-        """Generate embeddings using litellm (supports Bedrock and Cohere)."""
+        """Generate embeddings using litellm (supports Bedrock, Cohere, OpenAI, and Vertex AI)."""
         try:
             import litellm
         except ModuleNotFoundError as e:
@@ -759,31 +779,42 @@ class DocumentChunkingSource(Source):
             for i in range(0, len(texts), self.config.embedding.batch_size):
                 batch = texts[i : i + self.config.embedding.batch_size]
 
-                # Resolve api_base/api_key for the configured provider.
-                api_base: Optional[str] = None
-                api_key: Optional[str] = None
-                if self.config.embedding.provider == "local":
+                # Build provider-specific kwargs for litellm.
+                embedding_kwargs: dict[str, Any] = {
+                    "model": self.embedding_model,
+                    "input": batch,
+                }
+                if self.config.embedding.provider == "vertex_ai":
+                    # Asymmetric Gemini models require task_type for ingestion-side documents.
+                    # Mirrors the search-side RETRIEVAL_QUERY in VertexAiEmbeddingProvider.java.
+                    embedding_kwargs["task_type"] = "RETRIEVAL_DOCUMENT"
+                    if self.config.embedding.vertex_project_id:
+                        embedding_kwargs["vertex_project"] = (
+                            self.config.embedding.vertex_project_id
+                        )
+                    if self.config.embedding.vertex_location:
+                        embedding_kwargs["vertex_location"] = (
+                            self.config.embedding.vertex_location
+                        )
+                elif self.config.embedding.provider == "local":
+                    # Ollama / any OpenAI-compatible local server.
                     local_kwargs = DocumentChunkingSource._resolve_local_api_kwargs(
                         self.config.embedding
                     )
-                    api_base = local_kwargs["api_base"]
-                    api_key = local_kwargs["api_key"]
+                    embedding_kwargs["api_base"] = local_kwargs["api_base"]
+                    embedding_kwargs["api_key"] = local_kwargs["api_key"]
                 else:
-                    api_key = (
-                        self.config.embedding.api_key.get_secret_value()
-                        if self.config.embedding.api_key
-                        else None
-                    )
+                    # Bedrock/Cohere/OpenAI use api_key + aws_region_name
+                    if self.config.embedding.api_key:
+                        embedding_kwargs["api_key"] = (
+                            self.config.embedding.api_key.get_secret_value()
+                        )
+                    if self.config.embedding.aws_region:
+                        embedding_kwargs["aws_region_name"] = (
+                            self.config.embedding.aws_region
+                        )
 
-                # Use litellm.embedding() which works with Bedrock, Cohere, OpenAI, and
-                # local OpenAI-compatible servers.
-                response = litellm.embedding(
-                    model=self.embedding_model,
-                    input=batch,
-                    api_key=api_key,
-                    api_base=api_base,
-                    aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
-                )
+                response = litellm.embedding(**embedding_kwargs)
 
                 # Extract embeddings from response
                 batch_embeddings = [data["embedding"] for data in response.data]
@@ -1131,11 +1162,32 @@ class DocumentChunkingSource(Source):
                 model_name = f"openai/{model_name}"
             return model_name, None
 
+        elif embedding_config.provider == "vertex_ai":
+            if not embedding_config.model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Vertex AI model not specified in embedding config",
+                    mitigation_message="Set embedding.model to a valid Vertex AI model (e.g., 'gemini-embedding-001')",
+                )
+            if not embedding_config.vertex_project_id and not os.environ.get(
+                "VERTEX_AI_PROJECT_ID"
+            ):
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Vertex AI vertex_project_id not provided",
+                    mitigation_message="Set embedding.vertex_project_id to your GCP project ID or set the VERTEX_AI_PROJECT_ID "
+                    "environment variable.",
+                )
+            model_name = embedding_config.model
+            if not model_name.startswith("vertex_ai/"):
+                model_name = f"vertex_ai/{model_name}"
+            return model_name, None
+
         else:
             return None, CapabilityReport(
                 capable=False,
                 failure_reason=f"Unsupported embedding provider: {embedding_config.provider}",
-                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local'",
+                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai'",
             )
 
     @staticmethod
@@ -1191,7 +1243,7 @@ class DocumentChunkingSource(Source):
             return CapabilityReport(
                 capable=False,
                 failure_reason="Embedding configuration not provided",
-                mitigation_message="Configure embedding provider (bedrock or cohere) to enable semantic search. "
+                mitigation_message="Configure embedding provider (bedrock, cohere, openai, or vertex_ai) to enable semantic search. "
                 "See https://datahubproject.io/docs/semantic-search/",
             )
 
@@ -1220,25 +1272,40 @@ class DocumentChunkingSource(Source):
             test_text = "DataHub semantic search test"
 
             try:
-                if embedding_config.provider == "local":
+                # Build provider-specific kwargs for litellm.
+                # Mirrors _generate_embeddings so vertex_ai capability tests use
+                # RETRIEVAL_DOCUMENT task_type + GCP auth instead of api_key/aws_region.
+                embedding_kwargs: dict[str, Any] = {
+                    "model": embedding_model,
+                    "input": [test_text],
+                }
+                if embedding_config.provider == "vertex_ai":
+                    embedding_kwargs["task_type"] = "RETRIEVAL_DOCUMENT"
+                    if embedding_config.vertex_project_id:
+                        embedding_kwargs["vertex_project"] = (
+                            embedding_config.vertex_project_id
+                        )
+                    if embedding_config.vertex_location:
+                        embedding_kwargs["vertex_location"] = (
+                            embedding_config.vertex_location
+                        )
+                elif embedding_config.provider == "local":
                     local_kwargs = DocumentChunkingSource._resolve_local_api_kwargs(
                         embedding_config
                     )
-                    response = litellm.embedding(
-                        model=embedding_model,
-                        input=[test_text],
-                        api_key=local_kwargs["api_key"],
-                        api_base=local_kwargs["api_base"],
-                    )
+                    embedding_kwargs["api_base"] = local_kwargs["api_base"]
+                    embedding_kwargs["api_key"] = local_kwargs["api_key"]
                 else:
-                    response = litellm.embedding(
-                        model=embedding_model,
-                        input=[test_text],
-                        api_key=embedding_config.api_key.get_secret_value()
-                        if embedding_config.api_key
-                        else None,
-                        aws_region_name=embedding_config.aws_region,
-                    )
+                    if embedding_config.api_key:
+                        embedding_kwargs["api_key"] = (
+                            embedding_config.api_key.get_secret_value()
+                        )
+                    if embedding_config.aws_region:
+                        embedding_kwargs["aws_region_name"] = (
+                            embedding_config.aws_region
+                        )
+
+                response = litellm.embedding(**embedding_kwargs)
 
                 # Verify we got an embedding back
                 if not response or not response.data or len(response.data) == 0:
