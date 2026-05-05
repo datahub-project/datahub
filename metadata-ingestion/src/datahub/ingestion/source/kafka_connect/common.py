@@ -1029,9 +1029,11 @@ class BaseConnector:
                 return fine_grained_lineages
 
         except Exception as e:
-            logger.debug(
-                f"Failed to extract fine-grained lineage for "
-                f"{source_dataset} -> {target_dataset}: {e}"
+            self.report.warning(
+                "Failed to extract source column-level lineage — asset-level lineage is unaffected",
+                f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
+                f"source={source_dataset}, target={target_dataset}",
+                exc=e,
             )
 
         return None
@@ -1052,10 +1054,8 @@ class BaseConnector:
             return None
 
         try:
-            kafka_platform_instance = (
-                self.config.platform_instance_map.get(KAFKA)
-                if self.config.platform_instance_map
-                else None
+            kafka_platform_instance = get_platform_instance(
+                self.config, self.connector_manifest.name, KAFKA
             )
             source_urn = DatasetUrn.create_from_ids(
                 platform_id=KAFKA,
@@ -1130,9 +1130,11 @@ class BaseConnector:
                 return fine_grained_lineages
 
         except Exception as e:
-            logger.debug(
-                f"Failed to extract sink fine-grained lineage for "
-                f"'{source_topic}' -> '{target_dataset}': {e}"
+            self.report.warning(
+                "Failed to extract sink column-level lineage — asset-level lineage is unaffected",
+                f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
+                f"target_platform={target_platform}, target={target_dataset}",
+                exc=e,
             )
 
         return None

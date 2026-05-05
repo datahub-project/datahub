@@ -7,6 +7,7 @@ import jpype
 import jpype.imports
 import pytest
 import requests
+import time_machine
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -820,9 +821,9 @@ def test_kafka_connect_snowflake_sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_kafka_connect_snowflake_sink_column_lineage(
-    pytestconfig, tmp_path, mock_time, requests_mock
+    pytestconfig, tmp_path, requests_mock
 ):
     """Integration test: Snowflake sink connector with column-level lineage enabled.
 
@@ -953,9 +954,9 @@ def test_kafka_connect_snowflake_sink_column_lineage(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_kafka_connect_column_lineage_source_and_sink(
-    pytestconfig, tmp_path, mock_time, requests_mock
+    pytestconfig, tmp_path, requests_mock
 ):
     """Integration test: column-level lineage in BOTH directions through a shared topic.
 
@@ -1135,7 +1136,7 @@ def test_kafka_connect_column_lineage_source_and_sink(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_kafka_connect_bigquery_sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -1154,7 +1155,7 @@ def test_kafka_connect_bigquery_sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_kafka_connect_debezium_postgres(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -1174,7 +1175,7 @@ def test_kafka_connect_debezium_postgres(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 def test_kafka_connect_debezium_sqlserver(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
