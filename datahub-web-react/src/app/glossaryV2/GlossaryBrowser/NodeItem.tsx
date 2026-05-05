@@ -1,5 +1,4 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -48,7 +47,7 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
         ${NameWrapper} {
             color: ${(props) => props.theme.colors.textBrand};
         }
@@ -96,8 +95,8 @@ const ChildrenCount = styled.div`
     align-items: center;
     justify-content: center;
     border-radius: 20px;
-    background-color: ${colors.gray[100]};
-    color: ${colors.gray[1700]};
+    background-color: ${(props) => props.theme.colors.bgHover};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     height: 22px;
     min-width: 28px;

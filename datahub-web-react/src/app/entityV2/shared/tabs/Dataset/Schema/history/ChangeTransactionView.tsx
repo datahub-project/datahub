@@ -16,7 +16,7 @@ const TitleText = styled.span`
 `;
 
 const ChangeTransactionTimestamp = styled(TitleText)`
-    background: ${(props) => props.theme.colors.bgSurfaceBrand};
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 20px;
     padding: 5px 15px;
 `;
@@ -70,7 +70,7 @@ const ChangeEventCircle = styled.div`
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     margin-left: -3px;
 `;
 
@@ -79,14 +79,14 @@ const InnerEventCircle = styled.div`
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: ${(props) => props.theme.colors.textTertiary};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const ChangeEventVerticalLine = styled.div`
     width: 2px;
     height: 100%;
     margin-left: 3px;
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 export interface ChangeTransactionEntry {

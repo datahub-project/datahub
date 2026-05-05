@@ -22,7 +22,6 @@ import yaml
 
 from datahub.emitter.mce_builder import (
     make_chart_urn,
-    make_data_platform_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
@@ -61,14 +60,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
-    DataPlatformInfoClass,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     NumberTypeClass,
     OwnershipTypeClass,
-    PlatformTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
@@ -119,7 +116,6 @@ class SemanticField:
 class OmniSource(StatefulIngestionSourceBase, TestableSource):
     """Ingestion source for the Omni BI platform."""
 
-    DEFAULT_LOGO_URL = "https://avatars.githubusercontent.com/u/100505341?s=200&v=4"
     PLATFORM = "omni"
 
     def __init__(self, config: OmniSourceConfig, ctx: PipelineContext) -> None:
@@ -194,19 +190,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
     # Low-level helpers
     # ------------------------------------------------------------------
-
-    def _emit_platform_metadata(self) -> Iterator[MetadataWorkUnit]:
-        platform_info = DataPlatformInfoClass(
-            name=self.PLATFORM,
-            type=PlatformTypeClass.OTHERS,
-            datasetNameDelimiter=".",
-            displayName="Omni",
-            logoUrl=self.DEFAULT_LOGO_URL,
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=make_data_platform_urn(self.PLATFORM),
-            aspect=platform_info,
-        ).as_workunit()
 
     def _emit_upstream_lineage(
         self,
@@ -1432,7 +1415,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterator[MetadataWorkUnit]:
         try:
-            yield from self._emit_platform_metadata()
             yield from self._ingest_semantic_model()
             yield from self._ingest_folders()
             yield from self._ingest_documents()

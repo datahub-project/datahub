@@ -423,6 +423,10 @@ public class ReindexConfig {
     }
 
     private boolean isAnalysisEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -437,6 +441,10 @@ public class ReindexConfig {
     }
 
     private boolean isSettingsEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -458,6 +466,10 @@ public class ReindexConfig {
     }
 
     private boolean isSettingsReindexRequired() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return false;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return false;
       }

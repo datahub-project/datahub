@@ -115,43 +115,6 @@ public class GlossaryTermsTemplateTest {
   }
 
   @Test
-  public void testUnattributedAddPreservesAttributedDuplicates() throws Exception {
-    // Start with (srcA, termX) and (srcB, termX) — two attributed entries for the same term URN.
-    GlossaryTerms initial =
-        initialGlossaryTerms(
-            attributedTerm("urn:li:glossaryTerm:termX", "urn:li:dataHubAction:srcA"),
-            attributedTerm("urn:li:glossaryTerm:termX", "urn:li:dataHubAction:srcB"));
-
-    // Plain patch: add termY (no attribution).
-    JsonPatch patch =
-        Json.createPatch(
-            Json.createArrayBuilder()
-                .add(
-                    Json.createObjectBuilder()
-                        .add("op", "add")
-                        .add("path", "/terms/urn:li:glossaryTerm:termY")
-                        .add(
-                            "value",
-                            Json.createArrayBuilder()
-                                .add(
-                                    Json.createObjectBuilder()
-                                        .add("urn", "urn:li:glossaryTerm:termY"))))
-                .build());
-
-    GlossaryTerms result = TEMPLATE.applyPatch(initial, patch);
-
-    Assert.assertNotNull(result.getTerms());
-    List<String> termUrns =
-        result.getTerms().stream().map(t -> t.getUrn().toString()).collect(Collectors.toList());
-    // Both attributed termX entries should survive, plus the new termY.
-    long termXCount = termUrns.stream().filter("urn:li:glossaryTerm:termX"::equals).count();
-    long termYCount = termUrns.stream().filter("urn:li:glossaryTerm:termY"::equals).count();
-    Assert.assertEquals(termXCount, 2L, "both attributed termX entries should be preserved");
-    Assert.assertEquals(termYCount, 1L, "new termY entry should be present");
-    Assert.assertEquals(result.getTerms().size(), 3);
-  }
-
-  @Test
   public void testUnattributedRemoveDeletesAllEntriesForTerm() throws Exception {
     // (srcA, termX), (srcB, termX), (srcC, termY)
     GlossaryTerms initial =

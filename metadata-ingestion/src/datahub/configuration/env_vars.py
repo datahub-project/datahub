@@ -82,6 +82,16 @@ def get_rest_emitter_429_retry_multiplier() -> int:
     return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
 
 
+def get_rest_emitter_default_pool_connections() -> int:
+    """Max number of different hosts to cache connection pools for."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_CONNECTIONS", "100"))
+
+
+def get_rest_emitter_default_pool_maxsize() -> int:
+    """Max connections per host in each connection pool."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_MAXSIZE", "100"))
+
+
 def get_rest_emitter_batch_max_payload_bytes() -> int:
     """Maximum payload size in bytes for batch operations."""
     return int(
@@ -157,6 +167,26 @@ def get_report_failure_sample_size() -> int:
 def get_report_warning_sample_size() -> int:
     """Maximum number of warning entries to include in the report."""
     return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+def get_report_info_sample_size() -> int:
+    """Maximum number of info entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_INFO_SAMPLE_SIZE", "10"))
+
+
+def get_progress_report_max_failures() -> int:
+    """Maximum number of failure entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_FAILURES", "10"))
+
+
+def get_progress_report_max_warnings() -> int:
+    """Maximum number of warning entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_WARNINGS", "10"))
+
+
+def get_progress_report_max_infos() -> int:
+    """Maximum number of info entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_INFOS", "10"))
 
 
 # ============================================================================

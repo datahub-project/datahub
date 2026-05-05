@@ -1,3 +1,7 @@
+---
+description: "SQL Profiling in DataHub collects table-level and column-level statistics for relational sources during ingestion."
+---
+
 # SQL Profiling
 
 SQL Profiling collects table level and column level statistics.

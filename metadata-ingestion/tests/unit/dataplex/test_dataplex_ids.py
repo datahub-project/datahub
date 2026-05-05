@@ -21,6 +21,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     build_container_urn_from_fqn,
     build_dataset_urn_from_fqn,
     build_dataset_urn_from_fqn_only,
+    build_lineage_parent,
     build_parent_container_key,
     build_parent_container_urn,
     build_project_container_urn_from_fqn,
@@ -90,6 +91,13 @@ def test_extract_entry_type_short_name_invalid() -> None:
     assert extract_entry_type_short_name("bigquery-table") is None
 
 
+def test_build_lineage_parent() -> None:
+    assert (
+        build_lineage_parent(project_id="test-project", location="us-central1")
+        == "projects/test-project/locations/us-central1"
+    )
+
+
 def test_supported_entry_type_mapping_keys() -> None:
     assert set(DATAPLEX_ENTRY_TYPE_MAPPINGS.keys()) == {
         "bigquery-dataset",
@@ -101,6 +109,7 @@ def test_supported_entry_type_mapping_keys() -> None:
         "cloud-spanner-instance",
         "cloud-spanner-database",
         "cloud-spanner-table",
+        "cloud-spanner-graph",
         "cloud-bigtable-instance",
         "cloud-bigtable-table",
         "pubsub-topic",
@@ -267,6 +276,17 @@ def test_dataplex_entry_type_mapping_instances_are_valid(
             },
         ),
         (
+            "cloud-spanner-graph",
+            "spanner:graph:harshal-playground-306419.regional-us-west2.sergio-test.cymbal.ECommerceGraph",
+            {
+                "project_id": "harshal-playground-306419",
+                "location": "us-west2",
+                "instance_id": "sergio-test",
+                "database_id": "cymbal",
+                "graph_id": "ECommerceGraph",
+            },
+        ),
+        (
             "cloudsql-mysql-table",
             "cloudsql_mysql:harshal-playground-306419.us-west2.sergio-test.sergio-db.your_table",
             {
@@ -361,6 +381,17 @@ def test_parse_fully_qualified_name_invalid() -> None:
             },
         ),
         (
+            "cloud-spanner-graph",
+            "projects/harshal-playground-306419/locations/us-west2/entryGroups/@spanner/entries/"
+            "spanner.googleapis.com/projects/harshal-playground-306419/instances/sergio-test/databases/cymbal",
+            {
+                "project_id": "harshal-playground-306419",
+                "location": "us-west2",
+                "instance_id": "sergio-test",
+                "database_id": "cymbal",
+            },
+        ),
+        (
             "cloudsql-mysql-table",
             "projects/harshal-playground-306419/locations/us-west2/entryGroups/@cloudsql/entries/"
             "cloudsql.googleapis.com/projects/harshal-playground-306419/locations/us-west2/instances/sergio-test/"
@@ -435,6 +466,23 @@ def test_build_parent_container_key() -> None:
     )
     assert isinstance(parent_key, DataplexCloudSpannerDatabase)
     assert parent_key.database_id == "cymbal"
+
+
+def test_build_dataset_urn_from_fqn_spanner_graph() -> None:
+    graph_urn = build_dataset_urn_from_fqn(
+        "cloud-spanner-graph",
+        "spanner:graph:harshal-playground-306419.regional-us-west2.sergio-test.cymbal.ECommerceGraph",
+        env="PROD",
+    )
+    assert graph_urn is not None
+    assert "urn:li:dataPlatform:spanner" in graph_urn
+    # Spanner tables and graphs share the same namespace so names never collide;
+    # the URN format mirrors cloud-spanner-table.
+    assert (
+        "harshal-playground-306419.regional-us-west2.sergio-test.cymbal.ECommerceGraph"
+        in graph_urn
+    )
+    assert "graph:" not in graph_urn
 
 
 def test_build_dataset_urn_from_fqn() -> None:
@@ -586,6 +634,7 @@ def test_is_supported_lineage_entry_type_helper() -> None:
     assert is_supported_lineage_entry_type("bigquery-view")
     assert is_supported_lineage_entry_type("cloudsql-mysql-table")
     assert is_supported_lineage_entry_type("cloud-spanner-table")
+    assert is_supported_lineage_entry_type("cloud-spanner-graph")
     assert is_supported_lineage_entry_type("cloud-bigtable-table")
     assert is_supported_lineage_entry_type("pubsub-topic")
     assert is_supported_lineage_entry_type("vertexai-dataset")

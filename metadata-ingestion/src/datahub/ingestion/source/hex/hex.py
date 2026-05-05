@@ -119,6 +119,10 @@ class HexSourceConfig(
         default=DATAHUB_API_PAGE_SIZE_DEFAULT,
         description="Number of items to fetch per DataHub API call.",
     )
+    category_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex pattern for categories to filter in ingestion. This will exclude any project or component that has any category denied or not explicitly allowed.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -256,6 +260,18 @@ class HexSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Fetch Hex assets from Hex API"):
             for project_or_component in self.hex_api.fetch_projects():
+                if project_or_component.categories and (
+                    any(
+                        self.source_config.category_pattern.denied(c.name)
+                        for c in project_or_component.categories
+                    )
+                    or not any(
+                        self.source_config.category_pattern.allowed(c.name)
+                        for c in project_or_component.categories
+                    )
+                ):
+                    continue
+
                 if isinstance(project_or_component, Project):
                     if self.source_config.project_title_pattern.allowed(
                         project_or_component.title

@@ -4,7 +4,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
@@ -535,7 +535,7 @@ def test_snowflake_unquoted_identifier_uppercase_conversion():
             )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
@@ -623,7 +623,7 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
@@ -738,7 +738,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fivetran_bigquery_config():
     with mock.patch("datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"):
@@ -763,7 +763,7 @@ def test_fivetran_bigquery_config():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_fivetran_snowflake_destination_config():
     snowflake_dest = SnowflakeDestinationConfig(
         account_id="TESTID",
@@ -780,7 +780,7 @@ def test_fivetran_snowflake_destination_config():
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_fivetran_bigquery_destination_config():
     bigquery_dest = BigQueryDestinationConfig(
         credential=GCPCredential(
@@ -795,7 +795,7 @@ def test_fivetran_bigquery_destination_config():
     assert bigquery_dest.get_sql_alchemy_url() == "bigquery://"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_rename_destination_config():
     config_dict = {
         "fivetran_log_config": {

@@ -1,9 +1,7 @@
 import { RightOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { useRef } from 'react';
-import styled from 'styled-components';
-
-import colors from '@components/theme/foundations/colors';
+import styled, { useTheme } from 'styled-components';
 
 import { IconWrapper } from '@app/searchV2/filters/SearchFilterView';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
@@ -39,6 +37,7 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, filterPredicates, activeFilters, onChangeFilters }: Props) {
+    const theme = useTheme();
     const { finalAggregations, updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
@@ -80,8 +79,7 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
                             tooltip: {
                                 title: displayName,
                                 showArrow: false,
-                                color: 'white',
-                                overlayInnerStyle: { color: colors.gray[1700] },
+                                overlayInnerStyle: { color: theme.colors.textSecondary },
                                 placement: 'left',
                             },
                         }}

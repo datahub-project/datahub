@@ -316,6 +316,8 @@ public class UpdateIndicesUpgradeStrategyTest {
             "datasetindex_v2_next_123",
             null,
             100L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
 

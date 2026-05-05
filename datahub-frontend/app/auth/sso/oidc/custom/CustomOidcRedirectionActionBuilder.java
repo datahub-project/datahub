@@ -1,5 +1,6 @@
 package auth.sso.oidc.custom;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.pac4j.core.context.CallContext;
@@ -9,6 +10,7 @@ import org.pac4j.core.util.HttpActionHelper;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.redirect.OidcRedirectionActionBuilder;
+import org.pac4j.oidc.redirect.Params;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,15 +29,20 @@ public class CustomOidcRedirectionActionBuilder extends OidcRedirectionActionBui
   public Optional<RedirectionAction> getRedirectionAction(CallContext ctx) {
     WebContext context = ctx.webContext();
 
-    Map<String, String> params = this.buildParams(context);
+    Params params = this.buildParams(context);
     String computedCallbackUrl = this.client.computeFinalCallbackUrl(context);
-    params.put("redirect_uri", computedCallbackUrl);
+    params.requestObject().put(OidcConfiguration.REDIRECT_URI, computedCallbackUrl);
     this.addStateAndNonceParameters(ctx, params);
     if (this.configuration.getMaxAge() != null) {
-      params.put("max_age", this.configuration.getMaxAge().toString());
+      params
+          .requestObject()
+          .put(OidcConfiguration.MAX_AGE, this.configuration.getMaxAge().toString());
     }
 
-    String location = this.buildAuthenticationRequestUrl(params);
+    Map<String, String> authParams = new HashMap<>();
+    authParams.putAll(params.url());
+    authParams.putAll(params.requestObject());
+    String location = this.buildAuthenticationRequestUrl(authParams);
 
     logger.debug("Custom parameters: {}", this.configuration.getCustomParams());
 

@@ -105,6 +105,7 @@ shadowJar {
     relocate 'org.slf4j', 'datahub.shaded.slf4j'
     relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
     relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
+    relocate 'org.jspecify', 'datahub.shaded.org.jspecify'
     relocate 'org.jgrapht', 'datahub.shaded.org.jgrapht'
     relocate 'org.jheaps', 'datahub.shaded.org.jheaps'
     relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
