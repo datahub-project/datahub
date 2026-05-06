@@ -1,0 +1,68 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "b86afa00e19139fcf98e7d7743cae0bcef637c0228e53bbe4ab48cae48d28a27",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "output_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "filter_col_a"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "filter_col_b"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "val_col"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(GET(\"MID_CTE\".\"OBJ_ARRAY\"[0], 'VAL_COL') AS VARCHAR) AS \"OUTPUT_COL\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "LEFT JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)"
+            ],
+            "on_clause": "\"MID_CTE\".\"ID\" = \"T\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH src AS (SELECT val_col, filter_col_a, filter_col_b, id FROM mydb.myschema.src_table), src_agg AS (SELECT id, ARRAY_AGG(CASE WHEN filter_col_a = ? AND filter_col_b = ? THEN OBJECT_CONSTRUCT(*) END) AS obj_array FROM src GROUP BY id), mid_cte AS (SELECT * FROM src_agg) SELECT CAST(GET(obj_array[?], ?) AS VARCHAR) AS output_col FROM mydb.myschema.other_table AS t LEFT JOIN mid_cte ON mid_cte.id = t.id"
+    }
+}

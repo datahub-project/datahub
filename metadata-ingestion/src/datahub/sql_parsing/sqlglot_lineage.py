@@ -1028,6 +1028,7 @@ def _select_statement_cll(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     object_construct_col_aliases: Optional[Dict[str, List[str]]] = None,
+    object_construct_base_tables: Optional[Set[str]] = None,
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
@@ -1079,6 +1080,7 @@ def _select_statement_cll(
                     default_schema,
                     table_name_schema_mapping=table_name_schema_mapping,
                     object_construct_col_aliases=object_construct_col_aliases,
+                    object_construct_base_tables=object_construct_base_tables,
                 )
             except Exception as e:
                 logger.warning(
@@ -1163,14 +1165,17 @@ def _column_level_lineage(
 
     try:
         assert select_statement is not None
-        # Collect CTE column alias mappings before optimization eliminates aliased
-        # columns that are only referenced via OBJECT_CONSTRUCT(*).
+        # Collect CTE column alias mappings and base table names before optimization
+        # eliminates aliased columns that are only referenced via OBJECT_CONSTRUCT(*).
         # OBJECT_CONSTRUCT is Snowflake-specific syntax.
-        object_construct_col_aliases = (
-            _collect_object_construct_source_aliases(select_statement)
-            if is_dialect_instance(dialect, "snowflake")
-            else None
-        )
+        if is_dialect_instance(dialect, "snowflake"):
+            (
+                object_construct_col_aliases,
+                object_construct_base_tables,
+            ) = _collect_object_construct_source_aliases(select_statement)
+        else:
+            object_construct_col_aliases = None
+            object_construct_base_tables = None
         (select_statement, column_resolver) = _prepare_query_columns(
             select_statement,
             dialect=dialect,
@@ -1227,6 +1232,7 @@ def _column_level_lineage(
         default_db=default_db,
         default_schema=default_schema,
         object_construct_col_aliases=object_construct_col_aliases,
+        object_construct_base_tables=object_construct_base_tables,
     )
 
     joins: Optional[List[_JoinInfo]] = None
@@ -1258,6 +1264,12 @@ def _extract_json_path_keys(
     - GET(col[idx], 'KEY') → GetExtract(Bracket(Column(...), idx), Literal('KEY'))
 
     Returns the set of KEY strings (e.g. {'FIELD_A', 'FIELD_B'}).
+
+    The table qualifier is NOT checked: an intermediate CTE may rename the qualifier
+    (e.g. the StarMap node is SCO_FLAT.AVP but the ancestor expression references
+    INNER_Q.AVP after passing through a pass-through CTE). The column name alone is
+    a sufficient identifier because we are already operating within the specific
+    lineage subtree for a given output column.
     """
     keys: Set[str] = set()
 
@@ -1267,10 +1279,7 @@ def _extract_json_path_keys(
         if isinstance(obj, sqlglot.exp.Bracket):
             obj = obj.this
         if isinstance(obj, sqlglot.exp.Column):
-            if (
-                obj.table.upper() == ref_table.upper()
-                and obj.name.upper() == ref_column.upper()
-            ):
+            if obj.name.upper() == ref_column.upper():
                 path = json_extract.args.get("expression")
                 if isinstance(path, sqlglot.exp.JSONPath):
                     for part in path.expressions:
@@ -1283,10 +1292,7 @@ def _extract_json_path_keys(
         if isinstance(obj, sqlglot.exp.Bracket):
             obj = obj.this
         if isinstance(obj, sqlglot.exp.Column):
-            if (
-                obj.table.upper() == ref_table.upper()
-                and obj.name.upper() == ref_column.upper()
-            ):
+            if obj.name.upper() == ref_column.upper():
                 key_expr = get_extract.expression
                 if isinstance(key_expr, sqlglot.exp.Literal) and key_expr.is_string:
                     keys.add(str(key_expr.this))
@@ -1298,6 +1304,7 @@ def _collect_source_cte_chain(
     cte_name: str,
     cte_map: Dict[str, sqlglot.exp.CTE],
     visited: Set[str],
+    base_tables: Optional[Set[str]] = None,
 ) -> None:
     """Recursively add cte_name and all its CTE sources to visited.
 
@@ -1305,8 +1312,15 @@ def _collect_source_cte_chain(
     away from an OBJECT_CONSTRUCT(*) CTE are still captured (e.g. cte1 defines the
     alias, cte2 passes through with SELECT *, cte3 uses OBJECT_CONSTRUCT(*)).
     Stops at CTEs not in cte_map (i.e. real base tables).
+
+    When base_tables is provided, non-CTE source table names are added to it
+    (lowercased) so callers can identify the real base tables in the chain.
     """
-    if cte_name in visited or cte_name not in cte_map:
+    if cte_name in visited:
+        return
+    if cte_name not in cte_map:
+        if base_tables is not None:
+            base_tables.add(cte_name.lower())
         return
     visited.add(cte_name)
     cte = cte_map[cte_name]
@@ -1318,13 +1332,13 @@ def _collect_source_cte_chain(
     if not cte_select:
         return
     for src_table in cte_select.find_all(sqlglot.exp.Table):
-        _collect_source_cte_chain(src_table.name.upper(), cte_map, visited)
+        _collect_source_cte_chain(src_table.name.upper(), cte_map, visited, base_tables)
 
 
 def _collect_object_construct_source_aliases(
     statement: sqlglot.exp.Expression,
-) -> Dict[str, List[str]]:
-    """Build alias→source column names map for CTEs that feed OBJECT_CONSTRUCT(*).
+) -> Tuple[Dict[str, List[str]], Set[str]]:
+    """Build alias→source column names map and base table set for OBJECT_CONSTRUCT(*) CTEs.
 
     When OBJECT_CONSTRUCT(*) captures all columns in scope, the resulting JSON object
     keys match the CTE column names — which may be aliases of the underlying base table
@@ -1332,8 +1346,12 @@ def _collect_object_construct_source_aliases(
     elsewhere, so the lineage tree loses the alias→original mapping. This function
     extracts that mapping from the pre-optimization AST.
 
-    Returns {alias_name.upper(): [source_col.upper(), ...]} for all aliased columns
-    in the full CTE chain feeding any CTE containing OBJECT_CONSTRUCT(*).
+    Returns a tuple of:
+      - {alias_name.upper(): [source_col.upper(), ...]} for all aliased columns in the
+        full CTE chain feeding any CTE containing OBJECT_CONSTRUCT(*).
+      - Set of lowercased base table names (non-CTE sources) in that same chain. These
+        are used as a fallback when the lineage tree emits Placeholder leaves instead of
+        resolved Table nodes (e.g. columns from ARRAY_AGG CASE WHEN conditions).
 
     For simple column renames (col AS alias), the list contains one name.
     For function-expression aliases (to_date(col) AS alias, CONCAT(a, b) AS alias),
@@ -1347,6 +1365,7 @@ def _collect_object_construct_source_aliases(
     # Find CTEs that contain OBJECT_CONSTRUCT(*) and collect their full upstream CTE
     # chain. find_all on the Select captures all tables including JOINed sources.
     source_cte_names: Set[str] = set()
+    base_tables: Set[str] = set()
     for cte in statement.find_all(sqlglot.exp.CTE):
         if not cte.find(sqlglot.exp.StarMap):
             continue
@@ -1359,11 +1378,11 @@ def _collect_object_construct_source_aliases(
             continue
         for source_table in cte_select.find_all(sqlglot.exp.Table):
             _collect_source_cte_chain(
-                source_table.name.upper(), cte_map, source_cte_names
+                source_table.name.upper(), cte_map, source_cte_names, base_tables
             )
 
     if not source_cte_names:
-        return {}
+        return {}, base_tables
 
     # For each CTE in the chain, collect columns that are renamed (alias ≠ original
     # name).  Simple column renames map to one source; function expressions map to all
@@ -1398,7 +1417,7 @@ def _collect_object_construct_source_aliases(
                 if col_names:
                     result[alias_name] = col_names
 
-    return result
+    return result, base_tables
 
 
 def _table_name_matches(
@@ -1430,6 +1449,7 @@ def _get_star_map_col_upstreams(
     dialect: Optional[sqlglot.Dialect],
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
     object_construct_col_aliases: Optional[Dict[str, List[str]]] = None,
+    source_base_tables: Optional[Set[str]] = None,
 ) -> Set[_ColumnRef]:
     """Resolve column upstreams for a lineage node that contains OBJECT_CONSTRUCT(*).
 
@@ -1442,6 +1462,10 @@ def _get_star_map_col_upstreams(
       3. For each (key, table) pair, checks whether table_name_schema_mapping has a
          matching column. If the key is a CTE alias (e.g. alias_col aliasing
          real_col), object_construct_col_aliases provides the original name.
+
+    When the lineage tree emits Placeholder leaves instead of resolved Table nodes
+    (e.g. columns from ARRAY_AGG CASE WHEN conditions), source_base_tables provides
+    the base table names collected from the pre-optimization CTE chain as a fallback.
     """
     if parent_node.expression is None:
         return set()
@@ -1464,6 +1488,15 @@ def _get_star_map_col_upstreams(
             leaf_table_refs.add(
                 _table_name_from_sqlglot_table(desc.expression, dialect)
             )
+
+    # When ARRAY_AGG CASE WHEN conditions use columns from the source CTE, sqlglot
+    # emits Placeholder leaf nodes instead of resolved Table nodes, so leaf_table_refs
+    # ends up empty. Fall back to the pre-collected base table names from the CTE chain.
+    if not leaf_table_refs and source_base_tables:
+        for table_name in source_base_tables:
+            for qualified_name in table_name_schema_mapping:
+                if qualified_name.table.lower() == table_name:
+                    leaf_table_refs.add(_TableName(table=qualified_name.table))
 
     upstreams: Set[_ColumnRef] = set()
     # O(keys × leaf_tables × schema_entries × cols): acceptable for typical workloads
@@ -1517,6 +1550,7 @@ def _get_direct_raw_col_upstreams(
     default_schema: Optional[str] = None,
     table_name_schema_mapping: Optional[Dict[_TableName, SchemaInfo]] = None,
     object_construct_col_aliases: Optional[Dict[str, List[str]]] = None,
+    object_construct_base_tables: Optional[Set[str]] = None,
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
@@ -1546,16 +1580,25 @@ def _get_direct_raw_col_upstreams(
                 # StarMap is only produced by sqlglot for Snowflake-dialect ASTs
                 # (OBJECT_CONSTRUCT(*)), so no explicit dialect guard is needed here.
             ):
-                parent = parents.get(id(node))
-                if parent is not None:
+                # Walk up the ancestor chain until we find a node whose expression
+                # contains the JSON key access. The immediate parent may be a
+                # pass-through CTE alias that has no key access itself (e.g.
+                # "sco_flat.AVP AS AVP"), while the grandparent or higher holds the
+                # actual GET(AVP[0], 'RATE') expression.
+                ancestor = parents.get(id(node))
+                while ancestor is not None:
                     star_map_upstreams = _get_star_map_col_upstreams(
                         node,
-                        parent,
+                        ancestor,
                         dialect,
                         table_name_schema_mapping,
                         object_construct_col_aliases=object_construct_col_aliases,
+                        source_base_tables=object_construct_base_tables,
                     )
-                    direct_raw_col_upstreams.update(star_map_upstreams)
+                    if star_map_upstreams:
+                        direct_raw_col_upstreams.update(star_map_upstreams)
+                        break
+                    ancestor = parents.get(id(ancestor))
 
         elif isinstance(node.expression, sqlglot.exp.Table):
             table_ref = _table_name_from_sqlglot_table(node.expression, dialect)

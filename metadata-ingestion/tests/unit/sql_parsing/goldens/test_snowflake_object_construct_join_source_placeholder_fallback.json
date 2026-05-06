@@ -1,0 +1,72 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "486b8afe86f75d73dbfc4b3412bcbd7c12a7b236649382e0efc1f2e21fe05234",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_right,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "output_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)",
+                    "column": "filter_col_a"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)",
+                    "column": "filter_col_b"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)",
+                    "column": "other_col"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)",
+                    "column": "real_col"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN CAST(GET_PATH(\"AGG_CTE\".\"OBJ\"[0], 'ALIAS_COL') AS VARCHAR) = 'x' AND LOWER(CAST(GET_PATH(\"AGG_CTE\".\"OBJ\"[0], 'OTHER_COL') AS VARCHAR)) = 'y' THEN 'A' WHEN CAST(GET_PATH(\"AGG_CTE\".\"OBJ\"[0], 'ALIAS_COL') AS VARCHAR) = 'p' AND LOWER(CAST(GET_PATH(\"AGG_CTE\".\"OBJ\"[0], 'OTHER_COL') AS VARCHAR)) = 'q' THEN 'B' ELSE NULL END AS \"OUTPUT_COL\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_right,PROD)"
+            ],
+            "on_clause": "\"A\".\"FK\" = \"B\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)",
+                    "column": "FK"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_right,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH base_cte AS (SELECT a.real_col AS alias_col, a.other_col, a.filter_col_a, a.filter_col_b, b.id FROM mydb.myschema.src_left AS a JOIN mydb.myschema.src_right AS b ON a.fk = b.id), agg_cte AS (SELECT id, ARRAY_AGG(CASE WHEN filter_col_a = ? AND filter_col_b = ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM base_cte GROUP BY id) SELECT CASE WHEN CAST(GET_PATH(agg_cte.obj[?], 'ALIAS_COL') AS VARCHAR) = ? AND LOWER(CAST(GET_PATH(agg_cte.obj[?], 'OTHER_COL') AS VARCHAR)) = ? THEN ? WHEN CAST(GET_PATH(agg_cte.obj[?], 'ALIAS_COL') AS VARCHAR) = ? AND LOWER(CAST(GET_PATH(agg_cte.obj[?], 'OTHER_COL') AS VARCHAR)) = ? THEN ? ELSE NULL END AS output_col FROM agg_cte"
+    }
+}

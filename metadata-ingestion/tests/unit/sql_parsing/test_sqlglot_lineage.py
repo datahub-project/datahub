@@ -2338,6 +2338,127 @@ from agg
     assert col_upstreams.get("output_col", []) == []
 
 
+def test_snowflake_object_construct_get_passthrough_cte_lineage() -> None:
+    """GET() key access on OBJECT_CONSTRUCT(*) through an intermediate pass-through CTE.
+
+    An intermediate CTE (mid_cte) passes through the aggregated array from src_agg
+    without adding a table qualifier. In the sqlglot lineage tree, the table alias for
+    the array column becomes 'mid_cte' instead of 'src_agg'. Previously, the table
+    qualifier check in _extract_json_path_keys would fail to match because
+    obj.table='MID_CTE' != ref_table='SRC_AGG', returning no key upstreams.
+
+    The fix drops the table qualifier check: the column name alone is sufficient within
+    the specific lineage subtree for a given output column.
+
+    Expected: output_col traces to:
+      - val_col       (resolved via GET key 'VAL_COL' through the pass-through CTE)
+      - filter_col_a  (Table leaf from CASE WHEN filter condition in ARRAY_AGG)
+      - filter_col_b  (Table leaf from CASE WHEN filter condition in ARRAY_AGG)
+    """
+    assert_sql_result(
+        """
+with src as (
+    select val_col, filter_col_a, filter_col_b, id
+    from mydb.myschema.src_table
+),
+src_agg as (
+    select id,
+           ARRAY_AGG(CASE WHEN filter_col_a = 1 AND filter_col_b = 1 THEN OBJECT_CONSTRUCT(*) END) AS obj_array
+    from src group by id
+),
+mid_cte as (
+    select * from src_agg
+)
+select GET(obj_array[0], 'VAL_COL')::VARCHAR as output_col
+from mydb.myschema.other_table t
+left join mid_cte on mid_cte.id = t.id
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)": {
+                "val_col": "FLOAT",
+                "filter_col_a": "NUMBER",
+                "filter_col_b": "NUMBER",
+                "id": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)": {
+                "id": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_get_passthrough_cte_lineage.json",
+    )
+
+
+def test_snowflake_object_construct_join_source_placeholder_fallback() -> None:
+    """OBJECT_CONSTRUCT(*) :KEY access resolves correctly when source CTE is a JOIN.
+
+    When the source CTE feeding OBJECT_CONSTRUCT(*) is a JOIN between two tables,
+    sqlglot emits Placeholder leaf nodes for the columns used in the ARRAY_AGG CASE
+    WHEN filter rather than resolved Table leaf nodes. This leaves leaf_table_refs
+    empty, so the normal key-resolution path finds nothing.
+
+    The fix uses source_base_tables (pre-collected from the CTE chain) as a fallback:
+    it populates leaf_table_refs from the schema mapping using lowercased table names,
+    then proceeds with the normal key lookup against that set.
+
+    The source CTE also renames a column (real_col AS alias_col), so the alias map
+    (ALIAS_COL → REAL_COL) is required to match the :ALIAS_COL key to the real column.
+
+    Expected: output_col traces to:
+      - real_col      (resolved via alias ALIAS_COL → REAL_COL in src_left,
+                       using the base-tables fallback)
+      - other_col     (resolved via :OTHER_COL key directly in src_left)
+    """
+    assert_sql_result(
+        """
+with base_cte as (
+    select
+        a.real_col as alias_col,
+        a.other_col,
+        a.filter_col_a,
+        a.filter_col_b,
+        b.id
+    from mydb.myschema.src_left a
+    join mydb.myschema.src_right b on a.fk = b.id
+),
+agg_cte as (
+    select id,
+           ARRAY_AGG(CASE WHEN filter_col_a = 1 AND filter_col_b = 2 THEN OBJECT_CONSTRUCT(*) END) AS obj
+    from base_cte group by id
+)
+select
+    CASE
+        WHEN agg_cte.obj[0]:ALIAS_COL::VARCHAR = 'x'
+             AND lower(agg_cte.obj[0]:OTHER_COL::varchar) = 'y' THEN 'A'
+        WHEN agg_cte.obj[0]:ALIAS_COL::VARCHAR = 'p'
+             AND lower(agg_cte.obj[0]:OTHER_COL::varchar) = 'q' THEN 'B'
+        ELSE NULL
+    END AS output_col
+from agg_cte
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_left,PROD)": {
+                "real_col": "VARCHAR",
+                "other_col": "VARCHAR",
+                "filter_col_a": "NUMBER",
+                "filter_col_b": "NUMBER",
+                "fk": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_right,PROD)": {
+                "id": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_join_source_placeholder_fallback.json",
+    )
+
+
 def test_clickhouse_materialized_view_to_table() -> None:
     """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
 
