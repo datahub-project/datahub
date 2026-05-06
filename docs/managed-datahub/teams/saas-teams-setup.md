@@ -8,6 +8,31 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+## Required Permissions
+
+The DataHub Teams app requires the following permissions. Your Teams or Azure administrator may
+need to provide this list during your organization's security review.
+
+### Microsoft Graph (application permissions, admin-consent)
+
+These permissions are granted on the Azure AD app registration and are used to resolve users,
+teams, and channels referenced from DataHub.
+
+| Permission              | Why it's needed                                                        |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `User.Read.All`         | Resolve Teams user IDs to names and email addresses for DM recipients. |
+| `TeamMember.Read.All`   | Read team membership for channel-scoped notifications.                 |
+| `Channel.ReadBasic.All` | List channels in the Teams picker and resolve a channel to its team.   |
+
+### Bot Framework (separate authentication, not a Graph scope)
+
+The app authenticates against `api.botframework.com` to actually send messages. This is a separate
+identity from Microsoft Graph — it uses the **same Azure AD app registration and client secret**,
+but a different scope (`https://api.botframework.com/.default`).
+
+All message sends, edits, and threaded replies go through Bot Framework, not through Microsoft
+Graph.
+
 ## Installing the DataHub Microsoft Teams App
 
 To enable the DataHub Teams app, you will need to install the DataHub Teams bot into your Teams workspace.

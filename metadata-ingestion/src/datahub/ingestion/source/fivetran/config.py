@@ -94,6 +94,22 @@ DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
+    preserve_case: bool = Field(
+        default=False,
+        description=(
+            "Pass `database` and `log_schema` identifiers verbatim when "
+            "issuing `USE DATABASE` / `USE SCHEMA`, instead of Snowflake's "
+            "default uppercasing of unquoted identifiers. Useful when the "
+            "log lives in a Snowflake schema created with quoted "
+            "lowercase names, or any other case-preserving setup where "
+            "the uppercasing path would query identifiers that don't "
+            "exist. **For Managed Data Lake destinations specifically: "
+            "prefer `log_source: rest_api` over a Snowflake "
+            "catalog-linked database (CLD) — REST mode reads the log "
+            "directly via API and avoids the identifier-casing issue "
+            "altogether.**"
+        ),
+    )
 
 
 class BigQueryDestinationConfig(BigQueryConnectionConfig):
@@ -127,7 +143,12 @@ class FivetranLogConfig(ConfigModel):
     destination_platform: Literal["snowflake", "bigquery", "databricks"] = (
         pydantic.Field(
             default="snowflake",
-            description="The destination platform where fivetran connector log tables are dumped.",
+            description=(
+                "The destination platform where fivetran connector log tables "
+                "are dumped. For Managed Data Lake destinations use "
+                "`log_source: rest_api` instead (no `fivetran_log_config` block "
+                "needed)."
+            ),
         )
     )
     snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
@@ -146,24 +167,6 @@ class FivetranLogConfig(ConfigModel):
     )
     _rename_destination_config = pydantic_renamed_field(
         "destination_config", "snowflake_destination_config"
-    )
-
-    max_jobs_per_connector: int = pydantic.Field(
-        default=MAX_JOBS_PER_CONNECTOR_DEFAULT,
-        gt=0,
-        description="Maximum number of sync jobs to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. Increase cautiously if you need to see more historical sync runs.",
-    )
-
-    max_table_lineage_per_connector: int = pydantic.Field(
-        default=MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT,
-        gt=0,
-        description="Maximum number of table lineage entries to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. When this limit is exceeded, only the most recent entries are ingested.",
-    )
-
-    max_column_lineage_per_connector: int = pydantic.Field(
-        default=MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
-        gt=0,
-        description="Maximum number of column lineage entries to retrieve per connector. This acts as a safety net to prevent excessive data ingestion. When this limit is exceeded, only the most recent entries are ingested.",
     )
 
     @model_validator(mode="after")
@@ -244,11 +247,48 @@ class PlatformDetail(ConfigModel):
         default=True,
         description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
     )
+    database_lowercase: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Lowercase the `database` segment when constructing the dataset "
+            "URN. Defaults to True to match DataHub's standard lowercase URN "
+            "convention (and to preserve the long-standing Fivetran connector "
+            "behaviour). Set False to keep the case Fivetran reports — useful "
+            "when aligning with another DataHub source whose URN preserves "
+            "the database casing (e.g. some Glue or Iceberg setups). "
+            "Schema and table segments are always passed through unchanged."
+        ),
+    )
+
+    @property
+    def database_for_urn(self) -> Optional[str]:
+        """The `database` value formatted for inclusion in a dataset URN.
+
+        Centralises the case rule so both URN-construction sites
+        (`_extend_lineage` for source URNs, `build_destination_urn` for
+        destination URNs) lower-case identically — and so the per-record
+        opt-out via `database_lowercase=False` only has to be wired in
+        one place. Exposed as a `@property` (not a Pydantic field /
+        `@computed_field`) so it doesn't leak into `model_dump()` and
+        thus into `_compose_custom_properties` — the customProperties
+        aspect intentionally surfaces the user-typed `database` verbatim.
+        """
+        if self.database is None:
+            return None
+        return self.database.lower() if self.database_lowercase else self.database
 
 
 class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
-    fivetran_log_config: FivetranLogConfig = pydantic.Field(
-        description="Fivetran log connector destination server configurations.",
+    fivetran_log_config: Optional[FivetranLogConfig] = pydantic.Field(
+        default=None,
+        description=(
+            "Fivetran Platform Connector log destination configuration. "
+            "Required for `log_database` mode (the inferred default whenever "
+            "this block is present). Optional in `rest_api` mode — when "
+            "supplied alongside `api_config`, the REST reader uses the DB "
+            "log only for per-run sync history (which the REST API doesn't "
+            "expose)."
+        ),
     )
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -263,6 +303,20 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     include_column_lineage: bool = Field(
         default=True,
         description="Populates table->table column lineage.",
+    )
+    log_source: Optional[Literal["log_database", "rest_api"]] = pydantic.Field(
+        default=None,
+        description=(
+            "Where to read the Fivetran log from. Leave unset to let the "
+            "connector infer this from which credential blocks you provide:\n"
+            "  - Only `fivetran_log_config` → `log_database`.\n"
+            "  - Only `api_config` → `rest_api`.\n"
+            "  - Both → `log_database` (DB-primary; REST still owns "
+            "destination routing and Google Sheets details).\n"
+            "Set this explicitly to override the default routing — e.g. "
+            "`rest_api` with a `fivetran_log_config` block also present runs "
+            "REST-primary with the DB log only providing per-run sync history."
+        ),
     )
 
     # Configuration for stateful ingestion
@@ -311,7 +365,126 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
 
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def compat_max_limits_lifted_from_log_config(cls, values: Any) -> Any:
+        # `max_jobs_per_connector`, `max_table_lineage_per_connector`, and
+        # `max_column_lineage_per_connector` previously lived on
+        # `FivetranLogConfig`. They were lifted to the top-level config
+        # because they govern the lineage payload size regardless of which
+        # log source (DB log, REST API, or hybrid) the connector reads
+        # from. Rewrite old recipes silently by hoisting the values from
+        # `fivetran_log_config` to the top level and emitting a
+        # deprecation warning. Top-level values always win if both are set.
+        log_cfg = values.get("fivetran_log_config")
+        if not isinstance(log_cfg, dict):
+            return values
+        for legacy_field in (
+            "max_jobs_per_connector",
+            "max_table_lineage_per_connector",
+            "max_column_lineage_per_connector",
+        ):
+            if legacy_field not in log_cfg:
+                continue
+            old_value = log_cfg.pop(legacy_field)
+            warnings.warn(
+                f"`fivetran_log_config.{legacy_field}` is deprecated; move it "
+                f"to the top-level `{legacy_field}` config field. This shim "
+                f"will be removed in a future release.",
+                ConfigurationWarning,
+                stacklevel=2,
+            )
+            # Top-level value wins on conflict.
+            values.setdefault(legacy_field, old_value)
+        return values
+
     history_sync_lookback_period: int = pydantic.Field(
         7,
         description="The number of days to look back when extracting connectors' sync history.",
     )
+
+    # These limits apply equally to log_database and rest_api modes — they
+    # govern how many sync runs / lineage rows we ingest per connector,
+    # regardless of where the data comes from.
+    max_jobs_per_connector: int = pydantic.Field(
+        default=MAX_JOBS_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of sync jobs to retrieve per connector.",
+    )
+    max_table_lineage_per_connector: int = pydantic.Field(
+        default=MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of table lineage entries to retrieve per connector.",
+    )
+    max_column_lineage_per_connector: int = pydantic.Field(
+        default=MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
+        gt=0,
+        description="Maximum number of column lineage entries to retrieve per connector.",
+    )
+    rest_api_max_workers: int = pydantic.Field(
+        default=4,
+        ge=1,
+        le=32,
+        description=(
+            "Number of worker threads used to fetch per-connector data "
+            "(schemas + sync history) in parallel when `log_source: rest_api`. "
+            "Values >1 issue concurrent HTTP calls to the Fivetran REST API "
+            "and meaningfully speed up ingestion for accounts with hundreds "
+            "of connectors. Set to 1 for fully sequential behaviour. "
+            "Lower this (not raise it) if you hit Fivetran rate limits. "
+            "Ignored in `log_database` mode."
+        ),
+    )
+    rest_api_per_connector_timeout_sec: int = pydantic.Field(
+        default=300,
+        gt=0,
+        description=(
+            "Hard wall-clock timeout (seconds) for fetching a single "
+            "connector's schema + sync history when `log_source: rest_api`. "
+            "If exceeded, that connector is emitted without lineage / run "
+            "history and a warning is recorded — the rest of the ingest "
+            "continues. Guards against a single hung HTTP call stalling "
+            "the whole run. Healthy connectors finish in seconds; bump only "
+            "if you have very large connectors that legitimately need more."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_log_source_credentials(self) -> "FivetranSourceConfig":
+        # Infer the log_source if not set explicitly. With both blocks
+        # present the DB log is preferred because it's the canonical source
+        # for table+column lineage with `name_in_source` (REST's metadata
+        # endpoint is staleness-bound to the last successful sync) and for
+        # DPI run-history events. Users who want REST-primary in a hybrid
+        # setup must opt in by setting `log_source: rest_api` explicitly.
+        if self.log_source is None:
+            if self.api_config is not None and self.fivetran_log_config is None:
+                self.log_source = "rest_api"
+            elif self.fivetran_log_config is not None:
+                self.log_source = "log_database"
+            else:
+                raise ValueError(
+                    "Fivetran source requires either `fivetran_log_config` "
+                    "(read logs from the destination warehouse) or `api_config` "
+                    "(read everything via the Fivetran REST API). At least one "
+                    "must be provided."
+                )
+
+        if self.log_source == "rest_api":
+            if self.api_config is None:
+                raise ValueError(
+                    "log_source='rest_api' requires `api_config` (Fivetran API "
+                    "key + secret) to be configured. The REST mode does not "
+                    "use the destination database connection."
+                )
+        else:
+            # log_database mode — fivetran_log_config must be supplied
+            if self.fivetran_log_config is None:
+                raise ValueError(
+                    "log_source='log_database' requires `fivetran_log_config` "
+                    "describing the destination warehouse where the Fivetran "
+                    "Platform Connector log lives. To skip this and read logs "
+                    "via the Fivetran REST API instead, set "
+                    "`log_source: rest_api` and provide `api_config`."
+                )
+        return self

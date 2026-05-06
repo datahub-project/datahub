@@ -599,6 +599,157 @@ if doc:
 </TabItem>
 </Tabs>
 
+## End-to-End: Push, Index, and Verify
+
+This workflow covers pushing pre-refined documents, triggering semantic indexing, and confirming
+retrieval. By default, DataHub includes a built-in scheduled embedding job that runs every 15
+minutes to index new and updated documents. If you don't want to wait for the next scheduled run,
+you can trigger it on demand as shown below.
+
+### Step 1: Push Your Documents
+
+Push one or more documents using the Python SDK:
+
+```python
+from datahub.sdk import DataHubClient, Document
+
+client = DataHubClient.from_env()
+
+docs = [
+    Document.create_document(
+        id="orders-dataset-context",
+        title="Orders Dataset Context",
+        text="# Orders Dataset\n\nThe orders table contains daily order summaries...",
+        related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"],
+        show_in_global_context=False,  # AI agent context doc
+    ),
+    Document.create_document(
+        id="payments-dataset-context",
+        title="Payments Dataset Context",
+        text="# Payments Dataset\n\nThe payments table tracks transaction records...",
+        related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,payments,PROD)"],
+        show_in_global_context=False,
+    ),
+]
+
+for doc in docs:
+    client.entities.upsert(doc)
+    print(f"Pushed: {doc.urn}")
+```
+
+### Step 2: Trigger Semantic Indexing
+
+To trigger the built-in embedding job immediately:
+
+```bash
+datahub graphql --query 'mutation {
+  createIngestionExecutionRequest(input: {
+    ingestionSourceUrn: "urn:li:dataHubIngestionSource:datahub-documents"
+  })
+}'
+```
+
+This kicks off the embedding pipeline, which fetches the new documents, chunks the text, generates
+embeddings via your configured provider, and writes `SemanticContent` aspects back to DataHub.
+
+:::note
+The `datahub-documents` source uses incremental processing — it tracks content hashes and only
+re-embeds documents whose text has changed since the last run.
+:::
+
+### Wait for Completion and Validate
+
+The `createIngestionExecutionRequest` mutation returns an execution request URN immediately. Poll
+the `executionRequest` query until `result` is non-null, then check the status:
+
+```python
+import json
+import time
+
+import requests
+
+GMS_URL = "https://your-instance.acryl.io/api/graphql"
+TOKEN = "your-token"
+
+POLL_QUERY = """
+query getExecutionStatus($urn: String!) {
+  executionRequest(urn: $urn) {
+    result {
+      status
+      durationMs
+      report
+    }
+  }
+}
+"""
+
+def wait_for_indexing(execution_urn: str, poll_interval: int = 10, timeout: int = 300) -> dict:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        resp = requests.post(
+            GMS_URL,
+            json={"query": POLL_QUERY, "variables": {"urn": execution_urn}},
+            headers={"Authorization": f"Bearer {TOKEN}"},
+        )
+        result = resp.json()["data"]["executionRequest"]["result"]
+        if result is None:
+            print("Still running...")
+            time.sleep(poll_interval)
+            continue
+
+        status = result["status"]
+        report = json.loads(result["report"].split("~~~~ Ingestion Report ~~~~")[1].split("~~~~")[0].strip())
+        source_report = report["source"]["report"]
+
+        print(f"Status: {status} ({result['durationMs'] / 1000:.1f}s)")
+        print(f"  Documents fetched:           {source_report['num_documents_fetched']}")
+        print(f"  Documents processed:         {source_report['num_documents_processed']}")
+        print(f"  Documents skipped (unchanged): {source_report['num_documents_skipped_unchanged']}")
+        print(f"  Embeddings generated:        {source_report['num_embeddings_generated']}")
+        print(f"  Embedding failures:          {source_report['num_embedding_failures']}")
+
+        if status != "SUCCESS":
+            raise RuntimeError(f"Embedding job failed: {source_report.get('failures')}")
+        if source_report["num_embedding_failures"] > 0:
+            raise RuntimeError(f"Embedding errors: {source_report['embedding_failures']}")
+
+        return source_report
+
+    raise TimeoutError(f"Embedding job did not complete within {timeout}s")
+```
+
+Key fields in the source report to validate:
+
+| Field                             | Meaning                                                        |
+| --------------------------------- | -------------------------------------------------------------- |
+| `num_documents_processed`         | Documents that were embedded this run                          |
+| `num_documents_skipped_unchanged` | Documents skipped due to unchanged content (incremental)       |
+| `num_embedding_failures`          | Should be `0` — any value here means some docs weren't indexed |
+| `status`                          | `SUCCESS` or `FAILURE` at the top level                        |
+
+### Step 3: Verify Semantic Retrieval
+
+Confirm that your documents are indexed and retrievable with a semantic query:
+
+```bash
+# Search documents semantically
+datahub search --semantic "what questions can the orders dataset answer?" \
+  --filter entity_type=document \
+  --table
+
+# Narrow to a specific domain once domains are configured
+datahub search --semantic "daily transaction summaries" \
+  --filter entity_type=document \
+  --filter domain=urn:li:domain:commerce \
+  --table
+```
+
+If semantic search is not yet configured, check the status first:
+
+```bash
+datahub search diagnose
+```
+
 ## Python SDK Reference
 
 The Document SDK provides the following methods:
