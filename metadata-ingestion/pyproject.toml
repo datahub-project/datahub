@@ -566,9 +566,12 @@ fabric-data-factory = [
 
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
+    "patchy==2.8.0",
     "pyodbc>=4.0,<6.0.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
+    "sqlglot==30.0.3",
+    "sqlparse<0.6.0",
 ]
 
 feast = [
