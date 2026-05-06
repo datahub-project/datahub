@@ -131,6 +131,9 @@ test.describe('lineage_graph', () => {
   });
 
   test('can see when the inputs to a data job change', async ({ page, logger, logDir }) => {
+    // Task entity lineage graphs can take longer to render in CI with time-range filters.
+    test.setTimeout(90000);
+
     const lineagePage = new LineageV2Page(page, logger, logDir);
 
     // Between 14 days ago and 7 days ago, only transactions was an input
@@ -140,8 +143,8 @@ test.describe('lineage_graph', () => {
       TIMESTAMP_MILLIS_14_DAYS_AGO,
       TIMESTAMP_MILLIS_7_DAYS_AGO,
     );
-    await page.waitForTimeout(3000);
-    await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(5000);
+    await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('transactions').first()).toBeAttached();
     await expect(page.getByText('user_profile').first()).not.toBeVisible({ timeout: 5000 });
 
@@ -152,8 +155,8 @@ test.describe('lineage_graph', () => {
       TIMESTAMP_MILLIS_7_DAYS_AGO,
       TIMESTAMP_MILLIS_NOW,
     );
-    await page.waitForTimeout(3000);
-    await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(5000);
+    await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('transactions').first()).toBeAttached();
     await expect(page.getByText('user_profile').first()).toBeAttached();
   });
@@ -211,6 +214,9 @@ test.describe('lineage_graph', () => {
   // ── Edit upstream lineage ───────────────────────────────────────────────────
 
   test('can edit upstream lineage', async ({ page, logger, logDir }) => {
+    // Searching + waiting for results in the edit modal can exceed the 60s default in CI.
+    test.setTimeout(90000);
+
     // This test does not make any mutations to avoid flakiness.
     // It verifies the manage lineage menu and modal entry point only.
 

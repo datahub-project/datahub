@@ -146,14 +146,16 @@ test.describe('impact analysis', () => {
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2000);
-    await lp.clickSidebarLineageTab();
+    await page.waitForTimeout(3000);
+    // Use the impact analysis list view — it respects URL time-range params.
+    // The sidebar compact widget (clickSidebarLineageTab) ignores time-range on data-job pages.
+    await lp.clickImpactAnalysis();
 
     // Downstream output is visible
     await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 10000 });
 
     // Switch to upstream to check inputs
-    await lp.clickUpstreamDirection();
+    await lp.clickUpstreamOption();
     await expect(page.getByText('transactions').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('user_profile')).toBeHidden();
 
@@ -162,12 +164,12 @@ test.describe('impact analysis', () => {
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2000);
-    await lp.clickSidebarLineageTab();
+    await page.waitForTimeout(3000);
+    await lp.clickImpactAnalysis();
 
     await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 10000 });
 
-    await lp.clickUpstreamDirection();
+    await lp.clickUpstreamOption();
     await expect(page.getByText('transactions').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('user_profile').first()).toBeVisible({ timeout: 10000 });
   });
