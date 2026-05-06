@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -69,6 +70,16 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
       return systemOperationContext.getEntityRegistry();
     }
+  }
+
+  @Bean(name = "searchClientShim")
+  @Primary
+  @SuppressWarnings("unchecked")
+  public SearchClientShim<?> searchClientShim() {
+    SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+    Mockito.when(mock.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    return mock;
   }
 
   @Autowired

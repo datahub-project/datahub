@@ -870,7 +870,8 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             null,
             mock(IndexConvention.class),
-            false);
+            false,
+            null);
 
     AspectSpec ownershipSpec = mock(AspectSpec.class);
     when(ownershipSpec.getName()).thenReturn("ownership");

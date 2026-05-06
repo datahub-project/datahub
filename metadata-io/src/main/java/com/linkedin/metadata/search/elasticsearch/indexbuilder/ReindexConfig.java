@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -192,13 +193,18 @@ public class ReindexConfig {
       if (input == null) {
         return new TreeMap<>();
       }
-      return input.entrySet().stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> normalizeObjectForComparison(e.getValue()),
-                  (oldValue, newValue) -> newValue,
-                  TreeMap::new));
+      TreeMap<String, Object> result =
+          input.entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey,
+                      e -> normalizeObjectForComparison(e.getValue()),
+                      (oldValue, newValue) -> newValue,
+                      TreeMap::new));
+      if (result.containsKey(PROPERTIES) && !result.containsKey(TYPE)) {
+        result.put(TYPE, "object");
+      }
+      return result;
     }
 
     private static List<Object> normalizeListForComparison(List<?> input) {

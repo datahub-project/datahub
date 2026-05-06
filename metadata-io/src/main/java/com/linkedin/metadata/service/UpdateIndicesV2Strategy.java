@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -110,7 +111,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         idHashAlgo,
         semanticSearchConfig,
         indexConvention,
-        true);
+        true,
+        null);
   }
 
   /**
@@ -127,7 +129,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull String idHashAlgo,
       @Nullable SemanticSearchConfiguration semanticSearchConfig,
       @Nonnull IndexConvention indexConvention,
-      boolean coalesceBatchUpdates) {
+      boolean coalesceBatchUpdates,
+      @Nullable SearchEngineType engineType) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -140,7 +143,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         new V2MappingsBuilder(
             com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
                 .v2(v2Config)
-                .build());
+                .build(),
+            engineType);
     this.semanticIndexExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)

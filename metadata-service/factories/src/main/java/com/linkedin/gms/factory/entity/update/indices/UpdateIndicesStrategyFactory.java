@@ -12,6 +12,7 @@ import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,6 +36,7 @@ public class UpdateIndicesStrategyFactory {
       TimeseriesAspectService timeseriesAspectService,
       ConfigurationProvider configProvider,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
       @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
       @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:true}")
@@ -73,7 +75,8 @@ public class UpdateIndicesStrategyFactory {
         idHashAlgo,
         semanticSearchConfig,
         indexConvention,
-        coalesceBatchUpdates);
+        coalesceBatchUpdates,
+        searchClient.getEngineType());
   }
 
   @Bean("updateIndicesV3Strategy")

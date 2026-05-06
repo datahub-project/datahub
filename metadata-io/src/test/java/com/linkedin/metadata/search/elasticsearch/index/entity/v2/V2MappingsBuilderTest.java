@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -734,5 +735,167 @@ public class V2MappingsBuilderTest {
         TestSearchFieldConfig.class
             .getClassLoader()
             .getResourceAsStream("test-entity-registry.yaml"));
+  }
+
+  // ES7 / OpenSearch silently accept and persist doc_values=false on search_as_you_type ngram
+  // subfields,
+  // ES8+ strips it on round-trip, which causes a perpetual mapping diff and reindex loop.
+  /** Recursively collects every value found under any "ngram" key in a mappings tree. */
+  private List<Map<String, Object>> findAllNgramSubfields(Map<String, Object> root) {
+    List<Map<String, Object>> found = new java.util.ArrayList<>();
+    collectNgramSubfields(root, found);
+    return found;
+  }
+
+  @SuppressWarnings("unchecked")
+  private void collectNgramSubfields(Object node, List<Map<String, Object>> found) {
+    if (!(node instanceof Map)) {
+      return;
+    }
+    Map<String, Object> map = (Map<String, Object>) node;
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      if ("ngram".equals(entry.getKey()) && entry.getValue() instanceof Map) {
+        found.add((Map<String, Object>) entry.getValue());
+      }
+      collectNgramSubfields(entry.getValue(), found);
+    }
+  }
+
+  private Collection<IndexMapping> buildAllMappings(SearchEngineType engineType) {
+    V2MappingsBuilder builder = new V2MappingsBuilder(entityIndexConfiguration, engineType);
+    return builder.getIndexMappings(operationContext);
+  }
+
+  private List<Map<String, Object>> collectAllNgramSubfields(SearchEngineType engineType) {
+    Collection<IndexMapping> mappings = buildAllMappings(engineType);
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Test entity registry must produce at least one mapping");
+
+    List<Map<String, Object>> all = new java.util.ArrayList<>();
+    for (IndexMapping mapping : mappings) {
+      all.addAll(findAllNgramSubfields(mapping.getMappings()));
+    }
+    return all;
+  }
+
+  private void assertLegacyNgramShape(List<Map<String, Object>> ngrams, SearchEngineType type) {
+    assertFalse(
+        ngrams.isEmpty(),
+        "Expected at least one ngram subfield for engine type " + type + " — test setup is broken");
+    for (Map<String, Object> ngram : ngrams) {
+      assertEquals(
+          ngram.get("type"), "search_as_you_type", "ngram type should be search_as_you_type");
+      assertEquals(ngram.get("max_shingle_size"), "4", "max_shingle_size should be preserved");
+      assertEquals(
+          ngram.get("doc_values"),
+          "false",
+          "Legacy engine type "
+              + type
+              + " must continue to emit doc_values=false to avoid a transitional reindex of"
+              + " existing ES7/OpenSearch indexes");
+    }
+  }
+
+  private void assertEs8NgramShape(List<Map<String, Object>> ngrams, SearchEngineType type) {
+    assertFalse(
+        ngrams.isEmpty(),
+        "Expected at least one ngram subfield for engine type " + type + " — test setup is broken");
+    for (Map<String, Object> ngram : ngrams) {
+      assertEquals(
+          ngram.get("type"), "search_as_you_type", "ngram type should be search_as_you_type");
+      assertEquals(ngram.get("max_shingle_size"), "4", "max_shingle_size should be preserved");
+      assertFalse(
+          ngram.containsKey("doc_values"),
+          "ES8+ engine type "
+              + type
+              + " must omit doc_values — ES8 strips it on round-trip and including it causes a"
+              + " perpetual mapping diff (PFP-3594)");
+    }
+  }
+
+  @Test
+  public void testNgramHasDocValuesForLegacyNullEngineType() {
+    // null is the backward-compat path used by tests and pre-fix callers; must preserve legacy.
+    assertLegacyNgramShape(collectAllNgramSubfields(null), null);
+  }
+
+  @Test
+  public void testNgramHasDocValuesForElasticsearch7() {
+    assertLegacyNgramShape(
+        collectAllNgramSubfields(SearchEngineType.ELASTICSEARCH_7),
+        SearchEngineType.ELASTICSEARCH_7);
+  }
+
+  @Test
+  public void testNgramHasDocValuesForOpenSearch2() {
+    assertLegacyNgramShape(
+        collectAllNgramSubfields(SearchEngineType.OPENSEARCH_2), SearchEngineType.OPENSEARCH_2);
+  }
+
+  @Test
+  public void testNgramOmitsDocValuesForElasticsearch8() {
+    assertEs8NgramShape(
+        collectAllNgramSubfields(SearchEngineType.ELASTICSEARCH_8),
+        SearchEngineType.ELASTICSEARCH_8);
+  }
+
+  @Test
+  public void testNgramOmitsDocValuesForElasticsearch9() {
+    assertEs8NgramShape(
+        collectAllNgramSubfields(SearchEngineType.ELASTICSEARCH_9),
+        SearchEngineType.ELASTICSEARCH_9);
+  }
+
+  @Test
+  public void testSingleArgConstructorDefaultsToLegacyBehavior() {
+    // Backward-compat: callers that don't know the engine type (tests, older code) must keep
+    // emitting the legacy form so they don't break ES7/OpenSearch deployments.
+    V2MappingsBuilder builder = new V2MappingsBuilder(entityIndexConfiguration);
+    Collection<IndexMapping> mappings = builder.getIndexMappings(operationContext);
+
+    List<Map<String, Object>> ngrams = new java.util.ArrayList<>();
+    for (IndexMapping mapping : mappings) {
+      ngrams.addAll(findAllNgramSubfields(mapping.getMappings()));
+    }
+    assertLegacyNgramShape(ngrams, null);
+  }
+
+  @Test
+  public void testEngineTypeDoesNotChangeOtherStructure() {
+    // Sanity check: switching engine type must NOT alter top-level fields like urn, runId,
+    // systemCreated, or the analyzer wiring. We only expect the ngram doc_values flag to differ.
+    Collection<IndexMapping> legacy = buildAllMappings(SearchEngineType.ELASTICSEARCH_7);
+    Collection<IndexMapping> es8 = buildAllMappings(SearchEngineType.ELASTICSEARCH_8);
+    assertEquals(legacy.size(), es8.size(), "Same number of indexes regardless of engine type");
+
+    // For each index, verify top-level field key sets are identical.
+    java.util.Iterator<IndexMapping> legacyIt = legacy.iterator();
+    java.util.Iterator<IndexMapping> es8It = es8.iterator();
+    while (legacyIt.hasNext() && es8It.hasNext()) {
+      Map<String, Object> legacyProps =
+          (Map<String, Object>) legacyIt.next().getMappings().get("properties");
+      Map<String, Object> es8Props =
+          (Map<String, Object>) es8It.next().getMappings().get("properties");
+      assertEquals(
+          legacyProps.keySet(),
+          es8Props.keySet(),
+          "Top-level field set must be identical between engine types");
+    }
+  }
+
+  @Test
+  public void testNgramAnalyzerOverridesAreApplied() {
+    // The fix replaced static config with instance-based config. Verify that overrides
+    // (analyzer name) still apply correctly after the refactor — different code paths use
+    // different analyzers (PARTIAL_URN_COMPONENT vs PARTIAL_ANALYZER).
+    List<Map<String, Object>> ngrams = collectAllNgramSubfields(SearchEngineType.ELASTICSEARCH_8);
+    assertFalse(ngrams.isEmpty(), "Should produce ngram subfields");
+    for (Map<String, Object> ngram : ngrams) {
+      assertNotNull(ngram.get("analyzer"), "Every ngram subfield must specify an analyzer");
+      String analyzer = (String) ngram.get("analyzer");
+      assertTrue(
+          analyzer.startsWith("partial"),
+          "Analyzer should be a partial analyzer variant, got: " + analyzer);
+    }
   }
 }

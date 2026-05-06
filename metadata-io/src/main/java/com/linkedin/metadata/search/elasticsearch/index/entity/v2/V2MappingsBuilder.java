@@ -23,6 +23,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -36,20 +37,30 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class V2MappingsBuilder implements MappingsBuilder {
 
-  private static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+  // ES7/OpenSearch silently accept doc_values=false on search_as_you_type and persist it.
+  // ES8+ strips it from stored mappings on round-trip, which causes a perpetual mapping diff and a
+  // reindex loop.
+  private static final Map<String, String> PARTIAL_NGRAM_CONFIG_LEGACY =
       ImmutableMap.of(
           TYPE, "search_as_you_type",
           MAX_SHINGLE_SIZE, "4",
           DOC_VALUES, "false");
 
-  private static Map<String, String> getPartialNgramConfigWithOverrides(
-      Map<String, String> overrides) {
-    return Stream.concat(PARTIAL_NGRAM_CONFIG.entrySet().stream(), overrides.entrySet().stream())
+  private static final Map<String, String> PARTIAL_NGRAM_CONFIG_ES8 =
+      ImmutableMap.of(
+          TYPE, "search_as_you_type",
+          MAX_SHINGLE_SIZE, "4");
+
+  private final Map<String, String> partialNgramConfig;
+
+  private Map<String, String> getPartialNgramConfigWithOverrides(Map<String, String> overrides) {
+    return Stream.concat(partialNgramConfig.entrySet().stream(), overrides.entrySet().stream())
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
@@ -76,7 +87,17 @@ public class V2MappingsBuilder implements MappingsBuilder {
   private final EntityIndexConfiguration entityIndexConfiguration;
 
   public V2MappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    this(entityIndexConfiguration, null);
+  }
+
+  public V2MappingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
+      @Nullable SearchEngineType engineType) {
     this.entityIndexConfiguration = entityIndexConfiguration;
+    this.partialNgramConfig =
+        (engineType != null && engineType.requiresEs8JavaClient())
+            ? PARTIAL_NGRAM_CONFIG_ES8
+            : PARTIAL_NGRAM_CONFIG_LEGACY;
   }
 
   @Override
@@ -226,7 +247,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     return ImmutableMap.of(PROPERTIES, mappings);
   }
 
-  private static Map<String, Object> getMappingsForUrn() {
+  private Map<String, Object> getMappingsForUrn() {
     Map<String, Object> subFields = new HashMap<>();
     subFields.put(
         DELIMITED,
@@ -287,7 +308,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private static Map<String, Object> getMappingsForField(
+  private Map<String, Object> getMappingsForField(
       @Nonnull final SearchableFieldSpec searchableFieldSpec) {
     FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
 
@@ -381,7 +402,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     return mappingForField;
   }
 
-  private static Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
+  private Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
@@ -423,7 +444,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
         ImmutableMap.of(TYPE, ESUtils.DOUBLE_FIELD_TYPE));
   }
 
-  private static Map<String, Object> getMappingForSearchableRefField(
+  private Map<String, Object> getMappingForSearchableRefField(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec,
       final int depth) {
