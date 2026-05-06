@@ -301,13 +301,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_collision_pick_first: int = 0
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
-    # Refs where element-name matches the element's own warehouse-table name
-    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
-    # warehouse-passthrough refs, not intra-DM self-edges; the actual upstream
-    # is the warehouse inode.  Non-zero when columnId doesn't encode a warehouse
-    # column or when the connection isn't in the registry.
+    # Refs where the formula source name matches the element's own name (self-ref),
+    # indicating a warehouse-passthrough, but columnId-based resolution failed
+    # (e.g. CSV-backed element, /files lookup miss, unmappable connection).
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
     # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
+    # Covers both the self-ref case and the case where the formula source is
+    # the warehouse table name rather than the element name.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.

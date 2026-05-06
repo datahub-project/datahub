@@ -238,7 +238,14 @@ class _WarehouseTableRef:
     table: str
 
     def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
-        name = f"{self.db}.{self.schema}.{self.table}"
+        # db is empty for platforms with a 2-segment /files path (e.g. Redshift:
+        # "Connection Root/<SCHEMA>"). In that case emit schema.table; otherwise
+        # emit the full db.schema.table used by Snowflake and similar platforms.
+        name = (
+            f"{self.schema}.{self.table}"
+            if not self.db
+            else f"{self.db}.{self.schema}.{self.table}"
+        )
         if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
             return name.lower()
         return name
@@ -710,13 +717,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # name field, which may be a display label or absent.
             table_name = str(files_data.get("name") or "")
             parts = path.split("/")
-            # Validate: exactly 3 non-empty segments and a non-empty urlId.
-            # Rejects "Acryl Workspace" (CSV uploads), "Connection Root//PUBLIC"
-            # (empty DB segment -> malformed URN), and >3 segments.
-            # H4 TODO: confirm with Sigma whether API path strings are localised;
-            # if so, relax the literal "Connection Root" check.
-            path_invalid = (
-                not url_id or not table_name or len(parts) != 3 or not all(parts)
+            # Accept 2–3 non-root segments (all non-empty) plus a non-empty urlId:
+            #   "Connection Root/<SCHEMA>"      — Redshift, MySQL (no DB layer)
+            #   "Connection Root/<DB>/<SCHEMA>" — Snowflake, Postgres
+            # Fewer segments (CSV uploads like "Acryl Workspace"), empty segments,
+            # or 4+ segments (not yet mapped) are all rejected.
+            path_invalid = not (
+                url_id and table_name and 2 <= len(parts) <= 3 and all(parts)
             )
             root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
             if path_invalid or root_unexpected:
@@ -732,8 +739,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             else "Sigma warehouse /files path unparseable"
                         ),
                         message=(
-                            "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
-                            "no empty segments and a non-empty urlId. "
+                            "Expected 'Connection Root/<SCHEMA>' or "
+                            "'Connection Root/<DB>/<SCHEMA>' with no empty "
+                            "segments and a non-empty urlId. "
                             "Warehouse upstream skipped for this inode."
                         ),
                         context=(
@@ -750,10 +758,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model.dataModelId,
                     url_id,
                 )
+            # 2-segment path → no DB layer (e.g. Redshift "Connection Root/<SCHEMA>")
+            # 3-segment path → DB + SCHEMA (e.g. Snowflake "Connection Root/<DB>/<SCHEMA>")
+            db, schema = ("", parts[1]) if len(parts) == 2 else (parts[1], parts[2])
             result[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
-                db=parts[1],
-                schema=parts[2],
+                db=db,
+                schema=schema,
                 table=table_name,
             )
         return result
