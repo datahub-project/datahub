@@ -90,7 +90,9 @@ def test_get_dynamic_tables_with_definitions(mock_snowflake_data_dictionary):
     assert dt.name == "DYNAMIC_TABLE1"
     assert dt.definition == "SELECT * FROM source_table"
     assert dt.target_lag == "1 minute"
-    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
+    assert dt.upstream_tables == [
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "TABLE")
+    ]
 
 
 def test_get_dynamic_tables_with_definitions_inputs_as_json_string(
@@ -130,7 +132,9 @@ def test_get_dynamic_tables_with_definitions_inputs_as_json_string(
     )
 
     dt = result["PUBLIC"][0]
-    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
+    assert dt.upstream_tables == [
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "TABLE")
+    ]
 
 
 def test_get_dynamic_tables_with_definitions_malformed_inputs_json(
@@ -185,7 +189,9 @@ def test_get_dynamic_tables_with_definitions_malformed_inputs_json(
     bad_dt = next(t for t in result["PUBLIC"] if t.name == "BAD_TABLE")
     good_dt = next(t for t in result["PUBLIC"] if t.name == "GOOD_TABLE")
     assert bad_dt.upstream_tables == []
-    assert good_dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
+    assert good_dt.upstream_tables == [
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "TABLE")
+    ]
 
 
 def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):
@@ -233,7 +239,9 @@ def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):
     dt = tables["PUBLIC"][0]
     assert dt.definition == "SELECT * FROM source_table"
     assert dt.target_lag == "1 minute"
-    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
+    assert dt.upstream_tables == [
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "Table")
+    ]
 
 
 def test_dynamic_table_subtype():
@@ -378,7 +386,9 @@ def test_populate_dynamic_table_definitions_missing_definition(
 
     dt = tables["PUBLIC"][0]
     assert dt.definition is None
-    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
+    assert dt.upstream_tables == [
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "Table")
+    ]
 
 
 def test_dynamic_table_definition_error_handling(mock_snowflake_data_dictionary):
