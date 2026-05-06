@@ -134,6 +134,11 @@ def get_rest_sink_default_mode() -> Optional[str]:
     return os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE")
 
 
+def get_rest_sink_default_tcp_keepalive() -> bool:
+    """Default value for tcp_keepalive on the REST sink / DataHub client"""
+    return os.getenv("DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE", "").lower() == "true"
+
+
 # ============================================================================
 # Telemetry & Monitoring
 # ============================================================================
