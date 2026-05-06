@@ -127,6 +127,12 @@ logger = logging.getLogger(__name__)
 # column field (or we add SQL-based inference), swap this out here.
 SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
 
+# FGL confidence scores for customSQL element lineage.
+_FGL_CONFIDENCE_SQL_PARSED: float = (
+    0.2  # aggregator-derived; matches SqlParsingAggregator
+)
+_FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula refs
+
 
 def _dm_column_ranks_above(
     candidate: SigmaDataModelColumn, incumbent: SigmaDataModelColumn
@@ -1177,7 +1183,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             downstreams=[
                                 builder.make_schema_field_urn(entity_urn, sigma_col)
                             ],
-                            confidenceScore=0.1,
+                            confidenceScore=_FGL_CONFIDENCE_FORMULA_DERIVED,
                         )
                         for sql_col, sigma_col in col_mapping.items()
                     ]
@@ -1239,11 +1245,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _drain_sql_aggregators(self) -> Iterable[MetadataWorkUnit]:
         """Drain all per-platform aggregators and emit lineage workunits.
 
-        Called once at the end of ``get_workunits_internal`` after all DM
-        elements have been registered via ``add_view_definition``.  FGL
-        downstream schemaField URNs are rewritten to match Sigma display names
-        before yielding.  Each aggregator is closed in a finally block so
-        SQLite-backed tempfiles are released even if gen_metadata raises.
+        Intentionally deferred to the end of ``get_workunits_internal``: all DM
+        elements must be registered via ``add_view_definition`` before parsing
+        runs, so the aggregator sees the full view set in one pass.  The
+        consolidated ``UpstreamLineage`` MCP emitted here is the source of truth
+        for customSQL-backed element lineage; any earlier per-element
+        ``UpstreamLineage`` MCP (for non-customSQL upstreams) is superseded by
+        the merged aspect yielded below.  FGL downstream schemaField URNs are
+        rewritten to Sigma display names before yielding.  Each aggregator is
+        closed in a finally block so SQLite-backed tempfiles are released even
+        if gen_metadata raises.
         """
         for cache_key, aggregator in sorted(
             self._sql_aggregators.items(),

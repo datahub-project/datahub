@@ -1122,6 +1122,10 @@ class SigmaAPI:
             elif entry_type in ("customSQL", "customSql"):
                 name = entry.get("name")
                 if isinstance(name, str) and name:
+                    # Sigma's API normally guarantees unique entry names within
+                    # a DM.  A collision here means a payload anomaly; last
+                    # entry wins so downstream elements still resolve (with a
+                    # warning so operators can investigate).
                     if name in data_model.custom_sql_by_name:
                         self.report.warning(
                             title="Sigma DM customSQL duplicate entry name",
