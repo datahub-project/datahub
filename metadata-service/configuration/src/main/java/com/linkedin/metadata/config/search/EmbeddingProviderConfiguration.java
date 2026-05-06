@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 /**
  * Configuration for embedding providers used to generate query embeddings for semantic search.
  *
- * <p>Supports four providers:
+ * <p>Supports six providers:
  *
  * <ul>
  *   <li><b>aws-bedrock</b>: AWS Bedrock Runtime API with Cohere/Titan models
@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
  *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
  *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
  *   <li><b>vertex_ai</b>: Google Vertex AI Embeddings API with Gemini embedding models
+ *   <li><b>onnx</b>: In-process ONNX Runtime inference (no external server required)
  * </ul>
  */
 @Data
@@ -24,7 +25,7 @@ public class EmbeddingProviderConfiguration {
 
   /**
    * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere", "local",
-   * "vertex_ai". Defaults to "openai".
+   * "vertex_ai", "onnx". Defaults to "openai".
    */
   private String type = "openai";
 
@@ -49,6 +50,9 @@ public class EmbeddingProviderConfiguration {
   /** Configuration for Google Vertex AI embedding provider. */
   private VertexAiConfig vertexai = new VertexAiConfig();
 
+  /** Configuration for in-process ONNX embedding provider. */
+  private OnnxConfig onnx = new OnnxConfig();
+
   /**
    * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
    */
@@ -67,6 +71,8 @@ public class EmbeddingProviderConfiguration {
         return local != null ? local.getModel() : null;
       case "vertex_ai":
         return vertexai != null ? vertexai.getModel() : null;
+      case "onnx":
+        return onnx != null ? onnx.getModelName() : null;
       default:
         return null;
     }
@@ -209,5 +215,31 @@ public class EmbeddingProviderConfiguration {
      * Defaults to 768 (native dimensionality for gemini-embedding-001).
      */
     private int outputDimensionality = 768;
+  }
+
+  /** In-process ONNX Runtime configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class OnnxConfig {
+    /**
+     * Logical model name used as the key in the {@code semanticSearch.models} map and in
+     * Elasticsearch field paths. Must match an entry in the models map exactly (e.g., {@code
+     * snowflake_arctic_embed_s}). Required when type is "onnx".
+     */
+    private String modelName;
+
+    /**
+     * Path to the directory containing the ONNX model and tokenizer files. Must contain model.onnx
+     * (or model_quantized.onnx) and tokenizer.json. Required when type is "onnx".
+     */
+    private String modelDir;
+
+    /**
+     * Number of threads for ONNX Runtime intra-op parallelism. Set to 0 to use ONNX Runtime's
+     * default (all CPU cores). In containerized environments with CPU limits, set this to the
+     * container's CPU limit (e.g., 2 or 4) to avoid thread over-subscription. Defaults to 4.
+     */
+    private int intraOpThreads = 4;
   }
 }
