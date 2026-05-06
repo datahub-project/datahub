@@ -39,10 +39,18 @@ import org.springframework.cache.CacheManager;
 public class LatestTimeseriesAspectVersionCachingService
     implements TimeseriesAspectService, ElasticSearchIndexed {
 
-  private static final String CACHE_NAME = "latestTimeseriesAspect";
+  /** Cache holding {@code latest:<entity>:<aspect>:<urn>} → {@link CachedLatestAspect}. */
+  private static final String DATA_CACHE_NAME = "latestTimeseriesAspect";
+
+  /**
+   * Cache holding {@code aspect-index:<entity>:<aspect>} → {@code Set<String>} of cached URNs. Used
+   * to evict all data keys for an aspect on delete / async-delete / reindex / rollback.
+   */
+  private static final String INDEX_CACHE_NAME = "latestTimeseriesAspectIndex";
 
   private final TimeseriesAspectService delegate;
-  private final Cache cache;
+  private final Cache dataCache;
+  private final Cache indexCache;
   private final CacheConfig cacheConfig;
   private final Set<String> cachedAspectNames;
 
@@ -51,9 +59,15 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull final CacheManager cacheManager,
       @Nonnull final CacheConfig cacheConfig) {
     this.delegate = delegate;
-    this.cache = cacheManager.getCache(CACHE_NAME);
-    if (this.cache == null) {
-      throw new IllegalArgumentException("Cache cannot be null for this service");
+    this.dataCache = cacheManager.getCache(DATA_CACHE_NAME);
+    this.indexCache = cacheManager.getCache(INDEX_CACHE_NAME);
+    if (this.dataCache == null || this.indexCache == null) {
+      throw new IllegalArgumentException(
+          "Both '"
+              + DATA_CACHE_NAME
+              + "' and '"
+              + INDEX_CACHE_NAME
+              + "' caches must be registered with the CacheManager");
     }
     this.cacheConfig = cacheConfig;
     // CacheConfig is the single source of truth for which aspects are cached. Snapshot once
@@ -484,10 +498,11 @@ public class LatestTimeseriesAspectVersionCachingService
 
   private void evictCacheForAllAspects() {
     try {
-      cache.clear();
-      log.debug("Cleared entire cache");
+      dataCache.clear();
+      indexCache.clear();
+      log.debug("Cleared both timeseries caches (data + index)");
     } catch (Exception e) {
-      log.warn("Failed to clear cache", e);
+      log.warn("Failed to clear timeseries caches", e);
     }
   }
 
@@ -498,7 +513,7 @@ public class LatestTimeseriesAspectVersionCachingService
    */
   private void evictCacheKey(String aspectName, String entityName, String urn) {
     try {
-      cache.evict(buildCacheKey(aspectName, entityName, urn));
+      dataCache.evict(buildCacheKey(aspectName, entityName, urn));
     } catch (Exception e) {
       log.warn("Failed to evict cache key for {}/{}/{}", aspectName, entityName, urn, e);
     }
@@ -507,7 +522,7 @@ public class LatestTimeseriesAspectVersionCachingService
   @Nullable
   private String getCachedValue(String cacheKey) {
     try {
-      Cache.ValueWrapper wrapper = cache.get(cacheKey);
+      Cache.ValueWrapper wrapper = dataCache.get(cacheKey);
       if (wrapper == null) {
         return null;
       }
@@ -515,11 +530,8 @@ public class LatestTimeseriesAspectVersionCachingService
       if (value instanceof CachedLatestAspect cached) {
         return cached.getSerializedAspect();
       }
-      // Backward compatibility: pre-rollout entries are raw serialized strings without a
-      // wrapper. Keep reading them so the rollout doesn't cold-start the cache.
-      if (value instanceof String s) {
-        return s;
-      }
+      // Any other shape at a data key indicates a cache-layer bug. Treat as miss; the
+      // caller will fall through to ES.
       return null;
     } catch (Exception e) {
       log.warn("Cache get failed for {}, falling back to ES", cacheKey, e);
@@ -596,7 +608,7 @@ public class LatestTimeseriesAspectVersionCachingService
             "Native cache put failed for {}, falling back to unconditional Spring cache.put",
             cacheKey,
             e);
-        cache.put(cacheKey, wrapper);
+        dataCache.put(cacheKey, wrapper);
       }
     } catch (Exception e) {
       log.warn("Cache put failed for {}", cacheKey, e);
@@ -609,7 +621,7 @@ public class LatestTimeseriesAspectVersionCachingService
    */
   @SuppressWarnings("unchecked")
   private boolean putIfNewerNative(String cacheKey, CachedLatestAspect incoming, long ttlSeconds) {
-    Object nativeCache = cache.getNativeCache();
+    Object nativeCache = dataCache.getNativeCache();
 
     if (nativeCache instanceof IMap<?, ?>) {
       // Server-side compare-and-set on the partition owner.
@@ -625,7 +637,7 @@ public class LatestTimeseriesAspectVersionCachingService
       // compare-and-set semantics that PutIfNewerProcessor provides; a hacky workaround
       // (re-implementing the timestamp comparison via Hazelcast locks or a CAS on a separate
       // key) isn't worth the complexity. If this becomes a real problem, file a follow-up.
-      IMap<String, Object> hazelMap = (IMap<String, Object>) nativeCache;
+      IMap<String, CachedLatestAspect> hazelMap = (IMap<String, CachedLatestAspect>) nativeCache;
       Boolean accepted = hazelMap.executeOnKey(cacheKey, new PutIfNewerProcessor(incoming));
       if (Boolean.TRUE.equals(accepted)) {
         hazelMap.setTtl(cacheKey, ttlSeconds, TimeUnit.SECONDS);
@@ -638,8 +650,8 @@ public class LatestTimeseriesAspectVersionCachingService
       // Caffeine doesn't support per-entry TTL via put(); entries inherit the cache's
       // configured expireAfterWrite (if any). The atomic compare-and-set comes from
       // ConcurrentHashMap.compute(), which holds the per-bin lock for the duration.
-      com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeineCache =
-          (com.github.benmanes.caffeine.cache.Cache<Object, Object>) nativeCache;
+      com.github.benmanes.caffeine.cache.Cache<String, CachedLatestAspect> caffeineCache =
+          (com.github.benmanes.caffeine.cache.Cache<String, CachedLatestAspect>) nativeCache;
       boolean[] accepted = new boolean[] {false};
       caffeineCache
           .asMap()
@@ -650,13 +662,7 @@ public class LatestTimeseriesAspectVersionCachingService
                   accepted[0] = true;
                   return incoming;
                 }
-                if (existing instanceof String) {
-                  // Backward compat: pre-rollout raw string entries lose to wrapped entries.
-                  accepted[0] = true;
-                  return incoming;
-                }
-                CachedLatestAspect current = (CachedLatestAspect) existing;
-                if (incoming.getTimestampMillis() >= current.getTimestampMillis()) {
+                if (incoming.getTimestampMillis() >= existing.getTimestampMillis()) {
                   accepted[0] = true;
                   return incoming;
                 }
@@ -720,38 +726,46 @@ public class LatestTimeseriesAspectVersionCachingService
   private void addUrnToReverseIndex(
       String aspectName, String entityName, String urn, long ttlSeconds) {
     try {
-      Object nativeCache = cache.getNativeCache();
-      if (nativeCache instanceof com.github.benmanes.caffeine.cache.Cache) {
+      Object nativeIndex = indexCache.getNativeCache();
+      if (nativeIndex instanceof com.github.benmanes.caffeine.cache.Cache) {
         // Caffeine reverse-index entries inherit the cache's default expiration policy and
         // can't be given a per-entry TTL — see putIfNewerNative. The index will still be
         // bounded by the cache's maxSize and explicit evictAspectIndex() calls on
         // delete/reindex/rollback paths.
-        com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeineCache =
-            (com.github.benmanes.caffeine.cache.Cache<Object, Object>) nativeCache;
-        handleAtomicAddToReverseIndex(caffeineCache, aspectName, entityName, urn);
-      } else if (nativeCache instanceof IMap) {
-        // Single IMap holds CachedLatestAspect (data keys), Set<String> (reverse index),
-        // and possibly legacy raw String values during rollout. Use Object as the value
-        // type — processors handle the per-key shape.
-        IMap<String, Object> hazelCache = (IMap<String, Object>) nativeCache;
-        handleAtomicAddToReverseIndex(hazelCache, aspectName, entityName, urn, ttlSeconds);
+        com.github.benmanes.caffeine.cache.Cache<String, Set<String>> caffeineIndex =
+            (com.github.benmanes.caffeine.cache.Cache<String, Set<String>>) nativeIndex;
+        handleAtomicAddToReverseIndex(caffeineIndex, aspectName, entityName, urn);
+      } else if (nativeIndex instanceof IMap) {
+        IMap<String, Set<String>> hazelIndex = (IMap<String, Set<String>>) nativeIndex;
+        handleAtomicAddToReverseIndex(hazelIndex, aspectName, entityName, urn, ttlSeconds);
       }
     } catch (Exception e) {
       log.warn("Failed to update aspect index for {}", aspectName, e);
     }
   }
 
+  /**
+   * Bulk-evict every cached URN for an (entity, aspect) pair. The index entry lives in {@link
+   * #indexCache} and the per-URN data entries live in {@link #dataCache} — the read-and-clear of
+   * the index plus the per-URN invalidation on the data map are in two separate cache backends, so
+   * we deliberately handle each side here.
+   */
   @SuppressWarnings("unchecked")
   private void evictAspectIndex(String entityName, String aspectName) {
     try {
-      Object nativeCache = cache.getNativeCache();
-      if (nativeCache instanceof com.github.benmanes.caffeine.cache.Cache) {
-        com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeineCache =
-            (com.github.benmanes.caffeine.cache.Cache<Object, Object>) nativeCache;
-        handleAtomicEviction(caffeineCache, aspectName, entityName);
-      } else if (nativeCache instanceof IMap) {
-        IMap<String, Object> hazelCache = (IMap<String, Object>) nativeCache;
-        handleAtomicEviction(hazelCache, aspectName, entityName);
+      Object nativeIndex = indexCache.getNativeCache();
+      Object nativeData = dataCache.getNativeCache();
+      if (nativeIndex instanceof com.github.benmanes.caffeine.cache.Cache
+          && nativeData instanceof com.github.benmanes.caffeine.cache.Cache) {
+        com.github.benmanes.caffeine.cache.Cache<String, Set<String>> caffeineIndex =
+            (com.github.benmanes.caffeine.cache.Cache<String, Set<String>>) nativeIndex;
+        com.github.benmanes.caffeine.cache.Cache<String, CachedLatestAspect> caffeineData =
+            (com.github.benmanes.caffeine.cache.Cache<String, CachedLatestAspect>) nativeData;
+        handleAtomicEviction(caffeineIndex, caffeineData, aspectName, entityName);
+      } else if (nativeIndex instanceof IMap && nativeData instanceof IMap) {
+        IMap<String, Set<String>> hazelIndex = (IMap<String, Set<String>>) nativeIndex;
+        IMap<String, CachedLatestAspect> hazelData = (IMap<String, CachedLatestAspect>) nativeData;
+        handleAtomicEviction(hazelIndex, hazelData, aspectName, entityName);
       }
     } catch (Exception e) {
       log.warn("Failed to evict aspect index for {}", aspectName, e);
@@ -782,60 +796,60 @@ public class LatestTimeseriesAspectVersionCachingService
   }
 
   private void handleAtomicEviction(
-      com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeineCache,
+      com.github.benmanes.caffeine.cache.Cache<String, Set<String>> caffeineIndex,
+      com.github.benmanes.caffeine.cache.Cache<String, CachedLatestAspect> caffeineData,
       String aspectName,
       String entityName) {
-    // The index swap is atomic but per-URN invalidation happens outside the atomic block.
-    // A concurrent writer that adds a URN to the freshly-empty index between the remove and
-    // the invalidate loop could leave its data key behind. This is a narrow window in a
-    // single-node Caffeine deployment and is preferred over taking a global lock; the data
-    // key will still expire via the cache's TTL/maxSize policy.
+    // The index swap is atomic but per-URN invalidation on the data cache happens outside the
+    // atomic block. A concurrent writer that adds a URN to the freshly-empty index between
+    // the remove and the invalidate loop could leave its data key behind. This is a narrow
+    // window in a single-node Caffeine deployment and is preferred over taking a global lock;
+    // the data key will still expire via the cache's TTL/maxSize policy.
     String indexKey = buildCacheKey(aspectName, entityName);
-
-    Set<String> urns = (Set<String>) caffeineCache.asMap().remove(indexKey);
+    Set<String> urns = caffeineIndex.asMap().remove(indexKey);
     if (urns == null || urns.isEmpty()) {
       return;
     }
-
     for (String urn : urns) {
-      caffeineCache.invalidate(buildCacheKey(aspectName, entityName, urn));
+      caffeineData.invalidate(buildCacheKey(aspectName, entityName, urn));
     }
   }
 
   private void handleAtomicEviction(
-      IMap<String, Object> hazelCache, String aspectName, String entityName) {
+      IMap<String, Set<String>> hazelIndex,
+      IMap<String, CachedLatestAspect> hazelData,
+      String aspectName,
+      String entityName) {
     String indexKey = buildCacheKey(aspectName, entityName);
     Set<String> urns =
-        hazelCache.executeOnKey(indexKey, new GetAndClearUrnsFromReverseIndexProcessor());
+        hazelIndex.executeOnKey(indexKey, new GetAndClearUrnsFromReverseIndexProcessor());
     if (urns == null || urns.isEmpty()) {
       return;
     }
     for (String urn : urns) {
-      hazelCache.remove(buildCacheKey(aspectName, entityName, urn));
+      hazelData.remove(buildCacheKey(aspectName, entityName, urn));
     }
   }
 
   private void handleAtomicAddToReverseIndex(
-      com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeineCache,
+      com.github.benmanes.caffeine.cache.Cache<String, Set<String>> caffeineIndex,
       String aspectName,
       String entityName,
       String urn) {
     String indexKey = buildCacheKey(aspectName, entityName);
-    caffeineCache
+    caffeineIndex
         .asMap()
         .compute(
             indexKey,
             (key, existing) -> {
-              Set<String> urns =
-                  existing == null ? new HashSet<>() : new HashSet<>((Set<String>) existing);
-
+              Set<String> urns = existing == null ? new HashSet<>() : new HashSet<>(existing);
               urns.add(urn);
               return urns;
             });
   }
 
   private void handleAtomicAddToReverseIndex(
-      IMap<String, Object> hazelCache,
+      IMap<String, Set<String>> hazelIndex,
       String aspectName,
       String entityName,
       String urn,
@@ -845,7 +859,7 @@ public class LatestTimeseriesAspectVersionCachingService
     // TTL rather than our intended one. Bounded leak — the next URN added to this index
     // re-applies the TTL.
     String indexKey = buildCacheKey(aspectName, entityName);
-    hazelCache.executeOnKey(indexKey, new AddUrnToReverseIndexProcessor(urn));
-    hazelCache.setTtl(indexKey, ttlSeconds, TimeUnit.SECONDS);
+    hazelIndex.executeOnKey(indexKey, new AddUrnToReverseIndexProcessor(urn));
+    hazelIndex.setTtl(indexKey, ttlSeconds, TimeUnit.SECONDS);
   }
 }

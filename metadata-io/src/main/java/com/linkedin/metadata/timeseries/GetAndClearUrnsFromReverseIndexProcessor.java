@@ -10,23 +10,21 @@ import java.util.Set;
  * Atomically reads and clears the URN set stored at the reverse-index key {@code
  * aspect-index:<entity>:<aspect>}.
  *
- * <p>Map value type is {@link Object} because the same {@code IMap} also stores {@link
- * CachedLatestAspect} (and possibly legacy raw {@link String}) entries under different keys. Only
- * acts on {@code Set<String>}-shaped values; other shapes are treated as empty.
+ * <p>Lives in the index-cache IMap (separate from the data IMap), so the value type is {@code
+ * Set<String>} natively — no Object casts.
  */
 public class GetAndClearUrnsFromReverseIndexProcessor
-    implements EntryProcessor<String, Object, Set<String>>, Serializable {
+    implements EntryProcessor<String, Set<String>, Set<String>>, Serializable {
   private static final long serialVersionUID = 1L;
 
   @Override
-  @SuppressWarnings("unchecked")
-  public Set<String> process(Map.Entry<String, Object> entry) {
-    Object value = entry.getValue();
-    if (!(value instanceof Set<?> existing) || existing.isEmpty()) {
+  public Set<String> process(Map.Entry<String, Set<String>> entry) {
+    Set<String> existing = entry.getValue();
+    if (existing == null || existing.isEmpty()) {
       return Set.of();
     }
 
-    Set<String> copy = new HashSet<>((Set<String>) existing);
+    Set<String> copy = new HashSet<>(existing);
     // Clears/removes this reverse-index entry atomically.
     entry.setValue(null);
     return copy;

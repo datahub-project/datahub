@@ -21,7 +21,7 @@ public class PutIfNewerProcessorTest {
   @Test
   public void process_emptySlot_writesIncoming() {
     CachedLatestAspect incoming = new CachedLatestAspect(1000L, SERIALIZED);
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(KEY, null);
+    Map.Entry<String, CachedLatestAspect> entry = new AbstractMap.SimpleEntry<>(KEY, null);
 
     Boolean accepted = new PutIfNewerProcessor(incoming).process(entry);
 
@@ -33,7 +33,7 @@ public class PutIfNewerProcessorTest {
   public void process_olderExisting_overwrites() {
     CachedLatestAspect existing = new CachedLatestAspect(500L, "old");
     CachedLatestAspect incoming = new CachedLatestAspect(1000L, SERIALIZED);
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(KEY, existing);
+    Map.Entry<String, CachedLatestAspect> entry = new AbstractMap.SimpleEntry<>(KEY, existing);
 
     Boolean accepted = new PutIfNewerProcessor(incoming).process(entry);
 
@@ -48,7 +48,7 @@ public class PutIfNewerProcessorTest {
     // and accepting the freshest write is more useful than rejecting it.
     CachedLatestAspect existing = new CachedLatestAspect(1000L, "first");
     CachedLatestAspect incoming = new CachedLatestAspect(1000L, "second");
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(KEY, existing);
+    Map.Entry<String, CachedLatestAspect> entry = new AbstractMap.SimpleEntry<>(KEY, existing);
 
     Boolean accepted = new PutIfNewerProcessor(incoming).process(entry);
 
@@ -60,25 +60,11 @@ public class PutIfNewerProcessorTest {
   public void process_newerExisting_rejects() {
     CachedLatestAspect existing = new CachedLatestAspect(2000L, "newer");
     CachedLatestAspect incoming = new CachedLatestAspect(1000L, "older");
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(KEY, existing);
+    Map.Entry<String, CachedLatestAspect> entry = new AbstractMap.SimpleEntry<>(KEY, existing);
 
     Boolean accepted = new PutIfNewerProcessor(incoming).process(entry);
 
     assertFalse(accepted, "older incoming must not clobber a newer cached entry");
     assertSame(entry.getValue(), existing, "existing wrapper must be preserved verbatim");
-  }
-
-  @Test
-  public void process_legacyRawString_replacedByWrapper() {
-    // During rolling deploy, slots may still hold pre-rollout raw String values. The
-    // processor treats those as definitively older — incoming wrapper always wins.
-    Map.Entry<String, Object> entry =
-        new AbstractMap.SimpleEntry<>(KEY, "legacy-serialized-aspect");
-    CachedLatestAspect incoming = new CachedLatestAspect(1L, SERIALIZED);
-
-    Boolean accepted = new PutIfNewerProcessor(incoming).process(entry);
-
-    assertTrue(accepted);
-    assertSame(entry.getValue(), incoming);
   }
 }

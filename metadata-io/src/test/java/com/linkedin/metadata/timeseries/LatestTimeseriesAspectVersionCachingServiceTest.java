@@ -32,13 +32,15 @@ import org.testng.annotations.Test;
 
 public class LatestTimeseriesAspectVersionCachingServiceTest {
 
-  private static final String CACHE_NAME = "latestTimeseriesAspect";
+  private static final String DATA_CACHE_NAME = "latestTimeseriesAspect";
+  private static final String INDEX_CACHE_NAME = "latestTimeseriesAspectIndex";
   private static final String ASPECT_NAME = "datasetProfile";
 
   private LatestTimeseriesAspectVersionCachingService cachingService;
   private TimeseriesAspectService mockDelegate;
   private CacheManager cacheManager;
-  private com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCaffeine;
+  private com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCaffeineData;
+  private com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCaffeineIndex;
   private ObjectMapper objectMapper;
 
   @Mock private OperationContext opContext;
@@ -49,11 +51,15 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     mockDelegate = mock(TimeseriesAspectService.class);
     objectMapper = new ObjectMapper();
 
-    // Use a real Caffeine cache so the production reverse-index and put-if-newer paths fire.
+    // Two real Caffeine caches so the production split data/index paths fire correctly.
     // ConcurrentMapCacheManager would skip both branches in putIfNewerNative/evictAspectIndex.
-    nativeCaffeine =
+    nativeCaffeineData =
         Caffeine.newBuilder().expireAfterWrite(60, TimeUnit.MINUTES).maximumSize(2000).build();
-    cacheManager = caffeineBackedCacheManager(CACHE_NAME, nativeCaffeine);
+    nativeCaffeineIndex =
+        Caffeine.newBuilder().expireAfterWrite(60, TimeUnit.MINUTES).maximumSize(2000).build();
+    cacheManager =
+        caffeineBackedCacheManager(
+            DATA_CACHE_NAME, nativeCaffeineData, INDEX_CACHE_NAME, nativeCaffeineIndex);
 
     CacheConfig cacheConfig = new CacheConfig();
     cacheConfig.setEnabled(true);
@@ -72,26 +78,6 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
   // ---------------------------------------------------------------------------
 
   @Test
-  public void testGetAspectValuesCacheHit_backwardCompatRawString() throws Exception {
-    // Pre-rollout entries are raw serialized strings (no wrapper). The read path must still
-    // unwrap them so the cache survives a deploy that introduces CachedLatestAspect.
-    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:mysql,test,PROD)");
-    String entityName = urn.getEntityType();
-
-    EnvelopedAspect cachedAspect = createTestEnvelopedAspect(123L, "test_event");
-    String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
-    cacheManager.getCache(CACHE_NAME).put(cacheKey, RecordUtils.toJsonString(cachedAspect));
-
-    List<EnvelopedAspect> result =
-        cachingService.getAspectValues(
-            opContext, urn, entityName, ASPECT_NAME, null, null, 1, null);
-
-    assertEquals(result.size(), 1);
-    verify(mockDelegate, never())
-        .getAspectValues(any(), any(), any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
   public void testGetAspectValuesCacheHit_wrappedEntry() throws Exception {
     // Cached entries written by the new code path are CachedLatestAspect wrappers.
     Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:mysql,wrapped,PROD)");
@@ -100,7 +86,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     EnvelopedAspect cachedAspect = createTestEnvelopedAspect(456L, "wrapped_event");
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
     cacheManager
-        .getCache(CACHE_NAME)
+        .getCache(DATA_CACHE_NAME)
         .put(cacheKey, new CachedLatestAspect(456L, RecordUtils.toJsonString(cachedAspect)));
 
     List<EnvelopedAspect> result =
@@ -125,7 +111,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     cachingService.getAspectValues(opContext, urn, entityName, ASPECT_NAME, null, null, 1, null);
 
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
-    Object stored = nativeCaffeine.getIfPresent(cacheKey);
+    Object stored = nativeCaffeineData.getIfPresent(cacheKey);
     assertTrue(
         stored instanceof CachedLatestAspect,
         "cache fill should write a CachedLatestAspect wrapper, got " + stored);
@@ -154,7 +140,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
 
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
     assertNull(
-        nativeCaffeine.getIfPresent(cacheKey), "windowed queries must not populate the cache");
+        nativeCaffeineData.getIfPresent(cacheKey), "windowed queries must not populate the cache");
     verify(mockDelegate, times(1))
         .getAspectValues(opContext, urn, entityName, ASPECT_NAME, 0L, 1000L, 50, null, null);
   }
@@ -175,7 +161,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     EnvelopedAspect cachedProfile = createTestEnvelopedAspect(100L, "cached_profile");
     String cacheKey = String.format("latest:%s:%s:%s", urn.getEntityType(), ASPECT_NAME, urn);
     cacheManager
-        .getCache(CACHE_NAME)
+        .getCache(DATA_CACHE_NAME)
         .put(cacheKey, new CachedLatestAspect(100L, RecordUtils.toJsonString(cachedProfile)));
 
     EnvelopedAspect fetchedUsage = createTestEnvelopedAspect(200L, "fetched_usage");
@@ -208,7 +194,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     String cacheKey =
         String.format("latest:%s:%s:%s", cachedUrn.getEntityType(), ASPECT_NAME, cachedUrn);
     cacheManager
-        .getCache(CACHE_NAME)
+        .getCache(DATA_CACHE_NAME)
         .put(cacheKey, new CachedLatestAspect(100L, RecordUtils.toJsonString(cachedAspect)));
 
     Map<Urn, Map<String, EnvelopedAspect>> dbResults = new HashMap<>();
@@ -244,7 +230,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     verify(mockDelegate).upsertDocument(opContext, entityName, ASPECT_NAME, "doc1", document);
 
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
-    Object stored = nativeCaffeine.getIfPresent(cacheKey);
+    Object stored = nativeCaffeineData.getIfPresent(cacheKey);
     assertTrue(stored instanceof CachedLatestAspect);
     assertEquals(((CachedLatestAspect) stored).getTimestampMillis(), 1500L);
   }
@@ -263,7 +249,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     cachingService.upsertDocument(opContext, entityName, ASPECT_NAME, "doc-older", older);
 
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
-    CachedLatestAspect stored = (CachedLatestAspect) nativeCaffeine.getIfPresent(cacheKey);
+    CachedLatestAspect stored = (CachedLatestAspect) nativeCaffeineData.getIfPresent(cacheKey);
     assertNotNull(stored);
     assertEquals(
         stored.getTimestampMillis(), 2000L, "newer entry must not be clobbered by older write");
@@ -280,7 +266,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     cachingService.upsertDocument(
         opContext, entityName, ASPECT_NAME, "d1", createTestDocument(urn.toString(), 2000L, "v1"));
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
-    assertNotNull(nativeCaffeine.getIfPresent(cacheKey));
+    assertNotNull(nativeCaffeineData.getIfPresent(cacheKey));
 
     ObjectNode badDoc = objectMapper.createObjectNode().put("urn", urn.toString());
     badDoc.set("event", objectMapper.createObjectNode().put("data", "v2"));
@@ -288,7 +274,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     cachingService.upsertDocument(opContext, entityName, ASPECT_NAME, "d2", badDoc);
 
     assertNull(
-        nativeCaffeine.getIfPresent(cacheKey),
+        nativeCaffeineData.getIfPresent(cacheKey),
         "missing-timestamp upsert should evict, not clobber with ts=0");
   }
 
@@ -303,7 +289,8 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
 
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
     assertNull(
-        nativeCaffeine.getIfPresent(cacheKey), "missing event node must not produce a cache entry");
+        nativeCaffeineData.getIfPresent(cacheKey),
+        "missing event node must not produce a cache entry");
   }
 
   @Test
@@ -325,7 +312,7 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
         createTestDocument(urn.toString(), 2000L, "v2"));
 
     String cacheKey = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn);
-    CachedLatestAspect stored = (CachedLatestAspect) nativeCaffeine.getIfPresent(cacheKey);
+    CachedLatestAspect stored = (CachedLatestAspect) nativeCaffeineData.getIfPresent(cacheKey);
     assertNotNull(stored);
     assertEquals(stored.getTimestampMillis(), 2000L);
   }
@@ -349,13 +336,13 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
 
     String key1 = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn1);
     String key2 = String.format("latest:%s:%s:%s", entityName, ASPECT_NAME, urn2);
-    assertNotNull(nativeCaffeine.getIfPresent(key1));
-    assertNotNull(nativeCaffeine.getIfPresent(key2));
+    assertNotNull(nativeCaffeineData.getIfPresent(key1));
+    assertNotNull(nativeCaffeineData.getIfPresent(key2));
 
     cachingService.deleteAspectValues(opContext, entityName, ASPECT_NAME, new Filter());
 
-    assertNull(nativeCaffeine.getIfPresent(key1), "delete should evict urn1");
-    assertNull(nativeCaffeine.getIfPresent(key2), "delete should evict urn2");
+    assertNull(nativeCaffeineData.getIfPresent(key1), "delete should evict urn1");
+    assertNull(nativeCaffeineData.getIfPresent(key2), "delete should evict urn2");
   }
 
   @Test
@@ -369,11 +356,11 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
         createTestDocument(urn.toString(), 100L, "x"));
 
     String cacheKey = String.format("latest:%s:%s:%s", urn.getEntityType(), ASPECT_NAME, urn);
-    assertNotNull(nativeCaffeine.getIfPresent(cacheKey));
+    assertNotNull(nativeCaffeineData.getIfPresent(cacheKey));
 
     cachingService.rollbackTimeseriesAspects(opContext, "run-1");
 
-    assertNull(nativeCaffeine.getIfPresent(cacheKey), "rollback should clear the cache");
+    assertNull(nativeCaffeineData.getIfPresent(cacheKey), "rollback should clear the cache");
   }
 
   // ---------------------------------------------------------------------------
@@ -408,18 +395,35 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
   }
 
   /**
-   * Inline {@link CacheManager} that exposes a single named cache backed by Caffeine — needed
-   * because the production code branches on {@code instanceof Caffeine}, which {@code
-   * ConcurrentMapCacheManager} doesn't satisfy. Same shape as {@code CacheEvictionServiceTest}.
+   * Inline {@link CacheManager} that exposes two named Caffeine-backed caches — one for the {@link
+   * CachedLatestAspect} data map, one for the reverse index. Needed because the production code
+   * branches on {@code instanceof Caffeine}, which {@code ConcurrentMapCacheManager} doesn't
+   * satisfy.
    */
   private static CacheManager caffeineBackedCacheManager(
-      String cacheName, com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeine) {
+      String dataName,
+      com.github.benmanes.caffeine.cache.Cache<Object, Object> dataCaffeine,
+      String indexName,
+      com.github.benmanes.caffeine.cache.Cache<Object, Object> indexCaffeine) {
     return new CacheManager() {
       @Override
       public Cache getCache(String name) {
-        if (!cacheName.equals(name)) {
-          return null;
+        if (dataName.equals(name)) {
+          return wrap(name, dataCaffeine);
         }
+        if (indexName.equals(name)) {
+          return wrap(name, indexCaffeine);
+        }
+        return null;
+      }
+
+      @Override
+      public Collection<String> getCacheNames() {
+        return List.of(dataName, indexName);
+      }
+
+      private Cache wrap(
+          String name, com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeine) {
         return new Cache() {
           @Override
           public String getName() {
@@ -463,11 +467,6 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
             caffeine.invalidateAll();
           }
         };
-      }
-
-      @Override
-      public Collection<String> getCacheNames() {
-        return List.of(cacheName);
       }
     };
   }

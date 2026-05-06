@@ -20,7 +20,7 @@ public class GetAndClearUrnsFromReverseIndexProcessorTest {
 
   @Test
   public void process_emptySlot_returnsEmpty() {
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(INDEX_KEY, null);
+    Map.Entry<String, Set<String>> entry = new AbstractMap.SimpleEntry<>(INDEX_KEY, null);
 
     Set<String> result = new GetAndClearUrnsFromReverseIndexProcessor().process(entry);
 
@@ -30,7 +30,8 @@ public class GetAndClearUrnsFromReverseIndexProcessorTest {
 
   @Test
   public void process_emptySet_returnsEmpty() {
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(INDEX_KEY, new HashSet<>());
+    Map.Entry<String, Set<String>> entry =
+        new AbstractMap.SimpleEntry<>(INDEX_KEY, new HashSet<>());
 
     Set<String> result = new GetAndClearUrnsFromReverseIndexProcessor().process(entry);
 
@@ -42,7 +43,7 @@ public class GetAndClearUrnsFromReverseIndexProcessorTest {
     Set<String> original = new HashSet<>();
     original.add(URN_A);
     original.add(URN_B);
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(INDEX_KEY, original);
+    Map.Entry<String, Set<String>> entry = new AbstractMap.SimpleEntry<>(INDEX_KEY, original);
 
     Set<String> result = new GetAndClearUrnsFromReverseIndexProcessor().process(entry);
 
@@ -50,15 +51,5 @@ public class GetAndClearUrnsFromReverseIndexProcessorTest {
     assertNotSame(result, original, "must return a defensive copy, not the live set");
     assertNull(
         entry.getValue(), "entry value should be set to null so the reverse-index slot is cleared");
-  }
-
-  @Test
-  public void process_nonSetValue_returnsEmpty() {
-    // A misshapen value at the index key — defensive: don't throw, just report no URNs.
-    Map.Entry<String, Object> entry = new AbstractMap.SimpleEntry<>(INDEX_KEY, "garbage");
-
-    Set<String> result = new GetAndClearUrnsFromReverseIndexProcessor().process(entry);
-
-    assertTrue(result.isEmpty());
   }
 }

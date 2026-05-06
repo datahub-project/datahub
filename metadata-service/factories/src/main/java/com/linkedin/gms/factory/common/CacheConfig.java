@@ -68,9 +68,14 @@ public class CacheConfig {
     cacheManager.setCaffeine(caffeineCacheBuilder());
     // The latest-timeseries cache has its own size budget (TIMESERIES_CACHE_MAX_SIZE); register
     // it as a custom cache so it doesn't inherit the smaller cache.primary.maxSize default
-    // shared by every other Caffeine-backed cache in this manager.
+    // shared by every other Caffeine-backed cache in this manager. Two separate caches —
+    // one for CachedLatestAspect data values, one for the Set<String> reverse index — keep
+    // value types disjoint so the caching service can hold strongly-typed handles instead of
+    // Object-erased ones.
     cacheManager.registerCustomCache(
         "latestTimeseriesAspect", latestTimeseriesCaffeineBuilder().build());
+    cacheManager.registerCustomCache(
+        "latestTimeseriesAspectIndex", latestTimeseriesCaffeineBuilder().build());
     return cacheManager;
   }
 
@@ -173,6 +178,26 @@ public class CacheConfig {
   public MapConfig latestTimeseriesCacheConfig() {
     int tsMaxSize = configurationProvider.getTimeseriesAspectService().getCache().getMaxSize();
     MapConfig mapConfig = new MapConfig().setName("latestTimeseriesAspect");
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(tsMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
+    mapConfig.setEvictionConfig(evictionConfig);
+    return mapConfig;
+  }
+
+  /**
+   * Companion map to {@link #latestTimeseriesCacheConfig()} that stores the (entity, aspect) →
+   * Set&lt;URN&gt; reverse index used to evict all data keys for an aspect on
+   * delete/reindex/rollback. Sized off the same TIMESERIES_CACHE_MAX_SIZE budget — there is one
+   * index entry per (entity, aspect) pair, so this is a small fraction of the data map.
+   */
+  @Bean
+  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  public MapConfig latestTimeseriesAspectIndexCacheConfig() {
+    int tsMaxSize = configurationProvider.getTimeseriesAspectService().getCache().getMaxSize();
+    MapConfig mapConfig = new MapConfig().setName("latestTimeseriesAspectIndex");
     EvictionConfig evictionConfig =
         new EvictionConfig()
             .setMaxSizePolicy(MaxSizePolicy.PER_NODE)

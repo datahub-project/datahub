@@ -12,10 +12,14 @@ import java.util.Map;
  * the read-modify-write is atomic across the cluster — preventing concurrent GMS replicas from
  * racing each other and clobbering newer cached values with older ones.
  *
+ * <p>The map value type is {@link CachedLatestAspect} — the data cache is a separate IMap from the
+ * reverse-index cache, so we get the strong typing for free.
+ *
  * <p>TTL is intentionally not set here; entry processors don't carry a TTL contract. Callers apply
  * {@code IMap.setTtl(...)} after a successful write.
  */
-public class PutIfNewerProcessor implements EntryProcessor<String, Object, Boolean>, Serializable {
+public class PutIfNewerProcessor
+    implements EntryProcessor<String, CachedLatestAspect, Boolean>, Serializable {
   private static final long serialVersionUID = 1L;
 
   private final CachedLatestAspect incoming;
@@ -25,8 +29,8 @@ public class PutIfNewerProcessor implements EntryProcessor<String, Object, Boole
   }
 
   @Override
-  public Boolean process(Map.Entry<String, Object> entry) {
-    Object existing = entry.getValue();
+  public Boolean process(Map.Entry<String, CachedLatestAspect> entry) {
+    CachedLatestAspect existing = entry.getValue();
 
     // Empty slot — accept unconditionally.
     if (existing == null) {
@@ -34,16 +38,7 @@ public class PutIfNewerProcessor implements EntryProcessor<String, Object, Boole
       return true;
     }
 
-    // Backward compatibility: pre-rollout entries are raw serialized strings without an
-    // associated timestamp. Treat those as definitively older — the incoming wrapper wins
-    // and replaces them.
-    if (existing instanceof String) {
-      entry.setValue(incoming);
-      return true;
-    }
-
-    CachedLatestAspect current = (CachedLatestAspect) existing;
-    if (incoming.getTimestampMillis() >= current.getTimestampMillis()) {
+    if (incoming.getTimestampMillis() >= existing.getTimestampMillis()) {
       entry.setValue(incoming);
       return true;
     }
