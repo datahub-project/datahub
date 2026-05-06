@@ -39,11 +39,11 @@ import org.springframework.cache.CacheManager;
 public class LatestTimeseriesAspectVersionCachingService
     implements TimeseriesAspectService, ElasticSearchIndexed {
 
-  /** Cache holding {@code latest:<entity>:<aspect>:<urn>} → {@link CachedLatestAspect}. */
+  /** Cache holding {@code latest:<aspect>:<entity>:<urn>} → {@link CachedLatestAspect}. */
   private static final String DATA_CACHE_NAME = "latestTimeseriesAspect";
 
   /**
-   * Cache holding {@code aspect-index:<entity>:<aspect>} → {@code Set<String>} of cached URNs. Used
+   * Cache holding {@code aspect-index:<aspect>:<entity>} → {@code Set<String>} of cached URNs. Used
    * to evict all data keys for an aspect on delete / async-delete / reindex / rollback.
    */
   private static final String INDEX_CACHE_NAME = "latestTimeseriesAspectIndex";
@@ -355,9 +355,7 @@ public class LatestTimeseriesAspectVersionCachingService
   public DeleteAspectValuesResult rollbackTimeseriesAspects(
       @Nonnull OperationContext opContext, @Nonnull final String runId) {
     DeleteAspectValuesResult result = delegate.rollbackTimeseriesAspects(opContext, runId);
-    if (cache != null) {
-      evictCacheForAllAspects();
-    }
+    evictCacheForAllAspects();
     return result;
   }
 
