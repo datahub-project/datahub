@@ -513,7 +513,6 @@ class TestBuildFglWarehouseIntegration:
 
         assert len(fgls) == 3
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 3
-        assert source.reporter.data_model_element_fgl_warehouse_resolved == 3
         assert (
             source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
         )
@@ -524,3 +523,39 @@ class TestBuildFglWarehouseIntegration:
             if fgl.upstreams
         }
         assert upstream_cols == {"email", "first_name", "customer_id"}
+
+    def test_formula_source_is_warehouse_table_name_not_element_name(self):
+        """Element named differently from its warehouse table still resolves
+        via columnId when formula uses the warehouse table name as source.
+
+        e.g. element "CUSTOMER Summary" with formula "[CUSTOMERS/Email]" where
+        "CUSTOMERS" is the warehouse table name, not the element name.
+        """
+        source = _make_source()
+        col = _column(
+            f"inode-{_SF_URL_ID}/EMAIL",
+            "Email",
+            "[CUSTOMERS/Email]",  # source = warehouse table name, not element name
+        )
+        elem = _element(
+            "el-summary",
+            "CUSTOMER Summary",  # element name differs from formula source
+            [col],
+            [_SF_INODE_SOURCE],
+        )
+        # No DM element named "CUSTOMERS" exists — candidate_eids will be empty
+        name_to_eids = {"customer summary": [elem.elementId]}
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids=name_to_eids,
+        )
+
+        assert len(fgls) == 1
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+        assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+        assert fgls[0].upstreams is not None
+        expected_upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        assert fgls[0].upstreams[0] == expected_upstream
