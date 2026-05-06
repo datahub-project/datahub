@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
@@ -21,6 +21,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTask,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    MAX_DEFINITION_LENGTH,
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.schema_classes import (
@@ -36,14 +37,31 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Truncate the task definition stored in customProperties to stay well within
-# DataHub's aspect size limits.
-_MAX_DEFINITION_LENGTH = 4000
+
+@dataclass(frozen=True)
+class TaskLineage:
+    """Dataset-level inputs/outputs and column lineage parsed from a task body.
+
+    Tuple fields keep the dataclass genuinely immutable — ``frozen=True`` only
+    blocks attribute reassignment, not list mutation, so a ``List[...]`` field
+    would still let callers ``append`` past the contract.
+    """
+
+    input_datasets: Tuple[str, ...]
+    output_datasets: Tuple[str, ...]
+    fine_grained: Tuple[FineGrainedLineageClass, ...]
+
+    @classmethod
+    def empty(cls) -> "TaskLineage":
+        return cls(input_datasets=(), output_datasets=(), fine_grained=())
+
+    def has_any(self) -> bool:
+        return bool(self.input_datasets or self.output_datasets or self.fine_grained)
 
 
 @dataclass
@@ -52,7 +70,7 @@ class SnowflakeTasksExtractor:
     report: SnowflakeV2Report
     data_dictionary: SnowflakeDataDictionary
     identifiers: SnowflakeIdentifierBuilder
-    aggregator: SqlParsingAggregator
+    schema_resolver: SchemaResolverInterface
 
     def get_workunits(
         self,
@@ -154,7 +172,7 @@ class SnowflakeTasksExtractor:
         if task.allow_overlapping_execution:
             custom_properties["allow_overlapping_execution"] = "true"
         if task.definition:
-            custom_properties["definition"] = task.definition[:_MAX_DEFINITION_LENGTH]
+            custom_properties["definition"] = task.definition[:MAX_DEFINITION_LENGTH]
 
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
@@ -178,7 +196,9 @@ class SnowflakeTasksExtractor:
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
+        task_fqn = f"{db_name}.{schema_name}.{task.name}"
         input_datajobs: List[str] = []
+        unresolved_predecessors: List[str] = []
         for predecessor_name in task.predecessors:
             pred_name_upper = predecessor_name.strip().upper()
             # Predecessors may be fully qualified or just task names
@@ -188,19 +208,30 @@ class SnowflakeTasksExtractor:
                 pred_job_id = self.identifiers.snowflake_identifier(simple_name)
                 pred_job_urn = make_data_job_urn_with_flow(flow_urn, pred_job_id)
                 input_datajobs.append(pred_job_urn)
+            else:
+                unresolved_predecessors.append(predecessor_name)
 
-        input_datasets, output_datasets, fine_grained_lineages = (
-            self._parse_task_definition_for_lineage(task, db_name, schema_name)
-        )
+        if unresolved_predecessors:
+            # Predecessor lives in a different schema/database (Snowflake allows
+            # cross-schema task DAGs via fully-qualified names) or has been
+            # filtered out and dropped from the data dictionary entirely.
+            # Surface this so users can see why the task's input lineage is
+            # incomplete.
+            self.report.warning(
+                "Predecessor task not in current schema; input lineage incomplete",
+                f"{task_fqn} -> {', '.join(unresolved_predecessors)}",
+            )
 
-        if input_datasets or output_datasets or input_datajobs:
+        lineage = self._parse_task_definition_for_lineage(task, db_name, schema_name)
+
+        if lineage.has_any() or input_datajobs:
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=DataJobInputOutputClass(
-                    inputDatasets=input_datasets,
-                    outputDatasets=output_datasets,
+                    inputDatasets=list(lineage.input_datasets),
+                    outputDatasets=list(lineage.output_datasets),
                     inputDatajobs=input_datajobs,
-                    fineGrainedLineages=fine_grained_lineages or None,
+                    fineGrainedLineages=list(lineage.fine_grained) or None,
                 ),
             ).as_workunit()
 
@@ -222,7 +253,7 @@ class SnowflakeTasksExtractor:
         task: SnowflakeTask,
         db_name: str,
         schema_name: str,
-    ) -> "tuple[List[str], List[str], List[FineGrainedLineageClass]]":
+    ) -> TaskLineage:
         """Parse task SQL to extract dataset-level inputs/outputs and column lineage.
 
         Multi-statement bodies (e.g. ``stmt1; stmt2``) and unsupported syntax
@@ -230,35 +261,37 @@ class SnowflakeTasksExtractor:
         engine handles single-statement INSERT / MERGE / CREATE TABLE AS cleanly.
         """
         if not task.definition:
-            return [], [], []
+            return TaskLineage.empty()
 
-        parsed = self._run_sql_parser(task, db_name, schema_name)
+        task_fqn = f"{db_name}.{schema_name}.{task.name}"
+        parsed = self._run_sql_parser(task, task_fqn, db_name, schema_name)
         if parsed is None:
-            return [], [], []
+            return TaskLineage.empty()
 
-        return (
-            list(parsed.in_tables),
-            list(parsed.out_tables),
-            self._build_fine_grained_lineages(parsed),
+        return TaskLineage(
+            input_datasets=tuple(parsed.in_tables),
+            output_datasets=tuple(parsed.out_tables),
+            fine_grained=self._build_fine_grained_lineages(parsed, task_fqn),
         )
 
     def _run_sql_parser(
         self,
         task: SnowflakeTask,
+        task_fqn: str,
         db_name: str,
         schema_name: str,
     ) -> Optional[SqlParsingResult]:
         try:
             result = sqlglot_lineage(
                 sql=task.definition,
-                schema_resolver=self.aggregator._schema_resolver,
+                schema_resolver=self.schema_resolver,
                 default_db=db_name,
                 default_schema=schema_name,
             )
         except Exception as e:
             self.report.warning(
                 "Failed to parse task definition for lineage",
-                f"{db_name}.{schema_name}.{task.name}",
+                task_fqn,
                 exc=e,
             )
             return None
@@ -266,31 +299,44 @@ class SnowflakeTasksExtractor:
         if result.debug_info.table_error:
             self.report.warning(
                 "Failed to extract table lineage from task definition",
-                f"{db_name}.{schema_name}.{task.name}",
+                task_fqn,
                 exc=result.debug_info.table_error,
             )
             return None
         return result
 
     def _build_fine_grained_lineages(
-        self, parsed: SqlParsingResult
-    ) -> List[FineGrainedLineageClass]:
-        if parsed.debug_info.column_error or not parsed.column_lineage:
-            return []
+        self, parsed: SqlParsingResult, task_fqn: str
+    ) -> Tuple[FineGrainedLineageClass, ...]:
+        # Surface column-lineage parser failures so users can tell that table
+        # lineage worked but column-level extraction did not.
+        if parsed.debug_info.column_error:
+            self.report.warning(
+                "Failed to extract column lineage from task definition",
+                task_fqn,
+                exc=parsed.debug_info.column_error,
+            )
+            return ()
+        if not parsed.column_lineage:
+            return ()
 
         fine_grained: List[FineGrainedLineageClass] = []
+        dropped = 0
         for cll in parsed.column_lineage:
             if (
                 not cll.downstream
                 or not cll.downstream.table
                 or not cll.downstream.column
             ):
+                dropped += 1
                 continue
             downstream_field = make_schema_field_urn(
                 cll.downstream.table, cll.downstream.column
             )
             upstream_fields = [
-                make_schema_field_urn(ref.table, ref.column) for ref in cll.upstreams
+                make_schema_field_urn(ref.table, ref.column)
+                for ref in cll.upstreams
+                if ref.table and ref.column
             ]
             fine_grained.append(
                 FineGrainedLineageClass(
@@ -300,4 +346,21 @@ class SnowflakeTasksExtractor:
                     upstreams=upstream_fields,
                 )
             )
-        return fine_grained
+
+        # If sqlglot produced column-lineage entries but every one was missing
+        # a downstream table/column, the user would otherwise see table
+        # lineage with no fine-grained lineage and no clue why.
+        total = len(parsed.column_lineage)
+        if dropped and not fine_grained:
+            self.report.warning(
+                "All column-lineage entries dropped (missing downstream table/column)",
+                f"{task_fqn} ({dropped}/{total} entries)",
+            )
+        elif dropped:
+            logger.debug(
+                "Dropped %d/%d column-lineage entries for %s (missing downstream table/column)",
+                dropped,
+                total,
+                task_fqn,
+            )
+        return tuple(fine_grained)
