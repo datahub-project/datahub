@@ -219,28 +219,57 @@ def test_get_resource_domain_work_unit_produced():
     assert maybe_domain_wu
 
 
-def test_maybe_extract_structured_properties():
+def test_maybe_extract_structured_properties_requires_mapping():
     source = create_mocked_csv_enricher_source()
     row = {
         "resource": DATASET_URN,
         "subresource": "",
-        "sp__io.acryl.test.classification": "Sensitive",
-        "sp.ownerTeam": "Finance",
-        "sp__": "ignored",
+        "classification": "Sensitive",
+        "owner_team": "Finance",
     }
 
     structured_properties = source.maybe_extract_structured_properties(
         row=row,
         is_resource_row=True,
     )
+    assert structured_properties == []
+
+
+def test_maybe_extract_structured_properties_from_config_mapping():
+    source = CSVEnricherSource(
+        CSVEnricherConfig(
+            **{
+                **create_base_csv_enricher_config(),
+                "write_semantics": "OVERRIDE",
+                "structured_properties": {
+                    "tier": "io.acryl.metadata.tier",
+                    "classification": "urn:li:structuredProperty:io.acryl.privacy.classification",
+                },
+            }
+        ),
+        PipelineContext("test-run-id"),
+    )
+
+    row = {
+        "resource": DATASET_URN,
+        "subresource": "",
+        "tier": "Gold",
+        "classification": "Confidential",
+    }
+
+    structured_properties = source.maybe_extract_structured_properties(
+        row=row,
+        is_resource_row=True,
+    )
+
     assert structured_properties == [
         StructuredPropertyValueAssignmentClass(
-            propertyUrn="urn:li:structuredProperty:io.acryl.test.classification",
-            values=["Sensitive"],
+            propertyUrn="urn:li:structuredProperty:io.acryl.metadata.tier",
+            values=["Gold"],
         ),
         StructuredPropertyValueAssignmentClass(
-            propertyUrn="urn:li:structuredProperty:ownerTeam",
-            values=["Finance"],
+            propertyUrn="urn:li:structuredProperty:io.acryl.privacy.classification",
+            values=["Confidential"],
         ),
     ]
 
@@ -287,7 +316,7 @@ def test_get_resource_structured_properties_no_new_values():
 
 
 def test_get_workunits_internal_emits_structured_properties(tmp_path):
-    csv_content = """resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,sp__io.acryl.test.classification,sp.ownerTeam
+    csv_content = """resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,classification,owner_team
 \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\",,,,,,,,Sensitive,Finance
 """
     csv_file = tmp_path / "structured_properties.csv"
@@ -299,6 +328,10 @@ def test_get_workunits_internal_emits_structured_properties(tmp_path):
             write_semantics="OVERRIDE",
             delimiter=",",
             array_delimiter="|",
+            structured_properties={
+                "classification": "io.acryl.test.classification",
+                "owner_team": "ownerTeam",
+            },
         ),
         PipelineContext("test-run-id"),
     )

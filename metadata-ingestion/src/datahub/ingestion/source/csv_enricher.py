@@ -347,10 +347,14 @@ class CSVEnricherSource(Source):
         if not is_resource_row:
             return []
 
+        configured_mappings = self.config.structured_properties or {}
+        if len(configured_mappings) <= 0:
+            return []
+
         structured_property_columns = {
             column: value
             for column, value in row.items()
-            if column.startswith("sp__") or column.startswith("sp.")
+            if column in configured_mappings
         }
         if len(structured_property_columns) <= 0:
             return []
@@ -361,11 +365,10 @@ class CSVEnricherSource(Source):
             if len(value) <= 0:
                 continue
 
-            raw_property_name = (
-                column[len("sp__") :]
-                if column.startswith("sp__")
-                else column[len("sp.") :]
-            ).strip()
+            mapped_property_name = configured_mappings.get(column)
+            if not mapped_property_name:
+                continue
+            raw_property_name = mapped_property_name.strip()
             if len(raw_property_name) <= 0:
                 resource_urn = row.get("resource", "unknown")
                 self.report.warning(

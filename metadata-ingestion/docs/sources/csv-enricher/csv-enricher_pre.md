@@ -7,7 +7,7 @@ This plugin is used to bulk upload metadata to DataHub. It supports structured p
 The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contain commas (most URNs contain commas).
 
 ```txt
-resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,ownership_type_urn,sp__io.acryl.test.classification,sp.ownerTeam
+resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,ownership_type_urn,classification,owner_team
 "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],CUSTOM,"description for users table",urn:li:domain:Engineering,urn:li:ownershipType:a0e9176c-d8cf-4b11-963b-f7a1bc2333c9,Sensitive,Finance
 "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description",
 "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description",
@@ -15,18 +15,22 @@ resource,subresource,glossary_terms,tags,owners,ownership_type,description,domai
 
 Note that the first row does not have a subresource populated. That means any glossary terms, tags, owners, domains, descriptions, and structured properties will be applied at the entity level. If a subresource is populated (as it is for the second and third rows), glossary terms and tags will be applied on the column. Every row MUST have a resource. Also note that owners and structured properties can only be applied at the resource level.
 
-Structured properties are specified using dynamic CSV columns prefixed with `sp__` or `sp.`:
+Structured properties are configured using explicit column mappings in the recipe via `structured_properties`.
+If the value in a mapped structured property column is empty, it is ignored.
 
-- `sp__<property_name_or_urn>`
-- `sp.<property_name_or_urn>`
+Example recipe config:
 
-Examples:
+```yaml
+source:
+  type: csv-enricher
+  config:
+    filename: ./path/to/your/file.csv
+    structured_properties:
+      owner_team: "io.acryl.metadata.ownerTeam"
+      classification: "urn:li:structuredProperty:io.acryl.privacy.classification"
+```
 
-- `sp__io.acryl.privacy.retentionTime`
-- `sp.ownerTeam`
-- `sp__urn:li:structuredProperty:io.acryl.common.businessCriticality`
-
-If the value in a structured property column is empty, it is ignored. You can specify either a property name or a full structured property URN in the column name.
+With that config, CSV columns `owner_team` and `classification` are interpreted as structured properties.
 
 If ownership_type_urn is set then ownership_type must be set to CUSTOM.
 
