@@ -12,6 +12,7 @@ import dagsterLogo from '@images/dagsterlogo.svg';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
+import dltLogo from '@images/dltlogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
@@ -194,6 +195,8 @@ export const INFORMATICA = 'informatica';
 export const INFORMATICA_URN = `urn:li:dataPlatform:${INFORMATICA}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const DLT = 'dlt';
+export const DLT_URN = `urn:li:dataPlatform:${DLT}`;
 export const SNOWPLOW = 'snowplow';
 export const SNOWPLOW_URN = `urn:li:dataPlatform:${SNOWPLOW}`;
 export const FABRIC = 'fabric';
@@ -214,6 +217,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [COCKROACHDB_URN]: cockroachdbLogo,
     [DAGSTER_URN]: dagsterLogo,
     [DBT_URN]: dbtLogo,
+    [DLT_URN]: dltLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,

@@ -6339,3 +6339,236 @@ def test_sigma_connection_registry(pytestconfig, tmp_path, requests_mock):
     assert report.connections_resolved >= 1, (
         f"connections_resolved should be >= 1; got {report.connections_resolved}"
     )
+
+
+# ---------------------------------------------------------------------------
+# DM element -> warehouse table UpstreamLineage
+# Fixture shape mirrors a live Sigma API response (IDs preserved, names
+# anonymized). Key chain:
+#   /lineage type=table: connectionId + inodeId (UUID)
+#   /files/{inodeId}:    urlId (slug) + path "Connection Root/<DB>/<SCHEMA>"
+#   Expected URN: urn:li:dataset:(urn:li:dataPlatform:snowflake,
+#                  warehouse_coffee_company.public.customers,PROD)
+# ---------------------------------------------------------------------------
+
+# Fixture IDs match live API UUID/slug shapes; display names are anonymized.
+_WH_DM_ID = "81e9980c-3ec8-4bbf-a38e-78f9fe472ce0"
+_WH_DM_URL_ID = "Acme-Snowflake-DM-fixture01"
+_WH_CONN_ID = "4b39cdcd-5a58-4ff6-af0d-8409ff880a23"
+_WH_INODE_ID = "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e"
+_WH_URL_ID = "7k3e6T4RK9oix71Nm2umE6"
+_WH_ELEMENT_ID = "byF6DckhFw"
+_WH_WORKSPACE_ID = "3ee61405-3be2-4000-ba72-60d36757b95b"
+
+
+def _get_warehouse_dm_overrides() -> Dict[str, Dict]:
+    """Mock overrides for the warehouse-upstream integration test.
+
+    Payload shapes mirror the live Sigma API; display names and account
+    locators are anonymized for OSS publication.
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "ACME SNOWFLAKE",
+                        "type": "snowflake",
+                        "account": "acme-test-snowflake",
+                        "host": "acme-test-snowflake.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _WH_DM_ID,
+                        "urlId": _WH_DM_URL_ID,
+                        "name": "Acme Snowflake DM",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "updatedBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "createdAt": "2026-05-04T00:00:00.000Z",
+                        "updatedAt": "2026-05-04T00:00:00.000Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": _WH_DM_ID,
+                        "urlId": _WH_DM_URL_ID,
+                        "name": "Acme Snowflake DM",
+                        "description": "Integration fixture for warehouse-backed DM element",
+                        "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "createdAt": "2026-05-04T00:00:00.000Z",
+                        "updatedAt": "2026-05-04T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/dm/{_WH_DM_URL_ID}",
+                        "latestVersion": 1,
+                        "workspaceId": _WH_WORKSPACE_ID,
+                        "path": "Acryl Data",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _WH_ELEMENT_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": "col-1",
+                        "name": "CUSTOMER_ID",
+                        "elementId": _WH_ELEMENT_ID,
+                        "label": None,
+                        "formula": None,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "inodeId": _WH_INODE_ID,
+                    },
+                    {
+                        "elementId": _WH_ELEMENT_ID,
+                        "type": "element",
+                        "sourceIds": [f"inode-{_WH_URL_ID}"],
+                        "dataSourceIds": [f"inode-{_WH_URL_ID}"],
+                    },
+                ],
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/files/{_WH_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _WH_INODE_ID,
+                "urlId": _WH_URL_ID,
+                "name": "CUSTOMERS",
+                "type": "table",
+                "parentId": "3f583620-d373-4d73-bdb9-1e63aa1c58fb",
+                "parentUrlId": "1VwPpYZ44VbssheaUKZvFp",
+                "permission": "edit",
+                "path": "Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_warehouse_upstream(
+    pytestconfig, tmp_path, requests_mock
+):
+    """DM element with a type=table warehouse source gets an UpstreamLineage
+    aspect pointing at the Snowflake warehouse table URN.
+
+    Fixture payload shape mirrors a live Sigma API; names anonymized.
+      DM:         Acme Snowflake DM (81e9980c-…)
+      Element:    byF6DckhFw
+      Source:     inode-7k3e6T4... -> type=table (CUSTOMERS)
+      Connection: 4b39cdcd-… (snowflake)
+      /files:     path = Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC
+      URN:        urn:li:dataset:(urn:li:dataPlatform:snowflake,
+                    warehouse_coffee_company.public.customers,PROD)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_warehouse_upstream_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_element_warehouse_upstream_emitted == 1, (
+        f"expected 1 warehouse upstream emitted; got {report.dm_element_warehouse_upstream_emitted}"
+    )
+    assert report.data_model_element_upstreams_unresolved == 0
+    assert report.connections_resolved == 1
+    # Error counters must all be zero on a clean fixture run.
+    assert report.dm_element_warehouse_unknown_connection == 0
+    assert report.dm_element_warehouse_table_lookup_failed == 0
+    assert report.dm_element_warehouse_path_unparseable == 0
+    assert report.dm_element_warehouse_table_entry_incomplete == 0
+
+    expected_warehouse_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD)"
+    )
+    element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_WH_DM_ID}.{_WH_ELEMENT_ID},PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    upstream_lineage_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(upstream_lineage_aspects) == 1
+    upstreams = upstream_lineage_aspects[0]["aspect"]["json"]["upstreams"]
+    assert expected_warehouse_urn in [u["dataset"] for u in upstreams]
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_warehouse_upstream.json",
+    )

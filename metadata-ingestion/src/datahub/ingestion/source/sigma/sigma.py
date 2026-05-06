@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, Iterable, List, Literal, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Literal, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -187,6 +188,41 @@ CrossDmOutcome = Literal[
     "name_unmatched_but_dm_known",
 ]
 
+# Platforms that require a case bridge: Sigma's /files path reports identifiers
+# in the catalog's native casing, but the DataHub connector for these platforms
+# lower-cases identifiers before URN construction.
+#
+# Snowflake is the only platform in this set: Sigma reports uppercase
+# (e.g. "MYDB/PUBLIC/MYTABLE"), but the Snowflake connector lowercases via
+# snowflake_config.convert_urns_to_lowercase (default=True, see
+# snowflake_config.py). If that flag is set to False, the Snowflake connector
+# emits upper-cased URNs and the edges produced here will dangle; use
+# connection_to_platform_map.convert_urns_to_lowercase=False to match.
+#
+# Other platforms (Postgres, Redshift, etc.) preserve catalog casing in their
+# connectors; Sigma's /files path uses the same casing, so no bridge is needed
+# and they work correctly by default.
+_WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
+
+# Expected root segment of the /files path for warehouse tables.
+_FILES_PATH_ROOT = "Connection Root"
+
+
+@dataclass(frozen=True)
+class _WarehouseTableRef:
+    """Resolved warehouse table coordinates derived from a /files response."""
+
+    connection_id: str
+    db: str
+    schema: str
+    table: str
+
+    def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
+        name = f"{self.db}.{self.schema}.{self.table}"
+        if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+            return name.lower()
+        return name
+
 
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
@@ -284,12 +320,49 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 "False -- the pattern has no effect. Enable ingest_data_models "
                 "or remove data_model_pattern to silence this warning.",
             )
+        # Instance-level cache for /files/{inodeId} responses.
+        # Keyed by inodeId (UUID); value is the raw JSON dict or None on failure.
+        # Shared across all DMs so inodes that appear in multiple DMs hit the
+        # network only once.  The cache is unbounded — each entry is a small
+        # JSON dict and the number of unique warehouse-table inodes per tenant
+        # is expected to be in the hundreds, not millions.  If this assumption
+        # proves wrong, an LRU cap can be added without changing the interface.
+        self._files_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+        # Inodes whose /files path already produced an unparseable warning;
+        # prevents N identical warnings when the same inode spans N DMs (H3).
+        self._files_path_unparseable_seen: Set[str] = set()
+        # Once-per-run gate flags so noisy global conditions don't flood logs.
+        self._registry_empty_warned: bool = False
+        # Per-platform set: platforms for which we've emitted a "first emission"
+        # info message noting that casing is unverified.
+        self._warned_unvalidated_platforms: Set[str] = set()
+        # Per-connection set: connectionIds emitted without a
+        # connection_to_platform_map entry; listed in the info message context.
+        self._no_platform_map_conn_ids: Set[str] = set()
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
 
         self.connection_registry = self._build_connection_registry()
+        # Warn on connection_to_platform_map keys that don't exist in the
+        # registry — a typo in the recipe UUID would silently make the override
+        # inactive and the operator would never know.
+        unknown_override_keys = [
+            k
+            for k in self.config.connection_to_platform_map
+            if k not in self.connection_registry.by_id
+        ]
+        if unknown_override_keys:
+            self.reporter.warning(
+                title="connection_to_platform_map references unknown connectionIds",
+                message=(
+                    "One or more keys in connection_to_platform_map do not match "
+                    "any Sigma connection returned by /v2/connections. The overrides "
+                    "for these keys will be silently ignored."
+                ),
+                context=f"unknown_keys={unknown_override_keys}",
+            )
 
     def _build_connection_registry(self) -> SigmaConnectionRegistry:
         """Fetch /v2/connections and build the in-memory registry.
@@ -542,6 +615,215 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         suffix = source_id[len("inode-") :]
         return self.sigma_dataset_urn_by_url_id.get(suffix)
 
+    def _get_file_metadata_cached(self, inode_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch /files/{inodeId} with instance-level caching.
+
+        Stores None on failure so repeated calls for a broken inode don't
+        retry the network.
+        """
+        if inode_id not in self._files_cache:
+            self._files_cache[inode_id] = self.sigma_api.get_file_metadata(inode_id)
+        return self._files_cache[inode_id]
+
+    def _build_dm_warehouse_url_id_map(
+        self, data_model: SigmaDataModel
+    ) -> Dict[str, _WarehouseTableRef]:
+        """For each type=table lineage inode on this DM, call /files/{inodeId}
+        (cached) to get the ``urlId`` and ``path``.  Returns a map of
+        urlId -> _WarehouseTableRef so _gen_data_model_element_upstream_lineage
+        can look up by the suffix that element ``sourceIds`` use.
+
+        Path shape assumption: ``Connection Root/<DB>/<SCHEMA>`` (3 segments).
+        This is empirically confirmed for Snowflake.  For other platforms the
+        shape is unverified — MySQL (DB == schema, possibly 2 segments),
+        BigQuery (project/dataset — also 2 without a DB layer), and
+        platforms with deeper catalog hierarchies may produce a different
+        segment count and land in dm_element_warehouse_path_unparseable.
+        TODO: validate /files path shapes for non-Snowflake platforms and
+        adjust the segment parser accordingly.
+
+        Counters bumped here:
+          - dm_element_warehouse_table_lookup_failed
+          - dm_element_warehouse_path_unparseable
+        """
+        result: Dict[str, _WarehouseTableRef] = {}
+        for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
+            conn_id = raw["connectionId"]
+            first_attempt = inode_id not in self._files_cache
+            files_data = self._get_file_metadata_cached(inode_id)
+            if files_data is None:
+                # Only count on first failure; cache hits of a prior None
+                # (same inode referenced from N DMs) should not inflate.
+                if first_attempt:
+                    self.reporter.dm_element_warehouse_table_lookup_failed += 1
+                logger.debug(
+                    "DM %s: /files lookup failed for inode %r; skipping.",
+                    data_model.dataModelId,
+                    inode_id,
+                )
+                continue
+            url_id = str(files_data.get("urlId") or "")
+            path = str(files_data.get("path") or "")
+            # Use /files["name"] as the canonical table name — it is the
+            # authoritative source and avoids trusting the lineage entry's
+            # name field, which may be a display label or absent.
+            table_name = str(files_data.get("name") or "")
+            parts = path.split("/")
+            # Validate: exactly 3 non-empty segments and a non-empty urlId.
+            # Rejects "Acryl Workspace" (CSV uploads), "Connection Root//PUBLIC"
+            # (empty DB segment -> malformed URN), and >3 segments.
+            # H4 TODO: confirm with Sigma whether API path strings are localised;
+            # if so, relax the literal "Connection Root" check.
+            path_invalid = (
+                not url_id or not table_name or len(parts) != 3 or not all(parts)
+            )
+            root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
+            if path_invalid or root_unexpected:
+                # Dedup per inode: a single misconfigured inode shared across N
+                # DMs must not flood the report with N identical warnings (H3).
+                if inode_id not in self._files_path_unparseable_seen:
+                    self._files_path_unparseable_seen.add(inode_id)
+                    self.reporter.dm_element_warehouse_path_unparseable += 1
+                    self.reporter.warning(
+                        title=(
+                            "Sigma warehouse path has unexpected root segment"
+                            if root_unexpected
+                            else "Sigma warehouse /files path unparseable"
+                        ),
+                        message=(
+                            "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
+                            "no empty segments and a non-empty urlId. "
+                            "Warehouse upstream skipped for this inode."
+                        ),
+                        context=(
+                            f"inode={inode_id}, path={path!r}, "
+                            f"url_id={url_id!r}, table_name={table_name!r}"
+                        ),
+                    )
+                continue
+            if url_id in result:
+                logger.warning(
+                    "DM %s: two inodes share the same urlId %r; "
+                    "the earlier entry will be overwritten. "
+                    "This is unexpected — please report to DataHub.",
+                    data_model.dataModelId,
+                    url_id,
+                )
+            result[url_id] = _WarehouseTableRef(
+                connection_id=conn_id,
+                db=parts[1],
+                schema=parts[2],
+                table=table_name,
+            )
+        return result
+
+    def _resolve_dm_element_warehouse_upstream(
+        self,
+        *,
+        url_id_suffix: str,
+        warehouse_map: Dict[str, _WarehouseTableRef],
+    ) -> Optional[str]:
+        """Resolve a warehouse-table-backed inode sourceId to a fully-qualified
+        warehouse Dataset URN via the connection registry.
+
+        Returns None silently (no counter) when:
+          - url_id_suffix is not in warehouse_map — this inode is a Sigma Dataset,
+            not a warehouse table; not a failure, just not applicable here.
+
+        Returns None and bumps the appropriate counter when:
+          - connection_id is not in the registry or is_mappable=False
+            (dm_element_warehouse_unknown_connection)
+
+        Note: dm_element_warehouse_upstream_emitted is NOT bumped here; the
+        caller bumps it post-dedup so diamond source_ids (multiple inode-
+        entries resolving to the same URN) don't inflate the counter.
+
+        env and platform_instance are resolved from
+        ``config.connection_to_platform_map`` when a matching entry exists,
+        falling back to the Sigma source's own env + platform_instance=None.
+        For multi-env or multi-instance warehouse setups, add entries to
+        ``connection_to_platform_map`` in the recipe so emitted edges point
+        at the URNs the warehouse connector actually produced.
+
+        Note: platform-specific identifier normalization (e.g. BigQuery
+        date-sharded tables, wildcard refs) is not applied — the name
+        emitted is exactly what Sigma's /files path and lineage entry carry.
+        Tables with non-standard identifiers may produce dangling edges.
+        """
+        ref = warehouse_map.get(url_id_suffix)
+        if ref is None:
+            return None
+
+        record = self.connection_registry.get(ref.connection_id)
+        if record is None or not record.is_mappable:
+            # Counter is bumped by caller gated on unresolved_seen to avoid
+            # inflating on diamond source_ids.
+            logger.debug(
+                "inode-%s: connectionId %r not resolvable to a warehouse platform "
+                "(missing from registry or is_mappable=False).",
+                url_id_suffix,
+                ref.connection_id,
+            )
+            return None
+
+        conn_override = self.config.connection_to_platform_map.get(ref.connection_id)
+        # Use per-connection convert_urns_to_lowercase to handle warehouses
+        # where the connector was run with that flag set to False.  Default=True
+        # matches both the Snowflake connector default and most other platforms.
+        lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        fq = ref.fq_name(record.datahub_platform, lowercase=lowercase)
+        # Use per-connection env / platform_instance overrides so the emitted
+        # URN matches what the warehouse connector actually produced.  Falls
+        # back to the Sigma recipe's own env + platform_instance=None, which
+        # is correct for single-env single-instance deployments.
+        target_env = conn_override.env if conn_override else self.config.env
+        target_platform_instance = (
+            conn_override.platform_instance if conn_override else None
+        )
+        # Once-per-platform info when emitting for a platform not in
+        # _WAREHOUSE_LOWERCASE_PLATFORMS, so operators know to verify that
+        # a few emitted edges actually resolve in their DataHub instance.
+        if record.datahub_platform not in _WAREHOUSE_LOWERCASE_PLATFORMS:
+            if record.datahub_platform not in self._warned_unvalidated_platforms:
+                self._warned_unvalidated_platforms.add(record.datahub_platform)
+                self.reporter.info(
+                    title="Sigma warehouse URNs emitted for unvalidated platform",
+                    message=(
+                        "Warehouse Dataset URNs are being emitted for a platform "
+                        "that has not been empirically verified to produce matching "
+                        "URN casing. Spot-check a few lineage edges in your DataHub "
+                        "instance to confirm they resolve correctly."
+                    ),
+                    context=f"platform={record.datahub_platform}",
+                )
+        # Once per unique connectionId without an override, list the IDs in the
+        # info message so operators know which connections to add to
+        # connection_to_platform_map if env / platform_instance mismatches appear.
+        # Fire once per unique connectionId that has no override — gated on
+        # "not already seen" so repeated emissions from the same connection
+        # don't re-fire the message.
+        if (
+            conn_override is None
+            and ref.connection_id not in self._no_platform_map_conn_ids
+        ):
+            self._no_platform_map_conn_ids.add(ref.connection_id)
+            self.reporter.info(
+                title="Sigma warehouse URNs emitted without connection_to_platform_map",
+                message=(
+                    "Warehouse Dataset URNs are being emitted using the Sigma "
+                    "recipe's env and platform_instance=None. If your warehouse "
+                    "connector uses a different env or platform_instance, configure "
+                    "connection_to_platform_map in the Sigma recipe to match."
+                ),
+                context=f"connection_ids_without_override={sorted(self._no_platform_map_conn_ids)}",
+            )
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=record.datahub_platform,
+            name=fq,
+            env=target_env,
+            platform_instance=target_platform_instance,
+        )
+
     def _resolve_dm_element_cross_dm_upstream(
         self,
         source_id: str,
@@ -671,8 +953,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element: SigmaDataModelElement,
         data_model: SigmaDataModel,
         element_dataset_urn: str,
+        *,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -684,6 +968,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urns: List[str] = []
         seen: Set[str] = set()
         unresolved_seen: Set[str] = set()
+        # Separate dedup set for warehouse connection failures so the counter
+        # fires once per unique source_id regardless of whether the SD path
+        # resolves (which would leave the source_id out of unresolved_seen).
+        warehouse_failure_seen: Set[str] = set()
         for source_id in element.source_ids:
             upstream_urn: Optional[str] = None
             shape: str = ""
@@ -692,9 +980,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_urn = elementId_to_dataset_urn[source_id]
                 shape = "intra"
             elif source_id.startswith("inode-"):
+                url_id_suffix = source_id[len("inode-") :]
+                # Check warehouse map (type=table nodes) and the existing SD
+                # resolver (type=dataset nodes) in parallel; both can fire for
+                # the same inode when a file is catalogued as both a Sigma
+                # Dataset and a warehouse table.  Emitting both as direct
+                # upstreams is intentional: the warehouse edge gives operators
+                # end-to-end lineage to the source table, while the SD edge
+                # preserves the Sigma-Dataset hop.  Downstream lineage queries
+                # may see the warehouse table as a direct upstream of the DM
+                # element — this is correct for the entity-level graph.
+                warehouse_urn = self._resolve_dm_element_warehouse_upstream(
+                    url_id_suffix=url_id_suffix,
+                    warehouse_map=warehouse_url_id_map,
+                )
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
-                if upstream_urn is None and source_id not in unresolved_seen:
+                # Both URN types use the same ``seen`` set so a warehouse URN
+                # and an SD URN that happen to collide are still deduped.
+                # warehouse_urn is appended here (inside the inode- branch) with
+                # its own seen-check; upstream_urn follows the standard gate at
+                # the bottom of the for-loop.
+                if warehouse_urn and warehouse_urn not in seen:
+                    upstream_urns.append(warehouse_urn)
+                    seen.add(warehouse_urn)
+                    self.reporter.dm_element_warehouse_upstream_emitted += 1
+                # Connection-failure counter: uses its own dedup set so a
+                # duplicate source_id fires at most once even when the SD path
+                # resolves (which would leave source_id out of unresolved_seen).
+                if (
+                    warehouse_urn is None
+                    and url_id_suffix in warehouse_url_id_map
+                    and source_id not in warehouse_failure_seen
+                ):
+                    warehouse_failure_seen.add(source_id)
+                    self.reporter.dm_element_warehouse_unknown_connection += 1
+                if (
+                    upstream_urn is None
+                    and warehouse_urn is None
+                    and source_id not in unresolved_seen
+                ):
                     unresolved_seen.add(source_id)
                     self.reporter.data_model_element_upstreams_unresolved_external += 1
                     self.reporter.data_model_element_upstreams_unresolved += 1
@@ -863,8 +1188,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
-        the lexicographically-first URN is chosen (matching T2 PR1's collision policy
-        and Sigma's server-side coalescing behaviour).
+        the lexicographically-first URN is chosen (matching the collision policy
+        used elsewhere in this connector and Sigma's server-side coalescing behaviour).
         """
         by_name, _ = _dedup_dm_element_columns(element.columns)
 
@@ -1005,8 +1330,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     continue
 
                 # Collision handling: multiple siblings passed /lineage filter.
-                # Pick sorted-first to match T2 PR1's _resolve_external_upstream
-                # policy and Sigma's server-side coalescing.
+                # Pick sorted-first to match the collision policy used elsewhere
+                # in this connector and Sigma's server-side coalescing.
                 if len(surviving_urns) > 1:
                     self.reporter.data_model_element_fgl_collision_pick_first += 1
                     self.reporter.warning(
@@ -1077,6 +1402,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
+        # Resolve all type=table inodes for this DM once before the element loop.
+        # One /files call per unique inode (cached across DMs).
+        warehouse_url_id_map = self._build_dm_warehouse_url_id_map(data_model)
+        # Warn once per run if the registry is empty while warehouse inodes exist.
+        if (
+            not self._registry_empty_warned
+            and data_model.warehouse_inodes_by_inode_id
+            and not self.connection_registry.by_id
+        ):
+            self._registry_empty_warned = True
+            self.reporter.warning(
+                title="Sigma connection registry is empty — warehouse lineage unavailable",
+                message=(
+                    "The connection registry contains no records. All warehouse "
+                    "upstream edges for DM elements will be skipped for this run. "
+                    "Check whether the /v2/connections fetch succeeded and the "
+                    "connections_skipped_missing_id counter."
+                ),
+            )
         # ``data_model.path`` starts with the workspace name (e.g.
         # "Acryl Data/Marketing"); drop index 0 because the workspace is
         # already the enclosing Container. ``split`` on a path with no
@@ -1188,8 +1532,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element,
                 data_model,
                 element_dataset_urn,
-                elementId_to_dataset_urn,
-                element_name_to_eids,
+                elementId_to_dataset_urn=elementId_to_dataset_urn,
+                element_name_to_eids=element_name_to_eids,
+                warehouse_url_id_map=warehouse_url_id_map,
             )
             if upstream_lineage is not None:
                 yield MetadataChangeProposalWrapper(
