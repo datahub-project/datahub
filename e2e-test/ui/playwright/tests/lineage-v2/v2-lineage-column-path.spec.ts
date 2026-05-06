@@ -69,7 +69,12 @@ test.describe('column-Level lineage and impact analysis path test', () => {
         .first(),
     ).not.toHaveAttribute('fill', 'white');
     await expect(
-      lp.getReactFlowNode(UPSTREAM_URN).getByText('field_bar', { exact: true }).locator('..').locator('svg, circle, path').first(),
+      lp
+        .getReactFlowNode(UPSTREAM_URN)
+        .getByText('field_bar', { exact: true })
+        .locator('..')
+        .locator('svg, circle, path')
+        .first(),
     ).not.toHaveAttribute('stroke', 'transparent');
 
     // ── Impact analysis upstream column path modal ──────────────────────────

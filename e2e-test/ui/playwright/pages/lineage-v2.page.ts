@@ -56,9 +56,7 @@ export class LineageV2Page extends BasePage {
     this.editDownstreamLineageButton = page.locator('[data-testid="edit-downstream-lineage"]');
     this.lineageTabKey = page.locator('[data-node-key="Lineage"]').first();
     this.sidebarLineageTab = page.locator('#entity-sidebar-tabs-tab-Lineage');
-    this.upstreamDirectionOption = page.locator(
-      '[data-testid="compact-lineage-tab-direction-select-option-upstream"]',
-    );
+    this.upstreamDirectionOption = page.locator('[data-testid="compact-lineage-tab-direction-select-option-upstream"]');
     this.downstreamDirectionOption = page.locator(
       '[data-testid="compact-lineage-tab-direction-select-option-downstream"]',
     );
@@ -74,12 +72,8 @@ export class LineageV2Page extends BasePage {
     this.csvModalDownloadButton = page.locator('[data-testid="csv-modal-download-button"]');
     this.lineageEditSearchInput = page.locator('[role="dialog"] [data-testid="search-input"]');
     this.lineageTabDirectionSelect = page.locator('[data-testid="lineage-tab-direction-select"]');
-    this.lineageTabDownstreamOption = page.locator(
-      '[data-testid="lineage-tab-direction-select-option-downstream"]',
-    );
-    this.lineageTabUpstreamOption = page.locator(
-      '[data-testid="lineage-tab-direction-select-option-upstream"]',
-    );
+    this.lineageTabDownstreamOption = page.locator('[data-testid="lineage-tab-direction-select-option-downstream"]');
+    this.lineageTabUpstreamOption = page.locator('[data-testid="lineage-tab-direction-select-option-upstream"]');
     this.columnDropdownVirtualList = page.locator('.rc-virtual-list');
     this.resultTextLink = page.locator('.ant-list-items [class*="ResultText"]').first();
   }
@@ -137,9 +131,9 @@ export class LineageV2Page extends BasePage {
   // ── Edge existence checks ───────────────────────────────────────────────────
 
   async checkEdgeExists(node1Urn: string, node2Urn: string): Promise<void> {
-    await expect(
-      this.page.locator(`[data-testid="rf__edge-${node1Urn}-:-${node2Urn}"]`),
-    ).toBeAttached({ timeout: 10000 });
+    await expect(this.page.locator(`[data-testid="rf__edge-${node1Urn}-:-${node2Urn}"]`)).toBeAttached({
+      timeout: 10000,
+    });
   }
 
   async checkEdgeBetweenColumnsExists(
@@ -268,9 +262,7 @@ export class LineageV2Page extends BasePage {
     value: string,
   ): Promise<void> {
     await expect(
-      this.getFilterNode(nodeUrn, direction).locator(
-        `[data-testid="filter-counter-${counterSection}-${counterType}"]`,
-      ),
+      this.getFilterNode(nodeUrn, direction).locator(`[data-testid="filter-counter-${counterSection}-${counterType}"]`),
     ).toHaveText(value, { timeout: 5000 });
   }
 
