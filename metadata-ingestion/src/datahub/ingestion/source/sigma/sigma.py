@@ -1673,6 +1673,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 self.reporter.data_model_element_fgl_warehouse_resolved += 1
                             # else: duplicate ref in same formula — silent, not a deferral
                         continue
+                    # No intra-DM candidate. Before cross-DM search, try the
+                    # warehouse path via columnId. Sigma elements sometimes use
+                    # the warehouse table name as the formula source (e.g.
+                    # "[CUSTOMERS/col]" on an element that isn't named "CUSTOMERS")
+                    # rather than the element name — columnId is authoritative.
+                    warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
+                        column=column,
+                        element=element,
+                        downstream_field=downstream_field,
+                        warehouse_url_id_map=warehouse_url_id_map,
+                    )
+                    if warehouse_fgl is not None:
+                        assert warehouse_fgl.upstreams
+                        pair = (downstream_field, warehouse_fgl.upstreams[0])
+                        if pair not in emitted_pairs:
+                            emitted_pairs.add(pair)
+                            fgls.append(warehouse_fgl)
+                            self.reporter.data_model_element_fgl_warehouse_resolved += 1
+                        continue
+
                     # Source not in this DM — search only the DMs this element's
                     # source_ids explicitly reference. This prevents formula refs
                     # like [Orders/id] from linking to any ingested element named
