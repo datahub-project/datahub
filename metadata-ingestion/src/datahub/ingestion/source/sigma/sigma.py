@@ -1540,27 +1540,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Parse columnId → url_id + warehouse column name.
         col_id = column.columnId or ""
         if not col_id.startswith("inode-"):
-            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
             return None
         suffix = col_id[len("inode-") :]
         url_id, sep, warehouse_col = suffix.partition("/")
         if not sep or not warehouse_col:
-            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
             return None
 
         # Verify this url_id is one of the element's declared warehouse sources.
         # Mismatches can occur if a column belongs to a different element's inode
         # (shouldn't happen with well-formed API data, but guards against drift).
         if f"inode-{url_id}" not in element.source_ids:
-            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
             return None
 
         # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
         wh_ref = warehouse_url_id_map.get(url_id)
         if wh_ref is None:
-            # /files lookup failed for this inode; dm_element_warehouse_table_lookup_failed
-            # is already bumped by _build_dm_warehouse_url_id_map.
-            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
             return None
 
         # Resolve the parent Dataset URN.  This is the only allowed path for
@@ -1571,8 +1565,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             warehouse_map=warehouse_url_id_map,
         )
         if parent_urn is None:
-            # Connection not in registry or is_mappable=False.
-            self.reporter.data_model_element_fgl_warehouse_unmappable_connection += 1
             return None
 
         # Normalize column casing to match the platform convention used by the
@@ -1581,8 +1573,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dict hits on the same objects.
         record = self.connection_registry.get(wh_ref.connection_id)
         if record is None:
-            # Should not happen when parent_urn is non-None, but degrade safely.
-            self.reporter.data_model_element_fgl_warehouse_unmappable_connection += 1
             return None
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
@@ -1681,7 +1671,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 emitted_pairs.add(pair)
                                 fgls.append(warehouse_fgl)
                                 self.reporter.data_model_element_fgl_warehouse_resolved += 1
-                                self.reporter.data_model_element_fgl_warehouse_emitted_total += 1
                             # else: duplicate ref in same formula — silent, not a deferral
                         continue
                     # Source not in this DM — search only the DMs this element's

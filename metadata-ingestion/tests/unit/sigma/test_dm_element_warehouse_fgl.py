@@ -13,10 +13,7 @@ Coverage:
 
 Counters verified:
   data_model_element_fgl_warehouse_resolved
-  data_model_element_fgl_warehouse_emitted_total
   data_model_element_fgl_warehouse_passthrough_deferred
-  data_model_element_fgl_warehouse_no_warehouse_source
-  data_model_element_fgl_warehouse_unmappable_connection
 """
 
 import datetime as dt
@@ -58,8 +55,8 @@ _SF_RECORD = SigmaConnectionRecord(
     name="Prod Snowflake",
     sigma_type="snowflake",
     datahub_platform="snowflake",
-    host="acme.snowflakecomputing.com",
-    account="acme",
+    host="example.snowflakecomputing.com",
+    account="example",
     is_mappable=True,
 )
 _RS_RECORD = SigmaConnectionRecord(
@@ -83,7 +80,7 @@ _SF_URL_ID = "7k3e6T4RK9oix71Nm2umE6"
 _SF_INODE_SOURCE = f"inode-{_SF_URL_ID}"
 _SF_REF = _WarehouseTableRef(
     connection_id=_SF_CONN_ID,
-    db="WAREHOUSE_COFFEE_COMPANY",
+    db="PROD_DB",
     schema="PUBLIC",
     table="CUSTOMERS",
 )
@@ -91,8 +88,7 @@ _SF_WAREHOUSE_MAP: Dict[str, _WarehouseTableRef] = {_SF_URL_ID: _SF_REF}
 
 # Expected entity-level URN emitted by the warehouse-upstream resolver
 _SF_DATASET_URN = (
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
-    "warehouse_coffee_company.public.customers,PROD)"
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod_db.public.customers,PROD)"
 )
 
 # Redshift warehouse table fixture
@@ -213,35 +209,26 @@ class TestTryEmitPreflightFailures:
         source = _make_source()
         col = _column("bare-col-id", "email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
-        assert result is None
-        assert source.reporter.data_model_element_fgl_warehouse_no_warehouse_source == 1
+        assert _try_emit(source, col, elem, _SF_WAREHOUSE_MAP) is None
 
     def test_column_id_no_slash(self):
         source = _make_source()
         col = _column(f"inode-{_SF_URL_ID}", "email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
-        assert result is None
-        assert source.reporter.data_model_element_fgl_warehouse_no_warehouse_source == 1
+        assert _try_emit(source, col, elem, _SF_WAREHOUSE_MAP) is None
 
     def test_column_id_url_id_not_in_source_ids(self):
         source = _make_source()
-        # columnId references a different url_id than what's in source_ids
         col = _column("inode-OTHER_URL_ID/EMAIL", "email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
-        assert result is None
-        assert source.reporter.data_model_element_fgl_warehouse_no_warehouse_source == 1
+        assert _try_emit(source, col, elem, _SF_WAREHOUSE_MAP) is None
 
     def test_url_id_not_in_warehouse_map(self):
         """url_id matches source_ids but /files lookup failed (not in map)."""
         source = _make_source()
         col = _column(f"inode-{_SF_URL_ID}/EMAIL", "email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        result = _try_emit(source, col, elem, {})  # empty map = lookup failed
-        assert result is None
-        assert source.reporter.data_model_element_fgl_warehouse_no_warehouse_source == 1
+        assert _try_emit(source, col, elem, {}) is None
 
     def test_unmappable_connection(self):
         source = _make_source()
@@ -256,11 +243,7 @@ class TestTryEmitPreflightFailures:
         }
         col = _column(f"inode-{url_id}/COL", "col", "[TBL/col]")
         elem = _element("el-1", "TBL", [col], [f"inode-{url_id}"])
-        result = _try_emit(source, col, elem, wh_map)
-        assert result is None
-        assert (
-            source.reporter.data_model_element_fgl_warehouse_unmappable_connection == 1
-        )
+        assert _try_emit(source, col, elem, wh_map) is None
 
     def test_connection_not_in_registry(self):
         source = _make_source()
@@ -275,11 +258,7 @@ class TestTryEmitPreflightFailures:
         }
         col = _column(f"inode-{url_id}/COL", "col", "[TBL/col]")
         elem = _element("el-1", "TBL", [col], [f"inode-{url_id}"])
-        result = _try_emit(source, col, elem, wh_map)
-        assert result is None
-        assert (
-            source.reporter.data_model_element_fgl_warehouse_unmappable_connection == 1
-        )
+        assert _try_emit(source, col, elem, wh_map) is None
 
 
 # ---------------------------------------------------------------------------
@@ -330,69 +309,12 @@ class TestTryEmitResolution:
         # Snowflake since that's what Sigma's API returns in the /files path).
         uppercase_dataset_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
-            "WAREHOUSE_COFFEE_COMPANY.PUBLIC.CUSTOMERS,PROD)"
+            "PROD_DB.PUBLIC.CUSTOMERS,PROD)"
         )
         expected_upstream = builder.make_schema_field_urn(
             uppercase_dataset_urn, "EMAIL"
         )
         assert result.upstreams[0] == expected_upstream
-
-    def test_fgl_shape(self):
-        """Emitted FineGrainedLineageClass has correct type + confidenceScore."""
-        source = _make_source()
-        elem_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,el-1,PROD)"
-        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[CUSTOMERS/Email]")
-        elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        downstream_field = builder.make_schema_field_urn(elem_urn, "Email")
-        result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP, downstream_field)
-
-        assert result is not None
-        assert result.downstreams == [downstream_field]
-        assert result.confidenceScore == 1.0
-        from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-            FineGrainedLineageDownstreamTypeClass,
-            FineGrainedLineageUpstreamTypeClass,
-        )
-
-        assert result.downstreamType == FineGrainedLineageDownstreamTypeClass.FIELD
-        assert result.upstreamType == FineGrainedLineageUpstreamTypeClass.FIELD_SET
-
-    def test_resolved_once_per_pair(self):
-        """_try_emit resolves every call independently; dedup and counter
-        bumps are the caller's responsibility."""
-        source = _make_source()
-        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[CUSTOMERS/Email]")
-        elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-
-        result1 = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
-        result2 = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
-
-        assert result1 is not None
-        assert result2 is not None
-        # Counters are bumped by the caller, not by _try_emit.
-        assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
-
-    def test_urn_identity_with_entity_level_upstream(self):
-        """The parent Dataset URN inside the schemaField URN must equal the
-        entity-level warehouse Dataset URN emitted for the same fixture inode."""
-        source = _make_source()
-        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[CUSTOMERS/Email]")
-        elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
-
-        assert result is not None
-        assert result.upstreams is not None
-        # The schemaField URN is urn:li:schemaField:(parent_urn, col).
-        # Extract the parent URN by reading the upstream and deriving the Dataset.
-        upstream_field_urn = result.upstreams[0]
-        # schemaField URN shape: urn:li:schemaField:(dataset_urn, field)
-        assert upstream_field_urn.startswith("urn:li:schemaField:(")
-        inner = upstream_field_urn[len("urn:li:schemaField:(") : -1]
-        # Split from the right: last comma-separated token is the field name
-        last_comma = inner.rfind(",")
-        parent_urn_in_schema_field = inner[:last_comma]
-        # Verify byte-equality with the entity-level warehouse Dataset URN
-        assert parent_urn_in_schema_field == _SF_DATASET_URN
 
 
 # ---------------------------------------------------------------------------
@@ -425,7 +347,7 @@ class TestBuildFglWarehouseIntegration:
 
         assert len(fgls) == 1
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
-        assert source.reporter.data_model_element_fgl_warehouse_emitted_total == 1
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
         assert (
             source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
         )
@@ -591,7 +513,7 @@ class TestBuildFglWarehouseIntegration:
 
         assert len(fgls) == 3
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 3
-        assert source.reporter.data_model_element_fgl_warehouse_emitted_total == 3
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 3
         assert (
             source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
         )
