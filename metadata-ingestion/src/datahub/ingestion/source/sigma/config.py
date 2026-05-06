@@ -280,8 +280,31 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs where element-name matches the element's own warehouse-table name
     # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
     # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
-    # upstream is the warehouse inode.
+    # upstream is the warehouse inode.  T4.B2 resolves most of these; the
+    # remainder (no warehouse source, unmappable connection) stay deferred.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
+
+    # T4.B2 — warehouse-passthrough FGL resolution.
+    # Emitted via columnId metadata (inode-<url_id>/<WAREHOUSE_COL> encoding).
+    data_model_element_fgl_warehouse_resolved: int = 0
+    # Strategy B (trust bracket ref verbatim, no columnId) — not used on
+    # Snowflake/Redshift tenants where columnId is authoritative; reserved for
+    # future platforms where columnId may not encode the warehouse column.
+    data_model_element_fgl_warehouse_resolved_unvalidated: int = 0
+    # Strategy C rename path — reserved for future use if Sigma exposes an
+    # explicit sourceColumn field.
+    data_model_element_fgl_warehouse_resolved_via_rename: int = 0
+    # columnId decoded but column name absent from the warehouse schema —
+    # currently unused (columnId is trusted verbatim); reserved for strict mode.
+    data_model_element_fgl_warehouse_unknown_warehouse_column: int = 0
+    # Element's warehouse source connection is not in the registry or is
+    # is_mappable=False; FGL not emitted (separate from entity-level counter).
+    data_model_element_fgl_warehouse_unmappable_connection: int = 0
+    # Self-stripped ref but element has no warehouse-backed inode source
+    # (e.g., legacy SD-backed element with element name == SD name).
+    data_model_element_fgl_warehouse_no_warehouse_source: int = 0
+    # Roll-up: resolved + resolved_unvalidated + resolved_via_rename.
+    data_model_element_fgl_warehouse_emitted_total: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0

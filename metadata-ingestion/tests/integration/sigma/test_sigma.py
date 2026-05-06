@@ -6765,3 +6765,130 @@ def test_sigma_ingest_data_models_customsql(pytestconfig, tmp_path, requests_moc
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_customsql.json",
     )
+
+
+def _get_warehouse_dm_fgl_overrides() -> Dict[str, Dict]:
+    """Extends the warehouse-upstream DM fixture with passthrough formula columns.
+
+    Three columns on element CUSTOMERS (byF6DckhFw):
+      - Customer Id  -> columnId=inode-<url_id>/CUSTOMER_ID  formula=[CUSTOMERS/Customer Id]
+      - Email        -> columnId=inode-<url_id>/EMAIL         formula=[CUSTOMERS/Email]
+      - First Name   -> columnId=inode-<url_id>/FIRST_NAME    formula=[CUSTOMERS/First Name]
+
+    All three resolve to warehouse schemaField URNs via columnId-based FGL resolution.
+    """
+    overrides = _get_warehouse_dm_overrides()
+    # Replace the columns endpoint with passthrough formula columns.
+    overrides[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/CUSTOMER_ID",
+                    "name": "Customer Id",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Customer Id",
+                    "formula": "[CUSTOMERS/Customer Id]",
+                    "type": {"type": "text"},
+                },
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/EMAIL",
+                    "name": "Email",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Email",
+                    "formula": "[CUSTOMERS/Email]",
+                    "type": {"type": "text"},
+                },
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/FIRST_NAME",
+                    "name": "First Name",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "First Name",
+                    "formula": "[CUSTOMERS/First Name]",
+                    "type": {"type": "text"},
+                },
+            ],
+            "total": 3,
+            "nextPage": None,
+        },
+    }
+    return overrides
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_dm_element_warehouse_fgl(
+    pytestconfig, tmp_path, requests_mock
+):
+    """DM element with warehouse-passthrough formula columns emits FineGrainedLineage.
+
+    Uses the warehouse-upstream DM fixture with columns updated to include
+    passthrough formulas like [CUSTOMERS/Email]. The columnId field encodes
+    the warehouse column identity (inode-<url_id>/<WAREHOUSE_COL>).
+
+    Assertions:
+      - 3 FineGrainedLineage entries on the DM-element child Dataset
+      - Upstream schemaField parent URN matches the entity-level warehouse URN
+      - warehouse_resolved == 3; warehouse_passthrough_deferred == 0
+      - No new entity-level Upstream entries (FGL-only)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_fgl_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_element_warehouse_fgl_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # Warehouse-upstream counters must be clean.
+    assert report.dm_element_warehouse_upstream_emitted == 1
+    assert report.dm_element_warehouse_table_lookup_failed == 0
+    assert report.dm_element_warehouse_unknown_connection == 0
+    # Warehouse FGL counters.
+    assert report.data_model_element_fgl_warehouse_resolved == 3, (
+        f"expected 3 warehouse FGL resolved; got {report.data_model_element_fgl_warehouse_resolved}"
+    )
+    assert report.data_model_element_fgl_warehouse_emitted_total == 3
+    assert report.data_model_element_fgl_warehouse_passthrough_deferred == 0
+
+    expected_warehouse_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD)"
+    )
+    element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_WH_DM_ID}.{_WH_ELEMENT_ID},PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    ul_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(ul_aspects) == 1
+    fgls = ul_aspects[0]["aspect"]["json"].get("fineGrainedLineages", [])
+    assert len(fgls) == 3, f"expected 3 FGL entries; got {len(fgls)}: {fgls}"
+    # Each FGL upstream must be a schemaField on the warehouse dataset.
+    for fgl in fgls:
+        for upstream in fgl.get("upstreams", []):
+            assert upstream.startswith(
+                f"urn:li:schemaField:({expected_warehouse_urn},"
+            ), f"unexpected upstream: {upstream}"
+    # Entity-level upstreams unchanged (1 warehouse table, no new entries).
+    upstreams = ul_aspects[0]["aspect"]["json"]["upstreams"]
+    assert len(upstreams) == 1
+    assert upstreams[0]["dataset"] == expected_warehouse_urn
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl.json",
+    )
