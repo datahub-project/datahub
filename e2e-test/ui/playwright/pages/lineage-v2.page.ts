@@ -7,6 +7,7 @@
  *
  * ReactFlow auto-generates node/edge DOM IDs from the node IDs we supply:
  *   - Entity node:   [data-testid="lineage-node-{urn}"]
+ *   - RF node:       [data-testid="rf__node-{urn}"]
  *   - Expand one:    [data-testid="expand-one-{urn}-button"]
  *   - Expand all:    [data-testid="expand-all-{urn}-button"]
  *   - Contract:      [data-testid="contract-{urn}-button"]
@@ -16,24 +17,80 @@
  *   - Column:        within lineage-node, [data-testid="column-{name}"]
  */
 
+import * as path from 'path';
+import * as fs from 'fs';
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
 export class LineageV2Page extends BasePage {
+  // ── Static selector properties ───────────────────────────────────────────────
+  readonly lineageEditMenuButton: Locator;
+  readonly editUpstreamLineageButton: Locator;
+  readonly editDownstreamLineageButton: Locator;
+  readonly lineageTabKey: Locator;
+  readonly sidebarLineageTab: Locator;
+  readonly upstreamDirectionOption: Locator;
+  readonly downstreamDirectionOption: Locator;
+  readonly columnLineageToggle: Locator;
+  readonly degree2Filter: Locator;
+  readonly degree3PlusFilter: Locator;
+  readonly filterByDescriptionOption: Locator;
+  readonly filterTextInput: Locator;
+  readonly filterTextDoneButton: Locator;
+  readonly listItems: Locator;
+  readonly downloadCsvButton: Locator;
+  readonly downloadCsvInput: Locator;
+  readonly csvModalDownloadButton: Locator;
+  readonly lineageEditSearchInput: Locator;
+  readonly lineageTabDirectionSelect: Locator;
+  readonly lineageTabDownstreamOption: Locator;
+  readonly lineageTabUpstreamOption: Locator;
+  readonly columnDropdownVirtualList: Locator;
+  readonly resultTextLink: Locator;
+
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
+    this.lineageEditMenuButton = page.locator('[data-testid="lineage-edit-menu-button"]').first();
+    this.editUpstreamLineageButton = page.locator('[data-testid="edit-upstream-lineage"]');
+    this.editDownstreamLineageButton = page.locator('[data-testid="edit-downstream-lineage"]');
+    this.lineageTabKey = page.locator('[data-node-key="Lineage"]').first();
+    this.sidebarLineageTab = page.locator('#entity-sidebar-tabs-tab-Lineage');
+    this.upstreamDirectionOption = page.locator(
+      '[data-testid="compact-lineage-tab-direction-select-option-upstream"]',
+    );
+    this.downstreamDirectionOption = page.locator(
+      '[data-testid="compact-lineage-tab-direction-select-option-downstream"]',
+    );
+    this.columnLineageToggle = page.locator('[data-testid="column-lineage-toggle"]');
+    this.degree2Filter = page.locator('[data-testid="facet-degree-2"]');
+    this.degree3PlusFilter = page.locator('[data-testid="facet-degree-3+"]');
+    this.filterByDescriptionOption = page.locator('[data-testid="adv-search-add-filter-description"]');
+    this.filterTextInput = page.locator('[data-testid="edit-text-input"]');
+    this.filterTextDoneButton = page.locator('[data-testid="edit-text-done-btn"]');
+    this.listItems = page.locator('.ant-list-items');
+    this.downloadCsvButton = page.locator('[data-testid="download-csv-button"]');
+    this.downloadCsvInput = page.locator('[data-testid="download-as-csv-input"]');
+    this.csvModalDownloadButton = page.locator('[data-testid="csv-modal-download-button"]');
+    this.lineageEditSearchInput = page.locator('[role="dialog"] [data-testid="search-input"]');
+    this.lineageTabDirectionSelect = page.locator('[data-testid="lineage-tab-direction-select"]');
+    this.lineageTabDownstreamOption = page.locator(
+      '[data-testid="lineage-tab-direction-select-option-downstream"]',
+    );
+    this.lineageTabUpstreamOption = page.locator(
+      '[data-testid="lineage-tab-direction-select-option-upstream"]',
+    );
+    this.columnDropdownVirtualList = page.locator('.rc-virtual-list');
+    this.resultTextLink = page.locator('.ant-list-items [class*="ResultText"]').first();
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
-  /** Navigate to the lineage graph view for any entity. */
   async goToLineageGraph(entityType: string, urn: string): Promise<void> {
     await this.navigate(`/${entityType}/${urn}/Lineage`);
     await this.page.waitForLoadState('domcontentloaded');
   }
 
-  /** Navigate to the lineage graph view with time-range filter. */
   async goToLineageGraphWithTimeRange(
     entityType: string,
     urn: string,
@@ -46,11 +103,16 @@ export class LineageV2Page extends BasePage {
     await this.page.waitForLoadState('domcontentloaded');
   }
 
-  /** Navigate to a dataset entity page and click through to lineage. */
   async goToDataset(urn: string, datasetName: string): Promise<void> {
     await this.navigate(`/dataset/${urn}/`);
     await this.page.waitForLoadState('domcontentloaded');
     await expect(this.page.getByText(datasetName).first()).toBeVisible({ timeout: 15000 });
+  }
+
+  /** Navigate to a dataset entity page and open the Lineage tab. */
+  async goToDatasetLineage(urn: string, name: string): Promise<void> {
+    await this.goToDataset(urn, name);
+    await this.clickLineageTab();
   }
 
   // ── Node existence checks ───────────────────────────────────────────────────
@@ -59,12 +121,17 @@ export class LineageV2Page extends BasePage {
     return this.page.locator(`[data-testid="lineage-node-${nodeUrn}"]`);
   }
 
+  /** Get the ReactFlow canvas node element for a given entity URN. */
+  getReactFlowNode(urn: string): Locator {
+    return this.page.locator(`[data-testid="rf__node-${urn}"]`);
+  }
+
   async checkNodeExists(nodeUrn: string): Promise<void> {
-    await expect(this.page.locator(`[data-testid="lineage-node-${nodeUrn}"]`)).toBeAttached({ timeout: 10000 });
+    await expect(this.getNode(nodeUrn)).toBeAttached({ timeout: 10000 });
   }
 
   async checkNodeNotExists(nodeUrn: string): Promise<void> {
-    await expect(this.page.locator(`[data-testid="lineage-node-${nodeUrn}"]`)).not.toBeAttached({ timeout: 5000 });
+    await expect(this.getNode(nodeUrn)).not.toBeAttached({ timeout: 5000 });
   }
 
   // ── Edge existence checks ───────────────────────────────────────────────────
@@ -102,17 +169,11 @@ export class LineageV2Page extends BasePage {
   async expandOne(nodeUrn: string): Promise<void> {
     // ReactFlow nodes can be off-screen after auto-fit; dispatch the click event directly
     // on the DOM element to bypass Playwright's viewport check.
-    await this.page
-      .locator(`[data-testid="expand-one-${nodeUrn}-button"]`)
-      .dispatchEvent('click');
+    await this.page.locator(`[data-testid="expand-one-${nodeUrn}-button"]`).dispatchEvent('click');
   }
 
   async expandAll(nodeUrn: string): Promise<void> {
-    // ReactFlow nodes can be off-screen after auto-fit; dispatch the click event directly
-    // on the DOM element to bypass Playwright's viewport check.
-    await this.page
-      .locator(`[data-testid="expand-all-${nodeUrn}-button"]`)
-      .dispatchEvent('click');
+    await this.page.locator(`[data-testid="expand-all-${nodeUrn}-button"]`).dispatchEvent('click');
   }
 
   async contract(nodeUrn: string): Promise<void> {
@@ -137,7 +198,6 @@ export class LineageV2Page extends BasePage {
   }
 
   async unhoverColumn(nodeUrn: string, columnName: string): Promise<void> {
-    // Move mouse away from the column to remove hover state
     await this.page
       .locator(`[data-testid="lineage-node-${nodeUrn}"]`)
       .locator(`[data-testid="column-${columnName}"]`)
@@ -154,7 +214,6 @@ export class LineageV2Page extends BasePage {
 
   // ── Filtering node helpers ──────────────────────────────────────────────────
 
-  /** Get the ReactFlow filter node element for upstream (u) or downstream (d). */
   getFilterNode(nodeUrn: string, direction: 'up' | 'down'): Locator {
     const dir = direction === 'up' ? 'u' : 'd';
     return this.page.locator(`[data-testid="rf__node-lf:${dir}:${nodeUrn}"]`);
@@ -185,8 +244,7 @@ export class LineageV2Page extends BasePage {
   }
 
   async clearFilter(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
-    const searchInput = this.getFilterNode(nodeUrn, direction).locator('[data-testid="search-input"]');
-    await searchInput.clear();
+    await this.getFilterNode(nodeUrn, direction).locator('[data-testid="search-input"]').clear();
   }
 
   async ensureFilterNodeTitleHasText(nodeUrn: string, direction: 'up' | 'down', text: string): Promise<void> {
@@ -222,19 +280,28 @@ export class LineageV2Page extends BasePage {
     await this.page.locator(`[data-testid="manage-lineage-menu-${nodeUrn}"]`).click();
   }
 
+  async clickLineageEditMenuButton(): Promise<void> {
+    await this.lineageEditMenuButton.click();
+  }
+
   async clickEditUpstreamLineage(): Promise<void> {
-    await this.page.locator('[data-testid="edit-upstream-lineage"]').click();
+    await this.editUpstreamLineageButton.click();
   }
 
   async clickEditDownstreamLineage(): Promise<void> {
-    await this.page.locator('[data-testid="edit-downstream-lineage"]').click();
+    await this.editDownstreamLineageButton.click();
   }
 
   // ── Lineage tab / entity page ─────────────────────────────────────────────
 
   async clickLineageTab(): Promise<void> {
-    await this.page.locator('[data-node-key="Lineage"]').first().click();
+    await this.lineageTabKey.click();
     await this.page.waitForLoadState('domcontentloaded');
+  }
+
+  /** Click the Lineage tab inside the entity sidebar (used on task/datajob pages). */
+  async clickSidebarLineageTab(): Promise<void> {
+    await this.sidebarLineageTab.click();
   }
 
   async clickImpactAnalysis(): Promise<void> {
@@ -242,25 +309,25 @@ export class LineageV2Page extends BasePage {
   }
 
   async clickUpstreamDirection(): Promise<void> {
-    await this.page.locator('[data-testid="compact-lineage-tab-direction-select-option-upstream"]').click();
+    await this.upstreamDirectionOption.click();
   }
 
   async clickDownstreamDirection(): Promise<void> {
-    await this.page.locator('[data-testid="compact-lineage-tab-direction-select-option-downstream"]').click();
+    await this.downstreamDirectionOption.click();
   }
 
   async clickColumnLineageToggle(): Promise<void> {
-    await this.page.locator('[data-testid="column-lineage-toggle"]').click({ force: true });
+    await this.columnLineageToggle.click({ force: true });
   }
 
   // ── Impact analysis — degree filters ────────────────────────────────────────
 
   async clickDegree2Filter(): Promise<void> {
-    await this.page.locator('[data-testid="facet-degree-2"]').click();
+    await this.degree2Filter.click();
   }
 
   async clickDegree3PlusFilter(): Promise<void> {
-    await this.page.locator('[data-testid="facet-degree-3+"]').click();
+    await this.degree3PlusFilter.click();
   }
 
   // ── Impact analysis — search / advanced filters ──────────────────────────────
@@ -274,27 +341,37 @@ export class LineageV2Page extends BasePage {
   }
 
   async clickFilterByDescription(): Promise<void> {
-    await this.page.locator('[data-testid="adv-search-add-filter-description"]').click();
+    await this.filterByDescriptionOption.click();
   }
 
   async typeFilterText(text: string): Promise<void> {
-    await this.page.locator('[data-testid="edit-text-input"]').fill(text);
+    await this.filterTextInput.fill(text);
   }
 
   async confirmFilterText(): Promise<void> {
-    await this.page.locator('[data-testid="edit-text-done-btn"]').click();
+    await this.filterTextDoneButton.click();
   }
 
   // ── Download CSV ─────────────────────────────────────────────────────────────
 
   async downloadCsvFile(filename: string): Promise<void> {
-    await expect(this.page.locator('.ant-list-items')).toBeVisible({ timeout: 15000 });
-    await this.page.locator('[data-testid="download-csv-button"]').click();
-    await this.page.locator('[data-testid="download-as-csv-input"]').clear();
-    await this.page.locator('[data-testid="download-as-csv-input"]').fill(filename);
-    await this.page.locator('[data-testid="csv-modal-download-button"]').click();
+    await expect(this.listItems).toBeVisible({ timeout: 15000 });
+    await this.downloadCsvButton.click();
+    await this.downloadCsvInput.clear();
+    await this.downloadCsvInput.fill(filename);
+    await this.csvModalDownloadButton.click();
     // Wait for download to complete — "Creating CSV" disappears
     await expect(this.page.getByText('Creating CSV')).not.toBeVisible({ timeout: 30000 });
+  }
+
+  /** Trigger a CSV download and return the file contents as a string. */
+  async downloadCsvAndRead(filename: string): Promise<string> {
+    const downloadPromise = this.page.waitForEvent('download');
+    await this.downloadCsvFile(filename);
+    const download = await downloadPromise;
+    const downloadPath = path.join('/tmp', filename);
+    await download.saveAs(downloadPath);
+    return fs.readFileSync(downloadPath, 'utf-8');
   }
 
   // ── Column path modal ────────────────────────────────────────────────────────
@@ -308,14 +385,38 @@ export class LineageV2Page extends BasePage {
   }
 
   async closeEntityPathsModal(): Promise<void> {
-    await this.page.getByRole('dialog', { name: /column path/i }).getByRole('button', { name: 'Close' }).click();
+    await this.page
+      .getByRole('dialog', { name: /column path/i })
+      .getByRole('button', { name: 'Close' })
+      .click();
+  }
+
+  // ── Column dropdown and result text ──────────────────────────────────────────
+
+  /** Open the column selector dropdown and pick a column by name. */
+  async selectColumnFromDropdown(columnName: string): Promise<void> {
+    await this.page.getByText('Select column').click({ force: true });
+    await this.page.waitForTimeout(1000);
+    await this.columnDropdownVirtualList.getByText(columnName, { exact: true }).click();
+  }
+
+  /**
+   * Click the ResultText link that opens the column path modal.
+   * Uses toPass to retry through the MatchesContainer CSS height transition (300ms)
+   * that can swallow a click before the animation settles.
+   */
+  async clickResultTextAndOpenModal(): Promise<void> {
+    await expect(this.resultTextLink).toBeVisible({ timeout: 5000 });
+    await expect(async () => {
+      await this.resultTextLink.click();
+      await expect(this.page.getByRole('dialog', { name: /column path/i })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 12000 });
   }
 
   // ── Edit lineage modal ────────────────────────────────────────────────────────
 
-  /** Type in the search input inside the lineage edit dialog. */
   async searchInLineageEditModal(text: string): Promise<void> {
-    await this.page.locator('[role="dialog"] [data-testid="search-input"]').fill(text);
+    await this.lineageEditSearchInput.fill(text);
   }
 
   async getSetUpstreamsButton(): Promise<Locator> {
@@ -328,38 +429,26 @@ export class LineageV2Page extends BasePage {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  /** Wait for a text to be visible anywhere on the page. */
   async waitForText(text: string): Promise<void> {
     await expect(this.page.getByText(text).first()).toBeVisible({ timeout: 15000 });
   }
 
-  /** Assert that a text is NOT present anywhere on the page. */
   async assertTextNotPresent(text: string): Promise<void> {
     await expect(this.page.getByText(text).first()).not.toBeVisible({ timeout: 5000 });
   }
 
-  async clickColumnLineageOption(): Promise<void> {
-    await this.page.locator('[data-testid="column-lineage-toggle"]').click({ force: true });
-  }
-
   /**
    * Click the "Downstreams" option in the impact-analysis direction selector.
-   * The selector opens an Ant Design dropdown — we target the option by its data-testid.
+   * Ant Design Select renders the selected option's label both in the trigger and the popup,
+   * so we use .last() to target the popup copy.
    */
   async clickDownstreamOption(): Promise<void> {
-    // Open the direction select dropdown first, then click the downstream option in the popup.
-    // Ant Design Select renders the selected option's label both in the trigger and the popup,
-    // so we use .last() to target the popup copy.
-    await this.page.locator('[data-testid="lineage-tab-direction-select"]').click();
-    await this.page.locator('[data-testid="lineage-tab-direction-select-option-downstream"]').last().click();
+    await this.lineageTabDirectionSelect.click();
+    await this.lineageTabDownstreamOption.last().click();
   }
 
-  /**
-   * Click the "Upstreams" option in the impact-analysis direction selector.
-   */
   async clickUpstreamOption(): Promise<void> {
-    // Open the direction select dropdown first, then click the upstream option in the popup.
-    await this.page.locator('[data-testid="lineage-tab-direction-select"]').click();
-    await this.page.locator('[data-testid="lineage-tab-direction-select-option-upstream"]').last().click();
+    await this.lineageTabDirectionSelect.click();
+    await this.lineageTabUpstreamOption.last().click();
   }
 }

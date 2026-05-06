@@ -30,21 +30,13 @@ const JAN_1_2021_TIMESTAMP = 1609553357755;
 const JAN_1_2022_TIMESTAMP = 1641089357755;
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
-const TRANSACTION_ETL_URN =
-  'urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)';
+const TRANSACTION_ETL_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)';
 const MONTHLY_TEMPERATURE_DATASET_URN =
   'urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)';
 
 const TIMESTAMP_MILLIS_14_DAYS_AGO = getTimestampMillisNumDaysAgo(14);
 const TIMESTAMP_MILLIS_7_DAYS_AGO = getTimestampMillisNumDaysAgo(7);
 const TIMESTAMP_MILLIS_NOW = getTimestampMillisNumDaysAgo(0);
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-async function startAtDataSetLineage(page: import('@playwright/test').Page, lp: LineageV2Page): Promise<void> {
-  await lp.goToDataset(DATASET_URN, 'SamplePlaywrightKafkaDataset');
-  await lp.clickLineageTab();
-}
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 
@@ -66,16 +58,16 @@ test.describe('impact analysis', () => {
 
   test('can see 1 hop of lineage by default', async ({ page, logger, logDir }) => {
     const lp = new LineageV2Page(page, logger, logDir);
-    await startAtDataSetLineage(page, lp);
+    await lp.goToDatasetLineage(DATASET_URN, 'SamplePlaywrightKafkaDataset');
 
     // Multi-hop datasets should not be visible at 1-hop depth
-    await expect(page.getByText('User Creations')).not.toBeVisible();
-    await expect(page.getByText('User Deletions')).not.toBeVisible();
+    await expect(page.getByText('User Creations')).toBeHidden();
+    await expect(page.getByText('User Deletions')).toBeHidden();
   });
 
   test('can see lineage multiple hops away', async ({ page, logger, logDir }) => {
     const lp = new LineageV2Page(page, logger, logDir);
-    await startAtDataSetLineage(page, lp);
+    await lp.goToDatasetLineage(DATASET_URN, 'SamplePlaywrightKafkaDataset');
 
     await lp.clickImpactAnalysis();
     await page.getByText('3+').click();
@@ -86,7 +78,7 @@ test.describe('impact analysis', () => {
 
   test('can filter the lineage results as well', async ({ page, logger, logDir }) => {
     const lp = new LineageV2Page(page, logger, logDir);
-    await startAtDataSetLineage(page, lp);
+    await lp.goToDatasetLineage(DATASET_URN, 'SamplePlaywrightKafkaDataset');
 
     await lp.clickImpactAnalysis();
     await page.getByText('3+').click();
@@ -97,7 +89,7 @@ test.describe('impact analysis', () => {
     await lp.typeFilterText('fct_users_deleted');
     await lp.confirmFilterText();
 
-    await expect(page.getByText('User Creations')).not.toBeVisible();
+    await expect(page.getByText('User Creations')).toBeHidden();
     await expect(page.getByText('User Deletions').first()).toBeVisible({ timeout: 15000 });
   });
 
@@ -106,9 +98,7 @@ test.describe('impact analysis', () => {
 
     // Navigate directly to the column lineage URL
     const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
-    await page.goto(
-      `/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`,
-    );
+    await page.goto(`/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`);
     await page.waitForLoadState('domcontentloaded');
 
     // Impact analysis can take a moment
@@ -117,15 +107,15 @@ test.describe('impact analysis', () => {
 
     await expect(page.getByText('SamplePlaywrightHdfsDataset').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('shipment_info').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('some-playwright-feature-1')).not.toBeVisible();
-    await expect(page.getByText('Baz Chart 1')).not.toBeVisible();
+    await expect(page.getByText('some-playwright-feature-1')).toBeHidden();
+    await expect(page.getByText('Baz Chart 1')).toBeHidden();
 
     // Toggle off column-level impact analysis
     await lp.clickColumnLineageToggle();
     await page.waitForTimeout(2000);
 
     await expect(page.getByText('SamplePlaywrightHdfsDataset').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('shipment_info')).not.toBeVisible();
+    await expect(page.getByText('shipment_info')).toBeHidden();
     await expect(page.getByText('some-playwright-feature-1').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Baz Chart 1').first()).toBeVisible({ timeout: 10000 });
   });
@@ -142,10 +132,10 @@ test.describe('impact analysis', () => {
     await lp.clickImpactAnalysis();
 
     // No lineage edges should exist for the 2021 time window
-    await expect(page.getByText('SamplePlaywrightHdfsDataset')).not.toBeVisible();
-    await expect(page.getByText('Downstream column: shipment_info')).not.toBeVisible();
-    await expect(page.getByText('some-playwright-feature-1')).not.toBeVisible();
-    await expect(page.getByText('Baz Chart 1')).not.toBeVisible();
+    await expect(page.getByText('SamplePlaywrightHdfsDataset')).toBeHidden();
+    await expect(page.getByText('Downstream column: shipment_info')).toBeHidden();
+    await expect(page.getByText('some-playwright-feature-1')).toBeHidden();
+    await expect(page.getByText('Baz Chart 1')).toBeHidden();
   });
 
   test('can see when the inputs to a data job change', async ({ page, logger, logDir }) => {
@@ -157,7 +147,7 @@ test.describe('impact analysis', () => {
     );
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
-    await page.locator('#entity-sidebar-tabs-tab-Lineage').click();
+    await lp.clickSidebarLineageTab();
 
     // Downstream output is visible
     await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 10000 });
@@ -165,7 +155,7 @@ test.describe('impact analysis', () => {
     // Switch to upstream to check inputs
     await lp.clickUpstreamDirection();
     await expect(page.getByText('transactions').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('user_profile')).not.toBeVisible();
+    await expect(page.getByText('user_profile')).toBeHidden();
 
     // From 7 days ago to now, user_profile was also added as an input
     await page.goto(
@@ -173,7 +163,7 @@ test.describe('impact analysis', () => {
     );
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
-    await page.locator('#entity-sidebar-tabs-tab-Lineage').click();
+    await lp.clickSidebarLineageTab();
 
     await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 10000 });
 
@@ -191,7 +181,7 @@ test.describe('impact analysis', () => {
     );
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
-    await page.locator('#entity-sidebar-tabs-tab-Lineage').click();
+    await lp.clickSidebarLineageTab();
     await lp.clickUpstreamDirection();
     await expect(page.getByText('temperature_etl_1').first()).toBeVisible({ timeout: 10000 });
 
@@ -201,7 +191,7 @@ test.describe('impact analysis', () => {
     );
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
-    await page.locator('#entity-sidebar-tabs-tab-Lineage').click();
+    await lp.clickSidebarLineageTab();
     await lp.clickUpstreamDirection();
     await expect(page.getByText('temperature_etl_2').first()).toBeVisible({ timeout: 10000 });
   });
@@ -217,12 +207,12 @@ test.describe('impact analysis', () => {
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByText('SamplePlaywrightKafkaDataset').first()).toBeVisible({ timeout: 15000 });
 
-    await page.locator('[data-testid="lineage-edit-menu-button"]').first().click();
-    await page.locator('[data-testid="edit-upstream-lineage"]').click();
+    await lp.clickLineageEditMenuButton();
+    await lp.clickEditUpstreamLineage();
 
-    await expect(
-      page.getByText('Select the Upstreams to add to SamplePlaywrightKafkaDataset'),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Select the Upstreams to add to SamplePlaywrightKafkaDataset')).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('editing downstream lineage will redirect to visual view with edit modal open', async ({
@@ -236,11 +226,11 @@ test.describe('impact analysis', () => {
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByText('SamplePlaywrightKafkaDataset').first()).toBeVisible({ timeout: 15000 });
 
-    await page.locator('[data-testid="lineage-edit-menu-button"]').first().click();
-    await page.locator('[data-testid="edit-downstream-lineage"]').click();
+    await lp.clickLineageEditMenuButton();
+    await lp.clickEditDownstreamLineage();
 
-    await expect(
-      page.getByText('Select the Downstreams to add to SamplePlaywrightKafkaDataset'),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Select the Downstreams to add to SamplePlaywrightKafkaDataset')).toBeVisible({
+      timeout: 10000,
+    });
   });
 });

@@ -13,15 +13,12 @@
  * Uses apiMock.setFeatureFlags to disable lineageGraphV3 so the V2 graph renders.
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV2Page } from '../../pages/lineage-v2.page';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const TEST_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
+const TEST_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
 
 const FIRST_DEGREE_URNS = [
   'urn:li:chart:(looker,playwright_baz1)',
@@ -47,25 +44,6 @@ const THIRD_DEGREE_PLUS_URNS = [
   'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,playwright-model-package-group,PROD)',
 ];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Wait for a file download, trigger it, and return the downloaded content as a string.
- */
-async function downloadAndReadCsv(
-  page: import('@playwright/test').Page,
-  lp: LineageV2Page,
-  filename: string,
-): Promise<string> {
-  const downloadPromise = page.waitForEvent('download');
-  await lp.downloadCsvFile(filename);
-  const download = await downloadPromise;
-  const downloadPath = path.join('/tmp', filename);
-  await download.saveAs(downloadPath);
-  const content = fs.readFileSync(downloadPath, 'utf-8');
-  return content;
-}
-
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 test.describe('download lineage results to .csv file', () => {
@@ -88,7 +66,7 @@ test.describe('download lineage results to .csv file', () => {
     // ── 1st degree ───────────────────────────────────────────────────────────
 
     await lp.clickImpactAnalysis();
-    const firstDegreeCsv = await downloadAndReadCsv(page, lp, 'first_degree_results.csv');
+    const firstDegreeCsv = await lp.downloadCsvAndRead('first_degree_results.csv');
 
     for (const urn of FIRST_DEGREE_URNS) {
       expect(firstDegreeCsv).toContain(urn);
@@ -107,7 +85,7 @@ test.describe('download lineage results to .csv file', () => {
     // Verify result count is between 8-9 (flexible range as displayed in the UI)
     await expect(page.getByText(/1 - [8-9] of [8-9]/).first()).toBeVisible({ timeout: 15000 });
 
-    const secondDegreeCsv = await downloadAndReadCsv(page, lp, 'second_degree_results.csv');
+    const secondDegreeCsv = await lp.downloadCsvAndRead('second_degree_results.csv');
 
     for (const urn of FIRST_DEGREE_URNS) {
       expect(secondDegreeCsv).toContain(urn);
@@ -125,7 +103,7 @@ test.describe('download lineage results to .csv file', () => {
     await page.waitForTimeout(5000);
     await expect(page.getByText(/1 - 10/).first()).toBeVisible({ timeout: 15000 });
 
-    const thirdDegreeCsv = await downloadAndReadCsv(page, lp, 'third_plus_degree_results.csv');
+    const thirdDegreeCsv = await lp.downloadCsvAndRead('third_plus_degree_results.csv');
 
     for (const urn of FIRST_DEGREE_URNS) {
       expect(thirdDegreeCsv).toContain(urn);

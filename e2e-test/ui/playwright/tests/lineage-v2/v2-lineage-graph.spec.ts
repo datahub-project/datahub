@@ -39,77 +39,47 @@ const TIMESTAMP_MILLIS_7_DAYS_AGO = getTimestampMillisNumDaysAgo(7);
 const TIMESTAMP_MILLIS_NOW = getTimestampMillisNumDaysAgo(0);
 
 const GNP_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.gnp,PROD)';
-const TRANSACTION_ETL_URN =
-  'urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)';
+const TRANSACTION_ETL_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)';
 const MONTHLY_TEMPERATURE_DATASET_URN =
   'urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)';
 
 // Complete lineage graph nodes
-const NODE1_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage.node1_dataset,PROD)';
-const NODE2_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node2_dataset,PROD)';
-const NODE3_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node3_dataset,PROD)';
-const NODE4_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node4_dataset,PROD)';
+const NODE1_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage.node1_dataset,PROD)';
+const NODE2_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node2_dataset,PROD)';
+const NODE3_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node3_dataset,PROD)';
+const NODE4_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node4_dataset,PROD)';
 const NODE5_DATASET_MANUAL_URN =
   'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node5_dataset_manual,PROD)';
-const NODE6_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node6_dataset,PROD)';
+const NODE6_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node6_dataset,PROD)';
 const NODE7_DATAJOB_URN =
   'urn:li:dataJob:(urn:li:dataFlow:(airflow,playwright_lineage_pipeline,PROD),playwright_lineage.node7_datajob)';
-const NODE8_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)';
+const NODE8_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)';
 const NODE9_CHART_URN = 'urn:li:chart:(looker,playwright_lineage.node9_chart)';
-const NODE10_DASHBOARD_URN =
-  'urn:li:dashboard:(looker,playwright_lineage.node10_dashboard)';
-const NODE11_DBT_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage.node11_dbt,PROD)';
-const NODE12_DATASET_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node12_dataset,PROD)';
+const NODE10_DASHBOARD_URN = 'urn:li:dashboard:(looker,playwright_lineage.node10_dashboard)';
+const NODE11_DBT_URN = 'urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_lineage.node11_dbt,PROD)';
+const NODE12_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node12_dataset,PROD)';
 
 // Filtering test nodes — upstream (1-6) and downstream (8-20)
-const FILTERING_NODE1_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node1,PROD)';
-const FILTERING_NODE2_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node2,PROD)';
-const FILTERING_NODE3_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node3,PROD)';
-const FILTERING_NODE4_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node4,PROD)';
-const FILTERING_NODE5_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node5,PROD)';
-const FILTERING_NODE6_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node6,PROD)';
-const FILTERING_NODE7_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node7,PROD)';
-const FILTERING_NODE8_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node8,PROD)';
-const FILTERING_NODE9_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node9,PROD)';
-const FILTERING_NODE10_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node10,PROD)';
-const FILTERING_NODE11_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node11,PROD)';
-const FILTERING_NODE12_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node12,PROD)';
-const FILTERING_NODE13_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node13,PROD)';
-const FILTERING_NODE14_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node14,PROD)';
-const FILTERING_NODE15_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node15,PROD)';
-const FILTERING_NODE16_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node16,PROD)';
-const FILTERING_NODE17_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node17,PROD)';
-const FILTERING_NODE18_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node18,PROD)';
-const FILTERING_NODE19_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node19,PROD)';
-const FILTERING_NODE20_URN =
-  'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node20,PROD)';
+const FILTERING_NODE1_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node1,PROD)';
+const FILTERING_NODE2_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node2,PROD)';
+const FILTERING_NODE3_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node3,PROD)';
+const FILTERING_NODE4_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node4,PROD)';
+const FILTERING_NODE5_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node5,PROD)';
+const FILTERING_NODE6_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node6,PROD)';
+const FILTERING_NODE7_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node7,PROD)';
+const FILTERING_NODE8_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node8,PROD)';
+const FILTERING_NODE9_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node9,PROD)';
+const FILTERING_NODE10_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node10,PROD)';
+const FILTERING_NODE11_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node11,PROD)';
+const FILTERING_NODE12_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node12,PROD)';
+const FILTERING_NODE13_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node13,PROD)';
+const FILTERING_NODE14_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node14,PROD)';
+const FILTERING_NODE15_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node15,PROD)';
+const FILTERING_NODE16_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node16,PROD)';
+const FILTERING_NODE17_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node17,PROD)';
+const FILTERING_NODE18_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node18,PROD)';
+const FILTERING_NODE19_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node19,PROD)';
+const FILTERING_NODE20_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node20,PROD)';
 
 // ── Suite setup ──────────────────────────────────────────────────────────────
 
@@ -249,9 +219,9 @@ test.describe('lineage_graph', () => {
     await lineagePage.openManageLineageMenu(DATASET_URN);
     await lineagePage.clickEditUpstreamLineage();
 
-    await expect(
-      page.getByText('Select the Upstreams to add to SamplePlaywrightKafkaDataset'),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Select the Upstreams to add to SamplePlaywrightKafkaDataset')).toBeVisible({
+      timeout: 10000,
+    });
 
     // The "Set Upstreams" button should be disabled with nothing selected
     await expect(page.getByText('Set Upstreams')).toBeDisabled();
@@ -267,7 +237,7 @@ test.describe('lineage_graph', () => {
       .click();
 
     // After selection, Set Upstreams should be enabled
-    await expect(page.getByText('Set Upstreams')).not.toBeDisabled();
+    await expect(page.getByText('Set Upstreams')).toBeEnabled();
   });
 
   // ── Complete lineage graph with node types ──────────────────────────────────
@@ -293,38 +263,18 @@ test.describe('lineage_graph', () => {
     await lp.checkEdgeBetweenColumnsNotExists(NODE1_DATASET_URN, 'record_id', NODE2_DATASET_URN, 'record_id');
 
     await lp.hoverColumn(NODE2_DATASET_URN, 'next_record_id');
-    await lp.checkEdgeBetweenColumnsExists(
-      NODE1_DATASET_URN,
-      'next_record_id',
-      NODE2_DATASET_URN,
-      'next_record_id',
-    );
+    await lp.checkEdgeBetweenColumnsExists(NODE1_DATASET_URN, 'next_record_id', NODE2_DATASET_URN, 'next_record_id');
     await lp.unhoverColumn(NODE2_DATASET_URN, 'next_record_id');
-    await lp.checkEdgeBetweenColumnsNotExists(
-      NODE1_DATASET_URN,
-      'next_record_id',
-      NODE2_DATASET_URN,
-      'next_record_id',
-    );
+    await lp.checkEdgeBetweenColumnsNotExists(NODE1_DATASET_URN, 'next_record_id', NODE2_DATASET_URN, 'next_record_id');
 
     // Click (select) a column — edges should persist
     await lp.selectColumn(NODE2_DATASET_URN, 'record_id');
     await lp.checkEdgeBetweenColumnsExists(NODE1_DATASET_URN, 'record_id', NODE2_DATASET_URN, 'record_id');
 
     await lp.selectColumn(NODE2_DATASET_URN, 'next_record_id');
-    await lp.checkEdgeBetweenColumnsExists(
-      NODE1_DATASET_URN,
-      'next_record_id',
-      NODE2_DATASET_URN,
-      'next_record_id',
-    );
+    await lp.checkEdgeBetweenColumnsExists(NODE1_DATASET_URN, 'next_record_id', NODE2_DATASET_URN, 'next_record_id');
     // After selecting next_record_id, record_id edge should be deselected
-    await lp.checkEdgeBetweenColumnsNotExists(
-      NODE1_DATASET_URN,
-      'record_id',
-      NODE2_DATASET_URN,
-      'record_id',
-    );
+    await lp.checkEdgeBetweenColumnsNotExists(NODE1_DATASET_URN, 'record_id', NODE2_DATASET_URN, 'record_id');
 
     // Expand one node at a time
     await lp.expandOne(NODE2_DATASET_URN);

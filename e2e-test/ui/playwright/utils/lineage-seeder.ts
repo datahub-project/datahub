@@ -75,10 +75,7 @@ function extractAspects(dataFilePath: string): SeededAspect[] {
 
   for (const entity of entities) {
     if (!entity.proposedSnapshot) continue;
-    const snapshot = entity.proposedSnapshot as Record<
-      string,
-      { urn: string; aspects: Record<string, unknown>[] }
-    >;
+    const snapshot = entity.proposedSnapshot as Record<string, { urn: string; aspects: Record<string, unknown>[] }>;
 
     for (const snapVal of Object.values(snapshot)) {
       const urn = snapVal.urn;
@@ -240,7 +237,12 @@ async function ingestAspect(
 
   if (!response.ok()) {
     const body = await response.text();
-    logger?.warn('lineage-seeder: ingest failed', { urn, aspectName, status: response.status(), body: body.slice(0, 200) });
+    logger?.warn('lineage-seeder: ingest failed', {
+      urn,
+      aspectName,
+      status: response.status(),
+      body: body.slice(0, 200),
+    });
   } else {
     logger?.info('lineage-seeder: ingested', { urn, aspectName });
   }
