@@ -53,7 +53,7 @@ source:
     extract_lakehouses: true
     extract_warehouses: true
     extract_schemas: true  # Set to false to skip schema containers
-    extract_views: true    # Requires extract_schema.enabled and sql_endpoint.enabled
+    extract_views: true    # Requires sql_endpoint.enabled
     
     # Optional: API timeout (seconds)
     # api_timeout: 30

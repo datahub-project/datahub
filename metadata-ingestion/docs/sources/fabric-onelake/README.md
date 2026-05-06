@@ -6,14 +6,14 @@ The DataHub integration for Microsoft Fabric OneLake covers workspace, lakehouse
 
 ## Concept Mapping
 
-| Microsoft Fabric | DataHub Entity                            | Notes                                                                   |
-| ---------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
-| **Workspace**    | `Container` (subtype: `Fabric Workspace`) | Top-level organizational unit                                           |
-| **Lakehouse**    | `Container` (subtype: `Fabric Lakehouse`) | Contains schemas and tables                                             |
-| **Warehouse**    | `Container` (subtype: `Fabric Warehouse`) | Contains schemas and tables                                             |
-| **Schema**       | `Container` (subtype: `Fabric Schema`)    | Logical grouping within lakehouse/warehouse                             |
-| **Table**        | `Dataset`                                 | Tables within schemas                                                   |
-| **View**         | `Dataset` (subtype: `View`)               | Warehouse views; lineage extracted from view definition via SQL parsing |
+| Microsoft Fabric | DataHub Entity                            | Notes                                                                                 |
+| ---------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Workspace**    | `Container` (subtype: `Fabric Workspace`) | Top-level organizational unit                                                         |
+| **Lakehouse**    | `Container` (subtype: `Fabric Lakehouse`) | Contains schemas and tables                                                           |
+| **Warehouse**    | `Container` (subtype: `Fabric Warehouse`) | Contains schemas and tables                                                           |
+| **Schema**       | `Container` (subtype: `Fabric Schema`)    | Logical grouping within lakehouse/warehouse                                           |
+| **Table**        | `Dataset`                                 | Tables within schemas                                                                 |
+| **View**         | `Dataset` (subtype: `View`)               | Lakehouse and Warehouse views; lineage extracted from view definition via SQL parsing |
 
 ### Hierarchy Structure
 
@@ -22,7 +22,7 @@ Platform (fabric-onelake)
 └── Workspace (Container)
     ├── Lakehouse (Container)
     │   └── Schema (Container)
-    │       └── Table (Dataset)
+    │       └── Table/View (Dataset)
     └── Warehouse (Container)
         └── Schema (Container)
             └── Table/View (Dataset)
