@@ -1,4 +1,4 @@
-"""Unit tests for T4.B2 — DM element warehouse-passthrough FineGrainedLineage.
+"""Unit tests for warehouse-passthrough FineGrainedLineage on DM elements.
 
 Coverage:
   - _try_emit_warehouse_passthrough_fgl: all pre-flight failure modes
@@ -9,7 +9,7 @@ Coverage:
   - _build_dm_element_fine_grained_lineages: diamond case (two downstream columns,
     same upstream schemaField → two FGLs, one upstream)
   - _build_dm_element_fine_grained_lineages: mixed intra-DM + warehouse refs
-  - URN identity: parent Dataset URN inside schemaField URN == T4.B entity-level URN
+  - URN identity: schemaField parent Dataset URN matches entity-level warehouse URN
 
 Counters verified:
   data_model_element_fgl_warehouse_resolved
@@ -89,7 +89,7 @@ _SF_REF = _WarehouseTableRef(
 )
 _SF_WAREHOUSE_MAP: Dict[str, _WarehouseTableRef] = {_SF_URL_ID: _SF_REF}
 
-# Expected entity-level URN (same as T4.B emits for this ref)
+# Expected entity-level URN emitted by the warehouse-upstream resolver
 _SF_DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
     "warehouse_coffee_company.public.customers,PROD)"
@@ -378,9 +378,9 @@ class TestTryEmitResolution:
         assert result is None
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
 
-    def test_urn_identity_with_t4b(self):
-        """Parent Dataset URN inside T4.B2's schemaField URN must equal T4.B's
-        entity-level warehouse Dataset URN for the same fixture inode."""
+    def test_urn_identity_with_entity_level_upstream(self):
+        """The parent Dataset URN inside the schemaField URN must equal the
+        entity-level warehouse Dataset URN emitted for the same fixture inode."""
         source = _make_source()
         col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
@@ -397,7 +397,7 @@ class TestTryEmitResolution:
         # Split from the right: last comma-separated token is the field name
         last_comma = inner.rfind(",")
         parent_urn_in_schema_field = inner[:last_comma]
-        # Verify byte-equality with T4.B's entity-level URN
+        # Verify byte-equality with the entity-level warehouse Dataset URN
         assert parent_urn_in_schema_field == _SF_DATASET_URN
 
 

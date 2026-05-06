@@ -279,31 +279,21 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_cross_dm_deferred: int = 0
     # Refs where element-name matches the element's own warehouse-table name
     # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
-    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
-    # upstream is the warehouse inode.  T4.B2 resolves most of these; the
-    # remainder (no warehouse source, unmappable connection) stay deferred.
+    # warehouse-passthrough refs, not intra-DM self-edges; the actual upstream
+    # is the warehouse inode.  Resolved via columnId when possible; remainder
+    # (no warehouse source, unmappable connection) stays deferred.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
 
-    # T4.B2 — warehouse-passthrough FGL resolution.
-    # Emitted via columnId metadata (inode-<url_id>/<WAREHOUSE_COL> encoding).
+    # Warehouse-passthrough FGL resolution via columnId metadata.
+    # columnId encodes the warehouse column as inode-<url_id>/<WAREHOUSE_COL>.
     data_model_element_fgl_warehouse_resolved: int = 0
-    # Strategy B (trust bracket ref verbatim, no columnId) — not used on
-    # Snowflake/Redshift tenants where columnId is authoritative; reserved for
-    # future platforms where columnId may not encode the warehouse column.
-    data_model_element_fgl_warehouse_resolved_unvalidated: int = 0
-    # Strategy C rename path — reserved for future use if Sigma exposes an
-    # explicit sourceColumn field.
-    data_model_element_fgl_warehouse_resolved_via_rename: int = 0
-    # columnId decoded but column name absent from the warehouse schema —
-    # currently unused (columnId is trusted verbatim); reserved for strict mode.
-    data_model_element_fgl_warehouse_unknown_warehouse_column: int = 0
-    # Element's warehouse source connection is not in the registry or is
-    # is_mappable=False; FGL not emitted (separate from entity-level counter).
+    # Connection not in registry or is_mappable=False; FGL not emitted.
+    # Separate from the entity-level dm_element_warehouse_unknown_connection.
     data_model_element_fgl_warehouse_unmappable_connection: int = 0
     # Self-stripped ref but element has no warehouse-backed inode source
-    # (e.g., legacy SD-backed element with element name == SD name).
+    # (e.g., CSV-backed element whose name matches the formula source).
     data_model_element_fgl_warehouse_no_warehouse_source: int = 0
-    # Roll-up: resolved + resolved_unvalidated + resolved_via_rename.
+    # Roll-up of all successfully emitted warehouse-passthrough FGL entries.
     data_model_element_fgl_warehouse_emitted_total: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.
