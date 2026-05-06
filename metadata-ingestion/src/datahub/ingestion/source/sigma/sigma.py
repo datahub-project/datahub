@@ -1524,9 +1524,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element: SigmaDataModelElement,
         downstream_field: str,
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
-        emitted_pairs: Set[Tuple[str, str]],
     ) -> Optional[FineGrainedLineageClass]:
-        """Attempt to emit a warehouse-passthrough FineGrainedLineage entry.
+        """Attempt to build a warehouse-passthrough FineGrainedLineage entry.
 
         Resolves the column's warehouse identity via the columnId field, which
         Sigma encodes as ``inode-<url_id>/<WAREHOUSE_COLUMN_NAME>``.  This is
@@ -1534,9 +1533,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         name (e.g. "Customer Id") rather than the warehouse identifier
         ("CUSTOMER_ID" / "customer_id").
 
-        Returns a FineGrainedLineageClass on success, None on any failure.
-        Bumps a failure counter before returning None on resolution failure;
-        returns None silently on dedup (emitted_pairs hit).
+        Returns a FineGrainedLineageClass on success; returns None and bumps a
+        failure counter on any resolution failure.  Dedup (emitted_pairs) is
+        the caller's responsibility so that None unambiguously means failure.
         """
         # Parse columnId → url_id + warehouse column name.
         col_id = column.columnId or ""
@@ -1581,21 +1580,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # resolved the registry record and override, so these lookups are cheap
         # dict hits on the same objects.
         record = self.connection_registry.get(wh_ref.connection_id)
-        assert record is not None  # guaranteed by parent_urn being non-None above
+        if record is None:
+            # Should not happen when parent_urn is non-None, but degrade safely.
+            self.reporter.data_model_element_fgl_warehouse_unmappable_connection += 1
+            return None
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
         normalized_col = _normalize_warehouse_identifier(
             warehouse_col, record.datahub_platform, lowercase
         )
-
         upstream_field = builder.make_schema_field_urn(parent_urn, normalized_col)
-        pair = (downstream_field, upstream_field)
-        if pair in emitted_pairs:
-            return None
-        emitted_pairs.add(pair)
-
-        self.reporter.data_model_element_fgl_warehouse_resolved += 1
-        self.reporter.data_model_element_fgl_warehouse_emitted_total += 1
         return FineGrainedLineageClass(
             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
             downstreams=[downstream_field],
@@ -1677,12 +1671,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             element=element,
                             downstream_field=downstream_field,
                             warehouse_url_id_map=warehouse_url_id_map,
-                            emitted_pairs=emitted_pairs,
                         )
-                        if warehouse_fgl is not None:
-                            fgls.append(warehouse_fgl)
-                        else:
+                        if warehouse_fgl is None:
                             self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                        else:
+                            assert warehouse_fgl.upstreams
+                            pair = (downstream_field, warehouse_fgl.upstreams[0])
+                            if pair not in emitted_pairs:
+                                emitted_pairs.add(pair)
+                                fgls.append(warehouse_fgl)
+                                self.reporter.data_model_element_fgl_warehouse_resolved += 1
+                                self.reporter.data_model_element_fgl_warehouse_emitted_total += 1
+                            # else: duplicate ref in same formula — silent, not a deferral
                         continue
                     # Source not in this DM — search only the DMs this element's
                     # source_ids explicitly reference. This prevents formula refs
