@@ -52,6 +52,9 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull final CacheConfig cacheConfig) {
     this.delegate = delegate;
     this.cache = cacheManager.getCache(CACHE_NAME);
+    if (this.cache == null) {
+      throw new IllegalArgumentException("Cache cannot be null for this service");
+    }
     this.cacheConfig = cacheConfig;
     // CacheConfig is the single source of truth for which aspects are cached. Snapshot once
     // so we don't see config mutations mid-request.
@@ -173,7 +176,7 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nullable Map<String, Long> endTimeMillis) {
     // endTimeMillis turns this into a point-in-time query, which the latest-only cache can't
     // serve. Bypass entirely.
-    if (cache == null || endTimeMillis != null) {
+    if (endTimeMillis != null) {
       return delegate.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, endTimeMillis);
     }
 
@@ -291,6 +294,23 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull String aspectName,
       @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
+    // Eviction policy: we evict the cache *immediately* when the async job is kicked off,
+    // before ES has finished deleting. Two consequences worth understanding:
+    //
+    //   1. Concurrent reads during the async window will miss the cache and read stale data
+    //      from ES (the data the async job is on the way to deleting). The cache then
+    //      repopulates with that stale snapshot. When the async job completes, the cache may
+    //      hold entries ES has since dropped, and they live until TTL expiry or the next
+    //      upsert overwrites them.
+    //
+    //   2. The alternative — evict on async completion — would mean serving stale cached
+    //      data for the entire async window, with no signal that a delete was even in
+    //      progress. We pick fresh-fetch-and-temporarily-stale-refill over guaranteed-stale
+    //      because the failure mode is more visible (cache and ES disagree briefly) and
+    //      self-heals on TTL.
+    //
+    // Acceptable for a best-effort latest-aspect cache. If we ever need strict "no stale
+    // after delete starts," wire a completion callback or a periodic re-evict.
     String result =
         delegate.deleteAspectValuesAsync(opContext, entityName, aspectName, filter, options);
     if (cachedAspectNames.contains(aspectName)) {
@@ -306,6 +326,10 @@ public class LatestTimeseriesAspectVersionCachingService
       @Nonnull String aspectName,
       @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
+    // Same eviction policy as deleteAspectValuesAsync: evict now, accept that concurrent
+    // reads during the async reindex window may temporarily refill the cache from a stale
+    // ES snapshot. Self-heals via TTL or the next upsert. See the comment on
+    // deleteAspectValuesAsync for the full rationale.
     String result = delegate.reindexAsync(opContext, entityName, aspectName, filter, options);
     if (cachedAspectNames.contains(aspectName)) {
       evictAspectIndex(entityName, aspectName);
@@ -335,7 +359,7 @@ public class LatestTimeseriesAspectVersionCachingService
       String urn = null;
       try {
         urn = document.has("urn") ? document.get("urn").asText() : null;
-        if (urn == null || cache == null) {
+        if (urn == null) {
           return;
         }
 
@@ -459,9 +483,6 @@ public class LatestTimeseriesAspectVersionCachingService
   }
 
   private void evictCacheForAllAspects() {
-    if (cache == null) {
-      return;
-    }
     try {
       cache.clear();
       log.debug("Cleared entire cache");
@@ -476,9 +497,6 @@ public class LatestTimeseriesAspectVersionCachingService
    * possibly-stale wrapper in place.
    */
   private void evictCacheKey(String aspectName, String entityName, String urn) {
-    if (cache == null) {
-      return;
-    }
     try {
       cache.evict(buildCacheKey(aspectName, entityName, urn));
     } catch (Exception e) {
@@ -488,9 +506,6 @@ public class LatestTimeseriesAspectVersionCachingService
 
   @Nullable
   private String getCachedValue(String cacheKey) {
-    if (cache == null) {
-      return null;
-    }
     try {
       Cache.ValueWrapper wrapper = cache.get(cacheKey);
       if (wrapper == null) {
@@ -533,9 +548,6 @@ public class LatestTimeseriesAspectVersionCachingService
       String urn,
       EnvelopedAspect aspect,
       long timestampMillis) {
-    if (cache == null) {
-      return;
-    }
     if (timestampMillis == 0L) {
       // Defensive: the upsert path explicitly evicts on ts=0, but cache-fill paths might
       // also hit this (a malformed aspect from ES with no extractable timestamp). Writing
@@ -600,9 +612,19 @@ public class LatestTimeseriesAspectVersionCachingService
     Object nativeCache = cache.getNativeCache();
 
     if (nativeCache instanceof IMap<?, ?>) {
-      // Server-side compare-and-set on the partition owner. setTtl runs separately because
-      // EntryProcessor doesn't carry a TTL contract; TTL drift between the two calls is
-      // bounded and benign (worst case: a slightly-stale TTL on a freshly-written entry).
+      // Server-side compare-and-set on the partition owner.
+      //
+      // KNOWN LIMITATION (non-atomic with setTtl): the EntryProcessor API doesn't carry a TTL
+      // contract, so we run setTtl as a separate RPC after a successful write. If the GMS pod
+      // dies between executeOnKey and setTtl, the entry is written but inherits the IMap's
+      // default TTL (or no TTL, if the map has none configured) instead of our jittered
+      // per-entry value. The next write to that key goes through this same path and re-applies
+      // the TTL, so the leak is bounded to the dead-pod window — not a permanent leak.
+      //
+      // The "atomic" alternative is IMap.set(key, value, ttl, unit), but that loses the
+      // compare-and-set semantics that PutIfNewerProcessor provides; a hacky workaround
+      // (re-implementing the timestamp comparison via Hazelcast locks or a CAS on a separate
+      // key) isn't worth the complexity. If this becomes a real problem, file a follow-up.
       IMap<String, Object> hazelMap = (IMap<String, Object>) nativeCache;
       Boolean accepted = hazelMap.executeOnKey(cacheKey, new PutIfNewerProcessor(incoming));
       if (Boolean.TRUE.equals(accepted)) {
@@ -697,9 +719,6 @@ public class LatestTimeseriesAspectVersionCachingService
   @SuppressWarnings("unchecked")
   private void addUrnToReverseIndex(
       String aspectName, String entityName, String urn, long ttlSeconds) {
-    if (cache == null) {
-      return;
-    }
     try {
       Object nativeCache = cache.getNativeCache();
       if (nativeCache instanceof com.github.benmanes.caffeine.cache.Cache) {
@@ -724,9 +743,6 @@ public class LatestTimeseriesAspectVersionCachingService
 
   @SuppressWarnings("unchecked")
   private void evictAspectIndex(String entityName, String aspectName) {
-    if (cache == null) {
-      return;
-    }
     try {
       Object nativeCache = cache.getNativeCache();
       if (nativeCache instanceof com.github.benmanes.caffeine.cache.Cache) {
@@ -824,6 +840,10 @@ public class LatestTimeseriesAspectVersionCachingService
       String entityName,
       String urn,
       long ttlSeconds) {
+    // Same non-atomic-with-TTL caveat as putIfNewerNative: executeOnKey + setTtl are two
+    // separate RPCs. A pod death between them leaves the index entry with the IMap's default
+    // TTL rather than our intended one. Bounded leak — the next URN added to this index
+    // re-applies the TTL.
     String indexKey = buildCacheKey(aspectName, entityName);
     hazelCache.executeOnKey(indexKey, new AddUrnToReverseIndexProcessor(urn));
     hazelCache.setTtl(indexKey, ttlSeconds, TimeUnit.SECONDS);

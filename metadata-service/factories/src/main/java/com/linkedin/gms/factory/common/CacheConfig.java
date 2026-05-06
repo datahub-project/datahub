@@ -13,8 +13,11 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.spi.merge.LatestUpdateMergePolicy;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,6 +36,13 @@ public class CacheConfig {
   @Value("${cache.primary.maxSize:10000}")
   private int cacheMaxSize;
 
+  // Single source of truth for the timeseries cache settings. The typed config object
+  // ({@link TimeseriesAspectServiceConfig}) already binds TIMESERIES_CACHE_MAX_SIZE,
+  // TIMESERIES_CACHE_TTL_HOURS, and friends — read from here rather than re-injecting via
+  // @Value so the cache backend wiring and the rest of the system can never disagree about
+  // the intended values.
+  @Autowired private ConfigurationProvider configurationProvider;
+
   @Value("${searchService.cache.hazelcast.serviceName:hazelcast-service}")
   private String hazelcastServiceName;
 
@@ -45,11 +55,22 @@ public class CacheConfig {
   @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
   private String kubernetesResolveNotReadyAddresses;
 
+  @Value("${searchService.cache.hazelcast.tcpip.enabled:false}")
+  private boolean tcpIpEnabled;
+
+  @Value("${searchService.cache.hazelcast.tcpip.members:}")
+  private String tcpIpMembers;
+
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
   public CacheManager caffeineCacheManager() {
     CaffeineCacheManager cacheManager = new CaffeineCacheManager();
     cacheManager.setCaffeine(caffeineCacheBuilder());
+    // The latest-timeseries cache has its own size budget (TIMESERIES_CACHE_MAX_SIZE); register
+    // it as a custom cache so it doesn't inherit the smaller cache.primary.maxSize default
+    // shared by every other Caffeine-backed cache in this manager.
+    cacheManager.registerCustomCache(
+        "latestTimeseriesAspect", latestTimeseriesCaffeineBuilder().build());
     return cacheManager;
   }
 
@@ -58,6 +79,16 @@ public class CacheConfig {
         .initialCapacity(100)
         .maximumSize(cacheMaxSize)
         .expireAfterWrite(cacheTtlSeconds, TimeUnit.SECONDS)
+        .recordStats();
+  }
+
+  private Caffeine<Object, Object> latestTimeseriesCaffeineBuilder() {
+    TimeseriesAspectServiceConfig.CacheConfig tsCache =
+        configurationProvider.getTimeseriesAspectService().getCache();
+    return Caffeine.newBuilder()
+        .initialCapacity(100)
+        .maximumSize(tsCache.getMaxSize())
+        .expireAfterWrite(tsCache.getTtlHours(), TimeUnit.HOURS)
         .recordStats();
   }
 
@@ -140,11 +171,12 @@ public class CacheConfig {
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public MapConfig latestTimeseriesCacheConfig() {
+    int tsMaxSize = configurationProvider.getTimeseriesAspectService().getCache().getMaxSize();
     MapConfig mapConfig = new MapConfig().setName("latestTimeseriesAspect");
     EvictionConfig evictionConfig =
         new EvictionConfig()
             .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
-            .setSize(cacheMaxSize)
+            .setSize(tsMaxSize)
             .setEvictionPolicy(EvictionPolicy.LFU);
     mapConfig.setEvictionConfig(evictionConfig);
     return mapConfig;
