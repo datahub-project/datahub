@@ -20,7 +20,7 @@ Counters verified:
 """
 
 import datetime as dt
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set
 from unittest.mock import patch
 
 from datahub.emitter import mce_builder as builder
@@ -192,7 +192,6 @@ def _try_emit(
     element: SigmaDataModelElement,
     warehouse_map: Dict[str, _WarehouseTableRef],
     downstream_field: Optional[str] = None,
-    emitted_pairs: Optional[Set[Tuple[str, str]]] = None,
 ) -> Optional[FineGrainedLineageClass]:
     elem_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{element.elementId},PROD)"
     return source._try_emit_warehouse_passthrough_fgl(
@@ -201,7 +200,6 @@ def _try_emit(
         downstream_field=downstream_field
         or builder.make_schema_field_urn(elem_urn, column.name),
         warehouse_url_id_map=warehouse_map,
-        emitted_pairs=emitted_pairs if emitted_pairs is not None else set(),
     )
 
 
@@ -302,8 +300,6 @@ class TestTryEmitResolution:
         assert len(result.upstreams) == 1
         expected_upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
         assert result.upstreams[0] == expected_upstream
-        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
-        assert source.reporter.data_model_element_fgl_warehouse_emitted_total == 1
 
     def test_redshift_preserves_lowercase_column(self):
         """Redshift columnId is already lowercase; no double-lowercasing."""
@@ -316,7 +312,6 @@ class TestTryEmitResolution:
         assert result.upstreams is not None
         expected_upstream = builder.make_schema_field_urn(_RS_DATASET_URN, "age")
         assert result.upstreams[0] == expected_upstream
-        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
 
     def test_convert_urns_to_lowercase_false_preserves_case(self):
         """When convert_urns_to_lowercase=False, both the dataset and column
@@ -362,20 +357,19 @@ class TestTryEmitResolution:
         assert result.downstreamType == FineGrainedLineageDownstreamTypeClass.FIELD
         assert result.upstreamType == FineGrainedLineageUpstreamTypeClass.FIELD_SET
 
-    def test_dedup_via_emitted_pairs(self):
-        """Same (downstream, upstream) pair must not be emitted twice."""
+    def test_resolved_once_per_pair(self):
+        """_try_emit resolves every call independently; dedup and counter
+        bumps are the caller's responsibility."""
         source = _make_source()
-        elem_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,el-1,PROD)"
         col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[CUSTOMERS/Email]")
         elem = _element("el-1", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
-        downstream = builder.make_schema_field_urn(elem_urn, "Email")
-        upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
-        already_emitted: Set[Tuple[str, str]] = {(downstream, upstream)}
 
-        result = _try_emit(
-            source, col, elem, _SF_WAREHOUSE_MAP, downstream, already_emitted
-        )
-        assert result is None
+        result1 = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
+        result2 = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
+
+        assert result1 is not None
+        assert result2 is not None
+        # Counters are bumped by the caller, not by _try_emit.
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
 
     def test_urn_identity_with_entity_level_upstream(self):
@@ -515,6 +509,10 @@ class TestBuildFglWarehouseIntegration:
 
         assert len(fgls) == 1
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+        # Dedup must not inflate _passthrough_deferred.
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+        )
 
     def test_mixed_intra_dm_and_warehouse_refs(self):
         """An element with one intra-DM ref and one warehouse-passthrough ref
