@@ -69,6 +69,8 @@ buildscript {
   ext.micrometerVersion = '1.16.4'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
   ext.nettyVersion = '4.1.132.Final' // align all io.netty modules; CVE-2026-33870
+  // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
+  ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
   ext.bouncyCastleJdk18onVersion = '1.84'
   // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
@@ -190,7 +192,7 @@ project.ext.externalDependency = [
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     // CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (EL in constraint violation messages); Play java-forms pulls 6.1.x otherwise
     'hibernateValidator': 'org.hibernate.validator:hibernate-validator:6.2.5.Final',
-    'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
+    'httpClient': 'org.apache.httpcomponents.client5:httpclient5:' + httpClient5Version,
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     // The jacksonBom controls the version of other jackson modules; pin the version once.
     // implementation enforcedPlatform(externalDependency.jacksonBom)
@@ -711,6 +713,7 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion")
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
+        implementation("org.apache.httpcomponents.client5:httpclient5:${rootProject.ext.httpClient5Version}") // CVE-2026-40542
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
         implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)
