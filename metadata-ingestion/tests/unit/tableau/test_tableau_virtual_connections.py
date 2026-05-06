@@ -859,52 +859,6 @@ class TestVirtualConnectionProcessor:
         assert len(refs) == 1
         assert refs[0]["vc_table_id"] == "vc-table-99"
 
-    def test_column_type_storage(self):
-        """Test that column types are stored correctly during lookup"""
-        self.vc_processor.vc_table_ids_for_lookup = {"vc-table-1"}
-
-        mock_vc_data = [
-            {
-                c.ID: "vc-123",
-                c.NAME: "test_vc",
-                "tables": [
-                    {
-                        c.ID: "vc-table-1",
-                        c.NAME: "test_table",
-                        c.COLUMNS: [
-                            {
-                                c.ID: "col1",
-                                c.NAME: "customer_id",
-                                c.REMOTE_TYPE: "INTEGER",
-                            },
-                            {
-                                c.ID: "col2",
-                                c.NAME: "customer_name",
-                                c.REMOTE_TYPE: "STRING",
-                            },
-                        ],
-                    }
-                ],
-            }
-        ]
-
-        with mock.patch.object(
-            self.vc_processor.tableau_source,
-            "get_connection_objects",
-            return_value=mock_vc_data,
-        ):
-            self.vc_processor.lookup_vc_ids_from_table_ids()
-
-            assert "vc-table-1.customer_id" in self.vc_processor.vc_table_column_types
-            assert (
-                self.vc_processor.vc_table_column_types["vc-table-1.customer_id"]
-                == "INTEGER"
-            )
-            assert (
-                self.vc_processor.vc_table_column_types["vc-table-1.customer_name"]
-                == "STRING"
-            )
-
 
 class TestTableauVCIntegration:
     """Test Virtual Connection integration with TableauSiteSource"""

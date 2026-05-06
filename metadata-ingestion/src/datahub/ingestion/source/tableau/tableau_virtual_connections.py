@@ -15,7 +15,6 @@ from datahub.ingestion.source.tableau.tableau_common import (
     DatasourceType,
     LineageResult,
     is_table_name_field,
-    virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
 )
 from datahub.metadata.schema_classes import (
@@ -65,7 +64,6 @@ class VirtualConnectionProcessor:
         self.vc_table_id_to_name: Dict[str, str] = {}
         self.virtual_connection_ids_being_used: List[str] = []
         self.datasource_vc_relationships: Dict[str, List[Dict[str, Any]]] = {}
-        self.vc_table_column_types: Dict[str, str] = {}
 
     def gen_vc_folder_key(self, vc_id: str) -> VCFolderKey:
         return VCFolderKey(
@@ -120,14 +118,17 @@ class VirtualConnectionProcessor:
                     )
                     continue
 
-                # Always add to lookup set so name can be resolved from VC detail query
-                # even when Tableau's Metadata API returns null for table.name here
                 self.vc_table_ids_for_lookup.add(vc_table_id)
 
                 if not vc_table_name:
-                    logger.debug(
+                    # Tableau's Metadata API sometimes returns null for table.name in field
+                    # upstream paths. Because datasource lineage is emitted before the VC
+                    # lookup pass runs, vc_table_id_to_name is empty at this point and the
+                    # fallback cannot resolve the name. Any reference with a null name here
+                    # will be silently dropped when building lineage.
+                    logger.warning(
                         f"VC table has no 'name' field (id={vc_table_id}) in field '{field_name}'. "
-                        f"Name will be resolved from VC detail data after lookup."
+                        f"Lineage for this reference will be dropped."
                     )
 
                 vc_info = table.get("virtualConnection", {})
@@ -277,15 +278,6 @@ class VirtualConnectionProcessor:
                     if vc_id not in self.virtual_connection_ids_being_used:
                         self.virtual_connection_ids_being_used.append(vc_id)
 
-                    columns = table.get(c.COLUMNS, [])
-                    for column in columns:
-                        col_name = column.get(c.NAME)
-                        col_type = column.get(c.REMOTE_TYPE, c.UNKNOWN)
-                        if col_name:
-                            self.vc_table_column_types[f"{table_id}.{col_name}"] = (
-                                col_type
-                            )
-
         self.report.num_virtual_connections_processed = len(
             self.virtual_connection_ids_being_used
         )
@@ -307,7 +299,7 @@ class VirtualConnectionProcessor:
         vc_filter = {c.ID_WITH_IN: self.virtual_connection_ids_being_used}
 
         for vc in self.tableau_source.get_connection_objects(
-            query=virtual_connection_detailed_graphql_query,
+            query=virtual_connection_graphql_query,
             connection_type=c.VIRTUAL_CONNECTIONS_CONNECTION,
             query_filter=vc_filter,
             page_size=self.config.effective_virtual_connection_page_size,
@@ -393,85 +385,6 @@ class VirtualConnectionProcessor:
                 )
 
         return table_schemas
-
-    def _create_vc_upstream_lineage(
-        self, vc: dict, vc_tables: List[dict], vc_urn: str
-    ) -> LineageResult:
-        """Create upstream lineage for VC tables to their underlying database tables"""
-        upstream_tables = []
-        fine_grained_lineages = []
-
-        logger.debug(f"Processing VC upstream lineage for {len(vc_tables)} tables")
-
-        for vc_table in vc_tables:
-            vc_table_name = vc_table.get(c.NAME)
-            if not vc_table_name:
-                logger.warning("VC table has no name, skipping")
-                continue
-
-            matched_db_table = self.tableau_source._find_matching_database_table(
-                vc_table_name
-            )
-            if not matched_db_table:
-                logger.warning(
-                    f"No matching database table found for VC table: {vc_table_name}"
-                )
-                continue
-
-            db_table_urn = self.tableau_source._create_database_table_urn(
-                matched_db_table
-            )
-            if not db_table_urn:
-                logger.warning(
-                    f"Failed to create URN for matched database table: {matched_db_table.get('name', 'Unknown')}"
-                )
-                continue
-
-            upstream_tables.append(
-                UpstreamClass(
-                    dataset=db_table_urn, type=DatasetLineageTypeClass.TRANSFORMED
-                )
-            )
-
-            if self.config.extract_column_level_lineage:
-                vc_columns = vc_table.get(c.COLUMNS, [])
-                db_columns = matched_db_table.get(c.COLUMNS, [])
-
-                if vc_columns and db_columns:
-                    db_column_map = self._build_column_name_map(db_columns)
-
-                    for vc_column in vc_columns:
-                        vc_col_name = vc_column.get(c.NAME)
-                        if not vc_col_name or vc_col_name.lower() not in db_column_map:
-                            continue
-
-                        db_col_name = db_column_map[vc_col_name.lower()]
-                        final_db_col_name = db_col_name
-                        if (
-                            self.tableau_source.is_snowflake_urn(db_table_urn)
-                            and not self.config.ingest_tables_external
-                        ):
-                            # Snowflake normalizes field names - match that behavior for lineage
-                            final_db_col_name = db_col_name.lower().replace(" ", "_")
-
-                        fine_grained_lineages.append(
-                            FineGrainedLineageClass(
-                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                downstreams=[
-                                    builder.make_schema_field_urn(vc_urn, vc_col_name)
-                                ],
-                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                upstreams=[
-                                    builder.make_schema_field_urn(
-                                        db_table_urn, final_db_col_name
-                                    )
-                                ],
-                            )
-                        )
-
-        return LineageResult(
-            upstream_tables=upstream_tables, fine_grained_lineages=fine_grained_lineages
-        )
 
     def create_datasource_vc_lineage(self, datasource_urn: str) -> LineageResult:
         """Create datasource to Virtual Connection column-level lineage.

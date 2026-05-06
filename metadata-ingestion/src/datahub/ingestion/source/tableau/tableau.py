@@ -2030,8 +2030,9 @@ class TableauSiteSource:
         for vc_ref in vc_refs:
             vc_table_id = vc_ref.get("vc_table_id")
             vc_id = vc_ref.get("vc_id")
-            # Tableau's Metadata API sometimes returns null for table.name in field upstreams;
-            # fall back to the name resolved from the VC detail query.
+            # vc_table_id_to_name is populated by lookup_vc_ids_from_table_ids(), which runs
+            # after all datasources are emitted. This fallback is always empty at this call
+            # site; references with a null table name will be skipped by the guard below.
             vc_table_name = vc_ref.get(
                 "vc_table_name"
             ) or self.vc_processor.vc_table_id_to_name.get(vc_table_id or "", "")
