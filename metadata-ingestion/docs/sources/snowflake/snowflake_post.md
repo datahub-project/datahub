@@ -192,10 +192,6 @@ stage_pattern:
 
 Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.
 
-Task SQL bodies are also parsed with sqlglot to extract dataset-level and column-level lineage. Single-statement `INSERT`, `MERGE`, and `CREATE TABLE AS SELECT` bodies produce `inputDatasets`, `outputDatasets`, and fine-grained (column-to-column) lineage on the DataJobInputOutput aspect. Multi-statement bodies and `CALL <procedure>` statements are skipped for lineage with a warning logged to the ingestion report.
-
-Cross-schema predecessors (fully-qualified names not found in the current schema's task list) are captured in the report as a warning; task-DAG lineage for those edges will be incomplete.
-
 ```yaml
 include_tasks: true
 task_pattern:
