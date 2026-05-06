@@ -49,9 +49,9 @@ class ParsedCopyInto:
     """Target table and source stages extracted from a COPY INTO statement.
 
     All names are uppercase fully-qualified (``DB.SCHEMA.NAME``). ``stage_fqns``
-    preserves the order stages appear in the SQL and is de-duplicated. It is
-    typically length 1, but can be longer when the COPY uses a subquery that
-    UNIONs multiple stages.
+    is de-duplicated and typically length 1. For subqueries that UNION multiple
+    stages, all referenced stages are collected; order follows sqlglot's AST
+    traversal and may not match SQL source order for 3+ branches.
     """
 
     target_fqn: str
