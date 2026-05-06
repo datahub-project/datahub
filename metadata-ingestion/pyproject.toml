@@ -457,6 +457,10 @@ delta-lake = [
     "wcmatch<11.0.0",
 ]
 
+dlt = [
+    "dlt>=1.0.0,<2.0.0",
+]
+
 doris = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -730,6 +734,11 @@ iceberg-catalog = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "urllib3>=1.26,<3.0",
+]
+
+informatica = [
+    "defusedxml>=0.7.1,<0.8.0",
+    "requests<3.0.0",
 ]
 
 json-schema = [
@@ -1463,8 +1472,10 @@ all = [
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "db-dtypes",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
+    "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
     "elasticsearch==7.13.4",
     "fastavro>=1.2.0,<2.0.0",
@@ -1613,6 +1624,7 @@ dev = [
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
+    "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
     "elasticsearch==7.13.4",
@@ -1806,6 +1818,7 @@ docs = [
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
+    "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
     "elasticsearch==7.13.4",
@@ -2145,6 +2158,7 @@ nifi = "datahub.ingestion.source.nifi:NifiSource"
 powerbi = "datahub.ingestion.source.powerbi.powerbi:PowerBiDashboardSource"
 powerbi-report-server = "datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource"
 iceberg = "datahub.ingestion.source.iceberg.iceberg:IcebergSource"
+informatica = "datahub.ingestion.source.informatica.source:InformaticaSource"
 vertica = "datahub.ingestion.source.sql.vertica:VerticaSource"
 presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
@@ -2155,6 +2169,7 @@ unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
+dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
 fivetran = "datahub.ingestion.source.fivetran.fivetran:FivetranSource"
 snaplogic = "datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource"
 qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
