@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import sqlglot
 import sqlglot.expressions as sqlglot_exp
@@ -27,6 +27,7 @@ from datahub.ingestion.source.snowflake.snowflake_stages import (
     StageLookupEntry,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    MAX_DEFINITION_LENGTH,
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.schema_classes import (
@@ -42,23 +43,20 @@ from datahub.metadata.schema_classes import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Truncate the COPY INTO definition stored in customProperties to stay well
-# within DataHub's aspect size limits.
-_MAX_DEFINITION_LENGTH = 4000
 
-
-@dataclass
+@dataclass(frozen=True)
 class ParsedCopyInto:
     """Target table and source stages extracted from a COPY INTO statement.
 
     All names are uppercase fully-qualified (``DB.SCHEMA.NAME``). ``stage_fqns``
     preserves the order stages appear in the SQL and is de-duplicated. It is
     typically length 1, but can be longer when the COPY uses a subquery that
-    UNIONs multiple stages.
+    UNIONs multiple stages. ``Tuple`` keeps the dataclass genuinely immutable —
+    ``frozen=True`` only blocks attribute reassignment, not list mutation.
     """
 
     target_fqn: str
-    stage_fqns: List[str]
+    stage_fqns: Tuple[str, ...]
 
 
 def _stage_reference_to_fqn(
@@ -91,19 +89,19 @@ def _extract_stage_references(expr: sqlglot_exp.Expression) -> List[str]:
     that ``UNION ALL`` over multiple stages. Duplicates are removed while
     preserving the first-seen order.
     """
-    seen: Dict[str, None] = {}
-    for node in expr.walk():
-        if (
-            isinstance(node, sqlglot_exp.Table)
-            and isinstance(node.this, sqlglot_exp.Var)
-            and node.this.name.startswith("@")
-        ):
-            seen.setdefault(node.this.name, None)
-    return list(seen)
+    names = (
+        node.this.name
+        for node in expr.find_all(sqlglot_exp.Table)
+        if isinstance(node.this, sqlglot_exp.Var) and node.this.name.startswith("@")
+    )
+    return list(dict.fromkeys(names))
 
 
 def parse_copy_into(
-    definition: str, default_db: str, default_schema: str
+    definition: str,
+    default_db: str,
+    default_schema: str,
+    unresolved_refs: Optional[List[str]] = None,
 ) -> Optional[ParsedCopyInto]:
     """Parse a COPY INTO statement to extract target table and stage references.
 
@@ -111,15 +109,25 @@ def parse_copy_into(
     qualified names, and trailing path / FILE_FORMAT options are all handled
     by the parser itself.
 
-    Returns `None` if the statement is not a COPY INTO or no usable stage
+    Returns ``None`` if the statement is not a COPY INTO or no usable stage
     reference can be resolved.
+
+    ``unresolved_refs`` is an optional output collector. When provided, raw
+    stage references that the parser saw but could not normalize to a 3-part
+    FQN (e.g. >3 dotted parts, malformed names) are appended to it. This lets
+    the caller distinguish "stage refs were present but unparseable" from
+    "the COPY INTO had no stage refs at all".
     """
     if not definition:
         return None
 
     try:
         tree = sqlglot.parse_one(definition, dialect="snowflake")
-    except sqlglot.errors.ParseError:
+    except sqlglot.errors.ParseError as e:
+        # Preserve the parser error in debug logs; the caller emits a
+        # user-facing warning but doesn't have visibility into the parser
+        # internals. Re-running with -d/--debug surfaces the message.
+        logger.debug("sqlglot failed to parse COPY INTO: %s", e)
         return None
 
     if not isinstance(tree, sqlglot_exp.Copy):
@@ -142,12 +150,26 @@ def parse_copy_into(
     stage_fqns: List[str] = []
     for raw in _extract_stage_references(files[0]):
         fqn = _stage_reference_to_fqn(raw, default_db, default_schema)
-        if fqn and fqn not in stage_fqns:
+        if fqn is None:
+            if unresolved_refs is not None:
+                unresolved_refs.append(raw)
+            continue
+        if fqn not in stage_fqns:
             stage_fqns.append(fqn)
     if not stage_fqns:
         return None
 
-    return ParsedCopyInto(target_fqn=target_fqn, stage_fqns=stage_fqns)
+    return ParsedCopyInto(target_fqn=target_fqn, stage_fqns=tuple(stage_fqns))
+
+
+def _looks_like_copy_into(definition: str) -> bool:
+    """Heuristic: does the pipe body start with the COPY keyword?
+
+    Used at the call site to distinguish "this body is not a COPY INTO at all"
+    (legal but unusual; warning would be noisy) from "this is a COPY INTO and
+    we failed to extract lineage" (worth a warning).
+    """
+    return definition.lstrip().upper().startswith("COPY")
 
 
 @dataclass
@@ -239,21 +261,58 @@ class SnowflakePipesExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         job_id = self.identifiers.snowflake_identifier(pipe.name)
         job_urn = make_data_job_urn_with_flow(flow_urn, job_id)
+        pipe_fqn = f"{db_name}.{schema_name}.{pipe.name}"
 
-        parsed = parse_copy_into(pipe.definition, db_name, schema_name)
-        if parsed is None and pipe.definition:
+        unparsed_stage_refs: List[str] = []
+        parsed = parse_copy_into(
+            pipe.definition,
+            db_name,
+            schema_name,
+            unresolved_refs=unparsed_stage_refs,
+        )
+        if unparsed_stage_refs:
+            # Parse succeeded but some @-references couldn't be normalized to
+            # a 3-part FQN (e.g. malformed name, >3 dotted parts).
             self.report.warning(
-                "Failed to parse COPY INTO statement for pipe lineage",
-                f"{db_name}.{schema_name}.{pipe.name}",
+                "Pipe COPY INTO stage reference could not be normalized; "
+                "lineage may be incomplete",
+                f"{pipe_fqn} -> {', '.join(unparsed_stage_refs)}",
             )
+        elif parsed is None and pipe.definition:
+            if _looks_like_copy_into(pipe.definition):
+                self.report.warning(
+                    "Failed to parse COPY INTO statement for pipe lineage",
+                    pipe_fqn,
+                )
+            else:
+                # Pipe body is something other than COPY INTO (legal but
+                # unusual). Lineage extraction is not supported for those
+                # forms; skip silently to avoid noise on every such pipe.
+                logger.debug(
+                    "Pipe %s definition is not a COPY INTO; skipping lineage extraction",
+                    pipe_fqn,
+                )
         target_fqn = parsed.target_fqn if parsed else None
-        stage_fqns: List[str] = parsed.stage_fqns if parsed else []
+        stage_fqns: Tuple[str, ...] = parsed.stage_fqns if parsed else ()
 
         stage_entries: List[StageLookupEntry] = []
+        unresolved_stages: List[str] = []
         for stage_fqn in stage_fqns:
             entry = self.stages_extractor.get_stage_lookup_entry(stage_fqn)
-            if entry is not None:
+            if entry is None:
+                unresolved_stages.append(stage_fqn)
+            else:
                 stage_entries.append(entry)
+
+        if unresolved_stages:
+            # Stage was referenced by the COPY INTO but not in the lookup
+            # (filtered by `stage_pattern`, dropped, or not scanned). Surface this
+            # so users can see why a pipe's input lineage may be incomplete.
+            self.report.warning(
+                "Stage referenced by pipe COPY INTO could not be resolved; "
+                "pipe input lineage may be incomplete",
+                f"{pipe_fqn} -> {', '.join(unresolved_stages)}",
+            )
 
         custom_properties: Dict[str, str] = {}
         if pipe.auto_ingest:
@@ -261,7 +320,7 @@ class SnowflakePipesExtractor:
         if pipe.notification_channel:
             custom_properties["notification_channel"] = pipe.notification_channel
         if pipe.definition:
-            custom_properties["definition"] = pipe.definition[:_MAX_DEFINITION_LENGTH]
+            custom_properties["definition"] = pipe.definition[:MAX_DEFINITION_LENGTH]
         if stage_fqns:
             custom_properties["stage_name"] = ", ".join(stage_fqns)
         if stage_entries:
@@ -302,9 +361,25 @@ class SnowflakePipesExtractor:
             target_urn = self.identifiers.gen_dataset_urn(target_dataset_identifier)
             output_datasets.append(target_urn)
 
+        stages_without_urn: List[str] = []
         for entry in stage_entries:
-            if entry.dataset_urn and entry.dataset_urn not in input_datasets:
+            if entry.dataset_urn is None:
+                stages_without_urn.append(
+                    f"{entry.stage.database_name}."
+                    f"{entry.stage.schema_name}."
+                    f"{entry.stage.name}"
+                )
+            elif entry.dataset_urn not in input_datasets:
                 input_datasets.append(entry.dataset_urn)
+
+        if stages_without_urn:
+            # Stage was found, but its underlying dataset URN couldn't be resolved
+            # (e.g. unsupported external storage scheme in `_resolve_external_stage_url`).
+            self.report.warning(
+                "Stage referenced by pipe has no resolvable dataset URN; "
+                "pipe input lineage will not include it",
+                f"{pipe_fqn} -> {', '.join(stages_without_urn)}",
+            )
 
         if input_datasets or output_datasets:
             yield MetadataChangeProposalWrapper(

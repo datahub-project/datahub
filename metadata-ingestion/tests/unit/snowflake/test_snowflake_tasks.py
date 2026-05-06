@@ -17,10 +17,12 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     OwnershipClass,
     SubTypesClass,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverInterface
 
 
 def _make_config() -> SnowflakeV2Config:
@@ -56,16 +58,12 @@ def _make_task(
     )
 
 
-def _make_aggregator(config: SnowflakeV2Config) -> SqlParsingAggregator:
-    return SqlParsingAggregator(
+def _make_schema_resolver(config: SnowflakeV2Config) -> SchemaResolverInterface:
+    return SchemaResolver(
         platform="snowflake",
         platform_instance=config.platform_instance,
         env=config.env,
         graph=None,
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        generate_queries=False,
     )
 
 
@@ -96,7 +94,7 @@ def _collect_workunits(
         report=report,
         data_dictionary=data_dict,
         identifiers=identifiers,
-        aggregator=_make_aggregator(config),
+        schema_resolver=_make_schema_resolver(config),
     )
     wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
     return wus, report
@@ -182,9 +180,12 @@ class TestSnowflakeTasksExtractor:
         assert len(input_outputs[0].inputDatajobs) == 1
         assert "task_a" in input_outputs[0].inputDatajobs[0]
 
-    def test_predecessor_not_in_schema_ignored(self) -> None:
-        """Predecessor referencing a task not in the current schema is silently skipped."""
-        task = _make_task(name="task_b", predecessors=["nonexistent_task"])
+    def test_predecessor_not_in_schema_emits_warning(self) -> None:
+        """Predecessor referencing a task not in the current schema is skipped
+        with a warning so users can see why input lineage is incomplete."""
+        task = _make_task(
+            name="task_b", predecessors=["other_db.other_schema.upstream_task"]
+        )
         wus, report = _collect_workunits([task])
 
         assert report.tasks_scanned == 1
@@ -196,6 +197,14 @@ class TestSnowflakeTasksExtractor:
             and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
         ]
         assert len(input_outputs) == 0
+
+        messages = [w.message for w in report.warnings]
+        assert any("Predecessor" in m for m in messages), (
+            f"Expected a predecessor warning; got: {messages}"
+        )
+        contexts = [str(w.context) for w in report.warnings]
+        assert any("upstream_task" in c for c in contexts)
+        assert any("test_db.public.task_b" in c.lower() for c in contexts)
 
     def test_ownership_emitted(self) -> None:
         task = _make_task()
@@ -238,7 +247,7 @@ class TestSnowflakeTasksExtractor:
             report=report,
             data_dictionary=data_dict,
             identifiers=identifiers,
-            aggregator=_make_aggregator(config),
+            schema_resolver=_make_schema_resolver(config),
         )
         wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
 
@@ -306,6 +315,35 @@ class TestSnowflakeTasksExtractor:
         assert io.inputDatasets and "in_tbl" in io.inputDatasets[0]
         assert io.outputDatasets and "out_tbl" in io.outputDatasets[0]
 
+    def test_task_emits_column_level_fine_grained_lineages(self) -> None:
+        """Each output column maps to its upstream column via FineGrainedLineage."""
+        task = _make_task(
+            name="cll_task",
+            definition=(
+                "INSERT INTO target_tbl(col_a, col_b) "
+                "SELECT col_a, col_b FROM source_tbl"
+            ),
+        )
+        wus, _ = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        fgs = ios[0].fineGrainedLineages
+        assert fgs is not None and len(fgs) == 2
+
+        downstream_columns = set()
+        for fg in fgs:
+            assert fg.downstreamType == FineGrainedLineageDownstreamTypeClass.FIELD
+            assert fg.upstreamType == FineGrainedLineageUpstreamTypeClass.FIELD_SET
+            downstreams = fg.downstreams or []
+            upstreams = fg.upstreams or []
+            assert len(downstreams) == 1
+            assert "target_tbl" in downstreams[0]
+            assert upstreams and all("source_tbl" in u for u in upstreams)
+            downstream_columns.add(downstreams[0].rsplit(",", 1)[-1].rstrip(")"))
+
+        assert downstream_columns == {"col_a", "col_b"}
+
     def test_task_lineage_combined_with_predecessor(self) -> None:
         """A task with both predecessors and a parseable SQL body should emit
         all three of inputDatajobs / inputDatasets / outputDatasets."""
@@ -339,7 +377,14 @@ class TestSnowflakeTasksExtractor:
         ios = _data_job_input_outputs(wus)
         # No predecessors, no parsed datasets → no DataJobInputOutput.
         assert len(ios) == 0
-        assert report.warnings.total_elements > 0
+        messages = [w.message for w in report.warnings]
+        assert any("task definition" in m.lower() for m in messages), (
+            f"Expected a task-definition warning; got: {messages}"
+        )
+        # The proc_task FQN should appear in the warning context, so users can
+        # identify which task triggered it.
+        contexts = [str(w.context) for w in report.warnings]
+        assert any("proc_task" in c for c in contexts)
 
     def test_empty_definition_emits_no_dataset_lineage(self) -> None:
         task = _make_task(name="empty_task", definition="")
