@@ -45,12 +45,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class TaskLineage:
-    """Dataset-level inputs/outputs and column lineage parsed from a task body.
-
-    Tuple fields keep the dataclass genuinely immutable — ``frozen=True`` only
-    blocks attribute reassignment, not list mutation, so a ``List[...]`` field
-    would still let callers ``append`` past the contract.
-    """
+    """Dataset-level inputs/outputs and column lineage parsed from a task body."""
 
     input_datasets: Tuple[str, ...]
     output_datasets: Tuple[str, ...]
@@ -212,11 +207,9 @@ class SnowflakeTasksExtractor:
                 unresolved_predecessors.append(predecessor_name)
 
         if unresolved_predecessors:
-            # Predecessor lives in a different schema/database (Snowflake allows
-            # cross-schema task DAGs via fully-qualified names) or has been
-            # filtered out and dropped from the data dictionary entirely.
-            # Surface this so users can see why the task's input lineage is
-            # incomplete.
+            # Snowflake allows cross-schema task DAGs via fully-qualified
+            # predecessor names; those land here when we can't find the
+            # predecessor in the current schema's task list.
             self.report.warning(
                 "Predecessor task not in current schema; input lineage incomplete",
                 f"{task_fqn} -> {', '.join(unresolved_predecessors)}",
@@ -347,9 +340,8 @@ class SnowflakeTasksExtractor:
                 )
             )
 
-        # If sqlglot produced column-lineage entries but every one was missing
-        # a downstream table/column, the user would otherwise see table
-        # lineage with no fine-grained lineage and no clue why.
+        # When every entry was dropped, table lineage works but column lineage
+        # is silently empty unless we surface this.
         total = len(parsed.column_lineage)
         if dropped and not fine_grained:
             self.report.warning(
