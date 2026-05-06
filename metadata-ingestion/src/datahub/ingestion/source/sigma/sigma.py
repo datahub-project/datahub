@@ -1535,7 +1535,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ("CUSTOMER_ID" / "customer_id").
 
         Returns a FineGrainedLineageClass on success, None on any failure.
-        Bumps the appropriate T4.B2 counter before returning None.
+        Bumps a failure counter before returning None on resolution failure;
+        returns None silently on dedup (emitted_pairs hit).
         """
         # Parse columnId → url_id + warehouse column name.
         col_id = column.columnId or ""
@@ -1558,14 +1559,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
         wh_ref = warehouse_url_id_map.get(url_id)
         if wh_ref is None:
-            # /files lookup failed for this inode — T4.B already bumped
-            # dm_element_warehouse_table_lookup_failed.
+            # /files lookup failed for this inode; dm_element_warehouse_table_lookup_failed
+            # is already bumped by _build_dm_warehouse_url_id_map.
             self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
             return None
 
-        # Resolve the parent Dataset URN via T4.B's helper.  This is the ONLY
-        # allowed path for URN construction — avoids casing or platform-instance
-        # drift that would produce orphan schemaFields.
+        # Resolve the parent Dataset URN.  This is the only allowed path for
+        # URN construction — env, platform_instance, and casing all live here,
+        # so bypassing it risks orphan schemaFields on casing or instance drift.
         parent_urn = self._resolve_dm_element_warehouse_upstream(
             url_id_suffix=url_id,
             warehouse_map=warehouse_url_id_map,
@@ -1576,11 +1577,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         # Normalize column casing to match the platform convention used by the
-        # warehouse connector when emitting its own schemaField URNs.
+        # warehouse connector.  _resolve_dm_element_warehouse_upstream already
+        # resolved the registry record and override, so these lookups are cheap
+        # dict hits on the same objects.
         record = self.connection_registry.get(wh_ref.connection_id)
-        if record is None:
-            self.reporter.data_model_element_fgl_warehouse_unmappable_connection += 1
-            return None
+        assert record is not None  # guaranteed by parent_urn being non-None above
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
         normalized_col = _normalize_warehouse_identifier(
@@ -1620,9 +1621,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Self-references are stripped before resolution: when a DM element is named
         after its warehouse source (e.g., element "data.csv" with formula
         "[data.csv/col]"), the formula ref matches the element's own name and must
-        be filtered out to avoid self-referential FGL.  T4.B2 resolves these via
-        _try_emit_warehouse_passthrough_fgl; unresolved remainder is counted under
-        fgl_warehouse_passthrough_deferred.
+        be filtered out to avoid self-referential FGL.  Warehouse-passthrough
+        refs are resolved via _try_emit_warehouse_passthrough_fgl; unresolved
+        remainder is counted under fgl_warehouse_passthrough_deferred.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
         the lexicographically-first URN is chosen (matching the collision policy
@@ -1670,7 +1671,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
                         # All candidates were self-references; actual upstream is a
-                        # warehouse table.  T4.B2: attempt warehouse FGL resolution.
+                        # warehouse table — attempt FGL resolution via columnId.
                         warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
                             column=column,
                             element=element,
