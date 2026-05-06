@@ -487,7 +487,7 @@ class TestFglRewrite:
             ),
         )
         result = source._rewrite_fgl_downstreams(mcp)
-        aspect = result.aspect
+        aspect = cast(UpstreamLineage, result.aspect)
         fgls = aspect.fineGrainedLineages or []
         assert len(fgls) == 1
         # Original URN passed through unchanged.
@@ -562,10 +562,15 @@ class TestFglRewrite:
         cache_key = ("snowflake", "PROD", None)
         bad_aggregator = source._sql_aggregators[cache_key]
         close_mock = MagicMock(wraps=bad_aggregator.close)
-        bad_aggregator.close = close_mock
-        bad_aggregator.gen_metadata = MagicMock(side_effect=RuntimeError("boom"))
-
-        list(source._drain_sql_aggregators())
+        with (
+            patch.object(bad_aggregator, "close", close_mock),
+            patch.object(
+                bad_aggregator,
+                "gen_metadata",
+                MagicMock(side_effect=RuntimeError("boom")),
+            ),
+        ):
+            list(source._drain_sql_aggregators())
 
         # drain warning must be reported, close must still be called.
         assert any(
