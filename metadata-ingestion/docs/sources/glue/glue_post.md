@@ -113,8 +113,7 @@ When this is configured, dataset URNs produced by the Glue connector will includ
 #### Column Parameters as Structured Properties
 
 When `extract_column_parameters` is enabled, column-level `Parameters` from the Glue catalog are
-ingested as [structured properties](https://docs.datahub.com/docs/features/feature-guides/properties)
-on each `schemaField` entity. This surfaces Glue metadata such as Iceberg field IDs directly in the
+ingested as structured properties on each `schemaField` entity. This surfaces Glue metadata such as Iceberg field IDs directly in the
 DataHub Properties tab.
 
 ```yaml
