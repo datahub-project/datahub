@@ -29,6 +29,9 @@ def get_dialect_str(platform: str) -> str:
         return "hive"
     elif platform_lower == "mssql":
         return "tsql"
+    elif platform_lower == "fabric-onelake":
+        # Fabric SQL Analytics Endpoint speaks T-SQL.
+        return "tsql"
     elif platform_lower == "athena":
         return "trino"
     elif platform_lower == "salesforce":
@@ -63,6 +66,8 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # For SQL server, the default collation rules mean that all identifiers (schema, table, column names)
     # are case preserving but case insensitive.
     "mssql",
+    # Fabric SQL Analytics Endpoint inherits SQL Server's case-insensitive collation.
+    "fabric-onelake",
     # Oracle automatically converts unquoted identifiers to uppercase.
     # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Database-Object-Names-and-Qualifiers.html#GUID-3C59E44A-5140-4BCA-B9E1-3039C8050C49
     # In our Oracle connector, we then normalize column names to lowercase. This behavior
