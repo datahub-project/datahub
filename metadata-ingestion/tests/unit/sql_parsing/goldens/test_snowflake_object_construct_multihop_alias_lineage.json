@@ -1,0 +1,42 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "4adf89889b8f7268a5380bf907fc073d2bd9af176e18136d24d62e868573c2ae",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "output_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "original_col"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(GET_PATH(\"AGG_CTE\".\"OBJ\"[0], 'RENAMED_COL') AS VARCHAR) AS \"OUTPUT_COL\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH base_cte AS (SELECT original_col AS renamed_col, id FROM mydb.myschema.src_table), pass_cte AS (SELECT * FROM base_cte), agg_cte AS (SELECT ARRAY_AGG(CASE WHEN id > ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM pass_cte) SELECT CAST(GET_PATH(agg_cte.obj[?], 'RENAMED_COL') AS VARCHAR) AS output_col FROM agg_cte"
+    }
+}

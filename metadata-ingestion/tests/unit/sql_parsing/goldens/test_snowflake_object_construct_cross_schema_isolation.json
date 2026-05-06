@@ -1,0 +1,42 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "30de73ef9615991d49086d4a2087986741b728a27ce5c9d365ac3243a7ace50e",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "output_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "shared_col"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)",
+                    "column": "type_col"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(GET_PATH(\"CTE_AGG\".\"OBJ\"[0], 'SHARED_COL') AS VARCHAR) AS \"OUTPUT_COL\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH cte_src AS (SELECT shared_col, type_col FROM mydb.myschema.src_table), cte_agg AS (SELECT ARRAY_AGG(CASE WHEN type_col = ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM cte_src) SELECT CAST(GET_PATH(cte_agg.obj[?], 'SHARED_COL') AS VARCHAR) AS output_col FROM cte_agg"
+    }
+}

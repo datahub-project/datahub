@@ -1440,8 +1440,8 @@ def _get_star_map_col_upstreams(
       2. Collects the real (non-CTE) Table leaf nodes already in the lineage subtree —
          these already represent fully-traced source tables.
       3. For each (key, table) pair, checks whether table_name_schema_mapping has a
-         matching column. If the key is a CTE alias (e.g. cost_structure aliasing
-         cost_structure_type), object_construct_col_aliases provides the original name.
+         matching column. If the key is a CTE alias (e.g. alias_col aliasing
+         real_col), object_construct_col_aliases provides the original name.
     """
     if parent_node.expression is None:
         return set()
@@ -1489,6 +1489,27 @@ def _get_star_map_col_upstreams(
     return upstreams
 
 
+def _build_parents(
+    root: sqlglot.lineage.Node,
+    parents: Dict[int, sqlglot.lineage.Node],
+) -> None:
+    """Populate a child-id → parent map by iteratively traversing the lineage tree."""
+    stack: List[Tuple[sqlglot.lineage.Node, Optional[sqlglot.lineage.Node]]] = [
+        (root, None)
+    ]
+    visited: Set[int] = set()
+    while stack:
+        cooperate()
+        node, parent = stack.pop()
+        if id(node) in visited:
+            continue
+        visited.add(id(node))
+        if parent is not None:
+            parents[id(node)] = parent
+        for child in node.downstream:
+            stack.append((child, node))
+
+
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
     dialect: Optional[sqlglot.Dialect] = None,
@@ -1510,23 +1531,7 @@ def _get_direct_raw_col_upstreams(
         and dialect is not None
         and is_dialect_instance(dialect, "snowflake")
     ):
-
-        def _build_parents(root: sqlglot.lineage.Node) -> None:
-            stack: List[Tuple[sqlglot.lineage.Node, Optional[sqlglot.lineage.Node]]] = [
-                (root, None)
-            ]
-            visited: Set[int] = set()
-            while stack:
-                node, parent = stack.pop()
-                if id(node) in visited:
-                    continue
-                visited.add(id(node))
-                if parent is not None:
-                    parents[id(node)] = parent
-                for child in node.downstream:
-                    stack.append((child, node))
-
-        _build_parents(lineage_node)
+        _build_parents(lineage_node, parents)
 
     for node in lineage_node.walk():
         cooperate()

@@ -1,0 +1,33 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "ceb55b77903b3c4cd8bb27ad9829c0c765bb9280bbdd74b1946229cbff077f9c",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "raw_obj",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
+                    }
+                },
+                "native_column_type": "ARRAY"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"AGG\".\"OBJ\" AS \"RAW_OBJ\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH src AS (SELECT col_a, col_b FROM mydb.myschema.base_table), agg AS (SELECT ARRAY_AGG(OBJECT_CONSTRUCT(*)) AS obj FROM src) SELECT agg.obj AS raw_obj FROM agg"
+    }
+}

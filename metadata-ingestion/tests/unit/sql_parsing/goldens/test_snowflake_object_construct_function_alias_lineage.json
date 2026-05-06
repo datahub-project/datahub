@@ -1,7 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "6f2cd466b65c5fc8beee55ca74e2bdfcef63f755755257905396551551e8f596",
+    "query_fingerprint": "3fd57022eeee86c56788f58e76b06c4faa7a419ab077be4b6c311e140b8f1c78",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)"
@@ -37,28 +37,19 @@
     ],
     "joins": [
         {
-            "join_type": "LEFT JOIN",
+            "join_type": "CROSS JOIN",
             "left_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)"
             ],
             "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)"
             ],
-            "on_clause": "\"AGG\".\"FILTER_COL\" = \"T\".\"ID\"",
-            "columns_involved": [
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
-                    "column": "FILTER_COL"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)",
-                    "column": "ID"
-                }
-            ]
+            "on_clause": null,
+            "columns_involved": []
         }
     ],
     "debug_info": {
         "confidence": 0.9,
-        "generalized_statement": "WITH src AS (SELECT TO_DATE(raw_col) AS date_col, filter_col FROM mydb.myschema.base_table), agg AS (SELECT ARRAY_AGG(CASE WHEN filter_col = ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM src) SELECT CAST(GET_PATH(agg.obj[?], 'DATE_COL') AS VARCHAR) AS output_col FROM mydb.myschema.other_table AS t LEFT JOIN agg ON agg.filter_col = t.id"
+        "generalized_statement": "WITH src AS (SELECT TO_DATE(raw_col) AS date_col, filter_col FROM mydb.myschema.base_table), agg AS (SELECT ARRAY_AGG(CASE WHEN filter_col = ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM src) SELECT CAST(GET_PATH(agg.obj[?], 'DATE_COL') AS VARCHAR) AS output_col FROM mydb.myschema.other_table AS t CROSS JOIN agg"
     }
 }

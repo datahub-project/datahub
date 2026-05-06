@@ -1,7 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "728af46c4030718613a78ab3c573869b7b32b8d4507ef31be595b9342c38508d",
+    "query_fingerprint": "3c39567a0bbbce27889fc47478a5053aa2f0b009f98ffcd7e6fa9e39ddbe24f1",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)"
@@ -37,28 +37,19 @@
     ],
     "joins": [
         {
-            "join_type": "LEFT JOIN",
+            "join_type": "CROSS JOIN",
             "left_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)"
             ],
             "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)"
             ],
-            "on_clause": "\"AGG\".\"FILTER_COL\" = \"T\".\"ID\"",
-            "columns_involved": [
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
-                    "column": "FILTER_COL"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.other_table,PROD)",
-                    "column": "ID"
-                }
-            ]
+            "on_clause": null,
+            "columns_involved": []
         }
     ],
     "debug_info": {
         "confidence": 0.9,
-        "generalized_statement": "WITH src AS (SELECT real_col AS alias_col, filter_col FROM mydb.myschema.base_table), agg AS (SELECT ARRAY_AGG(CASE WHEN filter_col = ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM src) SELECT CAST(GET_PATH(agg.obj[?], 'ALIAS_COL') AS VARCHAR) AS output_col FROM mydb.myschema.other_table AS t LEFT JOIN agg ON agg.filter_col = t.id"
+        "generalized_statement": "WITH src AS (SELECT real_col AS alias_col, filter_col FROM mydb.myschema.base_table), agg AS (SELECT ARRAY_AGG(CASE WHEN filter_col = ? THEN OBJECT_CONSTRUCT(*) END) AS obj FROM src) SELECT CAST(GET_PATH(agg.obj[?], 'ALIAS_COL') AS VARCHAR) AS output_col FROM mydb.myschema.other_table AS t CROSS JOIN agg"
     }
 }

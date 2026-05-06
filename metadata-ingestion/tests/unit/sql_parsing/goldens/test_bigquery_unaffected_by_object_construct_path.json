@@ -1,0 +1,60 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "07a1280a688fa3f0ff6e97149fec15fc041a39d6ac8f659272b33557b5c2abfb",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.src_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "col_a",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "STRING"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.src_table,PROD)",
+                    "column": "col_a"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`t`.`col_a` AS `col_a`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "col_b",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "STRING"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.src_table,PROD)",
+                    "column": "col_b"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`t`.`col_b` AS `col_b`"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT t.col_a, t.col_b FROM `myproject.mydataset.src_table` AS t"
+    }
+}

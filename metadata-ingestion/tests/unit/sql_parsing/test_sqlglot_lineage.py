@@ -2041,7 +2041,7 @@ agg as (
 )
 select agg.obj[0]:ALIAS_COL::VARCHAR as output_col
 from mydb.myschema.other_table t
-left join agg on agg.filter_col = t.id
+cross join agg
 """,
         dialect="snowflake",
         default_db="mydb",
@@ -2083,7 +2083,7 @@ agg as (
 )
 select agg.obj[0]:DATE_COL::VARCHAR as output_col
 from mydb.myschema.other_table t
-left join agg on agg.filter_col = t.id
+cross join agg
 """,
         dialect="snowflake",
         default_db="mydb",
@@ -2170,6 +2170,172 @@ def test_table_name_matches_respects_db_and_schema() -> None:
         _TableName(database="prod", db_schema="billing", table="orders"),
         _TableName(database="prod", db_schema="billing", table="invoices"),
     )
+
+
+def test_snowflake_object_construct_no_key_access() -> None:
+    """OBJECT_CONSTRUCT(*) without a downstream :KEY access should not crash.
+
+    When the aggregated object is passed through without a semi-structured key
+    access, the star-map resolver returns an empty set rather than raising.
+    Normal table-level lineage is still produced.
+    """
+    assert_sql_result(
+        """
+with src as (
+    select col_a, col_b
+    from mydb.myschema.base_table
+),
+agg as (
+    select ARRAY_AGG(OBJECT_CONSTRUCT(*)) AS obj
+    from src
+)
+select agg.obj as raw_obj
+from agg
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)": {
+                "col_a": "VARCHAR",
+                "col_b": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_no_key_access.json",
+    )
+
+
+def test_snowflake_object_construct_multihop_alias_lineage() -> None:
+    """OBJECT_CONSTRUCT(*) resolves aliases through a multi-hop CTE chain.
+
+    An alias defined in base_cte is passed through pass_cte via SELECT * before
+    being consumed by OBJECT_CONSTRUCT(*) in agg_cte. _collect_source_cte_chain
+    must recurse two hops (agg_cte → pass_cte → base_cte) to capture the mapping.
+
+    Expected: output_col traces to original_col via the two-hop alias chain
+    RENAMED_COL → original_col.
+    """
+    assert_sql_result(
+        """
+with base_cte as (
+    select original_col as renamed_col, id
+    from mydb.myschema.src_table
+),
+pass_cte as (
+    select * from base_cte
+),
+agg_cte as (
+    select ARRAY_AGG(CASE WHEN id > 0 THEN OBJECT_CONSTRUCT(*) END) AS obj
+    from pass_cte
+)
+select agg_cte.obj[0]:RENAMED_COL::VARCHAR as output_col
+from agg_cte
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)": {
+                "original_col": "VARCHAR",
+                "id": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_multihop_alias_lineage.json",
+    )
+
+
+def test_snowflake_object_construct_cross_schema_isolation() -> None:
+    """OBJECT_CONSTRUCT(*) must not produce false-positive upstreams from same-named tables in other databases.
+
+    When two tables in different databases share the same name and column, the
+    star-map resolver must only emit the table actually referenced in the SQL.
+    The golden file must contain shared_col from mydb only, not from staging.
+    """
+    assert_sql_result(
+        """
+with cte_src as (
+    select shared_col, type_col
+    from mydb.myschema.src_table
+),
+cte_agg as (
+    select ARRAY_AGG(CASE WHEN type_col = 1 THEN OBJECT_CONSTRUCT(*) END) AS obj
+    from cte_src
+)
+select cte_agg.obj[0]:SHARED_COL::VARCHAR as output_col
+from cte_agg
+""",
+        dialect="snowflake",
+        default_db="mydb",
+        default_schema="myschema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.src_table,PROD)": {
+                "shared_col": "VARCHAR",
+                "type_col": "NUMBER",
+            },
+            # Same table name in a different database — must NOT appear in upstreams
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,staging.myschema.src_table,PROD)": {
+                "shared_col": "VARCHAR",
+                "type_col": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_object_construct_cross_schema_isolation.json",
+    )
+
+
+def test_bigquery_unaffected_by_object_construct_path() -> None:
+    """Non-Snowflake dialects must not be affected by the OBJECT_CONSTRUCT(*) code path.
+
+    _build_parents is gated on the Snowflake dialect; a BigQuery query with schemas
+    provided must produce correct column lineage without regression.
+    """
+    assert_sql_result(
+        """
+SELECT t.col_a, t.col_b
+FROM `myproject.mydataset.src_table` AS t
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.src_table,PROD)": {
+                "col_a": "VARCHAR",
+                "col_b": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_bigquery_unaffected_by_object_construct_path.json",
+    )
+
+
+def test_snowflake_object_construct_missing_key_no_upstream() -> None:
+    """Accessing a key absent from the source schema returns no upstream, not an error."""
+    schema_resolver = SchemaResolver(platform="snowflake")
+    schema_resolver.add_raw_schema_info(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.base_table,PROD)",
+        {"col_a": "VARCHAR"},
+    )
+    result = sqlglot_lineage(
+        """
+with src as (
+    select col_a from mydb.myschema.base_table
+),
+agg as (
+    select ARRAY_AGG(OBJECT_CONSTRUCT(*)) AS obj from src
+)
+select agg.obj[0]:MISSING_KEY::VARCHAR as output_col
+from agg
+""",
+        schema_resolver=schema_resolver,
+        default_db="mydb",
+        default_schema="myschema",
+    )
+    assert result.debug_info.table_error is None
+    assert result.debug_info.column_error is None
+    col_upstreams = {
+        c.downstream.column: c.upstreams for c in (result.column_lineage or [])
+    }
+    assert col_upstreams.get("output_col", []) == []
 
 
 def test_clickhouse_materialized_view_to_table() -> None:
