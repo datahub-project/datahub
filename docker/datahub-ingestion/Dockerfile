@@ -35,21 +35,10 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
         echo "Creating new user datahub with UID 1000"; \
         adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
     fi && \
-    # Create and set proper permissions for datahub directories
+    # Create and set proper permissions for datahub directories \
     mkdir -p $HOME && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
-
-# Setup the PPA for alternative Python versions.
-# TODO: Eventually we should switch to using uv's support for python-build-standalone.
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y \
-    software-properties-common \
-    lsb-release \
-    gnupg \
-    ca-certificates \
-    && add-apt-repository --no-update ppa:deadsnakes/ppa
 
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
@@ -57,11 +46,7 @@ RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y \
-    python${PYTHON_VERSION} \
-    python${PYTHON_VERSION}-venv \
-    python${PYTHON_VERSION}-dev \
-    python${PYTHON_VERSION}-distutils \
-    python-is-python3 \
+    ca-certificates \
     git \
     wget \
     curl \
@@ -69,18 +54,22 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     unzip \
     nano
 
-# Set the default python version.
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
-
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Install Python via uv (python-build-standalone) instead of deadsnakes PPA.
+# Avoids PPA availability issues and missing distutils on Noble (Ubuntu 24.04).
+# UV_NO_CACHE=1 prevents root-owned cache files that cause permission errors
+# when subsequent steps run as the datahub user.
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+ENV UV_NO_CACHE=1
+RUN uv python install ${PYTHON_VERSION}
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 ARG PIP_EXTRA_INDEX_URL=""
 # Persist settings for subsequent build layers and for optional venv builds
 ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
 ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 # Also configure pip globally inside the image so tools without env still use the mirror
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
@@ -203,7 +192,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     datahub --version
 
 # Block network access to PyPI in locked variant
-ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 

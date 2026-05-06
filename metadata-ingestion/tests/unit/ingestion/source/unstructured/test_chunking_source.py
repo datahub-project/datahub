@@ -391,6 +391,70 @@ def test_openai_missing_api_key_raises(pipeline_context):
         )
 
 
+def test_vertex_ai_provider_initialization(pipeline_context):
+    """vertex_ai provider should set embedding_model with vertex_ai/ prefix."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="vertex_ai",
+            model="gemini-embedding-001",
+            model_embedding_key="gemini_embedding_001",
+            vertex_project_id="my-project",
+            vertex_location="us-east1",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    assert source.embedding_model == "vertex_ai/gemini-embedding-001"
+
+
+def test_vertex_ai_missing_project_id_raises(pipeline_context):
+    """Missing vertex_project_id with local config should raise ValueError."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="vertex_ai",
+            model="gemini-embedding-001",
+            model_embedding_key="gemini_embedding_001",
+            vertex_location="us-east1",
+            # vertex_project_id intentionally omitted
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        pytest.raises(ValueError, match="vertex_project_id"),
+    ):
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
+
+
+def test_vertex_ai_project_id_resolved_from_env_var(pipeline_context):
+    """When vertex_project_id is omitted but VERTEX_AI_PROJECT_ID is set in env,
+    construction should succeed and the env value should be written back to the config
+    so downstream litellm calls have a single source of truth."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="vertex_ai",
+            model="gemini-embedding-001",
+            model_embedding_key="gemini_embedding_001",
+            vertex_location="us-east1",
+            # vertex_project_id intentionally omitted — should be picked up from env
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    with patch.dict("os.environ", {"VERTEX_AI_PROJECT_ID": "env-project"}, clear=True):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
+    assert source.config.embedding.vertex_project_id == "env-project"
+    assert source.embedding_model == "vertex_ai/gemini-embedding-001"
+
+
 def test_bedrock_requires_no_api_key(pipeline_context):
     """Bedrock provider initialises without any API key (uses AWS credential chain)."""
     config = DocumentChunkingSourceConfig(
@@ -443,6 +507,52 @@ def test_max_documents_limit_raises_after_nth_document(
     assert source.report.num_documents_limit_reached is True
 
 
+def test_vertex_ai_provider_literal_accepted():
+    """vertex_ai should be a valid provider literal in EmbeddingConfig."""
+    config = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-gcp-project",
+        vertex_location="us-east1",
+        allow_local_embedding_config=True,
+    )
+    assert config.provider == "vertex_ai"
+    assert config.vertex_project_id == "my-gcp-project"
+    assert config.vertex_location == "us-east1"
+
+
+def test_validate_provider_config_vertex_ai_valid():
+    """_validate_provider_config returns vertex_ai/<model> when valid."""
+    config = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-project",
+        allow_local_embedding_config=True,
+    )
+    model_str, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model_str == "vertex_ai/gemini-embedding-001"
+    assert report is None
+
+
+def test_validate_provider_config_vertex_ai_missing_project():
+    """_validate_provider_config returns CapabilityReport when project_id missing."""
+    config = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        # vertex_project_id intentionally omitted
+        allow_local_embedding_config=True,
+    )
+    with patch.dict("os.environ", {}, clear=True):
+        model_str, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model_str is None
+    assert report is not None
+    assert not report.capable
+    assert "vertex_project_id" in (report.failure_reason or "").lower()
+
+
 def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_config):
     """Setting max_documents=-1 disables the limit entirely."""
     chunking_config.max_documents = -1
@@ -462,6 +572,112 @@ def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_confi
             list(source.process_elements_inline(f"urn:li:document:doc{i}", elements))
 
     assert source.report.num_documents_processed == 5
+    assert source.report.num_documents_limit_reached is False
+
+
+def test_generate_embeddings_vertex_ai_passes_task_type(pipeline_context):
+    """For vertex_ai provider, _generate_embeddings must pass task_type=RETRIEVAL_DOCUMENT and vertex auth."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="vertex_ai",
+            model="gemini-embedding-001",
+            model_embedding_key="gemini_embedding_001",
+            vertex_project_id="my-project",
+            vertex_location="us-east1",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    chunks = [{"text": "hello world"}]
+    fake_response = MagicMock()
+    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
+    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
+        embeddings = source._generate_embeddings(chunks)
+    assert embeddings == [[0.1, 0.2, 0.3]]
+    call_kwargs = mock_embed.call_args.kwargs
+    assert call_kwargs["model"] == "vertex_ai/gemini-embedding-001"
+    assert call_kwargs["task_type"] == "RETRIEVAL_DOCUMENT"
+    assert call_kwargs["vertex_project"] == "my-project"
+    assert call_kwargs["vertex_location"] == "us-east1"
+
+
+def test_generate_embeddings_cohere_passes_api_key(pipeline_context):
+    """For non-vertex providers, _generate_embeddings must forward api_key from config."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="cohere",
+            model="embed-english-v3.0",
+            api_key="test-cohere-key",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    chunks = [{"text": "hello world"}]
+    fake_response = MagicMock()
+    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
+    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
+        embeddings = source._generate_embeddings(chunks)
+    assert embeddings == [[0.1, 0.2, 0.3]]
+    call_kwargs = mock_embed.call_args.kwargs
+    assert call_kwargs["model"] == "cohere/embed-english-v3.0"
+    assert call_kwargs["api_key"] == "test-cohere-key"
+    # vertex-only kwargs must not leak into non-vertex calls
+    assert "task_type" not in call_kwargs
+    assert "vertex_project" not in call_kwargs
+
+
+def test_generate_embeddings_bedrock_passes_aws_region(pipeline_context):
+    """For bedrock provider, _generate_embeddings must forward aws_region as aws_region_name."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="bedrock",
+            model="cohere.embed-english-v3",
+            aws_region="us-west-2",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    chunks = [{"text": "hello world"}]
+    fake_response = MagicMock()
+    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
+    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
+        embeddings = source._generate_embeddings(chunks)
+    assert embeddings == [[0.1, 0.2, 0.3]]
+    call_kwargs = mock_embed.call_args.kwargs
+    assert call_kwargs["model"] == "bedrock/cohere.embed-english-v3"
+    assert call_kwargs["aws_region_name"] == "us-west-2"
+    assert "task_type" not in call_kwargs
+
+
+def test_embedding_capability_vertex_ai_passes_task_type():
+    """test_embedding_capability for vertex_ai must pass task_type=RETRIEVAL_DOCUMENT to litellm."""
+    config = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-project",
+        vertex_location="us-east1",
+        allow_local_embedding_config=True,
+    )
+    fake_response = MagicMock()
+    fake_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
+    with patch("litellm.embedding", return_value=fake_response) as mock_embed:
+        report = DocumentChunkingSource.test_embedding_capability(config)
+    assert report.capable
+    call_kwargs = mock_embed.call_args.kwargs
+    assert call_kwargs["model"] == "vertex_ai/gemini-embedding-001"
+    assert call_kwargs["task_type"] == "RETRIEVAL_DOCUMENT"
+    assert call_kwargs["vertex_project"] == "my-project"
+    assert call_kwargs["vertex_location"] == "us-east1"
 
 
 # ---------------------------------------------------------------------------

@@ -25,41 +25,12 @@ def scan_init_response(request, context):
     return w_id_vs_response[workspace_id]
 
 
-def admin_datasets_response(request, context):
-    if "05169cd2-e713-41e6-9600-1d8066d95445" in request.query:
-        return {
-            "value": [
-                {
-                    "id": "05169CD2-E713-41E6-9600-1D8066D95445",
-                    "name": "library-dataset",
-                    "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
-                }
-            ]
-        }
-
-    if "ba0130a1-5b03-40de-9535-b34e778ea6ed" in request.query:
-        return {
-            "value": [
-                {
-                    "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                    "name": "hr_pbi_test",
-                    "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                }
-            ]
-        }
-
-
 def register_mock_admin_api(
     request_mock: Any, override_data: Optional[dict] = None
 ) -> None:
     if override_data is None:
         override_data = {}
     api_vs_response = {
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
-            "method": "GET",
-            "status_code": 200,
-            "json": admin_datasets_response,
-        },
         "https://api.powerbi.com/v1.0/myorg/admin/groups?%24skip=0&%24top=1000": {
             "method": "GET",
             "status_code": 200,
@@ -191,22 +162,6 @@ def register_mock_admin_api(
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
-                        "datasourceType": "PostgreSql",
-                        "connectionDetails": {
-                            "database": "library_db",
-                            "server": "foo",
-                        },
-                    },
-                ]
-            },
-        },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
             "method": "GET",
             "status_code": 200,
@@ -235,7 +190,7 @@ def register_mock_admin_api(
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                                 "endorsementDetails": {"endorsement": "Promoted"},
-                                "name": "test_sf_pbi_test",
+                                "name": "library-dataset",
                                 "tables": [
                                     {
                                         "name": "public issue_history",
@@ -325,6 +280,7 @@ def register_mock_admin_api(
                                 "tables": [
                                     {
                                         "name": "dbo_book_issue",
+                                        "description": "hr pbi test description",
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
@@ -338,6 +294,7 @@ def register_mock_admin_api(
                                     },
                                     {
                                         "name": "ms_sql_native_table",
+                                        "description": "hr pbi test description",
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,\'-\',\'\'))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"mth_date", type date}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Month", each Date.Month([mth_date])),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "TPV Opening", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #"Added Custom1"',

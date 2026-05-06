@@ -244,6 +244,7 @@ click==8.3.1
     #   click-default-group
     #   dask
     #   dataflows-tabulator
+    #   dlt
     #   feast
     #   flask
     #   geomet
@@ -360,6 +361,7 @@ deepmerge==2.0
     # via acryl-datahub
 defusedxml==0.7.1
     # via
+    #   acryl-datahub
     #   nbconvert
     #   python3-openid
     #   tableauserverclient
@@ -375,6 +377,8 @@ distro==1.9.0
     # via
     #   google-genai
     #   openai
+dlt==1.26.0
+    # via acryl-datahub
 dnspython==2.7.0
     # via
     #   acryl-datahub
@@ -448,6 +452,7 @@ fsspec==2026.2.0
     # via
     #   adlfs
     #   dask
+    #   dlt
     #   huggingface-hub
     #   pyathena
     #   pyiceberg
@@ -463,7 +468,10 @@ gitdb==4.0.12
 gitpython==3.1.46
     # via
     #   acryl-datahub
+    #   dlt
     #   mlflow-skinny
+giturlparse==0.14.0
+    # via dlt
 google-api-core==2.25.2
     # via
     #   google-cloud-aiplatform
@@ -624,6 +632,8 @@ huggingface-hub==1.6.0
     # via tokenizers
 humanfriendly==10.0
     # via acryl-datahub
+humanize==4.15.0
+    # via dlt
 ibm-db==3.2.8 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
     # via ibm-db-sa
 ibm-db-sa==0.4.3 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
@@ -728,7 +738,9 @@ jsonlines==4.0.0
 jsonpatch==1.33
     # via acryl-great-expectations
 jsonpath-ng==1.7.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   dlt
 jsonpickle==4.1.1
     # via acryl-datahub
 jsonpointer==3.0.0
@@ -1001,8 +1013,10 @@ orderly-set==5.5.0
     # via
     #   acryl-datahub
     #   deepdiff
-orjson==3.11.7 ; platform_python_implementation != 'PyPy'
-    # via trino
+orjson==3.11.7 ; python_full_version >= '3.14' or platform_python_implementation != 'PyPy'
+    # via
+    #   dlt
+    #   trino
 overrides==7.7.0 ; python_full_version < '3.12'
     # via jupyter-server
 packaging==24.2
@@ -1012,6 +1026,7 @@ packaging==24.2
     #   build
     #   dask
     #   db-dtypes
+    #   dlt
     #   geoalchemy2
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
@@ -1029,6 +1044,7 @@ packaging==24.2
     #   pytest
     #   pytest-rerunfailures
     #   redshift-connector
+    #   requirements-parser
     #   snowflake-connector-python
     #   spacy
     #   sqlalchemy-bigquery
@@ -1061,6 +1077,10 @@ patchy==2.8.0
     # via acryl-datahub
 pathspec==1.0.4
     # via mypy
+pathvalidate==3.3.1
+    # via dlt
+pendulum==3.2.0
+    # via dlt
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
 phonenumbers==8.13.0
@@ -1083,6 +1103,7 @@ platformdirs==4.9.4
     #   zeep
 pluggy==1.6.0
     # via
+    #   dlt
     #   pytest
     #   pytest-cov
 ply==3.11
@@ -1305,6 +1326,7 @@ python-dateutil==2.9.0.post0
     #   jupyter-client
     #   moto
     #   pandas
+    #   pendulum
     #   python-liquid
     #   strictyaml
     #   tableschema
@@ -1348,6 +1370,7 @@ pytz==2026.1.post1
     #   asynch
     #   clickhouse-driver
     #   croniter
+    #   dlt
     #   neo4j
     #   pandas
     #   python-liquid
@@ -1356,7 +1379,9 @@ pytz==2026.1.post1
     #   trino
     #   zeep
 pywin32==311 ; sys_platform == 'win32'
-    # via docker
+    # via
+    #   dlt
+    #   docker
 pywin32-ctypes==0.2.3 ; platform_machine != 'ppc64le' and platform_machine != 's390x' and sys_platform == 'win32'
     # via keyring
 pywinpty==3.0.3 ; (os_name == 'nt' and platform_machine != 'arm64') or (os_name == 'nt' and sys_platform != 'darwin')
@@ -1368,6 +1393,7 @@ pyyaml==6.0.3
     # via
     #   acryl-datahub
     #   dask
+    #   dlt
     #   feast
     #   huggingface-hub
     #   jupyter-events
@@ -1415,6 +1441,7 @@ requests==2.32.5
     #   databricks-sdk
     #   databricks-sql-connector
     #   dataflows-tabulator
+    #   dlt
     #   docker
     #   feast
     #   google-api-core
@@ -1471,6 +1498,8 @@ requests-toolbelt==1.0.0
     #   twine
     #   unstructured-client
     #   zeep
+requirements-parser==0.13.0
+    # via dlt
 responses==0.26.0
     # via
     #   acryl-datahub
@@ -1491,9 +1520,12 @@ rich==14.3.3
     # via
     #   memray
     #   pyiceberg
+    #   rich-argparse
     #   textual
     #   twine
     #   typer
+rich-argparse==1.8.0
+    # via dlt
 rpds-py==0.30.0
     # via
     #   jsonschema
@@ -1530,6 +1562,8 @@ scramp==1.4.8
     # via redshift-connector
 secretstorage==3.5.0 ; platform_machine != 'ppc64le' and platform_machine != 's390x' and sys_platform == 'linux'
     # via keyring
+semver==3.0.4
+    # via dlt
 send2trash==2.1.0
     # via jupyter-server
 sentry-sdk==2.54.0
@@ -1537,6 +1571,7 @@ sentry-sdk==2.54.0
 setuptools==81.0.0
     # via
     #   acryl-datahub
+    #   dlt
     #   grpcio-tools
     #   jupyterlab
     #   redshift-connector
@@ -1546,6 +1581,8 @@ shellingham==1.5.4
     # via typer
 simple-salesforce==1.12.9
     # via acryl-datahub
+simplejson==4.1.1
+    # via dlt
 six==1.17.0
     # via
     #   avro-gen3
@@ -1630,7 +1667,9 @@ sqlalchemy2-stubs==0.0.2a38
     #   acryl-datahub
     #   sqlalchemy
 sqlglot==30.0.3
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   dlt
 sqlparse==0.5.5
     # via
     #   acryl-datahub
@@ -1665,6 +1704,7 @@ tabulate==0.9.0
 tenacity==8.5.0
     # via
     #   acryl-datahub
+    #   dlt
     #   feast
     #   google-genai
     #   pyathena
@@ -1711,7 +1751,9 @@ tomli==2.4.0 ; python_full_version <= '3.11'
     #   mypy
     #   pytest
 tomlkit==0.14.0
-    # via snowflake-connector-python
+    # via
+    #   dlt
+    #   snowflake-connector-python
 toolz==1.1.0
     # via
     #   altair
@@ -1829,6 +1871,7 @@ typing-extensions==4.15.0
     #   cattrs
     #   cloudpathlib
     #   cryptography
+    #   dlt
     #   exceptiongroup
     #   fastapi
     #   google-cloud-aiplatform
@@ -1884,8 +1927,10 @@ typing-inspection==0.4.2
 tzdata==2025.3
     # via
     #   arrow
+    #   dlt
     #   faker
     #   pandas
+    #   pendulum
     #   tzlocal
 tzlocal==5.3.1
     # via
@@ -1975,6 +2020,8 @@ werkzeug==3.1.6
     #   moto
 widgetsnbextension==4.0.15
     # via ipywidgets
+win-precise-time==1.4.2 ; (python_full_version < '3.13' and os_name == 'nt' and platform_machine != 'arm64') or (python_full_version < '3.13' and os_name == 'nt' and sys_platform != 'darwin')
+    # via dlt
 wrapt==2.1.2
     # via
     #   aiobotocore

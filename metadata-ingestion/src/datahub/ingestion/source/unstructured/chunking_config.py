@@ -17,6 +17,8 @@ class ServerEmbeddingConfig(ConfigModel):
     model_id: str
     model_embedding_key: str
     aws_region: Optional[str] = None
+    vertex_project_id: Optional[str] = None
+    vertex_location: Optional[str] = None
 
 
 class ServerSemanticSearchConfig(ConfigModel):
@@ -48,9 +50,11 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere", "openai", "local"]] = Field(
-        default=None,
-        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). If not set, loads from server.",
+    provider: Optional[Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]] = (
+        Field(
+            default=None,
+            description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. If not set, loads from server.",
+        )
     )
     endpoint: Optional[str] = Field(
         default=None,
@@ -68,6 +72,16 @@ class EmbeddingConfig(ConfigModel):
     aws_region: Optional[str] = Field(
         default=None,
         description="AWS region for Bedrock. If not set, loads from server.",
+    )
+
+    # Vertex AI configuration (used when provider is "vertex_ai")
+    vertex_project_id: Optional[str] = Field(
+        default=None,
+        description="GCP project ID for Vertex AI. Required when provider is 'vertex_ai' and using local config. If not set, loads from server.",
+    )
+    vertex_location: Optional[str] = Field(
+        default="us-east1",
+        description="GCP region for the Vertex AI endpoint (e.g., 'us-east1', 'us-central1'). Matches the Java server default.",
     )
 
     # Credentials (can be provided locally even when using server config)
@@ -158,6 +172,8 @@ class EmbeddingConfig(ConfigModel):
             model=server_config.model_id,
             model_embedding_key=server_config.model_embedding_key,
             aws_region=server_config.aws_region,
+            vertex_project_id=server_config.vertex_project_id,
+            vertex_location=server_config.vertex_location,
             api_key=api_key,
             endpoint=endpoint,
         )
@@ -169,10 +185,11 @@ class EmbeddingConfig(ConfigModel):
         """Validate local config against server config (for override flow).
 
         Checks:
-        - Provider matches (bedrock/cohere)
+        - Provider matches (bedrock/cohere/openai/vertex_ai)
         - Model identifier matches exactly
         - Model embedding key matches exactly
         - AWS region matches (for Bedrock only)
+        - Vertex project_id and location match (for Vertex AI only)
 
         Raises:
             ValueError: If validation fails with detailed error message
@@ -209,6 +226,16 @@ class EmbeddingConfig(ConfigModel):
                 f"AWS region mismatch: local='{self.aws_region}', server='{server_config.aws_region}'"
             )
 
+        if local_provider == "vertex_ai":
+            if self.vertex_project_id != server_config.vertex_project_id:
+                errors.append(
+                    f"Vertex project_id mismatch: local='{self.vertex_project_id}', server='{server_config.vertex_project_id}'"
+                )
+            if self.vertex_location != server_config.vertex_location:
+                errors.append(
+                    f"Vertex location mismatch: local='{self.vertex_location}', server='{server_config.vertex_location}'"
+                )
+
         if errors:
             # Build detailed error message with server config and fix suggestions
             error_list = "\n  - ".join(errors)
@@ -218,7 +245,9 @@ class EmbeddingConfig(ConfigModel):
                 f"  Provider: {server_config.provider}\n"
                 f"  Model: {server_config.model_id}\n"
                 f"  Model Embedding Key: {server_config.model_embedding_key}\n"
-                f"  AWS Region: {server_config.aws_region or 'N/A'}\n\n"
+                f"  AWS Region: {server_config.aws_region or 'N/A'}\n"
+                f"  Vertex Project ID: {server_config.vertex_project_id or 'N/A'}\n"
+                f"  Vertex Location: {server_config.vertex_location or 'N/A'}\n\n"
                 f"To fix this issue:\n"
                 f"  1. Update your local config to match the server configuration above, OR\n"
                 f"  2. Update the server's semantic search configuration in application.yml, OR\n"
@@ -229,7 +258,7 @@ class EmbeddingConfig(ConfigModel):
 
     @staticmethod
     def _normalize_provider(provider: str) -> str:
-        """Normalize provider name for comparison: 'aws-bedrock' → 'bedrock'."""
+        """Normalize provider name for comparison: 'aws-bedrock' → 'bedrock', 'vertex-ai' → 'vertex_ai'."""
         provider_lower = provider.lower()
         if "bedrock" in provider_lower:
             return "bedrock"
@@ -239,12 +268,14 @@ class EmbeddingConfig(ConfigModel):
             return "openai"
         if "local" in provider_lower:
             return "local"
+        if "vertex" in provider_lower:
+            return "vertex_ai"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere", "openai", "local"]:  # type: ignore
+    ) -> Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
@@ -255,6 +286,8 @@ class EmbeddingConfig(ConfigModel):
             return "openai"
         elif normalized == "local":
             return "local"
+        elif normalized == "vertex_ai":
+            return "vertex_ai"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
@@ -536,6 +569,10 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                 awsProviderConfig {
                   region
                 }
+                vertexProviderConfig {
+                  projectId
+                  location
+                }
               }
             }
           }
@@ -562,11 +599,35 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     if embedding_config_dict.get("awsProviderConfig"):
         aws_region = embedding_config_dict["awsProviderConfig"].get("region")
 
+    # Extract Vertex AI fields from nested vertexProviderConfig
+    vertex_project_id = None
+    vertex_location = None
+    if embedding_config_dict.get("vertexProviderConfig"):
+        vertex_project_id = embedding_config_dict["vertexProviderConfig"].get(
+            "projectId"
+        )
+        vertex_location = embedding_config_dict["vertexProviderConfig"].get("location")
+
+    # Validate completeness when provider is vertex_ai. The server's resolver should
+    # emit a complete vertexProviderConfig, but a misconfigured server (missing
+    # VERTEX_AI_PROJECT_ID env var) would leak a half-populated config that fails
+    # obscurely at embedding time. Surface it cleanly here.
+    if EmbeddingConfig._normalize_provider(
+        embedding_config_dict["provider"]
+    ) == "vertex_ai" and (not vertex_project_id or not vertex_location):
+        raise GraphError(
+            f"Server returned vertex_ai semantic search config with incomplete "
+            f"vertexProviderConfig (projectId={vertex_project_id!r}, location={vertex_location!r}). "
+            f"Both fields are required. Configure VERTEX_AI_PROJECT_ID and VERTEX_AI_LOCATION on the server."
+        )
+
     server_embedding_config = ServerEmbeddingConfig(
         provider=embedding_config_dict["provider"],
         model_id=embedding_config_dict["modelId"],
         model_embedding_key=embedding_config_dict["modelEmbeddingKey"],
         aws_region=aws_region,
+        vertex_project_id=vertex_project_id,
+        vertex_location=vertex_location,
     )
 
     return ServerSemanticSearchConfig(
