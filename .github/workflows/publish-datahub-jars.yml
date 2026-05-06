@@ -111,8 +111,8 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
           echo "signingKey=$SIGNING_KEY" >> gradle.properties
-          ./gradlew :metadata-integration:java:spark-lineage:printVersion
-          ./gradlew :metadata-integration:java:spark-lineage:publish
+          ./gradlew :metadata-integration:java:acryl-spark-lineage:printVersion
+          ./gradlew :metadata-integration:java:acryl-spark-lineage:publish
       - name: release datahub-spark-lineage jar
         if: ${{ github.event_name == 'release' }}
         env:
@@ -122,8 +122,8 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
           echo "signingKey=$SIGNING_KEY" >> gradle.properties
-          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:spark-lineage:publish
-          ./gradlew :metadata-integration:java:spark-lineage:closeAndReleaseRepository --info
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:acryl-spark-lineage:publish
+          ./gradlew :metadata-integration:java:acryl-spark-lineage:closeAndReleaseRepository --info
       - name: publish datahub-protobuf snapshot jar
         if: ${{ github.event_name != 'release' }}
         env:

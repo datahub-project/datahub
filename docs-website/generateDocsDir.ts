@@ -179,8 +179,8 @@ function get_slug(filepath: string): string {
 }
 
 const hardcoded_titles = {
-  "README.md": "Introduction",
-  "docs/actions/README.md": "Introduction",
+  "README.md": "DataHub Docs Overview",
+  "docs/actions/README.md": "DataHub Actions Framework",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
   "docs/saas.md": "DataHub Cloud",

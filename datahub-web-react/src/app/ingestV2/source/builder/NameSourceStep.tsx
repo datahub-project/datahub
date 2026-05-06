@@ -339,6 +339,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
+                            data-testid="ingestion-source-save-and-run-button"
                         >
                             Save & Run
                         </Button>

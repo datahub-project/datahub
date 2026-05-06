@@ -10,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -28,7 +28,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -44,7 +44,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -61,7 +61,7 @@
                 "connector_type": "postgres",
                 "paused": "False",
                 "sync_frequency": "1440",
-                "destination_id": "interval_unconstitutional",
+                "destination_id": "test_destination_id",
                 "source.platform": "postgres",
                 "source.env": "DEV",
                 "source.database": "postgres_db",
@@ -78,7 +78,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -104,7 +104,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -173,7 +173,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -194,7 +194,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -210,13 +210,13 @@
             "name": "4c9a03d6-eded-4422-a46a-163266e58243",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1695191853000,
+                "time": 1695184653000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -233,7 +233,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -252,7 +252,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -271,7 +271,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -283,7 +283,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695191853000,
+            "timestampMillis": 1695184653000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -292,7 +292,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -304,7 +304,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695191885000,
+            "timestampMillis": 1695184685000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -317,7 +317,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -333,13 +333,13 @@
             "name": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1696343730000,
+                "time": 1696336530000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -356,7 +356,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -375,7 +375,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -394,7 +394,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -406,7 +406,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696343730000,
+            "timestampMillis": 1696336530000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -415,7 +415,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -427,7 +427,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696343732000,
+            "timestampMillis": 1696336532000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -440,7 +440,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -456,13 +456,13 @@
             "name": "63c2fc85-600b-455f-9ba0-f576522465be",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1696343755000,
+                "time": 1696336555000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -479,7 +479,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -498,7 +498,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -517,7 +517,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -529,7 +529,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696343755000,
+            "timestampMillis": 1696336555000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -538,7 +538,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -550,7 +550,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696343790000,
+            "timestampMillis": 1696336590000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -563,7 +563,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -579,7 +579,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -597,7 +597,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -613,7 +613,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -647,7 +647,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -673,7 +673,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -695,7 +695,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -716,7 +716,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -732,13 +732,13 @@
             "name": "d9a03d6-eded-4422-a46a-163266e58244",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1695191853000,
+                "time": 1695184653000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -755,7 +755,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -773,7 +773,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -791,7 +791,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -803,7 +803,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695191853000,
+            "timestampMillis": 1695184653000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -812,7 +812,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -824,7 +824,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695191885000,
+            "timestampMillis": 1695184685000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -837,7 +837,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -853,7 +853,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -869,7 +869,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -885,7 +885,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -901,7 +901,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -917,7 +917,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -933,7 +933,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -949,7 +949,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -965,7 +965,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
+        "lastObserved": 1654614000000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }

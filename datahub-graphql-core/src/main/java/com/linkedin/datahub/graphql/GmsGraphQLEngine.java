@@ -47,6 +47,7 @@ import com.linkedin.datahub.graphql.resolvers.auth.GetServiceAccountResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.ListServiceAccountsResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.UpdateServiceAccountDefaultViewResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -1350,6 +1351,10 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "deleteServiceAccount", new DeleteServiceAccountResolver(this.entityClient))
               .dataFetcher(
+                  "updateServiceAccountDefaultView",
+                  new UpdateServiceAccountDefaultViewResolver(
+                      this.settingsService, this.entityClient, this.viewService))
+              .dataFetcher(
                   "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
               .dataFetcher(
                   "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
@@ -2176,8 +2181,19 @@ public class GmsGraphQLEngine {
     builder.type(
         "ServiceAccount",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "relationships", new EntityRelationshipsResultResolver(graphClient)));
+            typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "defaultView",
+                    new LoadableTypeResolver<>(
+                        dataHubViewType,
+                        (env) -> {
+                          final ServiceAccount sa = env.getSource();
+                          if (sa.getDefaultView() != null) {
+                            return sa.getDefaultView().getUrn();
+                          }
+                          return null;
+                        })));
   }
 
   /**

@@ -1,3 +1,7 @@
+---
+description: "Troubleshooting guide for common DataHub local development build failures, including Java version and Gradle issues."
+---
+
 # Build Debugging Guide
 
 For when [Local Development](/docs/developers.md) did not work out smoothly.

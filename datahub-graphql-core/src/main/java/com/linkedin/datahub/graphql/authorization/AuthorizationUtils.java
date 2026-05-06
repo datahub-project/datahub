@@ -233,11 +233,31 @@ public class AuthorizationUtils {
     return true;
   }
 
-  /*
-   * Optionally check view permissions against a list of urns if the config option is enabled
+  /**
+   * Entry point for the Search Access Controls feature on the GraphQL mapper layer. Returns {@code
+   * true} (i.e., skips the check) when any of the following short-circuits apply:
+   *
+   * <p>- {@code viewAuthorizationConfiguration.enabled} is {@code false} (feature off globally)
+   *
+   * <p>- The caller is system authentication
+   *
+   * <p>- The URN's entity type is not in {@link
+   * com.datahub.authorization.AuthUtil#VIEW_RESTRICTED_ENTITY_TYPES}
+   *
+   * <p><b>Silent no-op warning for unlisted entity types.</b> If {@code urn.getEntityType()} is not
+   * in {@code VIEW_RESTRICTED_ENTITY_TYPES}, this method returns {@code true} with no logging and
+   * no error. Any caller relying on it to gate access for such a type is silently permissive. If
+   * you are writing a resolver for an entity type that is not on the allowlist, use the
+   * type-specific helper instead. Known cases:
+   *
+   * <p>- {@code document} — use {@link #canGetDocument(Urn, QueryContext)} (routes through {@code
+   * isAuthorized} with {@code VIEW_ENTITY_PAGE_PRIVILEGE} or {@code MANAGE_DOCUMENTS_PRIVILEGE})
+   *
+   * @see com.datahub.authorization.AuthUtil#VIEW_RESTRICTED_ENTITY_TYPES
+   * @see <a href="https://docs.datahub.com/docs/features/feature-guides/search-access-controls">
+   *     Search Access Controls</a>
    */
   public static boolean canView(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    // if search authorization is disabled, skip the view permission check
     if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
         && !opContext.isSystemAuth()
         && VIEW_RESTRICTED_ENTITY_TYPES.contains(urn.getEntityType())) {

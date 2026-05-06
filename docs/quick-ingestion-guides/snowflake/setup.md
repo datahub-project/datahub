@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: Snowflake Setup
 ---
 
 # Snowflake Ingestion Guide: Setup & Prerequisites

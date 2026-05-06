@@ -35,6 +35,8 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,6 +74,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final TimeseriesAspectService timeseriesAspectService;
   private final String idHashAlgo;
   private final V2MappingsBuilder mappingsBuilder;
+  private final boolean coalesceBatchUpdates;
 
   // Semantic search configuration (optional - null if semantic search not configured)
   @Nullable private final SemanticSearchConfiguration semanticSearchConfig;
@@ -99,6 +102,32 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull String idHashAlgo,
       @Nullable SemanticSearchConfiguration semanticSearchConfig,
       @Nonnull IndexConvention indexConvention) {
+    this(
+        v2Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        idHashAlgo,
+        semanticSearchConfig,
+        indexConvention,
+        true);
+  }
+
+  /**
+   * Same as the 7-arg constructor, but allows toggling per-(urn, aspect) coalescing of batched
+   * updates. When {@code coalesceBatchUpdates} is true (default), N MCLs targeting the same (urn,
+   * aspect) within a batch produce a single ES upsert (last-write-wins, with predecessor runIds
+   * still appended). When false, the legacy per-event behavior is preserved as a rollback.
+   */
+  public UpdateIndicesV2Strategy(
+      @Nonnull EntityIndexVersionConfiguration v2Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
+      @Nullable SemanticSearchConfiguration semanticSearchConfig,
+      @Nonnull IndexConvention indexConvention,
+      boolean coalesceBatchUpdates) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -106,6 +135,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.idHashAlgo = idHashAlgo;
     this.semanticSearchConfig = semanticSearchConfig;
     this.indexConvention = indexConvention;
+    this.coalesceBatchUpdates = coalesceBatchUpdates;
     this.mappingsBuilder =
         new V2MappingsBuilder(
             com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
@@ -147,14 +177,22 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
-        updateEvents.forEach(
-            event -> {
-              if (structuredPropertiesHookEnabled) {
-                updateIndexMappings(opContext, event);
-              }
-              updateSearchIndicesForEvent(opContext, event);
-              updateTimeseriesFieldsForEvent(opContext, event);
-            });
+        if (coalesceBatchUpdates) {
+          LinkedHashMap<String, List<MCLItem>> byAspect =
+              UpdateIndicesUtil.groupUpdatesByAspect(updateEvents);
+          for (List<MCLItem> aspectEvents : byAspect.values()) {
+            processAspectGroup(opContext, aspectEvents, structuredPropertiesHookEnabled);
+          }
+        } else {
+          // Legacy per-event behavior preserved for rollback via flag.
+          for (MCLItem event : updateEvents) {
+            if (structuredPropertiesHookEnabled) {
+              updateIndexMappings(opContext, event);
+            }
+            updateSearchIndicesForEvent(opContext, event);
+            updateTimeseriesFieldsForEvent(opContext, event);
+          }
+        }
       }
 
       // Process delete events
@@ -181,7 +219,89 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
   }
 
+  /**
+   * Process a single (urn, aspect) group of update events. Timeseries aspects are processed per
+   * event; non-timeseries aspects are coalesced to last-write-wins so a batch with N updates to the
+   * same (urn, aspect) emits one upsert. RunIds from coalesced predecessors are still appended so
+   * rollback-by-run remains accurate.
+   */
+  private void processAspectGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> aspectEvents,
+      boolean structuredPropertiesHookEnabled) {
+    if (aspectEvents.isEmpty()) {
+      return;
+    }
+    if (aspectEvents.get(0).getAspectSpec().isTimeseries()) {
+      for (MCLItem event : aspectEvents) {
+        if (structuredPropertiesHookEnabled) {
+          updateIndexMappings(opContext, event);
+        }
+        updateSearchIndicesForEvent(opContext, event);
+        updateTimeseriesFieldsForEvent(opContext, event);
+      }
+      return;
+    }
+
+    MCLItem survivor = aspectEvents.get(aspectEvents.size() - 1);
+    // Use the oldest predecessor's previousRecordTemplate as the diff baseline, since that is
+    // what ES actually had before the batch began. Otherwise the diff would compare against the
+    // intermediate in-batch state and incorrectly skip the upsert when a no-op tail follows real
+    // changes earlier in the group. This baseline is also the right one for the structured-
+    // property mapping diff: any entityType added by an earlier MCL in the group must still be
+    // applied to ES even though the survivor's own previousRecordTemplate already contains it.
+    RecordTemplate baseline = aspectEvents.get(0).getPreviousRecordTemplate();
+    if (structuredPropertiesHookEnabled) {
+      updateIndexMappings(
+          opContext,
+          survivor.getUrn(),
+          survivor.getEntitySpec(),
+          survivor.getAspectSpec(),
+          survivor.getRecordTemplate(),
+          baseline);
+    }
+    updateSearchIndicesForEvent(opContext, survivor, baseline);
+    updateTimeseriesFieldsForEvent(opContext, survivor);
+    appendCoalescedRunIds(opContext, survivor, aspectEvents);
+  }
+
+  /**
+   * After the survivor's upsert (which already appended its own runId), append any additional
+   * distinct runIds carried by predecessors so rollback-by-run still finds the URN for those runs.
+   */
+  private void appendCoalescedRunIds(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem survivor,
+      @Nonnull List<MCLItem> aspectEvents) {
+    if (aspectEvents.size() <= 1) {
+      return;
+    }
+    SystemMetadata survivorSm = survivor.getSystemMetadata();
+    String survivorRunId =
+        (survivorSm != null && survivorSm.hasRunId()) ? survivorSm.getRunId() : null;
+    LinkedHashSet<String> additionalRunIds = new LinkedHashSet<>();
+    for (int i = 0; i < aspectEvents.size() - 1; i++) {
+      SystemMetadata sm = aspectEvents.get(i).getSystemMetadata();
+      if (sm != null && sm.hasRunId()) {
+        String runId = sm.getRunId();
+        if (!runId.equals(survivorRunId)) {
+          additionalRunIds.add(runId);
+        }
+      }
+    }
+    for (String runId : additionalRunIds) {
+      elasticSearchService.appendRunId(opContext, survivor.getUrn(), runId);
+    }
+  }
+
   void updateSearchIndicesForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+    updateSearchIndicesForEvent(opContext, event, event.getPreviousRecordTemplate());
+  }
+
+  void updateSearchIndicesForEvent(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nullable RecordTemplate previousAspect) {
     // V2 search index update logic - full implementation
     log.debug("Updating V2 search indices for entity: {}", event.getUrn());
 
@@ -189,7 +309,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     RecordTemplate aspect = event.getRecordTemplate();
     AspectSpec aspectSpec = event.getAspectSpec();
     SystemMetadata systemMetadata = event.getSystemMetadata();
-    RecordTemplate previousAspect = event.getPreviousRecordTemplate();
     String entityName = event.getEntitySpec().getName();
 
     Optional<ObjectNode> searchDocument;

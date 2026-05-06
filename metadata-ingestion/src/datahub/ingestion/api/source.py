@@ -87,6 +87,7 @@ class SourceCapability(Enum):
     CONTAINERS = "Asset Containers"
     CLASSIFICATION = "Classification"
     TEST_CONNECTION = "Test Connection"
+    GLOSSARY_TERMS = "Glossary Terms"
 
 
 class StructuredLogLevel(Enum):

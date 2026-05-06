@@ -104,7 +104,7 @@ jobs:
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
             -x :docs-website:build \
-            -x :metadata-integration:java:spark-lineage:test \
+            -x :metadata-integration:java:acryl-spark-lineage:test \
             -x :metadata-io:test \
             -x :metadata-ingestion-modules:airflow-plugin:build \
             -x :metadata-ingestion-modules:airflow-plugin:check \
@@ -127,9 +127,6 @@ jobs:
 
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
-      - name: Gradle compile (jdk8) for legacy Spark
-        run: |
-          ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
           {
