@@ -611,11 +611,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         )
                     else:
                         self.report.num_dynamic_tables_missing_definition += 1
-                        self.structured_reporter.warning(
-                            title="Dynamic table definition unavailable — lineage skipped",
+                        self.structured_reporter.info(
+                            title="Dynamic table definition unavailable — column-level lineage skipped",
                             message=(
-                                "The DDL for this dynamic table could not be retrieved. "
-                                "Grant MONITOR on the dynamic table to enable lineage extraction."
+                                "The DDL for this dynamic table could not be retrieved; "
+                                "table-level lineage will be produced from INPUTS but "
+                                "column-level lineage requires the MONITOR privilege on the dynamic table."
                             ),
                             context=f"{db_name}.{schema_name}.{table.name}",
                         )
@@ -623,12 +624,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         # when DDL is unavailable. Skipped when DDL is present because SQL parsing
                         # produces accurate column-level lineage; identity CLL from INPUTS would be
                         # wrong for aliased/aggregated columns (e.g. SUM(amount) AS total).
-                        for upstream_qualified_name in table.upstream_tables:
+                        _known_domains = {d.value for d in SnowflakeObjectDomain}
+                        for upstream_input in table.upstream_tables:
+                            upstream_qualified_name = upstream_input.name
+                            kind_lower = upstream_input.kind.lower()
+                            upstream_domain = (
+                                SnowflakeObjectDomain(kind_lower)
+                                if kind_lower in _known_domains
+                                else SnowflakeObjectDomain.TABLE
+                            )
                             upstream_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
                                 upstream_qualified_name
                             )
                             if not self.filters.is_dataset_pattern_allowed(
-                                upstream_identifier, SnowflakeObjectDomain.TABLE
+                                upstream_identifier, upstream_domain
                             ):
                                 logger.debug(
                                     f"Skipping dynamic table upstream {upstream_qualified_name}: "

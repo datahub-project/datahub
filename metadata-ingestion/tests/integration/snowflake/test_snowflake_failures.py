@@ -398,7 +398,7 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
@@ -452,7 +452,7 @@ def test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warni
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
     pytestconfig,
     snowflake_pipeline_config,

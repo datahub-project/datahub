@@ -11,6 +11,7 @@ from typing import (
     Iterable,
     List,
     MutableMapping,
+    NamedTuple,
     Optional,
     Set,
     Tuple,
@@ -206,14 +207,19 @@ class SnowflakeTable(BaseTable):
         return DatasetSubTypes.TABLE
 
 
+class SnowflakeDynamicTableInput(NamedTuple):
+    name: str
+    kind: str
+
+
 @dataclass
 class SnowflakeDynamicTable(SnowflakeTable):
     definition: Optional[str] = (
         None  # SQL query that defines the dynamic table's content
     )
     target_lag: Optional[str] = None  # Refresh frequency (e.g., "1 HOUR", "30 MINUTES")
-    # Fully-qualified upstream names from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS.
-    upstream_tables: List[str] = field(default_factory=list)
+    # Fully-qualified upstream entries from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS.
+    upstream_tables: List[SnowflakeDynamicTableInput] = field(default_factory=list)
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.DYNAMIC_TABLE
@@ -1929,7 +1935,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                     definition = dt.get("text")
                     target_lag = dt.get("target_lag")
-                    upstream_tables: List[str] = []
+                    upstream_tables: List[SnowflakeDynamicTableInput] = []
                     if dt_graph_info:
                         qualified_name = f"{db_name}.{schema_name}.{dt_name}"
                         graph_info = dt_graph_info.get(qualified_name, {})
@@ -1945,7 +1951,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                                 if isinstance(raw_inputs, str):
                                     raw_inputs = json.loads(raw_inputs)
                                 upstream_tables = [
-                                    inp["name"]
+                                    SnowflakeDynamicTableInput(
+                                        name=inp["name"],
+                                        kind=inp.get("kind", "Table"),
+                                    )
                                     for inp in raw_inputs
                                     if isinstance(inp, dict) and inp.get("name")
                                 ]
@@ -2008,7 +2017,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                                 table.upstream_tables = show_dt.upstream_tables
                                 break
         except Exception as e:
-            logger.warning(
+            logger.debug(
                 f"Failed to populate dynamic table definitions for {db_name}: {e}"
             )
 
