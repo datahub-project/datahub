@@ -23,6 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
     DataJobInputOutputClass,
     SubTypesClass,
 )
@@ -37,7 +38,7 @@ class TestParseCopyInto:
         )
         assert parsed == ParsedCopyInto(
             target_fqn="MY_DB.MY_SCHEMA.MY_TABLE",
-            stage_fqn="MY_DB.MY_SCHEMA.MY_STAGE",
+            stage_fqns=["MY_DB.MY_SCHEMA.MY_STAGE"],
         )
 
     def test_fully_qualified_names(self) -> None:
@@ -48,7 +49,7 @@ class TestParseCopyInto:
         )
         assert parsed == ParsedCopyInto(
             target_fqn="DB1.SCHEMA1.TARGET_TABLE",
-            stage_fqn="DB2.SCHEMA2.SOURCE_STAGE",
+            stage_fqns=["DB2.SCHEMA2.SOURCE_STAGE"],
         )
 
     def test_stage_with_trailing_path(self) -> None:
@@ -57,7 +58,7 @@ class TestParseCopyInto:
         )
         assert parsed == ParsedCopyInto(
             target_fqn="DB.SCHEMA.MY_TABLE",
-            stage_fqn="DB.SCHEMA.MY_STAGE",
+            stage_fqns=["DB.SCHEMA.MY_STAGE"],
         )
 
     def test_quoted_identifiers(self) -> None:
@@ -68,7 +69,7 @@ class TestParseCopyInto:
         )
         assert parsed == ParsedCopyInto(
             target_fqn="MY_DB.MY_SCHEMA.MY_TABLE",
-            stage_fqn="DEFAULT_DB.DEFAULT_SCHEMA.MY_STAGE",
+            stage_fqns=["DEFAULT_DB.DEFAULT_SCHEMA.MY_STAGE"],
         )
 
     def test_unparseable_returns_none(self) -> None:
@@ -86,14 +87,14 @@ class TestParseCopyInto:
         )
         assert parsed == ParsedCopyInto(
             target_fqn="DB.SCHEMA.MY_TABLE",
-            stage_fqn="DB.SCHEMA.MY_STAGE",
+            stage_fqns=["DB.SCHEMA.MY_STAGE"],
         )
 
     def test_case_insensitive(self) -> None:
         parsed = parse_copy_into("copy into my_table from @my_stage", "DB", "SCHEMA")
         assert parsed == ParsedCopyInto(
             target_fqn="DB.SCHEMA.MY_TABLE",
-            stage_fqn="DB.SCHEMA.MY_STAGE",
+            stage_fqns=["DB.SCHEMA.MY_STAGE"],
         )
 
     def test_partial_qualification_two_part_target(self) -> None:
@@ -103,7 +104,95 @@ class TestParseCopyInto:
         )
         assert parsed == ParsedCopyInto(
             target_fqn="DB.SCHEMA1.MY_TABLE",
-            stage_fqn="DB.DEFAULT_SCHEMA.MY_STAGE",
+            stage_fqns=["DB.DEFAULT_SCHEMA.MY_STAGE"],
+        )
+
+    def test_target_with_column_list(self) -> None:
+        """Column list wraps target in a Schema; we must unwrap to Table."""
+        parsed = parse_copy_into(
+            "COPY INTO my_table(col_a, col_b) FROM @my_stage", "DB", "SCHEMA"
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqns=["DB.SCHEMA.MY_STAGE"],
+        )
+
+    def test_from_subquery(self) -> None:
+        """FROM (SELECT ... FROM @stage) — stage is nested inside a Subquery."""
+        parsed = parse_copy_into(
+            "COPY INTO my_table FROM (SELECT $1 FROM @my_stage)",
+            "DB",
+            "SCHEMA",
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqns=["DB.SCHEMA.MY_STAGE"],
+        )
+
+    def test_column_list_and_subquery(self) -> None:
+        """Real-world Snowpipe shape: column list on target plus FROM subquery."""
+        parsed = parse_copy_into(
+            "COPY INTO my_table(col_a, col_b) "
+            "FROM (SELECT $1 AS col_a, $2 AS col_b FROM @my_stage t)",
+            "DB",
+            "SCHEMA",
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqns=["DB.SCHEMA.MY_STAGE"],
+        )
+
+    def test_subquery_with_qualified_stage_and_path(self) -> None:
+        parsed = parse_copy_into(
+            "COPY INTO my_table(col_a) "
+            "FROM (SELECT $1 AS col_a FROM @other_db.other_schema.my_stage/p/q t)",
+            "DB",
+            "SCHEMA",
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqns=["OTHER_DB.OTHER_SCHEMA.MY_STAGE"],
+        )
+
+    def test_subquery_without_stage_returns_none(self) -> None:
+        """Subquery selecting from a regular table (not a stage) yields no lineage."""
+        parsed = parse_copy_into(
+            "COPY INTO my_table FROM (SELECT a, b FROM other_table)",
+            "DB",
+            "SCHEMA",
+        )
+        assert parsed is None
+
+    def test_subquery_union_all_collects_multiple_stages(self) -> None:
+        """COPY INTO with UNION ALL across stages yields all stages, in source order."""
+        parsed = parse_copy_into(
+            "COPY INTO my_table FROM ("
+            " SELECT $1 FROM @stage_us"
+            " UNION ALL"
+            " SELECT $1 FROM @stage_eu"
+            ")",
+            "DB",
+            "SCHEMA",
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqns=["DB.SCHEMA.STAGE_US", "DB.SCHEMA.STAGE_EU"],
+        )
+
+    def test_repeated_stage_in_subquery_dedups(self) -> None:
+        """A stage referenced twice in the same subquery is captured only once."""
+        parsed = parse_copy_into(
+            "COPY INTO my_table FROM ("
+            " SELECT $1 FROM @my_stage WHERE 1=1"
+            " UNION ALL"
+            " SELECT $1 FROM @my_stage WHERE 2=2"
+            ")",
+            "DB",
+            "SCHEMA",
+        )
+        assert parsed == ParsedCopyInto(
+            target_fqn="DB.SCHEMA.MY_TABLE",
+            stage_fqns=["DB.SCHEMA.MY_STAGE"],
         )
 
 
@@ -265,6 +354,57 @@ class TestSnowflakePipesExtractor:
         assert len(io.inputDatasets) == 1
         assert "s3" in io.inputDatasets[0].lower()
         assert len(io.outputDatasets) == 1
+
+    def test_pipe_with_union_all_stages_emits_lineage_for_each(self) -> None:
+        """A pipe whose COPY unions two stages should yield two input datasets
+        and a comma-joined ``stage_name`` custom property."""
+        pipe = _make_pipe(
+            definition=(
+                "COPY INTO target_table FROM ("
+                " SELECT $1 FROM @stage_us"
+                " UNION ALL"
+                " SELECT $1 FROM @stage_eu"
+                ")"
+            ),
+        )
+        stage_us = _make_external_stage("stage_us", "s3://bucket-us/data/")
+        stage_eu = _make_external_stage("stage_eu", "s3://bucket-eu/data/")
+        stage_lookup = {
+            "TEST_DB.PUBLIC.STAGE_US": StageLookupEntry(
+                stage=stage_us,
+                container_key=MagicMock(),
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/data/,PROD)",
+            ),
+            "TEST_DB.PUBLIC.STAGE_EU": StageLookupEntry(
+                stage=stage_eu,
+                container_key=MagicMock(),
+                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/data/,PROD)",
+            ),
+        }
+        wus = _collect_workunits([pipe], stage_lookup)
+
+        ios = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+        ]
+        assert len(ios) == 1
+        assert len(ios[0].inputDatasets) == 2
+        assert any("bucket-us" in u for u in ios[0].inputDatasets)
+        assert any("bucket-eu" in u for u in ios[0].inputDatasets)
+
+        job_infos = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DataJobInfoClass)
+        ]
+        assert len(job_infos) == 1
+        props = job_infos[0].customProperties
+        assert props["stage_name"] == "TEST_DB.PUBLIC.STAGE_US, TEST_DB.PUBLIC.STAGE_EU"
+        # Both stages are EXTERNAL; the de-duplicated stage_type should not repeat.
+        assert props["stage_type"] == "EXTERNAL"
 
     def test_all_pipes_filtered_emits_nothing(self) -> None:
         config = _make_config()

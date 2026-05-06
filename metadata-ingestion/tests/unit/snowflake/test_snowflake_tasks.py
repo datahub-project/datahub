@@ -20,6 +20,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     SubTypesClass,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 
 def _make_config() -> SnowflakeV2Config:
@@ -33,7 +34,7 @@ def _make_config() -> SnowflakeV2Config:
 
 def _make_task(
     name: str = "etl_task",
-    definition: str = "INSERT INTO target SELECT * FROM source",
+    definition: str = "",
     predecessors: Optional[List[str]] = None,
     state: SnowflakeTaskState = SnowflakeTaskState.STARTED,
     schedule: str = "USING CRON 0 * * * * UTC",
@@ -55,6 +56,28 @@ def _make_task(
     )
 
 
+def _make_aggregator(config: SnowflakeV2Config) -> SqlParsingAggregator:
+    return SqlParsingAggregator(
+        platform="snowflake",
+        platform_instance=config.platform_instance,
+        env=config.env,
+        graph=None,
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=False,
+    )
+
+
+def _data_job_input_outputs(wus: List) -> List[DataJobInputOutputClass]:
+    return [
+        wu.metadata.aspect
+        for wu in wus
+        if hasattr(wu.metadata, "aspect")
+        and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+    ]
+
+
 def _collect_workunits(
     tasks: List[SnowflakeTask],
     config: Optional[SnowflakeV2Config] = None,
@@ -73,6 +96,7 @@ def _collect_workunits(
         report=report,
         data_dictionary=data_dict,
         identifiers=identifiers,
+        aggregator=_make_aggregator(config),
     )
     wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
     return wus, report
@@ -214,6 +238,7 @@ class TestSnowflakeTasksExtractor:
             report=report,
             data_dictionary=data_dict,
             identifiers=identifiers,
+            aggregator=_make_aggregator(config),
         )
         wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
 
@@ -230,6 +255,98 @@ class TestSnowflakeTasksExtractor:
         assert len(input_outputs) == 1
         assert input_outputs[0].inputDatajobs is not None
         assert "task_a" in input_outputs[0].inputDatajobs[0]
+
+    def test_task_with_insert_select_emits_dataset_lineage(self) -> None:
+        task = _make_task(
+            name="etl_task",
+            definition="INSERT INTO target_tbl(col_a, col_b) "
+            "SELECT col_a, col_b FROM source_tbl",
+        )
+        wus, _ = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        io = ios[0]
+        assert io.inputDatasets is not None and len(io.inputDatasets) == 1
+        assert io.outputDatasets is not None and len(io.outputDatasets) == 1
+        assert "source_tbl" in io.inputDatasets[0]
+        assert "target_tbl" in io.outputDatasets[0]
+        # Default-qualified to the task's database/schema.
+        assert "test_db.public" in io.inputDatasets[0]
+        assert "test_db.public" in io.outputDatasets[0]
+
+    def test_task_with_merge_emits_dataset_lineage(self) -> None:
+        task = _make_task(
+            name="merge_task",
+            definition=(
+                "MERGE INTO target_tbl t USING source_tbl s "
+                "ON t.id = s.id "
+                "WHEN MATCHED THEN UPDATE SET t.name = s.name "
+                "WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)"
+            ),
+        )
+        wus, _ = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        io = ios[0]
+        assert io.inputDatasets and "source_tbl" in io.inputDatasets[0]
+        assert io.outputDatasets and "target_tbl" in io.outputDatasets[0]
+
+    def test_task_with_create_table_as_emits_dataset_lineage(self) -> None:
+        task = _make_task(
+            name="ctas_task",
+            definition=("CREATE OR REPLACE TABLE out_tbl AS SELECT a FROM in_tbl"),
+        )
+        wus, _ = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        io = ios[0]
+        assert io.inputDatasets and "in_tbl" in io.inputDatasets[0]
+        assert io.outputDatasets and "out_tbl" in io.outputDatasets[0]
+
+    def test_task_lineage_combined_with_predecessor(self) -> None:
+        """A task with both predecessors and a parseable SQL body should emit
+        all three of inputDatajobs / inputDatasets / outputDatasets."""
+        task_a = _make_task(name="task_a")
+        task_b = _make_task(
+            name="task_b",
+            predecessors=["task_a"],
+            definition="INSERT INTO out_tbl SELECT * FROM in_tbl",
+        )
+        wus, _ = _collect_workunits([task_a, task_b])
+
+        ios = _data_job_input_outputs(wus)
+        # task_b emits one DataJobInputOutput with all three populated.
+        # task_a has no SQL and no predecessors → no DataJobInputOutput.
+        assert len(ios) == 1
+        io = ios[0]
+        assert io.inputDatajobs and "task_a" in io.inputDatajobs[0]
+        assert io.inputDatasets and "in_tbl" in io.inputDatasets[0]
+        assert io.outputDatasets and "out_tbl" in io.outputDatasets[0]
+
+    def test_unparseable_task_definition_logs_warning_and_emits_no_dataset_lineage(
+        self,
+    ) -> None:
+        """CALL is not supported by sqlglot's lineage engine."""
+        task = _make_task(
+            name="proc_task",
+            definition="CALL my_proc('arg1', 'arg2')",
+        )
+        wus, report = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        # No predecessors, no parsed datasets → no DataJobInputOutput.
+        assert len(ios) == 0
+        assert report.warnings.total_elements > 0
+
+    def test_empty_definition_emits_no_dataset_lineage(self) -> None:
+        task = _make_task(name="empty_task", definition="")
+        wus, _ = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 0
 
     def test_multiple_tasks_same_flow(self) -> None:
         tasks = [_make_task(name=f"task_{i}") for i in range(3)]

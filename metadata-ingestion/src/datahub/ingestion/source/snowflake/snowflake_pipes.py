@@ -24,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
+    StageLookupEntry,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
@@ -48,13 +49,16 @@ _MAX_DEFINITION_LENGTH = 4000
 
 @dataclass
 class ParsedCopyInto:
-    """Target table and source stage extracted from a COPY INTO statement.
+    """Target table and source stages extracted from a COPY INTO statement.
 
-    Both names are uppercase fully-qualified (`DB.SCHEMA.NAME`).
+    All names are uppercase fully-qualified (``DB.SCHEMA.NAME``). ``stage_fqns``
+    preserves the order stages appear in the SQL and is de-duplicated. It is
+    typically length 1, but can be longer when the COPY uses a subquery that
+    UNIONs multiple stages.
     """
 
     target_fqn: str
-    stage_fqn: str
+    stage_fqns: List[str]
 
 
 def _stage_reference_to_fqn(
@@ -79,17 +83,36 @@ def _stage_reference_to_fqn(
     return f"{db}.{schema}.{name}".upper()
 
 
+def _extract_stage_references(expr: sqlglot_exp.Expression) -> List[str]:
+    """Return all raw ``@stage`` references within ``expr``, in source order.
+
+    Handles both direct ``FROM @stage`` (where ``expr`` is a ``Table``) and
+    subquery forms like ``FROM (SELECT ... FROM @stage)``, including subqueries
+    that ``UNION ALL`` over multiple stages. Duplicates are removed while
+    preserving the first-seen order.
+    """
+    seen: Dict[str, None] = {}
+    for node in expr.walk():
+        if (
+            isinstance(node, sqlglot_exp.Table)
+            and isinstance(node.this, sqlglot_exp.Var)
+            and node.this.name.startswith("@")
+        ):
+            seen.setdefault(node.this.name, None)
+    return list(seen)
+
+
 def parse_copy_into(
     definition: str, default_db: str, default_schema: str
 ) -> Optional[ParsedCopyInto]:
-    """Parse a COPY INTO statement to extract target table and stage reference.
+    """Parse a COPY INTO statement to extract target table and stage references.
 
     Uses sqlglot with the Snowflake dialect, so quoted identifiers, fully
     qualified names, and trailing path / FILE_FORMAT options are all handled
     by the parser itself.
 
-    Returns `None` if the statement is not a COPY INTO or required parts are
-    missing.
+    Returns `None` if the statement is not a COPY INTO or no usable stage
+    reference can be resolved.
     """
     if not definition:
         return None
@@ -102,7 +125,11 @@ def parse_copy_into(
     if not isinstance(tree, sqlglot_exp.Copy):
         return None
 
+    # When COPY INTO specifies a column list (e.g. ``COPY INTO t(a, b) ...``),
+    # sqlglot wraps the target in a Schema expression around the underlying Table.
     target = tree.this
+    if isinstance(target, sqlglot_exp.Schema):
+        target = target.this
     if not isinstance(target, sqlglot_exp.Table) or not target.name:
         return None
     target_db = target.catalog or default_db
@@ -112,20 +139,15 @@ def parse_copy_into(
     files = tree.args.get("files") or []
     if not files:
         return None
-    file_expr = files[0]
-    stage_raw = (
-        file_expr.this.name
-        if isinstance(file_expr, sqlglot_exp.Table)
-        and isinstance(file_expr.this, sqlglot_exp.Var)
-        else None
-    )
-    if not stage_raw:
-        return None
-    stage_fqn = _stage_reference_to_fqn(stage_raw, default_db, default_schema)
-    if not stage_fqn:
+    stage_fqns: List[str] = []
+    for raw in _extract_stage_references(files[0]):
+        fqn = _stage_reference_to_fqn(raw, default_db, default_schema)
+        if fqn and fqn not in stage_fqns:
+            stage_fqns.append(fqn)
+    if not stage_fqns:
         return None
 
-    return ParsedCopyInto(target_fqn=target_fqn, stage_fqn=stage_fqn)
+    return ParsedCopyInto(target_fqn=target_fqn, stage_fqns=stage_fqns)
 
 
 @dataclass
@@ -225,7 +247,13 @@ class SnowflakePipesExtractor:
                 f"{db_name}.{schema_name}.{pipe.name}",
             )
         target_fqn = parsed.target_fqn if parsed else None
-        stage_fqn = parsed.stage_fqn if parsed else None
+        stage_fqns: List[str] = parsed.stage_fqns if parsed else []
+
+        stage_entries: List[StageLookupEntry] = []
+        for stage_fqn in stage_fqns:
+            entry = self.stages_extractor.get_stage_lookup_entry(stage_fqn)
+            if entry is not None:
+                stage_entries.append(entry)
 
         custom_properties: Dict[str, str] = {}
         if pipe.auto_ingest:
@@ -234,16 +262,13 @@ class SnowflakePipesExtractor:
             custom_properties["notification_channel"] = pipe.notification_channel
         if pipe.definition:
             custom_properties["definition"] = pipe.definition[:_MAX_DEFINITION_LENGTH]
-        if stage_fqn:
-            custom_properties["stage_name"] = stage_fqn
-
-        stage_entry = (
-            self.stages_extractor.get_stage_lookup_entry(stage_fqn)
-            if stage_fqn
-            else None
-        )
-        if stage_entry:
-            custom_properties["stage_type"] = stage_entry.stage.stage_type.value
+        if stage_fqns:
+            custom_properties["stage_name"] = ", ".join(stage_fqns)
+        if stage_entries:
+            unique_types = list(
+                dict.fromkeys(e.stage.stage_type.value for e in stage_entries)
+            )
+            custom_properties["stage_type"] = ", ".join(unique_types)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
@@ -277,8 +302,9 @@ class SnowflakePipesExtractor:
             target_urn = self.identifiers.gen_dataset_urn(target_dataset_identifier)
             output_datasets.append(target_urn)
 
-        if stage_entry and stage_entry.dataset_urn:
-            input_datasets.append(stage_entry.dataset_urn)
+        for entry in stage_entries:
+            if entry.dataset_urn and entry.dataset_urn not in input_datasets:
+                input_datasets.append(entry.dataset_urn)
 
         if input_datasets or output_datasets:
             yield MetadataChangeProposalWrapper(

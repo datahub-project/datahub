@@ -754,6 +754,7 @@ class SnowflakeV2Source(
                 report=self.report,
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
+                aggregator=self.aggregator,
             )
             for db in databases:
                 for schema in db.schemas:
