@@ -49,6 +49,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.structured_properties_urn import (
+    make_structured_property_urn,
+)
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
@@ -378,11 +381,8 @@ class CSVEnricherSource(Source):
                 )
                 continue
 
-            property_urn = (
-                raw_property_name
-                if raw_property_name.startswith("urn:li:structuredProperty:")
-                else f"urn:li:structuredProperty:{raw_property_name}"
-            )
+            property_urn = make_structured_property_urn(raw_property_name)
+
             property_values_by_urn.setdefault(property_urn, [])
             if value not in property_values_by_urn[property_urn]:
                 property_values_by_urn[property_urn].append(value)
