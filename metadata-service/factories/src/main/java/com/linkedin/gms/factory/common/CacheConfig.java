@@ -55,12 +55,6 @@ public class CacheConfig {
   @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
   private String kubernetesResolveNotReadyAddresses;
 
-  @Value("${searchService.cache.hazelcast.tcpip.enabled:false}")
-  private boolean tcpIpEnabled;
-
-  @Value("${searchService.cache.hazelcast.tcpip.members:}")
-  private String tcpIpMembers;
-
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
   public CacheManager caffeineCacheManager() {
@@ -114,26 +108,6 @@ public class CacheConfig {
     config.setProperty("hazelcast.logging.type", "slf4j");
 
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-
-    var kubernetesConfig =
-        config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(true);
-
-    // Configure Kubernetes discovery
-    kubernetesConfig.setProperty("service-dns", hazelcastServiceName);
-
-    // Set additional Kubernetes dns resolution properties.
-    if (!kubernetesApiRetries.isEmpty()) {
-      kubernetesConfig.setProperty("kubernetes-api-retries", kubernetesApiRetries);
-    }
-
-    if (!kubernetesServiceDnsTimeout.isEmpty()) {
-      kubernetesConfig.setProperty("service-dns-timeout", kubernetesServiceDnsTimeout);
-    }
-
-    if (!kubernetesResolveNotReadyAddresses.isEmpty()) {
-      kubernetesConfig.setProperty(
-          "resolve-not-ready-addresses", kubernetesResolveNotReadyAddresses);
-    }
 
     return Hazelcast.newHazelcastInstance(config);
   }
