@@ -38,6 +38,7 @@ test.describe('column-Level lineage and impact analysis path test', () => {
 
     // Expand columns on Kafka dataset (upstream node)
     await lp.expandContractColumns(UPSTREAM_URN);
+    await expect(lp.getReactFlowNode(UPSTREAM_URN).getByText('field_bar')).toBeVisible({ timeout: 10000 });
 
     // Click field_bar in the upstream Kafka node
     await lp.getReactFlowNode(UPSTREAM_URN).getByText('field_bar').click();

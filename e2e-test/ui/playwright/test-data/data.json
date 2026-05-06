@@ -7,9 +7,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/prod/kafka/SampleKafkaDataset"
-              ]
+              "paths": ["/prod/kafka/SampleKafkaDataset"]
             }
           },
           {
@@ -163,9 +161,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/prod/hdfs/SamplePlaywrightHdfsDataset"
-              ]
+              "paths": ["/prod/hdfs/SamplePlaywrightHdfsDataset"]
             }
           },
           {
@@ -553,9 +549,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/prod/hdfs/SamplePlaywrightHdfsAssertionDataset"
-              ]
+              "paths": ["/prod/hdfs/SamplePlaywrightHdfsAssertionDataset"]
             }
           },
           {
@@ -1412,9 +1406,7 @@
                   "recursive": false
                 }
               ],
-              "primaryKeys": [
-                "user_name"
-              ],
+              "primaryKeys": ["user_name"],
               "foreignKeysSpecs": null,
               "foreignKeys": [
                 {
@@ -1475,12 +1467,8 @@
           },
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)"
-              ]
+              "inputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)"],
+              "outputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)"]
             }
           },
           {
@@ -1528,12 +1516,8 @@
           },
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_deleted,PROD)"
-              ],
+              "inputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)"],
+              "outputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_deleted,PROD)"],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(airflow,playwright_dag_abc,PROD),playwright_task_123)"
               ]
@@ -1617,9 +1601,7 @@
                 "deleted": null
               },
               "chartUrl": null,
-              "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)"
-              ],
+              "inputs": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)"],
               "type": null,
               "access": null,
               "lastRefreshed": null
@@ -1716,10 +1698,7 @@
                 "prop1": "fakeprop",
                 "prop2": "pikachu"
               },
-              "charts": [
-                "urn:li:chart:(looker,playwright_baz1)",
-                "urn:li:chart:(looker,playwright_baz2)"
-              ],
+              "charts": ["urn:li:chart:(looker,playwright_baz1)", "urn:li:chart:(looker,playwright_baz2)"],
               "lastModified": {
                 "created": {
                   "time": 0,
@@ -1816,9 +1795,7 @@
           },
           {
             "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms": {
-              "hasRelatedTerms": [
-                "urn:li:glossaryTerm:PlaywrightNode.RelatedPlaywrightTerm"
-              ]
+              "hasRelatedTerms": ["urn:li:glossaryTerm:PlaywrightNode.RelatedPlaywrightTerm"]
             }
           }
         ]
@@ -2009,9 +1986,7 @@
               "description": null,
               "dataType": "TEXT",
               "version": null,
-              "sources": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)"
-              ]
+              "sources": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)"]
             }
           },
           {
@@ -2040,9 +2015,7 @@
               "description": "this is a description from source system",
               "dataType": "ORDINAL",
               "version": null,
-              "sources": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)"
-              ]
+              "sources": ["urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)"]
             }
           },
           {
@@ -2068,9 +2041,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/playwright-feature-table"
-              ]
+              "paths": ["/sagemaker/playwright-feature-table"]
             }
           },
           {
@@ -2081,12 +2052,8 @@
                 "status": "Created"
               },
               "description": "Yet another test feature group",
-              "mlFeatures": [
-                "urn:li:mlFeature:(playwright-test-2,some-playwright-feature-1)"
-              ],
-              "mlPrimaryKeys": [
-                "urn:li:mlPrimaryKey:(playwright-test-2,some-playwright-feature-2)"
-              ]
+              "mlFeatures": ["urn:li:mlFeature:(playwright-test-2,some-playwright-feature-1)"],
+              "mlPrimaryKeys": ["urn:li:mlPrimaryKey:(playwright-test-2,some-playwright-feature-2)"]
             }
           }
         ]
@@ -2129,23 +2096,17 @@
                 }
               ],
               "onlineMetrics": null,
-              "mlFeatures": [
-                "urn:li:mlFeature:(playwright-test-2,some-playwright-feature-1)"
-              ],
+              "mlFeatures": ["urn:li:mlFeature:(playwright-test-2,some-playwright-feature-1)"],
               "tags": [],
               "deployments": [],
               "trainingJobs": [],
               "downstreamJobs": [],
-              "groups": [
-                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,playwright-model-package-group,PROD)"
-              ]
+              "groups": ["urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,playwright-model-package-group,PROD)"]
             }
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/playwright-model-package-group/playwright-model"
-              ]
+              "paths": ["/sagemaker/playwright-model-package-group/playwright-model"]
             }
           }
         ]
@@ -2190,9 +2151,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/playwright-model-package-group"
-              ]
+              "paths": ["/sagemaker/playwright-model-package-group"]
             }
           }
         ]
@@ -2657,9 +2616,7 @@
         "customProperties": {},
         "externalUrl": "https:localhost:5000",
         "id": "simple_training_run",
-        "outputUrls": [
-          "s3://my-bucket/output"
-        ],
+        "outputUrls": ["s3://my-bucket/output"],
         "hyperParams": [
           {
             "name": "learning_rate",
@@ -2717,9 +2674,7 @@
         "customProperties": {
           "team": "data_science"
         },
-        "trainingJobs": [
-          "urn:li:dataProcessInstance:simple_training_run"
-        ],
+        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
         "name": "SAMPLE ML MODEL GROUP",
         "description": "A sample ML model group",
         "created": {
@@ -2743,9 +2698,7 @@
         "customProperties": {
           "team": "data_science"
         },
-        "trainingJobs": [
-          "urn:li:dataProcessInstance:simple_training_run"
-        ],
+        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
         "name": "SAMPLE ML MODEL",
         "description": "A sample ML model",
         "created": {
@@ -2769,9 +2722,7 @@
           }
         ],
         "tags": [],
-        "groups": [
-          "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,sample_ml_model_group,PROD)"
-        ]
+        "groups": ["urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,sample_ml_model_group,PROD)"]
       }
     }
   },
@@ -2825,9 +2776,7 @@
     "aspectName": "applications",
     "aspect": {
       "json": {
-        "applications": [
-          "urn:li:application:d63587c6-cacc-4590-851c-4f51ca429b51"
-        ]
+        "applications": ["urn:li:application:d63587c6-cacc-4590-851c-4f51ca429b51"]
       }
     },
     "systemMetadata": {
@@ -3255,12 +3204,8 @@
           },
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node4_dataset,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)"
-              ]
+              "inputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node4_dataset,PROD)"],
+              "outputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)"]
             }
           }
         ]
@@ -3278,9 +3223,7 @@
             "com.linkedin.pegasus2avro.chart.ChartInfo": {
               "title": "Playwright Lineage Chart",
               "description": "Playwright Lineage Chart",
-              "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)"
-              ],
+              "inputs": ["urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)"],
               "type": "LINE",
               "lastModified": {
                 "time": 1704068000000,
@@ -3303,9 +3246,7 @@
             "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
               "title": "Playwright Lineage Dashboard",
               "description": "Playwright Lineage Dashboard",
-              "charts": [
-                "urn:li:chart:(looker,playwright_lineage.node9_chart)"
-              ],
+              "charts": ["urn:li:chart:(looker,playwright_lineage.node9_chart)"],
               "lastModified": {
                 "time": 1704068100000,
                 "actor": "urn:li:corpuser:jdoe"
@@ -3869,6 +3810,16 @@
         },
         "platform": "urn:li:dataPlatform:unknown"
       }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"schemaName\": \"SamplePlaywrightHdfsDataset\", \"platform\": \"urn:li:dataPlatform:hdfs\", \"version\": 0, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.OtherSchema\": {\"rawSchema\": \"\"}}, \"created\": {\"time\": 1581407189000, \"actor\": \"urn:li:corpuser:jdoe\"}, \"lastModified\": {\"time\": 1581407189000, \"actor\": \"urn:li:corpuser:jdoe\"}, \"fields\": [{\"fieldPath\": \"shipment_info\", \"description\": \"Shipment info description\", \"type\": {\"type\": {\"com.linkedin.schema.RecordType\": {}}}, \"nativeDataType\": \"varchar(100)\", \"recursive\": false, \"nullable\": false}, {\"fieldPath\": \"shipment_info.date\", \"description\": \"Shipment info date description\", \"type\": {\"type\": {\"com.linkedin.schema.DateType\": {}}}, \"nativeDataType\": \"Date\", \"recursive\": false, \"nullable\": false}, {\"fieldPath\": \"shipment_info.target\", \"description\": \"Shipment info target description\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"varchar(100)\", \"recursive\": false, \"nullable\": false}, {\"fieldPath\": \"shipment_info.destination\", \"description\": \"Shipment info destination description\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"varchar(100)\", \"recursive\": false, \"nullable\": false}, {\"fieldPath\": \"shipment_info.geo_info\", \"description\": \"Shipment info geo_info description\", \"type\": {\"type\": {\"com.linkedin.schema.RecordType\": {}}}, \"nativeDataType\": \"varchar(100)\", \"recursive\": false, \"nullable\": false}, {\"fieldPath\": \"shipment_info.geo_info.lat\", \"description\": \"Shipment info geo_info lat description\", \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"float\", \"recursive\": false, \"nullable\": false}, {\"fieldPath\": \"shipment_info.geo_info.lng\", \"description\": \"Shipment info geo_info lng description\", \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"float\", \"recursive\": false, \"nullable\": false}]}"
     }
   }
 ]

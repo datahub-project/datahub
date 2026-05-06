@@ -138,11 +138,17 @@ test.describe('impact analysis', () => {
     await expect(page.getByText('Baz Chart 1')).toBeHidden();
   });
 
-  test('can see when the inputs to a data job change', async ({ page, logger, logDir }) => {
+  test('can see when the inputs to a data job change', async ({ page, apiMock, logger, logDir }) => {
     // The sidebar compact widget and impact analysis list view for data-job pages do not
     // respect URL time-range params in the current DataHub UI. The visual lineage graph
     // correctly applies time-range filtering, so use that approach here.
     test.setTimeout(90000);
+
+    // DataJob root entities must use V3 — LineageGraph.tsx routes DataJob to V2 when
+    // lineageGraphV3=false (because only DataFlow is hard-coded to always use V3). V2 renders
+    // an empty canvas for DataJob roots because DEFAULT_IGNORE_AS_HOPS includes EntityType.DataJob,
+    // causing the backend to treat the root as a transparent hop.
+    await apiMock.setFeatureFlags({ lineageGraphV3: true });
 
     const lp = new LineageV2Page(page, logger, logDir);
 
@@ -155,7 +161,7 @@ test.describe('impact analysis', () => {
     );
     await page.waitForTimeout(5000);
     await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('transactions').first()).toBeAttached();
+    await expect(page.getByText('transactions').first()).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('user_profile').first()).not.toBeVisible({ timeout: 5000 });
 
     // From 7 days ago to now, user_profile was also added as an input
@@ -167,8 +173,8 @@ test.describe('impact analysis', () => {
     );
     await page.waitForTimeout(5000);
     await expect(page.getByText('aggregated').first()).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('transactions').first()).toBeAttached();
-    await expect(page.getByText('user_profile').first()).toBeAttached();
+    await expect(page.getByText('transactions').first()).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('user_profile').first()).toBeVisible({ timeout: 20000 });
   });
 
   test('can see when a data job is replaced', async ({ page, logger, logDir }) => {

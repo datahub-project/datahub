@@ -410,10 +410,14 @@ export class LineageV2Page extends BasePage {
   // ── Edit lineage modal ────────────────────────────────────────────────────────
 
   async searchInLineageEditModal(text: string): Promise<void> {
-    // pressSequentially fires a keydown/keypress/keyup per character, triggering React's onChange.
-    // fill() sets the value directly and bypasses onChange, so the search never runs.
+    // fill() triggers React's onChange → sets local searchQuery state in SearchBar.
+    // Pressing Enter then fires onPressEnter → handleSearch(searchQuery) → onSearch/onQueryChange
+    // in SearchSelect, which updates the GraphQL search query. pressSequentially does NOT work
+    // here because Ant Design's AutoComplete.onSearch is not triggered by synthetic key events
+    // on the inner Input element — only fill() + Enter produces the correct event chain.
     await this.lineageEditSearchInput.clear();
-    await this.lineageEditSearchInput.pressSequentially(text, { delay: 50 });
+    await this.lineageEditSearchInput.fill(text);
+    await this.lineageEditSearchInput.press('Enter');
   }
 
   async getSetUpstreamsButton(): Promise<Locator> {

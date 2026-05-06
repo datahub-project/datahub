@@ -130,9 +130,15 @@ test.describe('lineage_graph', () => {
     await expect(page.getByText('some-playwright').first()).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('can see when the inputs to a data job change', async ({ page, logger, logDir }) => {
+  test('can see when the inputs to a data job change', async ({ page, apiMock, logger, logDir }) => {
     // Task entity lineage graphs can take longer to render in CI with time-range filters.
     test.setTimeout(90000);
+
+    // DataJob root entities must use V3 — LineageGraph.tsx routes DataJob to V2 when
+    // lineageGraphV3=false (because only DataFlow is hard-coded to always use V3). V2 renders
+    // an empty canvas for DataJob roots because DEFAULT_IGNORE_AS_HOPS includes EntityType.DataJob,
+    // causing the backend to treat the root as a transparent hop.
+    await apiMock.setFeatureFlags({ lineageGraphV3: true });
 
     const lineagePage = new LineageV2Page(page, logger, logDir);
 
@@ -232,12 +238,12 @@ test.describe('lineage_graph', () => {
     // The "Set Upstreams" button should be disabled with nothing selected
     await expect(page.getByText('Set Upstreams')).toBeDisabled();
 
-    // Search for a dataset to add as an upstream
-    await lineagePage.searchInLineageEditModal('playwright_health_test');
+    // Search for a dataset to add as an upstream.
+    // Use 'health_test' rather than the full name — 'playwright_health_test' tokenises to
+    // 'playwright|health|test' and returns all 36 playwright_* entities on page 1, pushing
+    // the target off the first page. The shorter term yields a small, targeted result set.
+    await lineagePage.searchInLineageEditModal('health_test');
 
-    // Wait explicitly for the search result to appear before clicking its checkbox.
-    // The search is async; relying solely on the default action timeout can cause "Target page closed"
-    // if the total test time exceeds the limit while waiting for the result card.
     const searchResultCard = page.locator(
       '[data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)"]',
     );

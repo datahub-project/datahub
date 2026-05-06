@@ -118,6 +118,44 @@ async function seedDataJobStub(
   );
 }
 
+/**
+ * Delete a single aspect from an entity using the OpenAPI v3 DELETE endpoint.
+ * Used to clear stale graph edges before re-seeding with historical timestamps.
+ * A DELETE removes the aspect from MySQL and triggers removal of the corresponding
+ * graph edges from Elasticsearch, ensuring the next seed creates fresh edges with
+ * correct createdOn timestamps rather than going through mergeEdges (which nulls
+ * out createdOn to preserve the original, now-wrong, timestamp).
+ */
+async function deleteAspect(
+  request: APIRequestContext,
+  gmsToken: string,
+  entityType: string,
+  entityUrn: string,
+  aspectName: string,
+  logger?: DataHubLogger,
+): Promise<void> {
+  const encodedUrn = encodeURIComponent(entityUrn);
+  const url = `${gmsUrl()}/openapi/v3/entity/${entityType}/${encodedUrn}?aspects=${aspectName}`;
+  const response = await request.delete(url, {
+    headers: {
+      Authorization: `Bearer ${gmsToken}`,
+    },
+    failOnStatusCode: false,
+  });
+
+  if (!response.ok() && response.status() !== 404) {
+    const body = await response.text();
+    logger?.warn('lineage-time-seeder: delete aspect failed', {
+      entityUrn,
+      aspectName,
+      status: response.status(),
+      body,
+    });
+  } else {
+    logger?.info('lineage-time-seeder: deleted aspect', { entityUrn, aspectName });
+  }
+}
+
 async function ingestProposal(
   request: APIRequestContext,
   gmsToken: string,
@@ -195,7 +233,21 @@ export async function seedTimeRangeLineage(
   await seedDatasetStub(request, gmsToken, GNP_URN, 'gnp dataset', logger);
 
   // ── Case 1: transaction_etl input datasets change ──────────────────────────
+  //
+  // The deprecated inputDatasets / outputDatasets fields are required (non-optional) by the
+  // DataJobInputOutput schema, so they cannot be omitted. Pass empty arrays to satisfy the
+  // schema validation without creating timestamp-less duplicate graph edges.
+  //
+  // Background: both the deprecated array fields and the Edge-typed fields produce graph edges
+  // with the same source+destination+relationshipType key. Because Edge.equals() excludes
+  // timestamps, when both are non-empty the deprecated field's edge (createdOn = ingestion time)
+  // silently wins in the de-duplication Set, discarding the historical timestamps.
+  //
+  // Delete before re-seeding so that graph edges are recreated from scratch with the correct
+  // historical createdOn. Without the delete, a second run hits mergeEdges(), which nulls out
+  // createdOn to preserve the "original" — but already-wrong — timestamp from the first run.
 
+  await deleteAspect(request, gmsToken, 'datajob', TRANSACTION_ETL_URN, 'dataJobInputOutput', logger);
   await ingestProposal(
     request,
     gmsToken,
@@ -203,8 +255,8 @@ export async function seedTimeRangeLineage(
     TRANSACTION_ETL_URN,
     'dataJobInputOutput',
     {
-      inputDatasets: [TRANSACTIONS_URN, USER_PROFILE_URN],
-      outputDatasets: [AGGREGATED_URN],
+      inputDatasets: [],
+      outputDatasets: [],
       inputDatasetEdges: [
         // transactions: existed since 8 days ago (visible in both windows)
         makeEdge(TRANSACTIONS_URN, eightDaysAgo, oneDayAgo),
@@ -219,6 +271,7 @@ export async function seedTimeRangeLineage(
   // ── Case 2: temperature_etl_1 → temperature_etl_2 replacement ────────────
 
   // temperature_etl_1: input from daily, output to monthly (created 8 days ago)
+  await deleteAspect(request, gmsToken, 'datajob', TEMPERATURE_ETL_1_URN, 'dataJobInputOutput', logger);
   await ingestProposal(
     request,
     gmsToken,
@@ -226,8 +279,8 @@ export async function seedTimeRangeLineage(
     TEMPERATURE_ETL_1_URN,
     'dataJobInputOutput',
     {
-      inputDatasets: [DAILY_TEMPERATURE_URN],
-      outputDatasets: [MONTHLY_TEMPERATURE_URN],
+      inputDatasets: [],
+      outputDatasets: [],
       inputDatasetEdges: [makeEdge(DAILY_TEMPERATURE_URN, eightDaysAgo, eightDaysAgo)],
       outputDatasetEdges: [makeEdge(MONTHLY_TEMPERATURE_URN, eightDaysAgo, eightDaysAgo)],
     },
@@ -235,6 +288,7 @@ export async function seedTimeRangeLineage(
   );
 
   // temperature_etl_2: input from daily, output to monthly (created 1 day ago)
+  await deleteAspect(request, gmsToken, 'datajob', TEMPERATURE_ETL_2_URN, 'dataJobInputOutput', logger);
   await ingestProposal(
     request,
     gmsToken,
@@ -242,8 +296,8 @@ export async function seedTimeRangeLineage(
     TEMPERATURE_ETL_2_URN,
     'dataJobInputOutput',
     {
-      inputDatasets: [DAILY_TEMPERATURE_URN],
-      outputDatasets: [MONTHLY_TEMPERATURE_URN],
+      inputDatasets: [],
+      outputDatasets: [],
       inputDatasetEdges: [makeEdge(DAILY_TEMPERATURE_URN, oneDayAgo, oneDayAgo)],
       outputDatasetEdges: [makeEdge(MONTHLY_TEMPERATURE_URN, oneDayAgo, oneDayAgo)],
     },
