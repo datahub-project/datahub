@@ -490,7 +490,7 @@ public class LatestTimeseriesAspectVersionCachingService
         && limit == 1
         && startTimeMillis == null
         && endTimeMillis == null
-        && (filter == null || (filter.getCriteria() != null && filter.getCriteria().isEmpty()))
+        && (filter == null || filter.getCriteria() == null || filter.getCriteria().isEmpty())
         && sort == null;
   }
 
@@ -772,7 +772,7 @@ public class LatestTimeseriesAspectVersionCachingService
 
   private String buildCacheKey(String aspect, String entity, String urn) {
     return new StringBuilder(
-            "latest:".length() + entity.length() + aspect.length() + urn.length() + 3)
+            "latest:".length() + aspect.length() + entity.length() + urn.length() + 3)
         .append("latest")
         .append(":")
         .append(entity)

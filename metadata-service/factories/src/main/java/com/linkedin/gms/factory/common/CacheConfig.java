@@ -111,6 +111,26 @@ public class CacheConfig {
 
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
 
+    var kubernetesConfig =
+        config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(true);
+
+    // Configure Kubernetes discovery
+    kubernetesConfig.setProperty("service-dns", hazelcastServiceName);
+
+    // Set additional Kubernetes dns resolution properties.
+    if (!kubernetesApiRetries.isEmpty()) {
+      kubernetesConfig.setProperty("kubernetes-api-retries", kubernetesApiRetries);
+    }
+
+    if (!kubernetesServiceDnsTimeout.isEmpty()) {
+      kubernetesConfig.setProperty("service-dns-timeout", kubernetesServiceDnsTimeout);
+    }
+
+    if (!kubernetesResolveNotReadyAddresses.isEmpty()) {
+      kubernetesConfig.setProperty(
+          "resolve-not-ready-addresses", kubernetesResolveNotReadyAddresses);
+    }
+
     return Hazelcast.newHazelcastInstance(config);
   }
 
@@ -153,7 +173,8 @@ public class CacheConfig {
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public MapConfig latestTimeseriesCacheConfig() {
     int tsMaxSize = configurationProvider.getTimeseriesAspectService().getCache().getMaxSize();
-    MapConfig mapConfig = new MapConfig().setName("latestTimeseriesAspect");
+    MapConfig mapConfig =
+        new MapConfig().setName("latestTimeseriesAspect").setTimeToLiveSeconds(cacheTtlSeconds);
     EvictionConfig evictionConfig =
         new EvictionConfig()
             .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
@@ -173,7 +194,10 @@ public class CacheConfig {
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public MapConfig latestTimeseriesAspectIndexCacheConfig() {
     int tsMaxSize = configurationProvider.getTimeseriesAspectService().getCache().getMaxSize();
-    MapConfig mapConfig = new MapConfig().setName("latestTimeseriesAspectIndex");
+    MapConfig mapConfig =
+        new MapConfig()
+            .setName("latestTimeseriesAspectIndex")
+            .setTimeToLiveSeconds(cacheTtlSeconds);
     EvictionConfig evictionConfig =
         new EvictionConfig()
             .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
