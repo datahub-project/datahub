@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
+from typing_extensions import TypedDict
 
 from datahub.emitter.mcp_builder import ContainerKey
 
@@ -201,6 +202,17 @@ class File(BaseModel):
     workspaceId: Optional[str] = None
 
 
+class WarehouseInodeRaw(TypedDict):
+    """Minimal type=table lineage entry stashed for /files/{inodeId} lookup.
+
+    Only connectionId is required here; the table name is taken from the
+    /files response (the canonical source) rather than from the lineage entry,
+    which may carry a display label or stale name.
+    """
+
+    connectionId: str
+
+
 class SigmaDataModelColumn(BaseModel):
     columnId: str
     name: str
@@ -281,6 +293,13 @@ class SigmaDataModel(BaseModel):
     # Used by cross-DM entity-level resolution to look up the correct source
     # element name without requiring the consuming element to share that name.
     source_dm_element_names: Dict[str, List[str]] = Field(default_factory=dict)
+    # Populated from /lineage ``type=table`` entries during assembly.
+    # Maps inodeId (UUID) -> WarehouseInodeRaw so the SigmaSource resolver
+    # can call /files/{inodeId} for the urlId + path needed to construct a
+    # fully-qualified warehouse Dataset URN.
+    warehouse_inodes_by_inode_id: Dict[str, WarehouseInodeRaw] = Field(
+        default_factory=dict
+    )
 
     def get_url_id(self) -> str:
         """Return the DM's URL identifier: explicit ``urlId`` if set,

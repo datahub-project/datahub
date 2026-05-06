@@ -10,8 +10,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744515,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -28,8 +28,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744516,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -44,8 +44,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744516,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -61,13 +61,12 @@
                 "connector_type": "postgres",
                 "paused": "False",
                 "sync_frequency": "1440",
-                "destination_id": "test_destination_id",
+                "destination_id": "snowflake_dest",
                 "source.platform": "postgres",
-                "source.env": "DEV",
-                "source.database": "postgres_db",
+                "source.env": "PROD",
                 "destination.platform": "snowflake",
                 "destination.env": "PROD",
-                "destination.database": "test_database"
+                "destination.database": "ANALYTICS_DB"
             },
             "name": "postgres",
             "type": {
@@ -78,8 +77,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744516,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -104,8 +103,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744517,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -117,55 +116,55 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
             ],
             "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD),id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD),name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD),id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD),name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -173,8 +172,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744517,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -194,8 +193,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744517,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -216,8 +215,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744518,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -233,8 +232,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744518,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -246,14 +245,14 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744518,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -265,14 +264,14 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744518,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -292,8 +291,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744518,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -317,8 +316,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744519,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -339,8 +338,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744519,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -356,8 +355,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744519,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -369,14 +368,14 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744519,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -388,14 +387,14 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744519,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -415,8 +414,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744519,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -440,8 +439,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744520,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -462,8 +461,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744520,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -479,8 +478,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744520,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -492,14 +491,14 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744520,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -511,14 +510,14 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_database.postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744521,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -538,8 +537,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744521,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -563,8 +562,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744521,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -579,8 +578,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744521,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -597,8 +596,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744521,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -613,8 +612,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744522,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -630,13 +629,11 @@
                 "connector_type": "confluent_cloud",
                 "paused": "False",
                 "sync_frequency": "1440",
-                "destination_id": "my_confluent_cloud_connector_id",
-                "source.platform": "kafka",
+                "destination_id": "mdl_dest",
+                "source.platform": "confluent_cloud",
                 "source.env": "PROD",
-                "source.database": "kafka_prod",
-                "destination.platform": "kafka",
-                "destination.env": "PROD",
-                "destination.database": "kafka_prod"
+                "destination.platform": "iceberg",
+                "destination.env": "PROD"
             },
             "name": "confluent_cloud",
             "type": {
@@ -647,8 +644,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744522,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -673,8 +670,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744522,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -686,17 +683,17 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:confluent_cloud,confluent_cloud.my-source-topic,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,confluent_cloud.my-destination-topic,PROD)"
             ],
             "fineGrainedLineages": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744522,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -716,8 +713,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744523,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -738,8 +735,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744523,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -755,8 +752,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744523,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -768,13 +765,13 @@
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:confluent_cloud,confluent_cloud.my-source-topic,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744523,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -786,13 +783,13 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-destination-topic,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,confluent_cloud.my-destination-topic,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744523,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -812,8 +809,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744523,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -837,8 +834,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744524,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -853,8 +850,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744524,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -869,8 +866,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744524,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -885,8 +882,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744524,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -901,8 +898,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744524,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -917,8 +914,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744525,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -933,8 +930,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744525,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -949,8 +946,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744525,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -965,8 +962,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654614000000,
-        "runId": "powerbi-test",
+        "lastObserved": 1777462744525,
+        "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 }
