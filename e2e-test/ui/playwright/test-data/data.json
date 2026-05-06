@@ -7,7 +7,9 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/kafka/SampleKafkaDataset"]
+              "paths": [
+                "/prod/kafka/SampleKafkaDataset"
+              ]
             }
           },
           {
@@ -37,8 +39,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -50,8 +51,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -64,13 +64,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -86,9 +84,7 @@
                   "fieldPath": "[version=2.0].[type=boolean].field_foo_2",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Foo field description"
-                  },
+                  "description": "Foo field description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -108,9 +104,7 @@
                   "fieldPath": "[version=2.0].[type=boolean].field_bar",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Bar field description"
-                  },
+                  "description": "Bar field description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -123,9 +117,7 @@
                   "fieldPath": "[version=2.0].[key=True].[type=int].id",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Id specifying which partition the message should go to"
-                  },
+                  "description": "Id specifying which partition the message should go to",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -171,7 +163,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/hdfs/SamplePlaywrightHdfsDataset"]
+              "paths": [
+                "/prod/hdfs/SamplePlaywrightHdfsDataset"
+              ]
             }
           },
           {
@@ -190,8 +184,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -201,8 +194,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)",
                   "type": "TRANSFORMED"
@@ -231,8 +223,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -242,13 +233,11 @@
             "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "editableSchemaFieldInfo": [
@@ -269,8 +258,7 @@
                     ],
                     "auditStamp": {
                       "time": 0,
-                      "actor": "urn:li:corpuser:jdoe",
-                      "impersonator": null
+                      "actor": "urn:li:corpuser:jdoe"
                     }
                   }
                 }
@@ -284,13 +272,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -306,9 +292,7 @@
                   "fieldPath": "shipment_info",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info description"
-                  },
+                  "description": "Shipment info description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -321,9 +305,7 @@
                   "fieldPath": "shipment_info.date",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info date description"
-                  },
+                  "description": "Shipment info date description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -336,9 +318,7 @@
                   "fieldPath": "shipment_info.target",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info target description"
-                  },
+                  "description": "Shipment info target description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -351,9 +331,7 @@
                   "fieldPath": "shipment_info.destination",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info destination description"
-                  },
+                  "description": "Shipment info destination description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -366,9 +344,7 @@
                   "fieldPath": "shipment_info.geo_info",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info geo_info description"
-                  },
+                  "description": "Shipment info geo_info description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -381,9 +357,7 @@
                   "fieldPath": "shipment_info.geo_info.lat",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info geo_info lat"
-                  },
+                  "description": "Shipment info geo_info lat",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -396,9 +370,7 @@
                   "fieldPath": "shipment_info.geo_info.lng",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info geo_info lng"
-                  },
+                  "description": "Shipment info geo_info lng",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -462,8 +434,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -473,8 +444,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
                   "type": "TRANSFORMED"
@@ -490,8 +460,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -504,13 +473,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -526,9 +493,7 @@
                   "fieldPath": "field_foo",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Foo field description"
-                  },
+                  "description": "Foo field description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -542,9 +507,7 @@
                   "fieldPath": "field_bar",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Bar field description"
-                  },
+                  "description": "Bar field description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -590,7 +553,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/hdfs/SamplePlaywrightHdfsAssertionDataset"]
+              "paths": [
+                "/prod/hdfs/SamplePlaywrightHdfsAssertionDataset"
+              ]
             }
           },
           {
@@ -609,8 +574,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -620,8 +584,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)",
                   "type": "TRANSFORMED"
@@ -650,8 +613,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -661,13 +623,11 @@
             "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "editableSchemaFieldInfo": [
@@ -688,8 +648,7 @@
                     ],
                     "auditStamp": {
                       "time": 0,
-                      "actor": "urn:li:corpuser:jdoe",
-                      "impersonator": null
+                      "actor": "urn:li:corpuser:jdoe"
                     }
                   }
                 }
@@ -703,13 +662,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -725,9 +682,7 @@
                   "fieldPath": "shipment_info",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info description"
-                  },
+                  "description": "Shipment info description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -740,9 +695,7 @@
                   "fieldPath": "shipment_info.date",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info date description"
-                  },
+                  "description": "Shipment info date description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -755,9 +708,7 @@
                   "fieldPath": "shipment_info.target",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info target description"
-                  },
+                  "description": "Shipment info target description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -770,9 +721,7 @@
                   "fieldPath": "shipment_info.destination",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info destination description"
-                  },
+                  "description": "Shipment info destination description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -785,9 +734,7 @@
                   "fieldPath": "shipment_info.geo_info",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info geo_info description"
-                  },
+                  "description": "Shipment info geo_info description",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -800,9 +747,7 @@
                   "fieldPath": "shipment_info.geo_info.lat",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info geo_info lat"
-                  },
+                  "description": "Shipment info geo_info lat",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -815,9 +760,7 @@
                   "fieldPath": "shipment_info.geo_info.lng",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Shipment info geo_info lng"
-                  },
+                  "description": "Shipment info geo_info lng",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -880,8 +823,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -891,8 +833,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)",
                   "type": "TRANSFORMED"
@@ -908,8 +849,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -922,13 +862,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -944,9 +882,7 @@
                   "fieldPath": "event_name",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Name of your logging event"
-                  },
+                  "description": "Name of your logging event",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -959,9 +895,7 @@
                   "fieldPath": "event_data",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Data of your event"
-                  },
+                  "description": "Data of your event",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -977,8 +911,7 @@
                     ],
                     "auditStamp": {
                       "time": 0,
-                      "actor": "urn:li:corpuser:jdoe",
-                      "impersonator": null
+                      "actor": "urn:li:corpuser:jdoe"
                     }
                   }
                 },
@@ -986,9 +919,7 @@
                   "fieldPath": "timestamp",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "TS the event was ingested"
-                  },
+                  "description": "TS the event was ingested",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -1060,8 +991,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -1071,8 +1001,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)",
                   "type": "TRANSFORMED"
@@ -1088,8 +1017,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -1102,13 +1030,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -1124,9 +1050,7 @@
                   "fieldPath": "user_id",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Id of the user created"
-                  },
+                  "description": "Id of the user created",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -1139,9 +1063,7 @@
                   "fieldPath": "user_name",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Name of the user who signed up"
-                  },
+                  "description": "Name of the user who signed up",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -1204,8 +1126,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -1215,8 +1136,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)",
                   "type": "TRANSFORMED"
@@ -1232,8 +1152,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -1246,13 +1165,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -1268,9 +1185,7 @@
                   "fieldPath": "user_id",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Id of the user created"
-                  },
+                  "description": "Id of the user created",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -1283,9 +1198,7 @@
                   "fieldPath": "user_name",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Name of the user who signed up"
-                  },
+                  "description": "Name of the user who signed up",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -1357,8 +1270,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -1368,8 +1280,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)",
                   "type": "TRANSFORMED"
@@ -1377,8 +1288,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)",
                   "type": "TRANSFORMED"
@@ -1394,8 +1304,7 @@
                   "description": "Sample doc",
                   "createStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   }
                 }
               ]
@@ -1408,13 +1317,11 @@
               "version": 0,
               "created": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               },
               "deleted": null,
               "dataset": null,
@@ -1430,9 +1337,7 @@
                   "fieldPath": "user_name",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Name of the user who was deleted"
-                  },
+                  "description": "Name of the user who was deleted",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1445,9 +1350,7 @@
                   "fieldPath": "timestamp",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Timestamp user was deleted at"
-                  },
+                  "description": "Timestamp user was deleted at",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1460,9 +1363,7 @@
                   "fieldPath": "user_id",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Id of the user deleted"
-                  },
+                  "description": "Id of the user deleted",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1475,9 +1376,7 @@
                   "fieldPath": "browser_id",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Cookie attached to identify the browser"
-                  },
+                  "description": "Cookie attached to identify the browser",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1490,9 +1389,7 @@
                   "fieldPath": "session_id",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Cookie attached to identify the session"
-                  },
+                  "description": "Cookie attached to identify the session",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1505,9 +1402,7 @@
                   "fieldPath": "deletion_reason",
                   "jsonPath": null,
                   "nullable": false,
-                  "description": {
-                    "string": "Why the user chose to deactivate"
-                  },
+                  "description": "Why the user chose to deactivate",
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1517,7 +1412,9 @@
                   "recursive": false
                 }
               ],
-              "primaryKeys": ["user_name"],
+              "primaryKeys": [
+                "user_name"
+              ],
               "foreignKeysSpecs": null,
               "foreignKeys": [
                 {
@@ -1564,8 +1461,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
+                "actor": "urn:li:corpuser:datahub"
               }
             }
           },
@@ -1618,8 +1514,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
+                "actor": "urn:li:corpuser:datahub"
               }
             }
           },
@@ -1675,8 +1570,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
+                "actor": "urn:li:corpuser:datahub"
               }
             }
           },
@@ -1714,13 +1608,11 @@
               "lastModified": {
                 "created": {
                   "time": 0,
-                  "actor": "urn:li:corpuser:jdoe",
-                  "impersonator": null
+                  "actor": "urn:li:corpuser:jdoe"
                 },
                 "lastModified": {
                   "time": 0,
-                  "actor": "urn:li:corpuser:datahub",
-                  "impersonator": null
+                  "actor": "urn:li:corpuser:datahub"
                 },
                 "deleted": null
               },
@@ -1760,13 +1652,11 @@
               "lastModified": {
                 "created": {
                   "time": 0,
-                  "actor": "urn:li:corpuser:jdoe",
-                  "impersonator": null
+                  "actor": "urn:li:corpuser:jdoe"
                 },
                 "lastModified": {
                   "time": 0,
-                  "actor": "urn:li:corpuser:datahub",
-                  "impersonator": null
+                  "actor": "urn:li:corpuser:datahub"
                 },
                 "deleted": null
               },
@@ -1814,8 +1704,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           },
@@ -1834,13 +1723,11 @@
               "lastModified": {
                 "created": {
                   "time": 0,
-                  "actor": "urn:li:corpuser:jdoe",
-                  "impersonator": null
+                  "actor": "urn:li:corpuser:jdoe"
                 },
                 "lastModified": {
                   "time": 0,
-                  "actor": "urn:li:corpuser:datahub",
-                  "impersonator": null
+                  "actor": "urn:li:corpuser:datahub"
                 },
                 "deleted": null
               },
@@ -1992,8 +1879,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           }
@@ -2025,8 +1911,7 @@
               ],
               "lastModified": {
                 "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
+                "actor": "urn:li:corpuser:jdoe"
               }
             }
           }
@@ -2183,7 +2068,9 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/sagemaker/playwright-feature-table"]
+              "paths": [
+                "/sagemaker/playwright-feature-table"
+              ]
             }
           },
           {
@@ -2256,7 +2143,9 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/sagemaker/playwright-model-package-group/playwright-model"]
+              "paths": [
+                "/sagemaker/playwright-model-package-group/playwright-model"
+              ]
             }
           }
         ]
@@ -2295,14 +2184,15 @@
               ],
               "lastModified": {
                 "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
+                "actor": "urn:li:corpuser:unknown"
               }
             }
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/sagemaker/playwright-model-package-group"]
+              "paths": [
+                "/sagemaker/playwright-model-package-group"
+              ]
             }
           }
         ]
@@ -2767,7 +2657,9 @@
         "customProperties": {},
         "externalUrl": "https:localhost:5000",
         "id": "simple_training_run",
-        "outputUrls": ["s3://my-bucket/output"],
+        "outputUrls": [
+          "s3://my-bucket/output"
+        ],
         "hyperParams": [
           {
             "name": "learning_rate",
@@ -2825,7 +2717,9 @@
         "customProperties": {
           "team": "data_science"
         },
-        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
+        "trainingJobs": [
+          "urn:li:dataProcessInstance:simple_training_run"
+        ],
         "name": "SAMPLE ML MODEL GROUP",
         "description": "A sample ML model group",
         "created": {
@@ -2849,7 +2743,9 @@
         "customProperties": {
           "team": "data_science"
         },
-        "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"],
+        "trainingJobs": [
+          "urn:li:dataProcessInstance:simple_training_run"
+        ],
         "name": "SAMPLE ML MODEL",
         "description": "A sample ML model",
         "created": {
@@ -2888,21 +2784,15 @@
           {
             "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
               "active": true,
-              "displayName": {
-                "string": "user1"
-              },
+              "displayName": "user1",
               "email": "user1@linkedin.com",
-              "title": {
-                "string": "Software Engineer"
-              },
+              "title": "Software Engineer",
               "managerUrn": null,
               "departmentId": null,
               "departmentName": null,
               "firstName": null,
               "lastName": null,
-              "fullName": {
-                "string": "user1"
-              },
+              "fullName": "user1",
               "countryCode": null
             }
           }
@@ -3225,8 +3115,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node2_dataset,PROD)",
                   "type": "TRANSFORMED"
@@ -3251,8 +3140,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage.node1_dataset,PROD)",
                   "type": "TRANSFORMED",
@@ -3280,8 +3168,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node5_dataset_manual,PROD)",
                   "type": "TRANSFORMED"
@@ -3306,8 +3193,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node3_dataset,PROD)",
                   "type": "TRANSFORMED"
@@ -3315,8 +3201,7 @@
                 {
                   "auditStamp": {
                     "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node6_dataset,PROD)",
                   "type": "TRANSFORMED"
@@ -3418,7 +3303,9 @@
             "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
               "title": "Playwright Lineage Dashboard",
               "description": "Playwright Lineage Dashboard",
-              "charts": ["urn:li:chart:(looker,playwright_lineage.node9_chart)"],
+              "charts": [
+                "urn:li:chart:(looker,playwright_lineage.node9_chart)"
+              ],
               "lastModified": {
                 "time": 1704068100000,
                 "actor": "urn:li:corpuser:jdoe"
@@ -3442,8 +3329,7 @@
                 {
                   "auditStamp": {
                     "time": 0,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
+                    "actor": "urn:li:corpuser:jdoe"
                   },
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node8_dataset,PROD)",
                   "type": "TRANSFORMED"
