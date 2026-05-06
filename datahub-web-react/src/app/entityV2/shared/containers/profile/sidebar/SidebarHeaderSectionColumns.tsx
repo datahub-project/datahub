@@ -30,6 +30,7 @@ const Column = styled.div`
     flex: 1;
     padding-top: 8px;
     padding-bottom: 8px;
+    margin-right: 20px;
 
     &:not(:first-child) {
         padding-left: 20px;
