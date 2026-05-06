@@ -130,6 +130,10 @@ dependencies {
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   compileOnly externalDependency.hazelcast
+  // Needed at test compile + runtime so the *Processor unit tests can resolve the
+  // com.hazelcast.map.EntryProcessor supertype when overriding process(...) and
+  // load the class when the tests actually run.
+  testImplementation externalDependency.hazelcast
   api externalDependency.datastaxOssNativeProtocol
   api(externalDependency.datastaxOssCore) {
     exclude group: 'com.fasterxml.jackson.core'
