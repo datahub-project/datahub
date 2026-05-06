@@ -23,6 +23,9 @@ test.describe('column-Level lineage and impact analysis path test', () => {
   });
 
   test('verify column-level lineage path at lineage graph and impact analysis', async ({ page, logger, logDir }) => {
+    // Graph navigation + two impact-analysis modal flows takes ~70s locally; allow extra for CI.
+    test.setTimeout(120000);
+
     const lp = new LineageV2Page(page, logger, logDir);
 
     // Navigate to the HDFS dataset lineage graph

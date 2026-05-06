@@ -379,9 +379,11 @@ export class LineageV2Page extends BasePage {
   async verifyColumnPathModal(from: string, to: string): Promise<void> {
     // Ant Design portals modal content to document.body — the [data-testid="entity-paths-modal"]
     // placeholder in the React tree stays display:none. Target the portaled dialog by role instead.
+    // Use .first() because the dialog title "Column path from X to Y" also contains the column
+    // names as text nodes, causing getByText() to resolve to 2 elements (strict-mode violation).
     const dialog = this.page.getByRole('dialog', { name: /column path/i });
-    await expect(dialog.getByText(from)).toBeVisible({ timeout: 10000 });
-    await expect(dialog.getByText(to)).toBeVisible({ timeout: 10000 });
+    await expect(dialog.getByText(from).first()).toBeVisible({ timeout: 10000 });
+    await expect(dialog.getByText(to).first()).toBeVisible({ timeout: 10000 });
   }
 
   async closeEntityPathsModal(): Promise<void> {
@@ -416,7 +418,10 @@ export class LineageV2Page extends BasePage {
   // ── Edit lineage modal ────────────────────────────────────────────────────────
 
   async searchInLineageEditModal(text: string): Promise<void> {
-    await this.lineageEditSearchInput.fill(text);
+    // pressSequentially fires a keydown/keypress/keyup per character, triggering React's onChange.
+    // fill() sets the value directly and bypasses onChange, so the search never runs.
+    await this.lineageEditSearchInput.clear();
+    await this.lineageEditSearchInput.pressSequentially(text, { delay: 50 });
   }
 
   async getSetUpstreamsButton(): Promise<Locator> {
