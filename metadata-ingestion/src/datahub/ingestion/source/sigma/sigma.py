@@ -758,9 +758,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model.dataModelId,
                     url_id,
                 )
-            # 2-segment path → no DB layer (e.g. Redshift "Connection Root/<SCHEMA>")
             # 3-segment path → DB + SCHEMA (e.g. Snowflake "Connection Root/<DB>/<SCHEMA>")
-            db, schema = ("", parts[1]) if len(parts) == 2 else (parts[1], parts[2])
+            # 2-segment path → SCHEMA only; fall back to connection's default_database
+            # (e.g. Redshift "Connection Root/<SCHEMA>" where the DB lives in the connection)
+            if len(parts) == 3:
+                db, schema = parts[1], parts[2]
+            else:
+                conn_record = self.connection_registry.get(conn_id)
+                db = (conn_record.default_database or "") if conn_record else ""
+                schema = parts[1]
             result[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
                 db=db,
