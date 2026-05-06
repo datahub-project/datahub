@@ -214,8 +214,8 @@ test.describe('lineage_graph', () => {
   // ── Edit upstream lineage ───────────────────────────────────────────────────
 
   test('can edit upstream lineage', async ({ page, logger, logDir }) => {
-    // Searching + waiting for results in the edit modal can exceed the 60s default in CI.
-    test.setTimeout(90000);
+    // Graph render + modal open + search API round-trip can together exceed 90s in CI.
+    test.setTimeout(120000);
 
     // This test does not make any mutations to avoid flakiness.
     // It verifies the manage lineage menu and modal entry point only.
@@ -235,12 +235,14 @@ test.describe('lineage_graph', () => {
     // Search for a dataset to add as an upstream
     await lineagePage.searchInLineageEditModal('playwright_health_test');
 
-    // Check the checkbox for playwright_health_test
-    await page
-      .locator('[data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)"]')
-      .locator('..')
-      .locator('input')
-      .click();
+    // Wait explicitly for the search result to appear before clicking its checkbox.
+    // The search is async; relying solely on the default action timeout can cause "Target page closed"
+    // if the total test time exceeds the limit while waiting for the result card.
+    const searchResultCard = page.locator(
+      '[data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)"]',
+    );
+    await expect(searchResultCard).toBeVisible({ timeout: 30000 });
+    await searchResultCard.locator('..').locator('input').click();
 
     // After selection, Set Upstreams should be enabled
     await expect(page.getByText('Set Upstreams')).toBeEnabled();
