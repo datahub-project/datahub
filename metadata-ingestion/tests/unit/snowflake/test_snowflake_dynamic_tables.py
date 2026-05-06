@@ -11,6 +11,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
+    SnowflakeDynamicTableInput,
 )
 
 
@@ -200,7 +201,11 @@ def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):
                     comment="Test dynamic table",
                     definition="SELECT * FROM source_table",
                     target_lag="1 minute",
-                    upstream_tables=["TEST_DB.PUBLIC.SOURCE_TABLE"],
+                    upstream_tables=[
+                        SnowflakeDynamicTableInput(
+                            "TEST_DB.PUBLIC.SOURCE_TABLE", "Table"
+                        )
+                    ],
                     is_dynamic=True,
                     type="DYNAMIC TABLE",
                 )
@@ -342,7 +347,11 @@ def test_populate_dynamic_table_definitions_missing_definition(
                     comment=None,
                     definition=None,
                     target_lag=None,
-                    upstream_tables=["TEST_DB.PUBLIC.SOURCE_TABLE"],
+                    upstream_tables=[
+                        SnowflakeDynamicTableInput(
+                            "TEST_DB.PUBLIC.SOURCE_TABLE", "Table"
+                        )
+                    ],
                     is_dynamic=True,
                     type="DYNAMIC TABLE",
                 )
