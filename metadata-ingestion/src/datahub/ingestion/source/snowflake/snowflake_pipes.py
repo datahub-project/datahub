@@ -51,8 +51,7 @@ class ParsedCopyInto:
     All names are uppercase fully-qualified (``DB.SCHEMA.NAME``). ``stage_fqns``
     preserves the order stages appear in the SQL and is de-duplicated. It is
     typically length 1, but can be longer when the COPY uses a subquery that
-    UNIONs multiple stages. ``Tuple`` keeps the dataclass genuinely immutable —
-    ``frozen=True`` only blocks attribute reassignment, not list mutation.
+    UNIONs multiple stages.
     """
 
     target_fqn: str
@@ -124,9 +123,8 @@ def parse_copy_into(
     try:
         tree = sqlglot.parse_one(definition, dialect="snowflake")
     except sqlglot.errors.ParseError as e:
-        # Preserve the parser error in debug logs; the caller emits a
-        # user-facing warning but doesn't have visibility into the parser
-        # internals. Re-running with -d/--debug surfaces the message.
+        # The caller emits a user-facing warning but has no visibility into
+        # parser internals; re-running with -d/--debug surfaces this message.
         logger.debug("sqlglot failed to parse COPY INTO: %s", e)
         return None
 
@@ -163,12 +161,7 @@ def parse_copy_into(
 
 
 def _looks_like_copy_into(definition: str) -> bool:
-    """Heuristic: does the pipe body start with the COPY keyword?
-
-    Used at the call site to distinguish "this body is not a COPY INTO at all"
-    (legal but unusual; warning would be noisy) from "this is a COPY INTO and
-    we failed to extract lineage" (worth a warning).
-    """
+    """Heuristic: does the pipe body start with the COPY keyword?"""
     return definition.lstrip().upper().startswith("COPY")
 
 
@@ -271,8 +264,6 @@ class SnowflakePipesExtractor:
             unresolved_refs=unparsed_stage_refs,
         )
         if unparsed_stage_refs:
-            # Parse succeeded but some @-references couldn't be normalized to
-            # a 3-part FQN (e.g. malformed name, >3 dotted parts).
             self.report.warning(
                 "Pipe COPY INTO stage reference could not be normalized; "
                 "lineage may be incomplete",
@@ -285,9 +276,8 @@ class SnowflakePipesExtractor:
                     pipe_fqn,
                 )
             else:
-                # Pipe body is something other than COPY INTO (legal but
-                # unusual). Lineage extraction is not supported for those
-                # forms; skip silently to avoid noise on every such pipe.
+                # Non-COPY pipe bodies are legal but unsupported for lineage;
+                # skip silently to avoid a warning on every such pipe.
                 logger.debug(
                     "Pipe %s definition is not a COPY INTO; skipping lineage extraction",
                     pipe_fqn,
