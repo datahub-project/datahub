@@ -60,6 +60,9 @@ class SnowflakeObjectDomain(StrEnum):
     PROCEDURE = "procedure"
     DYNAMIC_TABLE = "dynamic table"
     STREAMLIT = "streamlit"
+    STAGE = "stage"
+    TASK = "task"
+    PIPE = "pipe"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"

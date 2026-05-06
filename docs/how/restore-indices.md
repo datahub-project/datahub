@@ -1,3 +1,7 @@
+---
+description: "Rebuild DataHub's Elasticsearch, OpenSearch, or Neo4j indices from the metadata_aspect_v2 table when search or graph services drift."
+---
+
 # Search and Graph Reindexing
 
 If your search infrastructure (Elasticsearch/OpenSearch) or graph services (Elasticsearch/OpenSearch/Neo4j) become inconsistent or out-of-sync with your primary metadata store, you can **rebuild them from the source of truth**: the `metadata_aspect_v2` table in your relational database (MySQL/Postgres).

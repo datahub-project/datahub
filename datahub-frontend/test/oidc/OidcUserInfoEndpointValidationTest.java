@@ -71,7 +71,9 @@ import play.mvc.Result;
  * (not in ID token) - This matches the behavior of many real-world OIDC providers
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@SetEnvironmentVariable(key = "DATAHUB_SECRET", value = "test")
+@SetEnvironmentVariable(
+    key = "DATAHUB_SECRET",
+    value = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 @SetEnvironmentVariable(key = "AUTH_OIDC_ENABLED", value = "true")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_ID", value = "testclient")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_SECRET", value = "testsecret")

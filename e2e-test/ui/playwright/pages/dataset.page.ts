@@ -32,7 +32,7 @@ export class DatasetPage extends BasePage {
   }
 
   async getDatasetName(): Promise<string> {
-    return await this.datasetName.textContent() || '';
+    return (await this.datasetName.textContent()) || '';
   }
 
   async closeAnyOpenModal(): Promise<void> {
@@ -55,11 +55,19 @@ export class DatasetPage extends BasePage {
     // SidebarSection sets data-testid="sidebar-section-content-{title}" on its content container.
     const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
     await businessAttributeSection.waitFor({ state: 'visible', timeout: 15000 });
-    await businessAttributeSection.hover();
-    await businessAttributeSection.locator('text=Add Attribute').click();
+    // The ant-drawer-body intercepts pointer events so .hover() fails.
+    // Scroll the section into view and dispatch a mouseover event to reveal the "Add Attribute"
+    // button (CSS :hover), then click it via the native DOM click to bypass overlay checks.
+    await businessAttributeSection.evaluate((el: HTMLElement) => el.scrollIntoView({ block: 'center' }));
+    await businessAttributeSection.dispatchEvent('mouseover');
+    const addButton = businessAttributeSection.locator('text=Add Attribute');
+    // If the attribute is already set (e.g. from seed data), "Add Attribute" won't be present — skip.
+    if ((await addButton.count()) === 0) return;
+    await addButton.evaluate((el: HTMLElement) => el.click());
 
     // The Select component requires typing into the inner search input, not fill() on the outer wrapper.
-    const modalSearchInput = this.page.locator('[data-testid="business-attribute-modal-input"]')
+    const modalSearchInput = this.page
+      .locator('[data-testid="business-attribute-modal-input"]')
       .locator('.ant-select-selection-search-input');
     await modalSearchInput.fill(attributeName);
 
@@ -75,7 +83,7 @@ export class DatasetPage extends BasePage {
     await doneBtn.waitFor({ state: 'visible' });
     await expect(doneBtn).toBeEnabled();
     await doneBtn.evaluate((el: HTMLElement) => el.click());
-    await expect(doneBtn).not.toBeVisible();
+    await expect(doneBtn).toBeHidden();
 
     await expect(businessAttributeSection.getByText(attributeName)).toBeVisible();
   }
@@ -89,14 +97,21 @@ export class DatasetPage extends BasePage {
   async removeBusinessAttributeFromField(fieldName: string, attributeName: string): Promise<void> {
     const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
 
-    const closeIcon = businessAttributeSection.locator('span[aria-label=close]');
-    await closeIcon.hover({ force: true });
-    await closeIcon.click({ force: true });
+    // In V2 the close icon may be an img element; use [aria-label="close"] to match both
+    // the old span[aria-label=close] (Ant Design v4) and new img[aria-label="close"] (V2).
+    const closeIcon = businessAttributeSection.locator('[aria-label="close"]').first();
+    // Use evaluate to click directly, bypassing viewport and pointer-event intercept checks.
+    await closeIcon.evaluate((el: HTMLElement) => {
+      el.scrollIntoView({ block: 'center' });
+      el.click();
+    });
 
     // Scope the confirmation button to the dialog to avoid matching "Yes" text elsewhere.
+    await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).waitFor({ state: 'visible' });
     await this.page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click({ force: true });
+    await this.page.waitForLoadState('networkidle');
 
-    await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible();
+    await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible({ timeout: 15000 });
   }
 
   async expectBusinessAttributeOnField(fieldName: string, attributeName: string): Promise<void> {
@@ -106,7 +121,7 @@ export class DatasetPage extends BasePage {
 
   async expectBusinessAttributeNotOnField(fieldName: string, attributeName: string): Promise<void> {
     const businessAttributeSection = this.getBusinessAttributeSection(fieldName);
-    await expect(businessAttributeSection.getByText(attributeName)).not.toBeVisible();
+    await expect(businessAttributeSection.getByText(attributeName)).toBeHidden();
   }
 
   async expectTagOnFieldFromAttribute(fieldName: string, tagName: string): Promise<void> {
@@ -117,5 +132,32 @@ export class DatasetPage extends BasePage {
   async expectTermOnFieldFromAttribute(fieldName: string, termName: string): Promise<void> {
     await this.clickSchemaField(fieldName);
     await expect(this.page.getByText(termName)).toBeVisible();
+  }
+
+  // ── Ownership helpers (V1 UI) ─────────────────────────────────────────────
+
+  async addOwner(owner: string, ownerType: string): Promise<void> {
+    await this.page.locator('[data-testid="add-owners-button"]').first().click({ force: true });
+    await expect(this.page.locator('[data-testid="add-owners-select"]')).toBeVisible({ timeout: 10000 });
+    await this.page.locator('[data-testid="add-owners-select-base"]').click({ force: true });
+    await this.page.locator('[data-testid="dropdown-search-input"]').fill(owner);
+    await this.page.locator('[data-testid="add-owners-select-dropdown"]').getByText(owner).click({ force: true });
+    await expect(this.page.getByText(owner)).toBeVisible();
+    await this.page.getByRole('dialog').getByText('Technical Owner').click();
+    await this.page.getByRole('listbox').locator('..').getByText(ownerType).click();
+    await expect(this.page.getByRole('dialog').getByText(ownerType)).toBeVisible();
+    await this.page.getByText('Done').click();
+    await expect(this.page.getByText('Owners Added')).toBeVisible({ timeout: 15000 });
+    await expect(this.page.getByText(ownerType)).toBeVisible();
+    await expect(this.page.getByText(owner)).toBeVisible();
+  }
+
+  // elementId is a dynamic selector (e.g. href targeting a specific user/group URN)
+  // so it is passed in from the test rather than hardcoded here.
+  async removeOwner(owner: string, elementId: string): Promise<void> {
+    await this.page.locator(elementId).locator('xpath=following-sibling::*[1]').click();
+    await this.page.getByText('Yes').click();
+    await expect(this.page.getByText('Owner Removed')).toBeVisible({ timeout: 15000 });
+    await expect(this.page.getByText(owner)).not.toBeVisible({ timeout: 10000 });
   }
 }

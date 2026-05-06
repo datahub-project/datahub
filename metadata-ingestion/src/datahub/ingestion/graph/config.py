@@ -34,5 +34,9 @@ class DatahubClientConfig(ConfigModel):
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None
+    # Enables TCP keepalive on the underlying HTTP session, which prevents idle
+    # connections from being silently dropped by intermediaries (e.g. NAT
+    # gateways) and surfacing as SSLEOFError on reuse.
+    tcp_keepalive: bool = False
 
     model_config = ConfigDict(extra="ignore")

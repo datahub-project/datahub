@@ -59,9 +59,7 @@ export class BasePage {
    * Playwright's default output directory when logDir is not provided.
    */
   async screenshot(name: string): Promise<void> {
-    const screenshotPath = this.logDir
-      ? path.join(this.logDir, `${name}.png`)
-      : `${name}.png`;
+    const screenshotPath = this.logDir ? path.join(this.logDir, `${name}.png`) : `${name}.png`;
     this.logger?.step('screenshot', { name, path: screenshotPath });
     await this.page.screenshot({ path: screenshotPath, fullPage: false });
   }

@@ -12,7 +12,6 @@ import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
-import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
@@ -106,7 +105,6 @@ public class BootstrapManagerFactory {
         new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
-    final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
     final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
         new RestoreFormInfoIndicesStep(_entityService);
     final MigrateHomePageLinksStep migrateHomePageLinksStep =
@@ -123,7 +121,6 @@ public class BootstrapManagerFactory {
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
-                ingestEntityTypesStep,
                 restoreFormInfoIndicesStep));
 
     if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {

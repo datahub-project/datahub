@@ -113,6 +113,8 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
+    OperationClass,
+    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -1164,10 +1166,20 @@ class GlueSource(StatefulIngestionSourceBase):
             paginator_response = paginator.paginate(DatabaseName=database_name)
 
         for table in paginator_response.search("TableList"):
-            # if resource links are detected, re-use database names from the current catalog
-            # otherwise, external names are picked up instead of aliased ones when creating full table names later
-            # This will cause an incoherent situation when creating full table names later
-            # Note: use an explicit source_config check but it is useless actually (filtering has already been done)
+            # Lake Formation can share individual tables across accounts as table-level
+            # resource links (table has a TargetTable pointing at the shared table).
+            # Database-level filtering in get_all_databases() does not catch these,
+            # since they live inside non-resource-link databases.
+            if self.source_config.ignore_resource_links and "TargetTable" in table:
+                logger.debug(
+                    f"Skipping resource link table {database_name}.{table.get('Name')} "
+                    f"(TargetTable: {table.get('TargetTable')})"
+                )
+                continue
+
+            # When ingesting resource-link databases (ignore_resource_links=False),
+            # rewrite DatabaseName to the local alias so downstream URN construction
+            # uses the catalog-local name instead of the target catalog's name.
             if (
                 not self.source_config.ignore_resource_links
                 and "TargetDatabase" in database
@@ -1695,13 +1707,37 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         # Create the main dataset snapshot
+        dataset_properties = self._get_dataset_properties(table)
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[
                 Status(removed=False),
-                self._get_dataset_properties(table),
+                dataset_properties,
             ],
         )
+
+        # Add operations if available
+        if dataset_properties.created:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.CREATE,
+                    lastUpdatedTimestamp=dataset_properties.created.time,
+                    timestampMillis=dataset_properties.created.time,
+                ),
+            ).as_workunit()
+        if (
+            dataset_properties.lastModified
+            and dataset_properties.lastModified != dataset_properties.created
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=OperationClass(
+                    operationType=OperationTypeClass.UPDATE,
+                    lastUpdatedTimestamp=dataset_properties.lastModified.time,
+                    timestampMillis=dataset_properties.lastModified.time,
+                ),
+            ).as_workunit()
 
         # Add schema metadata if available
         schema_metadata = self._get_schema_metadata(table, table_name, dataset_urn)
@@ -1770,6 +1806,14 @@ class GlueSource(StatefulIngestionSourceBase):
             },
         }
 
+        created = None
+        if table.get("CreateTime"):
+            created_ts = make_ts_millis(
+                table["CreateTime"].replace(tzinfo=datetime.timezone.utc)
+            )
+            if created_ts is not None:
+                created = TimeStampClass(created_ts)
+
         last_modified = None
         if table.get("UpdateTime"):
             updated_ts = make_ts_millis(
@@ -1789,6 +1833,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 database=table["DatabaseName"],
                 table=table["Name"],
             ),
+            created=created,
             lastModified=last_modified,
         )
 

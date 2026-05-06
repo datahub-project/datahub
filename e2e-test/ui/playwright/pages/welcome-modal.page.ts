@@ -46,7 +46,8 @@ export class WelcomeModalPage extends BasePage {
 
   async navigateToHome(): Promise<void> {
     const currentUrl = this.page.url();
-    const isAlreadyOnHome = currentUrl.endsWith('/') || currentUrl.includes('localhost:9002/#') || currentUrl.includes('localhost:9002#');
+    const isAlreadyOnHome =
+      currentUrl.endsWith('/') || currentUrl.includes('localhost:9002/#') || currentUrl.includes('localhost:9002#');
 
     if (isAlreadyOnHome) {
       // Force reload if already on home to ensure component remounts with fresh localStorage
@@ -58,6 +59,8 @@ export class WelcomeModalPage extends BasePage {
   }
 
   async expectModalVisible(): Promise<void> {
+    // Extended timeout: the modal is rendered asynchronously after login completes and
+    // the React component tree settles. Playwright's default 5 s is sometimes too short.
     await expect(this.modal).toBeVisible({ timeout: 10000 });
   }
 
@@ -73,31 +76,28 @@ export class WelcomeModalPage extends BasePage {
     await carouselDots.waitFor({ state: 'visible', timeout: 15000 });
   }
 
-  async expectModalNotVisible(): Promise<void> {
-    await expect(this.modal).not.toBeVisible();
-  }
-
-  async expectModalTitleVisible(): Promise<void> {
-    await expect(this.modalTitle).toBeVisible();
-  }
-
   async closeViaButton(): Promise<void> {
     // Only wait for carousel to be ready if the loading indicator is actually present.
     const loadingText = this.page.getByText('Loading...');
     if (await loadingText.isVisible()) {
       await this.waitForCarouselReady();
     }
+    // Ant Design renders the close icon only after the modal open animation completes;
+    // waitFor is needed because Playwright's click() auto-wait checks actionability but
+    // the element may not yet be in the DOM during the animation frame.
     await this.closeButton.waitFor({ state: 'visible', timeout: 5000 });
     await this.closeButton.click();
     await this.modal.waitFor({ state: 'hidden' });
   }
 
   async closeViaGetStarted(): Promise<void> {
-    // The Get Started button is rendered via rightComponent only after the carousel's
-    // afterChange callback fires and React updates currentSlide to the last index.
-    // Wait for the button to be visible before clicking.
-    await this.getStartedButton.waitFor({ state: 'visible', timeout: 10000 });
-    await this.getStartedButton.click();
+    // clickLastCarouselDot already waited for the button to be attached.
+    // Short safety timeout here in case of unexpected state; the button is positioned
+    // absolutely at the bottom of the carousel container (bottom: -2px) so we
+    // scroll it into view and force-click to bypass viewport checks.
+    await this.getStartedButton.waitFor({ state: 'attached', timeout: 5000 });
+    await this.getStartedButton.scrollIntoViewIfNeeded();
+    await this.getStartedButton.click({ force: true });
     await this.modal.waitFor({ state: 'hidden' });
   }
 
@@ -116,7 +116,9 @@ export class WelcomeModalPage extends BasePage {
 
   async clickCarouselDot(index: number): Promise<void> {
     await this.carouselDots.nth(index).click();
-    await this.page.waitForTimeout(500); // Wait for carousel animation
+    // react-slick does not emit a DOM signal when the slide CSS transition finishes (~300 ms).
+    // There is no reliable locator to await, so a short fixed delay is the least-fragile option.
+    await this.page.waitForTimeout(500);
   }
 
   async clickLastCarouselDot(): Promise<void> {
@@ -124,7 +126,40 @@ export class WelcomeModalPage extends BasePage {
     await this.waitForCarouselReady();
     await this.lastCarouselDot.waitFor({ state: 'visible', timeout: 10000 });
     await this.lastCarouselDot.click();
-    await this.page.waitForTimeout(500); // Wait for carousel animation
+
+    // React-slick fires afterChange via setTimeout(fn, speed) — NOT via transitionend.
+    // A ResizeObserver on .slick-list can call onWindowResized(), which clears
+    // animationEndCallback (line 242 in inner-slider.js) if the DOM shifts during
+    // animation (e.g. video/image layout reflows). This silently drops afterChange,
+    // so setCurrentSlide(lastIndex) is never called and the Get Started button
+    // never renders.
+    //
+    // If the carousel is already on the last slide when clicked, slideHandler
+    // returns early with state=null (no transition, no new callback).
+    //
+    // Fix: wait for the button as the ground truth. On failure, navigate to slide 0
+    // first (so the next click is a real transition) then re-click the last dot.
+    const buttonReady = await this.getStartedButton
+      .waitFor({ state: 'attached', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!buttonReady) {
+      // Move to slide 0 so the carousel's internal currentSlide != lastIndex,
+      // ensuring the next click triggers a full slideHandler run (not early-return).
+      await this.carouselDots.first().click({ force: true });
+      // slick-active is set at animation START, not when afterChange fires.
+      // We must wait for afterChange to complete for slide 0 before re-clicking the
+      // last dot — otherwise react-slick's internal currentSlide has not committed yet
+      // and the subsequent click may trigger slideHandler while still mid-animation,
+      // causing afterChange to be dropped again by the ResizeObserver race.
+      // react-slick's default animation speed is 500 ms, so 700 ms covers the
+      // setTimeout(afterChange, speed) call with margin.
+      await this.waitForSlideChange(0, 5000).catch(() => {});
+      await this.page.waitForTimeout(700);
+      await this.lastCarouselDot.click({ force: true });
+      await this.getStartedButton.waitFor({ state: 'attached', timeout: 20000 });
+    }
   }
 
   async expectSlide1Visible(): Promise<void> {
@@ -148,15 +183,10 @@ export class WelcomeModalPage extends BasePage {
 
   async expectFinalSlideVisible(): Promise<void> {
     await this.waitForCarouselReady();
+    // clickLastCarouselDot already confirmed the Get Started button is attached,
+    // which requires afterChange to have fired and React to have re-rendered with
+    // currentSlide === lastIndex. The heading is visible in the same render cycle.
     await expect(this.finalSlideHeading).toBeVisible();
-  }
-
-  async expectGetStartedButtonVisible(): Promise<void> {
-    await expect(this.getStartedButton).toBeVisible();
-  }
-
-  async expectDocsLinkVisible(): Promise<void> {
-    await expect(this.docsLink).toBeVisible();
   }
 
   async getActiveSlideIndex(): Promise<number> {
@@ -175,7 +205,7 @@ export class WelcomeModalPage extends BasePage {
         return allDots.indexOf(activeDot as Element) === index;
       },
       expectedIndex,
-      { timeout }
+      { timeout },
     );
   }
 

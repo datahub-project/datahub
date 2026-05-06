@@ -14,8 +14,10 @@ The `fabric-onelake` module ingests metadata from Fabric Onelake into DataHub. I
 
 - Workspace, Lakehouse, Warehouse, and Schema containers
 - Table datasets with proper subtypes
+- View datasets with view definitions captured from the SQL Analytics endpoint
+- View-to-table lineage parsed from view definitions
 - Automatic detection and handling of schemas-enabled and schemas-disabled lakehouses
-- Pattern-based filtering for workspaces, lakehouses, warehouses, and tables
+- Pattern-based filtering for workspaces, lakehouses, warehouses, tables, and views
 - Stateful ingestion for stale entity removal
 - Multiple authentication methods (Service Principal, Managed Identity, Azure CLI, DefaultAzureCredential)
 
@@ -109,3 +111,114 @@ For detailed information on permissions, see:
 1. Enable system-assigned managed identity on your Azure resource (VM, AKS, App Service, etc.)
 2. Assign the managed identity to Fabric workspaces with **Viewer** role or higher
 3. The connector will automatically use the managed identity for authentication
+
+#### SQL Analytics Endpoint Setup
+
+Schema extraction via the SQL Analytics Endpoint requires ODBC drivers to be installed on the system.
+
+##### 1. ODBC Driver Manager
+
+First, install the ODBC driver manager (UnixODBC) on your system:
+
+**Ubuntu/Debian:**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y unixodbc unixodbc-dev
+```
+
+**RHEL/CentOS/Fedora:**
+
+```bash
+# RHEL/CentOS 7/8
+sudo yum install -y unixODBC unixODBC-devel
+
+# Fedora / RHEL 9+
+sudo dnf install -y unixODBC unixODBC-devel
+```
+
+**macOS:**
+
+```bash
+brew install unixodbc
+```
+
+##### 2. Microsoft ODBC Driver for SQL Server
+
+Install the Microsoft ODBC Driver 18 for SQL Server (required for connecting to Fabric SQL Analytics Endpoint):
+
+**Ubuntu 20.04/22.04:**
+
+```bash
+curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+sudo apt-get update
+sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+```
+
+**RHEL/CentOS 7/8:**
+
+```bash
+sudo curl -o /etc/yum.repos.d/mssql-release.repo https://packages.microsoft.com/config/rhel/$(rpm -E %{rhel})/mssql-release.repo
+sudo ACCEPT_EULA=Y yum install -y msodbcsql18
+```
+
+**RHEL 9 / Fedora:**
+
+```bash
+sudo curl -o /etc/yum.repos.d/mssql-release.repo https://packages.microsoft.com/config/rhel/9/mssql-release.repo
+sudo ACCEPT_EULA=Y dnf install -y msodbcsql18
+```
+
+**macOS:**
+
+```bash
+brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+brew update
+HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18
+```
+
+**Windows:**
+Download and install from [Microsoft ODBC Driver for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server).
+
+##### 3. Verify Installation
+
+After installation, verify that the ODBC driver is available:
+
+```bash
+odbcinst -q -d
+```
+
+You should see `ODBC Driver 18 for SQL Server` in the list.
+
+##### 4. Permissions
+
+Your Azure identity must have access to query the SQL Analytics Endpoint (same permissions as accessing the endpoint via SQL tools).
+
+##### 5. Python Dependencies
+
+The `fabric-onelake` extra includes `sqlalchemy` and `pyodbc` dependencies. Install them with:
+
+```bash
+pip install 'acryl-datahub[fabric-onelake]'
+```
+
+**Note:** If you encounter `libodbc.so.2: cannot open shared object file` errors, ensure the ODBC driver manager is installed (step 1 above).
+
+#### View Extraction
+
+View extraction reuses the SQL Analytics Endpoint connection from [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup) — the same ODBC driver applies, and views are skipped unless `sql_endpoint.enabled` is `true`.
+
+Reading view definitions (needed for view-to-table lineage) requires `VIEW DEFINITION` permission on the SQL Analytics Endpoint. The workspace **Viewer** role used for table ingestion is _not_ sufficient — it grants `db_datareader` only, which causes `INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION` to return `NULL`. There is no workspace-level toggle for this permission; you must choose one of:
+
+- **Grant `VIEW DEFINITION` per Lakehouse/Warehouse** (recommended for least privilege — keeps the identity at workspace Viewer):
+
+  ```sql
+  GRANT VIEW DEFINITION ON DATABASE::<lakehouse_or_warehouse_name> TO [<service_principal_name>];
+  ```
+
+- **Assign a higher workspace role** (Contributor, Member, or Admin) on the workspaces you ingest.
+
+If neither is acceptable for your environment, set `extract_views: false` to skip view ingestion. Views will still appear without definitions if you ingest them at Viewer level, but lineage will be missing.
+
+References: [Fabric Warehouse roles and permissions](https://learn.microsoft.com/en-us/fabric/data-warehouse/share-warehouse-manage-permissions), [Lakehouse workspace roles](https://learn.microsoft.com/en-us/fabric/data-engineering/workspace-roles-lakehouse).
