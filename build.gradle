@@ -59,7 +59,11 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
   ext.logbackClassic = '1.5.32'
-  ext.hadoop3Version = '3.4.1' // Hadoop >=3.4.0 required for CVE-2024-23454 (TAR symlink path traversal in unTar); >3.3.4 for CVE-2021-37404, command injection, path traversal, deserialization RCE
+  ext.hadoop3Version = '3.4.1' // Hadoop >=3.4.0 for CVE-2024-23454 (RunJar temp-dir permissions per HADOOP-19031); >3.3.4 for CVE-2021-37404, command injection, path traversal, deserialization RCE
+  // CVE-2017-3162 (DataNode servlet, Hadoop before 2.7.0) is fixed by any 3.x client; pin thirdparty jar so scanners do not flag Hadoop 2.x-era metadata on 1.3.0.
+  ext.hadoopShadedProtobuf_3_25_Version = '1.5.0'
+  // CVE-2024-23454 (RunJar temp dir permissions) is fixed in hadoop-common 3.4.0+; pin thirdparty jar beyond Hadoop’s transitive 1.3.0 for scanner hygiene.
+  ext.hadoopShadedGuavaVersion = '1.5.0'
   ext.kafkaVersion = '8.1.0'
   ext.hazelcastVersion = '5.6.0'
   ext.ebeanVersion = '15.5.2'
@@ -68,15 +72,16 @@ buildscript {
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.16.4'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
-  ext.nettyVersion = '4.1.132.Final' // align all io.netty modules; CVE-2026-33870
+  ext.nettyVersion = '4.1.133.Final' // align all io.netty modules; CVE-2026-33870, CVE-2026-41417 (DefaultHttpRequest.setUri CRLF / request smuggling)
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
   ext.bouncyCastleJdk18onVersion = '1.84'
   // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
-  // 1.77.x embeds Netty 4.1.127 (affected by CVE-2025-67735); use 1.79+ (1.80.0 -> shaded 4.1.130.Final).
-  // CVE-2026-33870 needs Netty 4.1.132+ inside the shaded jar; upgrade grpc when Maven has a release that bundles it (see grpc-java SECURITY.md table).
-  ext.grpcVersion = '1.80.0'
+  // 1.80.0 shades Netty 4.1.130 (CVE-2026-33870); 1.81.0 shades Netty 4.1.132.Final (fixed). Shaded jar still on 4.1.132 until grpc-java publishes a build with 4.1.133+ (CVE-2026-41417).
+  ext.grpcVersion = '1.81.0'
+  // Pinned below Spring Boot’s reactor-bom (reactor-netty 1.3.x); CVE-2026-33870 on codec-http is addressed by forcing all io.netty:* to nettyVersion above on reactor-netty’s transitives.
+  ext.reactorNettyVersion = '1.2.17'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -249,8 +254,8 @@ project.ext.externalDependency = [
     'gcpCloudSqlConnector': 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.25.3',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
-    'nettyReactor': 'io.projectreactor.netty:reactor-netty-http:1.2.17',
-    'nettyCore': 'io.projectreactor.netty:reactor-netty-core:1.2.17',
+    'nettyReactor': "io.projectreactor.netty:reactor-netty-http:${reactorNettyVersion}",
+    'nettyCore': "io.projectreactor.netty:reactor-netty-core:${reactorNettyVersion}",
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
@@ -519,6 +524,14 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
         details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
       }
+      if (details.requested.group == 'org.apache.hadoop.thirdparty' && details.requested.name == 'hadoop-shaded-protobuf_3_25') {
+        details.useVersion(rootProject.ext.hadoopShadedProtobuf_3_25_Version)
+        details.because("hadoop-shaded-protobuf_3_25 ${rootProject.ext.hadoopShadedProtobuf_3_25_Version}; CVE-2017-3162 is in hadoop-hdfs DataNode (fixed 2.7.0+, we use hadoop-client ${rootProject.ext.hadoop3Version})")
+      }
+      if (details.requested.group == 'org.apache.hadoop.thirdparty' && details.requested.name == 'hadoop-shaded-guava') {
+        details.useVersion(rootProject.ext.hadoopShadedGuavaVersion)
+        details.because("hadoop-shaded-guava ${rootProject.ext.hadoopShadedGuavaVersion}; CVE-2024-23454 is RunJar in hadoop-common (fixed 3.4.0+, we use hadoop-client ${rootProject.ext.hadoop3Version})")
+      }
       // Align all Jackson modules to jacksonVersion (e.g. Play pegasusPlugin classpath ~2.10.x).
       // jackson-annotations uses the minor-only line in Jackson 2.21+ (see jackson-bom).
       if (details.requested.group == 'com.fasterxml.jackson.core' || details.requested.group == 'com.fasterxml.jackson.dataformat' || details.requested.group == 'com.fasterxml.jackson.datatype' || details.requested.group == 'com.fasterxml.jackson.module') {
@@ -702,8 +715,8 @@ subprojects {
         implementation("io.netty:netty-transport-native-epoll:${rootProject.ext.nettyVersion}")
         implementation("io.netty:netty-transport-native-kqueue:${rootProject.ext.nettyVersion}")
         implementation("io.netty:netty-transport-native-unix-common:${rootProject.ext.nettyVersion}")
-        implementation('io.projectreactor.netty:reactor-netty-core:1.2.17')
-        implementation('io.projectreactor.netty:reactor-netty-http:1.2.17')
+        implementation("io.projectreactor.netty:reactor-netty-core:${rootProject.ext.reactorNettyVersion}")
+        implementation("io.projectreactor.netty:reactor-netty-http:${rootProject.ext.reactorNettyVersion}")
         implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
         implementation('org.jline:jline:3.25.1') // CVE-2023-50572: OOM in GroovyEngine.execute
