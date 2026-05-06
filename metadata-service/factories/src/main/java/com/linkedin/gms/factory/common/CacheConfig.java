@@ -66,10 +66,12 @@ public class CacheConfig {
     // one for CachedLatestAspect data values, one for the Set<String> reverse index — keep
     // value types disjoint so the caching service can hold strongly-typed handles instead of
     // Object-erased ones.
-    cacheManager.registerCustomCache(
-        "latestTimeseriesAspect", latestTimeseriesCaffeineBuilder().build());
-    cacheManager.registerCustomCache(
-        "latestTimeseriesAspectIndex", latestTimeseriesCaffeineBuilder().build());
+    if (configurationProvider.getTimeseriesAspectService().getCache().isEnabled()) {
+      cacheManager.registerCustomCache(
+          "latestTimeseriesAspect", latestTimeseriesCaffeineBuilder().build());
+      cacheManager.registerCustomCache(
+          "latestTimeseriesAspectIndex", latestTimeseriesCaffeineBuilder().build());
+    }
     return cacheManager;
   }
 
