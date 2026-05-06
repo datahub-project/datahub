@@ -32,6 +32,8 @@ source:
 
 With that config, CSV columns `owner_team` and `classification` are interpreted as structured properties.
 
+When `write_semantics` is set to `OVERRIDE`, structured properties are replaced as part of the full entity-level overwrite behavior. This means structured properties not present in mapped CSV columns will be removed from the entity.
+
 If ownership_type_urn is set then ownership_type must be set to CUSTOM.
 
 Note that you have the option in your recipe config to write as a PATCH or as an OVERRIDE. This choice will apply to all metadata for the entity, not just a single aspect. So OVERRIDE will override all metadata, including performing deletes if a metadata field is empty. The default is PATCH.
