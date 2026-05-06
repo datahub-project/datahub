@@ -434,10 +434,31 @@ elasticsearch:
           spaceType: cosinesimil
           efConstruction: 128
           m: 16
+        # Snowflake Arctic-embed-s (ONNX in-process default, 384 dimensions)
+        snowflake_arctic_embed_s:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_SNOWFLAKE_ARCTIC_EMBED_S_VECTORDIMENSION:384}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # Snowflake Arctic-embed-l (ONNX in-process, 1024 dimensions)
+        snowflake_arctic_embed_l:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_SNOWFLAKE_ARCTIC_EMBED_L_VECTORDIMENSION:1024}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # BGE-base-en-v1.5 (ONNX in-process, 768 dimensions)
+        bge_base_en_v1_5:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_BGE_BASE_EN_V1_5_VECTORDIMENSION:768}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
       # Embedding provider configuration for generating query embeddings
-      # Supports: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
+      # Supports: "aws-bedrock", "openai", "cohere", "local", "vertex_ai", or "onnx"
       embeddingProvider:
-        # Provider type: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
+        # Provider type: "aws-bedrock", "openai", "cohere", "local", "vertex_ai", or "onnx"
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
@@ -469,6 +490,15 @@ elasticsearch:
         local:
           endpoint: ${LOCAL_EMBEDDING_ENDPOINT:http://localhost:11434/v1/embeddings}
           model: ${LOCAL_EMBEDDING_MODEL:nomic-embed-text}
+
+        # In-process ONNX Runtime configuration (used when type is "onnx")
+        # No external server needed — runs inference in the GMS JVM.
+        # Requires the datahub-gms-onnx Docker image with a baked-in model.
+        # WARNING: Switching models requires recreating semantic indices and re-embedding all documents.
+        onnx:
+          modelName: ${ONNX_EMBEDDING_MODEL_NAME:}
+          modelDir: ${ONNX_EMBEDDING_MODEL_DIR:}
+          intraOpThreads: ${ONNX_EMBEDDING_INTRA_OP_THREADS:4}
 
         # Google Vertex AI configuration (used when type is "vertex_ai")
         vertexai:

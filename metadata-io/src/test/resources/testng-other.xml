@@ -26,6 +26,7 @@
             <class name="com.linkedin.metadata.search.embedding.OpenAIEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.CohereEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.embedding.OnnxEmbeddingProviderTest"/>
         </classes>
     </test>
 
