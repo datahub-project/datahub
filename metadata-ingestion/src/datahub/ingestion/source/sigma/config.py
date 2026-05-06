@@ -280,21 +280,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs where element-name matches the element's own warehouse-table name
     # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
     # warehouse-passthrough refs, not intra-DM self-edges; the actual upstream
-    # is the warehouse inode.  Equal to _no_warehouse_source +
-    # _unmappable_connection (all resolution failures land here).
+    # is the warehouse inode.  Non-zero when columnId doesn't encode a warehouse
+    # column or when the connection isn't in the registry.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
-
     # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
     data_model_element_fgl_warehouse_resolved: int = 0
-    # Connection not in registry or is_mappable=False; FGL not emitted.
-    # Counted per column, not per source_id — differs in granularity from
-    # the entity-level dm_element_warehouse_unknown_connection counter.
-    data_model_element_fgl_warehouse_unmappable_connection: int = 0
-    # Self-stripped ref but no resolvable warehouse inode source (e.g.,
-    # CSV-backed element whose name matches the formula source, or /files miss).
-    data_model_element_fgl_warehouse_no_warehouse_source: int = 0
-    # Roll-up: equals _warehouse_resolved when no other paths are active.
-    data_model_element_fgl_warehouse_emitted_total: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0

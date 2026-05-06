@@ -6855,7 +6855,6 @@ def test_sigma_ingest_data_models_dm_element_warehouse_fgl(
     assert report.data_model_element_fgl_warehouse_resolved == 3, (
         f"expected 3 warehouse FGL resolved; got {report.data_model_element_fgl_warehouse_resolved}"
     )
-    assert report.data_model_element_fgl_warehouse_emitted_total == 3
     assert report.data_model_element_fgl_warehouse_passthrough_deferred == 0
 
     expected_warehouse_urn = (
