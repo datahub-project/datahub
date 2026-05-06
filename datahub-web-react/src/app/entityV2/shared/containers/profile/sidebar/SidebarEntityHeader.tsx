@@ -18,10 +18,13 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, EntityType, Post } from '@types';
 
-const TitleContainer = styled(HorizontalScroller)<{ $hasPlatform: boolean }>`
+const Wrapper = styled.div<{ $hasPlatformIcon?: boolean }>`
+    padding: 0 ${(props) => (props.$hasPlatformIcon ? '16px' : '20px')};
+`;
+
+const TitleContainer = styled(HorizontalScroller)`
     display: flex;
     gap: 8px;
-    padding: 0 ${(props) => (props.$hasPlatform ? '16px' : '20px')};
 `;
 
 const EntityDetailsContainer = styled.div`
@@ -53,47 +56,53 @@ const SidebarEntityHeader = () => {
     const parentEntities = getParentEntities(entityData, entityType);
 
     if (loading) {
-        return <EntityTitleLoadingSection />;
+        return (
+            <Wrapper>
+                <EntityTitleLoadingSection />
+            </Wrapper>
+        );
     }
     return (
-        <TitleContainer scrollButtonSize={18} scrollButtonOffset={15} $hasPlatform={!!platform}>
-            {platform && (
-                <PlatformHeaderIcons
-                    platform={platform as DataPlatform}
-                    platforms={platforms as DataPlatform[]}
-                    size={24}
-                />
-            )}
-            <EntityDetailsContainer>
-                <NameWrapper>
-                    <EntityName isNameEditable={false} />
-                    {!!entityData?.notes?.total && (
-                        <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
-                    )}
-                    {entityData?.deprecation?.deprecated && (
-                        <DeprecationIcon
-                            urn={urn}
-                            deprecation={entityData?.deprecation}
-                            showUndeprecate
-                            refetch={refetch}
-                            showText={false}
-                        />
-                    )}
-                    {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
-                    <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
-                    <VersioningBadge
-                        versionProperties={entityData?.versionProperties ?? undefined}
-                        showPopover={false}
+        <Wrapper $hasPlatformIcon={!!platform}>
+            <TitleContainer scrollButtonSize={18} scrollButtonOffset={platform ? 11 : 15}>
+                {platform && (
+                    <PlatformHeaderIcons
+                        platform={platform as DataPlatform}
+                        platforms={platforms as DataPlatform[]}
+                        size={24}
                     />
-                </NameWrapper>
-                <ContextPath
-                    displayedEntityType={displayedEntityType}
-                    entityType={entityType}
-                    browsePaths={entityData?.browsePathV2}
-                    parentEntities={parentEntities}
-                />
-            </EntityDetailsContainer>
-        </TitleContainer>
+                )}
+                <EntityDetailsContainer>
+                    <NameWrapper>
+                        <EntityName isNameEditable={false} />
+                        {!!entityData?.notes?.total && (
+                            <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
+                        )}
+                        {entityData?.deprecation?.deprecated && (
+                            <DeprecationIcon
+                                urn={urn}
+                                deprecation={entityData?.deprecation}
+                                showUndeprecate
+                                refetch={refetch}
+                                showText={false}
+                            />
+                        )}
+                        {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
+                        <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
+                        <VersioningBadge
+                            versionProperties={entityData?.versionProperties ?? undefined}
+                            showPopover={false}
+                        />
+                    </NameWrapper>
+                    <ContextPath
+                        displayedEntityType={displayedEntityType}
+                        entityType={entityType}
+                        browsePaths={entityData?.browsePathV2}
+                        parentEntities={parentEntities}
+                    />
+                </EntityDetailsContainer>
+            </TitleContainer>
+        </Wrapper>
     );
 };
 

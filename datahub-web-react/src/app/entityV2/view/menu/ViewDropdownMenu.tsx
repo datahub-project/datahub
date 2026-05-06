@@ -9,7 +9,7 @@ import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entityV2/view/cacheUtils';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
-import { Menu, colors, notification } from '@src/alchemy-components';
+import { Menu, notification } from '@src/alchemy-components';
 import { MenuItemType } from '@src/alchemy-components/components/Menu/types';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -24,11 +24,11 @@ const MenuTrigger = styled.div<{ $visible?: boolean; $isShowNavBarRedesign?: boo
     justify-content: center;
     cursor: pointer;
     width: 20px;
-    color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : 'inherit')};
+    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.text : 'inherit')};
     font-size: 18px;
 
     &:hover {
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 

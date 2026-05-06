@@ -133,7 +133,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         # Initialize state handler for incremental ingestion
         self.state_handler = VertexAIStateHandler(
             source=self,
-            stateful_ingestion_config=config.stateful_ingestion or config,
+            stateful_ingestion_config=config.stateful_ingestion,
         )
 
         self._credentials = self._setup_credentials()

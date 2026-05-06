@@ -1,11 +1,16 @@
+import { DefaultTheme } from 'styled-components';
+
+import { getDatahubEntityColors } from '@app/analyticsDashboardV2/utils/chartColorConstants';
+
 /**
  * Semantic color matching utilities for DataHub entity types
  *
  * Provides intelligent matching of series keys to entity colors,
  * handling various naming conventions and formats
  */
-import { DATAHUB_ENTITY_COLORS } from '@app/analyticsDashboardV2/utils/chartColorConstants';
-
+const getEntityColorsObject = (theme: DefaultTheme) => {
+    return getDatahubEntityColors(theme);
+};
 /**
  * Normalize a series key for matching
  * Removes separators, converts to lowercase
@@ -26,7 +31,8 @@ function normalizeKey(key: string): string {
  * @param seriesKey - The series identifier (e.g., "DATASET", "data_product", "Schema View")
  * @returns Hex color string if match found, null otherwise
  */
-export function findDataHubEntityColor(seriesKey: string): string | null {
+export function findDataHubEntityColor(seriesKey: string, theme: DefaultTheme): string | null {
+    const DATAHUB_ENTITY_COLORS = getEntityColorsObject(theme);
     const normalized = normalizeKey(seriesKey);
 
     // Direct match
@@ -58,8 +64,9 @@ export function findDataHubEntityColor(seriesKey: string): string | null {
  * Get all possible entity matches for a series key
  * Useful for debugging ambiguous matches
  */
-export function getAllEntityMatches(seriesKey: string): Array<{ entity: string; color: string }> {
+export function getAllEntityMatches(seriesKey: string, theme: DefaultTheme): Array<{ entity: string; color: string }> {
     const normalized = normalizeKey(seriesKey);
+    const DATAHUB_ENTITY_COLORS = getEntityColorsObject(theme);
 
     return Object.entries(DATAHUB_ENTITY_COLORS)
         .filter(

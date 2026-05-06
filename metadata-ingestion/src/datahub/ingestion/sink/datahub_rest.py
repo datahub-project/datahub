@@ -219,6 +219,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             read_timeout_sec=config.timeout_sec,
             retry_status_codes=config.retry_status_codes,
             retry_max_times=config.retry_max_times,
+            pool_connections=config.pool_connections,
+            pool_maxsize=config.pool_maxsize,
             extra_headers=config.extra_headers,
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
@@ -226,6 +228,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
+            tcp_keepalive=config.tcp_keepalive,
         )
 
     @property

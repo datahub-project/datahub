@@ -226,6 +226,12 @@ The options listed here will vary based on the type of assertion you chose in th
 - **Source**: For **Column Metric** assertions, you can choose the mechanism that will be used to obtain the column
   metric. **Query** will issue a query to the dataset to compute the metric. This issues a query to the table, which can be more expensive than Information Schema.
   **DataHub Dataset Profile** will use the DataHub Dataset Profile metadata to compute the metric. This is the cheapest option, but requires that Dataset Profiles are reported to DataHub. By default, Ingestion will report Dataset Profiles to DataHub, which can be and infrequent. You can report Dataset Profiles via the DataHub APIs for more frequent and reliable data.
+  **Table Statistics** (Databricks Only) computes the metric from platform-native column statistics via
+  [`ANALYZE TABLE ... COMPUTE STATISTICS FOR COLUMNS`](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) and
+  `DESCRIBE TABLE EXTENDED`, avoiding a full column scan. On Delta tables the cost is proportional to the number of files rather than rows.
+  This source requires `MODIFY` privilege (or ownership) on the table, applies only to Tables (not Views), and only supports the
+  following metrics: **null_count**, **null_percentage**, **unique_count**, **unique_percentage**, **min**, and **max**. Other metrics
+  (e.g. mean, stddev, median, empty_count) require **Query**.
 
 - **Additional Filters**: You can choose to add additional filters to the query that will be used to evaluate the
   assertion. This is useful if you want to limit the assertion to a subset of rows in the table. Note this option will not

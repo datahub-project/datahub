@@ -5,9 +5,11 @@ import styled from 'styled-components/macro';
 import CreateServiceAccountModal from '@app/identity/serviceAccount/CreateServiceAccountModal';
 import { ModalFooter, ServiceAccountTable } from '@app/identity/serviceAccount/ServiceAccountList.components';
 import {
+    useServiceAccountDefaultView,
     useServiceAccountListData,
     useServiceAccountListState,
     useServiceAccountRoleAssignment,
+    useServiceAccountViewOptions,
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
 import { Message } from '@app/shared/Message';
 import { Button, Icon, Modal, Text } from '@src/alchemy-components';
@@ -80,6 +82,9 @@ export const ServiceAccountList = ({
         refetch,
     );
 
+    const { viewOptions } = useServiceAccountViewOptions();
+    const { handleDefaultViewChange } = useServiceAccountDefaultView(refetch);
+
     const handleCreateComplete = () => {
         setIsCreatingServiceAccount(false);
     };
@@ -126,6 +131,7 @@ export const ServiceAccountList = ({
                 serviceAccounts={serviceAccounts}
                 selectRoleOptions={selectRoleOptions}
                 optimisticRoles={optimisticRoles}
+                viewOptions={viewOptions}
                 loading={loading}
                 page={page}
                 pageSize={pageSize}
@@ -135,6 +141,8 @@ export const ServiceAccountList = ({
                 }}
                 onDelete={handleDelete}
                 onRoleChange={handleRoleChange}
+                onDefaultViewChange={handleDefaultViewChange}
+                refetch={refetch}
             />
 
             {isCreatingServiceAccount && (

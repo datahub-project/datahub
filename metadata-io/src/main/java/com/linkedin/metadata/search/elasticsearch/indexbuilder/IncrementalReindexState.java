@@ -48,6 +48,12 @@ public final class IncrementalReindexState {
   /** Whether this index requires a data backfill (new @Searchable fields, not just settings). */
   public static final String REQUIRES_DATA_BACKFILL = "requiresDataBackfill";
 
+  /** Source index document count snapshotted at _reindex submission time. */
+  public static final String SOURCE_DOC_COUNT = "sourceDocCount";
+
+  /** ES task ID for the _reindex task submitted during Phase 1. */
+  public static final String TASK_ID = "taskId";
+
   public enum Status {
     PENDING,
     IN_PROGRESS,
@@ -85,6 +91,8 @@ public final class IncrementalReindexState {
       @Nonnull String nextIndexName,
       @Nullable String oldBackingIndexName,
       long reindexStartTime,
+      long sourceDocCount,
+      @Nullable String taskId,
       boolean requiresDataBackfill,
       @Nonnull Status status) {
 
@@ -94,6 +102,10 @@ public final class IncrementalReindexState {
       result.put(key(indexName, OLD_BACKING_INDEX_NAME), oldBackingIndexName);
     }
     result.put(key(indexName, REINDEX_START_TIME), String.valueOf(reindexStartTime));
+    result.put(key(indexName, SOURCE_DOC_COUNT), String.valueOf(sourceDocCount));
+    if (taskId != null) {
+      result.put(key(indexName, TASK_ID), taskId);
+    }
     result.put(key(indexName, REQUIRES_DATA_BACKFILL), String.valueOf(requiresDataBackfill));
     result.put(key(indexName, STATUS), status.name());
     return result;
@@ -163,7 +175,9 @@ public final class IncrementalReindexState {
               REINDEX_COMPLETE_TIME,
               STATUS,
               DUAL_WRITE_START_TIME,
-              REQUIRES_DATA_BACKFILL
+              REQUIRES_DATA_BACKFILL,
+              SOURCE_DOC_COUNT,
+              TASK_ID
             }) {
           String val = resultMap.get(key(indexName, prop));
           if (val != null) {

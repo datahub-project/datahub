@@ -3,7 +3,6 @@ import lodash from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
@@ -30,7 +29,7 @@ const BuilderContainer = styled.div`
 `;
 
 const AssertionsSection = styled.div`
-    border: 0.5px solid ${ANTD_GRAY[4]};
+    border: 0.5px solid ${(props) => props.theme.colors.bgHover};
     flex: 1;
     overflow: auto;
     min-height: 0;
@@ -38,7 +37,7 @@ const AssertionsSection = styled.div`
 
 const HeaderText = styled.div`
     padding: 16px 20px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 16px;
 `;
 
@@ -47,7 +46,7 @@ const ActionContainer = styled.div`
     justify-content: space-between;
     flex-shrink: 0;
     padding: 16px 20px;
-    border-top: 1px solid ${ANTD_GRAY[4]};
+    border-top: 1px solid ${(props) => props.theme.colors.bgHover};
     margin-top: 0;
 `;
 

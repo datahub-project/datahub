@@ -2,7 +2,7 @@ import json
 import os
 from unittest.mock import patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
@@ -71,7 +71,7 @@ def test_bigqueryv2_uri_with_credential(mock_from_sa_info):
 @patch(
     "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_bigqueryv2_filters(mock_from_sa_info):
     config = BigQueryV2Config.model_validate(
         {

@@ -217,7 +217,9 @@ class ModeConfig(
         # > "Note: workspace_name value should be all lowercase"
         "This is distinct from the workspace's display name, and should be all lowercase."
     )
-    _default_schema = pydantic_removed_field("default_schema")
+    _default_schema = pydantic_removed_field(
+        "default_schema", month="January", year=2025
+    )
 
     space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(

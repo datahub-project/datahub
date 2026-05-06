@@ -47,6 +47,8 @@ public class IncrementalReindexStateTest {
             NEXT_INDEX,
             null,
             1679000000000L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.IN_PROGRESS);
 
@@ -66,6 +68,72 @@ public class IncrementalReindexStateTest {
   }
 
   @Test
+  public void testSetPhase1StatePersistsSourceDocCountAndTaskId() {
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            "datasetindex_v2_old",
+            1679000000000L,
+            42000L,
+            "node1:12345",
+            true,
+            IncrementalReindexState.Status.IN_PROGRESS);
+
+    assertEquals(
+        IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.SOURCE_DOC_COUNT),
+        Optional.of("42000"));
+    assertEquals(
+        IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.TASK_ID),
+        Optional.of("node1:12345"));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.of("datasetindex_v2_old"));
+  }
+
+  @Test
+  public void testGetAllIndexStatesIncludesSourceDocCountAndTaskId() {
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            null,
+            100L,
+            5000L,
+            "node1:99",
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+
+    Map<String, Map<String, String>> allStates = IncrementalReindexState.getAllIndexStates(state);
+    assertEquals(allStates.size(), 1);
+    Map<String, String> indexState = allStates.get(INDEX_NAME);
+    assertEquals(indexState.get(IncrementalReindexState.SOURCE_DOC_COUNT), "5000");
+    assertEquals(indexState.get(IncrementalReindexState.TASK_ID), "node1:99");
+  }
+
+  @Test
+  public void testSetPhase1StateOmitsNullTaskId() {
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            null,
+            100L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.IN_PROGRESS);
+
+    assertEquals(
+        IncrementalReindexState.get(state, INDEX_NAME, IncrementalReindexState.TASK_ID),
+        Optional.empty());
+  }
+
+  @Test
   public void testSetPhase1StatePreservesExisting() {
     Map<String, String> existing = new HashMap<>();
     existing.put("someOtherKey", "someValue");
@@ -77,6 +145,8 @@ public class IncrementalReindexStateTest {
             NEXT_INDEX,
             null,
             100L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.PENDING);
 
@@ -95,6 +165,8 @@ public class IncrementalReindexStateTest {
             NEXT_INDEX,
             null,
             100L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.IN_PROGRESS);
 
@@ -118,6 +190,8 @@ public class IncrementalReindexStateTest {
             NEXT_INDEX,
             null,
             100L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.COMPLETED);
 
@@ -142,6 +216,8 @@ public class IncrementalReindexStateTest {
             NEXT_INDEX,
             null,
             100L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.COMPLETED);
 
@@ -170,6 +246,8 @@ public class IncrementalReindexStateTest {
             "dataset_next_1",
             null,
             100L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     state =
@@ -179,6 +257,8 @@ public class IncrementalReindexStateTest {
             "chart_next_1",
             null,
             200L,
+            0L,
+            null,
             false,
             IncrementalReindexState.Status.IN_PROGRESS);
 

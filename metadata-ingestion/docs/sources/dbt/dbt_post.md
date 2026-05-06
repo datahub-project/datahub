@@ -238,6 +238,42 @@ The connector will produce the following things:
 - Assertion definitions that are attached to the dataset (or datasets)
 - Results from running the tests attached to the timeline of the dataset
 
+##### How dbt test statuses map to DataHub assertion results
+
+Each dbt test result is translated into a DataHub `AssertionResult` with a `type` (SUCCESS, FAILURE, or ERROR) and, on failures, an optional `severity` (LOW, MEDIUM, HIGH).
+
+DataHub distinguishes **the test produced a verdict** (SUCCESS / FAILURE) from **the test could not run** (ERROR). This lets you separate data-quality regressions from infrastructure or SQL-compile problems downstream.
+
+The mapping for regular dbt tests:
+
+| dbt status      | Meaning                                                                             | `AssertionResult.type` | `AssertionResult.severity` |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------- | -------------------------- |
+| `pass`          | Test ran, no failing rows                                                           | `SUCCESS`              | —                          |
+| `warn`          | Test ran, found failing rows, configured with `severity: warn`                      | see below              | `LOW` (if emitted)         |
+| `fail`          | Test ran, found failing rows, configured with `severity: error` (the default)       | `FAILURE`              | `HIGH`                     |
+| `error`         | Test invocation failed to compile/start (SQL error, missing ref, permissions, etc.) | `ERROR`                | —                          |
+| `runtime error` | Test started running and then the warehouse raised an exception                     | `ERROR`                | —                          |
+
+The `warn` row depends on the `test_warnings_are_errors` config:
+
+- `test_warnings_are_errors: false` (default): `warn` → `SUCCESS`. Honors dbt's author-declared "soft concern" semantics.
+- `test_warnings_are_errors: true`: `warn` → `FAILURE` with `severity: LOW`. Stricter — every failing test row counts as a failure, but soft ones are tagged for downstream filtering.
+
+:::note Default will change in a future release
+
+`test_warnings_are_errors` is planned to default to `true` once assertion result consumers (UI, saved searches, alerting) can filter by severity. At that point, `warn` will always emit as `FAILURE` with `severity: LOW`, and the flag itself will be deprecated. Set `test_warnings_are_errors: true` today to adopt the forthcoming behavior.
+
+:::
+
+For dbt source freshness checks, the semantics of `error` differ: `error` means the `error_after` threshold was exceeded, i.e. the check ran and the source is considered stale. The freshness mapping:
+
+| dbt freshness status | Meaning                              | `AssertionResult.type`               | `AssertionResult.severity` |
+| -------------------- | ------------------------------------ | ------------------------------------ | -------------------------- |
+| `pass`               | Source is fresh                      | `SUCCESS`                            | —                          |
+| `warn`               | `warn_after` threshold exceeded      | see `test_warnings_are_errors` above | `LOW` (if emitted)         |
+| `error`              | `error_after` threshold exceeded     | `FAILURE`                            | `HIGH`                     |
+| `runtime error`      | Freshness check itself failed to run | `ERROR`                              | —                          |
+
 :::note Missing test results?
 
 The most common reason for missing test results is that the `run_results.json` with the test result information is getting overwritten by a subsequent `dbt` command. We recommend copying the `run_results.json` file before running other `dbt` commands.

@@ -1,5 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -76,5 +80,24 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
         log.warn("Unknown feature requested: {}", feature);
         return false;
     }
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) {
+    throw new UnsupportedOperationException(
+        "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) {
+    throw new UnsupportedOperationException(
+        "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
+  }
+
+  @Override
+  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) {
+    throw new UnsupportedOperationException(
+        "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
   }
 }

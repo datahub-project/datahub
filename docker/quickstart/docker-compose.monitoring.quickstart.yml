@@ -6,7 +6,7 @@ services:
     - OTEL_TRACES_EXPORTER=jaeger
     - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
     - OTEL_METRICS_EXPORTER=none
-    - OTEL_SERVICE_NAME=datahub-gms
+    - OTEL_SERVICE_NAME=datahub-frontend-react
     ports:
     - '4318'
     expose:

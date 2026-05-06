@@ -2,6 +2,8 @@
 set -euo pipefail
 : ${EXTRACT_JAR_ENABLED:=false}
 
+source /usr/local/lib/datahub/wait_for_deps.sh
+
 # Add default URI (http) scheme if needed
 if [[ -n ${NEO4J_HOST:-} ]] && [[ ${NEO4J_HOST} != *"://"* ]]; then
   NEO4J_HOST="http://$NEO4J_HOST"
@@ -19,23 +21,6 @@ if [[ ${ELASTICSEARCH_USE_SSL:-false} == true ]]; then
     ELASTICSEARCH_PROTOCOL=https
 else
     ELASTICSEARCH_PROTOCOL=http
-fi
-
-dockerize_args=("-timeout" "240s")
-if [[ ${SKIP_KAFKA_CHECK:-false} != true ]]; then
-  IFS=',' read -ra KAFKAS <<< "$KAFKA_BOOTSTRAP_SERVER"
-  for i in "${KAFKAS[@]}"; do
-    dockerize_args+=("-wait" "tcp://$i")
-  done
-fi
-if [[ ${SKIP_ELASTICSEARCH_CHECK:-false} != true ]]; then
-  dockerize_args+=("-wait" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT" "-wait-http-header" "$ELASTICSEARCH_AUTH_HEADER")
-fi
-if [[ ${GRAPH_SERVICE_IMPL:-} != elasticsearch ]] && [[ ${SKIP_NEO4J_CHECK:-false} != true ]]; then
-  dockerize_args+=("-wait" "$NEO4J_HOST")
-fi
-if [[ "${KAFKA_SCHEMAREGISTRY_URL:-}" && ${SKIP_SCHEMA_REGISTRY_CHECK:-false} != true ]]; then
-  dockerize_args+=("-wait" "$KAFKA_SCHEMAREGISTRY_URL")
 fi
 
 JAVA_TOOL_OPTIONS="${JDK_JAVA_OPTIONS:-}${JAVA_OPTS:+ $JAVA_OPTS}${JMX_OPTS:+ $JMX_OPTS}"
@@ -150,4 +135,26 @@ fi
 HAZELCAST_JVM_OPTS="--add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED"
 
 export JAVA_TOOL_OPTIONS
-exec dockerize "${dockerize_args[@]}" java $HAZELCAST_JVM_OPTS $JAR_EXTRACTION_OPTS
+
+datahub_wait_begin
+
+if [[ ${SKIP_KAFKA_CHECK:-false} != true ]]; then
+  IFS=',' read -ra KAFKAS <<< "$KAFKA_BOOTSTRAP_SERVER"
+  for i in "${KAFKAS[@]}"; do
+    kb="$(echo "$i" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -n "$kb" ]] || continue
+    [[ "$kb" == tcp://* ]] || kb="tcp://${kb}"
+    datahub_wait_tcp "$kb"
+  done
+fi
+if [[ ${SKIP_ELASTICSEARCH_CHECK:-false} != true ]]; then
+  datahub_wait_http "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT" "$ELASTICSEARCH_AUTH_HEADER"
+fi
+if [[ ${GRAPH_SERVICE_IMPL:-} != elasticsearch ]] && [[ ${SKIP_NEO4J_CHECK:-false} != true ]]; then
+  datahub_wait_endpoint "$NEO4J_HOST"
+fi
+if [[ "${KAFKA_SCHEMAREGISTRY_URL:-}" && ${SKIP_SCHEMA_REGISTRY_CHECK:-false} != true ]]; then
+  datahub_wait_endpoint "$KAFKA_SCHEMAREGISTRY_URL"
+fi
+
+exec java $HAZELCAST_JVM_OPTS $JAR_EXTRACTION_OPTS
