@@ -88,6 +88,20 @@ class FabricColumn:
 
 
 @dataclass
+class FabricView:
+    """Microsoft Fabric view metadata, discovered via INFORMATION_SCHEMA.VIEWS.
+
+    Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-information-schema-views/views-transact-sql
+    """
+
+    name: str
+    schema_name: str
+    item_id: str
+    workspace_id: str
+    view_definition: Optional[str] = None
+
+
+@dataclass
 class FabricTableSchema:
     """Complete schema for a Fabric table."""
 

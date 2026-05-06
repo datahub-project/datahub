@@ -969,6 +969,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.server.id",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list",
           "elasticsearch.entityIndex.v2.cleanup",
+          "elasticsearch.entityIndex.v2.coalesceBatchUpdates",
           "elasticsearch.entityIndex.v3.analyzerConfig",
           "elasticsearch.entityIndex.v3.mappingConfig",
           "elasticsearch.entityIndex.v3.cleanup",
