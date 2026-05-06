@@ -1162,6 +1162,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
         "omni = datahub.ingestion.source.omni.omni:OmniSource",

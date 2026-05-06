@@ -1,0 +1,131 @@
+# Synthetic 4-table ODCS contract — fictional schema for DataHub fan-out test coverage. No upstream similarity.
+apiVersion: v3.1.0
+kind: DataContract
+id: 00000000-0000-0000-0000-000000000003
+name: AcmeStore Retail
+version: 1.4.0
+status: active
+domain: retail
+dataProduct: acme-storefront
+tenant: acme
+description:
+  purpose: AcmeStore retail operational tables for the storefront data product.
+  usage: Joinable across customers / orders / products / inventory by their natural keys.
+  limitations: Operational copy; not a star schema. Refresh latency ~15 min.
+tags:
+  - retail
+  - customer-data
+team:
+  - username: priya
+    role: owner
+servers:
+  - server: prod-postgres
+    type: postgres
+    host: postgres.acme.internal
+    port: 5432
+    database: acmestore
+    schema: public
+schema:
+  - name: customers
+    physicalName: customers
+    description: One row per registered AcmeStore shopper.
+    properties:
+      - name: customer_id
+        physicalName: customer_id
+        logicalType: number
+        primaryKey: true
+        required: true
+        description: Surrogate key for the shopper.
+      - name: email
+        physicalName: email
+        logicalType: string
+        required: true
+        tags:
+          - pii
+        classification: confidential
+        description: Shopper's contact email.
+      - name: full_name
+        physicalName: full_name
+        logicalType: string
+        description: Display name as entered by the shopper.
+      - name: signup_date
+        physicalName: signup_date
+        logicalType: date
+        description: First account creation date.
+      - name: country_code
+        physicalName: country_code
+        logicalType: string
+        description: ISO 3166-1 alpha-2 country code for the billing address.
+  - name: orders
+    physicalName: orders
+    description: One row per checkout completion.
+    properties:
+      - name: order_id
+        physicalName: order_id
+        logicalType: number
+        primaryKey: true
+        required: true
+      - name: customer_id
+        physicalName: customer_id
+        logicalType: number
+        required: true
+        description: Foreign key to customers.customer_id.
+      - name: order_total
+        physicalName: order_total
+        logicalType: number
+        required: true
+        description: Order total in shopper currency, post-tax.
+        quality:
+          - name: order_total_non_negative
+            rule: range
+            mustBeGreaterOrEqualTo: 0
+      - name: order_status
+        physicalName: order_status
+        logicalType: string
+      - name: placed_at
+        physicalName: placed_at
+        logicalType: timestamp
+  - name: products
+    physicalName: products
+    description: AcmeStore catalog rows.
+    properties:
+      - name: product_id
+        physicalName: product_id
+        logicalType: number
+        primaryKey: true
+        required: true
+      - name: sku
+        physicalName: sku
+        logicalType: string
+        required: true
+        description: Vendor SKU; expected unique across the catalog.
+        quality:
+          - name: sku_unique
+            rule: unique
+      - name: title
+        physicalName: title
+        logicalType: string
+      - name: price_cents
+        physicalName: price_cents
+        logicalType: number
+      - name: category
+        physicalName: category
+        logicalType: string
+  - name: inventory
+    physicalName: inventory
+    description: Per-SKU on-hand inventory snapshot.
+    properties:
+      - name: sku
+        physicalName: sku
+        logicalType: string
+        required: true
+      - name: warehouse_id
+        physicalName: warehouse_id
+        logicalType: string
+        required: true
+      - name: on_hand
+        physicalName: on_hand
+        logicalType: number
+      - name: snapshot_at
+        physicalName: snapshot_at
+        logicalType: timestamp
