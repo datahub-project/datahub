@@ -192,6 +192,10 @@ stage_pattern:
 
 Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.
 
+Task SQL bodies are also parsed with sqlglot to extract dataset-level and column-level lineage. Single-statement `INSERT`, `MERGE`, and `CREATE TABLE AS SELECT` bodies produce `inputDatasets`, `outputDatasets`, and fine-grained (column-to-column) lineage on the DataJobInputOutput aspect. Multi-statement bodies and `CALL <procedure>` statements are skipped for lineage with a warning logged to the ingestion report.
+
+Cross-schema predecessors (fully-qualified names not found in the current schema's task list) are captured in the report as a warning; task-DAG lineage for those edges will be incomplete.
+
 ```yaml
 include_tasks: true
 task_pattern:
@@ -202,6 +206,12 @@ task_pattern:
 ##### Pipes (`include_pipes: true`)
 
 Snowpipe objects are ingested as DataJob entities with lineage derived from parsing the `COPY INTO` statement. The pipe's source stage resolves to an upstream dataset (internal placeholder or external cloud URN) and the target table resolves to a downstream dataset. Enabling pipes automatically scans stages for lineage resolution, even if `include_stages` is false.
+
+The parser handles the following `COPY INTO` patterns:
+
+- Column-list targets — `COPY INTO t(a, b) FROM @stage` resolves the target table correctly
+- Subquery sources — `COPY INTO t FROM (SELECT ... FROM @s1 UNION ALL SELECT ... FROM @s2)` captures all referenced stages as upstream datasets
+- Non-`COPY` pipe bodies are silently skipped; stage refs that cannot be normalized to a three-part FQN emit a warning in the ingestion report
 
 ```yaml
 include_pipes: true
