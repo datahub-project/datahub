@@ -1,5 +1,4 @@
 import csv
-import logging
 import pathlib
 import time
 from dataclasses import dataclass
@@ -57,7 +56,6 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
 ACTOR = "urn:li:corpuser:ingestion"
-logger = logging.getLogger(__name__)
 
 
 def get_audit_stamp() -> AuditStampClass:
@@ -130,11 +128,6 @@ class CSVEnricherSource(Source):
 
         if not self.should_overwrite:
             self.ctx.require_graph(operation="The csv-enricher's PATCH semantics flag")
-        elif self.config.structured_properties:
-            logger.info(
-                "csv-enricher is running with OVERRIDE write_semantics and structured_properties configured; "
-                "existing structured properties not provided via mapped CSV columns will be removed."
-            )
 
     def get_resource_glossary_terms_work_unit(
         self,
@@ -388,7 +381,13 @@ class CSVEnricherSource(Source):
                 )
                 continue
 
-            property_urn = make_structured_property_urn(raw_property_name)
+            property_id_or_urn = (
+                raw_property_name
+                if raw_property_name.startswith("urn:li:structuredProperty:")
+                else f"urn:li:structuredProperty:{raw_property_name}"
+            )
+
+            property_urn = make_structured_property_urn(property_id_or_urn)
 
             property_values_by_urn.setdefault(property_urn, [])
             if value not in property_values_by_urn[property_urn]:
