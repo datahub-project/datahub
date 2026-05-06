@@ -26,22 +26,22 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.17'
-  ext.springBootVersion = '3.5.6'
-  ext.springKafkaVersion = '3.3.8'
+  ext.springVersion = '7.0.6'
+  ext.springBootVersion = '4.0.5'
+  ext.springKafkaVersion = '4.0.4'
   ext.openTelemetryVersion = '1.60.1'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
-  ext.jacksonVersion = '2.18.6'
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
-  ext.jettyVersion = '12.0.34'
-  // see also datahub-frontend/play.gradle
-  ext.playVersion = '2.8.22'
+  ext.jettyVersion = '12.1.7'
+  // see also datahub-frontend/play.gradle (Play 3 + Apache Pekko)
+  ext.playVersion = '3.0.10'
   ext.playScalaVersion = '2.13'
-  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.playGradlePluginVersion = '3.1.0-M9'
+  ext.pekkoVersion = '1.0.3' // aligned with org.playframework:play_2.13 bom
   ext.aircompressorVersion = '2.0.3' // CVE-2025-67721: Snappy/LZ4 buffer reuse info leak
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
@@ -59,16 +59,18 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
   ext.logbackClassic = '1.5.32'
-  ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
-  ext.kafkaVersion = '8.0.0'
+  ext.hadoop3Version = '3.4.1' // Hadoop >=3.4.0 required for CVE-2024-23454 (TAR symlink path traversal in unTar); >3.3.4 for CVE-2021-37404, command injection, path traversal, deserialization RCE
+  ext.kafkaVersion = '8.1.0'
   ext.hazelcastVersion = '5.6.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
   ext.awsSdk2Version = '2.30.33'
-  ext.micrometerVersion = '1.15.1'
+  ext.micrometerVersion = '1.16.4'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
   ext.nettyVersion = '4.1.132.Final' // align all io.netty modules; CVE-2026-33870
+  // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
+  ext.bouncyCastleJdk18onVersion = '1.84'
   // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
   // 1.77.x embeds Netty 4.1.127 (affected by CVE-2025-67735); use 1.79+ (1.80.0 -> shaded 4.1.130.Final).
   // CVE-2026-33870 needs Netty 4.1.132+ inside the shaded jar; upgrade grpc when Maven has a release that bundles it (see grpc-java SECURITY.md table).
@@ -103,6 +105,13 @@ plugins {
 
 apply from: "gradle/docker/docker-utils.gradle"
 
+// Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
+ext.jacksonVersion = '2.21.1'
+// Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
+ext.jacksonMinorRelease = jacksonVersion.contains('.')
+    ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
+    : jacksonVersion
+
 project.ext.spec = [
     'product' : [
         'pegasus' : [
@@ -121,13 +130,11 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
-    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:10.2.10", // akka-parsing is part of akka-http, so use akka http version
-    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
-    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
-    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
-    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
-    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'pekkoActor': "org.apache.pekko:pekko-actor_$playScalaVersion:$pekkoVersion",
+    'pekkoStream': "org.apache.pekko:pekko-stream_$playScalaVersion:$pekkoVersion",
+    'pekkoActorTyped': "org.apache.pekko:pekko-actor-typed_$playScalaVersion:$pekkoVersion",
+    'pekkoSlf4j': "org.apache.pekko:pekko-slf4j_$playScalaVersion:$pekkoVersion",
+    'pekkoJackson': "org.apache.pekko:pekko-serialization-jackson_$playScalaVersion:$pekkoVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -156,7 +163,7 @@ project.ext.externalDependency = [
     'micrometerPrometheus': "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
     'micrometerJmx': "io.micrometer:micrometer-registry-jmx:$micrometerVersion",
     'micrometerObserve': "io.micrometer:micrometer-observation:$micrometerVersion",
-    'micrometerOtelBridge': "io.micrometer:micrometer-tracing-bridge-otel:1.5.1",
+    'micrometerOtelBridge': "io.micrometer:micrometer-tracing-bridge-otel:1.6.4",
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
     'ebeanTest': 'io.ebean:ebean-test:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
@@ -171,7 +178,7 @@ project.ext.externalDependency = [
     'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
-    'guava': 'com.google.guava:guava:32.1.3-jre',
+    'guava': 'com.google.guava:guava:33.6.0-jre',
     'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -185,9 +192,9 @@ project.ext.externalDependency = [
     'hibernateValidator': 'org.hibernate.validator:hibernate-validator:6.2.5.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-     // The jacksonBom controls the version of other jackson modules, pin the version once
-     // implementation platform(externalDependency.jacksonBom)
-    'jacksonBom': "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
+    // The jacksonBom controls the version of other jackson modules; pin the version once.
+    // implementation enforcedPlatform(externalDependency.jacksonBom)
+    'jacksonBom': "com.fasterxml.jackson:jackson-bom:${jacksonVersion}",
     'jacksonJDK8': 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8',
     'jacksonDataPropertyFormat': 'com.fasterxml.jackson.dataformat:jackson-dataformat-properties',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core',
@@ -197,7 +204,7 @@ project.ext.externalDependency = [
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'xercesImpl': 'xerces:xercesImpl:2.12.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
-    'javaxInject' : 'javax.inject:javax.inject:1',
+    'javaxInject' : 'jakarta.inject:jakarta.inject-api:2.0.1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.46',
@@ -258,22 +265,24 @@ project.ext.externalDependency = [
     'parquet': 'org.apache.parquet:parquet-avro:1.17.0',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.17.0',
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
-    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
-    'playWs': "com.typesafe.play:play-ahc-ws-standalone_$playScalaVersion:2.1.10",
-    'playDocs': "com.typesafe.play:play-docs_$playScalaVersion:$playVersion",
-    'playGuice': "com.typesafe.play:play-guice_$playScalaVersion:$playVersion",
+    // org.playframework JARs: no version here — datahub-frontend uses platform(play-bom) and $playVersion on that BOM only.
+    'playCache': "org.playframework:play-cache_$playScalaVersion",
+    'playCaffeineCache': "org.playframework:play-caffeine-cache_$playScalaVersion",
+    'playWs': "org.playframework:play-ahc-ws_$playScalaVersion",
+    // Explicit version so dependency locking / isolated resolves still resolve when BOM order differs.
+    'playDocs': "org.playframework:play-docs_$playScalaVersion:$playVersion",
+    'playGuice': "org.playframework:play-guice_$playScalaVersion",
     // Required at runtime for play.data.validation.Constraints (e.g. sign-up email validation);
     // compile-only transitives do not land in the staged Play distribution lib/.
-    'playJavaForms': "com.typesafe.play:play-java-forms_$playScalaVersion:$playVersion",
-    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_$playScalaVersion:$playVersion",
-    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_$playScalaVersion:$playVersion",
-    'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
-    'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
-    'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
+    'playJavaForms': "org.playframework:play-java-forms_$playScalaVersion",
+    'playPekkoHttpServer': "org.playframework:play-pekko-http-server_$playScalaVersion",
+    'playServer': "org.playframework:play-server_$playScalaVersion",
+    'playTest': "org.playframework:play-test_$playScalaVersion",
+    'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
-    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.1-PLAY2.8",
-    'postgresql': 'org.postgresql:postgresql:42.7.8',
+    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
+    // CVE-2026-42198: SCRAM iteration DoS fixed in 42.7.11+
+    'postgresql': 'org.postgresql:postgresql:42.7.11',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
     'grpcNettyShaded': "io.grpc:grpc-netty-shaded:$grpcVersion",
@@ -281,7 +290,7 @@ project.ext.externalDependency = [
     'reflections': 'org.reflections:reflections:0.9.12',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
-    'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
+    'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.1.0',
     // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+ (see shiro.apache.org/security-reports.html)
     'shiroCore': 'org.apache.shiro:shiro-core:2.1.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
@@ -290,20 +299,31 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
     'springBootTest': "org.springframework.boot:spring-boot-starter-test:$springBootVersion",
     'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
     'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
+    // Bridge for Jackson 2 (com.fasterxml) until full migration to Jackson 3 (tools.jackson)
+    'springBootJackson2': "org.springframework.boot:spring-boot-jackson2:$springBootVersion",
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
-    'springRetry': "org.springframework.retry:spring-retry:2.0.11",
+    // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+    'springBootKafka': "org.springframework.boot:spring-boot-kafka:$springBootVersion",
+    'springBootMicrometerMetrics': "org.springframework.boot:spring-boot-micrometer-metrics:$springBootVersion",
+    // Spring Boot 4.0: Jetty, Cassandra, Elasticsearch auto-configs moved to separate modules
+    'springBootJetty': "org.springframework.boot:spring-boot-jetty:$springBootVersion",
+    'springBootCassandra': "org.springframework.boot:spring-boot-cassandra:$springBootVersion",
+    'springBootElasticsearch': "org.springframework.boot:spring-boot-elasticsearch:$springBootVersion",
+    // Spring Boot 4.0: WebMvc test slice moved to separate module
+    'springBootWebMvcTest': "org.springframework.boot:spring-boot-webmvc-test:$springBootVersion",
+    'springRetry': "org.springframework.retry:spring-retry:2.0.12",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',
@@ -325,7 +345,7 @@ project.ext.externalDependency = [
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
-    'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
+    'annotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
@@ -457,6 +477,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.glassfish', module: 'jakarta.json'
     exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
+    exclude group: "org.apache.pekko", module: "pekko-protobuf-v3_$playScalaVersion"
     exclude group: 'com.typesafe.play', module: 'shaded-oauth'
     exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
@@ -481,7 +502,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
     resolutionStrategy.force "org.apache.hadoop:hadoop-common:${rootProject.ext.hadoop3Version}"
     resolutionStrategy.force "org.apache.hadoop:hadoop-client:${rootProject.ext.hadoop3Version}"
-    resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
+    resolutionStrategy.force "org.bouncycastle:bcpkix-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
+    resolutionStrategy.force "org.bouncycastle:bcprov-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
+    resolutionStrategy.force "org.bouncycastle:bcutil-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
@@ -494,9 +517,13 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
         details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
       }
-      // Align all Jackson modules to jacksonVersion (e.g. play config must not use 2.18.4 / 2.11.4)
+      // Align all Jackson modules to jacksonVersion (e.g. Play pegasusPlugin classpath ~2.10.x).
+      // jackson-annotations uses the minor-only line in Jackson 2.21+ (see jackson-bom).
       if (details.requested.group == 'com.fasterxml.jackson.core' || details.requested.group == 'com.fasterxml.jackson.dataformat' || details.requested.group == 'com.fasterxml.jackson.datatype' || details.requested.group == 'com.fasterxml.jackson.module') {
         def v = rootProject.ext.jacksonVersion
+        if (details.requested.group == 'com.fasterxml.jackson.core' && details.requested.name == 'jackson-annotations') {
+          v = rootProject.ext.jacksonMinorRelease
+        }
         details.useTarget("${details.requested.group}:${details.requested.name}:${v}")
         details.because("Jackson aligned to ${v}")
       }
@@ -511,9 +538,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.because("gRPC stack aligned to ${rootProject.ext.grpcVersion} (incl. grpc-stub with grpc-netty-shaded)")
       }
     }
+    resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast)
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
@@ -652,9 +680,13 @@ subprojects {
 
     // Exclude unwanted transitive dependencies from log4j (fixed in logging-parent 12.0.0)
     // See: https://github.com/apache/logging-log4j2/issues/3066
+    // Note: jspecify exclusion was removed because Spring Framework 7.0 requires it at runtime
+    // Exclude Jackson 3 (tools.jackson) — we use spring-boot-jackson2 bridge to stay on Jackson 2.
+    // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'org.jspecify', module: 'jspecify'
+      exclude group: 'tools.jackson.core'
+      exclude group: 'tools.jackson'
     }
 
     dependencies {

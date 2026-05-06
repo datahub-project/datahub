@@ -5,7 +5,7 @@ import re
 import struct
 from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Tuple
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from typing_extensions import Literal, assert_never
@@ -18,7 +18,7 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
-from datahub.ingestion.source.fabric.onelake.models import FabricColumn
+from datahub.ingestion.source.fabric.onelake.models import FabricColumn, FabricView
 from datahub.ingestion.source.fabric.onelake.schema_report import (
     SqlAnalyticsEndpointReport,
 )
@@ -35,6 +35,17 @@ SQL_COPT_SS_ACCESS_TOKEN = 1256
 # Pattern to match Fabric SQL Analytics Endpoint hostname in connection strings
 _FABRIC_ENDPOINT_HOST_PATTERN = re.compile(
     r"[a-zA-Z0-9_-]+\.datawarehouse\.fabric\.microsoft\.com"
+)
+
+# Schemas excluded from table and view discovery:
+# - INFORMATION_SCHEMA, sys: standard SQL Server system schemas.
+# - queryinsights: Fabric Warehouse's Microsoft-managed Query Insights views
+#   (exec_requests_history, long_running_queries, etc.) — not user metadata.
+#   See https://learn.microsoft.com/fabric/data-warehouse/query-insights
+_FABRIC_SYSTEM_SCHEMAS: Tuple[str, ...] = (
+    "INFORMATION_SCHEMA",
+    "sys",
+    "queryinsights",
 )
 
 
@@ -73,6 +84,22 @@ class SchemaExtractionClient(Protocol):
 
         Returns:
             Dictionary mapping (schema_name, table_name) to list of FabricColumn objects
+        """
+        ...
+
+    def get_all_views(
+        self,
+        workspace_id: str,
+        item_id: str,
+    ) -> List[FabricView]:
+        """Discover all views via INFORMATION_SCHEMA.VIEWS.
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            List of FabricView objects with name, schema, and optional definition
         """
         ...
 
@@ -363,7 +390,7 @@ class SqlAnalyticsEndpointClient:
             # Query all columns for all tables in the database
             query = text(
                 """
-                SELECT 
+                SELECT
                     TABLE_SCHEMA,
                     TABLE_NAME,
                     COLUMN_NAME,
@@ -375,13 +402,15 @@ class SqlAnalyticsEndpointClient:
                     NUMERIC_PRECISION,
                     NUMERIC_SCALE
                 FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_SCHEMA NOT IN ('INFORMATION_SCHEMA', 'sys')
+                WHERE TABLE_SCHEMA NOT IN :system_schemas
                 ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION
                 """
-            )
+            ).bindparams(bindparam("system_schemas", expanding=True))
 
             with engine.connect() as connection:
-                result = connection.execute(query)
+                result = connection.execute(
+                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                )
                 columns_by_table: Dict[Tuple[str, str], List[FabricColumn]] = {}
                 for row in result:
                     # INFORMATION_SCHEMA returns uppercase, but we'll lowercase for consistency
@@ -419,6 +448,74 @@ class SqlAnalyticsEndpointClient:
             if self.report:
                 self.report.failures += 1
             # Re-raise the exception
+            raise
+
+    def get_all_views(
+        self,
+        workspace_id: str,
+        item_id: str,
+    ) -> List[FabricView]:
+        """Discover all views via INFORMATION_SCHEMA.VIEWS.
+
+        VIEW_DEFINITION may be NULL if the caller lacks VIEW DEFINITION permission.
+
+        References:
+        - https://learn.microsoft.com/en-us/sql/relational-databases/system-information-schema-views/views-transact-sql
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            List of FabricView objects
+        """
+        try:
+            engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+
+            query = text(
+                """
+                SELECT
+                    TABLE_SCHEMA,
+                    TABLE_NAME,
+                    VIEW_DEFINITION
+                FROM INFORMATION_SCHEMA.VIEWS
+                WHERE TABLE_SCHEMA NOT IN :system_schemas
+                ORDER BY TABLE_SCHEMA, TABLE_NAME
+                """
+            ).bindparams(bindparam("system_schemas", expanding=True))
+
+            with engine.connect() as connection:
+                result = connection.execute(
+                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                )
+                views: List[FabricView] = []
+                for row in result:
+                    views.append(
+                        FabricView(
+                            name=row.TABLE_NAME,
+                            schema_name=row.TABLE_SCHEMA,
+                            item_id=item_id,
+                            workspace_id=workspace_id,
+                            view_definition=row.VIEW_DEFINITION,
+                        )
+                    )
+                return views
+        except SQLAlchemyError as e:
+            error_msg = str(e)
+            logger.warning(
+                f"Failed to discover views "
+                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
+            )
+            if self.report:
+                self.report.failures += 1
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error discovering views: {e}",
+                exc_info=True,
+            )
+            if self.report:
+                self.report.failures += 1
             raise
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:

@@ -48,6 +48,16 @@ The older approach that will be deprecated in future versions:
 
 Both strategies access the same Snowflake system tables (`account_usage.query_history`, `account_usage.access_history`), but the new strategy provides significant performance improvements and additional functionality.
 
+##### Snowflake Streams as Upstream Lineage Sources
+
+DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage details:
+
+- **Multi-target `INSERT ALL` from a Stream** — emits one lineage entry per downstream table, including column-level lineage. Requires `use_queries_v2: true` (the default).
+- **Single-target queries reading from a Stream** — fall back to SQL parsing of the query text rather than direct extraction from the audit log.
+- **Audit log placeholder names** — Snowflake occasionally emits placeholder object names (`$SYS_VIEW_<id>` or other `$`-prefixed names) for stream-driven queries. When this happens for a given row, that row falls back to SQL parsing so DataHub never builds lineage from unusable URNs.
+
+The Stream entity itself is also extracted as a top-level dataset; the lineage above is in addition to that.
+
 #### Metadata Pattern Pushdown
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.

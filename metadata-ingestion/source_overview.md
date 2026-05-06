@@ -1,3 +1,7 @@
+---
+description: "Overview of metadata sources in DataHub ingestion, the systems from which metadata is extracted via connector plugins."
+---
+
 # Sources
 
 Sources are **the data systems that we are extracting metadata from.**

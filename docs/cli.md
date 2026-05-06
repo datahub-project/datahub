@@ -1,4 +1,5 @@
 ---
+description: "Install and use the DataHub CLI to ingest metadata, manage entities, run quickstart deployments, and perform common operations."
 # Display to h4 headings
 # toc_min_heading_level: 2
 toc_max_heading_level: 4

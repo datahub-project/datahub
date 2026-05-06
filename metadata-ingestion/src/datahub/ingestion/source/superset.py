@@ -1,10 +1,10 @@
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
 import requests
@@ -151,9 +151,131 @@ FIELD_TYPE_MAPPING = {
 }
 
 
+def _extract_chart_id_with_status(
+    position_value: Any,
+) -> Tuple[Optional[Union[int, str]], bool]:
+    """Return ``(chart_id, was_uncoercible)`` for a position_json CHART-* entry.
+
+    ``was_uncoercible`` is True only when ``meta.chartId`` was present but
+    had a type the caller can't turn into a chart URN. Callers tick
+    ``num_chart_ids_uncoercible`` in that case.
+
+    chartId is accepted as int or non-empty str (some deployments emit
+    int, others str). bool is rejected explicitly because
+    ``isinstance(False, int)`` is True and would otherwise mint
+    ``urn:li:chart:(preset,False)``.
+    """
+    if not isinstance(position_value, dict):
+        return None, False
+    meta = position_value.get("meta")
+    if not isinstance(meta, dict):
+        return None, False
+    if "chartId" not in meta:
+        return None, False
+    chart_id = meta["chartId"]
+    if chart_id is None:
+        return None, False
+    if isinstance(chart_id, bool):
+        return None, True
+    if isinstance(chart_id, int):
+        return chart_id, False
+    if isinstance(chart_id, str):
+        # Reject empty / whitespace-only: ``int("   ")`` raises and would
+        # otherwise mint ``urn:li:chart:(preset,   )`` with embedded spaces.
+        if not chart_id.strip():
+            return None, True
+        return chart_id, False
+    return None, True
+
+
+def _extract_chart_id(position_value: Any) -> Optional[Union[int, str]]:
+    chart_id, _ = _extract_chart_id_with_status(position_value)
+    return chart_id
+
+
+def _lookup_processed_chart(
+    chart_id: Optional[Union[int, str]],
+    processed_charts: Dict[int, Tuple[Optional[str], bool]],
+) -> Optional[Tuple[Optional[str], bool]]:
+    """Look up a chart in ``processed_charts`` tolerating int/str chart IDs.
+
+    ``processed_charts`` is int-keyed but chart IDs reach us as int (Preset
+    Cloud), str (older Superset), or str (synthesised by the /charts
+    fallback). Coerce to int; anything that won't coerce can't be a real
+    Preset chart ID, so treat as missing.
+    """
+    if chart_id is None:
+        return None
+    try:
+        normalised = int(chart_id)
+    except (TypeError, ValueError):
+        return None
+    return processed_charts.get(normalised)
+
+
 @dataclass
 class SupersetSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = field(default_factory=LossyList)
+    num_dashboards_with_no_charts: int = 0
+    num_dashboards_invalid_position_json: int = 0
+    num_dashboards_missing_position_json: int = 0
+    num_dashboards_detail_api_failures: int = 0
+    num_dashboards_dropped_unexpected_error: int = 0
+    num_dashboards_missing_id: int = 0
+    num_dashboards_recovered_via_charts_endpoint: int = 0
+    # Fallback returned chart IDs we never ingested as chart entities;
+    # the lineage edge dangles.
+    num_dashboards_charts_unknown: int = 0
+    num_dashboards_charts_api_failures: int = 0
+    num_dashboards_charts_malformed_entries: int = 0
+    num_datasets_detail_api_failures: int = 0
+    num_datasets_missing_id: int = 0
+    # CHART-* entries whose meta.chartId was present but not a valid int/
+    # non-empty str. Dropped silently because the caller can't recover;
+    # non-zero flags upstream API contract drift.
+    num_chart_ids_uncoercible: int = 0
+    # Charts whose datasource_id was missing/falsy when we tried to fetch
+    # column-level lineage. Each tick = one chart with no CLL emitted.
+    num_charts_missing_datasource_id_for_cll: int = 0
+    # Charts whose dataset detail came back empty/failed when we tried
+    # to fetch CLL — distinguishes "API failed" from "dataset has no
+    # columns" at the chart level (the underlying dataset failure is
+    # already counted on the dataset counters).
+    num_charts_missing_dataset_detail_for_cll: int = 0
+    # Charts where the URN-construction path had no datasource_id (None
+    # or 0). Some Superset chart types (markdown, header) legitimately
+    # have no datasource, so this is informational; non-zero combined
+    # with non-zero ``num_charts_missing_datasource_id_for_cll`` flags
+    # the same charts also losing CLL.
+    num_charts_without_datasource_for_urn: int = 0
+    # ``params`` field on a chart was not valid JSON. Custom properties
+    # derived from params (metrics, filters, dimensions) are skipped for
+    # that chart; the chart itself still ingests.
+    num_charts_invalid_params_json: int = 0
+    # Chart had a non-falsy datasource_id but the dataset detail payload
+    # was missing required fields (e.g. ``table_name`` or ``database_id``).
+    # The chart still ingests with no input dataset URN; downstream chart
+    # → dataset lineage is lost for that chart.
+    num_charts_dropped_datasource_urn_failed: int = 0
+    # ``params.metrics`` came back as a non-list shape (e.g. dict, str).
+    # Custom property derivation skipped; chart itself still ingests.
+    num_charts_invalid_params_metrics_shape: int = 0
+    # Chart had a datasource_id but the dataset detail did not yield a
+    # database_name, so ``database_pattern`` could not be evaluated. The
+    # chart is recorded as not-filtered to keep dashboards complete, but
+    # operators should know the filter check was effectively skipped.
+    num_charts_database_pattern_indeterminate: int = 0
+    # Dataset detail payload was structurally valid but ``columns`` or
+    # ``metrics`` was not a list; treated as empty for CLL purposes.
+    num_datasets_columns_payload_malformed: int = 0
+    num_datasets_metrics_payload_malformed: int = 0
+    # Columns / metrics dropped from CLL because the entry had no name
+    # or no type in the Superset payload.
+    num_datasets_columns_dropped_malformed: int = 0
+    num_datasets_metrics_dropped_malformed: int = 0
+    # SQL expressions in metric definitions that sqlglot failed to parse;
+    # the expression is dropped from the metric's column list.
+    num_metrics_sql_parse_errors: int = 0
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -268,6 +390,8 @@ def get_metric_name(metric):
         return ""
     if isinstance(metric, str):
         return metric
+    if not isinstance(metric, dict):
+        return ""
     label = metric.get("label")
     if not label:
         return ""
@@ -275,6 +399,8 @@ def get_metric_name(metric):
 
 
 def get_filter_name(filter_obj):
+    if not isinstance(filter_obj, dict):
+        return ""
     sql_expression = filter_obj.get("sqlExpression")
     if sql_expression:
         return sql_expression
@@ -283,6 +409,8 @@ def get_filter_name(filter_obj):
     column = filter_obj.get("subject")
     operator = filter_obj.get("operator")
     comparator = filter_obj.get("comparator")
+    if clause is None or column is None or operator is None:
+        return ""
     return f"{clause} {column} {operator} {comparator}"
 
 
@@ -324,6 +452,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         self.filtered_dataset_to_database: Dict[int, str] = {}
         self.filtered_chart_to_database: Dict[int, str] = {}
         self.processed_charts: Dict[int, Tuple[Optional[str], bool]] = {}
+
+        self._dashboard_info_cache: Dict[int, Dict[str, Any]] = {}
+        self._dashboard_charts_cache: Dict[int, List[int]] = {}
+        self._dataset_info_cache: Dict[int, Dict[str, Any]] = {}
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -429,27 +561,296 @@ class SupersetSource(StatefulIngestionSourceBase):
             if owner.get("id")
         ]
 
-    @lru_cache(maxsize=None)
-    def get_dashboard_info(self, dashboard_id: int) -> dict:
-        dashboard_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}",
-            timeout=self.config.timeout,
-        )
-        if dashboard_response.status_code != 200:
-            logger.warning(f"Failed to get dashboard info: {dashboard_response.text}")
-            return {}
-        return dashboard_response.json()
+    # Permissive ``something@something.something`` matcher for redacting
+    # email addresses out of log previews. NOT an RFC validator.
+    _EMAIL_REDACT_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 
-    @lru_cache(maxsize=None)
-    def get_dataset_info(self, dataset_id: int) -> dict:
-        dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
-            timeout=self.config.timeout,
+    @staticmethod
+    def _warning_context(**fields: Any) -> str:
+        return json.dumps(fields, default=str, ensure_ascii=False)
+
+    @staticmethod
+    def _safe_body_preview(response: requests.Response) -> str:
+        """Return a redacted, length-capped (~200 char) preview of a
+        response body for log/warning context.
+
+        Auth-redirect login pages embed cookies in HTML and proxy login
+        pages sometimes serve HTML under ``Content-Type: application/json``,
+        so we redact when EITHER the content type isn't JSON OR the body
+        smells like HTML. Email addresses inside JSON bodies are also
+        redacted — Preset error responses can include the offending user's
+        email.
+        """
+        content_type = response.headers.get("Content-Type", "").lower()
+        try:
+            body = response.text
+        except UnicodeDecodeError:
+            return f"<undecodable body: content-type={content_type or 'unknown'}>"
+        body_smells_html = (
+            body.lstrip().startswith("<")
+            or "<html" in body.lower()
+            or "Set-Cookie" in body
         )
-        if dataset_response.status_code != 200:
-            logger.warning(f"Failed to get dataset info: {dataset_response.text}")
+        if "json" not in content_type or body_smells_html:
+            return f"<non-json body: content-type={content_type or 'unknown'}, len={len(body)}>"
+        return SupersetSource._EMAIL_REDACT_RE.sub("<email>", body[:200])
+
+    def _fetch_api_response(
+        self,
+        url: str,
+        *,
+        failure_counter_attr: str,
+        base_context: Dict[str, Any],
+        endpoint: str,
+    ) -> Optional[Any]:
+        """GET ``url`` and return the decoded JSON payload, or ``None`` on any
+        transport or decode failure.
+
+        On failure, increments ``self.report.<failure_counter_attr>`` and emits
+        a structured warning. ``base_context`` fields appear in every warning
+        context; the keys ``error``, ``error_type``, ``status_code``, and
+        ``body_preview`` are reserved — caller-supplied values for those keys
+        are silently overwritten. Warning titles follow ``"{endpoint} {type}"``
+        (e.g. ``endpoint="Dashboard detail API"`` →
+        ``"Dashboard detail API network error"``).
+
+        Result-shape validation and caching are the caller's responsibility."""
+        if not hasattr(self.report, failure_counter_attr):
+            raise AttributeError(
+                f"SupersetSourceReport has no counter '{failure_counter_attr}'"
+            )
+        try:
+            response = self.session.get(url, timeout=self.config.timeout)
+        except requests.RequestException as e:
+            setattr(
+                self.report,
+                failure_counter_attr,
+                getattr(self.report, failure_counter_attr) + 1,
+            )
+            self.report.warning(
+                message="Network error.",
+                context=self._warning_context(
+                    **{**base_context, "error": str(e), "error_type": type(e).__name__}
+                ),
+                title=f"{endpoint} network error",
+            )
+            return None
+        if response.status_code != 200:
+            setattr(
+                self.report,
+                failure_counter_attr,
+                getattr(self.report, failure_counter_attr) + 1,
+            )
+            self.report.warning(
+                message="Unexpected HTTP status.",
+                context=self._warning_context(
+                    **{
+                        **base_context,
+                        "status_code": response.status_code,
+                        "body_preview": self._safe_body_preview(response),
+                    }
+                ),
+                title=f"{endpoint} failed",
+            )
+            return None
+        try:
+            return response.json()
+        except ValueError as e:
+            setattr(
+                self.report,
+                failure_counter_attr,
+                getattr(self.report, failure_counter_attr) + 1,
+            )
+            self.report.warning(
+                message="Response was not valid JSON.",
+                context=self._warning_context(
+                    **{
+                        **base_context,
+                        "error": str(e),
+                        "body_preview": self._safe_body_preview(response),
+                    }
+                ),
+                title=f"{endpoint} decode error",
+            )
+            return None
+
+    def get_dashboard_info(self, dashboard_id: int) -> Dict[str, Any]:
+        """Fetch dashboard detail. Returns ``{}`` on failure; failures are
+        not cached so transient errors don't poison the rest of the run."""
+        cached = self._dashboard_info_cache.get(dashboard_id)
+        if cached is not None:
+            return cached
+        url = f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}"
+        payload = self._fetch_api_response(
+            url,
+            failure_counter_attr="num_dashboards_detail_api_failures",
+            base_context={"dashboard_id": dashboard_id},
+            endpoint="Dashboard detail API",
+        )
+        if payload is None:
             return {}
-        return dataset_response.json()
+        # Reject and don't cache: result must be a dict for downstream
+        # iteration; caching a malformed response would break every hit.
+        if not isinstance(payload.get("result"), dict):
+            self.report.num_dashboards_detail_api_failures += 1
+            self.report.warning(
+                message="Dashboard detail payload had no result object.",
+                context=self._warning_context(
+                    dashboard_id=dashboard_id,
+                    result_type=type(payload.get("result")).__name__,
+                ),
+                title="Dashboard detail API malformed payload",
+            )
+            return {}
+        self._dashboard_info_cache[dashboard_id] = payload
+        return payload
+
+    def get_dashboard_charts(self, dashboard_id: int) -> List[int]:
+        """Fetch chart IDs attached to a dashboard via the /charts endpoint.
+
+        Used as a fallback when ``position_json`` yields no chart references.
+        Returns ``[]`` on any failure; failures are not cached.
+        """
+        cached = self._dashboard_charts_cache.get(dashboard_id)
+        if cached is not None:
+            return cached
+        url = f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}/charts"
+        payload = self._fetch_api_response(
+            url,
+            failure_counter_attr="num_dashboards_charts_api_failures",
+            base_context={"dashboard_id": dashboard_id},
+            endpoint="Dashboard charts API",
+        )
+        if payload is None:
+            return []
+        results = payload.get("result")
+        if not isinstance(results, list):
+            self.report.num_dashboards_charts_api_failures += 1
+            self.report.warning(
+                message="/charts response had no result list.",
+                context=self._warning_context(
+                    dashboard_id=dashboard_id,
+                    result_type=type(results).__name__,
+                ),
+                title="Dashboard charts API malformed result",
+            )
+            return []
+        chart_ids: List[int] = []
+        malformed = 0
+        for chart in results:
+            if not isinstance(chart, dict):
+                malformed += 1
+                continue
+            raw_id = chart.get("id")
+            # Apply the same rejection rules as _extract_chart_id_with_status:
+            # bool must be rejected before int because isinstance(False, int)
+            # is True in Python and would mint urn:li:chart:(preset,False).
+            if (
+                raw_id is None
+                or isinstance(raw_id, bool)
+                or not isinstance(raw_id, int)
+            ):
+                malformed += 1
+                continue
+            chart_ids.append(raw_id)
+        if malformed:
+            # Aggregate per dashboard so operators can identify which
+            # dashboard had bad entries (the global counter alone gives no
+            # locator).
+            self.report.num_dashboards_charts_malformed_entries += malformed
+            self.report.warning(
+                message="/charts response contained malformed entries.",
+                context=self._warning_context(
+                    dashboard_id=dashboard_id,
+                    malformed_count=malformed,
+                    total_entries=len(results),
+                ),
+                title="Dashboard charts API malformed entries",
+            )
+        self._dashboard_charts_cache[dashboard_id] = chart_ids
+        return chart_ids
+
+    def _parse_position_json(self, dashboard_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse ``position_json`` defensively. Returns ``{}`` on any
+        non-JSON-object input — the dashboard still ingests, the failure
+        is visible in the report.
+
+        Accepts an already-parsed dict in case an API client pre-deserialises
+        the field. Catches TypeError so a truthy non-string value (list, int,
+        …) doesn't escape the try block and crash the dashboard."""
+        raw = dashboard_data.get("position_json") or "{}"
+        if isinstance(raw, dict):
+            return raw
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError) as e:
+            self.report.num_dashboards_invalid_position_json += 1
+            self.report.warning(
+                message="Could not parse position_json.",
+                context=self._warning_context(
+                    dashboard_id=dashboard_data.get("id"),
+                    dashboard_title=dashboard_data.get("dashboard_title", ""),
+                    error=str(e),
+                    value_preview=str(raw)[:200],
+                ),
+                title="Invalid position_json",
+            )
+            return {}
+        if not isinstance(parsed, dict):
+            self.report.num_dashboards_invalid_position_json += 1
+            self.report.warning(
+                message="position_json was valid JSON but not an object.",
+                context=self._warning_context(
+                    dashboard_id=dashboard_data.get("id"),
+                    dashboard_title=dashboard_data.get("dashboard_title", ""),
+                    json_type=type(parsed).__name__,
+                    value_preview=str(raw)[:200],
+                ),
+                title="Invalid position_json",
+            )
+            return {}
+        return parsed
+
+    def get_dataset_info(self, dataset_id: Optional[int]) -> Dict[str, Any]:
+        """Fetch dataset detail.
+
+        Returns ``{}`` on any failure (missing id, network error, non-200,
+        invalid JSON, non-dict ``result``); failures are deliberately not
+        cached so a transient 5xx does not poison subsequent calls."""
+        if dataset_id is None:
+            self.report.num_datasets_missing_id += 1
+            self.report.warning(
+                message="Dataset entry has no id; cannot fetch detail.",
+                title="Dataset missing id",
+            )
+            return {}
+        cached = self._dataset_info_cache.get(dataset_id)
+        if cached is not None:
+            return cached
+        url = f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}"
+        payload = self._fetch_api_response(
+            url,
+            failure_counter_attr="num_datasets_detail_api_failures",
+            base_context={"dataset_id": dataset_id},
+            endpoint="Dataset detail API",
+        )
+        if payload is None:
+            return {}
+        # Reject and don't cache: result must be a dict for downstream
+        # iteration; caching a malformed response would break every hit.
+        if not isinstance(payload.get("result"), dict):
+            self.report.num_datasets_detail_api_failures += 1
+            self.report.warning(
+                message="Dataset detail payload had no result object.",
+                context=self._warning_context(
+                    dataset_id=dataset_id,
+                    result_type=type(payload.get("result")).__name__,
+                ),
+                title="Dataset detail API malformed payload",
+            )
+            return {}
+        self._dataset_info_cache[dataset_id] = payload
+        return payload
 
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
@@ -494,7 +895,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def construct_dashboard_from_api_data(
-        self, dashboard_data: dict
+        self,
+        dashboard_data: dict,
+        position_data: Optional[Dict[str, Any]] = None,
     ) -> DashboardSnapshot:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
@@ -520,18 +923,30 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_url = f"{self.config.display_uri}{dashboard_data.get('url', '')}"
 
+        if position_data is None:
+            position_data = self._parse_position_json(dashboard_data)
+
         chart_urns = []
-        raw_position_data = dashboard_data.get("position_json", "{}")
-        position_data = (
-            json.loads(raw_position_data) if raw_position_data is not None else {}
-        )
         for key, value in position_data.items():
             if not key.startswith("CHART-"):
+                continue
+            chart_id, was_uncoercible = _extract_chart_id_with_status(value)
+            if was_uncoercible:
+                self.report.num_chart_ids_uncoercible += 1
+                self.report.info(
+                    message="Dashboard position_json had a CHART-* entry with an uncoercible chartId; skipping.",
+                    context=self._warning_context(
+                        dashboard_id=dashboard_data.get("id"),
+                        position_key=key,
+                    ),
+                    title="Uncoercible chart_id in position_json",
+                )
+            if chart_id is None:
                 continue
             chart_urns.append(
                 make_chart_urn(
                     platform=self.platform,
-                    name=str(value.get("meta", {}).get("chartId", "unknown")),
+                    name=str(chart_id),
                     platform_instance=self.config.platform_instance,
                 )
             )
@@ -586,71 +1001,183 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return dashboard_snapshot
 
+    def _report_filtered_chart_references(
+        self,
+        *,
+        position_data: Dict[str, Any],
+        dashboard_id: int,
+        dashboard_title: str,
+    ) -> None:
+        """Surface charts whose dataset belongs to a database the user
+        denied via ``database_pattern`` — recommends adding the dashboard
+        to ``dashboard_pattern`` too."""
+        for key, value in position_data.items():
+            if not key.startswith("CHART-"):
+                continue
+            raw_chart_id = _extract_chart_id(value)
+            if raw_chart_id is None:
+                continue
+            processed_entry = _lookup_processed_chart(
+                raw_chart_id, self.processed_charts
+            )
+            if processed_entry is None:
+                continue
+            database_name, is_filtered = processed_entry
+            if is_filtered:
+                self.report.warning(
+                    message="Dashboard contains charts using datasets from a filtered database. Set the dashboard pattern to deny ingestion.",
+                    context=self._warning_context(
+                        dashboard_id=dashboard_id,
+                        dashboard_title=dashboard_title,
+                        chart_id=raw_chart_id,
+                        database_name=database_name,
+                    ),
+                    title="Incomplete Ingestion",
+                )
+
+    def _warn_dangling_fallback_charts(
+        self,
+        *,
+        fallback_chart_id_strs: Set[str],
+        dashboard_id: int,
+        dashboard_title: str,
+    ) -> None:
+        """For every chart the /charts fallback recovered, warn when the
+        chart was never ingested as an entity (lineage edge will dangle).
+        Runs unconditionally — dangling lineage matters regardless of
+        ``database_pattern``."""
+        for chart_id_str in fallback_chart_id_strs:
+            if _lookup_processed_chart(chart_id_str, self.processed_charts) is None:
+                self.report.num_dashboards_charts_unknown += 1
+                self.report.warning(
+                    message=(
+                        "Fallback recovered a chart that was not ingested "
+                        "via the chart-listing path; lineage edge will dangle."
+                    ),
+                    context=self._warning_context(
+                        dashboard_id=dashboard_id,
+                        dashboard_title=dashboard_title,
+                        chart_id=chart_id_str,
+                    ),
+                    title="Fallback chart not ingested",
+                )
+
     def _process_dashboard(self, dashboard_data: Any) -> Iterable[MetadataWorkUnit]:
-        dashboard_title = ""
+        # Initialised before the try so the outer except can build a
+        # warning context even if early extraction raises.
+        dashboard_id: Optional[int] = None
+        dashboard_title: str = ""
         try:
             dashboard_id = dashboard_data.get("id")
             dashboard_title = dashboard_data.get("dashboard_title", "")
+            if dashboard_id is None:
+                # Without an ID we can't fetch detail, recover charts, or
+                # build a URN. Bail with a dedicated counter so a 404 on
+                # /dashboard/None doesn't masquerade as a detail-API failure.
+                self.report.num_dashboards_missing_id += 1
+                self.report.warning(
+                    message="Dashboard entry has no id; dropping.",
+                    context=self._warning_context(dashboard_title=dashboard_title),
+                    title="Dashboard missing id",
+                )
+                return
             if not self.config.dashboard_pattern.allowed(dashboard_title):
                 self.report.report_dropped(
                     f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                 )
                 return
 
-            # Fetch detailed dashboard info to get position_json (contains chart references)
-            # The list API doesn't return position_json, only the detail API does
+            # The list API doesn't return position_json; the detail API does.
             dashboard_detail = self.get_dashboard_info(dashboard_id)
             if dashboard_detail:
-                # Merge detail data into dashboard_data, prioritizing detail data
+                # ``is not None`` keeps list-API values when detail returns
+                # null for a key but lets empty strings overwrite — the
+                # empty-string position_json case is handled at parse time.
                 detail_result = dashboard_detail.get("result", {})
                 for key, value in detail_result.items():
                     if value is not None:
                         dashboard_data[key] = value
 
-            if self.config.database_pattern != AllowDenyPattern.allow_all():
-                raw_position_data = dashboard_data.get("position_json", "{}")
-                position_data = (
-                    json.loads(raw_position_data)
-                    if raw_position_data is not None
-                    else {}
+                # ``"{}"`` is a structurally valid empty layout and goes
+                # through the no-charts path; only None / "" mean the API
+                # actually returned nothing.
+                if dashboard_data.get("position_json") in (None, ""):
+                    self.report.num_dashboards_missing_position_json += 1
+                    self.report.warning(
+                        message="Dashboard detail returned no position_json.",
+                        context=self._warning_context(
+                            dashboard_id=dashboard_id,
+                            dashboard_title=dashboard_title,
+                        ),
+                        title="Missing position_json",
+                    )
+
+            # We mutate ``position_data`` below to inject synthetic
+            # ``CHART-fallback-{id}`` entries; copy defensively so a
+            # future caching refactor of ``_parse_position_json`` cannot
+            # cross-contaminate dashboards.
+            position_data = dict(self._parse_position_json(dashboard_data))
+
+            # We deliberately don't union /charts with position_json by
+            # default: it costs an HTTP round trip per dashboard and could
+            # add chart IDs that position_json intentionally omitted (soft-
+            # deleted slices). Fallback only when position_json yields zero.
+            position_yielded_charts = any(
+                key.startswith("CHART-") and _extract_chart_id(value) is not None
+                for key, value in position_data.items()
+            )
+            fallback_chart_id_strs: Set[str] = set()
+            if not position_yielded_charts:
+                fallback_chart_ids = self.get_dashboard_charts(dashboard_id)
+                if fallback_chart_ids:
+                    self.report.num_dashboards_recovered_via_charts_endpoint += 1
+                    for chart_id in fallback_chart_ids:
+                        chart_id_str = str(chart_id)
+                        fallback_chart_id_strs.add(chart_id_str)
+                        position_data[f"CHART-fallback-{chart_id}"] = {
+                            "meta": {"chartId": chart_id_str},
+                        }
+
+            if fallback_chart_id_strs:
+                self._warn_dangling_fallback_charts(
+                    fallback_chart_id_strs=fallback_chart_id_strs,
+                    dashboard_id=dashboard_id,
+                    dashboard_title=dashboard_title,
                 )
 
-                chart_ids = []
-                for key, value in position_data.items():
-                    if not key.startswith("CHART-"):
-                        continue
-                    chart_id = value.get("meta", {}).get("chartId")
-                    if chart_id:
-                        chart_ids.append(chart_id)
+            if self.config.database_pattern != AllowDenyPattern.allow_all():
+                self._report_filtered_chart_references(
+                    position_data=position_data,
+                    dashboard_id=dashboard_id,
+                    dashboard_title=dashboard_title,
+                )
 
-                for chart_id in chart_ids:
-                    if chart_id in self.processed_charts:
-                        database_name, is_filtered = self.processed_charts[chart_id]
-                        if is_filtered:
-                            self.report.warning(
-                                message="Dashboard contains charts using datasets from a filtered database. Set the dashboard pattern to deny ingestion.",
-                                context=str(
-                                    dict(
-                                        dashboard_id=dashboard_id,
-                                        dashboard_title=dashboard_title,
-                                        chart_id=chart_id,
-                                        database_name=database_name,
-                                    )
-                                ),
-                                title="Incomplete Ingestion",
-                            )
+            chart_keys = [k for k in position_data if k.startswith("CHART-")]
+            if not chart_keys:
+                self.report.num_dashboards_with_no_charts += 1
+                if position_data:
+                    self.report.info(
+                        message="Dashboard has position_json but no CHART-* keys",
+                        context=self._warning_context(
+                            dashboard_id=dashboard_id,
+                            dashboard_title=dashboard_title,
+                            top_level_keys=list(position_data.keys())[:10],
+                        ),
+                        title="position_json has no chart entries",
+                    )
 
-            dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
+            dashboard_snapshot = self.construct_dashboard_from_api_data(
+                dashboard_data, position_data=position_data
+            )
 
         except Exception as e:
+            self.report.num_dashboards_dropped_unexpected_error += 1
             self.report.warning(
-                message="Failed to construct dashboard snapshot. This dashboard will not be ingested.",
-                context=str(
-                    dict(
-                        dashboard_id=dashboard_id,
-                        dashboard_title=dashboard_title,
-                        error=str(e),
-                    )
+                message="Failed to construct dashboard snapshot.",
+                context=self._warning_context(
+                    dashboard_id=dashboard_id,
+                    dashboard_title=dashboard_title,
+                    error=str(e),
                 ),
                 title="Dashboard Construction Failed",
                 exc=e,
@@ -713,22 +1240,38 @@ class SupersetSource(StatefulIngestionSourceBase):
         return input_fields
 
     def _extract_columns_from_sql(self, sql_expr: Optional[str]) -> List[str]:
+        """Return the set of column names referenced in a SQL expression.
+
+        Used for resolving column-level lineage on metrics whose definition
+        is a SQL expression (e.g. ``SUM(amount) / COUNT(*)``). Returns an
+        empty list for falsy input or unparseable SQL; the latter ticks
+        ``num_metrics_sql_parse_errors`` and emits a structured warning."""
         if not sql_expr:
             return []
 
         try:
             parsed_expr = sqlglot.parse_one(sql_expr)
-
-            column_refs = set()
-            for node in parsed_expr.walk():
-                if isinstance(node, sqlglot.exp.Column):
-                    column_name = node.name
-                    column_refs.add(column_name)
-
-            return list(column_refs)
-        except Exception as e:
-            self.report.warning(f"Failed to parse SQL expression '{sql_expr}': {e}")
+        except sqlglot.errors.SqlglotError as e:
+            # Catch only sqlglot errors so unrelated exceptions surface.
+            # SQL goes to context, not the message, to avoid log spam
+            # from long expressions.
+            self.report.num_metrics_sql_parse_errors += 1
+            self.report.warning(
+                message="Failed to parse metric SQL expression; column lineage will skip it.",
+                context=self._warning_context(
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    sql_preview=sql_expr[:200],
+                ),
+                title="Metric SQL parse error",
+            )
             return []
+
+        column_refs = set()
+        for node in parsed_expr.walk():
+            if isinstance(node, sqlglot.exp.Column):
+                column_refs.add(node.name)
+        return list(column_refs)
 
     def _process_column_item(
         self, item: Union[str, dict], unique_columns: Dict[str, bool]
@@ -787,38 +1330,117 @@ class SupersetSource(StatefulIngestionSourceBase):
         return unique_columns
 
     def _fetch_dataset_columns(
-        self, datasource_id: Union[Any, int]
+        self,
+        datasource_id: Union[Any, int],
+        *,
+        chart_id: Optional[Union[int, str]] = None,
     ) -> List[Tuple[str, str, str]]:
-        """Fetch dataset columns and metrics from Superset API."""
-        if not datasource_id:
-            logger.warning(
-                "no datasource id was found, cannot build column level lineage"
+        """Fetch dataset columns and metrics from Superset API.
+
+        ``chart_id`` is included in warning/info context so operators can
+        locate the affected chart when CLL is dropped.
+        """
+        if datasource_id is None or datasource_id == 0:
+            self.report.num_charts_missing_datasource_id_for_cll += 1
+            self.report.warning(
+                message="Chart has no datasource_id; cannot build column-level lineage.",
+                context=self._warning_context(
+                    chart_id=chart_id,
+                    datasource_id=datasource_id,
+                ),
+                title="Chart missing datasource_id",
             )
             return []
 
-        dataset_info = self.get_dataset_info(datasource_id).get("result", {})
+        dataset_response = self.get_dataset_info(datasource_id)
+        dataset_info = dataset_response.get("result", {})
+        if not dataset_info:
+            # get_dataset_info already emitted a structured warning for the
+            # underlying failure; tick a chart-level counter so operators
+            # can see CLL impact distinct from dataset-fetch failures.
+            self.report.num_charts_missing_dataset_detail_for_cll += 1
+            self.report.info(
+                message="Chart CLL skipped: dataset detail unavailable.",
+                context=self._warning_context(
+                    chart_id=chart_id,
+                    datasource_id=datasource_id,
+                ),
+                title="Chart CLL skipped (no dataset detail)",
+            )
+            return []
         dataset_column_info = dataset_info.get("columns", [])
+        if not isinstance(dataset_column_info, list):
+            self.report.num_datasets_columns_payload_malformed += 1
+            self.report.warning(
+                message="Dataset detail returned a non-list ``columns`` payload; CLL columns skipped.",
+                context=self._warning_context(
+                    chart_id=chart_id,
+                    datasource_id=datasource_id,
+                    payload_type=type(dataset_column_info).__name__,
+                ),
+                title="Dataset columns payload malformed",
+            )
+            dataset_column_info = []
         dataset_metric_info = dataset_info.get("metrics", [])
+        if not isinstance(dataset_metric_info, list):
+            self.report.num_datasets_metrics_payload_malformed += 1
+            self.report.warning(
+                message="Dataset detail returned a non-list ``metrics`` payload; CLL metrics skipped.",
+                context=self._warning_context(
+                    chart_id=chart_id,
+                    datasource_id=datasource_id,
+                    payload_type=type(dataset_metric_info).__name__,
+                ),
+                title="Dataset metrics payload malformed",
+            )
+            dataset_metric_info = []
 
         dataset_columns: List[Tuple[str, str, str]] = []
         for column in dataset_column_info:
+            # Per-item shape guard: a non-dict entry (e.g. a bare string)
+            # would crash ``column.get(...)``; treat as malformed and
+            # continue so the rest of the chart still ingests.
+            if not isinstance(column, dict):
+                self.report.num_datasets_columns_dropped_malformed += 1
+                continue
             col_name = column.get("column_name", "")
             col_type = column.get("type", "")
             col_description = column.get("description", "")
 
             if col_name == "" or col_type == "":
-                logger.info(f"could not construct column lineage for {column}")
+                self.report.num_datasets_columns_dropped_malformed += 1
+                self.report.info(
+                    message="Dataset column dropped from CLL: missing name or type.",
+                    context=self._warning_context(
+                        chart_id=chart_id,
+                        datasource_id=datasource_id,
+                        column_keys=list(column.keys())[:10],
+                    ),
+                    title="Dataset column malformed",
+                )
                 continue
 
             dataset_columns.append((col_name, col_type, col_description))
 
         for metric in dataset_metric_info:
+            if not isinstance(metric, dict):
+                self.report.num_datasets_metrics_dropped_malformed += 1
+                continue
             metric_name = metric.get("metric_name", "")
             metric_type = metric.get("metric_type", "")
             metric_description = metric.get("description", "")
 
             if metric_name == "" or metric_type == "":
-                logger.info(f"could not construct metric lineage for {metric}")
+                self.report.num_datasets_metrics_dropped_malformed += 1
+                self.report.info(
+                    message="Dataset metric dropped from CLL: missing name or type.",
+                    context=self._warning_context(
+                        chart_id=chart_id,
+                        datasource_id=datasource_id,
+                        metric_keys=list(metric.keys())[:10],
+                    ),
+                    title="Dataset metric malformed",
+                )
                 continue
 
             dataset_columns.append((metric_name, metric_type, metric_description))
@@ -865,8 +1487,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         # Extract and process all columns in one go
         unique_columns = self._collect_all_unique_columns(form_data)
 
-        # Fetch dataset columns
-        dataset_columns = self._fetch_dataset_columns(datasource_id)
+        dataset_columns = self._fetch_dataset_columns(
+            datasource_id, chart_id=chart_data.get("id")
+        )
         if not dataset_columns:
             return []
 
@@ -909,26 +1532,87 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
-        if not datasource_id:
-            logger.debug(
-                f"chart {chart_data['id']} has no datasource_id, skipping fetching dataset info"
+        # Treat ``None`` and ``0`` identically: Superset auto-increment
+        # never assigns ``0``, so a falsy datasource_id means "unset".
+        # Tick a chart-level URN counter with the chart_id locator so
+        # operators can reconcile this with the CLL-side counter.
+        if datasource_id is None or datasource_id == 0:
+            self.report.num_charts_without_datasource_for_urn += 1
+            self.report.info(
+                message="Chart has no datasource_id; URN inputs will be empty.",
+                context=self._warning_context(
+                    chart_id=chart_data.get("id"),
+                    datasource_id=datasource_id,
+                ),
+                title="Chart missing datasource_id (URN)",
             )
             datasource_urn = None
         else:
             dataset_response = self.get_dataset_info(datasource_id)
-            datasource_urn = self.get_datasource_urn_from_id(
-                dataset_response, self.platform
-            )
+            try:
+                datasource_urn = self.get_datasource_urn_from_id(
+                    dataset_response, self.platform
+                )
+            except ValueError as e:
+                # Detail payload was structurally fine for caching but
+                # missing the fields required to build the URN (rare;
+                # surfaced separately so it doesn't get lumped into the
+                # generic "dataset detail API failed" counter).
+                self.report.num_charts_dropped_datasource_urn_failed += 1
+                self.report.warning(
+                    message="Could not build datasource URN for chart; chart-to-dataset lineage will be missing.",
+                    context=self._warning_context(
+                        chart_id=chart_data.get("id"),
+                        datasource_id=datasource_id,
+                        error=str(e),
+                    ),
+                    title="Chart datasource URN unavailable",
+                )
+                datasource_urn = None
 
-        params = json.loads(chart_data.get("params", "{}"))
-        metrics = [
-            get_metric_name(metric)
-            for metric in (params.get("metrics", []) or [params.get("metric")])
-        ]
-        filters = [
-            get_filter_name(filter_obj)
-            for filter_obj in params.get("adhoc_filters", [])
-        ]
+        # ``params`` is a JSON string in the Superset API; malformed
+        # values have been observed in the wild (manual edits, partial
+        # writes). Skip params-derived custom properties on parse error
+        # but still emit the chart so dashboard lineage isn't lost.
+        # Mirror ``_parse_position_json``'s ``or "{}"`` so ``None`` and
+        # ``""`` both collapse to a parseable benign default.
+        raw_params = chart_data.get("params") or "{}"
+        try:
+            parsed_params = json.loads(raw_params)
+        except (TypeError, ValueError) as e:
+            self.report.num_charts_invalid_params_json += 1
+            self.report.warning(
+                message="Chart params field was not valid JSON; skipping params-derived properties.",
+                context=self._warning_context(
+                    chart_id=chart_data.get("id"),
+                    error=str(e),
+                ),
+                title="Chart params invalid JSON",
+            )
+            parsed_params = {}
+        # ``params`` is contractually a JSON object; a JSON scalar/array
+        # would crash ``.get(...)`` below. Treat unexpected shapes as
+        # empty rather than dropping the chart.
+        params = parsed_params if isinstance(parsed_params, dict) else {}
+        raw_metrics = params.get("metrics", [])
+        if isinstance(raw_metrics, list):
+            metrics_iter: Iterable[Any] = raw_metrics or [params.get("metric")]
+        else:
+            self.report.num_charts_invalid_params_metrics_shape += 1
+            self.report.info(
+                message="Chart params.metrics had unexpected shape; skipping derived metrics.",
+                context=self._warning_context(
+                    chart_id=chart_data.get("id"),
+                    metrics_type=type(raw_metrics).__name__,
+                ),
+                title="Chart params.metrics unexpected shape",
+            )
+            metrics_iter = []
+        metrics = [m for m in (get_metric_name(metric) for metric in metrics_iter) if m]
+        raw_filters = params.get("adhoc_filters") or []
+        if not isinstance(raw_filters, list):
+            raw_filters = []
+        filters = [f for f in (get_filter_name(fo) for fo in raw_filters) if f]
         group_bys = params.get("groupby", []) or []
         if isinstance(group_bys, str):
             group_bys = [group_bys]
@@ -1008,6 +1692,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def _process_chart(self, chart_data: Any) -> Iterable[MetadataWorkUnit]:
+        # Pre-init so the outer ``except`` can build warning context even if
+        # the very first ``chart_data.get(...)`` raises (e.g. ``chart_data``
+        # is unexpectedly not a dict). Mirrors the pattern in
+        # ``_process_dashboard``.
+        chart_id: Optional[int] = None
         chart_name = ""
         database_name = None
         try:
@@ -1036,12 +1725,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                         if is_filtered:
                             self.report.warning(
                                 message="Chart uses a dataset from a filtered database. Set the chart pattern to deny ingestion.",
-                                context=str(
-                                    dict(
-                                        chart_id=chart_id,
-                                        chart_name=chart_name,
-                                        database_name=database_name,
-                                    )
+                                context=self._warning_context(
+                                    chart_id=chart_id,
+                                    chart_name=chart_name,
+                                    database_name=database_name,
                                 ),
                                 title="Incomplete Ingestion",
                             )
@@ -1053,6 +1740,21 @@ class SupersetSource(StatefulIngestionSourceBase):
                             .get("database", {})
                             .get("database_name")
                         )
+
+                        if not database_name:
+                            # Filter check effectively skipped — surface
+                            # so operators don't assume database_pattern
+                            # was honoured for this chart.
+                            self.report.num_charts_database_pattern_indeterminate += 1
+                            self.report.info(
+                                message="Could not evaluate database_pattern: dataset detail had no database_name.",
+                                context=self._warning_context(
+                                    chart_id=chart_id,
+                                    chart_name=chart_name,
+                                    datasource_id=datasource_id,
+                                ),
+                                title="database_pattern indeterminate",
+                            )
 
                         if database_name:
                             is_filtered = not self.config.database_pattern.allowed(
@@ -1073,12 +1775,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                             if is_filtered:
                                 self.report.warning(
                                     message="Chart uses a dataset from a filtered database. Set the chart pattern to deny ingestion.",
-                                    context=str(
-                                        dict(
-                                            chart_id=chart_id,
-                                            chart_name=chart_name,
-                                            database_name=database_name,
-                                        )
+                                    context=self._warning_context(
+                                        chart_id=chart_id,
+                                        chart_name=chart_name,
+                                        database_name=database_name,
                                     ),
                                     title="Incomplete Ingestion",
                                 )
@@ -1095,12 +1795,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                     ):
                         self.report.warning(
                             message="Chart uses a dataset that was filtered by dataset pattern. Update your dataset pattern to include this dataset.",
-                            context=str(
-                                dict(
-                                    chart_id=chart_id,
-                                    chart_name=chart_name,
-                                    dataset_name=dataset_name,
-                                )
+                            context=self._warning_context(
+                                chart_id=chart_id,
+                                chart_name=chart_name,
+                                dataset_name=dataset_name,
                             ),
                             title="Incomplete Ingestion",
                         )
@@ -1111,8 +1809,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.warning(
                 message="Failed to construct chart snapshot. This chart will not be ingested.",
-                context=str(
-                    dict(chart_id=chart_id, chart_name=chart_name, error=str(e))
+                context=self._warning_context(
+                    chart_id=chart_id,
+                    chart_name=chart_name,
+                    error=str(e),
                 ),
                 title="Chart Construction Failed",
                 exc=e,
@@ -1330,7 +2030,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         self, dataset_data: dict
     ) -> DatasetSnapshot:
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
-        dataset = SupersetDataset(**dataset_response["result"])
+        result = dataset_response.get("result")
+        if not isinstance(result, dict):
+            # get_dataset_info already emitted a structured warning; raise
+            # a typed error so the outer except doesn't paper over it.
+            raise ValueError(
+                f"dataset detail unavailable for dataset_id={dataset_data.get('id')}"
+            )
+        dataset = SupersetDataset(**result)
 
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
@@ -1433,24 +2140,20 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return dataset_snapshot
 
-    def _extract_and_map_tags(
-        self, raw_tags: List[Dict[str, Any]]
-    ) -> Optional[GlobalTagsClass]:
+    def _extract_and_map_tags(self, raw_tags: Any) -> Optional[GlobalTagsClass]:
         """Extract and map Superset tags to DataHub GlobalTagsClass.
 
         Filters out system-generated tags (type != 1) and only processes user-defined tags
-        from the Superset API response.
-
-        Args:
-            raw_tags: List of tag dictionaries from Superset API
-
-        Returns:
-            GlobalTagsClass with user-defined tags, or None if no tags found
+        from the Superset API response. Defensive against non-list payloads
+        and non-dict items because the Superset API has been observed to
+        return ``tags: null`` and per-item shape is not guaranteed.
         """
+        if not isinstance(raw_tags, list):
+            return None
         user_tags = [
             tag.get("name", "")
             for tag in raw_tags
-            if tag.get("type") == 1 and tag.get("name")
+            if isinstance(tag, dict) and tag.get("type") == 1 and tag.get("name")
         ]
 
         if not user_tags:
@@ -1533,7 +2236,14 @@ class SupersetSource(StatefulIngestionSourceBase):
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         except Exception as e:
             self.report.warning(
-                f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
+                message="Failed to construct dataset snapshot.",
+                context=self._warning_context(
+                    dataset_id=dataset_data.get("id"),
+                    dataset_name=dataset_data.get("table_name"),
+                    error=str(e),
+                ),
+                title="Dataset Construction Failed",
+                exc=e,
             )
             return
         yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)

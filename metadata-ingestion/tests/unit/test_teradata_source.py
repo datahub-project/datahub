@@ -476,6 +476,21 @@ class TestTeradataSource:
             # Replace the aggregator with our mock after creation
             source.aggregator = mock_aggregator
 
+            # Pre-populate class-level caches to verify they are cleared on close
+            source._tables_cache["db1"] = [
+                TeradataTable(
+                    database="db1",
+                    name="t1",
+                    description=None,
+                    object_type="Table",
+                    create_timestamp=datetime(2024, 1, 1),
+                    last_alter_name=None,
+                    last_alter_timestamp=None,
+                    request_text=None,
+                )
+            ]
+            source._table_creator_cache[("db1", "t1")] = "owner"
+
             with patch(
                 "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
             ) as mock_super_close:
@@ -483,6 +498,16 @@ class TestTeradataSource:
 
                 mock_aggregator.close.assert_called_once()
                 mock_super_close.assert_called_once()
+
+                # Class-level caches must be emptied so memory is released between
+                # sequential recipe runs in the same process (OOM fix for #7602).
+                assert len(source._tables_cache) == 0
+                assert len(source._table_creator_cache) == 0
+
+                # Module-level LRU caches must also be cleared between recipe runs.
+                assert get_schema_columns.cache_info().currsize == 0
+                assert get_schema_pk_constraints.cache_info().currsize == 0
+                assert get_schema_foreign_keys.cache_info().currsize == 0
 
     def test_make_lineage_queries_with_time_defaults(self):
         """Test that _make_lineage_queries works with automatic time defaults."""

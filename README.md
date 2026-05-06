@@ -89,26 +89,28 @@ _Enterprise-grade metadata platform enabling discovery, governance, and observab
 
 ---
 
-### 🤖 **NEW: Connect AI Agents to DataHub via Model Context Protocol (MCP)**
+### 📊 **NEW: Open Source Analytics Agent**
 
 <p align="center">
-  <a href="https://youtu.be/aVWJsw7RJ8c?t=568">
-    <img width="600" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/demos/mcp-demo.gif" alt="DataHub MCP Demo - Query metadata with AI agents" />
+  <a href="https://youtu.be/qqFUewpnGYg?si=0F51_nIKpl3f1ryC&t=3215">
+    <img width="600" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/analytics-agent/screenshot-chat.png" alt="Analytics Agent answering a data question with a chart" />
   </a>
   <br/>
-  <i>▶️ Click to watch full demo on YouTube</i>
+  <i>Ask data questions in plain English — get SQL, results, and charts back</i>
 </p>
 
-Connect your AI coding assistants (Cursor, Claude Desktop, Cline) directly to DataHub.
-Query metadata with natural language: _"What datasets contain PII?"_ or _"Show me lineage for this table"_
+Open-source agent grounded in your DataHub catalog. Apache 2.0. Bring your own LLM.
 
-**Quick setup:**
+**Quick start:**
 
 ```bash
-npx -y @acryldata/mcp-server-datahub init
+git clone https://github.com/datahub-project/analytics-agent.git
+cd analytics-agent && bash quickstart.sh
 ```
 
-[Learn more →](https://github.com/acryldata/mcp-server-datahub)
+[Read the announcement →](https://datahub.com/blog/datahub-analytics-agent/) · [Docs →](https://docs.datahub.com/docs/features/feature-guides/analytics-agent) · [Repo →](https://github.com/datahub-project/analytics-agent)
+
+> **Using AI coding assistants?** Connect Cursor, Claude Desktop, or Cline directly to DataHub via the [Model Context Protocol](https://github.com/acryldata/mcp-server-datahub): `npx -y @acryldata/mcp-server-datahub init`
 
 ---
 
