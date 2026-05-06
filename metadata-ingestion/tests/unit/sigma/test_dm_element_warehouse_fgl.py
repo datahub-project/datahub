@@ -298,6 +298,7 @@ class TestTryEmitResolution:
         result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
 
         assert result is not None
+        assert result.upstreams is not None
         assert len(result.upstreams) == 1
         expected_upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
         assert result.upstreams[0] == expected_upstream
@@ -312,6 +313,7 @@ class TestTryEmitResolution:
         result = _try_emit(source, col, elem, _RS_WAREHOUSE_MAP)
 
         assert result is not None
+        assert result.upstreams is not None
         expected_upstream = builder.make_schema_field_urn(_RS_DATASET_URN, "age")
         assert result.upstreams[0] == expected_upstream
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
@@ -328,6 +330,7 @@ class TestTryEmitResolution:
         result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
 
         assert result is not None
+        assert result.upstreams is not None
         # With lowercase=False the dataset URN also preserves case (UPPERCASE for
         # Snowflake since that's what Sigma's API returns in the /files path).
         uppercase_dataset_urn = (
@@ -384,6 +387,7 @@ class TestTryEmitResolution:
         result = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
 
         assert result is not None
+        assert result.upstreams is not None
         # The schemaField URN is urn:li:schemaField:(parent_urn, col).
         # Extract the parent URN by reading the upstream and deriving the Dataset.
         upstream_field_urn = result.upstreams[0]
@@ -478,10 +482,10 @@ class TestBuildFglWarehouseIntegration:
 
         assert len(fgls) == 2
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 2
-        upstream_fields = {fgl.upstreams[0] for fgl in fgls}
+        upstream_fields = {fgl.upstreams[0] for fgl in fgls if fgl.upstreams}
         # Same upstream schemaField for both
         assert len(upstream_fields) == 1
-        downstream_fields = {fgl.downstreams[0] for fgl in fgls}
+        downstream_fields = {fgl.downstreams[0] for fgl in fgls if fgl.downstreams}
         assert len(downstream_fields) == 2
 
     def test_same_ref_repeated_in_formula_deduplicated(self):
@@ -595,6 +599,8 @@ class TestBuildFglWarehouseIntegration:
         )
         # Upstream column names are lowercased (Snowflake)
         upstream_cols = {
-            fgl.upstreams[0].rsplit(",", 1)[-1].rstrip(")") for fgl in fgls
+            fgl.upstreams[0].rsplit(",", 1)[-1].rstrip(")")
+            for fgl in fgls
+            if fgl.upstreams
         }
         assert upstream_cols == {"email", "first_name", "customer_id"}
