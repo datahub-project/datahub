@@ -217,6 +217,17 @@ _WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 _FILES_PATH_ROOT = "Connection Root"
 
 
+def _normalize_warehouse_identifier(name: str, platform: str, lowercase: bool) -> str:
+    """Apply platform-appropriate casing to a warehouse identifier (table or column).
+
+    Mirrors _WarehouseTableRef.fq_name's casing logic so table and column
+    identifiers in schemaField URNs use the same convention.
+    """
+    if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+        return name.lower()
+    return name
+
+
 @dataclass(frozen=True)
 class _WarehouseTableRef:
     """Resolved warehouse table coordinates derived from a /files response."""
@@ -1438,6 +1449,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elementId_to_dataset_urn=elementId_to_dataset_urn,
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
+            warehouse_url_id_map=warehouse_url_id_map,
         )
         return UpstreamLineage(
             upstreams=[
@@ -1505,7 +1517,93 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
-    def _build_dm_element_fine_grained_lineages(
+    def _try_emit_warehouse_passthrough_fgl(
+        self,
+        *,
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        downstream_field: str,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        emitted_pairs: Set[Tuple[str, str]],
+    ) -> Optional[FineGrainedLineageClass]:
+        """Attempt to emit a warehouse-passthrough FineGrainedLineage entry.
+
+        Resolves the column's warehouse identity via the columnId field, which
+        Sigma encodes as ``inode-<url_id>/<WAREHOUSE_COLUMN_NAME>``.  This is
+        more reliable than the formula bracket ref, which carries the DM display
+        name (e.g. "Customer Id") rather than the warehouse identifier
+        ("CUSTOMER_ID" / "customer_id").
+
+        Returns a FineGrainedLineageClass on success, None on any failure.
+        Bumps the appropriate T4.B2 counter before returning None.
+        """
+        # Parse columnId → url_id + warehouse column name.
+        col_id = column.columnId or ""
+        if not col_id.startswith("inode-"):
+            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
+            return None
+        suffix = col_id[len("inode-") :]
+        url_id, sep, warehouse_col = suffix.partition("/")
+        if not sep or not warehouse_col:
+            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
+            return None
+
+        # Verify this url_id is one of the element's declared warehouse sources.
+        # Mismatches can occur if a column belongs to a different element's inode
+        # (shouldn't happen with well-formed API data, but guards against drift).
+        if f"inode-{url_id}" not in element.source_ids:
+            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
+            return None
+
+        # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
+        wh_ref = warehouse_url_id_map.get(url_id)
+        if wh_ref is None:
+            # /files lookup failed for this inode — T4.B already bumped
+            # dm_element_warehouse_table_lookup_failed.
+            self.reporter.data_model_element_fgl_warehouse_no_warehouse_source += 1
+            return None
+
+        # Resolve the parent Dataset URN via T4.B's helper.  This is the ONLY
+        # allowed path for URN construction — avoids casing or platform-instance
+        # drift that would produce orphan schemaFields.
+        parent_urn = self._resolve_dm_element_warehouse_upstream(
+            url_id_suffix=url_id,
+            warehouse_map=warehouse_url_id_map,
+        )
+        if parent_urn is None:
+            # Connection not in registry or is_mappable=False.
+            self.reporter.data_model_element_fgl_warehouse_unmappable_connection += 1
+            return None
+
+        # Normalize column casing to match the platform convention used by the
+        # warehouse connector when emitting its own schemaField URNs.
+        record = self.connection_registry.get(wh_ref.connection_id)
+        if record is None:
+            self.reporter.data_model_element_fgl_warehouse_unmappable_connection += 1
+            return None
+        conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
+        lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        normalized_col = _normalize_warehouse_identifier(
+            warehouse_col, record.datahub_platform, lowercase
+        )
+
+        upstream_field = builder.make_schema_field_urn(parent_urn, normalized_col)
+        pair = (downstream_field, upstream_field)
+        if pair in emitted_pairs:
+            return None
+        emitted_pairs.add(pair)
+
+        self.reporter.data_model_element_fgl_warehouse_resolved += 1
+        self.reporter.data_model_element_fgl_warehouse_emitted_total += 1
+        return FineGrainedLineageClass(
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[downstream_field],
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[upstream_field],
+            confidenceScore=1.0,
+        )
+
+    def _build_dm_element_fine_grained_lineages(  # noqa: C901
         self,
         *,
         element: SigmaDataModelElement,
@@ -1514,6 +1612,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_dataset_urn: Dict[str, str],
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
 
@@ -1521,8 +1620,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Self-references are stripped before resolution: when a DM element is named
         after its warehouse source (e.g., element "data.csv" with formula
         "[data.csv/col]"), the formula ref matches the element's own name and must
-        be filtered out to avoid self-referential FGL.  These are counted under
-        fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
+        be filtered out to avoid self-referential FGL.  T4.B2 resolves these via
+        _try_emit_warehouse_passthrough_fgl; unresolved remainder is counted under
+        fgl_warehouse_passthrough_deferred.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
         the lexicographically-first URN is chosen (matching the collision policy
@@ -1570,8 +1670,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
                         # All candidates were self-references; actual upstream is a
-                        # warehouse table.
-                        self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                        # warehouse table.  T4.B2: attempt warehouse FGL resolution.
+                        warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
+                            column=column,
+                            element=element,
+                            downstream_field=downstream_field,
+                            warehouse_url_id_map=warehouse_url_id_map,
+                            emitted_pairs=emitted_pairs,
+                        )
+                        if warehouse_fgl is not None:
+                            fgls.append(warehouse_fgl)
+                        else:
+                            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                         continue
                     # Source not in this DM — search only the DMs this element's
                     # source_ids explicitly reference. This prevents formula refs
