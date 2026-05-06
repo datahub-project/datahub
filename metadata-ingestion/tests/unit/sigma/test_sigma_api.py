@@ -2288,3 +2288,46 @@ class TestPaginatorWarningTitleIncludesStatusCode:
             f"so operators can triage rate-limited pages specifically; "
             f"got contexts {[w.context for w in api.report.warnings]!r}"
         )
+
+
+class TestCustomSqlDuplicateNameOverwrite:
+    def test_second_definition_wins_and_warning_emitted(self) -> None:
+        """Two same-name customSQL entries: second wins; report.warnings fires."""
+        api = _create_sigma_api()
+        dm = SigmaDataModel(
+            dataModelId="dm-uuid",
+            name="Test DM",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+        )
+
+        lineage_entries = [
+            {
+                "name": "csql-1",
+                "type": "customSQL",
+                "connectionId": "conn-1",
+                "definition": "SELECT A FROM DB.S.T1",
+            },
+            {
+                "name": "csql-1",
+                "type": "customSQL",
+                "connectionId": "conn-1",
+                "definition": "SELECT B FROM DB.S.T2",
+            },
+        ]
+
+        with (
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_columns", return_value=[]),
+            patch.object(
+                api, "_get_data_model_lineage_entries", return_value=lineage_entries
+            ),
+        ):
+            api._assemble_data_model(dm, file_meta=None)
+
+        assert dm.custom_sql_by_name["csql-1"].definition == "SELECT B FROM DB.S.T2"
+        assert any(
+            "duplicate" in (w.title or "").lower()
+            or "duplicate" in (w.message or "").lower()
+            for w in api.report.warnings
+        )

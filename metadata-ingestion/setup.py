@@ -580,9 +580,7 @@ plugins: Dict[str, Set[str]] = {
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "requests>=2.28.0,<3.0",
-    }
-    | sqlglot_lib
-    | usage_common,
+    },
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -803,7 +801,9 @@ plugins: Dict[str, Set[str]] = {
     "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
-    "sigma": sqlglot_lib | {"requests<3.0.0"},
+    # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
+    # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
+    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},

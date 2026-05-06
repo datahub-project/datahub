@@ -272,6 +272,15 @@ class SigmaDataModelElement(BaseModel):
         return values
 
 
+class CustomSqlEntry(BaseModel):
+    """Shape of a ``customSQL`` entry from ``/v2/dataModels/{id}/lineage``."""
+
+    name: str
+    type: str = ""
+    connectionId: str = ""
+    definition: str = ""
+
+
 class SigmaDataModel(BaseModel):
     dataModelId: str  # UUID; stable across renames
     name: str
@@ -289,7 +298,7 @@ class SigmaDataModel(BaseModel):
     badge: Optional[str] = None
     elements: List[SigmaDataModelElement] = []
     # Populated from /lineage ``data-model`` type entries during assembly.
-    # Maps source DM dataModelId (UUID) → [element names from that source DM].
+    # Maps source DM dataModelId (UUID) -> [element names from that source DM].
     # Used by cross-DM entity-level resolution to look up the correct source
     # element name without requiring the consuming element to share that name.
     source_dm_element_names: Dict[str, List[str]] = Field(default_factory=dict)
@@ -300,6 +309,10 @@ class SigmaDataModel(BaseModel):
     warehouse_inodes_by_inode_id: Dict[str, WarehouseInodeRaw] = Field(
         default_factory=dict
     )
+    # Populated from /lineage ``customSQL`` type entries during assembly.
+    # Maps customSQL entry name (the identifier elements reference in sourceIds)
+    # -> raw lineage entry dict (carries connectionId and definition).
+    custom_sql_by_name: Dict[str, CustomSqlEntry] = Field(default_factory=dict)
 
     def get_url_id(self) -> str:
         """Return the DM's URL identifier: explicit ``urlId`` if set,

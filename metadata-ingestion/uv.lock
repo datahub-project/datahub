@@ -1040,12 +1040,9 @@ fabric-data-factory = [
 ]
 fabric-onelake = [
     { name = "azure-identity" },
-    { name = "patchy" },
     { name = "pyodbc" },
     { name = "requests" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
-    { name = "sqlparse" },
 ]
 feast = [
     { name = "dask", extra = ["dataframe"] },
@@ -1686,6 +1683,7 @@ sigma = [
     { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot" },
+    { name = "sqlparse" },
 ]
 slack = [
     { name = "slack-sdk" },
@@ -2782,7 +2780,6 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'doris'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'dremio'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'druid'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'fabric-onelake'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'fivetran'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'glue'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'grafana'", specifier = "==2.8.0" },
@@ -3312,7 +3309,6 @@ requires-dist = [
     { name = "sqlglot", marker = "extra == 'doris'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'dremio'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'druid'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'fabric-onelake'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'fivetran'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'glue'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'grafana'", specifier = "==30.0.3" },
@@ -3369,7 +3365,6 @@ requires-dist = [
     { name = "sqlparse", marker = "extra == 'doris'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'dremio'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'druid'", specifier = "<0.6.0" },
-    { name = "sqlparse", marker = "extra == 'fabric-onelake'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'hana'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'hive'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'hive-metastore'", specifier = "<0.6.0" },
@@ -3386,6 +3381,7 @@ requires-dist = [
     { name = "sqlparse", marker = "extra == 'presto-on-hive'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'redshift'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'redshift-slim'", specifier = "<0.6.0" },
+    { name = "sqlparse", marker = "extra == 'sigma'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'snowflake'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'snowflake-queries'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'snowflake-summary'", specifier = "<0.6.0" },
