@@ -4,7 +4,7 @@ This source:
 1. Fetches Document entities from DataHub (via GraphQL or MCL events)
 2. Partitions Document.text as markdown using unstructured.io
 3. Chunks text using semantic chunking strategies
-4. Generates embeddings using LiteLLM (Cohere/Bedrock)
+4. Generates embeddings via provider SDKs (Bedrock, Cohere, OpenAI, Vertex AI)
 5. Emits SemanticContent aspects to DataHub
 
 Supports both batch (GraphQL) and event-driven (Kafka MCL) modes.
