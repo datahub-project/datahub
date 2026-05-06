@@ -22,6 +22,37 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
   ```
 - If share `X` is shared with more Snowflake accounts and a database is created from share `X` in those accounts, then additional entries need to be added to the `consumers` list for share `X`, one per Snowflake account. The same `shares` config can then be copied across recipes for all accounts.
 
+##### Automatic Share Discovery
+
+The connector can auto-discover inbound shares from the `origin` field on each shared database, eliminating the need for manual `shares` config in many cases. Auto-discovery is enabled by default (`auto_discover_inbound_shares: true`) and requires no elevated privileges — it uses the same role configured for ingestion.
+
+For each inbound share, the connector resolves the producer's `platform_instance` in this order:
+
+1. Graph lookup of `DataPlatformInstance` by `account_identifier` (the producer must have been ingested first)
+2. The `account_mapping` config in the consumer recipe
+3. The `account_locator_fallback` convention (when enabled, uses the account locator as the platform_instance)
+
+To resolve the producer's database name (which may differ from the share name), the connector reads `share_database_mapping` from the producer's `DataPlatformInstance` custom properties (auto-published when the producer recipe runs with `publish_share_database_mapping: true`, the default). For shares older than 365 days or when the producer hasn't yet ingested, set the mapping manually:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    account_mapping:
+      myorg.producer_account: producer_instance
+    share_database_mapping:
+      ANALYTICS_SHARE: PROD_ANALYTICS
+```
+
+Auto-discovery is skipped for any database already covered by the manual `shares` config above, so existing recipes keep working unchanged.
+
+##### Requirements
+
+- Consumer-side auto-discovery (`auto_discover_inbound_shares: true`) needs only the `USAGE` grant on the shared database, which is already required for any Snowflake ingestion. No elevated privileges.
+- Producer-side share-grant publication (`publish_share_database_mapping: true`) reads `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY`, which requires `IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE`. This grant is already part of the standard `datahub_role` setup above (`grant imported privileges on database snowflake to role datahub_role;`); if Snowflake lineage already works for your recipe, no additional grants are needed.
+- Organization name capture (`include_organization_metadata: true`) calls `CURRENT_ORGANIZATION_NAME()`, which was introduced in Snowflake 6.0 (2021). On older accounts, or accounts not assigned to an organization, the function silently returns null and the `account_identifier` custom property is omitted.
+- `ACCOUNT_USAGE.QUERY_HISTORY` retains 365 days of history. Share grants older than that cannot be mined; for those shares, set `share_database_mapping` manually in the consumer recipe (see example above).
+
 #### Lineage and Usage
 
 DataHub supports two strategies for extracting lineage and usage information from Snowflake:

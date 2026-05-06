@@ -1,5 +1,24 @@
 [
 {
+    "entityType": "dataPlatformInstance",
+    "entityUrn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "account_locator": "ABC12345"
+            },
+            "name": "instance1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-udwpjg",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:900b1327253068cb1537b1b3c807ddab",
     "changeType": "UPSERT",
@@ -194,8 +213,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -650,8 +669,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -928,8 +947,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1635,8 +1654,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1906,8 +1925,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1975,8 +1994,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2569,8 +2588,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2921,8 +2940,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2996,8 +3015,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3526,8 +3545,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3698,8 +3717,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-zb4jgb",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4025,8 +4044,8 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-j4owqs",
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-qkmvw2",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6658,6 +6677,22 @@
     "systemMetadata": {
         "lastObserved": 1654621200000,
         "runId": "snowflake-2022_06_07-17_00_00-8z7pp9",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataPlatformInstance",
+    "entityUrn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654601400000,
+        "runId": "snowflake-2022_06_07-17_00_00-udwpjg",
         "lastRunId": "no-run-id-provided"
     }
 },

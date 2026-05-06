@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -102,6 +104,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     QUERIES_EXTRACTION,
     VIEW_PARSING,
 )
+from datahub.metadata.schema_classes import DataPlatformInstancePropertiesClass
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -541,6 +544,8 @@ class SnowflakeV2Source(
 
         self.inspect_session_metadata(self.connection)
 
+        yield from self._gen_platform_instance_workunits()
+
         snowsight_url_builder = None
         if self.config.include_external_url:
             snowsight_url_builder = self.get_snowsight_url_builder()
@@ -567,10 +572,13 @@ class SnowflakeV2Source(
 
         databases = schema_extractor.databases
 
+        shares_handler = SnowflakeSharesHandler(
+            self.config, self.report, graph=self.ctx.graph
+        )
         if self.config.shares:
-            yield from SnowflakeSharesHandler(
-                self.config, self.report
-            ).get_shares_workunits(databases)
+            yield from shares_handler.get_shares_workunits(databases)
+        if self.config.auto_discover_inbound_shares:
+            yield from shares_handler.get_auto_share_workunits(databases)
 
         # Stages, Tasks, and Pipes extraction
         yield from self._get_stages_tasks_pipes_workunits(databases)
@@ -721,6 +729,60 @@ class SnowflakeV2Source(
 
         self.connection.close()
 
+    def _gen_platform_instance_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if not self.config.platform_instance:
+            return
+
+        platform_instance_urn = make_dataplatform_instance_urn(
+            self.identifiers.platform, self.config.platform_instance
+        )
+        custom_properties: dict = {}
+        if self.report.organization_name:
+            custom_properties["organization_name"] = self.report.organization_name
+        if self.report.account_locator:
+            custom_properties["account_locator"] = self.report.account_locator
+            # Org-qualified identifier enables consumer-side graph lookup of producer.
+            if self.report.organization_name:
+                custom_properties["account_identifier"] = (
+                    f"{self.report.organization_name}.{self.report.account_locator}"
+                )
+
+        if self.config.publish_share_database_mapping:
+            # Without an org-qualified `account_identifier`, cross-account
+            # consumers cannot graph-lookup this producer by org+account, so
+            # the published mapping is unreachable for them. Surface this so
+            # the user knows why auto-share lineage is degraded.
+            if self.report.account_locator and not self.report.organization_name:
+                self.structured_reporter.warning(
+                    title="Cross-account share lineage may be unreachable",
+                    message=(
+                        "Publishing share-to-database mapping but the "
+                        "Snowflake organization name is unknown, so the "
+                        "org-qualified `account_identifier` is not emitted. "
+                        "Cross-account consumers cannot resolve this producer "
+                        "via graph lookup; they must use `account_mapping` "
+                        "with the bare account locator instead."
+                    ),
+                    context=f"account_locator={self.report.account_locator}",
+                )
+
+            mapping = SnowflakeSharesHandler(
+                self.config, self.report, graph=self.ctx.graph
+            ).discover_share_database_mapping(self.connection)
+            if mapping:
+                custom_properties["share_database_mapping"] = json.dumps(
+                    mapping, sort_keys=True
+                )
+                self.report.num_share_database_mappings_published = len(mapping)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=platform_instance_urn,
+            aspect=DataPlatformInstancePropertiesClass(
+                name=self.config.platform_instance,
+                customProperties=custom_properties,
+            ),
+        ).as_workunit()
+
     def _get_stages_tasks_pipes_workunits(
         self,
         databases: List[SnowflakeDatabase],
@@ -841,6 +903,45 @@ class SnowflakeV2Source(
             )
 
         try:
+            logger.info("Checking current account")
+            for db_row in connection.query(SnowflakeQuery.current_account()):
+                self.report.account_locator = db_row["CURRENT_ACCOUNT()"]
+        except Exception as e:
+            # account_locator missing breaks the Snowsight URL builder and
+            # cross-account share lineage (account_identifier custom property
+            # is not emitted, so consumers can't resolve this account).
+            self.structured_reporter.warning(
+                title="Could not determine Snowflake account locator",
+                message=(
+                    "Snowsight URLs and cross-account share lineage will be "
+                    "degraded for this ingestion."
+                ),
+                exc=e,
+            )
+        try:
+            logger.info("Checking current region")
+            for db_row in connection.query(SnowflakeQuery.current_region()):
+                self.report.region = db_row["CURRENT_REGION()"]
+        except Exception as e:
+            # Region drives Snowsight URL building. If the user opted into
+            # external URLs (the default), surface the failure so they know
+            # why URLs are missing instead of silently dropping them.
+            if self.config.include_external_url:
+                self.structured_reporter.warning(
+                    title="Could not determine Snowflake region",
+                    message=(
+                        "Snowsight external URLs will be omitted from emitted "
+                        "datasets for this ingestion."
+                    ),
+                    exc=e,
+                )
+            else:
+                logger.debug(
+                    "Could not determine the current Snowflake region",
+                    exc_info=True,
+                )
+
+        try:
             logger.info("Checking current edition")
             if self.is_standard_edition():
                 self.report.edition = SnowflakeEdition.STANDARD
@@ -849,17 +950,31 @@ class SnowflakeV2Source(
         except Exception:
             self.report.edition = None
 
+        if self.config.include_organization_metadata:
+            try:
+                for db_row in connection.query(
+                    SnowflakeQuery.current_organization_name()
+                ):
+                    self.report.organization_name = db_row[
+                        "CURRENT_ORGANIZATION_NAME()"
+                    ]
+            except Exception:
+                # CURRENT_ORGANIZATION_NAME() may not exist on pre-6.0 Snowflake
+                # or the account may not belong to an organization.
+                logger.debug(
+                    "Could not determine Snowflake organization name", exc_info=True
+                )
+
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:
         try:
-            # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
-            for db_row in self.connection.query(SnowflakeQuery.current_account()):
-                account_locator = db_row["CURRENT_ACCOUNT()"]
+            account_locator = self.report.account_locator
+            region = self.report.region
 
-            for db_row in self.connection.query(SnowflakeQuery.current_region()):
-                region = db_row["CURRENT_REGION()"]
-
-            self.report.account_locator = account_locator
-            self.report.region = region
+            if not account_locator or not region:
+                logger.info(
+                    "Account locator or region not available, skipping Snowsight URL builder."
+                )
+                return None
 
             # Returned region may be in the form <region_group>.<region>, see https://docs.snowflake.com/en/sql-reference/functions/current_region.html
             region = region.split(".")[-1].lower()

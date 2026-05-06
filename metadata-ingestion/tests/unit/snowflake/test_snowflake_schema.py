@@ -283,3 +283,147 @@ class TestSnowflakeDataDictionary:
         mock_get_views_schema_query.assert_called_once_with(
             db_name="TEST_DB", schema_name="PUBLIC", view_filter=""
         )
+
+
+class TestShowDatabasesParsing:
+    """Tests for SnowflakeDataDictionary.show_databases() row parsing.
+
+    These cover field conversions that drive the SHOW DATABASES → ischema
+    merge: `is_transient` YES/NO/missing, `retention_time` numeric coercion,
+    and absent optional columns.
+    """
+
+    @pytest.fixture
+    def data_dict(self) -> SnowflakeDataDictionary:
+        connection = MagicMock(spec=SnowflakeConnection)
+        report = MagicMock(spec=SnowflakeV2Report)
+        return SnowflakeDataDictionary(
+            connection, report, fetch_views_from_information_schema=False
+        )
+
+    def test_show_databases_is_transient_yes(self, data_dict):
+        cursor = MagicMock()
+        cursor.__iter__.return_value = [
+            {
+                "name": "DB1",
+                "created_on": datetime(2024, 1, 1),
+                "comment": "",
+                "origin": "",
+                "kind": "STANDARD",
+                "is_transient": "YES",
+                "retention_time": "1",
+                "owner": "ACCOUNTADMIN",
+            }
+        ]
+        data_dict.connection.query.return_value = cursor
+
+        result = data_dict.show_databases()
+
+        assert len(result) == 1
+        assert result[0].is_transient is True
+
+    def test_show_databases_is_transient_no_and_missing(self, data_dict):
+        # NO → False (we know it's not transient)
+        # missing → None (we don't know — distinguishable from definite False)
+        cursor = MagicMock()
+        cursor.__iter__.return_value = [
+            {
+                "name": "DB_NO",
+                "created_on": datetime(2024, 1, 1),
+                "comment": "",
+                "kind": "STANDARD",
+                "is_transient": "NO",
+                "retention_time": "1",
+                "owner": "X",
+            },
+            {
+                "name": "DB_MISSING",
+                "created_on": datetime(2024, 1, 1),
+                "comment": "",
+                "kind": "STANDARD",
+                "retention_time": "1",
+                "owner": "X",
+            },
+        ]
+        data_dict.connection.query.return_value = cursor
+
+        result = data_dict.show_databases()
+
+        assert len(result) == 2
+        assert result[0].is_transient is False
+        assert result[1].is_transient is None
+
+    def test_show_databases_retention_time_coerced_to_int(self, data_dict):
+        # Snowflake returns retention_time as a string in the row dict.
+        cursor = MagicMock()
+        cursor.__iter__.return_value = [
+            {
+                "name": "DB1",
+                "created_on": datetime(2024, 1, 1),
+                "comment": "",
+                "kind": "STANDARD",
+                "is_transient": "NO",
+                "retention_time": "30",
+                "owner": "X",
+            }
+        ]
+        data_dict.connection.query.return_value = cursor
+
+        result = data_dict.show_databases()
+
+        assert result[0].retention_time == 30
+        assert isinstance(result[0].retention_time, int)
+
+    def test_show_databases_retention_time_none_preserved(self, data_dict):
+        cursor = MagicMock()
+        cursor.__iter__.return_value = [
+            {
+                "name": "DB1",
+                "created_on": datetime(2024, 1, 1),
+                "comment": "",
+                "kind": "STANDARD",
+                "is_transient": "NO",
+                "retention_time": None,
+                "owner": "X",
+            }
+        ]
+        data_dict.connection.query.return_value = cursor
+
+        result = data_dict.show_databases()
+
+        assert result[0].retention_time is None
+
+    def test_show_databases_origin_empty_string_normalized_to_none(self, data_dict):
+        # Snowflake returns "" for non-shared databases; downstream
+        # is_shared_database() relies on `origin is None` to decide.
+        cursor = MagicMock()
+        cursor.__iter__.return_value = [
+            {
+                "name": "LOCAL_DB",
+                "created_on": datetime(2024, 1, 1),
+                "comment": "",
+                "origin": "",
+                "kind": "STANDARD",
+                "is_transient": "NO",
+                "retention_time": "1",
+                "owner": "X",
+            },
+            {
+                "name": "SHARED_DB",
+                "created_on": datetime(2024, 1, 1),
+                "comment": "",
+                "origin": "MYORG.ACCT.SHARE",
+                "kind": "IMPORTED DATABASE",
+                "is_transient": "NO",
+                "retention_time": "0",
+                "owner": "X",
+            },
+        ]
+        data_dict.connection.query.return_value = cursor
+
+        result = data_dict.show_databases()
+
+        assert result[0].origin is None
+        assert result[0].is_shared_database() is False
+        assert result[1].origin == "MYORG.ACCT.SHARE"
+        assert result[1].is_shared_database() is True

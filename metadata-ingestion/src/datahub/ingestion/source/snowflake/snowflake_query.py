@@ -198,6 +198,47 @@ class SnowflakeQuery:
         return "select CURRENT_WAREHOUSE()"
 
     @staticmethod
+    def current_organization_name() -> str:
+        return "select CURRENT_ORGANIZATION_NAME()"
+
+    @staticmethod
+    def share_grant_history(lookback_days: int = 365, limit: int = 1000) -> str:
+        """Query QUERY_HISTORY for `GRANT USAGE ON DATABASE ... TO SHARE ...` DDL.
+
+        Builds a share -> producer database mapping that consumers can read to
+        construct cross-account producer URNs without elevated privileges.
+        `IMPORTED PRIVILEGES on SNOWFLAKE` (already granted for lineage
+        extraction) is sufficient.
+
+        ACCOUNT_USAGE.QUERY_HISTORY retains 365 days; older grants need
+        manual `share_database_mapping` config. The caller must keep `limit`
+        in sync with `SHARE_GRANT_HISTORY_QUERY_LIMIT` so a truncation
+        warning fires correctly.
+
+        Both arguments are coerced to `int` and bounds-checked before string
+        interpolation so the resulting SQL provably contains only numerics —
+        no SQL-injection surface even if a caller bypasses the type hints.
+        """
+        lookback_days_i = int(lookback_days)
+        limit_i = int(limit)
+        if not 1 <= lookback_days_i <= 365:
+            raise ValueError(
+                f"lookback_days must be between 1 and 365 "
+                f"(ACCOUNT_USAGE.QUERY_HISTORY retention); got {lookback_days_i}"
+            )
+        if not 1 <= limit_i <= 100_000:
+            raise ValueError(f"limit must be between 1 and 100000; got {limit_i}")
+        return f"""
+SELECT query_text, start_time
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE query_text ILIKE '%GRANT USAGE ON DATABASE%TO SHARE%'
+  AND execution_status = 'SUCCESS'
+  AND start_time >= DATEADD(day, -{lookback_days_i}, CURRENT_TIMESTAMP())
+ORDER BY start_time DESC
+LIMIT {limit_i}
+"""
+
+    @staticmethod
     def show_databases() -> str:
         return "show databases"
 

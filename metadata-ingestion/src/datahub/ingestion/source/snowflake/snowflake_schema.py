@@ -329,6 +329,41 @@ class SnowflakeSchema:
     tags: Optional[List[SnowflakeTag]] = None
 
 
+@dataclass(frozen=True)
+class ShareOrigin:
+    """Parsed form of `SHOW DATABASES`.origin for a shared database.
+
+    Snowflake formats `origin` as `<org>.<account>.<share>` (org-qualified) or
+    `<account>.<share>` (locator-only). Anything else is malformed.
+    """
+
+    org_name: Optional[str]
+    account_name: str
+    share_name: str
+
+    @property
+    def account_identifier(self) -> str:
+        return (
+            f"{self.org_name}.{self.account_name}"
+            if self.org_name
+            else self.account_name
+        )
+
+    @classmethod
+    def parse(cls, origin: Optional[str]) -> Optional["ShareOrigin"]:
+        if not origin:
+            return None
+        parts = origin.split(".")
+        if any(not p for p in parts):
+            # e.g. ".a.b", "a..b", "a.b." — empty segments are malformed.
+            return None
+        if len(parts) == 3:
+            return cls(org_name=parts[0], account_name=parts[1], share_name=parts[2])
+        if len(parts) == 2:
+            return cls(org_name=None, account_name=parts[0], share_name=parts[1])
+        return None
+
+
 @dataclass
 class SnowflakeDatabase:
     name: str
@@ -337,6 +372,21 @@ class SnowflakeDatabase:
     last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
+    # Fields from SHOW DATABASES (not available via information_schema). All
+    # Optional[...] = None so we can distinguish "not transient" from "we did
+    # not run SHOW DATABASES".
+    origin: Optional[str] = None  # raw form, retained for emission as customProperty
+    kind: Optional[str] = None  # "STANDARD", "IMPORTED DATABASE", etc.
+    is_transient: Optional[bool] = None
+    retention_time: Optional[int] = None
+    owner: Optional[str] = None
+
+    @property
+    def share_origin(self) -> Optional[ShareOrigin]:
+        return ShareOrigin.parse(self.origin)
+
+    def is_shared_database(self) -> bool:
+        return self.share_origin is not None
 
 
 @dataclass
@@ -644,10 +694,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
 
         for database in cur:
+            origin = database.get("origin", "") or ""
+            retention = database.get("retention_time")
+            raw_transient = database.get("is_transient")
+            if raw_transient is None or raw_transient == "":
+                is_transient: Optional[bool] = None
+            else:
+                is_transient = str(raw_transient).upper() == "YES"
             snowflake_db = SnowflakeDatabase(
                 name=database["name"],
                 created=database["created_on"],
                 comment=database["comment"],
+                origin=origin if origin else None,
+                kind=database.get("kind"),
+                is_transient=is_transient,
+                retention_time=int(retention) if retention is not None else None,
+                owner=database.get("owner"),
             )
             databases.append(snowflake_db)
 

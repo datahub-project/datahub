@@ -500,6 +500,132 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    include_organization_metadata: bool = Field(
+        default=True,
+        description="If enabled, captures Snowflake Organization name via "
+        "CURRENT_ORGANIZATION_NAME() and emits it on a DataPlatformInstance entity. "
+        "Available since Snowflake 6.0 (2021). Silently skipped if the function is "
+        "unavailable or the account does not belong to an organization.",
+    )
+
+    account_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps Snowflake account identifiers to DataHub platform_instance names "
+        "for automatic cross-account share lineage. Keys can be account locators "
+        "(e.g., 'xy12345') or org-qualified names (e.g., 'myorg.account1'). "
+        "Used as fallback when the producer's DataPlatformInstance is not in the graph.",
+    )
+
+    account_locator_fallback: bool = Field(
+        default=False,
+        description="If enabled, when an account is not found in `account_mapping`, "
+        "fall back to using the account_locator (e.g. 'xy12345') as the producer's "
+        "platform_instance. Useful when ingestion recipes consistently follow the "
+        "convention `platform_instance == account_locator`. Disabled by default to "
+        "avoid silently constructing wrong URNs.",
+    )
+
+    include_show_databases_metadata: bool = Field(
+        default=True,
+        description="If enabled, runs `SHOW DATABASES` to capture extra database metadata "
+        "(origin, kind, is_transient, retention_time, owner) and merges it into the "
+        "information_schema-based result. Required by `auto_discover_inbound_shares` "
+        "(which reads the `origin` field). Set to false to fall back to "
+        "information_schema-only metadata for gradual rollout.",
+    )
+
+    auto_discover_inbound_shares: bool = Field(
+        default=True,
+        description="If enabled, automatically detect inbound Snowflake shares from the "
+        "`origin` field on each database (populated by `SHOW DATABASES`) and emit "
+        "Siblings + COPY lineage to the producer. No elevated privileges required. "
+        "Skipped for databases already covered by manual `shares` config.",
+    )
+
+    publish_share_database_mapping: bool = Field(
+        default=True,
+        description="If enabled, mines `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` for "
+        "`GRANT USAGE ON DATABASE ... TO SHARE ...` DDL and publishes the resulting "
+        "share -> database mapping on the platform instance's customProperties. "
+        "Consumers can read this from the DataHub graph to resolve producer database "
+        "names without manual `share_database_mapping` config. Uses already-granted "
+        "`IMPORTED PRIVILEGES on SNOWFLAKE`. Subject to QUERY_HISTORY's 365-day "
+        "retention.",
+    )
+
+    validate_producer_urns_in_graph: bool = Field(
+        default=False,
+        description="If enabled, the auto-share emitter calls `graph.exists()` on "
+        "each constructed producer URN before emitting siblings/lineage, skipping "
+        "any URN that is not yet in the graph. Off by default so that consumers "
+        "ingested before their producer still establish lineage that activates "
+        "when the producer ingests. Per-table graph call has cost proportional "
+        "to the number of shared tables.",
+    )
+
+    share_database_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps Snowflake share names to producer database names, used by "
+        "`auto_discover_inbound_shares` when the producer's database name cannot be "
+        "inferred from the share name alone. Keys are share names "
+        "(e.g., 'ANALYTICS_SHARE'), values are producer database names "
+        "(e.g., 'PROD_ANALYTICS'). Case-insensitive match.",
+    )
+
+    @field_validator("account_mapping", "share_database_mapping", mode="before")
+    @classmethod
+    def _uppercase_keys(cls, v):
+        """Normalize keys to upper case so callers can do case-insensitive lookups
+        with a plain `dict.get`. If two keys collide after upper-casing
+        (e.g. `{"foo": ..., "FOO": ...}`) the last one wins and a warning is
+        logged — the alternative would be to silently keep one over the other.
+        """
+        if not isinstance(v, dict):
+            return v
+        normalized: Dict[str, str] = {}
+        for raw_key, val in v.items():
+            key_upper = str(raw_key).upper()
+            if key_upper in normalized and normalized[key_upper] != val:
+                logger.warning(
+                    "Duplicate keys after upper-casing in Snowflake config "
+                    "(`account_mapping` / `share_database_mapping`): %r and %r "
+                    "both map to %r. Last value (%r) wins.",
+                    raw_key,
+                    key_upper,
+                    key_upper,
+                    val,
+                )
+            normalized[key_upper] = val
+        return normalized
+
+    def resolve_account_to_platform_instance(
+        self, account_identifier: str, account_locator: Optional[str] = None
+    ) -> Optional[str]:
+        """Resolve a Snowflake account identifier to a DataHub platform_instance.
+
+        Resolution order:
+        1. `account_mapping` config — keyed by either the org-qualified
+           identifier (`MYORG.ACCT`) or the bare locator (`ACCT`)
+        2. `account_locator_fallback` convention (locator as platform_instance)
+        3. None — caller should skip with warning
+        """
+        candidates = [account_identifier.upper()]
+        if "." in account_identifier:
+            candidates.append(account_identifier.split(".", 1)[1].upper())
+        if account_locator:
+            locator_upper = account_locator.upper()
+            if locator_upper not in candidates:
+                candidates.append(locator_upper)
+
+        for candidate in candidates:
+            if candidate in self.account_mapping:
+                return self.account_mapping[candidate]
+
+        if self.account_locator_fallback:
+            return (account_locator or candidates[-1]).lower()
+
+        return None
+
     known_snowflake_edition: Optional[SnowflakeEdition] = Field(
         default=None,
         description="Explicitly specify the Snowflake edition (STANDARD or ENTERPRISE). If unset, the edition will be inferred automatically using 'SHOW TAGS'.",
@@ -693,6 +819,23 @@ class SnowflakeV2Config(
         return self
 
     @model_validator(mode="after")
+    def validate_share_discovery_requires_show_databases(self) -> "SnowflakeV2Config":
+        # Auto-discovery reads the `origin` field that only the SHOW DATABASES
+        # merge populates. Without the merge it would silently no-op for every
+        # shared database. Auto-disable rather than confusing the user.
+        if (
+            self.auto_discover_inbound_shares
+            and not self.include_show_databases_metadata
+        ):
+            logger.warning(
+                "auto_discover_inbound_shares is True but include_show_databases_metadata is False. "
+                "Auto-discovery requires the SHOW DATABASES merge to populate the database `origin` "
+                "field; disabling auto_discover_inbound_shares to avoid silent no-op behavior."
+            )
+            self.auto_discover_inbound_shares = False
+        return self
+
+    @model_validator(mode="after")
     def validate_semantic_views_edition(self) -> "SnowflakeV2Config":
         if self.semantic_views.enabled:
             if (
@@ -711,7 +854,10 @@ class SnowflakeV2Config(
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:
         """
         Returns mapping of
-            database included in current account's outbound share -> all databases created from this share in other accounts
+            database included in current account's outbound share -> all databases created from this share in other accounts.
+
+        Keys are upper-cased so callers can do case-insensitive lookups against
+        Snowflake's uppercase identifiers via plain `dict.get`.
         """
         outbounds: Dict[str, Set[DatabaseId]] = defaultdict(set)
         if self.shares:
@@ -720,13 +866,18 @@ class SnowflakeV2Config(
                     logger.debug(
                         f"database {share_details.database} is included in outbound share(s) {share_name}."
                     )
-                    outbounds[share_details.database].update(share_details.consumers)
+                    outbounds[share_details.database.upper()].update(
+                        share_details.consumers
+                    )
         return outbounds
 
     def inbounds(self) -> Dict[str, DatabaseId]:
         """
         Returns mapping of
-            database created from an current account's inbound share -> other-account database from which this share was created
+            database created from an current account's inbound share -> other-account database from which this share was created.
+
+        Keys are upper-cased so callers can do case-insensitive lookups against
+        Snowflake's uppercase identifiers via plain `dict.get`.
         """
         inbounds: Dict[str, DatabaseId] = {}
         if self.shares:
@@ -736,7 +887,9 @@ class SnowflakeV2Config(
                         logger.debug(
                             f"database {consumer.database} is created from inbound share {share_name}."
                         )
-                        inbounds[consumer.database] = share_details.source_database
+                        inbounds[consumer.database.upper()] = (
+                            share_details.source_database
+                        )
                         if self.platform_instance:
                             break
                         # If not using platform_instance, any one of consumer databases
