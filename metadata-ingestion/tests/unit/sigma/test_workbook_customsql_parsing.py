@@ -18,10 +18,7 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    UpstreamLineage,
-)
-from datahub.metadata.urns import SchemaFieldUrn
+from datahub.metadata.schema_classes import InputFieldsClass
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 # ---------------------------------------------------------------------------
@@ -390,7 +387,7 @@ def _run_workbook_customsql_pipeline(
     sql: str,
     passthrough_mapping: Dict[str, str],
 ) -> Tuple[MetadataWorkUnit, SigmaSource]:
-    """Register chart_urn with sql, drain; return the UpstreamLineage MCP + source."""
+    """Register chart_urn with sql, drain; return the InputFields workunit + source."""
     source = _make_source()
     if passthrough_mapping:
         source._customsql_passthrough_mappings[_CHART_URN] = passthrough_mapping
@@ -404,50 +401,45 @@ def _run_workbook_customsql_pipeline(
 
 
 class TestRewriteFglDownstreamsWorkbookBranch:
-    def test_named_columns_fgl_passthrough(self) -> None:
+    def test_named_columns_emit_input_fields(self) -> None:
         wu, source = _run_workbook_customsql_pipeline(
             sql="SELECT order_id, amount FROM TEST_DB.TEST_SCHEMA.ORDERS",
             passthrough_mapping={},
         )
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         aspect = wu.metadata.aspect
-        assert isinstance(aspect, UpstreamLineage)
-        assert len(aspect.upstreams) == 1
-        assert aspect.upstreams[0].dataset == _SNOWFLAKE_TABLE
-        fgls = aspect.fineGrainedLineages or []
-        assert len(fgls) > 0
+        assert isinstance(aspect, InputFieldsClass)
+        assert len(aspect.fields) == 2
+        upstream_urns = {f.schemaFieldUrn for f in aspect.fields}
+        assert any("order_id" in u for u in upstream_urns)
+        assert any("amount" in u for u in upstream_urns)
         assert source.reporter.workbook_customsql_upstream_emitted == 1
+        assert source.reporter.workbook_customsql_column_lineage_emitted == 1
         assert source.reporter.dm_customsql_upstream_emitted == 0
 
-    def test_select_star_synthesizes_fgl_from_passthrough(self) -> None:
+    def test_select_star_synthesizes_input_fields_from_passthrough(self) -> None:
         wu, source = _run_workbook_customsql_pipeline(
             sql="SELECT * FROM TEST_DB.TEST_SCHEMA.ORDERS",
             passthrough_mapping={"order_id": "order_id", "amount": "amount"},
         )
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         aspect = wu.metadata.aspect
-        assert isinstance(aspect, UpstreamLineage)
-        fgls = aspect.fineGrainedLineages or []
-        assert len(fgls) == 2
-        downstream_fields = {
-            SchemaFieldUrn.from_string(ds).field_path
-            for fgl in fgls
-            for ds in (fgl.downstreams or [])
-        }
-        assert downstream_fields == {"order_id", "amount"}
+        assert isinstance(aspect, InputFieldsClass)
+        assert len(aspect.fields) == 2
+        field_paths = {f.schemaField.fieldPath for f in aspect.fields}
+        assert field_paths == {"order_id", "amount"}
         assert source.reporter.workbook_customsql_column_lineage_emitted == 1
         assert source.reporter.dm_customsql_column_lineage_emitted == 0
 
-    def test_select_star_no_passthrough_emits_entity_lineage_only(self) -> None:
+    def test_select_star_no_passthrough_emits_empty_input_fields(self) -> None:
         wu, source = _run_workbook_customsql_pipeline(
             sql="SELECT * FROM TEST_DB.TEST_SCHEMA.ORDERS",
             passthrough_mapping={},
         )
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         aspect = wu.metadata.aspect
-        assert isinstance(aspect, UpstreamLineage)
-        assert len(aspect.upstreams) == 1
-        assert not aspect.fineGrainedLineages
+        assert isinstance(aspect, InputFieldsClass)
+        assert aspect.fields == []
         assert source.reporter.workbook_customsql_column_lineage_emitted == 0
 
     def test_dm_counter_not_bumped_for_chart_urn(self) -> None:

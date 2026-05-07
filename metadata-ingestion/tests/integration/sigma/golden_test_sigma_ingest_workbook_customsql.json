@@ -10,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010439,
+        "lastObserved": 1778185309629,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -50,7 +50,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010440,
+        "lastObserved": 1778185309629,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -68,7 +68,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010440,
+        "lastObserved": 1778185309630,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -84,7 +84,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010440,
+        "lastObserved": 1778185309630,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -108,7 +108,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010441,
+        "lastObserved": 1778185309630,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -124,7 +124,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010441,
+        "lastObserved": 1778185309631,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -159,7 +159,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010441,
+        "lastObserved": 1778185309631,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -183,7 +183,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010442,
+        "lastObserved": 1778185309631,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -199,7 +199,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010442,
+        "lastObserved": 1778185309632,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -232,7 +232,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010443,
+        "lastObserved": 1778185309632,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -279,7 +279,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010443,
+        "lastObserved": 1778185309633,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -303,7 +303,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010443,
+        "lastObserved": 1778185309633,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -350,7 +350,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010447,
+        "lastObserved": 1778185309638,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -376,7 +376,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010469,
+        "lastObserved": 1778185309690,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -392,7 +392,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010469,
+        "lastObserved": 1778185309690,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -408,7 +408,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010470,
+        "lastObserved": 1778185309690,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -426,7 +426,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010470,
+        "lastObserved": 1778185309690,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -442,7 +442,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010470,
+        "lastObserved": 1778185309690,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -451,53 +451,45 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,csql-chart-el-01)",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
+    "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "upstreams": [
+            "fields": [
                 {
-                    "auditStamp": {
-                        "time": 1778183010469,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD)",
-                    "type": "VIEW"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),order_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:chart:(sigma,csql-chart-el-01),order_id)"
-                    ],
-                    "transformOperation": "COPY: \"ORDERS\".\"ORDER_ID\" AS \"ORDER_ID\"",
-                    "confidenceScore": 0.2
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),order_id)",
+                    "schemaField": {
+                        "fieldPath": "order_id",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
                 },
                 {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),amount)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:chart:(sigma,csql-chart-el-01),amount)"
-                    ],
-                    "transformOperation": "COPY: \"ORDERS\".\"AMOUNT\" AS \"AMOUNT\"",
-                    "confidenceScore": 0.2
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),amount)",
+                    "schemaField": {
+                        "fieldPath": "amount",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778183010472,
+        "lastObserved": 1778185309692,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

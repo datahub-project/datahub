@@ -1258,6 +1258,78 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
 
+    def _build_workbook_chart_input_fields_mcp(
+        self,
+        entity_urn: str,
+        aspect: UpstreamLineage,
+    ) -> MetadataChangeProposalWrapper:
+        """Convert an UpstreamLineage aspect for a workbook chart into InputFields.
+
+        Charts do not accept ``upstreamLineage``; this converts the aggregator
+        output into the ``inputFields`` aspect that DataHub's chart entity accepts.
+        """
+        self.reporter.workbook_customsql_upstream_emitted += 1
+        input_fields: List[InputFieldClass] = []
+        if aspect.fineGrainedLineages:
+            input_fields = self._fgl_to_input_fields(aspect.fineGrainedLineages)
+            if input_fields:
+                self.reporter.workbook_customsql_column_lineage_emitted += 1
+        elif len(aspect.upstreams) == 1:
+            col_mapping = self._customsql_passthrough_mappings.get(entity_urn)
+            if col_mapping:
+                upstream_urn = aspect.upstreams[0].dataset
+                input_fields = self._passthrough_to_input_fields(
+                    upstream_urn, col_mapping
+                )
+                if input_fields:
+                    self.reporter.workbook_customsql_column_lineage_emitted += 1
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=InputFieldsClass(fields=input_fields),
+        )
+
+    def _fgl_to_input_fields(
+        self, fgls: List[FineGrainedLineageClass]
+    ) -> List[InputFieldClass]:
+        """Build InputField entries from named-column FGL entries."""
+        input_fields: List[InputFieldClass] = []
+        for fgl in fgls:
+            downstreams = fgl.downstreams or []
+            if not downstreams:
+                continue
+            try:
+                chart_col = SchemaFieldUrn.from_string(downstreams[0]).field_path
+            except InvalidUrnError:
+                continue
+            for upstream_sf_urn in fgl.upstreams or []:
+                input_fields.append(
+                    InputFieldClass(
+                        schemaFieldUrn=upstream_sf_urn,
+                        schemaField=SchemaFieldClass(
+                            fieldPath=chart_col,
+                            type=SchemaFieldDataTypeClass(StringTypeClass()),
+                            nativeDataType="String",
+                        ),
+                    )
+                )
+        return input_fields
+
+    def _passthrough_to_input_fields(
+        self, upstream_urn: str, col_mapping: Dict[str, str]
+    ) -> List[InputFieldClass]:
+        """Build InputField entries from a SELECT * passthrough mapping."""
+        return [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(upstream_urn, sql_col),
+                schemaField=SchemaFieldClass(
+                    fieldPath=sigma_col,
+                    type=SchemaFieldDataTypeClass(StringTypeClass()),
+                    nativeDataType="String",
+                ),
+            )
+            for sql_col, sigma_col in col_mapping.items()
+        ]
+
     def _rewrite_fgl_downstreams(
         self, mcp: MetadataChangeProposalWrapper
     ) -> MetadataChangeProposalWrapper:
@@ -1277,32 +1349,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return mcp
         entity_urn = str(mcp.entityUrn)
 
-        # Workbook chart URNs are handled separately from DM Dataset URNs.
-        # No FGL column-name rewriting is needed here — named-column FGL from
-        # the aggregator is used as-is; SELECT * synthesis uses the passthrough
-        # mapping built by _build_workbook_customsql_col_mapping.
+        # Workbook chart URNs: convert UpstreamLineage to InputFields, since
+        # DataHub's chart entity does not accept the upstreamLineage aspect.
         if entity_urn in self._workbook_customsql_registered_urns:
-            self.reporter.workbook_customsql_upstream_emitted += 1
-            if not aspect.fineGrainedLineages and len(aspect.upstreams) == 1:
-                col_mapping = self._customsql_passthrough_mappings.get(entity_urn)
-                if col_mapping:
-                    upstream_urn = aspect.upstreams[0].dataset
-                    aspect.fineGrainedLineages = [
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                builder.make_schema_field_urn(upstream_urn, sql_col)
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                builder.make_schema_field_urn(entity_urn, sigma_col)
-                            ],
-                            confidenceScore=_FGL_CONFIDENCE_FORMULA_DERIVED,
-                        )
-                        for sql_col, sigma_col in col_mapping.items()
-                    ]
-                    self.reporter.workbook_customsql_column_lineage_emitted += 1
-            return mcp
+            return self._build_workbook_chart_input_fields_mcp(entity_urn, aspect)
 
         # Only count MCPs for element URNs we registered — the aggregator
         # should only emit for those, but guard in case of future changes.
