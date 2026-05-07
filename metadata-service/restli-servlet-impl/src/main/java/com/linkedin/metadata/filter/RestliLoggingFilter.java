@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RestliLoggingFilter implements Filter {
 
   private static final String START_TIME = "startTime";
+  private static final long SLOW_REQUEST_THRESHOLD_MS = 1000;
 
   @Override
   public CompletableFuture<Void> onRequest(final FilterRequestContext requestContext) {
@@ -52,6 +53,16 @@ public class RestliLoggingFilter implements Filter {
     String method = requestContext.getMethod().getName();
     String uri = requestContext.getRequestURI().toString();
 
-    log.info("{} {} - {} - {} - {}ms", httpMethod, uri, method, status.getCode(), duration);
+    if (duration >= SLOW_REQUEST_THRESHOLD_MS) {
+      log.info(
+          "Slow request: {} {} - {} - {} - {}ms",
+          httpMethod,
+          uri,
+          method,
+          status.getCode(),
+          duration);
+    } else {
+      log.debug("{} {} - {} - {} - {}ms", httpMethod, uri, method, status.getCode(), duration);
+    }
   }
 }

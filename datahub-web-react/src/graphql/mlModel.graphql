@@ -48,9 +48,6 @@ query getMLModel($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ...notes
         ...entityProfileVersionProperties
     }

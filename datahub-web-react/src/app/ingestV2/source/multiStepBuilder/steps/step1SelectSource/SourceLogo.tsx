@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { NotePencil } from '@phosphor-icons/react/dist/csr/NotePencil';
 import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -29,7 +30,7 @@ export default function SourceLogo({ sourceName }: Props) {
 
     let logoComponent;
     if (sourceName === CUSTOM) {
-        logoComponent = <StyledIcon icon="NotePencil" source="phosphor" color="gray" />;
+        logoComponent = <StyledIcon icon={NotePencil} color="gray" />;
     }
 
     return logoUrl ? <PlatformLogo preview={false} src={logoUrl} alt={sourceName} /> : logoComponent || null;

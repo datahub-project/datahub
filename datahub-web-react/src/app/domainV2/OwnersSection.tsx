@@ -4,14 +4,7 @@ import styled from 'styled-components';
 
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 
-import { CorpGroup, CorpUser, OwnerEntityType } from '@types';
-
-// Interface for pending owner
-export interface PendingOwner {
-    ownerUrn: string;
-    ownerEntityType: OwnerEntityType;
-    ownershipTypeUrn: string;
-}
+import { CorpGroup, CorpUser } from '@types';
 
 const SectionContainer = styled.div`
     margin-bottom: 24px;
@@ -32,7 +25,7 @@ const FormSection = styled.div`
 interface Props {
     defaultOwners?: (CorpGroup | CorpUser)[];
     selectedOwnerUrns: string[];
-    setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
+    setSelectedOwnerUrns: (urns: string[]) => void;
 }
 
 /**

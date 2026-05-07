@@ -1,7 +1,7 @@
 import '@src/App.less';
 import '@src/AppV2.less';
 
-import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
+import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
 import React from 'react';
@@ -9,8 +9,10 @@ import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
+import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
+import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { ErrorCodes } from '@app/shared/constants';
@@ -50,9 +52,20 @@ const errorLink = onError((error) => {
     // }
 });
 
+const injectVariablesLink = new ApolloLink((operation, forward) => {
+    // eslint-disable-next-line no-param-reassign
+    operation.variables = {
+        ...operation.variables,
+        skipSiblingsSearch: showSeparateSiblingsRef.current,
+        skipLineage: hideLineageInSearchCardsRef.current,
+    };
+
+    return forward(operation);
+});
+
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: errorLink.concat(httpLink),
+    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {
@@ -89,6 +102,7 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <GlobalStyles />
+                <ToastRenderer />
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

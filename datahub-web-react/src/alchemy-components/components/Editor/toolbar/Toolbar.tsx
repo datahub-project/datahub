@@ -1,18 +1,16 @@
-import {
-    Code,
-    CodeBlock,
-    ListBullets,
-    ListNumbers,
-    Table,
-    TextB,
-    TextItalic,
-    TextStrikethrough,
-    TextUnderline,
-} from '@phosphor-icons/react';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { CodeBlock } from '@phosphor-icons/react/dist/csr/CodeBlock';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { ListNumbers } from '@phosphor-icons/react/dist/csr/ListNumbers';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
+import { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
+import { TextStrikethrough } from '@phosphor-icons/react/dist/csr/TextStrikethrough';
+import { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
 import { AddImageButton } from '@components/components/Editor/toolbar/AddImageButton';
@@ -24,20 +22,19 @@ import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSe
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 
 import { useAppConfig } from '@app/useAppConfig';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const Container = styled.div<{ $fixedBottom?: boolean }>`
     position: ${(props) => (props.$fixedBottom ? 'fixed' : 'sticky')};
     ${(props) => (props.$fixedBottom ? 'bottom: 48px;' : 'top: 0;')}
     ${(props) =>
         props.$fixedBottom
-            ? 'left: 50%; transform: translateX(-50%); max-width: 800px; width: fit-content;'
+            ? 'left: 50%; transform: translateX(-50%); max-width: 800px; width: max-content;'
             : 'width: 100%;'}
     z-index: ${(props) => (props.$fixedBottom ? '1000' : '99')};
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) =>
         props.$fixedBottom
-            ? 'border-radius: 12px; border: 1px solid #e8e8e8;'
+            ? `border-radius: 12px; border: 1px solid ${props.theme.colors.border};`
             : 'border-top-left-radius: 12px; border-top-right-radius: 12px;'}
     padding: 8px !important;
     & button {
@@ -46,10 +43,7 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
     display: flex;
     justify-content: start;
     align-items: center;
-    ${(props) =>
-        props.$fixedBottom
-            ? 'box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.12), 0px 2px 6px rgba(0, 0, 0, 0.08);'
-            : 'box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.1);'}
+    box-shadow: ${(props) => (props.$fixedBottom ? props.theme.colors.shadowLg : props.theme.colors.shadowSm)};
 `;
 
 const InnerContainer = styled.div`
@@ -71,6 +65,7 @@ interface Props {
 export const Toolbar = ({ styles, fixedBottom }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
+    const theme = useTheme();
     const { config } = useAppConfig();
     const { documentationFileUploadV1 } = config.featureFlags;
     const remirrorContext = useRemirrorContext();
@@ -85,54 +80,54 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 <HeadingMenu />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<TextB size={20} color={colors.gray[1800]} />}
+                    icon={<TextB size={20} color={theme.colors.icon} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleBold"
                     active={active.bold()}
                     onClick={() => commands.toggleBold()}
                 />
                 <CommandButton
-                    icon={<TextItalic size={20} color={colors.gray[1800]} />}
+                    icon={<TextItalic size={20} color={theme.colors.icon} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleItalic"
                     active={active.italic()}
                     onClick={() => commands.toggleItalic()}
                 />
                 <CommandButton
-                    icon={<TextUnderline size={20} color={colors.gray[1800]} />}
+                    icon={<TextUnderline size={20} color={theme.colors.icon} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleUnderline"
                     active={active.underline()}
                     onClick={() => commands.toggleUnderline()}
                 />
                 <CommandButton
-                    icon={<TextStrikethrough size={20} color={colors.gray[1800]} />}
+                    icon={<TextStrikethrough size={20} color={theme.colors.icon} />}
                     commandName="toggleStrike"
                     active={active.strike()}
                     onClick={() => commands.toggleStrike()}
                 />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<ListBullets size={20} color={colors.gray[1800]} />}
+                    icon={<ListBullets size={20} color={theme.colors.icon} />}
                     commandName="toggleBulletList"
                     active={active.bulletList()}
                     onClick={() => commands.toggleBulletList()}
                 />
                 <CommandButton
-                    icon={<ListNumbers size={20} color={colors.gray[1800]} />}
+                    icon={<ListNumbers size={20} color={theme.colors.icon} />}
                     commandName="toggleOrderedList"
                     active={active.orderedList()}
                     onClick={() => commands.toggleOrderedList()}
                 />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<Code size={20} color={colors.gray[1800]} />}
+                    icon={<Code size={20} color={theme.colors.icon} />}
                     commandName="toggleCode"
                     active={active.code()}
                     onClick={() => commands.toggleCode()}
                 />
                 <CommandButton
-                    icon={<CodeBlock size={20} color={colors.gray[1800]} />}
+                    icon={<CodeBlock size={20} color={theme.colors.icon} />}
                     commandName="toggleCodeBlock"
                     active={active.codeBlock()}
                     onClick={() => commands.toggleCodeBlock()}
@@ -141,7 +136,7 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 {shouldShowImageButtonV2 ? <AddImageButtonV2 /> : <AddImageButton />}
                 <AddLinkButton />
                 <CommandButton
-                    icon={<Table size={20} color={colors.gray[1800]} />}
+                    icon={<Table size={20} color={theme.colors.icon} />}
                     commandName="createTable"
                     onClick={() => commands.createTable()}
                     disabled={active.table()} /* Disables nested tables */

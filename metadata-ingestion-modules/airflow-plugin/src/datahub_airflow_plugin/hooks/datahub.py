@@ -225,11 +225,28 @@ class DatahubKafkaHook(BaseHook):
 
 
 class SynchronizedFileHook(BaseHook):
+    conn_name_attr = "datahub_file_conn_id"
+    default_conn_name = "datahub_file_default"
     conn_type = "datahub-file"
+    hook_name = "DataHub File Sink"
 
-    def __init__(self, datahub_conn_id: str) -> None:
+    def __init__(self, datahub_conn_id: str = default_conn_name) -> None:
         super().__init__()
         self.datahub_conn_id = datahub_conn_id
+
+    @staticmethod
+    def get_connection_form_widgets() -> Dict[str, Any]:
+        return {}
+
+    @staticmethod
+    def get_ui_field_behaviour() -> Dict:
+        """Returns custom field behavior"""
+        return {
+            "hidden_fields": ["port", "schema", "login", "password", "extra"],
+            "relabeling": {
+                "host": "Output File Path",
+            },
+        }
 
     def make_emitter(self) -> "SynchronizedFileEmitter":
         from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter

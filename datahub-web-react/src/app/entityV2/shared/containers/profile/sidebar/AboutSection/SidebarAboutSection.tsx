@@ -1,5 +1,5 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -74,7 +74,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                     <>
                         {!readOnly && (
                             <SectionActionButton
-                                button={hasContent ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                icon={hasContent ? PencilSimple : Plus}
                                 dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {
@@ -115,5 +115,3 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
         </>
     );
 };
-
-export default SidebarAboutSection;

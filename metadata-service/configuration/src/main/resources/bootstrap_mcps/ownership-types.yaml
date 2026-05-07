@@ -16,7 +16,7 @@
   changeType: UPSERT
   aspect:
     name: Business Owner
-    description: Principle stakeholders or domain experts associated with the asset(s).
+    description: Principal stakeholders or domain experts associated with the asset(s).
     created: {{&auditStamp}}
     lastModified: {{&auditStamp}}
 - entityUrn: urn:li:ownershipType:__system__data_steward

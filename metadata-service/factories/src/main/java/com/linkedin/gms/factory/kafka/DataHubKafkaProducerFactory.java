@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.kafka;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
@@ -12,7 +13,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -46,7 +47,7 @@ public class DataHubKafkaProducerFactory {
     final ProducerConfiguration producerConfiguration = kafkaConfiguration.getProducer();
 
     // Initialize with Spring Kafka production configuration
-    Map<String, Object> props = properties.buildProducerProperties(null);
+    Map<String, Object> props = properties.buildProducerProperties();
 
     // Apply DUE specifics
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "datahub-analytics");
@@ -86,7 +87,15 @@ public class DataHubKafkaProducerFactory {
       producerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> props = properties.buildProducerProperties(null);
+    String securityProtocol =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getSecurityProtocol())
+            ? kafkaConfiguration.getProducer().getSecurityProtocol()
+            : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      producerProps.getSecurity().setProtocol(securityProtocol);
+    }
+
+    Map<String, Object> props = properties.buildProducerProperties();
     props.putAll(
         kafkaConfiguration.getSerde().getEvent().getProducerProperties(schemaRegistryConfig));
 
@@ -109,6 +118,11 @@ public class DataHubKafkaProducerFactory {
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     props.putAll(kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
+
+    String schemaRegistryUrl = kafkaConfiguration.getProducer().getSchemaRegistryUrl();
+    if (StringUtils.isNotBlank(schemaRegistryUrl)) {
+      props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+    }
 
     return props;
   }

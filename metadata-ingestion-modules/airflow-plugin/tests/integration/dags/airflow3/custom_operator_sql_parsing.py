@@ -1,10 +1,11 @@
 from datetime import datetime
-from typing import Any, List, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple, Union
 
 from airflow import DAG
 from airflow.models.baseoperator import BaseOperator
 
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._config import get_enable_multi_statement
+from datahub_airflow_plugin._sql_parsing_common import parse_sql_with_datahub
 from datahub_airflow_plugin.entities import Urn
 
 ATHENA_COST_TABLE = "costs"
@@ -40,21 +41,17 @@ class CustomOperator(BaseOperator):
             default_database = self.database
             default_schema = self.schema
 
-            # Normalize SQL (handle list if needed)
-            sql = self.query
-            if isinstance(sql, list):
-                self.log.info("Got list of SQL statements. Using first one.")
-                sql = sql[0]
+            enable_multi_statement = get_enable_multi_statement()
+            sql: Union[str, List[str]] = self.query
 
-            # Parse SQL to extract lineage
-            sql_parsing_result = create_lineage_sql_parsed_result(
-                query=sql,
-                graph=None,  # We don't have access to graph here
+            sql_parsing_result = parse_sql_with_datahub(
+                sql=sql,
+                default_database=default_database,
                 platform=self.platform,
-                platform_instance=None,
                 env=self.env,
-                default_db=default_database,
                 default_schema=default_schema,
+                graph=None,  # We don't have access to graph here
+                enable_multi_statement=enable_multi_statement,
             )
 
             # Convert inputs and outputs to Dataset objects

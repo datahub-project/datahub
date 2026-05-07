@@ -952,6 +952,59 @@ fragment entityPreview on Entity {
             name
             description
         }
+        entities(input: { start: 0, count: 20, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    ... on Dataset {
+                        properties {
+                            name
+                            description
+                        }
+                        platform {
+                            urn
+                            name
+                        }
+                    }
+                    ... on Dashboard {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on Chart {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on DataFlow {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on DataJob {
+                        properties {
+                            name
+                            description
+                        }
+                    }
+                    ... on Container {
+                        properties {
+                            name
+                        }
+                        platform {
+                            urn
+                            name
+                        }
+                    }
+                }
+            }
+        }
     }
     ... on Container {
         ...entityDisplayNameFields

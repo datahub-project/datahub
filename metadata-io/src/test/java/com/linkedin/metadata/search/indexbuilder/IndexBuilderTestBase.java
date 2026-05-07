@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.indexbuilder;
 
+import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
@@ -13,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
@@ -50,6 +52,7 @@ import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.indices.GetIndexRequest;
@@ -164,8 +167,28 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
   }
 
+  /** Pattern matching incremental reindex next indices created during tests. */
+  private static final String INCREMENTAL_NEXT_INDEX_PATTERN = "estest_*_0_14_0*";
+
   @BeforeMethod
   public void wipe() throws Exception {
+    // Clean up incremental reindex next indices (glob pattern)
+    try {
+      GetAliasesRequest patternRequest = new GetAliasesRequest();
+      patternRequest.indices(INCREMENTAL_NEXT_INDEX_PATTERN);
+      GetAliasesResponse matchingAliases =
+          getSearchClient().getIndexAliases(patternRequest, RequestOptions.DEFAULT);
+      for (String index : matchingAliases.getAliases().keySet()) {
+        try {
+          getSearchClient().deleteIndex(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+        } catch (Exception e) {
+          // ignore
+        }
+      }
+    } catch (Exception e) {
+      // Pattern may match nothing — that's fine
+    }
+
     // Clean up all test indices
     String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME};
 
@@ -1061,6 +1084,82 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         "No aspect in _aspects should be named 'structuredProperties'");
   }
 
+  /**
+   * Regression test for reindex (BuildIndicesStep): structured properties with valueType
+   * datahub.urn must get a mapping with a "type" so putMapping does not fail with
+   * mapper_parsing_exception.
+   */
+  @Test
+  public void testReindexMappingsWithDatahubUrnStructuredPropertyHaveType() throws Exception {
+    StructuredPropertyDefinition urnStructuredProperty =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("com.example.domain.owner_urn")
+            .setDisplayName("Owner URN")
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataJob")))
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.urn"));
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+        Collections.singletonList(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                urnStructuredProperty));
+
+    Collection<MappingsBuilder.IndexMapping> allIndexMappings =
+        delegatingMappingsBuilder.getIndexMappings(opContext, structuredProperties);
+
+    String expectedFieldName = "com_example_domain_owner_urn";
+    boolean foundFieldWithType = false;
+    for (MappingsBuilder.IndexMapping indexMapping : allIndexMappings) {
+      Map<String, Object> mappings = indexMapping.getMappings();
+      if (mappings == null) {
+        continue;
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+      if (properties == null) {
+        continue;
+      }
+      // V2: structured property fields live under properties.structuredProperties.properties
+      @SuppressWarnings("unchecked")
+      Map<String, Object> structuredProps =
+          (Map<String, Object>) properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+      if (structuredProps != null) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> structuredPropsFields =
+            (Map<String, Object>) structuredProps.get("properties");
+        if (structuredPropsFields != null && structuredPropsFields.containsKey(expectedFieldName)) {
+          @SuppressWarnings("unchecked")
+          Map<String, Object> fieldMapping =
+              (Map<String, Object>) structuredPropsFields.get(expectedFieldName);
+          assertNotNull(
+              fieldMapping.get("type"),
+              "Reindex mappings must include type for structured property "
+                  + expectedFieldName
+                  + " (index "
+                  + indexMapping.getIndexName()
+                  + ")");
+          foundFieldWithType = true;
+        }
+      }
+      // V3 or flat: field may be directly under properties
+      if (!foundFieldWithType && properties.containsKey(expectedFieldName)) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fieldMapping = (Map<String, Object>) properties.get(expectedFieldName);
+        assertNotNull(
+            fieldMapping.get("type"),
+            "Reindex mappings must include type for " + expectedFieldName);
+        foundFieldWithType = true;
+      }
+    }
+    assertTrue(
+        foundFieldWithType,
+        "At least one index mapping should include the URN structured property with a type");
+  }
+
   @Test
   public void testV3AliasPaths() throws Exception {
     // Test that v3 aliases point to the correct paths
@@ -1153,5 +1252,158 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             "structuredProperties should not be in _aspects");
       }
     }
+  }
+
+  // --- Incremental reindex integration tests ---
+
+  @Test
+  public void testIncrementalReindexWithDocs() throws Throwable {
+    String upgradeVersion = "0.14.0-0";
+
+    // Step 1: Create initial index with 1 shard
+    ReindexConfig initialConfig =
+        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    testDefaultBuilder.buildIndex(initialConfig);
+
+    // Step 2: Index some documents
+    for (int i = 0; i < 5; i++) {
+      IndexRequest indexRequest =
+          new IndexRequest(TEST_INDEX_NAME)
+              .id(String.valueOf(i))
+              .source(Map.of("field", "value" + i), XContentType.JSON);
+      getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
+    }
+    getSearchClient()
+        .refreshIndex(
+            new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
+            RequestOptions.DEFAULT);
+    assertEquals(
+        getSearchClient()
+            .count(new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+            .getCount(),
+        5,
+        "Expected 5 documents in the initial index");
+
+    // Step 3: Create builder with different shard count to force requiresReindex, and non-zero
+    // replicas so we can verify the optimization (sets to 0) and undo (restores to 1) cycle.
+    GitVersion gitVersion = new GitVersion("0.14.0", "abcdef", Optional.empty());
+    ESIndexBuilder changedShardBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().numShards(2).numReplicas(1).build())
+                .build(),
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+
+    ReindexConfig reindexConfig =
+        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    assertTrue(reindexConfig.requiresReindex(), "Expected config to require reindex");
+
+    // Step 4: Run incremental reindex (Phase 1)
+    ESIndexBuilder.IncrementalReindexResult incrementalResult =
+        changedShardBuilder.buildIndexIncremental(reindexConfig, upgradeVersion);
+
+    // Verify next index name contains the version
+    String expectedPrefix = TEST_INDEX_NAME + "_0_14_0-0_";
+    assertTrue(
+        incrementalResult.nextIndexName().startsWith(expectedPrefix),
+        "Expected next index name to start with "
+            + expectedPrefix
+            + " but was "
+            + incrementalResult.nextIndexName());
+    assertFalse(incrementalResult.skippedEmpty(), "Should not skip — source has 5 docs");
+    assertTrue(incrementalResult.reindexStartTime() > 0);
+    assertNotNull(incrementalResult.reindexInfo(), "reindexInfo should not be null");
+
+    // Step 5: Poll until reindex completes
+    ESIndexBuilder.PollReindexResult pollResult =
+        changedShardBuilder.pollReindexCompletion(
+            TEST_INDEX_NAME,
+            incrementalResult.nextIndexName(),
+            () -> (long) incrementalResult.sourceDocCount(),
+            incrementalResult.targetShards(),
+            incrementalResult.reindexInfo(),
+            incrementalResult.taskId());
+    assertTrue(pollResult.completed(), "Reindex should complete successfully");
+
+    // Step 6: Restore settings
+    changedShardBuilder.undoReindexOptimalSettings(
+        incrementalResult.nextIndexName(), reindexConfig, pollResult.latestReindexInfo());
+
+    // Step 7: Verify next index has all documents
+    getSearchClient()
+        .refreshIndex(
+            new org.opensearch.action.admin.indices.refresh.RefreshRequest(
+                incrementalResult.nextIndexName()),
+            RequestOptions.DEFAULT);
+    long nextDocCount =
+        getSearchClient()
+            .count(new CountRequest(incrementalResult.nextIndexName()), RequestOptions.DEFAULT)
+            .getCount();
+    assertEquals(nextDocCount, 5, "Next index should have all 5 documents");
+
+    // Step 8: Verify alias still points to original index (no swap happened)
+    GetAliasesRequest aliasRequest = new GetAliasesRequest(TEST_INDEX_NAME);
+    GetAliasesResponse aliasResponse =
+        getSearchClient().getIndexAliases(aliasRequest, RequestOptions.DEFAULT);
+    // The alias should resolve, and the backing index should NOT be the next index
+    assertFalse(
+        aliasResponse.getAliases().containsKey(incrementalResult.nextIndexName()),
+        "Alias should not point to next index yet — swap hasn't happened");
+
+    // Step 9: Verify next index has the new shard count
+    GetIndexResponse nextIndexResponse =
+        getSearchClient()
+            .getIndex(
+                new GetIndexRequest(incrementalResult.nextIndexName()).includeDefaults(true),
+                RequestOptions.DEFAULT);
+    assertEquals(
+        nextIndexResponse.getSetting(incrementalResult.nextIndexName(), "index.number_of_shards"),
+        "2",
+        "Next index should have 2 shards");
+
+    // Step 10: Verify settings were restored (replicas back to target, refresh interval restored)
+    String replicas =
+        nextIndexResponse.getSetting(incrementalResult.nextIndexName(), "index.number_of_replicas");
+    assertNotEquals(replicas, "0", "Replicas should be restored after reindex");
+  }
+
+  @Test
+  public void testIncrementalReindexWithEmptyIndex() throws Throwable {
+    String upgradeVersion = "0.14.0-0";
+
+    // Create initial index with no documents
+    ReindexConfig initialConfig =
+        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    testDefaultBuilder.buildIndex(initialConfig);
+
+    // Create builder with different shard count to force requiresReindex
+    GitVersion gitVersion = new GitVersion("0.14.0", "abcdef", Optional.empty());
+    ESIndexBuilder changedShardBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().numShards(2).build())
+                .build(),
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+
+    ReindexConfig reindexConfig =
+        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+    assertTrue(reindexConfig.requiresReindex());
+
+    // Run incremental reindex
+    ESIndexBuilder.IncrementalReindexResult result =
+        changedShardBuilder.buildIndexIncremental(reindexConfig, upgradeVersion);
+
+    assertTrue(result.skippedEmpty(), "Should skip _reindex for empty index");
+    // Next index should still be created (with correct mappings/settings)
+    assertTrue(
+        getSearchClient()
+            .indexExists(new GetIndexRequest(result.nextIndexName()), RequestOptions.DEFAULT),
+        "Next index should exist even when source is empty");
   }
 }

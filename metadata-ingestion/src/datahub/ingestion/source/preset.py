@@ -5,6 +5,7 @@ import requests
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -37,8 +38,12 @@ class PresetConfig(SupersetConfig):
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
-    api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
-    api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
+    api_key: Optional[TransparentSecretStr] = Field(
+        default=None, description="Preset.io API key."
+    )
+    api_secret: Optional[TransparentSecretStr] = Field(
+        default=None, description="Preset.io API secret."
+    )
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -94,7 +99,14 @@ class PresetSource(SupersetSource):
         try:
             login_response = requests.post(
                 f"{self.config.manager_uri}/v1/auth/",
-                json={"name": self.config.api_key, "secret": self.config.api_secret},
+                json={
+                    "name": self.config.api_key.get_secret_value()
+                    if self.config.api_key
+                    else None,
+                    "secret": self.config.api_secret.get_secret_value()
+                    if self.config.api_secret
+                    else None,
+                },
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to authenticate with Preset: {e}")

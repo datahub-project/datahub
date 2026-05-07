@@ -22,6 +22,7 @@ public class ElasticSearchConfiguration {
   private int port;
   private int threadCount;
   private int connectionRequestTimeout;
+  private int socketTimeout;
   private String username;
   private String password;
   private String pathPrefix;

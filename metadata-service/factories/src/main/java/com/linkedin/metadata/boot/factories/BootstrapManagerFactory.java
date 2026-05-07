@@ -12,9 +12,7 @@ import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
-import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
-import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
@@ -75,10 +73,6 @@ public class BootstrapManagerFactory {
   private AspectMigrationsDao _migrationsDao;
 
   @Autowired
-  @Qualifier("ingestRetentionPoliciesStep")
-  private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
-
-  @Autowired
   @Qualifier("dataHubUpgradeKafkaListener")
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
@@ -111,26 +105,22 @@ public class BootstrapManagerFactory {
         new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
-    final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
     final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
         new RestoreFormInfoIndicesStep(_entityService);
     final MigrateHomePageLinksStep migrateHomePageLinksStep =
         new MigrateHomePageLinksStep(_entityService, _entitySearchService);
-
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
             ImmutableList.of(
                 waitForSystemUpdateStep,
                 ingestPoliciesStep,
                 ingestDataPlatformInstancesStep,
-                _ingestRetentionPoliciesStep,
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
-                ingestEntityTypesStep,
                 restoreFormInfoIndicesStep));
 
     if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {

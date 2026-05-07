@@ -99,12 +99,15 @@ task lintFix(type: Exec, dependsOn: installDev) {
 installTest.shouldRunAfter lint
 installTest.shouldRunAfter lintFix
 
-task testQuick(type: Exec, dependsOn: installTest) {
+task testFull(type: Exec, dependsOn: installTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "pytest --cov-config=setup.cfg ${get_coverage_args('quick')} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "pytest ${get_coverage_args('quick')} -vv --continue-on-collection-errors"
 }
 
 
@@ -120,7 +123,7 @@ task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
 
 build.dependsOn install
 check.dependsOn lint
-check.dependsOn testQuick
+check.dependsOn testFull
 
 clean {
   delete venv_name

@@ -38,6 +38,12 @@ dependencies {
 
   implementation(externalDependency.springBootStarterWeb)
   implementation(externalDependency.springBootStarterJetty)
+  // Jackson 2 bridge: keeps com.fasterxml.jackson on classpath until we migrate to Jackson 3
+  implementation(externalDependency.springBootJackson2)
+  // Spring Boot 4.0: Jetty/Cassandra/Elasticsearch auto-configs moved to separate modules
+  implementation externalDependency.springBootJetty
+  implementation externalDependency.springBootCassandra
+  implementation externalDependency.springBootElasticsearch
   implementation(externalDependency.springBootStarterValidation)
 
   implementation externalDependency.jettyJmx
@@ -66,12 +72,14 @@ dependencies {
   implementation("javax.xml.bind:jaxb-api:2.3.1")
   implementation("org.glassfish.jaxb:jaxb-runtime:2.3.8")
 
+  implementation externalDependency.commonsLang3  // CVE-2025-48924
+
   testImplementation externalDependency.testng
   testImplementation externalDependency.springBootTest
   testRuntimeOnly externalDependency.logbackClassic
 }
-configurations.all{
-  exclude group: "com.charleskorn.kaml", module:"kaml"
+configurations.all {
+  exclude group: "com.charleskorn.kaml", module: "kaml"
 }
 
 tasks.register('run') {
@@ -89,6 +97,14 @@ bootJar {
 bootRun {
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
   environment "KAFKA_SCHEMAREGISTRY_URL", "http://localhost:8080/schema-registry/api"
+  jvmArgs(
+      '--add-modules', 'java.se',
+      '--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED',
+      '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+      '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+      '--add-opens', 'java.management/sun.management=ALL-UNNAMED',
+      '--add-opens', 'jdk.management/com.sun.management.internal=ALL-UNNAMED',
+  )
 }
 
 docker {
@@ -99,6 +115,7 @@ docker {
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
+    include 'docker/snippets/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
@@ -108,8 +125,11 @@ docker {
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
-  if (project.hasProperty('alpineApkRepositoryUrl')) {
-    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  if (project.hasProperty('dockerBaseImage')) {
+    dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
+  }
+  if (project.hasProperty('apkRepositoryUrl')) {
+    dockerBuildArgs.APK_REPOSITORY_URL = project.getProperty('apkRepositoryUrl')
   }
   if (project.hasProperty('githubMirrorUrl')) {
     dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
@@ -128,8 +148,7 @@ docker {
 test {
   jacoco {
     // This contains quickstart tested code for jetty startup
-    excludes = ["com.linkedin.gms.CommonApplicationConfig",
-                "com.linkedin.gms.ServletConfig",
+    excludes = ["com.linkedin.gms.ServletConfig",
                 "com.linkedin.gms.GMSApplication"]
   }
 }

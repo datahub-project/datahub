@@ -1,4 +1,5 @@
 import { Icon, Text } from '@components';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -18,7 +19,7 @@ interface Props {
 export default function HiddenItemsMessage({ message }: Props) {
     return (
         <Container>
-            <Icon source="phosphor" icon="Lock" size="lg" />{' '}
+            <Icon icon={Lock} size="lg" />{' '}
             <Text weight="bold" size="sm">
                 {message}
             </Text>{' '}

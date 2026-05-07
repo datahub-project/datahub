@@ -52,12 +52,24 @@ public class AspectGenerationUtils {
       @Nullable String lastRunId,
       @Nullable String version,
       @Nullable AuditStamp auditStamp) {
+    return createSystemMetadata(lastObserved, runId, lastRunId, version, auditStamp, 1L);
+  }
+
+  @Nonnull
+  public static SystemMetadata createSystemMetadata(
+      int lastObserved, // for test comparison must be int
+      @Nullable String runId,
+      @Nullable String lastRunId,
+      @Nullable String version,
+      @Nullable AuditStamp auditStamp,
+      long schemaVersion) {
     SystemMetadata metadata = createDefaultSystemMetadata(runId);
     metadata.setLastRunId(lastRunId, SetMode.IGNORE_NULL);
     metadata.setVersion(version, SetMode.IGNORE_NULL);
     metadata.setLastObserved(lastObserved);
     metadata.setAspectModified(auditStamp, SetMode.IGNORE_NULL);
     metadata.setAspectCreated(auditStamp, SetMode.IGNORE_NULL);
+    metadata.setSchemaVersion(schemaVersion);
     return metadata;
   }
 

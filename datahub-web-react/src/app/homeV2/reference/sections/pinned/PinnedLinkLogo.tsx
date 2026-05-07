@@ -1,25 +1,24 @@
-import React from 'react';
-import styled from 'styled-components';
+import React, { useMemo } from 'react';
+import styled, { useTheme } from 'styled-components';
 
-import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+import getAvatarColorScheme, { getAvatarColorStyles } from '@components/components/Avatar/utils';
 
 import { PostContent } from '@types';
 
 const PreviewImage = styled.img`
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     height: 40px;
     width: 40px;
     border-radius: 11px;
     object-fit: contain;
     background-color: transparent;
-    margin-right: 4px;
     margin-right: 8px;
 `;
 
-const PreviewLetter = styled.div<{ color: string }>`
-    background-color: ${(props) => props.color};
+const PreviewLetter = styled.div<{ $bgColor: string; $textColor: string }>`
+    background-color: ${(props) => props.$bgColor};
     font-size: 18px;
-    color: white;
+    color: ${(props) => props.$textColor};
     height: 40px;
     width: 40px;
     border-radius: 11px;
@@ -34,15 +33,22 @@ type Props = {
 };
 
 export const PinnedLinkLogo = ({ link }: Props) => {
+    const theme = useTheme();
+    const firstLetter = link?.title?.[0] || link?.description?.[0] || '';
+    const scheme = getAvatarColorScheme(firstLetter);
+    const avatarStyles = useMemo(() => getAvatarColorStyles(scheme, theme.colors), [scheme, theme.colors]);
+
     if (!link || !link.link) return null;
 
     const hasPhoto = !!link?.media?.location;
-    const firstLetter = link.title[0] || link.description?.[0] || '';
 
     return (
         <>
             {(hasPhoto && <PreviewImage src={link.media?.location || undefined} alt={link.title} />) || (
-                <PreviewLetter color={getAvatarColor(firstLetter)}> {firstLetter} </PreviewLetter>
+                <PreviewLetter $bgColor={avatarStyles.backgroundColor} $textColor={avatarStyles.color}>
+                    {' '}
+                    {firstLetter}{' '}
+                </PreviewLetter>
             )}
         </>
     );

@@ -5,7 +5,7 @@ import styled from 'styled-components';
 const SkeletonContainer = styled(Row)`
     && {
         margin-bottom: 20px;
-        border-bottom: 1px solid #ebecf0;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
         .ant-skeleton-button-sm {
             height: 16px;
         }

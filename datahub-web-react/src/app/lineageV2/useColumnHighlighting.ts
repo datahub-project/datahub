@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, MarkerType, useReactFlow } from 'reactflow';
+import { useTheme } from 'styled-components';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
@@ -8,11 +9,9 @@ import {
     FineGrainedLineage,
     FineGrainedLineageMap,
     FineGrainedOperationRef,
-    HOVER_COLOR,
     HighlightedColumns,
     LineageNodesContext,
     NodeContext,
-    SELECT_COLOR,
     createLineageFilterNodeId,
     isTransformational,
     isUrnQuery,
@@ -34,6 +33,7 @@ export default function useColumnHighlighting(
     highlightedColumns: HighlightedColumns;
 } {
     const entityRegistry = useEntityRegistryV2();
+    const theme = useTheme();
     const { setEdges } = useReactFlow();
     const {
         nodes,
@@ -54,16 +54,22 @@ export default function useColumnHighlighting(
                 .map((edge) => edge.via)
                 .filter((via): via is string => !!via),
         );
-        return processColumnHighlights(selectedColumn, hoveredColumn, {
-            fineGrainedLineage,
-            nodes,
-            adjacencyList,
-            displayedNodeIds,
-            validQueryIds,
-            entityRegistry,
-            rootUrn,
-            rootType,
-        });
+        return processColumnHighlights(
+            selectedColumn,
+            hoveredColumn,
+            {
+                fineGrainedLineage,
+                nodes,
+                adjacencyList,
+                displayedNodeIds,
+                validQueryIds,
+                entityRegistry,
+                rootUrn,
+                rootType,
+            },
+            theme.colors.borderSelected,
+            theme.colors.borderHover,
+        );
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
 
@@ -104,11 +110,13 @@ function processColumnHighlights(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
     argumentBundle: ArgumentBundle,
+    selectColor: string,
+    hoverColor: string,
 ) {
     if (selectedColumn) {
-        return computeSingleColumnHighlights(selectedColumn, argumentBundle, SELECT_COLOR);
+        return computeSingleColumnHighlights(selectedColumn, argumentBundle, selectColor);
     }
-    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, HOVER_COLOR);
+    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, hoverColor);
 }
 
 function computeSingleColumnHighlights(

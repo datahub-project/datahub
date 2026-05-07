@@ -24,14 +24,12 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
     owner_urn_list = json.loads(owner_urns) if isinstance(owner_urns, str) else owner_urns
     entity_urn_list = json.loads(entity_urns) if isinstance(entity_urns, str) else entity_urns
 
-    with DataHubContext(graph):
+    with DataHubContext(client):
         return remove_owners(
             owner_urns=owner_urn_list,
             entity_urns=entity_urn_list,

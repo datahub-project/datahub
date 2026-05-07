@@ -23,6 +23,7 @@ const AvatarStackWithHover = ({
     size = 'default',
     showRemainingNumber = true,
     maxToShow = 4,
+    totalCount,
     entityRegistry,
     title = 'Owners',
 }: Props) => {
@@ -92,7 +93,12 @@ const AvatarStackWithHover = ({
                 ]}
             >
                 <div>
-                    <AvatarStack avatars={avatars} showRemainingNumber={showRemainingNumber} maxToShow={maxToShow} />
+                    <AvatarStack
+                        avatars={avatars}
+                        showRemainingNumber={showRemainingNumber}
+                        maxToShow={maxToShow}
+                        totalCount={totalCount}
+                    />
                 </div>
             </StructuredPopover>
         </StopPropagationWrapper>

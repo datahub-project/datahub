@@ -5,7 +5,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { MemberCount } from '@app/entityV2/group/GroupSidebar';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 import { EntityRelationshipsResult } from '@types';
 
@@ -21,7 +20,7 @@ const GroupName = styled(Typography.Title)`
         margin-bottom: 0;
         word-break: break-all;
         font-size: 12px;
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${(props) => props.theme.colors.bg};
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;

@@ -15,20 +15,18 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 DEFAULT_DATABASE_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
 DEFAULT_DATABASE_BATCH_SIZE = 10_000
+
+DEFAULT_URN_DENY_PATTERNS = [
+    "urn:li:dataHubIngestionSource:.*",
+    "urn:li:dataHubSecret:.*",
+    "urn:li:globalSettings:.*",
+    "urn:li:dataHubExecutionRequest:.*",
+]
+
 DEFAULT_EXCLUDE_ASPECTS = {
-    "dataHubIngestionSourceKey",
-    "dataHubIngestionSourceInfo",
     "datahubIngestionRunSummary",
     "datahubIngestionCheckpoint",
-    "dataHubSecretKey",
-    "dataHubSecretValue",
-    "globalSettingsKey",
-    "globalSettingsInfo",
     "testResults",
-    "dataHubExecutionRequestKey",
-    "dataHubExecutionRequestInput",
-    "dataHubExecutionRequestSignal",
-    "dataHubExecutionRequestResult",
 }
 
 
@@ -61,7 +59,12 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
 
     exclude_aspects: Set[str] = Field(
         default=DEFAULT_EXCLUDE_ASPECTS,
-        description="Set of aspect names to exclude from ingestion",
+        description=(
+            "Aspect names to exclude from entities that are being ingested. "
+            "Note: This only makes sense for entities you want to ingest but without certain aspects. "
+            "To completely exclude entity types, use 'urn_pattern.deny' instead. "
+            "Warning: Excluding key aspects while keeping others can create invalid entities."
+        ),
     )
 
     database_query_batch_size: int = Field(
@@ -108,7 +111,14 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         description="Number of worker threads to use for datahub api ingestion.",
     )
 
-    urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
+    urn_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(deny=DEFAULT_URN_DENY_PATTERNS),
+        description=(
+            "URN patterns to filter entities. Defaults exclude environment-specific entities "
+            "(ingestion sources, secrets, settings) to prevent copying encrypted credentials and creating "
+            "broken entities. Recommended to keep these defaults when customizing."
+        ),
+    )
 
     drop_duplicate_schema_fields: bool = Field(
         default=False,
@@ -118,7 +128,7 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
 
     structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
         Field(
-            default=60,
+            default=1,
             description="Interval in seconds to invalidate the structured properties template cache.",
         )
     )
@@ -132,6 +142,8 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         default=True, description="Copy system metadata from the source system"
     )
 
+    _urn_pattern_was_set: bool = False
+
     @model_validator(mode="after")
     def check_ingesting_data(self):
         if (
@@ -143,6 +155,11 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
                 "Your current config will not ingest any data."
                 " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."
             )
+
+        # Track if user explicitly set urn_pattern
+        if "urn_pattern" in self.model_fields_set:
+            self._urn_pattern_was_set = True
+
         return self
 
     @pydantic.field_validator("database_connection")

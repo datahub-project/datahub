@@ -67,6 +67,7 @@ export const PROFILE_TO_USER_REGX_ALLOW: FilterRecipeField = {
     fieldPath: schemaAllowFieldPath,
     rules: null,
     section: 'Okta Profile To User Attribute Regex',
+    filteringResource: 'User',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
 };
@@ -85,6 +86,7 @@ export const PROFILE_TO_USER_REGEX_DENY: FilterRecipeField = {
     fieldPath: schemaDenyFieldPath,
     rules: null,
     section: 'Okta Profile To User Attribute Regex',
+    filteringResource: 'User',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
@@ -103,6 +105,7 @@ export const PROFILE_TO_GROUP_REGX_ALLOW: FilterRecipeField = {
     fieldPath: schemaAllowFieldPathForGroup,
     rules: null,
     section: 'Okta Profile To Group Attribute Regex',
+    filteringResource: 'Group',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPathForGroup),
 };
@@ -121,6 +124,7 @@ export const PROFILE_TO_GROUP_REGX_DENY: FilterRecipeField = {
     fieldPath: schemaDenyFieldPathForGroup,
     rules: null,
     section: 'Okta Profile To Group Attribute Regex',
+    filteringResource: 'Group',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPathForGroup),
 };

@@ -16,9 +16,6 @@ export type VariantProps = {
 
     matchColor: FontColorOptions;
     matchColorLevel: FontColorLevelOptions;
-
-    typeColor: FontColorOptions;
-    typeColorLevel: FontColorLevelOptions;
 };
 
 export type VariantElementsPropsMapping = Map<EntityItemVariant, VariantProps>;

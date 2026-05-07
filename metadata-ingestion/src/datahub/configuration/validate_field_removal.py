@@ -11,13 +11,15 @@ if TYPE_CHECKING:
 
 def pydantic_removed_field(
     field: str,
+    month: str,
+    year: int,
     print_warning: bool = True,
 ) -> "V1RootValidator":
     def _validate_field_removal(cls: Type, values: dict) -> dict:
         if field in values:
             if print_warning:
                 warnings.warn(
-                    f"The {field} was removed, please remove it from your recipe.",
+                    f"The {field} was removed on {month} {year}, please remove it from your recipe.",
                     ConfigurationWarning,
                     stacklevel=2,
                 )

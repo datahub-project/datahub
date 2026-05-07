@@ -10,6 +10,8 @@ import javax.annotation.Nonnull;
 
 public interface TimelineService {
 
+  int DEFAULT_MAX_CHANGE_TRANSACTIONS = 100;
+
   List<ChangeTransaction> getTimeline(
       @Nonnull final Urn urn,
       @Nonnull Set<ChangeCategory> elements,
@@ -19,4 +21,10 @@ public interface TimelineService {
       String endVersionStamp,
       boolean rawDiffRequested)
       throws JsonProcessingException;
+
+  List<ChangeTransaction> getTimeline(
+      @Nonnull final Urn urn,
+      @Nonnull Set<ChangeCategory> elements,
+      int maxChangeTransactions,
+      boolean rawDiffRequested);
 }

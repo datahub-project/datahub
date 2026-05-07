@@ -49,12 +49,13 @@ import io.opentelemetry.api.trace.Tracer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.mockito.Answers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -76,6 +77,9 @@ import org.testng.annotations.Test;
       "platformAnalytics.enabled=false",
       "graphQL.concurrency.separateThreadPool=true",
       "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
+      "spring.main.allow-bean-definition-overriding=true",
     })
 public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
@@ -112,7 +116,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("graphClient")
   private GraphClient graphClient;
 
-  @MockitoBean
+  @Autowired
   @Qualifier("entityService")
   private EntityService<?> entityService;
 
@@ -256,7 +260,8 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @MockitoBean private QueryFilterRewriteChain queryFilterRewriteChain;
 
-  @MockitoBean(name = "baseElasticSearchComponents")
+  @Autowired
+  @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   @MockitoBean
@@ -521,8 +526,25 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @org.springframework.context.annotation.Configuration
   static class TestConfig {
 
-    @MockBean(name = "settingsBuilder")
-    public SettingsBuilder settingsBuilder;
+    @Bean(name = "settingsBuilder")
+    @Primary
+    public SettingsBuilder settingsBuilder() {
+      return Mockito.mock(SettingsBuilder.class);
+    }
+
+    @Bean(name = "entityService")
+    @Primary
+    @SuppressWarnings("unchecked")
+    public EntityService<?> entityService() {
+      return Mockito.mock(EntityService.class);
+    }
+
+    @Bean(name = "baseElasticSearchComponents")
+    @Primary
+    public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
+        baseElasticSearchComponents() {
+      return Mockito.mock(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class);
+    }
 
     @Bean
     public SpringStandardPluginConfiguration springStandardPluginConfiguration() {

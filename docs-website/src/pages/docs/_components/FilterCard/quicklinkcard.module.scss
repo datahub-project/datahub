@@ -3,6 +3,7 @@
 }
 
 .feature {
+  position: relative;
   color: var(--ifm-text-color);
   text-decoration: none !important;
   padding: 1rem;
@@ -22,6 +23,35 @@
     margin-bottom: 1rem !important;
     font-size: 1.25rem;
   }
+}
+
+// Support Status Badge
+.supportBadge {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.badgeCertified {
+  background: #e6f4ea;
+  color: #1a7f37;
+}
+
+.badgeIncubating {
+  background: #fff3e0;
+  color: #b45309;
+}
+
+.badgeTesting {
+  background: #f0f0f5;
+  color: #6b7280;
 }
 
 .featureImage {

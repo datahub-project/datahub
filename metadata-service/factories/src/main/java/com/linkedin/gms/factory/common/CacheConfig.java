@@ -74,6 +74,9 @@ public class CacheConfig {
     // Force classloader to load from application code
     config.setClassLoader(this.getClass().getClassLoader());
 
+    // Route Hazelcast logs through SLF4J/logback instead of JUL
+    config.setProperty("hazelcast.logging.type", "slf4j");
+
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
 
     var kubernetesConfig =

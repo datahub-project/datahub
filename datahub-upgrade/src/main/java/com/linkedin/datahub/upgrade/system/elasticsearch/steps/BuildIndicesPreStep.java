@@ -1,7 +1,6 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.INDEX_BLOCKS_WRITE_SETTING;
-import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -22,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
@@ -52,14 +50,9 @@ public class BuildIndicesPreStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        final List<ReindexConfig> reindexConfigs =
-            getAllReindexConfigs(context.opContext(), services, structuredProperties);
-
-        // Get indices to update
         List<ReindexConfig> indexConfigs =
-            reindexConfigs.stream()
-                .filter(ReindexConfig::requiresReindex)
-                .collect(Collectors.toList());
+            IndexUtils.getIndicesNeedingReindex(
+                context.opContext(), services, structuredProperties);
 
         for (ReindexConfig indexConfig : indexConfigs) {
           String indexName =

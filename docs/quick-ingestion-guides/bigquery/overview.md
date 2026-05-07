@@ -1,5 +1,6 @@
 ---
-title: Overview
+title: BigQuery Overview
+description: "Quick start guide for ingesting BigQuery datasets, lineage, usage, and profiling into DataHub via the UI ingestion workflow."
 ---
 
 # BigQuery Ingestion Guide: Overview
@@ -15,11 +16,12 @@ Upon completing this guide, you will have a recurring ingestion pipeline that wi
 - [Tables](https://cloud.google.com/bigquery/docs/tables-intro)
 - [Views](https://cloud.google.com/bigquery/docs/views-intro)
 - [Materialized Views](https://cloud.google.com/bigquery/docs/materialized-views-intro)
+- [External Tables](https://cloud.google.com/bigquery/docs/external-tables) — including source format, URIs, compression, and max bad records as custom properties
 
 This recurring ingestion pipeline will also extract:
 
 - **Usage statistics** to help you understand recent query activity
-- **Table-level lineage** (where available) to automatically define interdependencies between datasets
+- **Table-level lineage** (where available) to automatically define interdependencies between datasets, including lineage from external tables to their GCS source paths
 - **Table- and column-level profile statistics** to help you understand the shape of the data
 
 :::caution

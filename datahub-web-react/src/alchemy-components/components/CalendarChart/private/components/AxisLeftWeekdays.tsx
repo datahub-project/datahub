@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { TickLabel } from '@components/components/CalendarChart/private/components/TickLabel';
 import { DAYS_IN_WEEK } from '@components/components/CalendarChart/private/constants';
@@ -8,6 +9,7 @@ import { AxisLeftWeekdaysProps } from '@components/components/CalendarChart/type
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
 export function AxisLeftWeekdays<ValueType>({ labelProps, showLeftAxisLine }: AxisLeftWeekdaysProps) {
+    const themeConfig = useTheme();
     const { margin, squareSize, squareGap } = useCalendarState<ValueType>();
 
     const yLineOffset = 5;
@@ -30,7 +32,7 @@ export function AxisLeftWeekdays<ValueType>({ labelProps, showLeftAxisLine }: Ax
     return (
         <>
             {WEEKDAYS.map((weekday, index) => renderTickLabel(index, weekday))}
-            {showLeftAxisLine && <line x1={x} x2={x} y1={0} y2={y} stroke="#EBECF0" width={1} />}
+            {showLeftAxisLine && <line x1={x} x2={x} y1={0} y2={y} stroke={themeConfig.colors.border} width={1} />}
         </>
     );
 }

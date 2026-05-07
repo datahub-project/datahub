@@ -163,6 +163,31 @@ public class UpdateIndicesV3StrategyTest {
             anyString()); // doc id
   }
 
+  @Test
+  public void testProcessBatch_CallsAppendRunIdBySearchGroupWhenRunIdPresent() throws Exception {
+    when(mockSystemMetadata.hasRunId()).thenReturn(true);
+    when(mockSystemMetadata.getRunId()).thenReturn("run-456");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    strategy.processBatch(operationContext, groupedEvents, true);
+
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
+    verify(elasticSearchService)
+        .appendRunIdBySearchGroup(
+            eq(operationContext), eq("dataset"), anyString(), eq(testUrn), eq("run-456"));
+  }
+
   // Note: Key aspect deletion test is complex due to static method calls
   // and would require more sophisticated mocking. Skipping for now.
 

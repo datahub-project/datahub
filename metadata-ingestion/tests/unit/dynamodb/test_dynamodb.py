@@ -4,12 +4,23 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dynamodb.dynamodb import (
+    PAGE_SIZE,
     DynamoDBConfig,
     DynamoDBSource,
 )
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
 )
+
+
+@pytest.fixture
+def mock_context():
+    """Fixture for mock pipeline context."""
+    mock_ctx = MagicMock(spec=PipelineContext)
+    mock_ctx.pipeline_name = "test_pipeline"
+    mock_ctx.run_id = "test_run"
+    mock_ctx.graph = None
+    return mock_ctx
 
 
 class TestDynamoDBTagsIngestion:
@@ -30,15 +41,6 @@ class TestDynamoDBTagsIngestion:
             aws_region="us-west-2",
             extract_table_tags=True,
         )
-
-    @pytest.fixture
-    def mock_context(self):
-        """Fixture for mock pipeline context."""
-        mock_ctx = MagicMock(spec=PipelineContext)
-        mock_ctx.pipeline_name = "test_pipeline"
-        mock_ctx.run_id = "test_run"
-        mock_ctx.graph = None
-        return mock_ctx
 
     @pytest.fixture
     def aws_tags(self):
@@ -189,3 +191,38 @@ class TestDynamoDBTagsIngestion:
         assert set(tag_urns) == set(expected_urns), (
             "Tag URNs should match expected tags"
         )
+
+
+class TestDynamoDBSchemaSampling:
+    """Test suite for DynamoDB schema sampling configuration"""
+
+    def test_schema_sampling_size_used_in_pagination(self, mock_context):
+        """Test that schema_sampling_size is used in pagination config."""
+        config = DynamoDBConfig(
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            aws_region="us-west-2",
+            schema_sampling_size=250,
+        )
+        source = DynamoDBSource(ctx=mock_context, config=config, platform="dynamodb")
+
+        # Mock the dynamodb client and paginator
+        mock_dynamodb_client = MagicMock()
+        mock_paginator = MagicMock()
+        mock_dynamodb_client.get_paginator.return_value = mock_paginator
+
+        # Mock the paginate response
+        mock_page = {"Items": [{"field1": {"S": "value1"}}]}
+        mock_paginator.paginate.return_value = [mock_page]
+
+        source.construct_schema_from_dynamodb(
+            mock_dynamodb_client, "us-west-2", "test_table"
+        )
+
+        # Verify paginate was called with the correct MaxItems
+        mock_paginator.paginate.assert_called_once()
+        call_args = mock_paginator.paginate.call_args
+        pagination_config = call_args[1]["PaginationConfig"]
+
+        assert pagination_config["MaxItems"] == 250
+        assert pagination_config["PageSize"] == PAGE_SIZE

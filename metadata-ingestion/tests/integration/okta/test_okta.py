@@ -4,7 +4,7 @@ from functools import partial
 from unittest.mock import Mock, patch
 
 import jsonpickle
-from freezegun import freeze_time
+import time_machine
 from okta.models import Group, User
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -83,7 +83,8 @@ def test_okta_config():
 
     # Sanity on required configurations
     assert config.okta_domain == "test.okta.com"
-    assert config.okta_api_token == "test-token"
+    assert config.okta_api_token is not None
+    assert config.okta_api_token.get_secret_value() == "test-token"
 
     # Assert on default configurations
     assert config.ingest_users is True
@@ -99,7 +100,7 @@ def test_okta_config():
     assert config.delay_seconds == 0.01
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
@@ -120,7 +121,7 @@ def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path)
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
@@ -146,7 +147,7 @@ def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_p
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
@@ -171,7 +172,7 @@ def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_pa
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_okta_source_include_deprovisioned_suspended_users(
     pytestconfig, mock_datahub_graph, tmp_path
 ):
@@ -199,7 +200,7 @@ def test_okta_source_include_deprovisioned_suspended_users(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
@@ -223,7 +224,7 @@ def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tm
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 

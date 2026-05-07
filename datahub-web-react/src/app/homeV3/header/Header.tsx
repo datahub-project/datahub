@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -6,13 +5,13 @@ import GreetingText from '@app/homeV3/header/components/GreetingText';
 import SearchBar from '@app/homeV3/header/components/SearchBar';
 import { CenteredContainer, contentWidth } from '@app/homeV3/styledComponents';
 
-export const HeaderWrapper = styled.div`
+const HeaderWrapper = styled.div`
     display: flex;
     justify-content: center;
     padding: 27px 0 24px 0;
     width: 100%;
-    background: linear-gradient(180deg, #f8fcff 0%, #fafafb 100%);
-    border-bottom: 1px solid ${colors.gray[100]};
+    background: ${(props) => props.theme.colors.bgSurface};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px 12px 0 0;
     position: relative;
 `;

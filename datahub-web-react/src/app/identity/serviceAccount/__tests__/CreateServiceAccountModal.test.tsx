@@ -4,6 +4,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CreateServiceAccountModal from '@app/identity/serviceAccount/CreateServiceAccountModal';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 // Mock the GraphQL mutation
 const mockCreateServiceAccount = vi.fn();
@@ -48,9 +49,11 @@ describe('CreateServiceAccountModal', () => {
 
     const renderWithProvider = (component: React.ReactNode) => {
         return render(
-            <MockedProvider mocks={[]} addTypename={false}>
-                {component}
-            </MockedProvider>,
+            <CustomThemeProvider>
+                <MockedProvider mocks={[]} addTypename={false}>
+                    {component}
+                </MockedProvider>
+            </CustomThemeProvider>,
         );
     };
 

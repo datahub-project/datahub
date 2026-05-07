@@ -9,8 +9,52 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
     ],
-    "column_lineage": null,
-    "joins": null,
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)",
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)",
+                    "column": "value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "MAX([source_table].[value]) AS [max_val]"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)"
+            ],
+            "on_clause": "[dst].[id] = [sub].[id]",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)",
+                    "column": "id"
+                }
+            ]
+        }
+    ],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "UPDATE dst SET dst.col1 = sub.max_val FROM mydb.dbo.target_table AS dst JOIN (SELECT id AS id, MAX(value) AS max_val FROM mydb.dbo.source_table GROUP BY id) AS sub ON dst.id = sub.id"

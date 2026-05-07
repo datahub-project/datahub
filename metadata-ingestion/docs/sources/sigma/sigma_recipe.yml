@@ -6,14 +6,19 @@ source:
     # Credentials
     client_id: "CLIENTID"
     client_secret: "CLIENT_SECRET"
-    
+
     # Optional - filter for certain workspace names instead of ingesting everything.
     # workspace_pattern:
     #   allow:
     #     - workspace_name
 
+    # Optional - filter for certain workbook names instead of ingesting everything.
+    # workbook_pattern:
+    #   allow:
+    #     - workbook_name
+
     ingest_owner: true
-    
+
     # Optional - mapping of sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.
     # chart_sources_platform_mapping:
     #   folder_path:

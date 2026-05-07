@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -116,12 +117,16 @@ public interface AspectDao {
    * @param txContext transaction context
    * @param latestAspect the aspect currently at version 0
    * @param newAspect the new aspect to be inserted or updated at version 0
+   * @param maxVersionsToKeep when <= 1, do not insert a new row for the previous version (only
+   *     update the existing version 0 row); when > 1, insert previous version as a history row then
+   *     update version 0
    */
   default Pair<Optional<EntityAspect>, Optional<EntityAspect>> saveLatestAspect(
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nullable SystemAspect latestAspect,
-      @Nonnull SystemAspect newAspect) {
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep) {
 
     if (newAspect.getSystemMetadataVersion().isEmpty()) {
       throw new IllegalArgumentException(
@@ -138,17 +143,19 @@ public interface AspectDao {
 
       // write version N (from previous database state if the version is modified)
       Optional<EntityAspect> inserted = Optional.empty();
-      if (!newAspect
-          .getSystemMetadataVersion()
-          .equals(currentVersion0.getSystemMetadataVersion())) {
+      if (maxVersionsToKeep > 1
+          && !newAspect
+              .getSystemMetadataVersion()
+              .equals(currentVersion0.getSystemMetadataVersion())) {
 
         inserted = insertAspect(txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
       }
 
       // update version 0
       Optional<EntityAspect> updated = Optional.empty();
-      boolean isNoOp =
-          Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+      final boolean isNoOp =
+          ValidationApiUtils.normalizedEqual(
+              currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
 
       // update trace
       newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
@@ -215,6 +222,35 @@ public interface AspectDao {
 
   @Nonnull
   PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
+
+  /**
+   * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
+   * filtering to only rows whose stored {@code schemaVersion} has not yet reached the per-aspect
+   * target version. Intended for cross-aspect migration sweeps where oldest data is migrated first.
+   *
+   * <p>Only aspects whose target version is strictly greater than {@link
+   * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION} are included; aspects mapped to the
+   * default version are ignored.
+   *
+   * <p>A row is included when its stored {@code schemaVersion} is absent/null or differs from the
+   * target version for that aspect.
+   *
+   * <p>Cursor-based: pass {@code afterCreatedOnMs = 0} to start from the beginning, or the epoch-ms
+   * value of the last processed batch's {@code createdon} to resume. Rows already at the target
+   * version are excluded by the DB filter, so re-visiting rows at the resumed timestamp is safe.
+   *
+   * @param aspectTargetVersions map of aspect name to its target schema version; aspects with
+   *     target == DEFAULT_SCHEMA_VERSION are skipped
+   * @param afterCreatedOnMs epoch-ms cursor; 0 means no lower bound
+   * @param batchSize hint for fetch size
+   * @param limit overall row cap; 0 means unlimited
+   */
+  @Nonnull
+  PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+      @Nonnull Map<String, Long> aspectTargetVersions,
+      long afterCreatedOnMs,
+      int batchSize,
+      int limit);
 
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);

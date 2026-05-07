@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
@@ -47,6 +48,33 @@ public class DescriptionUtils {
           ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
   private DescriptionUtils() {}
+
+  public static void updateDatasetDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
+
+    EditableDatasetProperties editableDatasetProperties =
+        (EditableDatasetProperties)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+                entityService,
+                new EditableDatasetProperties());
+
+    editableDatasetProperties.setDescription(newDescription);
+
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+        editableDatasetProperties,
+        actor,
+        entityService);
+  }
 
   public static void updateFieldDescription(
       @Nonnull OperationContext opContext,
@@ -267,6 +295,16 @@ public class DescriptionUtils {
         notebookProperties,
         actor,
         entityService);
+  }
+
+  public static Boolean validateDescriptionInput(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
+      throw new IllegalArgumentException(
+          String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
+    }
+
+    return true;
   }
 
   public static Boolean validateFieldDescriptionInput(

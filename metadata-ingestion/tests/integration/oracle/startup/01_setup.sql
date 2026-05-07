@@ -12,11 +12,13 @@ ALTER SESSION SET CONTAINER = XEPDB1;
 CREATE USER hr_schema IDENTIFIED BY hr123;
 CREATE USER sales_schema IDENTIFIED BY sales123;
 CREATE USER analytics_schema IDENTIFIED BY analytics123;
+CREATE USER staging_schema IDENTIFIED BY staging123;
 
 -- Grant necessary privileges including tablespace quota
 GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW, QUERY REWRITE TO hr_schema;
 GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW, QUERY REWRITE TO sales_schema;
 GRANT CONNECT, RESOURCE, CREATE VIEW, CREATE MATERIALIZED VIEW, QUERY REWRITE TO analytics_schema;
+GRANT CONNECT, RESOURCE, CREATE VIEW TO staging_schema;
 
 -- Grant additional system privileges needed for materialized views to all schemas
 GRANT CREATE ANY MATERIALIZED VIEW TO hr_schema;
@@ -34,6 +36,7 @@ GRANT ALTER ANY MATERIALIZED VIEW TO analytics_schema;
 ALTER USER hr_schema QUOTA UNLIMITED ON USERS;
 ALTER USER sales_schema QUOTA UNLIMITED ON USERS;
 ALTER USER analytics_schema QUOTA UNLIMITED ON USERS;
+ALTER USER staging_schema QUOTA UNLIMITED ON USERS;
 
 -- Grant additional privileges for procedures and packages
 GRANT CREATE PROCEDURE TO hr_schema;

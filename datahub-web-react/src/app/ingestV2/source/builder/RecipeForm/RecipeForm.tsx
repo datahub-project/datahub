@@ -19,7 +19,7 @@ import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';
 
-export const ControlsContainer = styled.div`
+const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 12px;
@@ -52,7 +52,7 @@ const TestConnectionWrapper = styled.div`
 const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
     margin-left: 5px;
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.icon};
     cursor: help;
 `;
 

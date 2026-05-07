@@ -2,8 +2,10 @@ import { MockedProvider, MockedProviderProps } from '@apollo/client/testing';
 import { RenderOptions, render } from '@testing-library/react';
 import React from 'react';
 
+import CustomThemeProvider from '@src/CustomThemeProvider';
+
 // ApolloTestWrapper wraps children in MockedProvider with default settings
-export const ApolloTestWrapper: React.FC<Partial<MockedProviderProps> & { children: React.ReactNode }> = ({
+const ApolloTestWrapper: React.FC<Partial<MockedProviderProps> & { children: React.ReactNode }> = ({
     mocks = [],
     addTypename = false,
     children,
@@ -14,9 +16,14 @@ export const ApolloTestWrapper: React.FC<Partial<MockedProviderProps> & { childr
     </MockedProvider>
 );
 
-// Custom render that always wraps with ApolloTestWrapper
+// Custom render that always wraps with ApolloTestWrapper and CustomThemeProvider
 const customRender = (ui: React.ReactElement, options?: RenderOptions & { apolloMocks?: any[] }) =>
-    render(<ApolloTestWrapper mocks={options?.apolloMocks}>{ui}</ApolloTestWrapper>, options);
+    render(
+        <CustomThemeProvider>
+            <ApolloTestWrapper mocks={options?.apolloMocks}>{ui}</ApolloTestWrapper>
+        </CustomThemeProvider>,
+        options,
+    );
 
 // Re-export everything from @testing-library/react
 export * from '@testing-library/react';

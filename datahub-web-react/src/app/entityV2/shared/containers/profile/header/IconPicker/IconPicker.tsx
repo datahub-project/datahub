@@ -1,8 +1,9 @@
-import * as Icons from '@mui/icons-material';
 import { Input } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { FixedSizeGrid as Grid } from 'react-window';
 import styled from 'styled-components';
+
+import { useMuiIcons } from '@app/sharedV2/icons/useMuiIcons';
 
 const columnCount = 5; // Number of columns in the grid
 
@@ -15,8 +16,9 @@ const CellContainer = styled.div<{ color?: string; selected?: boolean }>`
     display: flex;
     justify-content: center;
     align-items: center;
-    color: ${({ color }) => color || 'black'};
-    border: ${({ selected }) => (selected ? '2px solid blue' : '1px solid lightgray')};
+    color: ${({ color, theme }) => color || theme.colors.icon};
+    border: ${({ selected, theme }) =>
+        selected ? `2px solid ${theme.colors.borderBrand}` : `1px solid ${theme.colors.border}`};
 `;
 
 const Cell = ({
@@ -30,10 +32,10 @@ const Cell = ({
     style: any;
     data: any;
 }) => {
-    const { icons, onIconPick, selectedIcon, setSelectedIcon, color } = data;
+    const { icons, iconNames, onIconPick, selectedIcon, setSelectedIcon, color } = data;
     const index = rowIndex * columnCount + columnIndex;
-    const iconName = icons[index];
-    const Icon = Icons[iconName];
+    const iconName = iconNames[index];
+    const Icon = icons?.[iconName];
 
     if (!Icon) return <div style={style} />;
 
@@ -70,19 +72,22 @@ const GridContainer = styled.div`
 `;
 
 export const ChatIconPicker = ({ onIconPick, color }: Props) => {
+    const icons = useMuiIcons();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIcon, setSelectedIcon] = useState<string>('');
     const [filteredIcons, setFilteredIcons] = useState<string[]>([]);
 
     useEffect(() => {
-        const filtered = Object.keys(Icons).filter((iconName) =>
+        if (!icons) return;
+        const filtered = Object.keys(icons).filter((iconName) =>
             iconName.toLowerCase().includes(searchTerm.toLowerCase()),
         );
         setFilteredIcons(filtered);
-    }, [searchTerm]);
+    }, [searchTerm, icons]);
 
     const cellData = {
-        icons: filteredIcons,
+        icons,
+        iconNames: filteredIcons,
         onIconPick,
         selectedIcon,
         setSelectedIcon,

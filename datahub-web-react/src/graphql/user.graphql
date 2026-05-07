@@ -41,9 +41,6 @@ query getUser($urn: String!, $groupsCount: Int!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         groups: relationships(
             input: {
                 types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
@@ -379,7 +376,7 @@ mutation updateUserHomePageSettings($input: UpdateUserHomePageSettingsInput!) {
     updateUserHomePageSettings(input: $input)
 }
 
-query getUserOwnedAssets($urns: [String!]!) {
+query getUserOwnedAssets($urns: [String!]!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: $urns }] }) {
         ...searchResults
     }

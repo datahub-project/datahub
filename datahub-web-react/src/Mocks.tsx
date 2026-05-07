@@ -5,7 +5,6 @@ import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ViewBuilderState } from '@app/entity/view/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { FetchedEntity } from '@app/lineage/types';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
@@ -32,7 +31,6 @@ import { GetTagDocument } from '@graphql/tag.generated';
 import { GetUserDocument } from '@graphql/user.generated';
 import {
     AppConfig,
-    BusinessAttribute,
     Container,
     DataFlow,
     DataHubView,
@@ -62,7 +60,7 @@ import {
     SearchResult,
 } from '@types';
 
-export const entityPrivileges: EntityPrivileges = {
+const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
     canEditDomains: true,
     canEditDataProducts: true,
@@ -203,7 +201,7 @@ const user2 = {
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
     },
@@ -730,7 +728,7 @@ export const dataset3 = {
     settings: null,
 } as Dataset;
 
-export const dataset3WithSchema = {
+const dataset3WithSchema = {
     dataset: {
         __typename: 'Dataset',
         schemaMetadata: {
@@ -796,7 +794,7 @@ export const dataset3WithSchema = {
     },
 };
 
-export const dataset4 = {
+const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
     urn: 'urn:li:dataset:4',
@@ -809,7 +807,7 @@ export const dataset4 = {
     },
 };
 
-export const dataset5 = {
+const dataset5 = {
     ...dataset3,
     name: 'Fifth Test Dataset',
     urn: 'urn:li:dataset:5',
@@ -823,7 +821,7 @@ export const dataset5 = {
     },
 };
 
-export const dataset6 = {
+const dataset6 = {
     ...dataset3,
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
@@ -835,228 +833,6 @@ export const dataset6 = {
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
         externalUrl: 'https://data.hub',
         lastModified: dataset3.properties?.lastModified,
-    },
-};
-
-export const dataset7 = {
-    ...dataset3,
-    name: 'Seventh Test Dataset',
-    urn: 'urn:li:dataset:7',
-    properties: {
-        name: 'Seventh Test Dataset',
-        description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD',
-        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
-        externalUrl: 'https://data.hub',
-    },
-};
-
-export const dataset3WithLineage = {
-    ...dataset3,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset7,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset4,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 0,
-        total: 0,
-        relationships: [],
-    },
-};
-
-export const dataset4WithLineage = {
-    ...dataset4,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset6,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-        ],
-    },
-};
-
-export const dataset5WithCyclicalLineage = {
-    ...dataset5,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset3,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-        ],
-    },
-};
-
-export const dataset5WithLineage = {
-    ...dataset5,
-    upstream: null,
-    downstream: {
-        start: 0,
-        count: 3,
-        total: 3,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset6,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset4,
-            },
-        ],
-    },
-};
-
-export const dataset6WithLineage = {
-    ...dataset6,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset4,
-            },
-        ],
-    },
-};
-
-export const dataset7WithLineage = {
-    ...dataset7,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-        ],
-    },
-};
-
-export const dataset7WithSelfReferentialLineage = {
-    ...dataset7,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset7,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-        ],
     },
 };
 
@@ -1214,7 +990,7 @@ const glossaryTerm2 = {
     __typename: 'GlossaryTerm',
 };
 
-export const glossaryTerm3 = {
+const glossaryTerm3 = {
     urn: 'urn:li:glossaryTerm:example.glossaryterm2',
     type: 'GLOSSARY_TERM',
     name: 'glossaryterm2',
@@ -1333,19 +1109,6 @@ export const glossaryNode4 = {
     __typename: 'GlossaryNode',
 } as GlossaryNode;
 
-export const glossaryNode5 = {
-    urn: 'urn:li:glossaryNode:example.glossarynode5',
-    type: 'GLOSSARY_NODE',
-    properties: {
-        name: 'Glossary Node 5',
-    },
-    parentNodes: {
-        count: 1,
-        nodes: [glossaryNode4],
-    },
-    __typename: 'GlossaryNode',
-} as GlossaryNode;
-
 export const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
     type: EntityType.Tag,
@@ -1378,7 +1141,7 @@ export const sampleTag = {
     autoRenderAspects: [],
 };
 
-export const dataFlow1 = {
+const dataFlow1 = {
     __typename: 'DataFlow',
     urn: 'urn:li:dataFlow:1',
     type: EntityType.DataFlow,
@@ -1548,107 +1311,6 @@ export const dataJob1 = {
     health: [],
 } as DataJob;
 
-export const businessAttribute = {
-    urn: 'urn:li:businessAttribute:ba1',
-    type: EntityType.BusinessAttribute,
-    __typename: 'BusinessAttribute',
-    properties: {
-        name: 'TestBusinessAtt-2',
-        description: 'lorem upsum updated 12',
-        created: {
-            time: 1705857132786,
-        },
-        lastModified: {
-            time: 1705857132786,
-        },
-        glossaryTerms: {
-            terms: [
-                {
-                    term: {
-                        urn: 'urn:li:glossaryTerm:1',
-                        type: EntityType.GlossaryTerm,
-                        hierarchicalName: 'SampleHierarchicalName',
-                        name: 'SampleName',
-                    },
-                    attribution: null,
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                },
-            ],
-            __typename: 'GlossaryTerms',
-        },
-        tags: {
-            __typename: 'GlobalTags',
-            tags: [
-                {
-                    tag: {
-                        urn: 'urn:li:tag:abc-sample-tag',
-                        __typename: 'Tag',
-                        type: EntityType.Tag,
-                        name: 'abc-sample-tag',
-                    },
-                    __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                    attribution: null,
-                },
-                {
-                    tag: {
-                        urn: 'urn:li:tag:TestTag',
-                        __typename: 'Tag',
-                        type: EntityType.Tag,
-                        name: 'TestTag',
-                    },
-                    __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1',
-                    attribution: null,
-                },
-            ],
-        },
-        customProperties: [
-            {
-                key: 'prop2',
-                value: 'val2',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-            {
-                key: 'prop1',
-                value: 'val1',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-            {
-                key: 'prop3',
-                value: 'val3',
-                associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry',
-            },
-        ],
-    },
-    ownership: {
-        owners: [
-            {
-                owner: {
-                    ...user1,
-                },
-                associatedUrn: 'urn:li:businessAttribute:ba',
-                type: 'DATAOWNER',
-                attribution: null,
-            },
-            {
-                owner: {
-                    ...user2,
-                },
-                associatedUrn: 'urn:li:businessAttribute:ba',
-                type: 'DELEGATE',
-                attribution: null,
-            },
-        ],
-        lastModified: {
-            time: 0,
-        },
-    },
-} as BusinessAttribute;
-
 export const dataJob2 = {
     __typename: 'DataJob',
     urn: 'urn:li:dataJob:2',
@@ -1802,7 +1464,7 @@ export const dataJob3 = {
     health: [],
 } as DataJob;
 
-export const mlModel = {
+const mlModel = {
     __typename: 'MLModel',
     urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
     type: EntityType.Mlmodel,
@@ -1888,29 +1550,7 @@ export const mlModel = {
     autoRenderAspects: [],
 } as MlModel;
 
-export const dataset1FetchedEntity = {
-    urn: dataset1.urn,
-    name: dataset1.name,
-    type: dataset1.type,
-    upstreamChildren: [],
-    downstreamChildren: [
-        { type: EntityType.Dataset, entity: dataset2 },
-        { type: EntityType.DataJob, entity: dataJob1 },
-    ],
-} as FetchedEntity;
-
-export const dataset2FetchedEntity = {
-    urn: dataset2.urn,
-    name: 'test name',
-    type: dataset2.type,
-    upstreamChildren: [
-        { type: EntityType.Dataset, entity: dataset1 },
-        { type: EntityType.DataJob, entity: dataJob1 },
-    ],
-    downstreamChildren: [],
-} as FetchedEntity;
-
-export const mlModelGroup = {
+const mlModelGroup = {
     __typename: 'MLModelGroup',
     urn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
     type: EntityType.MlmodelGroup,
@@ -1979,7 +1619,7 @@ export const mlModelGroup = {
     deprecation: null,
 } as MlModelGroup;
 
-export const recommendationModules = [
+const recommendationModules = [
     {
         title: 'Most Popular',
         moduleId: 'MostPopular',
@@ -3787,6 +3427,7 @@ export const mocks = [
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
                         manageGlobalViews: true,
+                        manageGlobalSettings: true,
                         manageOwnershipTypes: true,
                         manageGlobalAnnouncements: true,
                         createBusinessAttributes: true,
@@ -4076,6 +3717,7 @@ export const platformPrivileges: PlatformPrivileges = {
     createTags: true,
     createDomains: true,
     manageGlobalViews: true,
+    manageGlobalSettings: true,
     manageOwnershipTypes: true,
     manageGlobalAnnouncements: true,
     createBusinessAttributes: true,
@@ -4123,7 +3765,7 @@ export const DomainMock1 = {
     supportedCapabilities: () => new Set(),
 } as Entity<any>;
 
-export const DomainMock2 = {
+const DomainMock2 = {
     urn: 'urn:li:domain:bebdad41-c523-469f-9b62-de94f938f603',
     id: 'bebdad41-c523-469f-9b62-de94f938f603',
     type: 'DOMAIN',
@@ -4409,26 +4051,4 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
             ],
         },
     ],
-};
-
-export const useEntityDataFunc = () => {
-    const value = {
-        entityData: {
-            parentContainers: {
-                containers: [
-                    {
-                        properties: {
-                            name: 'name1',
-                        },
-                    },
-                    {
-                        properties: {
-                            name: 'name2',
-                        },
-                    },
-                ],
-            },
-        },
-    };
-    return value;
 };

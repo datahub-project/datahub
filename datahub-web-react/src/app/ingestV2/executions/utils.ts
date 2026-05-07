@@ -1,3 +1,13 @@
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { X } from '@phosphor-icons/react/dist/csr/X';
+import React from 'react';
+
 import {
     EXECUTION_REQUEST_STATUS_ABORTED,
     EXECUTION_REQUEST_STATUS_ACTIVE,
@@ -21,22 +31,35 @@ export function isExecutionRequestActive(executionRequest: ExecutionRequest) {
     return EXECUTION_REQUEST_STATUS_ACTIVE.includes(executionRequest?.result?.status ?? '');
 }
 
-export const getExecutionRequestStatusIcon = (status: string) => {
-    return (
-        (status === EXECUTION_REQUEST_STATUS_RUNNING && 'CircleNotch') ||
-        (status === EXECUTION_REQUEST_STATUS_SUCCESS && 'Check') ||
-        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'WarningCircle') ||
-        (status === EXECUTION_REQUEST_STATUS_FAILURE && 'X') ||
-        (status === EXECUTION_REQUEST_STATUS_CANCELLED && 'Prohibit') ||
-        (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && 'CircleNotch') ||
-        (status === EXECUTION_REQUEST_STATUS_ROLLED_BACK && 'Warning') ||
-        (status === EXECUTION_REQUEST_STATUS_ROLLING_BACK && 'CircleNotch') ||
-        (status === EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED && 'X') ||
-        (status === EXECUTION_REQUEST_STATUS_ABORTED && 'X') ||
-        (status === EXECUTION_REQUEST_STATUS_DUPLICATE && 'Copy') ||
-        (status === EXECUTION_REQUEST_STATUS_PENDING && 'Clock') ||
-        'CircleNotch'
-    );
+export const getExecutionRequestStatusIcon = (status: string): React.ComponentType<any> => {
+    switch (status) {
+        case EXECUTION_REQUEST_STATUS_RUNNING:
+            return CircleNotch;
+        case EXECUTION_REQUEST_STATUS_SUCCESS:
+            return Check;
+        case EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS:
+            return WarningCircle;
+        case EXECUTION_REQUEST_STATUS_FAILURE:
+            return X;
+        case EXECUTION_REQUEST_STATUS_CANCELLED:
+            return Prohibit;
+        case EXECUTION_REQUEST_STATUS_UP_FOR_RETRY:
+            return CircleNotch;
+        case EXECUTION_REQUEST_STATUS_ROLLED_BACK:
+            return Warning;
+        case EXECUTION_REQUEST_STATUS_ROLLING_BACK:
+            return CircleNotch;
+        case EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED:
+            return X;
+        case EXECUTION_REQUEST_STATUS_ABORTED:
+            return X;
+        case EXECUTION_REQUEST_STATUS_DUPLICATE:
+            return Copy;
+        case EXECUTION_REQUEST_STATUS_PENDING:
+            return Clock;
+        default:
+            return CircleNotch;
+    }
 };
 
 export const getExecutionRequestStatusDisplayText = (status: string) => {

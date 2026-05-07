@@ -37,7 +37,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
     log.info("Updating description. input: {}", input.toString());
     switch (targetUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        return updateDatasetSchemaFieldDescription(targetUrn, input, environment.getContext());
+        return updateDatasetDescription(targetUrn, input, environment.getContext());
       case Constants.CONTAINER_ENTITY_NAME:
         return updateContainerDescription(targetUrn, input, environment.getContext());
       case Constants.DOMAIN_ENTITY_NAME:
@@ -140,6 +140,25 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         "updateDomainDescription");
   }
 
+  private Boolean attemptUpdateDatasetDescription(
+      @Nonnull final Urn targetUrn,
+      @Nonnull final DescriptionUpdateInput input,
+      @Nonnull final QueryContext context) {
+    try {
+      DescriptionUtils.validateDescriptionInput(
+          context.getOperationContext(), targetUrn, _entityService);
+
+      final Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      DescriptionUtils.updateDatasetDescription(
+          context.getOperationContext(), input.getDescription(), targetUrn, actor, _entityService);
+      return true;
+    } catch (Exception e) {
+      log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+      throw new RuntimeException(
+          String.format("Failed to perform update against input %s", input.toString()), e);
+    }
+  }
+
   // If updating schema field description fails, try again on a sibling until there are no more
   // siblings to try. Then throw if necessary.
   private Boolean attemptUpdateDatasetSchemaFieldDescription(
@@ -185,6 +204,25 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
     }
   }
 
+  private CompletableFuture<Boolean> updateDatasetDescription(
+      Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    if (input.getSubResourceType() != null) {
+      return updateDatasetSchemaFieldDescription(targetUrn, input, context);
+    } else {
+      return GraphQLConcurrencyUtils.supplyAsync(
+          () -> {
+            if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
+
+            return attemptUpdateDatasetDescription(targetUrn, input, context);
+          },
+          this.getClass().getSimpleName(),
+          "updateDatasetDescription");
+    }
+  }
+
   private CompletableFuture<Boolean> updateDatasetSchemaFieldDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
 
@@ -193,11 +231,6 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
           if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, targetUrn)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
-          }
-
-          if (input.getSubResourceType() == null) {
-            throw new IllegalArgumentException(
-                "Update description without subresource is not currently supported");
           }
 
           List<Urn> siblingUrns =

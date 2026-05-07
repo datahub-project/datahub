@@ -3,11 +3,14 @@ package com.linkedin.metadata.search.indexbuilder;
 import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
@@ -16,6 +19,7 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -29,10 +33,16 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.OpenSearchException;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -51,6 +61,10 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.GetMappingsResponse;
 import org.opensearch.client.indices.PutMappingRequest;
+import org.opensearch.client.tasks.GetTaskRequest;
+import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
@@ -261,7 +275,7 @@ public class ESIndexBuilderTest {
     Map<String, Object> mappings = createTestMappings();
     Map<String, Object> settings = createTestSettings();
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
     ReindexConfig result = indexBuilder.buildReindexState(TEST_INDEX_NAME, mappings, settings);
@@ -282,13 +296,13 @@ public class ESIndexBuilderTest {
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     ReindexResult result = indexBuilder.buildIndex(indexState);
 
     assertEquals(result, ReindexResult.CREATED_NEW);
-    verify(searchClient).createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT));
+    verify(searchClient).createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -320,14 +334,14 @@ public class ESIndexBuilderTest {
 
     // Should not attempt to put mapping
     verify(searchClient, never())
-        .putIndexMapping(any(PutMappingRequest.class), eq(RequestOptions.DEFAULT));
+        .putIndexMapping(any(PutMappingRequest.class), any(RequestOptions.class));
   }
 
   @Test
   void testGetCount() throws IOException {
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Mock refreshIndex response
@@ -335,7 +349,7 @@ public class ESIndexBuilderTest {
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
     when(searchClient.refreshIndex(
             any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
-            eq(RequestOptions.DEFAULT)))
+            any(RequestOptions.class)))
         .thenReturn(refreshResponse);
 
     long result = indexBuilder.getCount(TEST_INDEX_NAME);
@@ -418,7 +432,7 @@ public class ESIndexBuilderTest {
     Map<String, Object> currentMappings = createTestMappings();
     Map<String, Object> targetSettings = createTestSettings();
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
 
     // Mock current settings with 1 shard
@@ -431,14 +445,14 @@ public class ESIndexBuilderTest {
     GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
     when(settingsResponse.getIndexToSettings())
         .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(settingsResponse);
 
     GetMappingsResponse mappingsResponse = mock(GetMappingsResponse.class);
     MappingMetadata mappingMetadata = mock(MappingMetadata.class);
     when(mappingMetadata.getSourceAsMap()).thenReturn(currentMappings);
     when(mappingsResponse.mappings()).thenReturn(Map.of(TEST_INDEX_NAME, mappingMetadata));
-    when(searchClient.getIndexMapping(any(GetMappingsRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexMapping(any(GetMappingsRequest.class), any(RequestOptions.class)))
         .thenReturn(mappingsResponse);
 
     // Execute with 6 shards configured
@@ -482,13 +496,13 @@ public class ESIndexBuilderTest {
     // Mock index creation
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     // Mock document counts
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Test the failure case
@@ -503,21 +517,21 @@ public class ESIndexBuilderTest {
 
     Settings settings = Settings.builder().put("index.number_of_replicas", "0").build();
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(getIndexResponse);
     when(getIndexResponse.getSettings()).thenReturn(Map.of(TEST_INDEX_NAME, settings));
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     AcknowledgedResponse updateResponse = mock(AcknowledgedResponse.class);
     when(updateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(updateResponse);
 
     // Execute
@@ -527,7 +541,7 @@ public class ESIndexBuilderTest {
 
     // Verify replica increase was called
     verify(searchClient)
-        .updateIndexSettings(any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT));
+        .updateIndexSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -536,21 +550,21 @@ public class ESIndexBuilderTest {
     Settings settings = Settings.builder().put("index.number_of_replicas", "2").build();
 
     GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
-    when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(getIndexResponse);
     when(getIndexResponse.getSettings()).thenReturn(Map.of(TEST_INDEX_NAME, settings));
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(0L);
-    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     AcknowledgedResponse updateResponse = mock(AcknowledgedResponse.class);
     when(updateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(updateResponse);
 
     // Execute
@@ -560,7 +574,7 @@ public class ESIndexBuilderTest {
 
     // Verify replica decrease was called
     verify(searchClient)
-        .updateIndexSettings(any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT));
+        .updateIndexSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -569,36 +583,36 @@ public class ESIndexBuilderTest {
     String indexAlias = "test_alias";
     GetAliasesResponse aliasesResponse = mock(GetAliasesResponse.class);
     when(aliasesResponse.getAliases()).thenReturn(Map.of("test_index_old", new HashSet<>()));
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
         .thenReturn(aliasesResponse);
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
     // Mock refreshIndex
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), eq(RequestOptions.DEFAULT))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
 
     // Mock settings operations for reindex optimization
     GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
     when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
         .thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(getSettingsResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
     when(searchClient.submitReindexTask(any(), any())).thenReturn("task123");
@@ -622,7 +636,7 @@ public class ESIndexBuilderTest {
 
     // Verify
     assertEquals(taskId, "task123");
-    verify(searchClient).createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT));
+    verify(searchClient).createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
     verify(searchClient).submitReindexTask(any(), any());
   }
 
@@ -641,15 +655,15 @@ public class ESIndexBuilderTest {
             String.valueOf(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000)); // 10 days old
     when(getIndexResponse.getAliases()).thenReturn(Map.of(orphanIndex, List.of()));
 
-    when(searchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(getIndexResponse);
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
 
     AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
     when(deleteResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.deleteIndex(any(DeleteIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(deleteResponse);
 
     // Execute
@@ -657,7 +671,7 @@ public class ESIndexBuilderTest {
 
     // Verify deletion was attempted
     verify(searchClient, atLeastOnce())
-        .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
+        .deleteIndex(any(DeleteIndexRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -676,14 +690,14 @@ public class ESIndexBuilderTest {
 
     AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
     when(putMappingResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.putIndexMapping(any(PutMappingRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.putIndexMapping(any(PutMappingRequest.class), any(RequestOptions.class)))
         .thenReturn(putMappingResponse);
 
     // Execute
     indexBuilder.applyMappings(indexState, false);
 
     // Verify
-    verify(searchClient).putIndexMapping(any(PutMappingRequest.class), eq(RequestOptions.DEFAULT));
+    verify(searchClient).putIndexMapping(any(PutMappingRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -696,7 +710,7 @@ public class ESIndexBuilderTest {
     when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
 
     // Simulate OpenSearchStatusException
-    when(searchClient.createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new OpenSearchStatusException("Index is read-only", RestStatus.FORBIDDEN));
 
     // Execute and verify exception
@@ -704,15 +718,80 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testCreateIndex_TimeoutButIndexExists_ProceedsWithoutRetry() throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(false);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("Connection timed out"));
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    indexBuilder.buildIndex(indexState);
+
+    verify(searchClient, times(1))
+        .createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+    verify(searchClient).indexExists(any(GetIndexRequest.class), any(RequestOptions.class));
+  }
+
+  @Test
+  void testCreateIndex_FailsThenSucceedsOnRetry() throws IOException {
+    when(buildIndicesConfig.isCreateIndexRetryEnabled()).thenReturn(true);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(false);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(createResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("Connection reset"))
+        .thenReturn(createResponse);
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+
+    ReindexResult result = indexBuilder.buildIndex(indexState);
+
+    assertEquals(result, ReindexResult.CREATED_NEW);
+    verify(searchClient, times(2))
+        .createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+  }
+
+  @Test
+  void testCreateIndex_FailsTwice_ThrowsException() throws Exception {
+    when(buildIndicesConfig.isCreateIndexRetryEnabled()).thenReturn(true);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(false);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("Connection reset"));
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+
+    assertThrows(Exception.class, () -> indexBuilder.buildIndex(indexState));
+    verify(searchClient, times(2))
+        .createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+  }
+
+  @Test
   void testGetCount_WithRefresh() throws IOException {
     // Setup
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), eq(RequestOptions.DEFAULT))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(42L);
-    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Execute
@@ -720,7 +799,7 @@ public class ESIndexBuilderTest {
 
     // Verify
     assertEquals(count, 42L);
-    verify(searchClient).refreshIndex(any(), eq(RequestOptions.DEFAULT));
+    verify(searchClient).refreshIndex(any(), any(RequestOptions.class));
   }
 
   @Test
@@ -772,7 +851,7 @@ public class ESIndexBuilderTest {
             indexOverrides,
             gitVersion);
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
     // Execute
@@ -823,7 +902,7 @@ public class ESIndexBuilderTest {
             argThat(req -> req != null && req.getEndpoint().equals("/"))))
         .thenReturn(rootResponse);
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
     // Execute
@@ -870,13 +949,13 @@ public class ESIndexBuilderTest {
     // Mock index creation
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     // Mock document count to be 0 to trigger REINDEXED_SKIPPED_0DOCS path
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(0L);
-    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Mock task list response - return empty list (no previous tasks)
@@ -890,31 +969,31 @@ public class ESIndexBuilderTest {
     // Mock refreshIndex response
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), eq(RequestOptions.DEFAULT))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
 
     // Mock settings operations for reindex optimization
     GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
     when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
         .thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(getSettingsResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
     // Mock alias operations for final rename
     GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
     when(getAliasesResponse.getAliases()).thenReturn(Map.of());
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
     // Execute the reindex
@@ -934,7 +1013,227 @@ public class ESIndexBuilderTest {
                         && // temp index name pattern
                         request.settings().get("index.number_of_replicas") != null
                         && request.settings().get("index.number_of_replicas").equals("0")),
-            eq(RequestOptions.DEFAULT));
+            any(RequestOptions.class));
+  }
+
+  /**
+   * Exercises the non-zero-docs path (unlike the 0-docs test above which short-circuits before
+   * submitReindex). When reindexOptimizationEnabled=false, setReindexOptimalSettings must skip all
+   * settings writes AND the cluster-level /_nodes/stats heap query. The latter is the call that
+   * fails in reduced-permission deployments (e.g. non-blocking system upgrades) and would otherwise
+   * abort the reindex with an uncaught IOException.
+   */
+  @Test
+  void testReindexWithOptimizationDisabled_SkipsNodeStatsAndSettingsWrites() throws Exception {
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+
+    ESIndexBuilder optimizationDisabledIndexBuilder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+    when(indexState.indexPattern()).thenReturn(null);
+
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(createResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(createResponse);
+
+    // Non-zero doc count drives execution through submitReindex -> setReindexOptimalSettings,
+    // which is the code path guarded by the flag.
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(100L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+
+    org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
+        mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
+    when(searchClient.listTasks(
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
+        .thenReturn(taskListResponse);
+
+    org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
+        mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
+    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+
+    AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
+    when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(settingsUpdateResponse);
+
+    when(searchClient.submitReindexTask(any(ReindexRequest.class), any())).thenReturn("task1");
+
+    GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
+    when(getAliasesResponse.getAliases()).thenReturn(Map.of());
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+
+    AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
+    when(aliasResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(aliasResponse);
+
+    ReindexResult result = optimizationDisabledIndexBuilder.buildIndex(indexState);
+
+    // Reindex is still submitted - only the pre-reindex optimizations are skipped.
+    assertEquals(result, ReindexResult.REINDEXING);
+    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any());
+
+    // Critical: the cluster-level /_nodes/stats heap query must not be issued. This is the
+    // call that fails in reduced-permission deployments and was previously uncaught.
+    verify(searchClient, never())
+        .performLowLevelRequest(
+            argThat(req -> req != null && req.getEndpoint().contains("_nodes/stats")));
+
+    // None of the optimization settings should be written to the temp index.
+    verify(searchClient, never())
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && "0".equals(request.settings().get("index.number_of_replicas"))),
+            any(RequestOptions.class));
+    verify(searchClient, never())
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && "-1".equals(request.settings().get("index.refresh_interval"))),
+            any(RequestOptions.class));
+    verify(searchClient, never())
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && request.settings().get("index.translog.flush_threshold_size") != null),
+            any(RequestOptions.class));
+  }
+
+  /**
+   * Defense-in-depth: even with reindexOptimizationEnabled=true, a failure of the cluster-level
+   * /_nodes/stats call (used to pick an optimal translog.flush_threshold_size) must not abort the
+   * reindex. The replica/refresh_interval tuning should still be applied, the flush_threshold
+   * tuning should be skipped, and the reindex should still be submitted.
+   */
+  @Test
+  void testReindexContinuesWhenNodeStatsFails() throws Exception {
+    // Override the @BeforeMethod stub: /_nodes/stats now fails.
+    when(searchClient.performLowLevelRequest(
+            argThat(req -> req != null && req.getEndpoint().contains("_nodes/stats"))))
+        .thenThrow(new IOException("permission denied on cluster:monitor/nodes/stats"));
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+    when(indexState.indexPattern()).thenReturn(null);
+
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(createResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(createResponse);
+
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(100L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+
+    org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
+        mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
+    when(searchClient.listTasks(
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
+        .thenReturn(taskListResponse);
+
+    org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
+        mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
+    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+
+    GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
+    when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
+        .thenReturn("512mb");
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(getSettingsResponse);
+
+    AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
+    when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(settingsUpdateResponse);
+
+    when(searchClient.submitReindexTask(any(ReindexRequest.class), any())).thenReturn("task1");
+
+    GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
+    when(getAliasesResponse.getAliases()).thenReturn(Map.of());
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(getAliasesResponse);
+
+    AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
+    when(aliasResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(aliasResponse);
+
+    ReindexResult result = indexBuilder.buildIndex(indexState);
+
+    // Reindex is still submitted - the node-stats failure is swallowed.
+    assertEquals(result, ReindexResult.REINDEXING);
+    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any());
+
+    // Replica/refresh_interval tuning is still applied (they don't depend on heap stats).
+    verify(searchClient)
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && "0".equals(request.settings().get("index.number_of_replicas"))),
+            any(RequestOptions.class));
+    verify(searchClient)
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && "-1".equals(request.settings().get("index.refresh_interval"))),
+            any(RequestOptions.class));
+
+    // Flush threshold optimization should be skipped because the heap query failed.
+    verify(searchClient, never())
+        .updateIndexSettings(
+            argThat(
+                request ->
+                    request != null
+                        && request.indices().length == 1
+                        && request.indices()[0].contains(TEST_INDEX_NAME + "_")
+                        && request.settings().get("index.translog.flush_threshold_size") != null),
+            any(RequestOptions.class));
   }
 
   @Test
@@ -954,7 +1253,7 @@ public class ESIndexBuilderTest {
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
@@ -966,36 +1265,36 @@ public class ESIndexBuilderTest {
 
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), eq(RequestOptions.DEFAULT))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
 
     GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
     when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
         .thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(getSettingsResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
     when(searchClient.submitReindexTask(any(ReindexRequest.class), any())).thenReturn("task1");
 
     GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
     when(getAliasesResponse.getAliases()).thenReturn(Map.of());
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L, 100L, 100L);
-    when(searchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     ReindexResult result = indexBuilder.buildIndex(indexState);
@@ -1034,6 +1333,88 @@ public class ESIndexBuilderTest {
         "number_of_replicas", 1);
   }
 
+  @Test
+  public void testUpdateIndexSettings_RetriesOnOpenSearchException() throws IOException {
+    Settings settings = Settings.builder().put("index.refresh_interval", "60s").build();
+
+    AtomicInteger count = new AtomicInteger();
+    when(searchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            (e) -> {
+              if (count.get() == 1) {
+                return new AcknowledgedResponse(true);
+              }
+              count.getAndIncrement();
+              throw new OpenSearchException("Circuit breaker");
+            });
+    // Should succeed on retry
+    indexBuilder.updateIndexSettings("test_index", settings);
+
+    // Verify retry happened (called twice: first failed, second succeeded)
+    verify(searchClient, times(2))
+        .updateIndexSettings(any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  void testWaitForIndexGreenHealth_RetriesOnIOException() throws IOException {
+    String indexName = "test-index";
+
+    // Setup GREEN health response for the successful retry attempt
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.GREEN, 0);
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(0);
+    when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+
+    AtomicInteger count = new AtomicInteger();
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            inv -> {
+              // Throw IOException on second call (index health check), not first (data node count)
+              if (count.getAndIncrement() == 1) {
+                throw new IOException("Transient network error");
+              }
+              return healthResponse;
+            });
+
+    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+
+    verify(searchClient, atLeast(1))
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  void testWaitForIndexGreenHealth_AcceptsYellowWithAllPrimariesActive() throws IOException {
+    String indexName = "test-index";
+
+    // Setup YELLOW response with all primaries active (1/1)
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.YELLOW, 1);
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getNumberOfShards()).thenReturn(1);
+    when(indexHealth.getActivePrimaryShards()).thenReturn(1); // All primaries active ✓
+    when(indexHealth.getInitializingShards()).thenReturn(1); // Replicas initializing (OK)
+    when(indexHealth.getNumberOfReplicas()).thenReturn(1);
+    when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(healthResponse);
+
+    // Should NOT throw - YELLOW with all primaries active is acceptable
+    // Replicas will sync asynchronously in background
+    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+
+    // Verify clusterHealth was called
+    verify(searchClient, atLeastOnce())
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
   private Map<String, Object> createTestTargetSettings() {
     return ImmutableMap.of(
         "index",
@@ -1041,5 +1422,357 @@ public class ESIndexBuilderTest {
             "number_of_shards", NUM_SHARDS,
             "number_of_replicas", NUM_REPLICAS,
             "refresh_interval", REFRESH_INTERVAL_SECONDS + "s"));
+  }
+
+  @Test
+  public void testSuccessOnFirstAttemptGreenStatus() throws Exception {
+    String indexName = "test-index";
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.GREEN, 0);
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(0);
+    when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(healthResponse);
+
+    // Should not throw
+    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+
+    // Verify clusterHealth was called exactly once
+    verify(searchClient, times(1))
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testFailureOnRedStatusNoRetry() throws Exception {
+    String indexName = "test-index";
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.RED, 0);
+
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(3);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(), eq(RequestOptions.DEFAULT))).thenReturn(healthResponse);
+
+    // Should throw IOException
+    Exception exception = null;
+    try {
+      indexBuilder.waitForIndexGreenHealth(indexName, 30);
+      fail("Expected RuntimeException to be thrown for RED status");
+    } catch (ReplicaHealthException e) {
+      exception = e;
+      assertTrue(
+          e.getMessage().contains("Failed to verify replica health for index test-index"),
+          "Expected RED status message, got: " + e.getMessage());
+    }
+
+    assertNotNull(exception, "Expected ReplicaHealthException");
+
+    // Verify clusterHealth was called at least once (retry logic may try multiple times)
+    // But the first response already indicates RED, so we expect few retries
+    verify(searchClient, atLeastOnce())
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testFailureWithInitializingShards() throws Exception {
+    String indexName = "test-index";
+    int initializingShards = 2; // Non-zero initializing shards
+    ClusterHealthResponse healthResponse =
+        createMockClusterHealthResponse(ClusterHealthStatus.YELLOW, initializingShards);
+
+    Map<String, ClusterIndexHealth> healthMap = new HashMap<>();
+    ClusterIndexHealth indexHealth = mock(ClusterIndexHealth.class);
+    when(indexHealth.getInitializingShards()).thenReturn(2);
+    healthMap.put(indexName, indexHealth);
+    when(healthResponse.getIndices()).thenReturn(healthMap);
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(healthResponse);
+
+    // Should throw RuntimeException
+    Exception exception = null;
+    try {
+      indexBuilder.waitForIndexGreenHealth(indexName, 30);
+      fail("Expected RuntimeException to be thrown for initializing shards");
+    } catch (ReplicaHealthException e) {
+      exception = e;
+      assertTrue(
+          e.getCause().getMessage().contains("initializing shards")
+              || e.getCause().getMessage().contains("initializing=2"),
+          "Expected initializing shards message, got: " + e.getMessage());
+    }
+
+    assertNotNull(exception, "Expected ReplicaHealthException");
+
+    // Verify clusterHealth was called
+    verify(searchClient, atLeastOnce())
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  private ClusterHealthResponse createMockClusterHealthResponse(
+      ClusterHealthStatus status, int initializingShards) {
+
+    ClusterHealthResponse response = mock(ClusterHealthResponse.class);
+
+    // Mock only the methods that are actually called by waitForIndexGreenHealth()
+    when(response.getStatus()).thenReturn(status);
+    when(response.getInitializingShards()).thenReturn(initializingShards);
+    when(response.getClusterName()).thenReturn("test-cluster");
+    when(response.getNumberOfNodes()).thenReturn(3);
+    when(response.getNumberOfDataNodes()).thenReturn(3);
+
+    return response;
+  }
+
+  @Test
+  void testGetTaskStatusMultiple_DistinguishesNetworkErrorsFromTaskNotFound() throws IOException {
+
+    GetTaskResponse taskResponse = mock(GetTaskResponse.class);
+    when(taskResponse.isCompleted()).thenReturn(false);
+
+    // Mock successful fetch for task1
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenAnswer(
+            (in) -> {
+              GetTaskRequest req = in.getArgument(0);
+              long taskId = req.getTaskId();
+              if (taskId == 1) {
+                return Optional.of(mock(GetTaskResponse.class));
+              } else if (taskId == 2) {
+                throw new IOException("Connection timeout");
+              }
+              return Optional.empty();
+            });
+    // Execute: Get status for all three tasks
+    ESIndexBuilder.TaskStatusResult result =
+        indexBuilder.getTaskStatusMultiple(List.of("node1:1", "node2:2", "node3:3"));
+
+    assertEquals(
+        result.getResponses().size(), 1, "Should have exactly 1 successful response (node1:1)");
+    assertTrue(result.getResponses().containsKey("node1:1"), "task1 should be in responses map");
+
+    // Case 2: task2 should be in failedTaskIds (network error)
+    assertEquals(
+        result.getFailedTaskIds().size(),
+        1,
+        "Should have exactly 1 failed task due to network error (node2:2)");
+    assertTrue(
+        result.getFailedTaskIds().contains("node2:2"),
+        "node2:2 (network error) should be in failedTaskIds, NOT treated as missing");
+
+    // Case 3: task3 should be in neither map/set (legitimately not found)
+    assertFalse(
+        result.getResponses().containsKey("task3"), "task3 (not found) should NOT be in responses");
+    assertFalse(
+        result.getFailedTaskIds().contains("task3"),
+        "task3 (not found) should NOT be in failedTaskIds");
+  }
+
+  // --- Incremental reindex tests ---
+
+  @Test
+  void testExtractTargetShards() {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.targetSettings())
+        .thenReturn(ImmutableMap.of("index", ImmutableMap.of("number_of_shards", 3)));
+    assertEquals(ESIndexBuilder.extractTargetShards(config), 3);
+  }
+
+  @Test
+  void testExtractTargetShardsFromString() {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.targetSettings())
+        .thenReturn(ImmutableMap.of("index", ImmutableMap.of("number_of_shards", "5")));
+    assertEquals(ESIndexBuilder.extractTargetShards(config), 5);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  void testExtractTargetShardsMissingThrows() {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.targetSettings()).thenReturn(ImmutableMap.of("index", ImmutableMap.of()));
+    ESIndexBuilder.extractTargetShards(config);
+  }
+
+  @Test
+  void testGetIncrementalNextIndexNameSanitizesVersion() {
+    String result = ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "1.2.3-4", 1000L);
+    assertEquals(result, "datasetindex_v2_1_2_3-4_1000");
+  }
+
+  @Test
+  void testGetIncrementalNextIndexName() {
+    String result =
+        ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "0.13.1-0", 1679000000000L);
+    assertEquals(result, "datasetindex_v2_0_13_1-0_1679000000000");
+  }
+
+  @Test
+  void testBuildIndexIncrementalCreatesNextIndex() throws Throwable {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    // Mock createIndex (the next index doesn't exist yet)
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(new CreateIndexResponse(true, true, "test_index_next_123"));
+
+    // Mock getCount returning 0 (empty source index)
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(0L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+
+    ESIndexBuilder.IncrementalReindexResult result =
+        indexBuilder.buildIndexIncremental(indexState, "0.13.1-0");
+
+    assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
+    assertTrue(result.reindexStartTime() > 0);
+    assertTrue(result.skippedEmpty());
+    // Should have created the index
+    verify(searchClient).createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+    // Should NOT have submitted a reindex (0 docs)
+    verify(searchClient, never())
+        .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * Regression test for the concrete-index→alias migration bug. When the source index is a plain
+   * concrete index (no alias), renameReindexedIndices must use REMOVE_INDEX (delete the index) so
+   * that an alias of the same name can be created. Using REMOVE (remove alias relationship) causes
+   * OpenSearch to reject the request with invalid_alias_name_exception.
+   */
+  @Test
+  void testRenameReindexedIndices_ConcreteIndexUsesRemoveIndex() throws Exception {
+    String originalName = "tagindex_v2";
+    String newName = "tagindex_v2_v0_3_17_1000";
+
+    // Empty aliases response → originalName is a concrete index, not an alias
+    GetAliasesResponse emptyAliases = mock(GetAliasesResponse.class);
+    when(emptyAliases.getAliases()).thenReturn(Map.of());
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(emptyAliases);
+
+    AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
+    when(ack.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(ack);
+
+    ESIndexBuilder.renameReindexedIndices(
+        searchClient, originalName, null, newName, false, RequestOptions.DEFAULT);
+
+    ArgumentCaptor<IndicesAliasesRequest> captor =
+        ArgumentCaptor.forClass(IndicesAliasesRequest.class);
+    verify(searchClient).updateIndexAliases(captor.capture(), any(RequestOptions.class));
+
+    List<org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions> actions =
+        captor.getValue().getAliasActions();
+    // Exactly one REMOVE_INDEX action (deletes the concrete index) + one ADD action (creates alias)
+    long removeIndexCount =
+        actions.stream()
+            .filter(
+                a ->
+                    a.actionType()
+                        == org.opensearch.action.admin.indices.alias.IndicesAliasesRequest
+                            .AliasActions.Type.REMOVE_INDEX)
+            .count();
+    assertEquals(
+        removeIndexCount, 1L, "Expected exactly one REMOVE_INDEX action for concrete index");
+  }
+
+  @Test
+  void testRenameReindexedIndices_AliasedIndexUsesRemoveAlias() throws Exception {
+    String aliasName = "tagindex_v2";
+    String oldBacking = "tagindex_v2_v0_3_16_999";
+    String newBacking = "tagindex_v2_v0_3_17_1000";
+
+    // Non-empty aliases response → aliasName already points to a backing index
+    GetAliasesResponse existingAlias = mock(GetAliasesResponse.class);
+    when(existingAlias.getAliases()).thenReturn(Map.of(oldBacking, new HashSet<>()));
+    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(existingAlias);
+
+    AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
+    when(ack.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(
+            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+        .thenReturn(ack);
+
+    ESIndexBuilder.renameReindexedIndices(
+        searchClient, aliasName, null, newBacking, false, RequestOptions.DEFAULT);
+
+    ArgumentCaptor<IndicesAliasesRequest> captor =
+        ArgumentCaptor.forClass(IndicesAliasesRequest.class);
+    verify(searchClient).updateIndexAliases(captor.capture(), any(RequestOptions.class));
+
+    List<org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions> actions =
+        captor.getValue().getAliasActions();
+    // Should use REMOVE (remove alias relationship), NOT REMOVE_INDEX (would delete backing data)
+    long removeAliasCount =
+        actions.stream()
+            .filter(
+                a ->
+                    a.actionType()
+                        == org.opensearch.action.admin.indices.alias.IndicesAliasesRequest
+                            .AliasActions.Type.REMOVE)
+            .count();
+    assertEquals(removeAliasCount, 1L, "Expected exactly one REMOVE action for aliased index");
+  }
+
+  @Test
+  void testBuildIndexIncrementalSubmitsReindex() throws Throwable {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    // Mock createIndex
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(new CreateIndexResponse(true, true, "test_index_next_123"));
+
+    // Mock getCount returning non-zero (has docs to reindex)
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(1000L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+
+    // Mock refresh
+    when(searchClient.refreshIndex(any(), any())).thenReturn(null);
+
+    // Mock settings for reindex optimization
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getSetting(anyString(), anyString())).thenReturn("512mb");
+    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+
+    // Mock settings update
+    when(searchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    // Mock submit reindex task
+    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:12345");
+
+    ESIndexBuilder.IncrementalReindexResult result =
+        indexBuilder.buildIndexIncremental(indexState, "0.13.1-0");
+
+    assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
+    assertTrue(result.reindexStartTime() > 0);
+    Assert.assertFalse(result.skippedEmpty());
   }
 }

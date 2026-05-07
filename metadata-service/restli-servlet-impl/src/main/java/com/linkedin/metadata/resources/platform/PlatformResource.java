@@ -70,7 +70,7 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to produce platform events.");
     }
-    log.info(String.format("Emitting platform event. name: %s, key: %s", eventName, key));
+    log.debug("Emitting platform event. name: {}, key: {}", eventName, key);
     return RestliUtils.toTask(
         () -> {
           _eventProducer.producePlatformEvent(eventName, key, event);

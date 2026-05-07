@@ -6,9 +6,10 @@ import { getRoleDisplayName, mapRoleToPhosphorIcon } from '@app/identity/user/Ph
 
 // Mock the Icon component since it depends on Alchemy components
 vi.mock('@components', () => ({
-    Icon: ({ icon, source, size }: { icon: string; source: string; size: string }) => (
-        <span data-testid={`icon-${icon}-${source}-${size}`}>{icon}</span>
-    ),
+    Icon: ({ icon, size }: { icon: any; size: string }) => {
+        const iconName = typeof icon === 'string' ? icon : icon?.displayName || icon?.name || 'unknown';
+        return <span data-testid={`icon-${iconName}-${size}`}>{iconName}</span>;
+    },
 }));
 
 describe('PhosphorRoleUtils', () => {
@@ -16,43 +17,43 @@ describe('PhosphorRoleUtils', () => {
         it('should return Gear icon for Admin role', () => {
             const result = mapRoleToPhosphorIcon('Admin');
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-Gear-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-Gear-xl')).toBeTruthy();
         });
 
         it('should return PencilSimple icon for Editor role', () => {
             const result = mapRoleToPhosphorIcon('Editor');
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-PencilSimple-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-PencilSimple-xl')).toBeTruthy();
         });
 
         it('should return BookOpen icon for Reader role', () => {
             const result = mapRoleToPhosphorIcon('Reader');
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-BookOpen-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-BookOpen-xl')).toBeTruthy();
         });
 
         it('should return User icon for unknown role names', () => {
             const result = mapRoleToPhosphorIcon('CustomRole');
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-User-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-User-xl')).toBeTruthy();
         });
 
         it('should return User icon for empty role name', () => {
             const result = mapRoleToPhosphorIcon('');
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-User-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-User-xl')).toBeTruthy();
         });
 
         it('should be case-sensitive for role matching', () => {
             const result = mapRoleToPhosphorIcon('admin'); // lowercase
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-User-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-User-xl')).toBeTruthy();
         });
 
         it('should handle role names with special characters', () => {
             const result = mapRoleToPhosphorIcon('Admin@123');
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-User-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-User-xl')).toBeTruthy();
         });
     });
 

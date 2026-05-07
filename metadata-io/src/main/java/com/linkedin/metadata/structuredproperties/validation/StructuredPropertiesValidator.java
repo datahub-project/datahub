@@ -226,7 +226,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     for (BatchItem i : exceptions.successful(mcpItems)) {
       StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
 
-      log.info("Validator called with {}", structuredProperties);
+      log.debug("Validator called with {}", structuredProperties);
       Map<Urn, List<StructuredPropertyValueAssignment>> structuredPropertiesMap =
           structuredProperties.getProperties().stream()
               .collect(

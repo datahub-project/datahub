@@ -47,6 +47,7 @@ import com.linkedin.datahub.graphql.resolvers.auth.GetServiceAccountResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.ListServiceAccountsResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.UpdateServiceAccountDefaultViewResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -67,6 +68,8 @@ import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardStatsSummaryRes
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchAddToDataProductsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchRemoveFromDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
@@ -138,6 +141,9 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSources
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.EntityRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.ExecutionRunsResolver;
+import com.linkedin.datahub.graphql.resolvers.lifecycle.ListLifecycleStagesResolver;
+import com.linkedin.datahub.graphql.resolvers.lifecycle.SetLifecycleStageResolver;
+import com.linkedin.datahub.graphql.resolvers.lifecycle.StatusLifecycleStageResolver;
 import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
@@ -761,6 +767,7 @@ public class GmsGraphQLEngine {
   public void configureRuntimeWiring(final RuntimeWiring.Builder builder) {
     configureQueryResolvers(builder);
     configureMutationResolvers(builder);
+    configureLifecycleResolvers(builder);
     configureGenericEntityResolvers(builder);
     configureDatasetResolvers(builder);
     configureCorpUserResolvers(builder);
@@ -889,7 +896,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1228,6 +1236,24 @@ public class GmsGraphQLEngine {
     return env.getArgument(URN_FIELD_NAME);
   }
 
+  private void configureLifecycleResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Query",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "listLifecycleStages", new ListLifecycleStagesResolver(this.entityClient)));
+    builder.type(
+        "Status",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "lifecycleStage", new StatusLifecycleStageResolver(this.entityClient)));
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "setLifecycleStage", new SetLifecycleStageResolver(this.entityClient)));
+  }
+
   private void configureMutationResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Mutation",
@@ -1325,6 +1351,10 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "deleteServiceAccount", new DeleteServiceAccountResolver(this.entityClient))
               .dataFetcher(
+                  "updateServiceAccountDefaultView",
+                  new UpdateServiceAccountDefaultViewResolver(
+                      this.settingsService, this.entityClient, this.viewService))
+              .dataFetcher(
                   "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
               .dataFetcher(
                   "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
@@ -1419,6 +1449,13 @@ public class GmsGraphQLEngine {
                   "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
               .dataFetcher(
                   "batchSetDataProduct", new BatchSetDataProductResolver(this.dataProductService))
+              .dataFetcher(
+                  "batchAddToDataProducts",
+                  new BatchAddToDataProductsResolver(this.dataProductService, this.featureFlags))
+              .dataFetcher(
+                  "batchRemoveFromDataProducts",
+                  new BatchRemoveFromDataProductsResolver(
+                      this.dataProductService, this.featureFlags))
               .dataFetcher(
                   "createApplication",
                   new CreateApplicationResolver(this.applicationService, this.entityService))
@@ -2144,8 +2181,19 @@ public class GmsGraphQLEngine {
     builder.type(
         "ServiceAccount",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "relationships", new EntityRelationshipsResultResolver(graphClient)));
+            typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "defaultView",
+                    new LoadableTypeResolver<>(
+                        dataHubViewType,
+                        (env) -> {
+                          final ServiceAccount sa = env.getSource();
+                          if (sa.getDefaultView() != null) {
+                            return sa.getDefaultView().getUrn();
+                          }
+                          return null;
+                        })));
   }
 
   /**
