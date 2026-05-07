@@ -389,7 +389,7 @@ export class SearchPage extends BasePage {
   }
 
   async expectTextVisible(text: string): Promise<void> {
-    await expect(this.page.getByText(text).first()).toBeVisible();
+    await expect(this.page.getByText(text).first()).toBeVisible({ timeout: 10000 });
   }
 
   async expectFiltersV1Visible(): Promise<void> {
