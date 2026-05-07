@@ -1136,10 +1136,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     try:
                         custom_sql_by_name[name] = CustomSqlEntry.model_validate(entry)
                     except Exception as e:
-                        logger.debug(
-                            "Skipping invalid workbook customSQL lineage entry %r: %s",
-                            name,
-                            e,
+                        self.reporter.workbook_customsql_skipped += 1
+                        self.reporter.warning(
+                            title="Sigma workbook customSQL lineage entry invalid",
+                            message="Failed to parse customSQL lineage entry; it will be skipped.",
+                            context=f"customsql_name={name!r}",
+                            exc=e,
                         )
             elif entry_type == "element":
                 element_entries.append(entry)
@@ -1206,7 +1208,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 generate_column_lineage=False,
             )
             return result.in_tables or []
-        except Exception:
+        except Exception as e:
+            self.reporter.workbook_customsql_parse_failed += 1
+            self.reporter.warning(
+                title="Sigma workbook customSQL inputs parse failed",
+                message="create_lineage_sql_parsed_result raised; ChartInfo.inputs will not include warehouse upstreams.",
+                context=f"customsql_name={customsql_entry.name!r}, connection_id={customsql_entry.connectionId!r}",
+                exc=e,
+            )
             return []
 
     def _process_workbook_customsql_element(
@@ -1226,22 +1235,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         record = self.connection_registry.get(connection_id)
         if record is None:
             self.reporter.workbook_customsql_skipped += 1
-            logger.warning(
-                "Workbook customSQL chart %r: connectionId=%r not found in connection "
-                "registry; warehouse lineage will be absent.  Check /v2/connections "
-                "scope/permissions.",
-                chart_urn,
-                connection_id,
+            self.reporter.warning(
+                title="Sigma workbook customSQL chart connection not found",
+                message="connectionId not found in connection registry; warehouse lineage will be absent. Check /v2/connections scope/permissions.",
+                context=f"chart_urn={chart_urn!r}, connection_id={connection_id!r}",
             )
             return
         if not record.is_mappable:
             self.reporter.workbook_customsql_skipped += 1
-            logger.warning(
-                "Workbook customSQL chart %r: Sigma connection type %r is not mapped "
-                "to a DataHub platform; warehouse lineage will be absent.  Add it to "
-                "SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP if supported.",
-                chart_urn,
-                record.sigma_type,
+            self.reporter.warning(
+                title="Sigma workbook customSQL chart platform not mapped",
+                message="Sigma connection type is not mapped to a DataHub platform; warehouse lineage will be absent. Add it to SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP if supported.",
+                context=f"chart_urn={chart_urn!r}, sigma_type={record.sigma_type!r}",
             )
             return
         aggregator = self._get_sql_aggregator(
@@ -1377,10 +1382,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for fgl in fgls:
             downstreams = fgl.downstreams or []
             if not downstreams:
+                self.reporter.workbook_customsql_fgl_downstream_unmapped += 1
                 continue
             try:
                 chart_col = SchemaFieldUrn.from_string(downstreams[0]).field_path
             except InvalidUrnError:
+                self.reporter.workbook_customsql_fgl_downstream_unmapped += 1
+                logger.debug(
+                    "Skipping FGL entry with invalid downstream URN %r", downstreams[0]
+                )
                 continue
             for upstream_sf_urn in fgl.upstreams or []:
                 input_fields.append(
@@ -1551,7 +1561,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for mcp in aggregator.gen_metadata():
                     yield self._rewrite_fgl_downstreams(mcp).as_workunit()
                 agg_report = aggregator.report
-                self.reporter.dm_customsql_parse_failed += agg_report.num_views_failed
+                for view_urn, _reason in (
+                    agg_report.views_parse_failures or {}
+                ).items():
+                    if view_urn in self._workbook_customsql_registered_urns:
+                        self.reporter.workbook_customsql_parse_failed += 1
+                    elif view_urn in self._customsql_registered_urns:
+                        self.reporter.dm_customsql_parse_failed += 1
             except Exception as e:
                 self.reporter.warning(
                     title="Sigma DM customSQL aggregator drain failed",

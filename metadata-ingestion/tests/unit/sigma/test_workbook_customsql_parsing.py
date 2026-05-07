@@ -426,7 +426,9 @@ class TestRewriteFglDownstreamsWorkbookBranch:
         aspect = wu.metadata.aspect
         assert isinstance(aspect, InputFieldsClass)
         assert len(aspect.fields) == 2
-        field_paths = {f.schemaField.fieldPath for f in aspect.fields}
+        field_paths = {
+            f.schemaField.fieldPath for f in aspect.fields if f.schemaField is not None
+        }
         assert field_paths == {"order_id", "amount"}
         assert source.reporter.workbook_customsql_column_lineage_emitted == 1
         assert source.reporter.dm_customsql_column_lineage_emitted == 0
