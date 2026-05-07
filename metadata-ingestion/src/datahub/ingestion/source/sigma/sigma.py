@@ -1128,6 +1128,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if passthrough:
             self._customsql_passthrough_mappings[chart_urn] = passthrough
 
+    def _parse_customsql_upstream_dataset_urns(
+        self, customsql_entry: CustomSqlEntry
+    ) -> List[str]:
+        """Synchronously parse customSQL definition to extract upstream dataset URNs.
+
+        Used to populate ChartInfo.inputs before the SQL aggregator drains.
+        Returns an empty list on any failure.
+        """
+        definition = (customsql_entry.definition or "").strip()
+        connection_id = customsql_entry.connectionId
+        if not definition or not connection_id:
+            return []
+        record = self.connection_registry.get(connection_id)
+        if record is None or not record.is_mappable:
+            return []
+        try:
+            result = create_lineage_sql_parsed_result(
+                query=definition,
+                default_db=record.default_database,
+                default_schema=record.default_schema,
+                platform=record.datahub_platform,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+                generate_column_lineage=False,
+            )
+            return result.in_tables or []
+        except Exception:
+            return []
+
     def _process_workbook_customsql_element(
         self,
         chart_urn: str,
@@ -2842,6 +2871,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         paths: List[str],
         elementId_to_chart_urn: Dict[str, str],
         wb_element_index: Dict[str, List[Element]],
+        customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -2863,6 +2893,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             dataset_inputs, chart_input_urns = self._get_element_input_details(
                 element, workbook, elementId_to_chart_urn
             )
+
+            # Add warehouse upstream URNs from workbook-level customSQL parsing (T4.F).
+            # These URNs are resolved before pages are emitted so ChartInfo.inputs is complete.
+            for warehouse_urn in (customsql_extra_inputs or {}).get(
+                element.elementId, []
+            ):
+                if warehouse_urn not in dataset_inputs:
+                    dataset_inputs[warehouse_urn] = []
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -2953,7 +2991,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
-        self, workbook: Workbook, paths: List[str]
+        self,
+        workbook: Workbook,
+        paths: List[str],
+        customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma workbook page to Datahub dashboard
@@ -3003,6 +3044,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 paths,
                 elementId_to_chart_urn,
                 wb_element_index,
+                customsql_extra_inputs or {},
             )
 
             yield MetadataChangeProposalWrapper(
@@ -3107,8 +3149,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     entity_urn=dashboard_urn,
                 )
 
-        yield from self._gen_pages_workunit(workbook, paths)
-
+        # Build customSQL registry before emitting pages so the resolved upstream dataset
+        # URNs can be included in ChartInfo.inputs (entity-level lineage for the UI).
+        customsql_extra_inputs: Dict[str, List[str]] = {}
         if self.config.extract_lineage:
             custom_sql_by_name, eid_by_csql_name = (
                 self._build_workbook_customsql_registry(workbook)
@@ -3135,6 +3178,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if element is not None:
                     self._build_workbook_customsql_col_mapping(element, chart_urn)
                 self._process_workbook_customsql_element(chart_urn, customsql_entry)
+                upstream_urns = self._parse_customsql_upstream_dataset_urns(
+                    customsql_entry
+                )
+                if upstream_urns:
+                    customsql_extra_inputs[element_id] = upstream_urns
+
+        yield from self._gen_pages_workunit(workbook, paths, customsql_extra_inputs)
 
     def _gen_sigma_dataset_upstream_lineage_workunit(
         self,
