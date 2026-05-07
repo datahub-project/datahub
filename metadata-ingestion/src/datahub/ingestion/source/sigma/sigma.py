@@ -312,6 +312,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # MCP at drain so the final aspect is consolidated.
         self._customsql_extra_upstreams: Dict[str, List[Upstream]] = {}
         self._customsql_extra_fgls: Dict[str, List[FineGrainedLineageClass]] = {}
+        # Chart URNs registered with the aggregator via the workbook customSQL path.
+        # Separate from _customsql_registered_urns (DM Dataset URNs) to prevent
+        # counter bleed between the two namespaces.
+        self._workbook_customsql_registered_urns: Set[str] = set()
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -1058,6 +1062,130 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if passthrough:
             self._customsql_passthrough_mappings[element_dataset_urn] = passthrough
 
+    def _build_workbook_customsql_registry(
+        self,
+        workbook: Workbook,
+    ) -> Tuple[Dict[str, CustomSqlEntry], Dict[str, str]]:
+        """Parse /v2/workbooks/{id}/lineage entries into lookup maps.
+
+        Returns:
+            custom_sql_by_name: customSQL name → CustomSqlEntry
+            element_id_by_customsql_name: customSQL name → elementId of the chart
+              that sources from it
+        """
+        entries = self.sigma_api.get_workbook_lineage_entries(workbook.workbookId)
+        custom_sql_by_name: Dict[str, CustomSqlEntry] = {}
+        element_entries: List[Dict[str, Any]] = []
+        for entry in entries:
+            entry_type = entry.get("type", "")
+            if entry_type == "customSQL":
+                name = entry.get("name", "")
+                if name:
+                    try:
+                        custom_sql_by_name[name] = CustomSqlEntry.model_validate(entry)
+                    except Exception as e:
+                        logger.debug(
+                            "Skipping invalid workbook customSQL lineage entry %r: %s",
+                            name,
+                            e,
+                        )
+            elif entry_type == "element":
+                element_entries.append(entry)
+        # Second pass: element entries may appear before customSQL entries.
+        element_id_by_customsql_name: Dict[str, str] = {}
+        for entry in element_entries:
+            element_id = entry.get("elementId", "")
+            source_ids = entry.get("sourceIds") or []
+            if element_id and isinstance(source_ids, list):
+                for source_id in source_ids:
+                    if isinstance(source_id, str) and source_id in custom_sql_by_name:
+                        element_id_by_customsql_name[source_id] = element_id
+        return custom_sql_by_name, element_id_by_customsql_name
+
+    def _build_workbook_customsql_col_mapping(
+        self,
+        element: Element,
+        chart_urn: str,
+    ) -> None:
+        """Populate ``_customsql_passthrough_mappings`` for a customSQL workbook chart.
+
+        Only single-ref formulas are registered so computed expressions
+        (``[Custom SQL/A] + [Custom SQL/B]``) do not fabricate upstream edges
+        for columns that have no direct pass-through from the SQL source.
+        For workbook charts, SQL column names match display column names in
+        Sigma's formula refs, so no ``_customsql_col_mappings`` rewrite is needed.
+        """
+        passthrough: Dict[str, str] = {}
+        for sigma_col, formula in element.column_formulas.items():
+            if not formula:
+                continue
+            refs = extract_bracket_refs(formula)
+            if len(refs) != 1:
+                continue
+            ref = refs[0]
+            if ref.column is not None and ref.source.lower() == element.name.lower():
+                passthrough[ref.column.lower()] = sigma_col
+        if passthrough:
+            self._customsql_passthrough_mappings[chart_urn] = passthrough
+
+    def _process_workbook_customsql_element(
+        self,
+        chart_urn: str,
+        customsql_entry: CustomSqlEntry,
+    ) -> None:
+        """Register one workbook customSQL chart with the per-platform aggregator."""
+        definition = (customsql_entry.definition or "").strip()
+        if not definition:
+            self.reporter.workbook_customsql_skipped += 1
+            return
+        connection_id = customsql_entry.connectionId
+        if not connection_id:
+            self.reporter.workbook_customsql_skipped += 1
+            return
+        record = self.connection_registry.get(connection_id)
+        if record is None:
+            self.reporter.workbook_customsql_skipped += 1
+            logger.warning(
+                "Workbook customSQL chart %r: connectionId=%r not found in connection "
+                "registry; warehouse lineage will be absent.  Check /v2/connections "
+                "scope/permissions.",
+                chart_urn,
+                connection_id,
+            )
+            return
+        if not record.is_mappable:
+            self.reporter.workbook_customsql_skipped += 1
+            logger.warning(
+                "Workbook customSQL chart %r: Sigma connection type %r is not mapped "
+                "to a DataHub platform; warehouse lineage will be absent.  Add it to "
+                "SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP if supported.",
+                chart_urn,
+                record.sigma_type,
+            )
+            return
+        aggregator = self._get_sql_aggregator(
+            platform=record.datahub_platform,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        try:
+            aggregator.add_view_definition(
+                view_urn=chart_urn,
+                view_definition=definition,
+                default_db=record.default_database,
+                default_schema=record.default_schema,
+            )
+            self.reporter.workbook_customsql_aggregator_invocations += 1
+            self._workbook_customsql_registered_urns.add(chart_urn)
+        except Exception as e:
+            self.reporter.workbook_customsql_aggregator_invocation_errors += 1
+            self.reporter.warning(
+                title="Sigma workbook customSQL chart registration failed",
+                message="SqlParsingAggregator.add_view_definition raised; this chart will be emitted without warehouse lineage.",
+                context=f"chart_urn={chart_urn}, customsql_name={customsql_entry.name!r}, connection_id={connection_id!r}, platform={record.datahub_platform}",
+                exc=e,
+            )
+
     def _process_dm_customsql_element(
         self,
         element_dataset_urn: str,
@@ -1148,6 +1276,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not isinstance(aspect, UpstreamLineage):
             return mcp
         entity_urn = str(mcp.entityUrn)
+
+        # Workbook chart URNs are handled separately from DM Dataset URNs.
+        # No FGL column-name rewriting is needed here — named-column FGL from
+        # the aggregator is used as-is; SELECT * synthesis uses the passthrough
+        # mapping built by _build_workbook_customsql_col_mapping.
+        if entity_urn in self._workbook_customsql_registered_urns:
+            self.reporter.workbook_customsql_upstream_emitted += 1
+            if not aspect.fineGrainedLineages and len(aspect.upstreams) == 1:
+                col_mapping = self._customsql_passthrough_mappings.get(entity_urn)
+                if col_mapping:
+                    upstream_urn = aspect.upstreams[0].dataset
+                    aspect.fineGrainedLineages = [
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                builder.make_schema_field_urn(upstream_urn, sql_col)
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                builder.make_schema_field_urn(entity_urn, sigma_col)
+                            ],
+                            confidenceScore=_FGL_CONFIDENCE_FORMULA_DERIVED,
+                        )
+                        for sql_col, sigma_col in col_mapping.items()
+                    ]
+                    self.reporter.workbook_customsql_column_lineage_emitted += 1
+            return mcp
+
         # Only count MCPs for element URNs we registered — the aggregator
         # should only emit for those, but guard in case of future changes.
         if entity_urn in self._customsql_registered_urns:
@@ -2903,6 +3059,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from self._gen_pages_workunit(workbook, paths)
 
+        if self.config.extract_lineage:
+            custom_sql_by_name, eid_by_csql_name = (
+                self._build_workbook_customsql_registry(workbook)
+            )
+            for csql_name, customsql_entry in custom_sql_by_name.items():
+                element_id = eid_by_csql_name.get(csql_name)
+                if element_id is None:
+                    self.reporter.workbook_customsql_skipped += 1
+                    continue
+                chart_urn = builder.make_chart_urn(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    name=element_id,
+                )
+                element = next(
+                    (
+                        e
+                        for page in workbook.pages
+                        for e in page.elements
+                        if e.elementId == element_id
+                    ),
+                    None,
+                )
+                if element is not None:
+                    self._build_workbook_customsql_col_mapping(element, chart_urn)
+                self._process_workbook_customsql_element(chart_urn, customsql_entry)
+
     def _gen_sigma_dataset_upstream_lineage_workunit(
         self,
     ) -> Iterable[MetadataWorkUnit]:
@@ -2936,6 +3119,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_registered_urns.clear()
         self._customsql_extra_upstreams.clear()
         self._customsql_extra_fgls.clear()
+        self._workbook_customsql_registered_urns.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the

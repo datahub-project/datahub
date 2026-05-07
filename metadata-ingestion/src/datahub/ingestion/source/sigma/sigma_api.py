@@ -1000,6 +1000,20 @@ class SigmaAPI:
                 existing["sourceIds"] = merged
         return deduped
 
+    def get_workbook_lineage_entries(self, workbook_id: str) -> List[Dict[str, Any]]:
+        """Return raw entries from GET /v2/workbooks/{id}/lineage.
+
+        ``customSQL`` entries carry the SQL definition; ``element`` entries
+        carry ``elementId`` + ``sourceIds`` pointing at customSQL names.
+        400/403/404 are swallowed silently (workbooks with no lineage graph).
+        """
+        logger.debug(f"Fetching lineage for workbook '{workbook_id}'.")
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/workbooks/{workbook_id}/lineage",
+            f"Unable to fetch lineage for workbook '{workbook_id}'.",
+            silent_statuses=(400, 403, 404),
+        )
+
     def _assemble_data_model(
         self,
         data_model: SigmaDataModel,
