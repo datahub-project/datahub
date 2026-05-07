@@ -1,4 +1,10 @@
-### Concept Mapping
+## Overview
+
+[Airbyte](https://airbyte.com/) is an open-source data integration platform that syncs data from sources to destinations through configurable connections. It supports hundreds of pre-built connectors and lets you build custom ones.
+
+This integration extracts metadata from Airbyte to give DataHub visibility into your data pipelines — including connections, sources, destinations, streams, and job execution history. It captures lineage between source and destination datasets at both the table and column level.
+
+## Concept Mapping
 
 Here's a table for **Concept Mapping** between Airbyte and DataHub to provide a clear overview of how entities and concepts in Airbyte are mapped to corresponding entities in DataHub:
 
