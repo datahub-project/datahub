@@ -2016,8 +2016,16 @@ class GlueSource(StatefulIngestionSourceBase):
                 params = column.get("Parameters")
                 if not params:
                     continue
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=column["Name"],
+                    hive_column_type=column.get("Type", "string"),
+                    description=column.get("Comment"),
+                    default_nullable=True,
+                )
+                if not schema_fields:
+                    continue
                 field_urn = mce_builder.make_schema_field_urn(
-                    dataset_urn, column["Name"]
+                    dataset_urn, schema_fields[0].fieldPath
                 )
                 assignments = []
                 for key, value in params.items():
@@ -2026,7 +2034,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         "urn:li:structuredProperty:"
                     )
                     if property_urn not in self._seen_column_param_urns:
-                        yield MetadataChangeProposalWrapper(
+                        definition_mcp = MetadataChangeProposalWrapper(
                             entityUrn=property_urn,
                             aspect=StructuredPropertyDefinitionClass(
                                 qualifiedName=qualified_name,
@@ -2034,9 +2042,15 @@ class GlueSource(StatefulIngestionSourceBase):
                                 valueType="urn:li:dataType:datahub.string",
                                 entityTypes=["urn:li:entityType:datahub.schemaField"],
                             ),
-                        ).as_workunit()
-                        # Only cache after successful yield so a dropped MCP
-                        # (network blip, GMS rejection) doesn't prevent retry.
+                        )
+                        if self.ctx.graph is not None:
+                            # Emit synchronously so GMS persists the definition
+                            # before the structuredProperties MCP below is
+                            # validated — GMS rejects assignments that reference
+                            # a definition not yet in the database.
+                            self.ctx.graph.emit_mcp(definition_mcp)
+                        else:
+                            yield definition_mcp.as_workunit()
                         self._seen_column_param_urns.add(property_urn)
                     assignments.append(
                         StructuredPropertyValueAssignmentClass(
