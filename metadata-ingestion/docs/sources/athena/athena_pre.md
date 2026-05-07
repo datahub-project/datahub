@@ -71,12 +71,8 @@ Create a policy with the following permissions and attach it to the AWS role or 
     {
       "Sid": "VisualEditor2",
       "Effect": "Allow",
-      "Action": [
-        "athena:ListDataCatalogs"
-      ],
-      "Resource": [
-        "*"
-      ]
+      "Action": ["athena:ListDataCatalogs"],
+      "Resource": ["*"]
     }
   ]
 }
