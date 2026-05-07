@@ -1,9 +1,11 @@
 import datetime
 from functools import partial
+from typing import Callable, Dict, List
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import time_machine
 
 from datahub.configuration.common import ConfigurationWarning
@@ -15,12 +17,26 @@ from datahub.ingestion.source.fivetran.config import (
     DatabricksDestinationConfig,
     FivetranLogConfig,
     FivetranSourceConfig,
+    FivetranSourceReport,
     PlatformDetail,
     SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
-from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
+from datahub.ingestion.source.fivetran.fivetran_log_db_reader import (
+    FivetranLogDbReader,
+)
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
+from datahub.ingestion.source.fivetran.response_models import (
+    FivetranColumn,
+    FivetranConnectionSchemas,
+    FivetranDestinationConfig,
+    FivetranDestinationDetails,
+    FivetranListedConnection,
+    FivetranListedUser,
+    FivetranSchema,
+    FivetranTable,
+)
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
@@ -38,16 +54,16 @@ def mock_service_account_credentials():
 default_connector_query_results = [
     {
         "connection_id": "calendar_elected",
-        "connecting_user_id": "reapply_phone",
+        "connecting_user_id": "test_user_id",
         "connector_type_id": "postgres",
         "connection_name": "postgres",
         "paused": False,
         "sync_frequency": 1440,
-        "destination_id": "interval_unconstitutional",
+        "destination_id": "test_destination_id",
     },
     {
         "connection_id": "my_confluent_cloud_connector_id",
-        "connecting_user_id": "reapply_phone",
+        "connecting_user_id": "test_user_id",
         "connector_type_id": "confluent_cloud",
         "connection_name": "confluent_cloud",
         "paused": False,
@@ -57,123 +73,140 @@ default_connector_query_results = [
 ]
 
 
-def default_query_results(
-    query, connector_query_results=default_connector_query_results
-):
-    fivetran_log_query = FivetranLogQuery()
-    # For Snowflake, valid unquoted identifiers are uppercased
-    # "test_database" -> "TEST_DATABASE", "test" -> "TEST"
-    fivetran_log_query.set_schema("TEST")
-    if query == fivetran_log_query.use_database("TEST_DATABASE"):
-        return []
-    if query == fivetran_log_query.get_connectors_query():
-        return connector_query_results
-    elif query == fivetran_log_query.get_table_lineage_query(
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
-    ):
-        return [
-            {
-                "connection_id": "calendar_elected",
-                "source_table_id": "10040",
-                "source_table_name": "employee",
-                "source_schema_name": "public",
-                "destination_table_id": "7779",
-                "destination_table_name": "employee",
-                "destination_schema_name": "postgres_public",
-            },
-            {
-                "connection_id": "calendar_elected",
-                "source_table_id": "10041",
-                "source_table_name": "company",
-                "source_schema_name": "public",
-                "destination_table_id": "7780",
-                "destination_table_name": "company",
-                "destination_schema_name": "postgres_public",
-            },
-            {
-                "connection_id": "my_confluent_cloud_connector_id",
-                "source_table_id": "10042",
-                "source_table_name": "my-source-topic",
-                "source_schema_name": "confluent_cloud",
-                "destination_table_id": "7781",
-                "destination_table_name": "my-destination-topic",
-                "destination_schema_name": "confluent_cloud",
-            },
-        ]
-    elif query == fivetran_log_query.get_column_lineage_query(
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
-    ):
-        return [
-            {
-                "source_table_id": "10040",
-                "destination_table_id": "7779",
-                "source_column_name": "id",
-                "destination_column_name": "id",
-            },
-            {
-                "source_table_id": "10040",
-                "destination_table_id": "7779",
-                "source_column_name": "name",
-                "destination_column_name": "name",
-            },
-            {
-                "source_table_id": "10041",
-                "destination_table_id": "7780",
-                "source_column_name": "id",
-                "destination_column_name": "id",
-            },
-            {
-                "source_table_id": "10041",
-                "destination_table_id": "7780",
-                "source_column_name": "name",
-                "destination_column_name": "name",
-            },
-        ]
-    elif query == fivetran_log_query.get_users_query():
-        return [
-            {
-                "user_id": "reapply_phone",
-                "given_name": "Shubham",
-                "family_name": "Jagtap",
-                "email": "abc.xyz@email.com",
-            }
-        ]
-    elif query == fivetran_log_query.get_sync_logs_query(
-        syncs_interval=7,
-        connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
-    ):
-        return [
-            {
-                "connection_id": "calendar_elected",
-                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
-                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
-                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-            },
-            {
-                "connection_id": "calendar_elected",
-                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
-                "start_time": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
-                "end_time": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
-                "end_message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
-            },
-            {
-                "connection_id": "calendar_elected",
-                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
-                "start_time": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
-                "end_time": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
-                "end_message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
-            },
-            {
-                "connection_id": "my_confluent_cloud_connector_id",
-                "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
-                "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
-                "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-                "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-            },
-        ]
-    # Unreachable code
-    raise Exception(f"Unknown query {query}")
+def _build_query_results_handler(database: str, schema: str) -> Callable[..., List]:
+    """Factory for the mocked Fivetran-log query handler.
+
+    Captures `database` and `schema` so the same mock query bodies work for
+    both the legacy Snowflake-warehouse path (uppercased identifiers) and the
+    Managed Data Lake / catalog-linked-database path (case-preserving
+    identifiers). The only difference between the two callers is the literal
+    identifiers; the lineage / column-lineage / users / sync-logs payloads
+    are shared.
+    """
+
+    def handler(
+        query: str,
+        connector_query_results: List[Dict] = default_connector_query_results,
+    ) -> List[Dict]:
+        fivetran_log_query = FivetranLogQuery()
+        fivetran_log_query.set_schema(schema)
+        if query == fivetran_log_query.use_database(database):
+            return []
+        if query == fivetran_log_query.get_connectors_query():
+            return connector_query_results
+        if query == fivetran_log_query.get_table_lineage_query(
+            connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+        ):
+            return [
+                {
+                    "connection_id": "calendar_elected",
+                    "source_table_id": "10040",
+                    "source_table_name": "employee",
+                    "source_schema_name": "public",
+                    "destination_table_id": "7779",
+                    "destination_table_name": "employee",
+                    "destination_schema_name": "postgres_public",
+                },
+                {
+                    "connection_id": "calendar_elected",
+                    "source_table_id": "10041",
+                    "source_table_name": "company",
+                    "source_schema_name": "public",
+                    "destination_table_id": "7780",
+                    "destination_table_name": "company",
+                    "destination_schema_name": "postgres_public",
+                },
+                {
+                    "connection_id": "my_confluent_cloud_connector_id",
+                    "source_table_id": "10042",
+                    "source_table_name": "my-source-topic",
+                    "source_schema_name": "confluent_cloud",
+                    "destination_table_id": "7781",
+                    "destination_table_name": "my-destination-topic",
+                    "destination_schema_name": "confluent_cloud",
+                },
+            ]
+        if query == fivetran_log_query.get_column_lineage_query(
+            connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"]
+        ):
+            return [
+                {
+                    "source_table_id": "10040",
+                    "destination_table_id": "7779",
+                    "source_column_name": "id",
+                    "destination_column_name": "id",
+                },
+                {
+                    "source_table_id": "10040",
+                    "destination_table_id": "7779",
+                    "source_column_name": "name",
+                    "destination_column_name": "name",
+                },
+                {
+                    "source_table_id": "10041",
+                    "destination_table_id": "7780",
+                    "source_column_name": "id",
+                    "destination_column_name": "id",
+                },
+                {
+                    "source_table_id": "10041",
+                    "destination_table_id": "7780",
+                    "source_column_name": "name",
+                    "destination_column_name": "name",
+                },
+            ]
+        if query == fivetran_log_query.get_users_query():
+            return [
+                {
+                    "user_id": "test_user_id",
+                    "given_name": "User",
+                    "family_name": "A",
+                    "email": "abc.xyz@email.com",
+                }
+            ]
+        if query == fivetran_log_query.get_sync_logs_query(
+            syncs_interval=7,
+            connector_ids=["calendar_elected", "my_confluent_cloud_connector_id"],
+        ):
+            return [
+                {
+                    "connection_id": "calendar_elected",
+                    "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
+                    "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                    "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                    "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+                },
+                {
+                    "connection_id": "calendar_elected",
+                    "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
+                    "start_time": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
+                    "end_time": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
+                    "end_message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
+                },
+                {
+                    "connection_id": "calendar_elected",
+                    "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
+                    "start_time": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
+                    "end_time": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
+                    "end_message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
+                },
+                {
+                    "connection_id": "my_confluent_cloud_connector_id",
+                    "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
+                    "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                    "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                    "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+                },
+            ]
+        raise Exception(f"Unknown query {query}")
+
+    return handler
+
+
+# For Snowflake, valid unquoted identifiers are auto-uppercased by the
+# connector for backward compatibility:
+#   "test_database" -> "TEST_DATABASE", "test" -> "TEST"
+default_query_results = _build_query_results_handler("TEST_DATABASE", "TEST")
 
 
 # Test cases with different schema names that might cause issues
@@ -210,10 +243,10 @@ def test_quoted_query_transpilation(schema):
 
     with (
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
         ) as mock_create_engine,
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_workspace_client"
         ),
     ):
         connection_magic_mock = MagicMock()
@@ -259,10 +292,16 @@ def test_quoted_query_transpilation(schema):
             ),
         )
 
-        # Create FivetranLogAPI instance
-        snowflake_fivetran_log_api = FivetranLogAPI(snowflake_dest_config)
-        bigquery_fivetran_log_api = FivetranLogAPI(bigquery_dest_config)
-        databricks_fivetran_log_api = FivetranLogAPI(databricks_dest_config)
+        # Create FivetranLogDbReader instance
+        snowflake_fivetran_log_api = FivetranLogDbReader(
+            snowflake_dest_config, FivetranSourceReport()
+        )
+        bigquery_fivetran_log_api = FivetranLogDbReader(
+            bigquery_dest_config, FivetranSourceReport()
+        )
+        databricks_fivetran_log_api = FivetranLogDbReader(
+            databricks_dest_config, FivetranSourceReport()
+        )
 
         # Test with default (always quote)
         fivetran_log_query.set_schema(schema)
@@ -290,7 +329,7 @@ def test_quoted_query_transpilation(schema):
             )
 
         # Test with Snowflake platform - valid unquoted identifiers get uppercased before quoting
-        # Simulate the preprocessing that happens in fivetran_log_api.py
+        # Simulate the preprocessing that happens in fivetran_log_db_reader.py
         is_valid_unquoted = FivetranLogQuery._is_valid_unquoted_identifier(schema)
         processed_schema = schema.upper() if is_valid_unquoted else schema
         fivetran_log_query_snowflake.set_schema(processed_schema)
@@ -355,10 +394,10 @@ def test_quoted_database_identifiers(db_name):
 
     with (
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
         ) as mock_create_engine,
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_workspace_client"
         ),
     ):
         connection_magic_mock = MagicMock()
@@ -404,10 +443,16 @@ def test_quoted_database_identifiers(db_name):
             ),
         )
 
-        # Create FivetranLogAPI instance
-        snowflake_fivetran_log_api = FivetranLogAPI(snowflake_dest_config)
-        bigquery_fivetran_log_api = FivetranLogAPI(bigquery_dest_config)
-        databricks_fivetran_log_api = FivetranLogAPI(databricks_dest_config)
+        # Create FivetranLogDbReader instance
+        snowflake_fivetran_log_api = FivetranLogDbReader(
+            snowflake_dest_config, FivetranSourceReport()
+        )
+        bigquery_fivetran_log_api = FivetranLogDbReader(
+            bigquery_dest_config, FivetranSourceReport()
+        )
+        databricks_fivetran_log_api = FivetranLogDbReader(
+            databricks_dest_config, FivetranSourceReport()
+        )
 
         # Test with default (always quote)
         use_db_query = fivetran_log_query.use_database(db_name)
@@ -437,7 +482,7 @@ def test_quoted_database_identifiers(db_name):
             )
 
         # Test with Snowflake platform - valid unquoted identifiers get uppercased before quoting
-        # Simulate the preprocessing that happens in fivetran_log_api.py
+        # Simulate the preprocessing that happens in fivetran_log_db_reader.py
         is_valid_unquoted = FivetranLogQuery._is_valid_unquoted_identifier(db_name)
         processed_db_name = db_name.upper() if is_valid_unquoted else db_name
         use_db_query_snowflake = fivetran_log_query_snowflake.use_database(
@@ -474,8 +519,6 @@ def test_quoted_database_identifiers(db_name):
 
 def test_snowflake_unquoted_identifier_uppercase_conversion():
     """Test that valid unquoted identifiers are uppercased for Snowflake backward compatibility"""
-    from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
-
     fivetran_log_query = FivetranLogQuery()
 
     # Test cases: valid unquoted identifiers (should be uppercased)
@@ -496,7 +539,7 @@ def test_snowflake_unquoted_identifier_uppercase_conversion():
     ]
 
     for identifier in valid_unquoted_cases:
-        # Simulate preprocessing in fivetran_log_api.py
+        # Simulate preprocessing in fivetran_log_db_reader.py
         is_valid = FivetranLogQuery._is_valid_unquoted_identifier(identifier)
         assert is_valid, f"Expected {identifier!r} to be a valid unquoted identifier"
 
@@ -513,7 +556,7 @@ def test_snowflake_unquoted_identifier_uppercase_conversion():
         )
 
         for identifier in invalid_unquoted_cases:
-            # Simulate preprocessing in fivetran_log_api.py
+            # Simulate preprocessing in fivetran_log_db_reader.py
             is_valid = FivetranLogQuery._is_valid_unquoted_identifier(identifier)
             assert not is_valid, (
                 f"Expected {identifier!r} to be an invalid unquoted identifier"
@@ -546,10 +589,10 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
 
     with (
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
         ) as mock_create_engine,
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_workspace_client"
         ),
     ):
         connection_magic_mock = MagicMock()
@@ -580,7 +623,7 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                         },
                         "destination_patterns": {
                             "allow": [
-                                "interval_unconstitutional",
+                                "test_destination_id",
                                 "my_confluent_cloud_connector_id",
                             ]
                         },
@@ -636,10 +679,10 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
 
     with (
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
         ) as mock_create_engine,
         mock.patch(
-            "datahub.ingestion.source.fivetran.fivetran_log_api.create_workspace_client"
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_workspace_client"
         ),
     ):
         connection_magic_mock = MagicMock()
@@ -652,7 +695,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                 "connection_name": "postgres",
                 "paused": False,
                 "sync_frequency": 1440,
-                "destination_id": "interval_unconstitutional",
+                "destination_id": "test_destination_id",
             },
             {
                 "connection_id": "my_confluent_cloud_connector_id",
@@ -661,7 +704,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                 "connection_name": "confluent_cloud",
                 "paused": False,
                 "sync_frequency": 1440,
-                "destination_id": "interval_unconstitutional",
+                "destination_id": "test_destination_id",
             },
         ]
 
@@ -695,7 +738,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                         },
                         "destination_patterns": {
                             "allow": [
-                                "interval_unconstitutional",
+                                "test_destination_id",
                             ]
                         },
                         "sources_to_platform_instance": {
@@ -738,10 +781,137 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
     )
 
 
+def test_fivetran_with_hybrid_destination_discovery(pytestconfig, tmp_path):
+    """End-to-end: Fivetran log lives in Snowflake; two destinations are in
+    use — one Snowflake, one Managed Data Lake. Whenever `api_config` is set
+    and the per-destination override doesn't pin a `platform`, the connector
+    consults the Fivetran REST API to determine each destination's `service`
+    and emits Snowflake URNs for the Snowflake-bound rows and Iceberg URNs
+    for the MDL-bound rows in a single ingestion pass.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
+    output_file = tmp_path / "fivetran_test_events.json"
+    golden_file = test_resources_dir / "fivetran_hybrid_discovery_golden.json"
+
+    # Custom connector list: postgres -> Snowflake destination,
+    # confluent_cloud -> MDL destination.
+    connector_query_results = [
+        {
+            "connection_id": "calendar_elected",
+            "connecting_user_id": "test_user_id",
+            "connector_type_id": "postgres",
+            "connection_name": "postgres",
+            "paused": False,
+            "sync_frequency": 1440,
+            "destination_id": "snowflake_dest",
+        },
+        {
+            "connection_id": "my_confluent_cloud_connector_id",
+            "connecting_user_id": "test_user_id",
+            "connector_type_id": "confluent_cloud",
+            "connection_name": "confluent_cloud",
+            "paused": False,
+            "sync_frequency": 1440,
+            "destination_id": "mdl_dest",
+        },
+    ]
+
+    def fake_destination_details(destination_id: str) -> FivetranDestinationDetails:
+        if destination_id == "snowflake_dest":
+            return FivetranDestinationDetails(
+                id="snowflake_dest",
+                service="snowflake",
+                region="AWS_US_WEST_2",
+                group_id="g1",
+                setup_status="CONNECTED",
+                config=FivetranDestinationConfig(database="ANALYTICS_DB"),
+            )
+        if destination_id == "mdl_dest":
+            return FivetranDestinationDetails(
+                id="mdl_dest",
+                service="managed_data_lake",
+                region="AWS_US_WEST_2",
+                group_id="g2",
+                setup_status="CONNECTED",
+                config=FivetranDestinationConfig(bucket="datalake-bucket"),
+            )
+        raise AssertionError(f"unexpected destination_id={destination_id}")
+
+    with (
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
+        ) as mock_create_engine,
+        mock.patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_workspace_client"
+        ),
+        mock.patch.object(
+            FivetranAPIClient,
+            "get_destination_details_by_id",
+            side_effect=fake_destination_details,
+        ),
+    ):
+        connection_magic_mock = MagicMock()
+        connection_magic_mock.execute.side_effect = partial(
+            default_query_results,
+            connector_query_results=connector_query_results,
+        )
+        mock_create_engine.return_value = connection_magic_mock
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "fivetran-hybrid-test",
+                "source": {
+                    "type": "fivetran",
+                    "config": {
+                        "fivetran_log_config": {
+                            "destination_platform": "snowflake",
+                            "snowflake_destination_config": {
+                                "account_id": "testid",
+                                "warehouse": "test_wh",
+                                "username": "test",
+                                "password": "test@123",
+                                "role": "testrole",
+                                "database": "test_database",
+                                "log_schema": "test",
+                            },
+                        },
+                        "api_config": {
+                            "api_key": "k",
+                            "api_secret": "s",
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": f"{output_file}"},
+                },
+            }
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    output_text = output_file.read_text()
+    assert "urn:li:dataPlatform:snowflake," in output_text, (
+        "Snowflake destination should produce Snowflake URNs."
+    )
+    assert "urn:li:dataPlatform:iceberg," in output_text, (
+        "MDL destination should default to Iceberg URN routing."
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{output_file}",
+        golden_path=f"{golden_file}",
+    )
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fivetran_bigquery_config():
-    with mock.patch("datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"):
+    with mock.patch(
+        "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
+    ):
         # Simply test that the config is parsed and the source is initialized without an error.
         assert FivetranSource.create(
             {
@@ -812,6 +982,7 @@ def test_rename_destination_config():
         match="destination_config is deprecated, please use snowflake_destination_config instead.",
     ):
         config = FivetranSourceConfig.model_validate(config_dict)
+        assert config.fivetran_log_config is not None
         assert config.fivetran_log_config.snowflake_destination_config is not None
         assert (
             config.fivetran_log_config.snowflake_destination_config.account_id
@@ -848,3 +1019,157 @@ def test_compat_sources_to_database() -> None:
         "calendar_elected": PlatformDetail(env="DEV", database="my_db"),
         "connector_2": PlatformDetail(database="my_db_2"),
     }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_fivetran_with_rest_api_log_source(pytestconfig, tmp_path):
+    """End-to-end test of `log_source: rest_api` mode.
+
+    No database engine setup — every read goes through the Fivetran REST
+    client, fully mocked here. Verifies that the REST reader produces
+    correct `Connector` data classes, lineage, and emits the expected
+    URNs without any SQL log database access.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
+    output_file = tmp_path / "fivetran_test_events.json"
+    golden_file = test_resources_dir / "fivetran_rest_only_golden.json"
+
+    # /v1/groups response — drives `_discover_group_ids` in the REST reader.
+    fake_groups_resp = MagicMock()
+    fake_groups_resp.json.return_value = {
+        "code": "Success",
+        "data": {"items": [{"id": "g1", "name": "Test Group"}]},
+    }
+    fake_groups_resp.raise_for_status = MagicMock()
+
+    def _fake_list_connections(self, group_id, page_size=100):
+        if group_id != "g1":
+            return iter([])
+        return iter(
+            [
+                FivetranListedConnection(
+                    id="postgres_test",
+                    schema_="postgres_public",
+                    service="postgres",
+                    paused=False,
+                    sync_frequency=1440,
+                    group_id="g1",
+                    connected_by="user_a",
+                )
+            ]
+        )
+
+    def _fake_get_connection_schemas(self, connection_id):
+        if connection_id == "postgres_test":
+            return FivetranConnectionSchemas(
+                schemas={
+                    "public": FivetranSchema(
+                        name_in_destination="postgres_public",
+                        enabled=True,
+                        tables={
+                            "employee": FivetranTable(
+                                name_in_destination="employee",
+                                enabled=True,
+                            )
+                        },
+                    )
+                }
+            )
+        return FivetranConnectionSchemas()
+
+    def _fake_get_table_columns(self, connection_id, schema, table):
+        # Per-table /columns endpoint — returns the full column set
+        # (not just user-modified ones). For the postgres_test
+        # connector this is the only place the column data lives now.
+        if (connection_id, schema, table) == ("postgres_test", "public", "employee"):
+            return {
+                "id": FivetranColumn(
+                    name_in_destination="id", enabled=True, is_primary_key=True
+                ),
+                "name": FivetranColumn(name_in_destination="name", enabled=True),
+            }
+        return {}
+
+    def _fake_list_users(self, group_id, page_size=100):
+        if group_id != "g1":
+            return iter([])
+        return iter(
+            [
+                FivetranListedUser(
+                    id="user_a",
+                    email="user_a@example.com",
+                    given_name="User",
+                    family_name="A",
+                )
+            ]
+        )
+
+    with (
+        mock.patch.object(
+            FivetranAPIClient,
+            "list_connections",
+            autospec=True,
+            side_effect=_fake_list_connections,
+        ),
+        mock.patch.object(
+            FivetranAPIClient,
+            "get_connection_schemas",
+            autospec=True,
+            side_effect=_fake_get_connection_schemas,
+        ),
+        mock.patch.object(
+            FivetranAPIClient,
+            "get_table_columns",
+            autospec=True,
+            side_effect=_fake_get_table_columns,
+        ),
+        mock.patch.object(
+            FivetranAPIClient,
+            "list_users",
+            autospec=True,
+            side_effect=_fake_list_users,
+        ),
+        mock.patch.object(
+            requests.Session,
+            "get",
+            return_value=fake_groups_resp,
+        ),
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "fivetran-rest-test",
+                "source": {
+                    "type": "fivetran",
+                    "config": {
+                        "log_source": "rest_api",
+                        "api_config": {"api_key": "k", "api_secret": "s"},
+                        "destination_to_platform_instance": {
+                            "g1": {
+                                "platform": "snowflake",
+                                "database": "TEST_DB",
+                                "env": "PROD",
+                            }
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": f"{output_file}"},
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    output_text = output_file.read_text()
+    # The destination URN should use the platform_instance override.
+    assert "urn:li:dataset:" in output_text
+    # Source URN: postgres-flavored
+    assert "urn:li:dataPlatform:postgres" in output_text
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{output_file}",
+        golden_path=f"{golden_file}",
+    )

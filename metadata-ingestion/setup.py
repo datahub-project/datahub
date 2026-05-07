@@ -491,10 +491,13 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.0 for CVE-2026-35030
-    "litellm==1.83.0",
-    # AWS SDK for Bedrock embedding support
+    # AWS SDK for Bedrock embedding support (SigV4 + AWS credential chain).
+    # OpenAI, Cohere, and the local provider all hit raw HTTP endpoints via
+    # `requests` (already required by acryl-datahub) — no SDKs needed.
     *aws_common,
+    # google-auth handles ADC / OAuth refresh for Vertex AI; the Vertex
+    # :predict call itself goes over plain HTTP.
+    "google-auth>=2.0.0,<3.0.0",
 }
 
 unstructured_lib = {

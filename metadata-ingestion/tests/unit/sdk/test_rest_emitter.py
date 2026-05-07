@@ -2526,6 +2526,39 @@ class TestDataHubGraphTcpKeepalive:
         )
 
 
+class TestTcpKeepaliveModuleDefaultResolution:
+    """DataHubRestEmitter.__init__ resolves an unset `tcp_keepalive` arg via
+    `get_or_else(arg, _DEFAULT_TCP_KEEPALIVE)`, where the module constant is
+    seeded from DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE at import. We patch
+    the constant directly to verify the resolution; the env-var -> constant
+    mapping is covered separately in tests/unit/configuration/test_env_vars.py.
+    """
+
+    @pytest.mark.parametrize(
+        "module_default,explicit_arg,expected_keepalive",
+        [
+            (True, None, True),  # default applies when arg omitted
+            (False, None, False),  # default applies when arg omitted
+            (True, False, False),  # explicit False wins over True default
+            (False, True, True),  # explicit True wins over False default
+        ],
+    )
+    def test_emitter_keepalive_resolution(
+        self, module_default, explicit_arg, expected_keepalive
+    ):
+        from datahub.emitter import rest_emitter
+
+        kwargs = {} if explicit_arg is None else {"tcp_keepalive": explicit_arg}
+        with patch.object(rest_emitter, "_DEFAULT_TCP_KEEPALIVE", module_default):
+            emitter = DataHubRestEmitter("http://localhost:8080", **kwargs)
+
+        adapter = emitter._session.get_adapter("https://example.com")
+        if expected_keepalive:
+            assert isinstance(adapter, _KeepAliveHTTPAdapter)
+        else:
+            assert type(adapter) is HTTPAdapter
+
+
 class TestWeightedRetry:
     """Tests for the WeightedRetry class that provides weighted retry logic for 429 responses."""
 
