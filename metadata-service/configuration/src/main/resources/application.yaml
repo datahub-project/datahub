@@ -248,7 +248,7 @@ timeseriesAspectService:
       strict: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
   cache:
     enabled: ${TIMESERIES_CACHE_ENABLED:true}
-    ttlHours: ${TIMESERIES_CACHE_TTL_HOURS:7}
+    ttlHours: ${TIMESERIES_CACHE_TTL_HOURS:2}
     ttlJitterMinutes: ${TIMESERIES_CACHE_TTL_JITTER_MINUTES:60}
     maxSize: ${TIMESERIES_CACHE_MAX_SIZE:100000}
     cachedAspects: ${TIMESERIES_LATEST_CACHED_ASPECTS:datasetProfile}
