@@ -355,6 +355,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Sigma display column (formula ref absent or element name mismatch).
     dm_customsql_fgl_downstream_unmapped: int = 0
 
+    # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
+    workbook_customsql_skipped: int = 0
+    workbook_customsql_aggregator_invocations: int = 0
+    workbook_customsql_aggregator_invocation_errors: int = 0
+    workbook_customsql_parse_failed: int = 0
+    workbook_customsql_upstream_emitted: int = 0
+    workbook_customsql_column_lineage_emitted: int = 0
+    workbook_customsql_fgl_downstream_unmapped: int = 0
+
     # Connection registry counters.
     # Records whose Sigma type mapped to a known DataHub platform.
     connections_resolved: int = 0
