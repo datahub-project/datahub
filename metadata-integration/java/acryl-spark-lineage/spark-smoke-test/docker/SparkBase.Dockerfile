@@ -18,7 +18,7 @@ RUN apt-get update -y && \
     apt-get install /tmp/zulu-repo_1.0.0-3_all.deb && \
     apt-get update && \
 #    apt-cache search zulu && \
-    apt-get install -y --no-install-recommends zulu21-jdk ant && \
+    apt-get install -y --no-install-recommends zulu25-jdk ant && \
     apt-get clean && \
     curl -sS https://archive.apache.org/dist/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz && \
     tar -xf spark.tgz && \
@@ -28,7 +28,7 @@ RUN apt-get update -y && \
     rm -rf /var/tmp/* /tmp/* /var/lib/apt/lists/*
 
 # JPype1 builds from source: CMake FindJNI needs JAVA_HOME (unset by Zulu deb); its build also invokes ant.
-ENV JAVA_HOME=/usr/lib/jvm/zulu21-ca-amd64
+ENV JAVA_HOME=/usr/lib/jvm/zulu25-ca-amd64
 
 RUN set -e; \
     pip install JPype1
