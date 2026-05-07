@@ -1243,8 +1243,16 @@ class JdbcSinkConnector(BaseConnector):
                 if parser.schema_name and has_three_level_hierarchy(
                     parser.target_platform
                 ):
-                    # Platform supports schema hierarchy: database.schema.table
-                    table_with_schema = f"{parser.schema_name}.{table_name}"
+                    schema_prefix = f"{parser.schema_name}."
+                    if table_name.startswith(schema_prefix):
+                        # Topic-derived table name already encodes the schema
+                        # (e.g. topic "public.clm" with schema_name="public"
+                        # and the default table.name.format="${topic}").
+                        # Prepending the schema again would duplicate the
+                        # segment in the lineage URN.
+                        table_with_schema = table_name
+                    else:
+                        table_with_schema = f"{parser.schema_name}.{table_name}"
                     target_dataset = get_dataset_name(
                         parser.database_name, table_with_schema
                     )
