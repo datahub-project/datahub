@@ -1,7 +1,6 @@
-import { useUserContext } from '@app/context/useUserContext';
+import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
 
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { CorpUser, DataPlatform, ScenarioType } from '@types';
+import { CorpUser, DataPlatform } from '@types';
 
 export const PLATFORMS_MODULE_ID = 'Platforms';
 
@@ -13,35 +12,20 @@ type PlatformAndCount = {
 };
 
 export const useGetPlatforms = (
-    user?: CorpUser | null,
+    _user?: CorpUser | null,
     maxToFetch?: number,
 ): { platforms: PlatformAndCount[]; loading: boolean } => {
-    const { localState } = useUserContext();
-    const { selectedViewUrn } = localState;
-    const { data, loading } = useListRecommendationsQuery({
-        variables: {
-            input: {
-                userUrn: user?.urn as string,
-                requestContext: {
-                    scenario: ScenarioType.Home,
-                },
-                limit: maxToFetch || MAX_PLATFORMS_TO_FETCH,
-                viewUrn: selectedViewUrn,
-            },
-        },
-        fetchPolicy: 'cache-first',
-        skip: !user?.urn,
-    });
+    const { modules, loading } = useHomeRecommendations();
 
-    const platformsModule = data?.listRecommendations?.modules?.find(
-        (module) => module.moduleId === PLATFORMS_MODULE_ID,
-    );
+    const platformsModule = modules?.find((module) => module.moduleId === PLATFORMS_MODULE_ID);
+    const limit = maxToFetch || MAX_PLATFORMS_TO_FETCH;
     const platforms =
         platformsModule?.content
             ?.filter((content) => content.entity)
             .map((content) => ({
                 count: content.params?.contentParams?.count || 0,
                 platform: content.entity as DataPlatform,
-            })) || [];
+            }))
+            .slice(0, limit) || [];
     return { platforms, loading };
 };

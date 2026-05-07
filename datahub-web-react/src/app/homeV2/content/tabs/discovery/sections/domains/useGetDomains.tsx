@@ -1,36 +1,29 @@
 import { WatchQueryFetchPolicy } from '@apollo/client';
+import { useEffect } from 'react';
 
-import { useUserContext } from '@app/context/useUserContext';
+import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
 
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { CorpUser, Domain, ScenarioType } from '@types';
+import { CorpUser, Domain } from '@types';
 
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;
 
 export const useGetDomains = (
-    user?: CorpUser | null,
+    _user?: CorpUser | null,
     fetchPolicy?: WatchQueryFetchPolicy,
 ): { domains: { entity: Domain; assetCount: number }[]; loading: boolean } => {
-    const { localState } = useUserContext();
-    const { selectedViewUrn } = localState;
-    const { data, loading } = useListRecommendationsQuery({
-        variables: {
-            input: {
-                userUrn: user?.urn as string,
-                requestContext: {
-                    scenario: ScenarioType.Home,
-                },
-                limit: 10,
-                viewUrn: selectedViewUrn,
-            },
-        },
-        fetchPolicy: fetchPolicy ?? 'cache-first',
-        nextFetchPolicy: 'cache-first',
-        skip: !user?.urn,
-    });
+    const { modules, loading, refetch } = useHomeRecommendations();
 
-    const domainsModule = data?.listRecommendations?.modules?.find((module) => module.moduleId === DOMAINS_MODULE_ID);
+    // homeV3 passes 'cache-and-network' when a module reload is triggered.
+    // Since useHomeRecommendations uses cache-first, an explicit refetch achieves
+    // the same effect: return cached data immediately, then update from the network.
+    useEffect(() => {
+        if (fetchPolicy === 'cache-and-network') {
+            refetch();
+        }
+    }, [fetchPolicy, refetch]);
+
+    const domainsModule = modules?.find((module) => module.moduleId === DOMAINS_MODULE_ID);
     const domains =
         domainsModule?.content
             ?.filter((content) => content.entity)
