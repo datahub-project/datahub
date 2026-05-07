@@ -239,15 +239,19 @@ test.describe('lineage_graph', () => {
     await expect(page.getByText('Set Upstreams')).toBeDisabled();
 
     // Search for a dataset to add as an upstream.
-    // Use 'health_test' rather than the full name — 'playwright_health_test' tokenises to
-    // 'playwright|health|test' and returns all 36 playwright_* entities on page 1, pushing
-    // the target off the first page. The shorter term yields a small, targeted result set.
-    await lineagePage.searchInLineageEditModal('health_test');
+    // DataHub's entity search does not tokenise on underscores, so 'health_test' matches
+    // nothing. Use the full name so the search returns results. The full name may produce
+    // many results (all playwright_* entities share the 'playwright' token), so the target
+    // card may be below the fold — scrollIntoViewIfNeeded() handles that before asserting
+    // visibility.
+    await lineagePage.searchInLineageEditModal('playwright_health_test');
 
     const searchResultCard = page.locator(
       '[data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)"]',
     );
-    await expect(searchResultCard).toBeVisible({ timeout: 30000 });
+    await expect(searchResultCard).toBeAttached({ timeout: 30000 });
+    await searchResultCard.scrollIntoViewIfNeeded();
+    await expect(searchResultCard).toBeVisible({ timeout: 5000 });
     await searchResultCard.locator('..').locator('input').click();
 
     // After selection, Set Upstreams should be enabled
