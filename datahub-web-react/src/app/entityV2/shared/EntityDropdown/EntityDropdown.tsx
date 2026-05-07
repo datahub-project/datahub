@@ -517,6 +517,7 @@ const EntityDropdown = (props: Props) => {
                     urns={[urn]}
                     onClose={() => setIsDeprecationModalVisible(false)}
                     refetch={refetchForEntity}
+                    zIndexOverride={101}
                 />
             )}
             {isEntityAnnouncementModalVisible && (
