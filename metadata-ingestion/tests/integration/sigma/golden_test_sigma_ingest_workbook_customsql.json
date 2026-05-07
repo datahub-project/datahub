@@ -10,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309629,
+        "lastObserved": 1778187822503,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -50,7 +50,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309629,
+        "lastObserved": 1778187822503,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -68,7 +68,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309630,
+        "lastObserved": 1778187822503,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -84,7 +84,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309630,
+        "lastObserved": 1778187822504,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -108,7 +108,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309630,
+        "lastObserved": 1778187822504,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -124,7 +124,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309631,
+        "lastObserved": 1778187822504,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -159,7 +159,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309631,
+        "lastObserved": 1778187822504,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -183,7 +183,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309631,
+        "lastObserved": 1778187822504,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -199,7 +199,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309632,
+        "lastObserved": 1778187822505,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -228,11 +228,15 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309632,
+        "lastObserved": 1778187822505,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -279,7 +283,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309633,
+        "lastObserved": 1778187822505,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -303,7 +307,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309633,
+        "lastObserved": 1778187822506,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -350,7 +354,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309638,
+        "lastObserved": 1778187822506,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -376,7 +380,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309690,
+        "lastObserved": 1778187822514,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -392,7 +396,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309690,
+        "lastObserved": 1778187822515,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -408,7 +412,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309690,
+        "lastObserved": 1778187822515,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -426,7 +430,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309690,
+        "lastObserved": 1778187822515,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -442,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309690,
+        "lastObserved": 1778187822515,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -489,7 +493,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778185309692,
+        "lastObserved": 1778187822517,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
