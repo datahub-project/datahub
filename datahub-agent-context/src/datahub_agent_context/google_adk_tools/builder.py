@@ -27,6 +27,7 @@ from datahub_agent_context.mcp_tools.lineage import (
 )
 from datahub_agent_context.mcp_tools.owners import add_owners, remove_owners
 from datahub_agent_context.mcp_tools.queries import get_dataset_queries
+from datahub_agent_context.mcp_tools.runs import get_runs
 from datahub_agent_context.mcp_tools.save_document import save_document
 from datahub_agent_context.mcp_tools.search import search
 from datahub_agent_context.mcp_tools.tags import add_tags, remove_tags
@@ -78,6 +79,7 @@ def build_google_adk_tools(
         create_context_wrapper(get_lineage_paths_between, client),
         create_context_wrapper(get_dataset_queries, client),
         create_context_wrapper(get_dataset_assertions, client),
+        create_context_wrapper(get_runs, client),
         create_context_wrapper(search, client),
     ]
 
