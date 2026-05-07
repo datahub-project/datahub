@@ -78,7 +78,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - **(Operations / Helm)** Per-workload monitoring configuration is deprecated in favor of cluster-wide settings (`global.datahub.monitoring`).
 - **(Operations / Helm)** Enable global.datahub.systemUpdate.consolidatedUpgrade so upgrades run through the consolidated system-update path and the chart no longer relies on separate one-off setup jobs (e.g. mysql/ES setup jobs) for that flow.
 - (Ingestion / dbt) The `test_warnings_are_errors` default will change from `false` to `true` in a future release. Once assertion result consumers can filter by severity, `warn` test statuses will always emit as `FAILURE` with `severity: LOW`, and the flag itself will be deprecated. To adopt the forthcoming behavior today, set `test_warnings_are_errors: true` in your dbt recipe.
-- (Automations / Glossary Term AI) The Glossary Term AI automation has been deprecated. This capability will be replaced in an upcoming release. 
+- (Automations / Glossary Term AI) The Glossary Term AI automation has been deprecated. This capability will be replaced in an upcoming release.
 
 ### Other Notable Changes
 
