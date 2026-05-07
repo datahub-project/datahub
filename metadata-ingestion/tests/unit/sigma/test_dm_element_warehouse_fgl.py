@@ -347,7 +347,6 @@ class TestBuildFglWarehouseIntegration:
 
         assert len(fgls) == 1
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
-        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
         assert (
             source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
         )

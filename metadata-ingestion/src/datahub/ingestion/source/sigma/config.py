@@ -277,9 +277,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_collision_pick_first: int = 0
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
-    # Refs where the formula source name matches the element's own name (self-ref),
-    # indicating a warehouse-passthrough, but columnId-based resolution failed
-    # (e.g. CSV-backed element, /files lookup miss, unmappable connection).
+    # Warehouse-passthrough refs where columnId-based resolution failed.
+    # Fires for self-ref formulas (element name == formula source) AND for
+    # formulas where the source is the warehouse table name but resolution fails
+    # (e.g. inode-shaped columnId with /files miss or unmappable connection).
+    # Note: semantics changed in this release — previously this counter fired on
+    # every self-ref (a throughput signal); now it fires only on failure.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
     # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
     # Covers both the self-ref case and the case where the formula source is
