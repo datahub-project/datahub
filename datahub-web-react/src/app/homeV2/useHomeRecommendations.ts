@@ -1,10 +1,14 @@
 import { useUserContext } from '@app/context/useUserContext';
 
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { RecommendationModule, ScenarioType } from '@types';
+import { ListRecommendationsQuery, useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { ScenarioType } from '@types';
+
+type RecommendationModuleFromQuery = NonNullable<
+    NonNullable<ListRecommendationsQuery['listRecommendations']>['modules']
+>[number];
 
 type UseHomeRecommendationsResult = {
-    modules: RecommendationModule[] | undefined;
+    modules: RecommendationModuleFromQuery[] | undefined;
     loading: boolean;
     refetch: () => void;
 };
