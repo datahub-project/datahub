@@ -113,7 +113,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             null, // No semantic search config for basic tests
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            true);
   }
 
   @Test

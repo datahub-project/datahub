@@ -110,14 +110,14 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         idHashAlgo,
         semanticSearchConfig,
         indexConvention,
-        true);
+        false);
   }
 
   /**
    * Same as the 7-arg constructor, but allows toggling per-(urn, aspect) coalescing of batched
-   * updates. When {@code coalesceBatchUpdates} is true (default), N MCLs targeting the same (urn,
-   * aspect) within a batch produce a single ES upsert (last-write-wins, with predecessor runIds
-   * still appended). When false, the legacy per-event behavior is preserved as a rollback.
+   * updates. When {@code coalesceBatchUpdates} is true, N MCLs targeting the same (urn, aspect)
+   * within a batch produce a single ES upsert (last-write-wins, with predecessor runIds still
+   * appended). When false (default), the legacy per-event behavior is preserved.
    */
   public UpdateIndicesV2Strategy(
       @Nonnull EntityIndexVersionConfiguration v2Config,
