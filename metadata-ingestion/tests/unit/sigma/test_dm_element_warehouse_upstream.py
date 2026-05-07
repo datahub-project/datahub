@@ -930,8 +930,7 @@ class TestTwoSegmentPathDefaultDatabase:
         source = _make_source_with_override()  # no default_database anywhere
         result = self._build_map(source)
         assert result["rsUrlId001"].db == ""
-        warnings = [w["title"] for w in source.reporter.warnings]
-        assert any("default_database" in w for w in warnings)
+        assert any("default_database" in w.title for w in source.reporter.warnings)
 
     def test_empty_db_warning_deduped_across_dms(self):
         source = _make_source_with_override()
@@ -947,7 +946,7 @@ class TestTwoSegmentPathDefaultDatabase:
             source._build_dm_warehouse_url_id_map(dm1)
             source._build_dm_warehouse_url_id_map(dm2)
         warnings = [
-            w for w in source.reporter.warnings if "default_database" in w["title"]
+            w for w in source.reporter.warnings if "default_database" in w.title
         ]
         assert len(warnings) == 1
 
