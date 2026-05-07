@@ -422,6 +422,8 @@ class SigmaAPI:
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
             pass  # terminal; warehouse lineage comes from SQL parsing
+        elif source_type == "customSQL":
+            pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
         else:
             # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
