@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
@@ -48,16 +49,25 @@ public class LatestTimeseriesAspectVersionCachingService
    */
   private static final String INDEX_CACHE_NAME = "latestTimeseriesAspectIndex";
 
+  // Three counters, all tagged by aspect + entity so operators can see which aspects are
+  // benefiting from the cache.
+  private static final String METRIC_HIT = "latestTimeseriesAspectCache.hit";
+  private static final String METRIC_MISS = "latestTimeseriesAspectCache.miss";
+  private static final String METRIC_EVICT = "latestTimeseriesAspectCache.evict";
+  private static final String METRIC_NOT_PRESENT = "latestTimeseriesAspectCache.not.present";
+
   private final TimeseriesAspectService delegate;
   private final Cache dataCache;
   private final Cache indexCache;
   private final CacheConfig cacheConfig;
   private final Set<String> cachedAspectNames;
+  @Nullable private final MetricUtils metricUtils;
 
   public LatestTimeseriesAspectVersionCachingService(
       @Nonnull final TimeseriesAspectService delegate,
       @Nonnull final CacheManager cacheManager,
-      @Nonnull final CacheConfig cacheConfig) {
+      @Nonnull final CacheConfig cacheConfig,
+      @Nullable final MetricUtils metricUtils) {
     this.delegate = delegate;
     this.dataCache = cacheManager.getCache(DATA_CACHE_NAME);
     this.indexCache = cacheManager.getCache(INDEX_CACHE_NAME);
@@ -70,9 +80,16 @@ public class LatestTimeseriesAspectVersionCachingService
               + "' caches must be registered with the CacheManager");
     }
     this.cacheConfig = cacheConfig;
+    this.metricUtils = metricUtils;
     // CacheConfig is the single source of truth for which aspects are cached. Snapshot once
     // so we don't see config mutations mid-request.
     this.cachedAspectNames = Set.copyOf(cacheConfig.getCachedAspects());
+  }
+
+  private void recordMetric(@Nonnull String name, @Nonnull String... tags) {
+    if (metricUtils != null) {
+      metricUtils.incrementMicrometer(name, 1.0, tags);
+    }
   }
 
   @Override
@@ -152,11 +169,13 @@ public class LatestTimeseriesAspectVersionCachingService
         try {
           List<EnvelopedAspect> result = deserializeCachedAspect(cached);
           log.debug("Cache hit for {}", cacheKey);
+          recordMetric(METRIC_HIT, "aspect", aspectName, "entity", entityName);
           return result;
         } catch (Exception e) {
           log.error("Failed to deserialize cached aspect for {}, falling back to ES", cacheKey, e);
         }
       }
+      recordMetric(METRIC_MISS, "aspect", aspectName, "entity", entityName);
     }
 
     List<EnvelopedAspect> result =
@@ -205,6 +224,7 @@ public class LatestTimeseriesAspectVersionCachingService
       Set<String> missing = new HashSet<>();
       for (String aspectName : aspectNames) {
         if (!cachedAspectNames.contains(aspectName)) {
+          // Non-cacheable aspects don't count as "miss" — they're outside the cache's scope.
           missing.add(aspectName);
           continue;
         }
@@ -212,13 +232,16 @@ public class LatestTimeseriesAspectVersionCachingService
         String cachedValue = getCachedValue(cacheKey);
         if (cachedValue == null) {
           missing.add(aspectName);
+          recordMetric(METRIC_MISS, "aspect", aspectName, "entity", urn.getEntityType());
           continue;
         }
         try {
           hits.put(aspectName, deserializeCachedAspect(cachedValue).get(0));
+          recordMetric(METRIC_HIT, "aspect", aspectName, "entity", urn.getEntityType());
         } catch (Exception e) {
           log.warn("Cache deserialization failed for {}, refetching from ES", cacheKey, e);
           missing.add(aspectName);
+          recordMetric(METRIC_MISS, "aspect", aspectName, "entity", urn.getEntityType());
         }
       }
       if (!hits.isEmpty()) {
@@ -499,6 +522,8 @@ public class LatestTimeseriesAspectVersionCachingService
       dataCache.clear();
       indexCache.clear();
       log.debug("Cleared both timeseries caches (data + index)");
+      // No tags — full clear isn't tied to a specific aspect.
+      recordMetric(METRIC_EVICT);
     } catch (Exception e) {
       log.warn("Failed to clear timeseries caches", e);
     }
@@ -512,6 +537,7 @@ public class LatestTimeseriesAspectVersionCachingService
   private void evictCacheKey(String aspectName, String entityName, String urn) {
     try {
       dataCache.evict(buildCacheKey(aspectName, entityName, urn));
+      recordMetric(METRIC_EVICT, "aspect", aspectName, "entity", entityName);
     } catch (Exception e) {
       log.warn("Failed to evict cache key for {}/{}/{}", aspectName, entityName, urn, e);
     }
@@ -765,6 +791,7 @@ public class LatestTimeseriesAspectVersionCachingService
         IMap<String, CachedLatestAspect> hazelData = (IMap<String, CachedLatestAspect>) nativeData;
         handleAtomicEviction(hazelIndex, hazelData, aspectName, entityName);
       }
+      recordMetric(METRIC_EVICT, "aspect", aspectName, "entity", entityName);
     } catch (Exception e) {
       log.warn("Failed to evict aspect index for {}", aspectName, e);
     }

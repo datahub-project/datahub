@@ -64,7 +64,8 @@ public class TimeseriesAspectServiceFactory {
           cacheConfig.getTtlHours(),
           cacheConfig.getTtlJitterMinutes(),
           cacheConfig.getMaxSize());
-      return new LatestTimeseriesAspectVersionCachingService(service, cacheManager, cacheConfig);
+      return new LatestTimeseriesAspectVersionCachingService(
+          service, cacheManager, cacheConfig, metricUtils);
     }
 
     if (cacheConfig.isEnabled() && cacheConfig.getCachedAspects().isEmpty()) {

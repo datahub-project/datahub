@@ -68,7 +68,8 @@ public class LatestTimeseriesAspectVersionCachingServiceTest {
     cacheConfig.setCachedAspects(Set.of(ASPECT_NAME));
 
     cachingService =
-        new LatestTimeseriesAspectVersionCachingService(mockDelegate, cacheManager, cacheConfig);
+        new LatestTimeseriesAspectVersionCachingService(
+            mockDelegate, cacheManager, cacheConfig, null);
 
     when(opContext.getObjectMapper()).thenReturn(objectMapper);
   }
