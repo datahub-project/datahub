@@ -26,6 +26,3 @@ deepdiff!=8.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.0.1
-
-# For semantic search tests (embedding generation)
-litellm>=1.0.0
