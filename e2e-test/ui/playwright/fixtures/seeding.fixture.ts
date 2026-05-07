@@ -52,6 +52,7 @@ import { LoginPage } from '../pages/login.page';
 import { gmsUrl } from '../utils/constants';
 import { extractUrn, type Mcp } from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
+import { seedLineageFromDataJson } from '../utils/lineage-seeder';
 
 // ── GMS token bootstrap ───────────────────────────────────────────────────────
 
@@ -124,6 +125,17 @@ const TESTS_DIR = path.join(__dirname, '../tests');
 /** Global shared data ingested before any feature-specific seeding. */
 const GLOBAL_DATA_FILE = path.join(__dirname, '../test-data/data.json');
 const GLOBAL_FEATURE_NAME = 'global-data';
+
+/**
+ * Separate state feature name for the MCP lineage re-seeder.
+ *
+ * The legacy /entities?action=ingest endpoint fails for entities whose platformSchema
+ * embeds Avro union types (HTTP 500 "Unknown dereferenced type STRING").  The
+ * upstreamLineage aspects inside those snapshots are therefore never stored.
+ * We compensate by re-ingesting every upstreamLineage aspect via MCP after the
+ * main global data seed runs.
+ */
+const LINEAGE_RESEED_FEATURE_NAME = 'global-lineage-reseed';
 
 /** Shape written to the state file after a successful seed. */
 interface SeedState {
@@ -292,6 +304,34 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
         } else {
           // throwOnFailure=false: global data has mixed-format MCPs; partial failures are non-blocking.
           await ingestMcps(GLOBAL_FEATURE_NAME, gmsToken, gmsUrl(), logger, GLOBAL_DATA_FILE, false);
+          freshlySeeded = true;
+        }
+
+        // Always re-seed upstreamLineage aspects via MCP endpoint once per worker.
+        // The legacy /entities?action=ingest endpoint fails for entities with complex Avro
+        // schemas (union types), so their upstreamLineage aspects never reach GMS.
+        // We fix this by re-ingesting all lineage aspects via /aspects?action=ingestProposal.
+        const lineageStateFile = stateFilePath(LINEAGE_RESEED_FEATURE_NAME);
+        if (!fs.existsSync(lineageStateFile)) {
+          const apiCtx = await request.newContext({
+            baseURL: gmsUrl(),
+            extraHTTPHeaders: {
+              Authorization: `Bearer ${gmsToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          try {
+            await seedLineageFromDataJson(apiCtx, gmsToken, logger);
+          } finally {
+            await apiCtx.dispose();
+          }
+          fs.mkdirSync(SEEDED_DIR, { recursive: true });
+          const lineageState: SeedState = {
+            featureName: LINEAGE_RESEED_FEATURE_NAME,
+            seededAt: new Date().toISOString(),
+            entityCount: 0,
+          };
+          fs.writeFileSync(lineageStateFile, JSON.stringify(lineageState, null, 2));
           freshlySeeded = true;
         }
       }
