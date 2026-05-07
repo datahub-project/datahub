@@ -165,7 +165,7 @@ class TestBuildWorkbookCustomsqlRegistry:
             )
         assert "q1" in csql_by_name
         assert csql_by_name["q1"].definition.startswith("SELECT")
-        assert eid_by_name["q1"] == "el-chart-01"
+        assert eid_by_name["q1"] == ["el-chart-01"]
 
     def test_element_before_customsql_in_response(self) -> None:
         # Element entries may appear before customSQL entries in the response.
@@ -191,7 +191,7 @@ class TestBuildWorkbookCustomsqlRegistry:
             csql_by_name, eid_by_name = source._build_workbook_customsql_registry(
                 _make_workbook()
             )
-        assert eid_by_name.get("q2") == "el-chart-02"
+        assert eid_by_name.get("q2") == ["el-chart-02"]
 
     def test_element_with_no_matching_customsql_ignored(self) -> None:
         source = _make_source()

@@ -73,6 +73,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
+    source._workbook_customsql_registered_urns = set()
+    source._workbook_customsql_formula_fields = {}
     return source
 
 
