@@ -396,6 +396,17 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     produces dangling lineage for multi-env or multi-instance setups.
     """
 
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default database name for this connection. Required for platforms "
+            "where Sigma's /files path omits the database layer (e.g. Redshift: "
+            "'Connection Root/<SCHEMA>'). Set this to the database name the "
+            "warehouse connector uses so the emitted URNs match "
+            "(e.g. 'dev' to produce 'dev.public.table')."
+        ),
+    )
+
     convert_urns_to_lowercase: bool = pydantic.Field(
         default=True,
         description=(

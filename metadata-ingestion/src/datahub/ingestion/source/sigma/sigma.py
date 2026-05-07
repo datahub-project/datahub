@@ -764,8 +764,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if len(parts) == 3:
                 db, schema = parts[1], parts[2]
             else:
+                # No DB in path — resolve from connection_to_platform_map override
+                # first, then fall back to the connection registry's default_database.
+                conn_override = self.config.connection_to_platform_map.get(conn_id)
                 conn_record = self.connection_registry.get(conn_id)
-                db = (conn_record.default_database or "") if conn_record else ""
+                db = (
+                    (conn_override.default_database if conn_override else None)
+                    or (conn_record.default_database if conn_record else None)
+                    or ""
+                )
                 schema = parts[1]
             result[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
