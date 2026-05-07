@@ -58,8 +58,31 @@ public class PolicyEngine {
       final String privilege,
       final Optional<ResolvedEntitySpec> resource,
       final List<ResolvedEntitySpec> subResources) {
+    return evaluatePolicy(
+        opContext,
+        policy,
+        resolvedActorSpec,
+        privilege,
+        resource,
+        subResources,
+        new PolicyEvaluationContext());
+  }
 
-    final PolicyEvaluationContext context = new PolicyEvaluationContext();
+  /**
+   * Evaluates a policy with a caller-supplied {@link PolicyEvaluationContext}. Callers that
+   * evaluate multiple policies for the same actor should create one context and reuse it across all
+   * calls so that group-membership and role lookups (which may hit the entity client) are performed
+   * at most once per request rather than once per policy.
+   */
+  public PolicyEvaluationResult evaluatePolicy(
+      @Nonnull OperationContext opContext,
+      final DataHubPolicyInfo policy,
+      final ResolvedEntitySpec resolvedActorSpec,
+      final String privilege,
+      final Optional<ResolvedEntitySpec> resource,
+      final List<ResolvedEntitySpec> subResources,
+      final PolicyEvaluationContext context) {
+
     log.debug("Evaluating policy {}", policy.getDisplayName());
 
     // If the privilege is not in scope, deny the request.
@@ -231,9 +254,6 @@ public class PolicyEngine {
       return true;
     }
     if (requestResource.isEmpty()) {
-      if (policyResourceFilter.isAllResources()) {
-        return true;
-      }
       log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
     }
@@ -582,8 +602,12 @@ public class PolicyEngine {
     return groups;
   }
 
-  /** Class used to store state across a single Policy evaluation. */
-  static class PolicyEvaluationContext {
+  /**
+   * Mutable state bag shared across policy evaluations for the same request. Caches group
+   * membership and role resolution so that entity-client calls are made at most once per
+   * authorize() call rather than once per policy evaluated.
+   */
+  public static class PolicyEvaluationContext {
     private Set<String> groups;
     private Set<Urn> roles;
 

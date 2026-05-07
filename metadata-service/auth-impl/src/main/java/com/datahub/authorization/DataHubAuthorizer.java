@@ -74,8 +74,12 @@ public class DataHubAuthorizer implements Authorizer {
    */
   public static final String ALL = "ALL";
 
-  /** Special cache key holding only DENY-effect policies, used by {@link #authorize}. */
-  public static final String DENY = "DENY";
+  /**
+   * Prefix for privilege-indexed DENY cache keys. A DENY policy covering privilege X is stored
+   * under {@code "DENY_X"}, mirroring how ALLOW policies are indexed, so the lookup in {@link
+   * #authorize} is O(1) with no full-deny-list scan.
+   */
+  public static final String DENY_PREFIX = "DENY_";
 
   public DataHubAuthorizer(
       @Nonnull final OperationContext systemOpContext,
@@ -118,6 +122,14 @@ public class DataHubAuthorizer implements Authorizer {
       return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null);
     }
 
+    Optional<Urn> actorUrn = getUrnFromRequestActor(request.getActorUrn());
+    if (actorUrn.isEmpty()) {
+      return new AuthorizationResult(request, AuthorizationResult.Type.DENY, "Invalid actor URN");
+    }
+    final ResolvedEntitySpec resolvedActorSpec =
+        entitySpecResolver.resolve(
+            new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
+
     Optional<ResolvedEntitySpec> resolvedResourceSpec =
         request.getResourceSpec().map(entitySpecResolver::resolve);
 
@@ -126,19 +138,24 @@ public class DataHubAuthorizer implements Authorizer {
             .map(entitySpecResolver::resolve)
             .collect(Collectors.toList());
 
-    // DENY takes precedence over ALLOW. DENY policies live in a dedicated bucket (not indexed
-    // by privilege) so that a policy listing only some privileges can't be silently missed;
-    // isPrivilegeMatch inside evaluatePolicy handles the per-privilege filter.
-    final List<DataHubPolicyInfo> denyPolicies = getOrDefault(DENY, new ArrayList<>());
+    // DENY takes precedence over ALLOW.
+    final List<DataHubPolicyInfo> denyPolicies =
+        getOrDefault(DENY_PREFIX + request.getPrivilege(), List.of());
+    final List<DataHubPolicyInfo> allowPolicies = getOrDefault(request.getPrivilege(), List.of());
+    final List<DataHubPolicyInfo> defaultPolicies =
+        PoliciesConfig.getDefaultPolicies(actorUrn.get());
 
-    // Privilege-indexed buckets contain only ALLOW policies; DENY policies are never added there.
-    final List<DataHubPolicyInfo> allowPolicies =
-        new LinkedList<>(getOrDefault(request.getPrivilege(), new ArrayList<>()));
-    allowPolicies.addAll(PoliciesConfig.getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn())));
+    final PolicyEngine.PolicyEvaluationContext evalContext =
+        new PolicyEngine.PolicyEvaluationContext();
 
     for (DataHubPolicyInfo denyPolicy : denyPolicies) {
       if (isPolicyApplicableToRequest(
-          denyPolicy, request, resolvedResourceSpec, resolvedSubResources)) {
+          denyPolicy,
+          resolvedActorSpec,
+          request,
+          resolvedResourceSpec,
+          resolvedSubResources,
+          evalContext)) {
         return new AuthorizationResult(
             request,
             AuthorizationResult.Type.DENY,
@@ -148,11 +165,31 @@ public class DataHubAuthorizer implements Authorizer {
 
     for (DataHubPolicyInfo allowPolicy : allowPolicies) {
       if (isPolicyApplicableToRequest(
-          allowPolicy, request, resolvedResourceSpec, resolvedSubResources)) {
+          allowPolicy,
+          resolvedActorSpec,
+          request,
+          resolvedResourceSpec,
+          resolvedSubResources,
+          evalContext)) {
         return new AuthorizationResult(
             request,
             AuthorizationResult.Type.ALLOW,
             String.format("Granted by policy with type: %s", allowPolicy.getType()));
+      }
+    }
+
+    for (DataHubPolicyInfo defaultPolicy : defaultPolicies) {
+      if (isPolicyApplicableToRequest(
+          defaultPolicy,
+          resolvedActorSpec,
+          request,
+          resolvedResourceSpec,
+          resolvedSubResources,
+          evalContext)) {
+        return new AuthorizationResult(
+            request,
+            AuthorizationResult.Type.ALLOW,
+            String.format("Granted by policy with type: %s", defaultPolicy.getType()));
       }
     }
 
@@ -309,23 +346,12 @@ public class DataHubAuthorizer implements Authorizer {
    */
   private boolean isPolicyApplicableToRequest(
       final DataHubPolicyInfo policy,
+      final ResolvedEntitySpec resolvedActorSpec,
       final AuthorizationRequest request,
       final Optional<ResolvedEntitySpec> resourceSpec,
-      final List<ResolvedEntitySpec> subResources) {
-    if (AuthorizationMode.ALLOW_ALL.equals(mode())) {
-      return true;
-    }
-
-    Optional<Urn> actorUrn = getUrnFromRequestActor(request.getActorUrn());
-    if (actorUrn.isEmpty()) {
-      return false;
-    }
-
+      final List<ResolvedEntitySpec> subResources,
+      final PolicyEngine.PolicyEvaluationContext context) {
     try {
-      final ResolvedEntitySpec resolvedActorSpec =
-          entitySpecResolver.resolve(
-              new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
-
       final PolicyEngine.PolicyEvaluationResult result =
           policyEngine.evaluatePolicy(
               systemOpContext,
@@ -333,7 +359,8 @@ public class DataHubAuthorizer implements Authorizer {
               resolvedActorSpec,
               request.getPrivilege(),
               resourceSpec,
-              subResources);
+              subResources,
+              context);
       return result.isApplicable();
     } catch (RuntimeException e) {
       log.error("Error evaluating policy {} for request {}", policy.getDisplayName(), request);
@@ -431,25 +458,14 @@ public class DataHubAuthorizer implements Authorizer {
 
     private void addPolicyToCache(
         final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
-      List<DataHubPolicyInfo> allPolicies =
-          cache.containsKey(ALL) ? new ArrayList<>(cache.get(ALL)) : new ArrayList<>();
-      allPolicies.add(policy);
-      cache.put(ALL, allPolicies);
+      // Safe to mutate lists in-place: newCache is local to run() and only made visible after
+      // the write lock is acquired.
+      cache.computeIfAbsent(ALL, k -> new ArrayList<>()).add(policy);
 
-      if (PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect())) {
-        List<DataHubPolicyInfo> denyPolicies =
-            cache.containsKey(DENY) ? new ArrayList<>(cache.get(DENY)) : new ArrayList<>();
-        denyPolicies.add(policy);
-        cache.put(DENY, denyPolicies);
-      } else {
-        for (String privilege : policy.getPrivileges()) {
-          List<DataHubPolicyInfo> existingPolicies =
-              cache.containsKey(privilege)
-                  ? new ArrayList<>(cache.get(privilege))
-                  : new ArrayList<>();
-          existingPolicies.add(policy);
-          cache.put(privilege, existingPolicies);
-        }
+      final String keyPrefix =
+          PoliciesConfig.DENY_POLICY_EFFECT.equals(policy.getEffect()) ? DENY_PREFIX : "";
+      for (String privilege : policy.getPrivileges()) {
+        cache.computeIfAbsent(keyPrefix + privilege, k -> new ArrayList<>()).add(policy);
       }
     }
   }

@@ -630,7 +630,7 @@ public class DataHubAuthorizerTest {
     final DataHubPolicyInfo denyPolicy =
         createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
 
-    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY_EDIT_ENTITY_OWNERS", ImmutableList.of(denyPolicy));
 
     final AuthorizationRequest request =
         new AuthorizationRequest(
@@ -1273,7 +1273,7 @@ public class DataHubAuthorizerTest {
         createDataHubPolicyInfoFor(true, privileges, null, null, actorFilter, DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
-    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY_EDIT_ENTITY_TAGS", ImmutableList.of(denyPolicy));
 
     final AuthorizationRequest request =
         new AuthorizationRequest(
@@ -1309,7 +1309,7 @@ public class DataHubAuthorizerTest {
             true, privileges, null, null, denyActorFilter, DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
-    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY_EDIT_ENTITY_TAGS", ImmutableList.of(denyPolicy));
 
     AuthorizationRequest deniedRequest =
         new AuthorizationRequest(
@@ -1397,7 +1397,7 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
-  public void testDenyPolicyInDenyBucketEnforcedEvenWithoutPrivilegeBucketEntry() throws Exception {
+  public void testDenyPolicyOverridesAllowForSamePrivilege() throws Exception {
     final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
     final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
 
@@ -1422,7 +1422,7 @@ public class DataHubAuthorizerTest {
             DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
-    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY_EDIT_ENTITY_TAGS", ImmutableList.of(denyPolicy));
 
     final AuthorizationRequest request =
         new AuthorizationRequest(
@@ -1462,7 +1462,7 @@ public class DataHubAuthorizerTest {
 
     _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
     _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_OWNERS", ImmutableList.of(allowPolicy));
-    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY_EDIT_ENTITY_TAGS", ImmutableList.of(denyPolicy));
 
     AuthorizationResult tagsResult =
         _dataHubAuthorizer.authorize(
@@ -1504,7 +1504,7 @@ public class DataHubAuthorizerTest {
             true, privileges, null, null, denyActorFilter, DENY_POLICY_EFFECT);
 
     _dataHubAuthorizer.policyCache.put("EDIT_ENTITY_TAGS", ImmutableList.of(allowPolicy));
-    _dataHubAuthorizer.policyCache.put("DENY", ImmutableList.of(denyPolicy));
+    _dataHubAuthorizer.policyCache.put("DENY_EDIT_ENTITY_TAGS", ImmutableList.of(denyPolicy));
 
     AuthorizedActors authorizedActors =
         _dataHubAuthorizer.authorizedActors("EDIT_ENTITY_TAGS", Optional.empty());
