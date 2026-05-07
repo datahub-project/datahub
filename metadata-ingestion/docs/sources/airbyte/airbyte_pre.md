@@ -1,4 +1,4 @@
-### Setup
+### Prerequisites
 
 This integration extracts metadata from Airbyte's API to capture information about your connections, sources, destinations, and the lineage between them.
 
