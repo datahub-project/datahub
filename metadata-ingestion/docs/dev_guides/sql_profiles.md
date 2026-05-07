@@ -30,7 +30,7 @@ Extracts:
 
 ## Supported Sources
 
-{{ inline /docs/generated/ingestion/sql_profiling_support_table.md }}
+{{ inline /docs/generated/ingestion/sql_profiling_support_table.md.snippet }}
 
 ## Profiler Implementation
 

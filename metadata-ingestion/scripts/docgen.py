@@ -1167,13 +1167,18 @@ def generate_sql_profiling_support_table(platforms: Dict[str, Platform]) -> None
     be inlined into ``metadata-ingestion/docs/dev_guides/sql_profiles.md`` via the
     ``{{ inline }}`` directive in ``docs-website/generateDocsDir.ts``.
 
+    The output extension is ``.md.snippet`` (not ``.md``) so that
+    ``generateDocsDir.ts`` does not pick it up as a standalone doc page in its
+    ``.md`` discovery glob — that would fail title-detection because a table
+    fragment has no ``# H1`` header.
+
     Source links are written relative to the host doc's location
     (``metadata-ingestion/docs/dev_guides/``) since ``markdown_rewrite_urls`` runs
     before inline expansion in the docs-website build pipeline.
     """
     out_dir = "../docs/generated/ingestion"
     os.makedirs(out_dir, exist_ok=True)
-    out_file = f"{out_dir}/sql_profiling_support_table.md"
+    out_file = f"{out_dir}/sql_profiling_support_table.md.snippet"
 
     rows: List[Dict[str, str]] = []
     for platform_id, platform in platforms.items():
