@@ -168,7 +168,7 @@ public class LatestTimeseriesAspectVersionCachingService
       if (cached != null) {
         try {
           List<EnvelopedAspect> result = deserializeCachedAspect(cached);
-          log.debug("Cache hit for {}", cacheKey);
+          log.debug("Cache hit for {} , {}", cacheKey, aspectName);
           recordMetric(METRIC_HIT, "aspect", aspectName, "entity", entityName);
           return result;
         } catch (Exception e) {
