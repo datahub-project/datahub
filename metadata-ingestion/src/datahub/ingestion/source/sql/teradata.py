@@ -829,7 +829,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
     ORDER BY "timestamp", "query_id", "row_no"
     """.strip()
 
-    TABLES_AND_VIEWS_QUERY: str = f"""
+    _TABLES_AND_VIEWS_QUERY_TEMPLATE: str = """
 SELECT
     t.DataBaseName,
     t.TableName as name,
@@ -846,12 +846,33 @@ SELECT
     t.LastAlterName,
     t.LastAlterTimeStamp,
     t.RequestText,
-    t.CreatorName  -- User who created the table/view, used for ownership extraction
+    t.CreatorName
 FROM dbc.TablesV t
-WHERE DataBaseName NOT IN ({",".join([f"'{db}'" for db in EXCLUDED_DATABASES])})
+WHERE DataBaseName NOT IN ({excluded_dbs}){db_allowlist}
 AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DataBaseName, TableName;
-     """.strip()
+""".strip()
+
+    def _build_tables_and_views_query(self) -> str:
+        excluded_dbs = ",".join([f"'{db}'" for db in EXCLUDED_DATABASES])
+
+        # When config.databases is set push filtering into SQL so we only fetch
+        # metadata for the configured databases. Without this, a Teradata system
+        # with thousands of databases loads ALL their table/view metadata into
+        # _tables_cache even though only a small subset will ever be processed.
+        # On large installations this is the primary driver of OOM crashes.
+        db_allowlist = ""
+        if self.config.databases:
+            # Teradata identifiers cannot contain single quotes; strip defensively.
+            safe_names = [db.replace("'", "") for db in self.config.databases]
+            db_allowlist = "\nAND DataBaseName IN ({})".format(
+                ",".join(f"'{db}'" for db in safe_names)
+            )
+
+        return self._TABLES_AND_VIEWS_QUERY_TEMPLATE.format(
+            excluded_dbs=excluded_dbs,
+            db_allowlist=db_allowlist,
+        )
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
     # Cache mapping (schema, entity_name) -> creator_name for table/view ownership
@@ -1554,7 +1575,7 @@ ORDER by DataBaseName, TableName;
                         "Tables/views with LastAlterTimeStamp before the watermark will be skipped."
                     )
 
-                for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
+                for entry in engine.execute(self._build_tables_and_views_query()):
                     table = TeradataTable(
                         database=entry.DataBaseName.strip(),
                         name=entry.name.strip(),

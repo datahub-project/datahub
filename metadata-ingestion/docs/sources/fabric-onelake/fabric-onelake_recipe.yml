@@ -41,11 +41,19 @@ source:
     #   allow:
     #     - ".*"  # Allow all tables by default
     #   deny: []
-    
+
+    # Optional: Filter views by name pattern
+    # Format: 'schema.view' or just 'view' for default schema
+    # view_pattern:
+    #   allow:
+    #     - ".*"  # Allow all views by default
+    #   deny: []
+
     # Feature flags
     extract_lakehouses: true
     extract_warehouses: true
     extract_schemas: true  # Set to false to skip schema containers
+    extract_views: true    # Requires sql_endpoint.enabled
     
     # Optional: API timeout (seconds)
     # api_timeout: 30

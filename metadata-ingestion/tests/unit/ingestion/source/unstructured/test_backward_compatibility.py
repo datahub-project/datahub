@@ -4,9 +4,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-# Skip entire module if litellm is not installed (requires Python 3.10+)
-pytest.importorskip("litellm")
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import GraphError
 from datahub.ingestion.source.unstructured.chunking_config import (
