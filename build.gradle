@@ -28,7 +28,8 @@ buildscript {
   ext.versionGradle = '8.14.3'
   // CVE-2026-22740 (WebFlux multipart temp files): fixed in Spring Framework 6.2.18+ only — same Spring Boot 3.5 / Framework 6.2 line (no major upgrade).
   ext.springVersion = '6.2.18'
-  ext.springBootVersion = '3.5.6'
+  // CVE-2026-40973 (ApplicationTemp insecure temp dir / session hijack when persistent sessions): fixed in Spring Boot 3.5.14+
+  ext.springBootVersion = '3.5.14'
   ext.springKafkaVersion = '3.3.8'
   ext.openTelemetryVersion = '1.60.1'
   ext.neo4jVersion = '5.20.0'
