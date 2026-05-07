@@ -27,7 +27,8 @@ buildscript {
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
   ext.springVersion = '7.0.6'
-  ext.springBootVersion = '4.0.5'
+  // CVE-2026-22751 (spring-security 7.0.5+ via BOM), CVE-2026-40976 / GHSA (spring-boot 4.0.6+)
+  ext.springBootVersion = '4.0.6'
   ext.springKafkaVersion = '4.0.4'
   ext.openTelemetryVersion = '1.60.1'
   ext.neo4jVersion = '5.20.0'
