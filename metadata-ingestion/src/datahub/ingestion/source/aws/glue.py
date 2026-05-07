@@ -2021,8 +2021,10 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
                 assignments = []
                 for key, value in params.items():
-                    qualified_name = f"io.datahubproject.glue.column.{re.sub(r'[^a-zA-Z0-9._]', '_', key)}"
-                    property_urn = f"urn:li:structuredProperty:{qualified_name}"
+                    property_urn = self._column_param_property_urn(key)
+                    qualified_name = property_urn.removeprefix(
+                        "urn:li:structuredProperty:"
+                    )
                     if property_urn not in self._seen_column_param_urns:
                         yield MetadataChangeProposalWrapper(
                             entityUrn=property_urn,
