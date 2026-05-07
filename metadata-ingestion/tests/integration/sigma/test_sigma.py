@@ -6572,3 +6572,196 @@ def test_sigma_ingest_data_models_warehouse_upstream(
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_warehouse_upstream.json",
     )
+
+
+def _get_mock_customsql_dm_api() -> Dict[str, Dict]:
+    """Mock a single DM with one customSQL element (explicit column SELECT)."""
+    dm_id = "aa000000-0000-0000-0000-000000000001"
+    ws_id = "bb000000-0000-0000-0000-000000000001"
+    element_id = "csql-el-01"
+    conn_id = "conn-sf-csql"
+    return {
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": conn_id,
+                        "name": "Test Connection",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "warehouse": "TEST_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": ws_id,
+                        "name": "Test Workspace",
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-01T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": dm_id,
+                        "urlId": "customsql-dm-urlid",
+                        "name": "CustomSQL DM",
+                        "type": "data-model",
+                        "parentId": ws_id,
+                        "parentUrlId": "test-ws-urlid",
+                        "permission": "edit",
+                        "path": "Test Workspace",
+                        "badge": None,
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": dm_id,
+                        "urlId": "customsql-dm-urlid",
+                        "name": "CustomSQL DM",
+                        "createdBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "workspaceId": ws_id,
+                        "path": "Test Workspace",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": element_id,
+                        "name": "Custom SQL",
+                        "type": "table",
+                        "vizualizationType": None,
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": "col-order-id",
+                        "elementId": element_id,
+                        "name": "Order Id",
+                        "label": "Order Id",
+                        "formula": "[Custom SQL/ORDER_ID]",
+                    },
+                    {
+                        "columnId": "col-amount",
+                        "elementId": element_id,
+                        "name": "Amount",
+                        "label": "Amount",
+                        "formula": "[Custom SQL/AMOUNT]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "name": "csql-src-1",
+                        "type": "customSQL",
+                        "connectionId": conn_id,
+                        "definition": (
+                            "SELECT ORDER_ID, AMOUNT FROM TEST_DB.TEST_SCHEMA.ORDERS"
+                        ),
+                    },
+                    {
+                        "elementId": element_id,
+                        "type": "element",
+                        "sourceIds": ["csql-src-1"],
+                        "dataSourceIds": ["csql-src-1"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_customsql(pytestconfig, tmp_path, requests_mock):
+    """DM customSQL element: UpstreamLineage + FGL emitted via SqlParsingAggregator.
+
+    Verifies:
+    - Entity-level UpstreamLineage emitted on the customSQL DM element Dataset.
+    - FGL downstream schemaField URNs use Sigma column display names (``Visit Id``,
+      ``Customer Id``), not SQL column names (``visit_id``, ``customer_id``).
+    - Counter shape: aggregator invocations == 1, upstream emitted == 1.
+    - Golden file captures the new UpstreamLineage + FineGrainedLineage aspects.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data=_get_mock_customsql_dm_api(),
+    )
+
+    output_path = f"{tmp_path}/sigma_customsql_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_customsql_aggregator_invocations == 1
+    assert report.dm_customsql_upstream_emitted == 1
+    assert report.dm_customsql_column_lineage_emitted == 1
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_customsql.json",
+    )

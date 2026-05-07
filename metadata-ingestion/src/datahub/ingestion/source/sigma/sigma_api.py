@@ -28,6 +28,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    CustomSqlEntry,
     DataModelElementUpstream,
     DatasetUpstream,
     Element,
@@ -1061,6 +1062,7 @@ class SigmaAPI:
         # (e.g. during alias discovery) cannot accumulate stale entries.
         data_model.source_dm_element_names = {}
         data_model.warehouse_inodes_by_inode_id = {}
+        data_model.custom_sql_by_name = {}
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -1094,10 +1096,6 @@ class SigmaAPI:
                 # needed to construct fully-qualified warehouse Dataset URNs.
                 inode_id = str(entry.get("inodeId") or "")
                 conn_id = str(entry.get("connectionId") or "")
-                # name is intentionally NOT required here: the table name is
-                # taken from /files/{inodeId} (the canonical source) rather
-                # than from the lineage entry, which may carry a display label,
-                # a stale name, or be absent entirely for some Sigma releases.
                 if not (inode_id and conn_id):
                     self.report.dm_element_warehouse_table_entry_incomplete += 1
                     missing = [
@@ -1121,8 +1119,29 @@ class SigmaAPI:
                     continue
                 raw: WarehouseInodeRaw = {"connectionId": conn_id}
                 data_model.warehouse_inodes_by_inode_id[inode_id] = raw
-            # ``type: dataset`` entries (CSV uploads) are terminal;
-            # warehouse lineage is handled above via type=table.
+            elif entry_type in ("customSQL", "customSql"):
+                name = entry.get("name")
+                if isinstance(name, str) and name:
+                    # Sigma's API normally guarantees unique entry names within
+                    # a DM.  A collision here means a payload anomaly; last
+                    # entry wins so downstream elements still resolve (with a
+                    # warning so operators can investigate).
+                    if name in data_model.custom_sql_by_name:
+                        self.report.warning(
+                            title="Sigma DM customSQL duplicate entry name",
+                            message="Two customSQL lineage entries share the same name; later entry overwrites earlier — elements sourcing the earlier entry will get the wrong SQL.",
+                            context=f"dataModelId={data_model.dataModelId!r}, name={name!r}",
+                        )
+                    data_model.custom_sql_by_name[name] = CustomSqlEntry.model_validate(
+                        entry
+                    )
+                else:
+                    self.report.warning(
+                        title="Sigma DM customSQL entry missing name",
+                        message="A customSQL lineage entry has a missing or non-string name field; it will be skipped and any elements referencing it will have no warehouse lineage.",
+                        context=f"dataModelId={data_model.dataModelId!r}, entry_keys={sorted(entry.keys())!r}",
+                    )
+            # ``type: dataset`` entries (CSV uploads) are terminal.
 
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])

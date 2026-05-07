@@ -312,6 +312,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
+    # DM customSQL element SQL parsing counters.
+    # Elements skipped before aggregator registration (no definition, missing /
+    # unknown connection, unsupported platform, duplicate source_id).
+    dm_customsql_skipped: int = 0
+    dm_customsql_aggregator_invocations: int = 0
+    dm_customsql_aggregator_invocation_errors: int = 0
+    dm_customsql_parse_failed: int = 0
+    dm_customsql_upstream_emitted: int = 0
+    dm_customsql_column_lineage_emitted: int = 0
+    # FGL downstream fields dropped because the SQL column name had no matching
+    # Sigma display column (formula ref absent or element name mismatch).
+    dm_customsql_fgl_downstream_unmapped: int = 0
+
     # Connection registry counters.
     # Records whose Sigma type mapped to a known DataHub platform.
     connections_resolved: int = 0

@@ -44,6 +44,7 @@ from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRegistry,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    CustomSqlEntry,
     DataModelElementUpstream,
     DataModelKey,
     DatasetUpstream,
@@ -108,6 +109,8 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -123,6 +126,12 @@ logger = logging.getLogger(__name__)
 # rather than trusting a lie. When the API starts returning a typed
 # column field (or we add SQL-based inference), swap this out here.
 SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
+
+# FGL confidence scores for customSQL element lineage.
+_FGL_CONFIDENCE_SQL_PARSED: float = (
+    0.2  # aggregator-derived; matches SqlParsingAggregator
+)
+_FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula refs
 
 
 def _dm_column_ranks_above(
@@ -282,6 +291,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
+        # Per-platform SqlParsingAggregator instances for customSQL DM elements,
+        # keyed by (platform, env, platform_instance).
+        self._sql_aggregators: Dict[
+            Tuple[str, str, Optional[str]], SqlParsingAggregator
+        ] = {}
+        # element_dataset_urn -> {sql_col_lower -> sigma_col_name}.
+        # Built from ALL formula refs for FGL rewriting of named-column SELECTs.
+        self._customsql_col_mappings: Dict[str, Dict[str, str]] = {}
+        # Same key, but only single-ref (passthrough) formulas.
+        # Used for SELECT * synthesis to avoid fabricating upstream edges for
+        # computed expressions that reference multiple SQL columns.
+        self._customsql_passthrough_mappings: Dict[str, Dict[str, str]] = {}
+        # Element URNs registered with an aggregator via add_view_definition.
+        # Used to guard against multiple customSQL source_ids on one element
+        # and to scope dm_customsql_upstream_emitted to known registrations.
+        self._customsql_registered_urns: Set[str] = set()
+        # element_urn -> non-customSQL Upstream / FGL objects stashed from the
+        # per-element emit path.  Merged into the aggregator's UpstreamLineage
+        # MCP at drain so the final aspect is consolidated.
+        self._customsql_extra_upstreams: Dict[str, List[Upstream]] = {}
+        self._customsql_extra_fgls: Dict[str, List[FineGrainedLineageClass]] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -948,6 +978,303 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # ``malformed`` has no dedicated counter; falls into the caller's
         # generic ``data_model_element_upstreams_unresolved`` bump.
 
+    # ------------------------------------------------------------------
+    # customSQL DM element SQL parsing
+    # ------------------------------------------------------------------
+
+    def _get_sql_aggregator(
+        self,
+        platform: str,
+        env: str,
+        platform_instance: Optional[str],
+    ) -> SqlParsingAggregator:
+        """Return (or lazily create) the per-platform aggregator instance.
+
+        This path is independent of the ``generate_column_lineage=False``
+        kill-switch in ``_get_element_input_details`` (the workbook element
+        SQL path).  That flag guards ``sqlglot.lineage()`` /
+        ``create_lineage_sql_parsed_result`` which caused OOM on large workbook
+        SQL; the aggregator's ``add_view_definition`` uses a different, bounded
+        parsing path and does not share that kill-switch.
+        """
+        cache_key = (platform, env, platform_instance)
+        if cache_key not in self._sql_aggregators:
+            self._sql_aggregators[cache_key] = SqlParsingAggregator(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                schema_resolver=None,
+                graph=None,
+                generate_lineage=True,
+                generate_queries=False,
+                generate_query_subject_fields=False,
+                generate_usage_statistics=False,
+                generate_query_usage_statistics=False,
+                generate_operations=False,
+            )
+        return self._sql_aggregators[cache_key]
+
+    def _build_customsql_col_mapping(
+        self,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+    ) -> None:
+        """Populate ``_customsql_col_mappings`` for one customSQL-backed element.
+
+        Scans each column's formula for refs of the form ``[{element.name}/COL]``
+        and maps each SQL column name (lowercased) to the Sigma display column
+        name.  Only refs whose namespace matches the element's own name are
+        registered — cross-element refs (``[OtherElement/COL]``) are skipped so
+        they cannot pollute the rewrite map.  ``finditer`` is used so that
+        formulas referencing multiple SQL columns register all of them.
+        """
+        mapping: Dict[str, str] = {}
+        passthrough: Dict[str, str] = {}
+        for col in element.columns:
+            refs = extract_bracket_refs(col.formula)
+            for ref in refs:
+                if (
+                    ref.column is not None
+                    and ref.source.lower() == element.name.lower()
+                ):
+                    sql_col_lower = ref.column.lower()
+                    if sql_col_lower in mapping and mapping[sql_col_lower] != col.name:
+                        logger.warning(
+                            "DM element %r: SQL column %r referenced by multiple Sigma "
+                            "display columns (%r and %r); using the latter for FGL.",
+                            element_dataset_urn,
+                            ref.column,
+                            mapping[sql_col_lower],
+                            col.name,
+                        )
+                    mapping[sql_col_lower] = col.name
+                    # Single-ref formula = direct passthrough of an upstream column.
+                    # Multi-ref = computed expression; exclude from SELECT * synthesis
+                    # to avoid fabricating upstream edges for non-existent columns.
+                    if len(refs) == 1:
+                        passthrough[sql_col_lower] = col.name
+        if mapping:
+            self._customsql_col_mappings[element_dataset_urn] = mapping
+        if passthrough:
+            self._customsql_passthrough_mappings[element_dataset_urn] = passthrough
+
+    def _process_dm_customsql_element(
+        self,
+        element_dataset_urn: str,
+        customsql_entry: CustomSqlEntry,
+    ) -> None:
+        """Register one customSQL DM element with the per-platform aggregator."""
+        if element_dataset_urn in self._customsql_registered_urns:
+            self.reporter.dm_customsql_skipped += 1
+            self.reporter.warning(
+                title="Sigma DM element has multiple customSQL source_ids",
+                message="Only the first customSQL source_id is used for warehouse lineage; subsequent ones are skipped. The first-seen ordering is determined by Sigma's /lineage API response.",
+                context=(
+                    f"element_urn={element_dataset_urn!r}, "
+                    f"skipped_name={customsql_entry.name!r}, "
+                    f"skipped_definition_prefix={(customsql_entry.definition)[:80]!r}"
+                ),
+            )
+            return
+
+        definition = (customsql_entry.definition or "").strip()
+        if not definition:
+            self.reporter.dm_customsql_skipped += 1
+            return
+
+        connection_id = customsql_entry.connectionId
+        if not connection_id:
+            self.reporter.dm_customsql_skipped += 1
+            return
+        record = self.connection_registry.get(connection_id)
+        if record is None:
+            self.reporter.dm_customsql_skipped += 1
+            logger.warning(
+                "DM customSQL element %r: connectionId=%r not found in connection registry; "
+                "warehouse lineage will be absent.  Check /v2/connections scope/permissions.",
+                element_dataset_urn,
+                connection_id,
+            )
+            return
+        if not record.is_mappable:
+            self.reporter.dm_customsql_skipped += 1
+            logger.warning(
+                "DM customSQL element %r: Sigma connection type %r is not mapped to a "
+                "DataHub platform; warehouse lineage will be absent.  "
+                "Add it to SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP if supported.",
+                element_dataset_urn,
+                record.sigma_type,
+            )
+            return
+
+        aggregator = self._get_sql_aggregator(
+            platform=record.datahub_platform,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        try:
+            aggregator.add_view_definition(
+                view_urn=element_dataset_urn,
+                view_definition=definition,
+                default_db=record.default_database,
+                default_schema=record.default_schema,
+            )
+            self.reporter.dm_customsql_aggregator_invocations += 1
+            self._customsql_registered_urns.add(element_dataset_urn)
+        except Exception as e:
+            self.reporter.dm_customsql_aggregator_invocation_errors += 1
+            self.reporter.warning(
+                title="Sigma DM customSQL element registration failed",
+                message="SqlParsingAggregator.add_view_definition raised; this element will be emitted without warehouse lineage.",
+                context=f"element_urn={element_dataset_urn}, customsql_name={customsql_entry.name!r}, connection_id={connection_id!r}, platform={record.datahub_platform}",
+                exc=e,
+            )
+
+    def _rewrite_fgl_downstreams(
+        self, mcp: MetadataChangeProposalWrapper
+    ) -> MetadataChangeProposalWrapper:
+        """Rewrite FGL downstream schemaField URNs to use Sigma column names.
+
+        The aggregator derives downstream field names from the SQL SELECT list
+        (e.g. ``customer_id``), but DataHub's SchemaMetadata for Sigma elements
+        uses the display names from ``/columns`` (e.g. ``Customer Id``).
+        ``_customsql_col_mappings`` bridges the two via the formula ref
+        ``[Custom SQL/CUSTOMER_ID]`` that Sigma stores on each column.
+
+        FGL entries whose downstreams cannot be rewritten are dropped; the
+        entity-level ``upstreams`` list on the aspect is always preserved.
+        """
+        aspect = mcp.aspect
+        if not isinstance(aspect, UpstreamLineage):
+            return mcp
+        entity_urn = str(mcp.entityUrn)
+        # Only count MCPs for element URNs we registered — the aggregator
+        # should only emit for those, but guard in case of future changes.
+        if entity_urn in self._customsql_registered_urns:
+            self.reporter.dm_customsql_upstream_emitted += 1
+
+        # Merge non-customSQL upstreams stashed from the per-element emit so the
+        # final aspect is consolidated rather than the second emission overwriting.
+        extra_upstreams = self._customsql_extra_upstreams.get(entity_urn)
+        if extra_upstreams:
+            aspect.upstreams = list(aspect.upstreams or []) + extra_upstreams
+
+        # Extra FGLs come from the non-customSQL path and already use Sigma
+        # display names — keep them separate from the aggregator FGL so the
+        # rewrite loop below doesn't try to remap them.
+        extra_fgls = self._customsql_extra_fgls.get(entity_urn)
+
+        if not aspect.fineGrainedLineages:
+            # For SELECT * on a single upstream, synthesize FGL from passthrough
+            # formula refs: only single-ref formulas are included so computed
+            # expressions (If([X]>0,[Y],0)) don't fabricate non-existent upstream
+            # column edges.  Confidence 0.1 (formula-derived, lower than SQL-parsed 0.2).
+            if len(aspect.upstreams) == 1:
+                col_mapping = self._customsql_passthrough_mappings.get(entity_urn)
+                if col_mapping:
+                    upstream_urn = aspect.upstreams[0].dataset
+                    aspect.fineGrainedLineages = [
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                builder.make_schema_field_urn(upstream_urn, sql_col)
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                builder.make_schema_field_urn(entity_urn, sigma_col)
+                            ],
+                            confidenceScore=_FGL_CONFIDENCE_FORMULA_DERIVED,
+                        )
+                        for sql_col, sigma_col in col_mapping.items()
+                    ]
+                    self.reporter.dm_customsql_column_lineage_emitted += 1
+                    if extra_fgls:
+                        aspect.fineGrainedLineages = (
+                            list(aspect.fineGrainedLineages) + extra_fgls
+                        )
+                    return mcp
+            # No synthesis possible; still merge stashed non-customSQL FGL.
+            if extra_fgls:
+                aspect.fineGrainedLineages = extra_fgls
+            return mcp
+
+        rewritten_fgls = []
+        for fgl in aspect.fineGrainedLineages:
+            rewritten_downstreams = []
+            for ds_urn in fgl.downstreams or []:
+                try:
+                    sfu = SchemaFieldUrn.from_string(ds_urn)
+                except InvalidUrnError:
+                    self.reporter.dm_customsql_fgl_downstream_unmapped += 1
+                    logger.warning(
+                        "Aggregator emitted malformed schemaField URN %r; dropping FGL entry.",
+                        ds_urn,
+                    )
+                    continue
+                ds_parent_urn, field_path = sfu.parent, sfu.field_path
+                col_mapping = self._customsql_col_mappings.get(ds_parent_urn)
+                if col_mapping is None:
+                    rewritten_downstreams.append(ds_urn)
+                    continue
+                sigma_col = col_mapping.get(field_path.lower())
+                if sigma_col:
+                    rewritten_downstreams.append(
+                        builder.make_schema_field_urn(ds_parent_urn, sigma_col)
+                    )
+                else:
+                    self.reporter.dm_customsql_fgl_downstream_unmapped += 1
+            if rewritten_downstreams:
+                rewritten_fgls.append(
+                    FineGrainedLineageClass(
+                        upstreamType=fgl.upstreamType,
+                        upstreams=fgl.upstreams,
+                        downstreamType=fgl.downstreamType,
+                        downstreams=rewritten_downstreams,
+                        confidenceScore=fgl.confidenceScore,
+                    )
+                )
+
+        # Append non-customSQL FGL after rewriting; they use Sigma display names
+        # already and must not be passed through the rewrite loop above.
+        all_fgls = rewritten_fgls + (extra_fgls or [])
+        aspect.fineGrainedLineages = all_fgls or None
+        if rewritten_fgls:
+            self.reporter.dm_customsql_column_lineage_emitted += 1
+        return mcp
+
+    def _drain_sql_aggregators(self) -> Iterable[MetadataWorkUnit]:
+        """Drain all per-platform aggregators and emit lineage workunits.
+
+        Intentionally deferred to the end of ``get_workunits_internal``: all DM
+        elements must be registered via ``add_view_definition`` before parsing
+        runs, so the aggregator sees the full view set in one pass.  The
+        consolidated ``UpstreamLineage`` MCP emitted here is the source of truth
+        for customSQL-backed element lineage; any earlier per-element
+        ``UpstreamLineage`` MCP (for non-customSQL upstreams) is superseded by
+        the merged aspect yielded below.  FGL downstream schemaField URNs are
+        rewritten to Sigma display names before yielding.  Each aggregator is
+        closed in a finally block so SQLite-backed tempfiles are released even
+        if gen_metadata raises.
+        """
+        for cache_key, aggregator in sorted(
+            self._sql_aggregators.items(),
+            key=lambda kv: tuple(x or "" for x in kv[0]),
+        ):
+            try:
+                for mcp in aggregator.gen_metadata():
+                    yield self._rewrite_fgl_downstreams(mcp).as_workunit()
+                agg_report = aggregator.report
+                self.reporter.dm_customsql_parse_failed += agg_report.num_views_failed
+            except Exception as e:
+                self.reporter.warning(
+                    title="Sigma DM customSQL aggregator drain failed",
+                    message="SqlParsingAggregator.gen_metadata raised; warehouse lineage for this platform's customSQL elements may be partial.",
+                    context=f"aggregator_key={cache_key!r}",
+                    exc=e,
+                )
+            finally:
+                aggregator.close()
+
     def _gen_data_model_element_upstream_lineage(
         self,
         element: SigmaDataModelElement,
@@ -1048,6 +1375,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         source_id,
                         cross_dm_outcome,
                     )
+            elif source_id in data_model.custom_sql_by_name:
+                # customSQL source: register with the aggregator for deferred
+                # SQL parsing.  The aggregator emits UpstreamLineage + FGL at
+                # drain time; no upstream_urn is added to the entity-level list
+                # here because the aggregator owns that emission.
+                self._process_dm_customsql_element(
+                    element_dataset_urn,
+                    data_model.custom_sql_by_name[source_id],
+                )
+                shape = "customSQL"
             else:
                 # Any other shape we don't parse (future Sigma vendor
                 # shape, or an existing shape we missed). Counted
@@ -1528,6 +1865,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=BrowsePathsV2Class(browse_entries),
             ).as_workunit()
 
+            has_customsql = any(
+                sid in data_model.custom_sql_by_name for sid in element.source_ids
+            )
+            # Build formula-based col mapping before processing lineage so
+            # _drain_sql_aggregators can rewrite FGL downstream field names.
+            if has_customsql:
+                self._build_customsql_col_mapping(element, element_dataset_urn)
+
             upstream_lineage = self._gen_data_model_element_upstream_lineage(
                 element,
                 data_model,
@@ -1537,9 +1882,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 warehouse_url_id_map=warehouse_url_id_map,
             )
             if upstream_lineage is not None:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=element_dataset_urn, aspect=upstream_lineage
-                ).as_workunit()
+                if (
+                    has_customsql
+                    and element_dataset_urn in self._customsql_registered_urns
+                ):
+                    # customSQL pre-flight succeeded: stash non-customSQL
+                    # upstreams/FGL and skip the immediate emit.  Drain will
+                    # merge them into the single consolidated UpstreamLineage
+                    # MCP, avoiding a redundant overwrite.
+                    if upstream_lineage.upstreams:
+                        self._customsql_extra_upstreams[element_dataset_urn] = list(
+                            upstream_lineage.upstreams
+                        )
+                    if upstream_lineage.fineGrainedLineages:
+                        self._customsql_extra_fgls[element_dataset_urn] = list(
+                            upstream_lineage.fineGrainedLineages
+                        )
+                else:
+                    # No customSQL registration (pre-flight failed or no
+                    # customSQL on this element): emit immediately.
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=element_dataset_urn, aspect=upstream_lineage
+                    ).as_workunit()
 
             self.reporter.data_model_elements_emitted += 1
             if data_model.workspaceId:
@@ -2207,7 +2571,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_sibling = False
 
             if formula is not None:
-                refs = list(extract_bracket_refs(formula))
+                refs = extract_bracket_refs(formula)
                 if refs:
                     param_count = 0
                     sibling_count = 0
@@ -2561,6 +2925,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         """DataHub Ingestion framework entry point."""
         logger.info("Sigma plugin execution is started")
+        # Reset per-run customSQL state so re-invoking this method on the same
+        # instance (e.g. in test harnesses) does not leak state from a prior run.
+        # Close existing aggregators before clearing so SQLite tempfiles are released.
+        for _agg in self._sql_aggregators.values():
+            _agg.close()
+        self._sql_aggregators.clear()
+        self._customsql_col_mappings.clear()
+        self._customsql_passthrough_mappings.clear()
+        self._customsql_registered_urns.clear()
+        self._customsql_extra_upstreams.clear()
+        self._customsql_extra_fgls.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
@@ -2794,6 +3169,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     f"{workspace.name} ({workspace.workspaceId})"
                 )
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()
+        yield from self._drain_sql_aggregators()
 
     def get_report(self) -> SourceReport:
         return self.reporter
