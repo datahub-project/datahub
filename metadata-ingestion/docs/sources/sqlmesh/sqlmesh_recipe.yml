@@ -1,0 +1,19 @@
+source:
+  type: sqlmesh
+  config:
+    projects:
+      - project_path: /path/to/sqlmesh_project
+        # gateway: my_gateway  # defaults to the project's default gateway
+    # target_platform: snowflake  # auto-detected from gateway connection type
+    # target_platform_instance: prod_snowflake  # must match warehouse connector
+    # default_catalog: analytics  # required for 2-part model names + 3-part warehouse URNs
+    env: PROD
+    include_column_lineage: true
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
