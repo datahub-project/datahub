@@ -2001,8 +2001,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def _column_param_property_urn(key: str) -> str:
-        sanitized = re.sub(r"[^a-zA-Z0-9._]", "_", key)
-        return f"urn:li:structuredProperty:io.datahubproject.glue.column.{sanitized}"
+        qualified_name = (
+            f"io.datahubproject.glue.column.{re.sub(r'[^a-zA-Z0-9._]', '_', key)}"
+        )
+        return f"urn:li:structuredProperty:{qualified_name}"
 
     def _get_column_param_workunits(
         self, table: Dict, dataset_urn: str
@@ -2010,36 +2012,46 @@ class GlueSource(StatefulIngestionSourceBase):
         columns = table.get("StorageDescriptor", {}).get("Columns", [])
         columns = columns + table.get("PartitionKeys", [])
         for column in columns:
-            params = column.get("Parameters")
-            if not params:
-                continue
-            field_urn = mce_builder.make_schema_field_urn(dataset_urn, column["Name"])
-            assignments = []
-            for key, value in params.items():
-                property_urn = self._column_param_property_urn(key)
-                if property_urn not in self._seen_column_param_urns:
-                    self._seen_column_param_urns.add(property_urn)
-                    sanitized = re.sub(r"[^a-zA-Z0-9._]", "_", key)
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=property_urn,
-                        aspect=StructuredPropertyDefinitionClass(
-                            qualifiedName=f"io.datahubproject.glue.column.{sanitized}",
-                            displayName=key,
-                            valueType="urn:li:dataType:datahub.string",
-                            entityTypes=["urn:li:entityType:datahub.schemaField"],
-                        ),
-                    ).as_workunit()
-                assignments.append(
-                    StructuredPropertyValueAssignmentClass(
-                        propertyUrn=property_urn,
-                        values=[value],
-                    )
+            try:
+                params = column.get("Parameters")
+                if not params:
+                    continue
+                field_urn = mce_builder.make_schema_field_urn(
+                    dataset_urn, column["Name"]
                 )
-            if assignments:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=field_urn,
-                    aspect=StructuredPropertiesClass(properties=assignments),
-                ).as_workunit()
+                assignments = []
+                for key, value in params.items():
+                    qualified_name = f"io.datahubproject.glue.column.{re.sub(r'[^a-zA-Z0-9._]', '_', key)}"
+                    property_urn = f"urn:li:structuredProperty:{qualified_name}"
+                    if property_urn not in self._seen_column_param_urns:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=property_urn,
+                            aspect=StructuredPropertyDefinitionClass(
+                                qualifiedName=qualified_name,
+                                displayName=key,
+                                valueType="urn:li:dataType:datahub.string",
+                                entityTypes=["urn:li:entityType:datahub.schemaField"],
+                            ),
+                        ).as_workunit()
+                        # Only cache after successful yield so a dropped MCP
+                        # (network blip, GMS rejection) doesn't prevent retry.
+                        self._seen_column_param_urns.add(property_urn)
+                    assignments.append(
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=property_urn,
+                            values=[value],
+                        )
+                    )
+                if assignments:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=field_urn,
+                        aspect=StructuredPropertiesClass(properties=assignments),
+                    ).as_workunit()
+            except Exception as e:
+                self.report.report_warning(
+                    key=dataset_urn,
+                    reason=f"Failed to emit column parameters for column {column.get('Name', '?')!r}: {e}",
+                )
 
     def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
         """Extract S3 tags if enabled."""
