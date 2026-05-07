@@ -2049,8 +2049,8 @@ class GlueSource(StatefulIngestionSourceBase):
                     ).as_workunit()
             except Exception as e:
                 self.report.report_warning(
-                    key=dataset_urn,
-                    reason=f"Failed to emit column parameters for column {column.get('Name', '?')!r}: {e}",
+                    message="Failed to emit column parameters for column",
+                    context=f"dataset={dataset_urn} column={column.get('Name', '?')!r}: {e}",
                 )
 
     def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
