@@ -30,12 +30,6 @@ Extracts:
 
 ## Supported Sources
 
-The table below lists every ingestion source that declares profiling support via
-the `@capability(SourceCapability.DATA_PROFILING, ...)` decorator on its source
-class. It is regenerated from the source code on every docs build, so it always
-reflects the current state of the codebase. Open an individual source page for
-configuration details and any source-specific caveats.
-
 {{ inline /docs/generated/ingestion/sql_profiling_support_table.md }}
 
 ## Profiler Implementation
