@@ -334,6 +334,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Separate from _customsql_registered_urns (DM Dataset URNs) to prevent
         # counter bleed between the two namespaces.
         self._workbook_customsql_registered_urns: Set[str] = set()
+        # chart_urn → formula-derived InputField list stashed at emit time.
+        # Merged at drain time so warehouse-resolved fields from T4.F supplement
+        # (not replace) formula-derived column entries.
+        self._workbook_customsql_formula_fields: Dict[str, List[InputFieldClass]] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -1117,13 +1121,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _build_workbook_customsql_registry(
         self,
         workbook: Workbook,
-    ) -> Tuple[Dict[str, CustomSqlEntry], Dict[str, str]]:
+    ) -> Tuple[Dict[str, CustomSqlEntry], Dict[str, List[str]]]:
         """Parse /v2/workbooks/{id}/lineage entries into lookup maps.
 
         Returns:
             custom_sql_by_name: customSQL name → CustomSqlEntry
-            element_id_by_customsql_name: customSQL name → elementId of the chart
-              that sources from it
+            element_id_by_customsql_name: customSQL name → list of elementIds of charts
+              that source from it (one customSQL may feed multiple charts)
         """
         entries = self.sigma_api.get_workbook_lineage_entries(workbook.workbookId)
         custom_sql_by_name: Dict[str, CustomSqlEntry] = {}
@@ -1146,14 +1150,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elif entry_type == "element":
                 element_entries.append(entry)
         # Second pass: element entries may appear before customSQL entries.
-        element_id_by_customsql_name: Dict[str, str] = {}
+        # A single customSQL may be referenced by multiple chart elements.
+        element_id_by_customsql_name: Dict[str, List[str]] = {}
         for entry in element_entries:
             element_id = entry.get("elementId", "")
             source_ids = entry.get("sourceIds") or []
             if element_id and isinstance(source_ids, list):
                 for source_id in source_ids:
                     if isinstance(source_id, str) and source_id in custom_sql_by_name:
-                        element_id_by_customsql_name[source_id] = element_id
+                        element_id_by_customsql_name.setdefault(source_id, []).append(
+                            element_id
+                        )
         return custom_sql_by_name, element_id_by_customsql_name
 
     def _build_workbook_customsql_col_mapping(
@@ -1224,6 +1231,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         customsql_entry: CustomSqlEntry,
     ) -> None:
         """Register one workbook customSQL chart with the per-platform aggregator."""
+        if chart_urn in self._workbook_customsql_registered_urns:
+            self.reporter.workbook_customsql_skipped += 1
+            self.reporter.warning(
+                title="Sigma workbook chart has multiple customSQL source_ids",
+                message="A workbook chart element references more than one customSQL source; only the first is used for warehouse lineage.",
+                context=f"chart_urn={chart_urn}, customsql_name={customsql_entry.name!r}",
+            )
+            return
         definition = (customsql_entry.definition or "").strip()
         if not definition:
             self.reporter.workbook_customsql_skipped += 1
@@ -1369,6 +1384,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if input_fields:
                     self.reporter.workbook_customsql_column_lineage_emitted += 1
+        fallback_fields = self._workbook_customsql_formula_fields.get(entity_urn, [])
+        if fallback_fields:
+            covered_paths = {
+                f.schemaField.fieldPath
+                for f in input_fields
+                if f.schemaField is not None
+            }
+            for fb in fallback_fields:
+                if (
+                    fb.schemaField is not None
+                    and fb.schemaField.fieldPath not in covered_paths
+                ):
+                    input_fields.append(fb)
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=InputFieldsClass(fields=input_fields),
@@ -1561,13 +1589,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for mcp in aggregator.gen_metadata():
                     yield self._rewrite_fgl_downstreams(mcp).as_workunit()
                 agg_report = aggregator.report
-                for view_urn, _reason in (
-                    agg_report.views_parse_failures or {}
-                ).items():
+                attributed_workbook = 0
+                attributed_dm = 0
+                for view_urn in agg_report.views_parse_failures or {}:
                     if view_urn in self._workbook_customsql_registered_urns:
-                        self.reporter.workbook_customsql_parse_failed += 1
+                        attributed_workbook += 1
                     elif view_urn in self._customsql_registered_urns:
-                        self.reporter.dm_customsql_parse_failed += 1
+                        attributed_dm += 1
+                # views_parse_failures is lossy past 10 entries; use num_views_failed
+                # for the accurate total and attribute any residual (past-10 failures)
+                # to the DM counter as best-effort.
+                residual = (
+                    agg_report.num_views_failed - attributed_workbook - attributed_dm
+                )
+                self.reporter.workbook_customsql_parse_failed += attributed_workbook
+                self.reporter.dm_customsql_parse_failed += attributed_dm + max(
+                    0, residual
+                )
             except Exception as e:
                 self.reporter.warning(
                     title="Sigma DM customSQL aggregator drain failed",
@@ -3382,6 +3420,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
             )
 
+            # Stash formula-derived fields for customSQL charts so we can merge at
+            # drain time, ensuring warehouse-resolved entries supplement rather than
+            # replace computed/unmapped column entries from the formula pass.
+            if chart_urn in self._workbook_customsql_registered_urns:
+                self._workbook_customsql_formula_fields[chart_urn] = (
+                    element_input_fields
+                )
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=InputFieldsClass(fields=element_input_fields),
@@ -3568,32 +3614,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self._build_workbook_customsql_registry(workbook)
             )
             for csql_name, customsql_entry in custom_sql_by_name.items():
-                element_id = eid_by_csql_name.get(csql_name)
-                if element_id is None:
+                element_ids = eid_by_csql_name.get(csql_name) or []
+                if not element_ids:
                     self.reporter.workbook_customsql_skipped += 1
                     continue
-                chart_urn = builder.make_chart_urn(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    name=element_id,
-                )
-                element = next(
-                    (
-                        e
-                        for page in workbook.pages
-                        for e in page.elements
-                        if e.elementId == element_id
-                    ),
-                    None,
-                )
-                if element is not None:
-                    self._build_workbook_customsql_col_mapping(element, chart_urn)
-                self._process_workbook_customsql_element(chart_urn, customsql_entry)
-                upstream_urns = self._parse_customsql_upstream_dataset_urns(
-                    customsql_entry
-                )
-                if upstream_urns:
-                    customsql_extra_inputs[element_id] = upstream_urns
+                for element_id in element_ids:
+                    chart_urn = builder.make_chart_urn(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        name=element_id,
+                    )
+                    element = next(
+                        (
+                            e
+                            for page in workbook.pages
+                            for e in page.elements
+                            if e.elementId == element_id
+                        ),
+                        None,
+                    )
+                    if element is not None:
+                        self._build_workbook_customsql_col_mapping(element, chart_urn)
+                    self._process_workbook_customsql_element(chart_urn, customsql_entry)
+                    upstream_urns = self._parse_customsql_upstream_dataset_urns(
+                        customsql_entry
+                    )
+                    if upstream_urns:
+                        customsql_extra_inputs[element_id] = upstream_urns
 
         yield from self._gen_pages_workunit(workbook, paths, customsql_extra_inputs)
 
@@ -3631,6 +3678,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_upstreams.clear()
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
+        self._workbook_customsql_formula_fields.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
