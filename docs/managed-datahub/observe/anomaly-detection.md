@@ -12,7 +12,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 **Anomaly Detection** is an optional feature that can be enabled on certain DataHub Cloud assertions to replace fixed thresholds with AI-driven thresholds. Instead of you specifying exact bounds (e.g., "row count must stay between 1,000 and 2,000"), the assertion trains on the historical pattern of the underlying metric and alerts when the latest value falls outside what is considered "normal" — accounting for trends, seasonality, and typical variance.
 
-Anomaly Detection was previously referred to as **Smart Assertions**. The capability is the same; we now treat it as a feature that can be enabled on an assertion, not a separate class of assertion.
+Anomaly Detection was previously referred to as **Smart Assertions**.
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/smart-assertion-example.png"/>
@@ -24,8 +24,8 @@ Anomaly Detection can be enabled on the following assertion types:
 
 | Assertion type                                              | Anomaly Detection stage | Notes                                                                                                                                                                             |
 | ----------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Freshness](./freshness-assertions.md#anomaly-detection-)   | **GA**                  | Works for warehouse-based and ingestion-driven signals. When used with the DataHub Operation aspect, it works on any ingested platform (including Postgres, MySQL, Athena, etc.). |
-| [Volume](./volume-assertions.md#anomaly-detection-)         | **GA**                  | Works for warehouse-based and ingestion-driven signals. When used with DataHub Dataset Profile, it works on any ingested platform.                                                |
+| [Freshness](./freshness-assertions.md#anomaly-detection-)   | **GA**                  | Works for warehouse-based and ingestion-driven signals. When used with the DataHub Operation aspect, it works on any ingested platform that reports Operations (including Clickhouse, Oracle, Dremio, etc.). |
+| [Volume](./volume-assertions.md#anomaly-detection-)         | **GA**                  | Works for warehouse-based and ingestion-driven signals. When used with DataHub Dataset Profile, it works on any ingested platform that reports row count profiles (including Iceberg, Postgres, MySQL, etc.).                                                |
 | [Column Metric](./column-assertions.md#anomaly-detection-)  | **Public Beta**         | Limited to the column metrics `null_count`, `unique_count`, `empty_count`, `zero_count`, and `negative_count`. Works with both active-query and ingestion-driven sources.         |
 | [Custom SQL](./custom-sql-assertions.md#anomaly-detection-) | **Public Beta**         | Custom SQL requires an active warehouse connection, so this is Snowflake / Redshift / BigQuery / Databricks only.                                                                 |
 

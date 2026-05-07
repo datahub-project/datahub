@@ -8,8 +8,6 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly stage="private-beta" />
 
-> The **Backfill Assertion History** feature is part of the **DataHub Cloud Observe** module and is currently in **Private Beta** — access is invite-only. Contact your DataHub Cloud representative to request access.
-> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
 <div align="center"><iframe width="640" height="444" src="https://www.loom.com/embed/61a201aea8464f58826c965fdbfbe255" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
@@ -27,9 +25,9 @@ Backfill is available for the following assertion types:
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | **Volume Assertion with Anomaly Detection**                  | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing))                              |
 | **Column Metric Assertion with Anomaly Detection**           | Yes (requires [time-series bucketing](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)) |
-| **Freshness Assertion** (with or without Anomaly Detection)  | No                                                                                                                |
+| **Freshness Assertion** | No                                                                                                                |
 | **Schema Assertion**                                         | No                                                                                                                |
-| **Custom SQL Assertion** (with or without Anomaly Detection) | No                                                                                                                |
+| **Custom SQL Assertion**| No                                                                                                                |
 
 ## How Backfill Works
 
@@ -50,7 +48,7 @@ The maximum amount of historical data that can be backfilled depends on the buck
 | **Daily**       | 365 days (1 year)   |
 | **Weekly**      | 156 weeks (3 years) |
 
-This is lookback window is relative to the assertion's creation date
+This lookback window is relative to the assertion's creation date
 
 ### Backfill Statuses
 
