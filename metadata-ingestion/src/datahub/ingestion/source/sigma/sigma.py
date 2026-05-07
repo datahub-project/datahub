@@ -379,6 +379,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Inodes whose /files path already produced an unparseable warning;
         # prevents N identical warnings when the same inode spans N DMs (H3).
         self._files_path_unparseable_seen: Set[str] = set()
+        # Connections for which a "default_database not configured" warning has
+        # been emitted; dedup so multi-DM tenants don't flood the report.
+        self._missing_default_db_warned: Set[str] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
         # Per-platform set: platforms for which we've emitted a "first emission"
@@ -717,11 +720,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # name field, which may be a display label or absent.
             table_name = str(files_data.get("name") or "")
             parts = path.split("/")
-            # Accept 2–3 non-root segments (all non-empty) plus a non-empty urlId:
+            # Accept 2–3 total segments after splitting on "/" (1–2 non-root parts,
+            # all non-empty) plus a non-empty urlId:
             #   "Connection Root/<SCHEMA>"      — Redshift, MySQL (no DB layer)
             #   "Connection Root/<DB>/<SCHEMA>" — Snowflake, Postgres
-            # Fewer segments (CSV uploads like "Acryl Workspace"), empty segments,
-            # or 4+ segments (not yet mapped) are all rejected.
+            # Fewer total segments (e.g. "Acryl Workspace" = 1), empty segments,
+            # or 4+ total segments (not yet mapped) are all rejected.
             path_invalid = not (
                 url_id and table_name and 2 <= len(parts) <= 3 and all(parts)
             )
@@ -774,6 +778,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     or ""
                 )
                 schema = parts[1]
+                if not db and conn_id not in self._missing_default_db_warned:
+                    self._missing_default_db_warned.add(conn_id)
+                    self.reporter.warning(
+                        title="Sigma warehouse default_database not configured",
+                        message=(
+                            "The /files path for this connection has no database layer "
+                            "(e.g. 'Connection Root/<SCHEMA>'). The emitted warehouse "
+                            "URN will use schema.table only, which will not match a "
+                            "connector that uses db.schema.table. Set "
+                            "connection_to_platform_map.<connectionId>.default_database "
+                            "in the recipe to fix the URN."
+                        ),
+                        context=f"connectionId={conn_id}, path={path!r}",
+                    )
             result[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
                 db=db,
@@ -1660,6 +1678,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
+            # Warehouse FGL is emitted at most once per column (based on columnId,
+            # which encodes a single warehouse column identity). Attempting it once
+            # per bracket ref would misfire for formulas with multiple refs —
+            # e.g. concat([T/a], [T/b]) would emit the same columnId-derived FGL
+            # for both refs, producing a spurious match on the second ref.
+            _warehouse_fgl_attempted = False
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter or ref.column is None:
                     # [P_*] parameter refs and bare [col] intra-element refs
@@ -1680,42 +1704,54 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if candidate_eids:
                         # All candidates were self-references; actual upstream is a
                         # warehouse table — attempt FGL resolution via columnId.
-                        warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
-                            column=column,
-                            element=element,
-                            downstream_field=downstream_field,
-                            warehouse_url_id_map=warehouse_url_id_map,
-                        )
-                        if warehouse_fgl is None:
-                            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
-                        else:
-                            assert warehouse_fgl.upstreams
-                            pair = (downstream_field, warehouse_fgl.upstreams[0])
-                            if pair not in emitted_pairs:
-                                emitted_pairs.add(pair)
-                                fgls.append(warehouse_fgl)
-                                self.reporter.data_model_element_fgl_warehouse_resolved += 1
-                            # else: duplicate ref in same formula — silent, not a deferral
+                        # Guard: attempt at most once per column so formulas with
+                        # multiple self-ref bracket refs don't emit duplicate FGLs.
+                        if not _warehouse_fgl_attempted:
+                            _warehouse_fgl_attempted = True
+                            warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
+                                column=column,
+                                element=element,
+                                downstream_field=downstream_field,
+                                warehouse_url_id_map=warehouse_url_id_map,
+                            )
+                            if warehouse_fgl is None:
+                                self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                            else:
+                                assert warehouse_fgl.upstreams
+                                pair = (downstream_field, warehouse_fgl.upstreams[0])
+                                if pair not in emitted_pairs:
+                                    emitted_pairs.add(pair)
+                                    fgls.append(warehouse_fgl)
+                                    self.reporter.data_model_element_fgl_warehouse_resolved += 1
                         continue
                     # No intra-DM candidate. Before cross-DM search, try the
                     # warehouse path via columnId. Sigma elements sometimes use
                     # the warehouse table name as the formula source (e.g.
                     # "[CUSTOMERS/col]" on an element that isn't named "CUSTOMERS")
                     # rather than the element name — columnId is authoritative.
-                    warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
-                        column=column,
-                        element=element,
-                        downstream_field=downstream_field,
-                        warehouse_url_id_map=warehouse_url_id_map,
-                    )
-                    if warehouse_fgl is not None:
-                        assert warehouse_fgl.upstreams
-                        pair = (downstream_field, warehouse_fgl.upstreams[0])
-                        if pair not in emitted_pairs:
-                            emitted_pairs.add(pair)
-                            fgls.append(warehouse_fgl)
-                            self.reporter.data_model_element_fgl_warehouse_resolved += 1
-                        continue
+                    # H4: if columnId is warehouse-shaped but _try_emit fails,
+                    # count as warehouse-deferred rather than cross-DM-deferred.
+                    if not _warehouse_fgl_attempted:
+                        _warehouse_fgl_attempted = True
+                        warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
+                            column=column,
+                            element=element,
+                            downstream_field=downstream_field,
+                            warehouse_url_id_map=warehouse_url_id_map,
+                        )
+                        if warehouse_fgl is not None:
+                            assert warehouse_fgl.upstreams
+                            pair = (downstream_field, warehouse_fgl.upstreams[0])
+                            if pair not in emitted_pairs:
+                                emitted_pairs.add(pair)
+                                fgls.append(warehouse_fgl)
+                                self.reporter.data_model_element_fgl_warehouse_resolved += 1
+                            continue
+                        if (column.columnId or "").startswith("inode-"):
+                            # Warehouse-shaped columnId but resolution failed
+                            # (e.g. /files miss, unmappable connection).
+                            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                            continue
 
                     # Source not in this DM — search only the DMs this element's
                     # source_ids explicitly reference. This prevents formula refs
@@ -1861,8 +1897,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         confidenceScore=1.0,
                     )
                 )
-        # fgl_emitted tracks intra-DM FGL only; cross-DM is tracked separately
-        # via fgl_cross_dm_resolved so operators can see both buckets independently.
+        # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
+        # FGL (both appended to `fgls`). Cross-DM is tracked separately via
+        # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
+        # fgl_warehouse_resolved (overlap intentional for independent triage).
         self.reporter.data_model_element_fgl_emitted += len(fgls)
         all_fgls = fgls + cross_dm_fgls
         all_fgls.sort(
