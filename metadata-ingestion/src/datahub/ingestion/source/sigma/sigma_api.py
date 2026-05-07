@@ -1202,6 +1202,78 @@ class SigmaAPI:
             )
             return None
 
+    def get_workbook_lineage(self, workbook_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Fetch /v2/workbooks/{workbook_id}/lineage and return the entries list,
+        or None on non-200/exception.
+
+        Returned entries each have at minimum ``type``, ``name``,
+        ``connectionId``, ``inodeId`` for table/dataset/customSQL entries.
+        Element entries do not have ``connectionId`` or ``inodeId`` and are
+        filtered out by the caller (only type=table entries are consumed;
+        type=dataset/customSQL/element are explicitly skipped).
+
+        Error handling: 404 is treated as a silent None (workbook deleted
+        since listing). 429 and other non-200 statuses emit a structured
+        warning; failures return None so the caller can increment
+        chart_input_fields_warehouse_index_lookup_failed. Paginated to
+        handle workbooks with large lineage graphs.
+        """
+        logger.debug("Fetching workbook lineage for workbook '%s'.", workbook_id)
+        base_url = (
+            f"{self.config.api_url}/workbooks/{quote(workbook_id, safe='')}/lineage"
+        )
+        all_entries: List[Dict[str, Any]] = []
+        url = base_url
+        try:
+            while True:
+                response = self._get_api_call(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    all_entries.extend(data.get("entries") or [])
+                    next_page = data.get("nextPage")
+                    if not next_page:
+                        return all_entries
+                    sep = "&" if "?" in base_url else "?"
+                    url = f"{base_url}{sep}page={next_page}"
+                    continue
+                status = response.status_code
+                if status == 404:
+                    # Workbook may have been deleted between listing and lineage fetch.
+                    return None
+                if status == 429:
+                    self.report.warning(
+                        title="Sigma API rate-limited on /workbooks/{id}/lineage",
+                        message=(
+                            "Retry budget exhausted on a 429 response for workbook "
+                            "lineage lookup. Chart formula warehouse resolution will "
+                            "be incomplete for this workbook. Re-run the ingestion "
+                            "to recover."
+                        ),
+                        context=f"workbook_id={workbook_id}, http_status={status}",
+                    )
+                else:
+                    self.report.warning(
+                        title="Sigma /workbooks/{id}/lineage returned non-200",
+                        message=(
+                            "Unable to fetch workbook lineage for warehouse table "
+                            "index. Chart formula warehouse resolution may be "
+                            "incomplete."
+                        ),
+                        context=f"workbook_id={workbook_id}, http_status={status}",
+                    )
+                return None
+        except Exception as e:
+            self.report.warning(
+                title="Sigma /workbooks/{id}/lineage lookup failed",
+                message=(
+                    "Exception while fetching workbook lineage; warehouse table "
+                    "index skipped for this workbook."
+                ),
+                context=f"workbook_id={workbook_id}",
+                exc=e,
+            )
+            return None
+
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
         """Fetch a DM by its urlId (not UUID). Used to resolve personal-space
         or otherwise unlisted DMs referenced from another DM's /lineage.

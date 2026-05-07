@@ -422,6 +422,18 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         },
     }
 
+    # Default workbook lineage — returns empty entries so
+    # _build_workbook_warehouse_table_index produces an empty index and existing
+    # tests are unaffected. Tests that exercise warehouse-qualified chart
+    # InputFields override this via override_data.
+    api_vs_response[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": []},
+    }
+
     # Default empty columns response — tests that don't exercise formula resolution
     # override this; tests that do add their own entry via override_data.
     api_vs_response[
@@ -6764,4 +6776,371 @@ def test_sigma_ingest_data_models_customsql(pytestconfig, tmp_path, requests_moc
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_customsql.json",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Chart inputFields warehouse-qualified via workbook lineage
+# ---------------------------------------------------------------------------
+
+# Reuse the same warehouse fixture IDs from the warehouse upstream test so the
+# URN identity invariant is exercisable: same inode → same Dataset URN from
+# both the DM element path and the workbook-lineage path.
+_WH_CHART_WORKBOOK_ID = "c4c4c4c4-0000-0000-0000-000000000001"
+_WH_CHART_PAGE_ID = "chart-wh-page-01"
+_WH_CHART_DM_FED_ELEM_ID = "dmFedElem01"
+_WH_CHART_LEGACY_SD_ELEM_ID = "legacySdElem01"
+
+
+def _get_chart_warehouse_qualified_overrides() -> Dict[str, Dict]:
+    """Fixture overrides for the chart warehouse-qualified InputFields test.
+
+    Topology:
+      Workbook _WH_CHART_WORKBOOK_ID / page _WH_CHART_PAGE_ID
+        dmFedElem01 : column "customer_id" formula "[CUSTOMERS/customer_id]"
+                      DM-fed (no SQL query) — resolved via workbook lineage
+        legacySdElem01: column "legacy_col" formula "[LEGACY_DATASET/legacy_col]"
+                      legacy SD lineage entry (type=dataset) — skipped, self-ref
+
+      Workbook lineage /v2/workbooks/{id}/lineage:
+        type=table  CUSTOMERS   → same inode/connection as warehouse upstream test
+        type=dataset LEGACY_DATASET       → skipped (legacy Sigma Dataset, not yet supported)
+        type=customSQL CUSTOM   → skipped (not yet supported)
+
+      /files/{_WH_INODE_ID} → Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC (CUSTOMERS)
+
+      Expected:
+        dmFedElem01.customer_id  → schemaFieldUrn points at snowflake warehouse schemaField
+        legacySdElem01.legacy_col  → self-ref (LEGACY_DATASET lineage entry is type=dataset, skipped)
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": _WH_WORKSPACE_ID,
+                        "name": "My Org",
+                        "createdBy": "owner-wh-chart",
+                        "updatedBy": "owner-wh-chart",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Provide the same connection as the warehouse upstream test (URN identity).
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "ACME SNOWFLAKE",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "host": "test-account.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # Workbook listing (no DMs in this test)
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workbookId": _WH_CHART_WORKBOOK_ID,
+                        "workbookUrlId": "ChartWh-WB-URL-ID",
+                        "ownerId": "owner-wh-chart",
+                        "createdBy": "owner-wh-chart",
+                        "updatedBy": "owner-wh-chart",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                        "name": "Chart Warehouse Workbook",
+                        "url": "https://app.sigmacomputing.com/my-org/workbook/ChartWh-WB-URL-ID",
+                        "path": "My Org",
+                        "latestVersion": 1,
+                        "isArchived": False,
+                        "workspaceId": _WH_WORKSPACE_ID,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _WH_CHART_WORKBOOK_ID,
+                        "urlId": "ChartWh-WB-URL-ID",
+                        "name": "Chart Warehouse Workbook",
+                        "type": "workbook",
+                        "parentId": _WH_WORKSPACE_ID,
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "My Org",
+                        "badge": None,
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"pageId": _WH_CHART_PAGE_ID, "name": "Chart Warehouse Page"}
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/pages/{_WH_CHART_PAGE_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _WH_CHART_DM_FED_ELEM_ID,
+                        "type": "table",
+                        "name": "DM-fed Element",
+                        "columns": ["customer_id"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        "elementId": _WH_CHART_LEGACY_SD_ELEM_ID,
+                        "type": "table",
+                        "name": "Legacy SD Element",
+                        "columns": ["legacy_col"],
+                        "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _WH_CHART_DM_FED_ELEM_ID,
+                        "name": "customer_id",
+                        # Formula references warehouse table by short name. DM-fed chart
+                        # has no SQL query, so dataset_inputs is empty. Workbook
+                        # lineage index provides the resolution.
+                        "formula": "[CUSTOMERS/customer_id]",
+                    },
+                    {
+                        "elementId": _WH_CHART_LEGACY_SD_ELEM_ID,
+                        "name": "legacy_col",
+                        # LEGACY_DATASET is a legacy Sigma Dataset (type=dataset in workbook lineage).
+                        # type=dataset is skipped; formula falls back to self-ref.
+                        "formula": "[LEGACY_DATASET/legacy_col]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # DM-fed element: no SQL query, no intra-workbook upstreams.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/lineage/elements/{_WH_CHART_DM_FED_ELEM_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_dmfed": {
+                        "nodeId": "tgt_dmfed",
+                        "elementId": _WH_CHART_DM_FED_ELEM_ID,
+                        "name": "DM-fed Element",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/lineage/elements/{_WH_CHART_LEGACY_SD_ELEM_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_legacysd": {
+                        "nodeId": "tgt_legacysd",
+                        "elementId": _WH_CHART_LEGACY_SD_ELEM_ID,
+                        "name": "Legacy SD Element",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        # No SQL queries (DM-fed charts don't have parseable SQL).
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/elements/{_WH_CHART_DM_FED_ELEM_ID}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/elements/{_WH_CHART_LEGACY_SD_ELEM_ID}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # Workbook-level lineage: type=table (CUSTOMERS), type=dataset (LEGACY_DATASET, skipped),
+        # type=customSQL (CUSTOM_QUERY, skipped).
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "inodeId": _WH_INODE_ID,
+                    },
+                    {
+                        "name": "LEGACY_DATASET",
+                        "type": "dataset",
+                        "inodeId": "inode-pets-legacy",
+                    },
+                    {
+                        "name": "CUSTOM_QUERY",
+                        "type": "customSQL",
+                        "inodeId": "inode-customsql",
+                    },
+                ]
+            },
+        },
+        # /files for the CUSTOMERS warehouse table (same fixture as warehouse upstream test).
+        f"https://aws-api.sigmacomputing.com/v2/files/{_WH_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _WH_INODE_ID,
+                "urlId": _WH_URL_ID,
+                "name": "CUSTOMERS",
+                "type": "table",
+                "path": "Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_chart_input_fields_warehouse_qualified(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Chart inputFields[].schemaFieldUrn is warehouse-qualified via workbook
+    lineage for DM-fed charts that have no parseable SQL query.
+
+    Fixture topology:
+      dmFedElem01  : formula "[CUSTOMERS/customer_id]"
+                     DM-fed — per-element SQL parser yields empty dataset_inputs.
+                     Workbook lineage (type=table CUSTOMERS) qualifies it to
+                     the Snowflake warehouse Dataset URN.
+      legacySdElem01: formula "[LEGACY_DATASET/legacy_col]"
+                     workbook lineage has type=dataset LEGACY_DATASET (skipped).
+                     Falls back to self-ref.
+
+    Assertions:
+      - dmFedElem01.customer_id schemaFieldUrn → warehouse schemaField URN
+      - legacySdElem01.legacy_col schemaFieldUrn → self-ref (chart URN)
+      - chart_input_fields_warehouse_qualified == 1
+      - chart_input_fields_warehouse_qualified_via_workbook_index == 1
+      - chart_input_fields_self_ref_fallback == 1
+      - No entity-level lineage changes.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_chart_warehouse_qualified_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_chart_warehouse_qualified_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_data_models=False,
+            chart_sources_platform_mapping={},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    assert report.chart_input_fields_warehouse_qualified == 1, (
+        f"expected 1 warehouse-qualified field; got {report.chart_input_fields_warehouse_qualified}"
+    )
+    assert report.chart_input_fields_warehouse_qualified_via_workbook_index == 1, (
+        f"expected 1 via-workbook-index; got {report.chart_input_fields_warehouse_qualified_via_workbook_index}"
+    )
+    # legacySdElem01.legacy_col falls back to self-ref (LEGACY_DATASET is type=dataset, skipped)
+    assert report.chart_input_fields_self_ref_fallback == 1
+    # No error counters
+    assert report.chart_input_fields_warehouse_index_lookup_failed == 0
+    assert report.chart_input_fields_warehouse_table_lookup_failed == 0
+    assert report.chart_input_fields_warehouse_path_unparseable == 0
+    assert report.chart_input_fields_warehouse_unknown_connection == 0
+
+    # Verify the actual schemaFieldUrn for dmFedElem01.customer_id
+    expected_warehouse_schema_field_urn = (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD),customer_id)"
+    )
+    dm_fed_chart_urn = f"urn:li:chart:(sigma,{_WH_CHART_DM_FED_ELEM_ID})"
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    input_fields_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == dm_fed_chart_urn
+        and mce.get("aspectName") == "inputFields"
+    ]
+    assert len(input_fields_aspects) == 1, (
+        f"expected 1 inputFields aspect for {dm_fed_chart_urn}"
+    )
+    fields = input_fields_aspects[0]["aspect"]["json"]["fields"]
+    schema_field_urns = [f["schemaFieldUrn"] for f in fields]
+    assert expected_warehouse_schema_field_urn in schema_field_urns, (
+        f"warehouse schemaFieldUrn not found. Got: {schema_field_urns}"
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_chart_warehouse_qualified.json",
     )

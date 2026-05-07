@@ -205,6 +205,30 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
 
+    # Workbook-lineage warehouse table index for chart formula resolution.
+    # A chart's inputFields[].schemaFieldUrn was resolved against a warehouse
+    # table entry in the merged (per-element + per-workbook) index. Sub-category
+    # of chart_input_fields_resolved.
+    chart_input_fields_warehouse_qualified: int = 0
+    # Resolved specifically by an entry from the workbook-level index (not the
+    # per-element SQL-parser index) — quantifies the added coverage beyond what
+    # the SQL parser resolves per element.
+    chart_input_fields_warehouse_qualified_via_workbook_index: int = 0
+    # /v2/workbooks/{id}/lineage returned None (5xx / network error). 404 is
+    # handled silently (workbook deleted since listing).
+    chart_input_fields_warehouse_index_lookup_failed: int = 0
+    # /v2/files/{inodeId} returned None for a workbook-lineage type=table inode.
+    # Only incremented on first failure per inode — the /files cache is shared
+    # with the DM element path.
+    chart_input_fields_warehouse_table_lookup_failed: int = 0
+    # /files path didn't parse as Connection Root/<DB>/<SCHEMA>.
+    # Only incremented on first occurrence per inode — _files_path_unparseable_seen
+    # is shared with the DM element path.
+    chart_input_fields_warehouse_path_unparseable: int = 0
+    # connectionId not in registry, or is_mappable=False, for a workbook-lineage
+    # type=table entry.
+    chart_input_fields_warehouse_unknown_connection: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
