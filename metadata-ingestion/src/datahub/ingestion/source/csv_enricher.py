@@ -381,13 +381,7 @@ class CSVEnricherSource(Source):
                 )
                 continue
 
-            property_id_or_urn = (
-                raw_property_name
-                if raw_property_name.startswith("urn:li:structuredProperty:")
-                else f"urn:li:structuredProperty:{raw_property_name}"
-            )
-
-            property_urn = make_structured_property_urn(property_id_or_urn)
+            property_urn = make_structured_property_urn(raw_property_name)
 
             property_values_by_urn.setdefault(property_urn, [])
             if value not in property_values_by_urn[property_urn]:
