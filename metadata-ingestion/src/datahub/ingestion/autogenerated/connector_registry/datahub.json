@@ -30,6 +30,12 @@
           "description": "Can extract ABS object/container tags if enabled",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default as UPDATE operations from blob timestamps",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.abs.source.ABSSource",
@@ -261,6 +267,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PARTITION_SUPPORT",
           "description": "Enabled by default, partition keys and clustering keys are supported.",
           "subtype_modifier": null,
@@ -378,6 +390,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_log_operations`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -879,6 +897,12 @@
           "description": "Can extract S3 object/bucket tags if enabled",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Delta table history",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.delta_lake.source.DeltaLakeSource",
@@ -1058,6 +1082,12 @@
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_lineage`; generated from Dremio job history",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1474,6 +1504,12 @@
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Glue table created and last modified timestamps",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2785,6 +2821,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_usage` and `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3443,6 +3485,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_usage_statistics`; controlled by `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3498,6 +3546,12 @@
         {
           "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default as UPDATE operations from object timestamps",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3596,6 +3650,12 @@
         {
           "capability": "TAGS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Salesforce object created and last modified timestamps",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3803,6 +3863,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default, can be disabled via configuration `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3881,6 +3947,12 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Parsed from SQL queries",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Parsed from non-SELECT SQL queries",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4238,6 +4310,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_usage_statistics`; controlled by `usage.include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4394,6 +4472,12 @@
         {
           "capability": "OWNERSHIP",
           "description": "Supported via the `include_ownership` config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default via usage extraction, can be disabled via `include_operational_stats`",
           "subtype_modifier": null,
           "supported": true
         },

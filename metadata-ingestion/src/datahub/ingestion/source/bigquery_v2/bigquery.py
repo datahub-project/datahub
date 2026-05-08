@@ -104,6 +104,10 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
+)
+@capability(
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
     supported=True,

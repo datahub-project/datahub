@@ -140,6 +140,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_usage_stats`",
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default, can be disabled via configuration `include_operational_stats`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
     supported=True,
