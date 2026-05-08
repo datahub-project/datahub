@@ -73,12 +73,14 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('HDFS');
   });
 
-  test('should filter by platform: Airflow', async () => {
+  test('should filter by platform: Airflow', async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
     await searchPage.selectFilterOption('Platform', 'Airflow');
     await searchPage.expectUrlContains('filter_platform');
     await searchPage.clickEntityResult();
-    await searchPage.expectTextVisible('Airflow');
+    await page.waitForLoadState('networkidle');
+    // Airflow entities are Pipelines; the platform is shown as an icon not text
+    await searchPage.expectTextVisible('Pipeline');
   });
 
   test('should filter by tag', async ({ page }) => {

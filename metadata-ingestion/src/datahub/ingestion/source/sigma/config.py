@@ -312,6 +312,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
+    # DM customSQL element SQL parsing counters.
+    # Elements skipped before aggregator registration (no definition, missing /
+    # unknown connection, unsupported platform, duplicate source_id).
+    dm_customsql_skipped: int = 0
+    dm_customsql_aggregator_invocations: int = 0
+    dm_customsql_aggregator_invocation_errors: int = 0
+    dm_customsql_parse_failed: int = 0
+    dm_customsql_upstream_emitted: int = 0
+    dm_customsql_column_lineage_emitted: int = 0
+    # FGL downstream fields dropped because the SQL column name had no matching
+    # Sigma display column (formula ref absent or element name mismatch).
+    dm_customsql_fgl_downstream_unmapped: int = 0
+
     # Connection registry counters.
     # Records whose Sigma type mapped to a known DataHub platform.
     connections_resolved: int = 0
@@ -323,6 +336,50 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Records whose connectionId collided with one already seen; later
     # records overwrite earlier ones in by_id.
     connections_duplicate_id: int = 0
+
+    # DM element -> warehouse table UpstreamLineage counters.
+    # Success: one per unique warehouse upstream URN emitted (post-dedup).
+    dm_element_warehouse_upstream_emitted: int = 0
+    # connectionId not in registry, or registry record has is_mappable=False.
+    # Note: this counter overlaps with data_model_element_upstreams_unresolved_external
+    # when both warehouse and SD resolution fail for the same source_id — the
+    # same edge is tallied in both buckets (warehouse failure sub-category +
+    # aggregate unresolved). This is intentional: the new counter sub-categorizes
+    # rather than replaces the existing one.
+    dm_element_warehouse_unknown_connection: int = 0
+    # /files/{inodeId} returned non-200 or raised an exception (first attempt
+    # per inode only; cache hits of a prior failure are not double-counted).
+    dm_element_warehouse_table_lookup_failed: int = 0
+    # Sub-bucket of table_lookup_failed: /files returned 429 after retries.
+    dm_element_warehouse_table_lookup_rate_limited: int = 0
+    # /files path could not be parsed as Connection Root/<DB>/<SCHEMA>.
+    dm_element_warehouse_path_unparseable: int = 0
+    # type=table lineage entry missing inodeId or name; skipped to avoid
+    # emitting a malformed URN.
+    dm_element_warehouse_table_entry_incomplete: int = 0
+
+
+class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+    """Per-connection env / platform_instance overrides for warehouse URN construction.
+
+    Maps a Sigma connectionId to the env and platform_instance of the
+    corresponding DataHub warehouse connector run.  When a connection is not
+    listed, the Sigma source's own env is used and platform_instance defaults
+    to None — correct for single-env, single-instance deployments but
+    produces dangling lineage for multi-env or multi-instance setups.
+    """
+
+    convert_urns_to_lowercase: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Whether to lower-case warehouse identifiers when constructing "
+            "Dataset URNs. Must match the convert_urns_to_lowercase setting "
+            "used by the corresponding warehouse connector recipe. Defaults "
+            "to True (matching the Snowflake connector default). Set to False "
+            "if the warehouse source was ingested with "
+            "convert_urns_to_lowercase: false."
+        ),
+    )
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -377,6 +434,20 @@ class SigmaSourceConfig(
     chart_sources_platform_mapping: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
+    )
+    connection_to_platform_map: Dict[str, WarehouseConnectionConfig] = pydantic.Field(
+        default_factory=dict,
+        description=(
+            "Per-connection env / platform_instance overrides for warehouse URN "
+            "construction from DM element lineage. Keys are Sigma connectionIds "
+            "(visible in the Sigma admin UI or /v2/connections response). "
+            "When a connection is not listed, the Sigma source's own env is used "
+            "and platform_instance defaults to None, which is correct for "
+            "single-env, single-instance deployments. For multi-env or "
+            "multi-instance warehouse setups, add an entry here so the emitted "
+            "UpstreamLineage edge points at the URN the warehouse connector "
+            "actually produced."
+        ),
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."

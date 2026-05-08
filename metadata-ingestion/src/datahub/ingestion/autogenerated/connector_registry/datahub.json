@@ -1281,6 +1281,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
